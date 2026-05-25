@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>仓管 Pro 管理后台</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <canvas id="bg-canvas" aria-hidden="true"></canvas>
+    <div class="bg-glow bg-glow-a"></div>
+    <div class="bg-glow bg-glow-b"></div>
+
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-card glass-panel">
+          <div class="brand-top">
+            <span class="brand-pill">Warehouse Admin</span>
+            <span class="live-dot">LOCAL</span>
+          </div>
+          <h1>仓管 Pro 管理后台</h1>
+          <p>面向本地演示环境的用户管理、数据重建和 Agent 链路验收控制台。</p>
+        </div>
+
+        <nav class="nav-card glass-panel">
+          <p class="section-kicker">控制入口</p>
+          <button id="seed-reset-button" class="action-button action-button-primary">重建演示数据</button>
+          <button id="seed-button" class="action-button">补齐演示数据</button>
+          <button id="agent-smoke-button" class="action-button">运行 Agent Smoke</button>
+        </nav>
+
+        <section class="account-card glass-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">演示账号</p>
+              <h2>默认登录身份</h2>
+            </div>
+          </div>
+          <div id="account-list" class="account-list"></div>
+        </section>
+
+        <section class="signal-card glass-panel">
+          <p class="section-kicker">运行信号</p>
+          <div class="signal-row">
+            <span>后端地址</span>
+            <strong>127.0.0.1:18080</strong>
+          </div>
+          <div class="signal-row">
+            <span>数据模式</span>
+            <strong>Local Demo</strong>
+          </div>
+          <div class="signal-row">
+            <span>适用场景</span>
+            <strong>Agent 联调 / 账号维护</strong>
+          </div>
+        </section>
+      </aside>
+
+      <main class="content">
+        <header class="topbar glass-strip">
+          <div class="topbar-copy">
+            <p class="section-kicker">Operations Console</p>
+            <h2>用户与演示环境总览</h2>
+            <p id="status-text">正在连接本地管理后台...</p>
+          </div>
+          <div class="toolbar">
+            <label class="search-field">
+              <span>搜索</span>
+              <input id="search-input" type="search" placeholder="手机号 / 昵称" />
+            </label>
+            <button id="search-button" class="toolbar-button">搜索</button>
+            <button id="refresh-button" class="toolbar-button">刷新</button>
+          </div>
+        </header>
+
+        <section class="hero-grid">
+          <article class="hero-panel glass-panel">
+            <div class="hero-copy">
+              <p class="section-kicker">Environment Snapshot</p>
+              <h3>本地演示环境控制台</h3>
+              <p>参考 `vulnscan-platform` 的 dashboard 结构重做，保留后台运维所需的信息密度、操作效率和结果面板。</p>
+            </div>
+            <div class="hero-badges">
+              <span class="hero-badge">用户管理</span>
+              <span class="hero-badge">数据重建</span>
+              <span class="hero-badge">Agent 验证</span>
+            </div>
+          </article>
+          <section class="summary-grid" id="summary-grid"></section>
+        </section>
+
+        <section class="workspace-grid">
+          <section class="glass-panel table-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="section-kicker">User Directory</p>
+                <h3>用户列表</h3>
+                <p>查看用户状态、会话数和最近写入结果，支持直接编辑。</p>
+              </div>
+              <button id="new-user-button" class="action-button action-button-primary compact">新建用户</button>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>手机号</th>
+                    <th>昵称</th>
+                    <th>状态</th>
+                    <th>会话</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="user-table-body"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="side-stack">
+            <section class="glass-panel form-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="section-kicker">Editor</p>
+                  <h3 id="form-title">新建用户</h3>
+                  <p>支持新增账号、修改昵称、调整状态和重置密码。</p>
+                </div>
+              </div>
+
+              <form id="user-form" class="form-stack">
+                <input id="user-id" type="hidden" />
+                <label class="field">
+                  <span>手机号</span>
+                  <input id="phone-input" type="text" placeholder="13800138000" />
+                </label>
+                <label class="field">
+                  <span>昵称</span>
+                  <input id="nickname-input" type="text" placeholder="仓库经理" />
+                </label>
+                <label class="field">
+                  <span>状态</span>
+                  <select id="status-input">
+                    <option value="1">启用</option>
+                    <option value="0">停用</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>密码</span>
+                  <input id="password-input" type="password" placeholder="留空表示不修改密码" />
+                </label>
+                <label class="checkbox-field">
+                  <input id="keep-sessions-input" type="checkbox" checked />
+                  <span>修改密码时保留现有会话</span>
+                </label>
+                <div class="form-actions">
+                  <button type="submit" class="action-button action-button-primary compact">保存</button>
+                  <button type="button" id="reset-form-button" class="action-button compact">清空</button>
+                </div>
+              </form>
+            </section>
+
+            <section class="glass-panel smoke-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="section-kicker">Agent Validation</p>
+                  <h3>Smoke 结果</h3>
+                  <p>验证 workbench、问答、草稿生成和后台深度分析任务。</p>
+                </div>
+              </div>
+              <div id="smoke-result" class="smoke-result empty">尚未运行 smoke。</div>
+            </section>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

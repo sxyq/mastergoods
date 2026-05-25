@@ -1,0 +1,110 @@
+package com.zhihuiji.backend.domain.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "inventory_adjustments")
+public class InventoryAdjustmentEntity {
+    @Id
+    private Long id;
+
+    @Column(name = "product_id", nullable = false)
+    private Long productId;
+
+    @Column(name = "product_code", nullable = false, length = 64)
+    private String productCode;
+
+    @Column(name = "product_name", nullable = false, length = 128)
+    private String productName;
+
+    @Column(nullable = false)
+    private Double quantity;
+
+    @Column(name = "flow_type", nullable = false)
+    private Integer flowType;
+
+    @Column(length = 255)
+    private String reason;
+
+    @Column(name = "operator_name", length = 128)
+    private String operatorName;
+
+    @Column(name = "created_at", nullable = false)
+    private Long createdAt;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getProductId() {
+        return productId;
+    }
+
+    public void setProductId(Long productId) {
+        this.productId = productId;
+    }
+
+    public String getProductCode() {
+        return productCode;
+    }
+
+    public void setProductCode(String productCode) {
+        this.productCode = productCode;
+    }
+
+    public String getProductName() {
+        return productName;
+    }
+
+    public void setProductName(String productName) {
+        this.productName = productName;
+    }
+
+    public Double getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(Double quantity) {
+        this.quantity = quantity;
+    }
+
+    public Integer getFlowType() {
+        return flowType;
+    }
+
+    public void setFlowType(Integer flowType) {
+        this.flowType = flowType;
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
+    }
+
+    public String getOperatorName() {
+        return operatorName;
+    }
+
+    public void setOperatorName(String operatorName) {
+        this.operatorName = operatorName;
+    }
+
+    public Long getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Long createdAt) {
+        this.createdAt = createdAt;
+    }
+}
+

@@ -1,0 +1,10 @@
+.DS_Store
+
+**/build/
+**/.gradle/
+**/.kotlin/
+**/local.properties
+
+android-test-screenshots/
+docs/android-117-test-artifacts/
+12_workspace/

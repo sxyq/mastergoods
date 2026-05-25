@@ -1,0 +1,83 @@
+package com.zhihuiji.feature.sales
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.UiMessage
+import com.zhihuiji.core.model.PaymentDto
+import com.zhihuiji.core.model.PaymentRequest
+import com.zhihuiji.core.model.SaleOrderDto
+import com.zhihuiji.data.order.SaleOrderRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+data class SaleOrderDetailUiState(
+    val order: SaleOrderDto? = null,
+    val payments: List<PaymentDto> = emptyList(),
+    val isLoading: Boolean = false,
+    val paymentSuccess: Boolean = false,
+    val cancelSuccess: Boolean = false,
+    val error: UiMessage? = null,
+)
+
+@HiltViewModel
+class SaleOrderDetailViewModel @Inject constructor(
+    private val saleOrderRepository: SaleOrderRepository,
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(SaleOrderDetailUiState())
+    val uiState: StateFlow<SaleOrderDetailUiState> = _uiState.asStateFlow()
+
+    fun loadDetail(id: Long) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            saleOrderRepository.getSaleOrder(id).onSuccess { order ->
+                _uiState.value = _uiState.value.copy(order = order, isLoading = false)
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = UiMessage.fromThrowable(it))
+            }
+            saleOrderRepository.listSalePayments(id).onSuccess { payments ->
+                _uiState.value = _uiState.value.copy(payments = payments)
+            }
+        }
+    }
+
+    fun addPayment(amount: Double, method: Int, referenceNo: String?) {
+        val orderId = _uiState.value.order?.id ?: return
+        viewModelScope.launch {
+            saleOrderRepository.addSalePayment(orderId, PaymentRequest(amount, method, referenceNo)).onSuccess {
+                _uiState.value = _uiState.value.copy(paymentSuccess = true)
+                loadDetail(orderId)
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
+            }
+        }
+    }
+
+    fun cancelOrder() {
+        val orderId = _uiState.value.order?.id ?: return
+        viewModelScope.launch {
+            saleOrderRepository.cancelSaleOrder(orderId).onSuccess {
+                _uiState.value = _uiState.value.copy(cancelSuccess = true)
+                loadDetail(orderId)
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
+            }
+        }
+    }
+
+    fun completeOrder() {
+        val orderId = _uiState.value.order?.id ?: return
+        viewModelScope.launch {
+            saleOrderRepository.updateSaleStatus(orderId, 1).onSuccess {
+                loadDetail(orderId)
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
+            }
+        }
+    }
+
+    fun clearError() { _uiState.value = _uiState.value.copy(error = null) }
+}

@@ -1,0 +1,156 @@
+package com.zhihuiji.backend.application.service;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.zhihuiji.backend.domain.entity.InventoryAdjustmentEntity;
+import com.zhihuiji.backend.domain.entity.ProductEntity;
+import com.zhihuiji.backend.infrastructure.repository.InventoryAdjustmentRepository;
+import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+class ProductServiceTest {
+    @Mock
+    private ProductRepository productRepository;
+    @Mock
+    private InventoryAdjustmentRepository inventoryAdjustmentRepository;
+
+    private ProductService productService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        productService = new ProductService(productRepository, inventoryAdjustmentRepository);
+    }
+
+    @Test
+    void listUsesAllProductsWhenKeywordBlankAndSearchWhenPresent() {
+        ProductEntity product = product("P1", 10.0);
+        when(productRepository.findAll()).thenReturn(List.of(product));
+        when(productRepository.findByNameContainingIgnoreCaseOrCodeContainingIgnoreCase("P1", "P1"))
+            .thenReturn(List.of(product));
+
+        assertEquals(1, productService.list(" ").size());
+        assertEquals(1, productService.list("P1").size());
+
+        verify(productRepository).findAll();
+        verify(productRepository).findByNameContainingIgnoreCaseOrCodeContainingIgnoreCase("P1", "P1");
+    }
+
+    @Test
+    void createRejectsDuplicateCodeAndInitializesSyncFields() {
+        ProductEntity existing = product("P1", 10.0);
+        when(productRepository.findByCode("P1")).thenReturn(Optional.of(existing));
+
+        assertThrows(IllegalArgumentException.class, () -> productService.create(product("P1", 10.0)));
+
+        when(productRepository.findByCode("P2")).thenReturn(Optional.empty());
+        when(productRepository.save(any(ProductEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ProductEntity created = productService.create(product("P2", 5.0));
+
+        assertEquals(0, created.getSyncStatus());
+        assertEquals(1L, created.getSyncVersion());
+        assertNotNull(created.getCreatedAt());
+        assertNotNull(created.getUpdatedAt());
+    }
+
+    @Test
+    void updateCopiesMutableFieldsAndBumpsSyncVersion() {
+        ProductEntity target = product("P1", 10.0);
+        target.setSyncVersion(3L);
+        ProductEntity payload = product("P1", 22.0);
+        payload.setName("新商品");
+        payload.setCategory("新分类");
+        payload.setUnit("箱");
+        payload.setStatus(0);
+        when(productRepository.findById(1L)).thenReturn(Optional.of(target));
+        when(productRepository.save(any(ProductEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ProductEntity updated = productService.update(1L, payload);
+
+        assertEquals("新商品", updated.getName());
+        assertEquals("新分类", updated.getCategory());
+        assertEquals("箱", updated.getUnit());
+        assertEquals(22.0, updated.getSalePrice());
+        assertEquals(0, updated.getStatus());
+        assertEquals(4L, updated.getSyncVersion());
+        assertEquals(0, updated.getSyncStatus());
+    }
+
+    @Test
+    void adjustStockRecordsInflowAndOutflowAndRejectsInvalidDelta() {
+        ProductEntity target = product("P1", 10.0);
+        target.setStock(10.0);
+        target.setSyncVersion(1L);
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(target));
+        when(productRepository.save(any(ProductEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(inventoryAdjustmentRepository.save(any(InventoryAdjustmentEntity.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ProductEntity afterInflow = productService.adjustStock(1L, 5.0, "补货", "admin");
+        assertEquals(15.0, afterInflow.getStock());
+
+        ProductEntity afterOutflow = productService.adjustStock(1L, -3.0, "盘点扣减", "admin");
+        assertEquals(12.0, afterOutflow.getStock());
+
+        ArgumentCaptor<InventoryAdjustmentEntity> captor = ArgumentCaptor.forClass(InventoryAdjustmentEntity.class);
+        verify(inventoryAdjustmentRepository, org.mockito.Mockito.times(2)).save(captor.capture());
+        assertEquals(1, captor.getAllValues().get(0).getFlowType());
+        assertEquals(0, captor.getAllValues().get(1).getFlowType());
+        assertEquals("admin", captor.getAllValues().get(0).getOperatorName());
+
+        assertThrows(IllegalArgumentException.class, () -> productService.adjustStock(1L, 0.0, "无效", "admin"));
+        assertThrows(IllegalArgumentException.class, () -> productService.adjustStock(1L, -100.0, "超扣", "admin"));
+    }
+
+    @Test
+    void getAndFindByCodeHandleMissingValues() {
+        when(productRepository.findById(404L)).thenReturn(Optional.empty());
+        when(productRepository.findByCode("P1")).thenReturn(Optional.of(product("P1", 10.0)));
+
+        assertThrows(IllegalArgumentException.class, () -> productService.get(404L));
+        assertEquals(null, productService.findByCode(null));
+        assertEquals(null, productService.findByCode(" "));
+        assertEquals("P1", productService.findByCode(" P1 ").getCode());
+    }
+
+    private static ProductEntity product(String code, Double salePrice) {
+        ProductEntity entity = new ProductEntity();
+        setEntityId(entity, 1L);
+        entity.setCode(code);
+        entity.setName("商品" + code);
+        entity.setCategory("默认");
+        entity.setUnit("件");
+        entity.setSalePrice(salePrice);
+        entity.setPurchasePrice(5.0);
+        entity.setStock(10.0);
+        entity.setSafeStock(2.0);
+        entity.setStatus(1);
+        entity.setSyncStatus(0);
+        entity.setSyncVersion(1L);
+        entity.setCreatedAt(1L);
+        entity.setUpdatedAt(1L);
+        return entity;
+    }
+
+    private static void setEntityId(ProductEntity entity, Long id) {
+        try {
+            java.lang.reflect.Field field = ProductEntity.class.getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(entity, id);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError(ex);
+        }
+    }
+}

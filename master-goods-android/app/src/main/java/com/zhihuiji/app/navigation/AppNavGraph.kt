@@ -1,0 +1,93 @@
+package com.zhihuiji.app.navigation
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.material3.Text
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.zhihuiji.core.designsystem.ZhihuijiColors
+import com.zhihuiji.core.designsystem.ZhihuijiTypography
+import com.zhihuiji.core.designsystem.glassBackground
+import com.zhihuiji.feature.auth.AuthViewModel
+import com.zhihuiji.feature.auth.LoginScreen
+import com.zhihuiji.feature.auth.RegisterScreen
+import com.zhihuiji.feature.settings.SettingsScreen
+
+object AuthRoutes {
+    const val LOGIN = "login"
+    const val REGISTER = "register"
+}
+
+object MainRoutes {
+    const val MAIN = "main"
+    const val SETTINGS = "settings"
+}
+
+@Composable
+fun AppNavGraph() {
+    val navController = rememberNavController()
+    val authViewModel: AuthViewModel = hiltViewModel()
+    val uiState by authViewModel.uiState.collectAsState()
+
+    if (!uiState.isSessionReady) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .glassBackground(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("智慧记", style = ZhihuijiTypography.displayLarge, color = ZhihuijiColors.Primary)
+        }
+        return
+    }
+
+    val startDestination = if (uiState.isLoggedIn) MainRoutes.MAIN else AuthRoutes.LOGIN
+
+    NavHost(navController = navController, startDestination = startDestination) {
+        composable(AuthRoutes.LOGIN) {
+            LoginScreen(
+                onLoginSuccess = {
+                    navController.navigate(MainRoutes.MAIN) {
+                        popUpTo(AuthRoutes.LOGIN) { inclusive = true }
+                    }
+                },
+                onNavigateToRegister = { navController.navigate(AuthRoutes.REGISTER) },
+                viewModel = authViewModel,
+            )
+        }
+        composable(AuthRoutes.REGISTER) {
+            RegisterScreen(
+                onRegisterSuccess = {
+                    navController.navigate(MainRoutes.MAIN) {
+                        popUpTo(AuthRoutes.LOGIN) { inclusive = true }
+                    }
+                },
+                onNavigateBack = { navController.popBackStack() },
+                viewModel = authViewModel,
+            )
+        }
+        composable(MainRoutes.MAIN) {
+            MainScreen(
+                onNavigateToSettings = { navController.navigate(MainRoutes.SETTINGS) },
+            )
+        }
+        composable(MainRoutes.SETTINGS) {
+            SettingsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onLogout = {
+                    authViewModel.logout()
+                    navController.navigate(AuthRoutes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+            )
+        }
+    }
+}

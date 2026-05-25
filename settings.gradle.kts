@@ -1,0 +1,2 @@
+rootProject.name = "zhihuiji-backend"
+

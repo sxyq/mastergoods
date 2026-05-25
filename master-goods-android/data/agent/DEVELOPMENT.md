@@ -1,0 +1,35 @@
+# data/agent 模块开发说明
+
+- 当前状态：脚手架已创建，仓储未开始。
+- 实际源码目录：`data/agent/src/main/java/com/zhihuiji/data/agent`
+- 目标：封装 AI 工作台、问答、操作草稿、任务、通知。
+
+## 需要创建的类
+
+- `AgentRepository`
+- `NotificationStreamRepository`
+
+## 需要实现的关键函数
+
+- `getWorkbench(windowDays: Int, limit: Int, agingDays: Int): AgentWorkbenchDto`
+- `query(question: String, conversationId: String?): AgentAnswerDto`
+- `generateOperationDraft(input: String): OperationDraftDto`
+- `submitOperationDraft(draftId: String?, payload: OperationSubmitRequest): OperationSubmitResultDto`
+- `createTask(request: CreateAgentTaskRequest): AgentTaskSummaryDto`
+- `listTasks(): List<AgentTaskSummaryDto>`
+- `getTask(taskId: Long): AgentTaskDetailDto`
+- `listNotifications(unreadOnly: Boolean, undeliveredOnly: Boolean): List<AgentNotificationDto>`
+- `markNotificationRead(id: Long): AgentNotificationDto`
+- `markNotificationDelivered(id: Long): AgentNotificationDto`
+- `connectNotificationStream()`
+  - 第二阶段接入 SSE。
+
+## 验收标准
+
+- 第一阶段至少要让工作台、问答、草稿、任务、通知列表跑通。
+
+## UI 设计规范支撑
+
+- 工作台需要返回 KPI、经营洞察、回款提醒、库存预警和快捷操作所需数据。
+- 问答结果需要保留结构化分析块，支撑聊天页中的报表卡片和建议行动卡。
+- 任务需要提供进度、状态、开始时间、完成时间和错误信息。

@@ -1,0 +1,27 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:zhihuiji_local;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+  flyway:
+    enabled: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+agent:
+  llm:
+    enabled: true
+    base-url: https://api.longcat.chat/anthropic/
+    api-key: ak_1qe7Ym0Yp8Hs3qa74O5wt2gy6Rt6I
+    model: LongCat-Flash-Thinking-2601
+    anthropic-version: 2023-06-01
+    max-tokens: 4096
+    temperature: 0.2
+    enable-thinking: true
+    thinking-budget: 2048
