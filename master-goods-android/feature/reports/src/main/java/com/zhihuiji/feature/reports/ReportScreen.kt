@@ -23,10 +23,12 @@ import com.zhihuiji.core.designsystem.*
 fun ReportScreen(
     onNavigateBack: () -> Unit,
     showTopBar: Boolean = true,
+    reselectSignal: Int = 0,
     viewModel: ReportViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val scrollState = rememberScrollState()
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -37,6 +39,9 @@ fun ReportScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+
+    BottomBarScrollVisibilityEffect(scrollState)
+    BottomBarScrollToTopEffect(reselectSignal, scrollState)
 
     var selectedPeriod by remember { mutableIntStateOf(0) }
     val salesAmount = uiState.salesSummary?.totalSalesAmount ?: 0.0
@@ -68,7 +73,7 @@ fun ReportScreen(
         modifier = Modifier
             .fillMaxSize()
             .then(if (showTopBar) Modifier.glassBackground() else Modifier)
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         if (showTopBar) {

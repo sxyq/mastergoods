@@ -11,10 +11,17 @@ data class SyncHealthResult(
 )
 
 @Serializable
+enum class SyncOperation {
+    @SerialName("create") CREATE,
+    @SerialName("update") UPDATE,
+    @SerialName("delete") DELETE,
+}
+
+@Serializable
 data class SyncChangeDto(
     @SerialName("entityType") val entityType: String,
     @SerialName("entityId") val entityId: String,
-    val operation: String,
+    val operation: SyncOperation,
     val payload: String,
     @SerialName("updatedAt") val updatedAt: Long,
 )

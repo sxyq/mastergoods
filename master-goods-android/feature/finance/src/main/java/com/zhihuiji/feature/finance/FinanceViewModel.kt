@@ -11,7 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,7 +21,10 @@ data class FinanceListUiState(
     val isLoading: Boolean = false,
     val createSuccess: Boolean = false,
     val error: UiMessage? = null,
-)
+) {
+    val totalIncome: Double get() = records.filter { it.type == 1 }.sumOf { it.amount }
+    val totalExpense: Double get() = records.filter { it.type == 2 }.sumOf { it.amount }
+}
 
 @HiltViewModel
 class FinanceViewModel @Inject constructor(
@@ -36,8 +39,9 @@ class FinanceViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, filter = filter)
             financeRepository.refreshFinanceRecords(filter)
-            val list = financeRepository.observeFinanceRecords(filter).first()
-            _uiState.value = _uiState.value.copy(records = list, isLoading = false)
+            financeRepository.observeFinanceRecords(filter).collectLatest { list ->
+                _uiState.value = _uiState.value.copy(records = list, isLoading = false)
+            }
         }
     }
 

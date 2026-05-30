@@ -28,7 +28,12 @@ class SessionStore @Inject constructor(
     val userId: Flow<Long?> = dataStore.data.map { it[KEY_USER_ID] }
 
     val isLoggedIn: Flow<Boolean> = dataStore.data.map { prefs ->
-        !prefs[KEY_TOKEN].isNullOrBlank()
+        val token = prefs[KEY_TOKEN]
+        if (token.isNullOrBlank()) false
+        else {
+            val expiresAt = prefs[KEY_EXPIRES_AT] ?: 0L
+            System.currentTimeMillis() < expiresAt
+        }
     }
 
     suspend fun saveSession(token: String, refreshToken: String, userId: Long, expiresIn: Int) {

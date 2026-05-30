@@ -1,10 +1,8 @@
 package com.zhihuiji.core.designsystem
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -14,18 +12,14 @@ fun GlassCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Card(
+    LiquidGlassSurface(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = ZhihuijiColors.CardBackground,
-        ),
-        border = BorderStroke(0.6.dp, ZhihuijiColors.CardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
-        content = {
-            content()
-        },
-    )
+        cornerRadius = 22.dp,
+        blurRadius = 20.dp,
+        surfaceAlpha = 0.14f,
+    ) {
+        Column(modifier = Modifier.fillMaxWidth(), content = content)
+    }
 }
 
 @Composable
@@ -34,17 +28,13 @@ fun GlassCard(
     onClick: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Card(
+    LiquidGlassSurface(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = ZhihuijiColors.CardBackground,
-        ),
-        border = BorderStroke(0.6.dp, ZhihuijiColors.CardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
+        cornerRadius = 22.dp,
+        blurRadius = 20.dp,
+        surfaceAlpha = 0.14f,
         onClick = onClick,
-        content = {
-            content()
-        },
-    )
+    ) {
+        Column(modifier = Modifier.fillMaxWidth(), content = content)
+    }
 }

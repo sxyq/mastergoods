@@ -1,6 +1,7 @@
 package com.zhihuiji.core.designsystem
 
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -22,31 +23,38 @@ fun GlassTopBar(
     onNavigationClick: (() -> Unit)? = null,
     actions: @Composable () -> Unit = {},
 ) {
-    TopAppBar(
-        title = {
-            Text(
-                text = title,
-                style = ZhihuijiTypography.titleLarge,
-                color = ZhihuijiColors.TextPrimary,
-            )
-        },
-        modifier = modifier.height(56.dp),
-        navigationIcon = {
-            if (navigationIcon != null && onNavigationClick != null) {
-                IconButton(onClick = onNavigationClick) {
-                    Icon(
-                        imageVector = navigationIcon,
-                        contentDescription = "返回",
-                        tint = ZhihuijiColors.TextPrimary,
-                    )
+    LiquidGlassSurface(
+        modifier = modifier.fillMaxWidth(),
+        cornerRadius = 24.dp,
+        blurRadius = 16.dp,
+        surfaceAlpha = 0.12f,
+    ) {
+        TopAppBar(
+            title = {
+                Text(
+                    text = title,
+                    style = ZhihuijiTypography.titleLarge,
+                    color = ZhihuijiColors.TextPrimary,
+                )
+            },
+            modifier = Modifier.height(56.dp),
+            navigationIcon = {
+                if (navigationIcon != null && onNavigationClick != null) {
+                    IconButton(onClick = onNavigationClick) {
+                        Icon(
+                            imageVector = navigationIcon,
+                            contentDescription = "返回",
+                            tint = ZhihuijiColors.TextPrimary,
+                        )
+                    }
                 }
-            }
-        },
-        actions = {
-            actions()
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = Color.Transparent,
-        ),
-    )
+            },
+            actions = {
+                actions()
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+            ),
+        )
+    }
 }

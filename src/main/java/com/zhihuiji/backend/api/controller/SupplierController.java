@@ -3,6 +3,7 @@ package com.zhihuiji.backend.api.controller;
 import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.application.service.SupplierService;
 import com.zhihuiji.backend.domain.entity.SupplierEntity;
+import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,12 +38,12 @@ public class SupplierController {
     }
 
     @PostMapping
-    public ApiResponse<SupplierEntity> create(@RequestBody SupplierEntity payload) {
+    public ApiResponse<SupplierEntity> create(@Valid @RequestBody SupplierEntity payload) {
         return ApiResponse.success(supplierService.create(payload));
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<SupplierEntity> update(@PathVariable Long id, @RequestBody SupplierEntity payload) {
+    public ApiResponse<SupplierEntity> update(@PathVariable Long id, @Valid @RequestBody SupplierEntity payload) {
         return ApiResponse.success(supplierService.update(id, payload));
     }
 

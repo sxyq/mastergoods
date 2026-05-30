@@ -17,7 +17,7 @@ import javax.inject.Inject
 
 data class EditorLineItem(
     val lineId: String = java.util.UUID.randomUUID().toString(),
-    val productId: Long = 0,
+    val productId: Long? = null,
     val productCode: String = "",
     val productName: String = "",
     val quantity: Double = 1.0,
@@ -121,7 +121,7 @@ class SaleOrderEditorViewModel @Inject constructor(
                 customerId = _uiState.value.customerId,
                 customerName = _uiState.value.customerName,
                 items = _uiState.value.lines.map {
-                    CreateSaleOrderItemRequest(productId = it.productId, quantity = it.quantity, unitPrice = it.unitPrice)
+                    CreateSaleOrderItemRequest(productId = it.productId ?: 0L, quantity = it.quantity, unitPrice = it.unitPrice)
                 },
                 notes = _uiState.value.notes.ifBlank { null },
                 discountAmount = _uiState.value.discountAmount,

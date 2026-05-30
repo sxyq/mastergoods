@@ -2,6 +2,7 @@ package com.zhihuiji.feature.suppliers
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -23,11 +24,16 @@ import com.zhihuiji.core.designsystem.*
 fun SupplierListScreen(
     onNavigateBack: () -> Unit,
     showTopBar: Boolean = true,
+    scrollToTopSignal: Int = 0,
     onNavigateToEditor: (Long?) -> Unit = {},
     onNavigateToDetail: (Long) -> Unit = {},
     viewModel: SupplierViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val listState = rememberLazyListState()
+
+    BottomBarScrollVisibilityEffect(listState)
+    BottomBarScrollToTopEffect(scrollToTopSignal, listState)
 
     Box(modifier = Modifier.fillMaxSize().then(if (showTopBar) Modifier.glassBackground() else Modifier)) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -40,6 +46,7 @@ fun SupplierListScreen(
                 EmptyState(icon = Icons.Default.LocalShipping, title = "暂无供应商", modifier = Modifier.fillMaxSize().align(Alignment.CenterHorizontally))
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(top = 6.dp, bottom = 88.dp),

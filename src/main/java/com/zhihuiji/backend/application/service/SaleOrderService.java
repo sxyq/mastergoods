@@ -17,6 +17,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import com.zhihuiji.backend.api.common.IdGenerator;
+import com.zhihuiji.backend.api.common.OrderStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,8 +56,8 @@ public class SaleOrderService {
             throw new IllegalArgumentException("订单明细不能为空");
         }
         long now = System.currentTimeMillis();
-        long orderId = nextId();
-        String orderNo = "SO" + now + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        long orderId = IdGenerator.nextId();
+        String orderNo = "SO" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
 
         double subtotal = 0.0;
         List<SaleOrderItemEntity> itemEntities = new ArrayList<>();
@@ -72,7 +74,7 @@ public class SaleOrderService {
             productRepository.save(product);
 
             SaleOrderItemEntity entity = new SaleOrderItemEntity();
-            entity.setId(nextId());
+            entity.setId(IdGenerator.nextId());
             entity.setOrderId(orderId);
             entity.setProductId(product.getId());
             entity.setProductCode(product.getCode());
@@ -133,19 +135,18 @@ public class SaleOrderService {
         String productKeyword,
         Integer paymentStatus
     ) {
-        return saleOrderRepository.findAll().stream()
-            .filter(order -> status == null || order.getStatus().equals(status))
-            .filter(order -> keyword == null || keyword.isBlank()
-                || order.getOrderNo().toLowerCase().contains(keyword.toLowerCase())
-                || (order.getCustomerName() != null && order.getCustomerName().toLowerCase().contains(keyword.toLowerCase())))
-            .filter(order -> minTotalAmount == null || order.getTotalAmount() + 0.000001 >= minTotalAmount)
-            .filter(order -> maxTotalAmount == null || order.getTotalAmount() - 0.000001 <= maxTotalAmount)
-            .filter(order -> createdAfter == null || order.getCreatedAt() >= createdAfter)
-            .filter(order -> createdBefore == null || order.getCreatedAt() <= createdBefore)
-            .filter(order -> isPaymentStatusMatched(order, paymentStatus))
-            .filter(order -> isProductKeywordMatched(order.getId(), productKeyword))
-            .sorted(Comparator.comparingLong(SaleOrderEntity::getCreatedAt).reversed())
-            .toList();
+        List<SaleOrderEntity> results = saleOrderRepository.search(keyword, status, minTotalAmount, maxTotalAmount, createdAfter, createdBefore);
+        if (paymentStatus != null) {
+            results = results.stream()
+                .filter(order -> isPaymentStatusMatched(order, paymentStatus))
+                .toList();
+        }
+        if (productKeyword != null && !productKeyword.isBlank()) {
+            results = results.stream()
+                .filter(order -> isProductKeywordMatched(order.getId(), productKeyword))
+                .toList();
+        }
+        return results;
     }
 
     public OrderDetail get(Long orderId) {
@@ -213,7 +214,7 @@ public class SaleOrderService {
 
         long now = System.currentTimeMillis();
         PaymentEntity payment = new PaymentEntity();
-        payment.setId(nextId());
+        payment.setId(IdGenerator.nextId());
         payment.setOrderId(orderId);
         payment.setAmount(amount);
         payment.setMethod(method);
@@ -262,6 +263,12 @@ public class SaleOrderService {
         }
         if (order.getStatus() == STATUS_CANCELLED) {
             throw new IllegalArgumentException("已取消订单不可变更状态");
+        }
+        if (status == STATUS_COMPLETED && order.getStatus() == STATUS_DRAFT) {
+            throw new IllegalArgumentException("草稿订单需先确认后再标记为已完成");
+        }
+        if (status == STATUS_DRAFT && order.getStatus() == STATUS_COMPLETED) {
+            throw new IllegalArgumentException("已完成订单不可回退为草稿");
         }
         if (status == STATUS_COMPLETED && order.getPaidAmount() + 0.000001 < order.getTotalAmount()) {
             throw new IllegalArgumentException("未付清订单不可标记为已完成");
@@ -313,7 +320,7 @@ public class SaleOrderService {
 
         if (order.getPaidAmount() > 0) {
             PaymentEntity refund = new PaymentEntity();
-            refund.setId(nextId());
+            refund.setId(IdGenerator.nextId());
             refund.setOrderId(orderId);
             refund.setAmount(order.getPaidAmount());
             refund.setMethod(1);
@@ -429,8 +436,4 @@ public class SaleOrderService {
         List<PaymentEntity> payments
     ) {}
 
-    private long nextId() {
-        long id = UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE;
-        return id == 0L ? (System.nanoTime() & Long.MAX_VALUE) : id;
-    }
 }

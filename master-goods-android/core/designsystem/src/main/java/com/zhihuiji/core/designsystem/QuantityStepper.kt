@@ -20,17 +20,16 @@ import androidx.compose.ui.unit.dp
 fun QuantityStepper(
     value: Double,
     onValueChange: (Double) -> Unit,
-    onMinus: () -> Unit,
-    onPlus: () -> Unit,
     minusIcon: ImageVector,
     plusIcon: ImageVector,
     modifier: Modifier = Modifier,
     min: Double = 0.0,
     max: Double = Double.MAX_VALUE,
+    step: Double = 1.0,
 ) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         FilledIconButton(
-            onClick = onMinus,
+            onClick = { onValueChange((value - step).coerceIn(min, max)) },
             enabled = value > min,
             modifier = Modifier.size(30.dp),
             shape = RoundedCornerShape(7.dp),
@@ -50,7 +49,7 @@ fun QuantityStepper(
             singleLine = true,
         )
         FilledIconButton(
-            onClick = onPlus,
+            onClick = { onValueChange((value + step).coerceIn(min, max)) },
             enabled = value < max,
             modifier = Modifier.size(30.dp),
             shape = RoundedCornerShape(7.dp),

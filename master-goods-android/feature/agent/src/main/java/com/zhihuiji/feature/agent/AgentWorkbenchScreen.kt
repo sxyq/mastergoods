@@ -1,5 +1,6 @@
 package com.zhihuiji.feature.agent
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -21,18 +22,23 @@ import com.zhihuiji.core.designsystem.*
 fun AgentWorkbenchScreen(
     onNavigateBack: () -> Unit,
     showTopBar: Boolean = true,
+    reselectSignal: Int = 0,
     viewModel: AgentViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var queryText by remember { mutableStateOf("") }
+    val scrollState = rememberScrollState()
     val kpis = uiState.workbench?.kpis.orEmpty()
     val insights = uiState.workbench?.insights.orEmpty()
+
+    BottomBarScrollVisibilityEffect(scrollState)
+    BottomBarScrollToTopEffect(reselectSignal, scrollState)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .then(if (showTopBar) Modifier.glassBackground() else Modifier)
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         if (showTopBar) {
@@ -64,13 +70,13 @@ fun AgentWorkbenchScreen(
         Spacer(modifier = Modifier.height(10.dp))
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AgentKpiCard(kpis.getOrNull(0)?.label ?: "今日销售(元)", kpis.getOrNull(0)?.value ?: "12.00", kpis.getOrNull(0)?.trend ?: "较昨日 ↑ 18.6%", Icons.Default.Inventory2, KpiTone.PRIMARY, Modifier.weight(1f))
-            AgentKpiCard(kpis.getOrNull(1)?.label ?: "待收款(元)", kpis.getOrNull(1)?.value ?: "12.00", kpis.getOrNull(1)?.trend ?: "共1笔", Icons.Default.AccountBalanceWallet, KpiTone.WARNING, Modifier.weight(1f))
+            KpiCard(title = kpis.getOrNull(0)?.label ?: "今日销售(元)", value = kpis.getOrNull(0)?.value ?: "12.00", trend = kpis.getOrNull(0)?.trend ?: "较昨日 ↑ 18.6%", icon = Icons.Default.Inventory2, tone = KpiTone.PRIMARY, modifier = Modifier.weight(1f))
+            KpiCard(title = kpis.getOrNull(1)?.label ?: "待收款(元)", value = kpis.getOrNull(1)?.value ?: "12.00", trend = kpis.getOrNull(1)?.trend ?: "共1笔", icon = Icons.Default.AccountBalanceWallet, tone = KpiTone.WARNING, modifier = Modifier.weight(1f))
         }
         Spacer(modifier = Modifier.height(10.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AgentKpiCard(kpis.getOrNull(2)?.label ?: "待付款(元)", kpis.getOrNull(2)?.value ?: "0.00", kpis.getOrNull(2)?.trend ?: "共0笔", Icons.Default.Payments, KpiTone.SUCCESS, Modifier.weight(1f))
-            AgentKpiCard(kpis.getOrNull(3)?.label ?: "低库存预警", kpis.getOrNull(3)?.value ?: "0", kpis.getOrNull(3)?.trend ?: "待补货商品", Icons.Default.WarningAmber, KpiTone.WARNING, Modifier.weight(1f))
+            KpiCard(title = kpis.getOrNull(2)?.label ?: "待付款(元)", value = kpis.getOrNull(2)?.value ?: "0.00", trend = kpis.getOrNull(2)?.trend ?: "共0笔", icon = Icons.Default.Payments, tone = KpiTone.SUCCESS, modifier = Modifier.weight(1f))
+            KpiCard(title = kpis.getOrNull(3)?.label ?: "低库存预警", value = kpis.getOrNull(3)?.value ?: "0", trend = kpis.getOrNull(3)?.trend ?: "待补货商品", icon = Icons.Default.WarningAmber, tone = KpiTone.WARNING, modifier = Modifier.weight(1f))
         }
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -135,18 +141,6 @@ fun AgentWorkbenchScreen(
 }
 
 @Composable
-private fun AgentKpiCard(
-    title: String,
-    value: String,
-    trend: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    tone: KpiTone,
-    modifier: Modifier = Modifier,
-) {
-    KpiCard(title = title, value = value, trend = trend, icon = icon, tone = tone, modifier = modifier)
-}
-
-@Composable
 private fun AgentInsightRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, content: String, color: androidx.compose.ui.graphics.Color) {
     Row(horizontalArrangement = Arrangement.spacedBy(9.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, modifier = Modifier.size(22.dp), tint = color)
@@ -158,8 +152,12 @@ private fun AgentInsightRow(icon: androidx.compose.ui.graphics.vector.ImageVecto
 }
 
 @Composable
-private fun AgentQuickAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+private fun AgentQuickAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit = {}) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.clickable(onClick = onClick),
+    ) {
         Icon(icon, null, modifier = Modifier.size(28.dp), tint = ZhihuijiColors.Primary)
         Text(label, style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextSecondary)
     }

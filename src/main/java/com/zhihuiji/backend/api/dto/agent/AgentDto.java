@@ -7,6 +7,8 @@ import java.util.List;
 public final class AgentDto {
     private AgentDto() {}
 
+    // ── Workbench ──────────────────────────────────────────────
+
     @JsonNaming(PropertyNamingStrategies.LowerCamelCaseStrategy.class)
     public record AgentWorkbenchDto(
         ReconciliationFollowupDto reconciliation,
@@ -39,6 +41,8 @@ public final class AgentDto {
             );
         }
     }
+
+    // ── Reconciliation ─────────────────────────────────────────
 
     @JsonNaming(PropertyNamingStrategies.LowerCamelCaseStrategy.class)
     public record ReconciliationFollowupDto(
@@ -90,6 +94,8 @@ public final class AgentDto {
         List<String> suggestedActions
     ) {}
 
+    // ── Alerts ─────────────────────────────────────────────────
+
     @JsonNaming(PropertyNamingStrategies.LowerCamelCaseStrategy.class)
     public record AlertDashboardDto(
         List<AlertDto> alerts
@@ -108,6 +114,8 @@ public final class AgentDto {
         Double metric
     ) {}
 
+    // ── Answer / Query ─────────────────────────────────────────
+
     @JsonNaming(PropertyNamingStrategies.LowerCamelCaseStrategy.class)
     public record AgentAnswerDto(
         String query,
@@ -118,6 +126,8 @@ public final class AgentDto {
         List<List<String>> rows,
         List<String> suggestedActions
     ) {}
+
+    // ── Operation Draft ────────────────────────────────────────
 
     @JsonNaming(PropertyNamingStrategies.LowerCamelCaseStrategy.class)
     public record OperationDraftDto(
@@ -152,6 +162,8 @@ public final class AgentDto {
         String message,
         String nextAction
     ) {}
+
+    // ── Agent Task ─────────────────────────────────────────────
 
     @JsonNaming(PropertyNamingStrategies.LowerCamelCaseStrategy.class)
     public record AgentTaskSummaryDto(
@@ -236,6 +248,8 @@ public final class AgentDto {
         String input,
         AgentTaskResultDto result
     ) {}
+
+    // ── Notification ───────────────────────────────────────────
 
     @JsonNaming(PropertyNamingStrategies.LowerCamelCaseStrategy.class)
     public record AgentNotificationDto(

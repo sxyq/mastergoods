@@ -1,0 +1,53 @@
+server:
+  port: ${SERVER_PORT:18080}
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    deserialization:
+      fail-on-unknown-properties: false
+
+logging:
+  level:
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
+    com.zhihuiji: INFO
+
+cors:
+  origin-patterns: ${CORS_ORIGIN_PATTERS:https://zhihuiji.com,https://*.zhihuiji.com}
+
+auth:
+  invite-code: ${AUTH_INVITE_CODE:}
+
+agent:
+  llm:
+    enabled: ${AGENT_LLM_ENABLED:false}
+    base-url: ${AGENT_LLM_BASE_URL:}
+    api-key: ${AGENT_LLM_API_KEY:}
+    model: ${AGENT_LLM_MODEL:LongCat-Flash-Thinking-2601}
+    anthropic-version: ${AGENT_LLM_ANTHROPIC_VERSION:2023-06-01}
+    max-tokens: ${AGENT_LLM_MAX_TOKENS:4096}
+    temperature: ${AGENT_LLM_TEMPERATURE:0.2}
+    enable-thinking: ${AGENT_LLM_ENABLE_THINKING:true}
+    thinking-budget: ${AGENT_LLM_THINKING_BUDGET:2048}

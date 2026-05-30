@@ -17,6 +17,7 @@ dependencyResolutionManagement {
 rootProject.name = "master-goods-android"
 
 include(":app")
+include(":backdrop")
 
 include(":core:common")
 include(":core:model")

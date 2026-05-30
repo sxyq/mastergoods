@@ -14,13 +14,17 @@ public class SupplierService {
     }
 
     public List<SupplierEntity> list(String keyword, Integer status) {
-        List<SupplierEntity> source = (keyword == null || keyword.isBlank())
-            ? supplierRepository.findAll()
-            : supplierRepository.findByNameContainingIgnoreCaseOrPhoneContainingIgnoreCase(keyword.trim(), keyword.trim());
-        if (status == null) {
-            return source;
+        boolean hasKeyword = keyword != null && !keyword.isBlank();
+        if (hasKeyword && status != null) {
+            return supplierRepository.findByNameContainingIgnoreCaseOrPhoneContainingIgnoreCaseAndStatus(keyword.trim(), keyword.trim(), status);
         }
-        return source.stream().filter(item -> status.equals(item.getStatus())).toList();
+        if (hasKeyword) {
+            return supplierRepository.findByNameContainingIgnoreCaseOrPhoneContainingIgnoreCase(keyword.trim(), keyword.trim());
+        }
+        if (status != null) {
+            return supplierRepository.findByStatus(status);
+        }
+        return supplierRepository.findAll();
     }
 
     public SupplierEntity get(Long id) {

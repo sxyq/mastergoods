@@ -16,15 +16,10 @@ class PurchaseOrderRepository @Inject constructor(
     private val api: ZhihuijiApi,
     private val purchaseOrderDao: PurchaseOrderDao,
 ) {
-    fun observePurchaseOrders(filter: PurchaseOrderFilter): Flow<List<PurchaseOrderDto>> = purchaseOrderDao.observeAll().map { rows ->
-        val kw = filter.keyword
-        var filtered = rows.map { it.toDto() }
-        if (!kw.isNullOrBlank()) filtered = filtered.filter {
-            it.orderNo.contains(kw, true) || it.supplierName.contains(kw, true)
+    fun observePurchaseOrders(filter: PurchaseOrderFilter): Flow<List<PurchaseOrderDto>> =
+        purchaseOrderDao.search(filter.keyword, filter.status).map { rows ->
+            rows.map { it.toDto() }
         }
-        if (filter.status != null) filtered = filtered.filter { it.status == filter.status }
-        filtered
-    }
 
     suspend fun refreshPurchaseOrders(filter: PurchaseOrderFilter) {
         val result = safeApiCall { api.purchaseOrders(keyword = filter.keyword, status = filter.status) }

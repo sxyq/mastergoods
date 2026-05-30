@@ -13,7 +13,12 @@ import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -27,7 +32,6 @@ object TopLevelRoutes {
     const val ARCHIVES = "main_archives"
     const val REPORTS = "main_reports"
     const val AGENT = "main_agent"
-    const val SETTINGS = "main_settings"
 }
 
 val bottomBarDestinations = listOf(
@@ -70,32 +74,47 @@ fun MainScreen(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-
     val selectedRoute = bottomBarDestinations.firstOrNull { dest ->
         currentRoute?.startsWith(dest.route) == true
     }?.route ?: TopLevelRoutes.HOME
-    val showBottomBar = bottomBarDestinations.any { dest ->
+    val isOnTopLevel = bottomBarDestinations.any { dest ->
         currentRoute?.startsWith(dest.route) == true
+    }
+    var bottomBarVisible by remember { mutableStateOf(true) }
+    val reselectSignals = remember { mutableStateMapOf<String, Int>() }
+    fun reselectSignal(route: String): Int = reselectSignals[route] ?: 0
+
+    LaunchedEffect(isOnTopLevel) {
+        bottomBarVisible = isOnTopLevel
     }
 
     GlassScaffold(
         selectedDestination = selectedRoute,
         destinations = bottomBarDestinations,
         onNavigate = { route ->
-            navController.navigate(route) {
-                popUpTo(navController.graph.findStartDestination().id) {
-                    saveState = true
+            if (route == selectedRoute) {
+                reselectSignals[route] = (reselectSignals[route] ?: 0) + 1
+                bottomBarVisible = true
+            } else {
+                bottomBarVisible = true
+                navController.navigate(route) {
+                    popUpTo(navController.graph.findStartDestination().id) {
+                        saveState = true
+                    }
+                    launchSingleTop = true
+                    restoreState = true
                 }
-                launchSingleTop = true
-                restoreState = true
             }
         },
-        showBottomBar = showBottomBar,
+        showBottomBar = isOnTopLevel,
+        isBottomBarVisible = bottomBarVisible,
+        setBottomBarVisible = { bottomBarVisible = it },
     ) { paddingValues ->
         MainNavGraph(
             navController = navController,
             modifier = Modifier.padding(paddingValues),
             onNavigateToSettings = onNavigateToSettings,
+            reselectSignal = ::reselectSignal,
         )
     }
 }

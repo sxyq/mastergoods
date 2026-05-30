@@ -3,6 +3,7 @@ package com.zhihuiji.backend.api.controller;
 import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.application.service.SyncService;
 import java.util.List;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,7 +20,7 @@ public class SyncController {
     }
 
     @PostMapping("/upload")
-    public ApiResponse<SyncService.UploadResult> upload(@RequestBody UploadRequest request) {
+    public ApiResponse<SyncService.UploadResult> upload(@Valid @RequestBody UploadRequest request) {
         List<SyncService.SyncChange> changes = request.changes().stream()
             .map(c -> new SyncService.SyncChange(c.entityType(), c.entityId(), c.operation(), c.payload(), c.updatedAt()))
             .toList();
@@ -27,7 +28,7 @@ public class SyncController {
     }
 
     @PostMapping("/pull")
-    public ApiResponse<SyncService.PullResult> pull(@RequestBody PullRequest request) {
+    public ApiResponse<SyncService.PullResult> pull(@Valid @RequestBody PullRequest request) {
         return ApiResponse.success(syncService.pull(request.sinceCursor(), request.limit()));
     }
 

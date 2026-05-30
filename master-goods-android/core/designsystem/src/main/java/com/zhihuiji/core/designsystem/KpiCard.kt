@@ -21,6 +21,14 @@ import androidx.compose.ui.unit.dp
 
 enum class KpiTone { PRIMARY, SUCCESS, WARNING, DANGER }
 
+enum class TrendDirection { UP, DOWN, NEUTRAL }
+
+private fun parseTrendDirection(trend: String): TrendDirection = when {
+    trend.contains("+") || trend.contains("↑") || trend.contains("涨") -> TrendDirection.UP
+    trend.contains("-") || trend.contains("↓") || trend.contains("跌") -> TrendDirection.DOWN
+    else -> TrendDirection.NEUTRAL
+}
+
 @Composable
 fun KpiCard(
     title: String,
@@ -55,7 +63,11 @@ fun KpiCard(
                 }
                 if (trend != null) {
                     Spacer(modifier = Modifier.height(2.dp))
-                    val trendColor = if (trend.contains("+") || trend.contains("↑")) ZhihuijiColors.Success else ZhihuijiColors.Danger
+                    val trendColor = when (parseTrendDirection(trend)) {
+                        TrendDirection.UP -> ZhihuijiColors.Success
+                        TrendDirection.DOWN -> ZhihuijiColors.Danger
+                        TrendDirection.NEUTRAL -> ZhihuijiColors.TextTertiary
+                    }
                     Text(text = trend, style = ZhihuijiTypography.labelSmall, color = trendColor)
                 }
             }

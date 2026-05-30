@@ -2,6 +2,7 @@ package com.zhihuiji.feature.finance
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -25,11 +26,12 @@ import com.zhihuiji.core.designsystem.*
 fun FinanceRecordListScreen(
     onNavigateBack: () -> Unit,
     showTopBar: Boolean = true,
-    onNavigateToEditor: () -> Unit = {},
+    scrollToTopSignal: Int = 0,
     viewModel: FinanceViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showEditorSheet by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
 
     LaunchedEffect(uiState.createSuccess) {
         if (uiState.createSuccess) {
@@ -38,6 +40,9 @@ fun FinanceRecordListScreen(
         }
     }
 
+    BottomBarScrollVisibilityEffect(listState)
+    BottomBarScrollToTopEffect(scrollToTopSignal, listState)
+
     Box(modifier = Modifier.fillMaxSize().then(if (showTopBar) Modifier.glassBackground() else Modifier)) {
         Column(modifier = Modifier.fillMaxSize()) {
             if (showTopBar) {
@@ -45,13 +50,14 @@ fun FinanceRecordListScreen(
             }
             SegmentedTabs(tabs = listOf("全部", "收入", "支出"), selectedIndex = when(uiState.filter.type) { 1 -> 1; 2 -> 2; else -> 0 }, onTabSelected = { viewModel.changeType(when(it) { 1 -> 1; 2 -> 2; else -> null }) })
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                KpiCard(title = "收入", value = MoneyFormatter.formatWithoutSymbol(uiState.records.filter { it.type == 1 }.sumOf { it.amount }), tone = KpiTone.SUCCESS, modifier = Modifier.weight(1f))
-                KpiCard(title = "支出", value = MoneyFormatter.formatWithoutSymbol(uiState.records.filter { it.type == 2 }.sumOf { it.amount }), tone = KpiTone.DANGER, modifier = Modifier.weight(1f))
+                KpiCard(title = "收入", value = MoneyFormatter.formatWithoutSymbol(uiState.totalIncome), tone = KpiTone.SUCCESS, modifier = Modifier.weight(1f))
+                KpiCard(title = "支出", value = MoneyFormatter.formatWithoutSymbol(uiState.totalExpense), tone = KpiTone.DANGER, modifier = Modifier.weight(1f))
             }
             if (uiState.records.isEmpty()) {
                 EmptyState(icon = Icons.Default.AccountBalance, title = "暂无流水", modifier = Modifier.fillMaxWidth().align(Alignment.CenterHorizontally))
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(top = 6.dp, bottom = 88.dp),

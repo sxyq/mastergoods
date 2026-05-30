@@ -20,6 +20,8 @@ import javax.inject.Singleton
 @Singleton
 class TokenAuthenticator @Inject constructor(
     private val sessionStore: SessionStore,
+    private val authInterceptor: AuthInterceptor,
+    private val json: Json,
 ) : Authenticator {
     override fun authenticate(route: Route?, response: Response): Request? {
         if (responseCount(response) >= 2) return null
@@ -29,13 +31,15 @@ class TokenAuthenticator @Inject constructor(
 
         return runBlocking {
             try {
-                val json = Json { ignoreUnknownKeys = true }
                 val body = json.encodeToString(RefreshRequest.serializer(), RefreshRequest(refreshToken))
                 val request = Request.Builder()
                     .url("${NetworkConfig.baseUrl}auth/refresh")
                     .post(body.toRequestBody("application/json".toMediaType()))
                     .build()
-                val client = OkHttpClient.Builder().build()
+                val client = OkHttpClient.Builder()
+                    .connectTimeout(NetworkConfig.CONNECT_TIMEOUT, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(NetworkConfig.READ_TIMEOUT, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
                 val refreshResponse = client.newCall(request).execute()
                 if (refreshResponse.isSuccessful) {
                     val responseBody = refreshResponse.body?.string()
@@ -48,6 +52,7 @@ class TokenAuthenticator @Inject constructor(
                             userId = authResult.userId,
                             expiresIn = authResult.expiresIn,
                         )
+                        authInterceptor.updateToken(authResult.token)
                         response.request.newBuilder()
                             .header("Authorization", "Bearer ${authResult.token}")
                             .build()

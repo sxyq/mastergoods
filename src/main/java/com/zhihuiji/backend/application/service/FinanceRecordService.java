@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import com.zhihuiji.backend.api.common.IdGenerator;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -25,14 +26,7 @@ public class FinanceRecordService {
         Long createdAfter,
         Long createdBefore
     ) {
-        String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
-        return financeRecordRepository.findAll().stream()
-            .filter(item -> type == null || type.equals(item.getType()))
-            .filter(item -> createdAfter == null || item.getCreatedAt() >= createdAfter)
-            .filter(item -> createdBefore == null || item.getCreatedAt() <= createdBefore)
-            .filter(item -> normalizedKeyword.isBlank() || matchesKeyword(item, normalizedKeyword))
-            .sorted(Comparator.comparingLong(FinanceRecordEntity::getCreatedAt).reversed())
-            .toList();
+        return financeRecordRepository.search(keyword, type, createdAfter, createdBefore);
     }
 
     public FinanceRecordEntity create(CreateCommand command) {
@@ -40,7 +34,7 @@ public class FinanceRecordService {
 
         long now = System.currentTimeMillis();
         FinanceRecordEntity entity = new FinanceRecordEntity();
-        entity.setId(nextId());
+        entity.setId(IdGenerator.nextId());
         entity.setRecordNo(generateRecordNo(now));
         entity.setType(command.type());
         entity.setCategory(normalizeCategory(command.category()));
@@ -91,8 +85,7 @@ public class FinanceRecordService {
     }
 
     private String generateRecordNo(long timestamp) {
-        String suffix = UUID.randomUUID().toString().substring(0, 4).toUpperCase(Locale.ROOT);
-        return "FR" + timestamp + suffix;
+        return "FR" + UUID.randomUUID().toString().replace("-", "").toUpperCase(Locale.ROOT);
     }
 
     private String normalizeNullableText(String raw) {
@@ -101,11 +94,6 @@ public class FinanceRecordService {
         }
         String normalized = raw.trim();
         return normalized.isEmpty() ? null : normalized;
-    }
-
-    private long nextId() {
-        long id = UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE;
-        return id == 0L ? (System.nanoTime() & Long.MAX_VALUE) : id;
     }
 
     public record CreateCommand(

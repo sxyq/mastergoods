@@ -109,9 +109,13 @@ public class AgentLlmService {
 
     private JsonNode parseJson(String raw) {
         try {
-            return objectMapper.readTree(cleanJsonPayload(raw));
+            JsonNode node = objectMapper.readTree(cleanJsonPayload(raw));
+            if (node.isMissingNode() || node.isEmpty()) {
+                log.warn("Agent LLM returned empty JSON payload");
+            }
+            return node;
         } catch (Exception ex) {
-            log.warn("Agent LLM JSON parse failed: {}", ex.getMessage());
+            log.warn("Agent LLM JSON parse failed, raw length={}, error={}", raw != null ? raw.length() : 0, ex.getMessage());
             return objectMapper.createObjectNode();
         }
     }

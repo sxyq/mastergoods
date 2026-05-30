@@ -1,6 +1,29 @@
 package com.zhihuiji.core.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+
+@Serializable
+enum class AgentTaskStatus {
+    @SerialName("queued") QUEUED,
+    @SerialName("running") RUNNING,
+    @SerialName("completed") COMPLETED,
+    @SerialName("failed") FAILED,
+}
+
+@Serializable
+enum class OperationType {
+    @SerialName("sale") SALE,
+    @SerialName("purchase") PURCHASE,
+    @SerialName("return") RETURN,
+}
+
+@Serializable
+enum class InsightSeverity {
+    @SerialName("info") INFO,
+    @SerialName("warning") WARNING,
+    @SerialName("danger") DANGER,
+}
 
 @Serializable
 data class AgentWorkbenchDto(
@@ -23,7 +46,7 @@ data class AgentKpi(
 data class AgentInsight(
     val title: String,
     val content: String,
-    val severity: String? = null,
+    val severity: InsightSeverity? = null,
 )
 
 @Serializable
@@ -70,7 +93,7 @@ data class OperationDraftRequest(
 
 @Serializable
 data class OperationDraftDto(
-    val operationType: String = "",
+    val operationType: OperationType = OperationType.SALE,
     val summary: String = "",
     val partnerRole: String = "",
     val partnerId: Long? = null,
@@ -100,7 +123,7 @@ data class OperationSubmitRequest(
 
 @Serializable
 data class OperationSubmitResultDto(
-    val operationType: String = "",
+    val operationType: OperationType = OperationType.SALE,
     val orderId: Long? = null,
     val orderNo: String? = null,
     val message: String = "",
@@ -119,7 +142,7 @@ data class AgentTaskSummaryDto(
     val id: Long = 0,
     val taskType: String = "",
     val title: String = "",
-    val status: String = "",
+    val status: AgentTaskStatus = AgentTaskStatus.QUEUED,
     val progress: Int = 0,
     val createdAt: Long = 0L,
     val completedAt: Long? = null,
@@ -130,7 +153,7 @@ data class AgentTaskDetailDto(
     val id: Long = 0,
     val taskType: String = "",
     val title: String = "",
-    val status: String = "",
+    val status: AgentTaskStatus = AgentTaskStatus.QUEUED,
     val progress: Int = 0,
     val input: String? = null,
     val result: String? = null,

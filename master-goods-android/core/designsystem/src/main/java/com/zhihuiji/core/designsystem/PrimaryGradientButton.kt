@@ -19,7 +19,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun PrimaryGradientButton(
+fun PrimaryButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -47,6 +47,18 @@ fun PrimaryGradientButton(
             color = Color.White,
         )
     }
+}
+
+@Deprecated("Use PrimaryButton instead", ReplaceWith("PrimaryButton(text, onClick, modifier, icon, enabled)"))
+@Composable
+fun PrimaryGradientButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    enabled: Boolean = true,
+) {
+    PrimaryButton(text, onClick, modifier, icon, enabled)
 }
 
 @Composable
@@ -79,20 +91,22 @@ fun DangerOutlineButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     Button(
         onClick = onClick,
         modifier = modifier.height(44.dp),
+        enabled = enabled,
         colors = ButtonDefaults.outlinedButtonColors(
             containerColor = Color.Transparent,
         ),
         shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(0.8.dp, ZhihuijiColors.Danger),
+        border = BorderStroke(0.8.dp, if (enabled) ZhihuijiColors.Danger else ZhihuijiColors.Danger.copy(alpha = 0.45f)),
     ) {
         Text(
             text = text,
             style = ZhihuijiTypography.labelLarge,
-            color = ZhihuijiColors.Danger,
+            color = if (enabled) ZhihuijiColors.Danger else ZhihuijiColors.Danger.copy(alpha = 0.45f),
         )
     }
 }

@@ -214,6 +214,139 @@
 - 结果：`BUILD SUCCESSFUL`
 - 真机状态：ADB server 已重启，但 `adb devices -l` 仍为空；安装截图验收等待手机重新出现在 USB 调试设备列表后继续。
 
+### 2026-05-26 第七阶段：参考 BiliPai 重构底部切换条
+
+##### 文件 1：core/designsystem/src/main/java/com/zhihuiji/core/designsystem/LiquidSegmentedControl.kt
+- 所属模块：core/designsystem（新建）
+- 本次修改内容：新增统一的液态切换组件，抽象为通用 `LiquidSegmentedControl`；现已接入阻尼拖拽、速度感知释放、按压高光/折射驱动和底栏项强调度插值。
+- 当前状态：In Progress
+- 下一步：让主壳层接住二次点击策略，并让页面滚动状态驱动底栏显隐。
+
+##### 文件 2：core/designsystem/src/main/java/com/zhihuiji/core/designsystem/BottomBarBehavior.kt
+- 所属模块：core/designsystem（新建）
+- 本次修改内容：新增底栏行为通道，提供全局底栏显示控制与“滚动隐藏 / 回顶”辅助效果，给后续主壳和列表页复用。
+- 当前状态：In Progress
+- 下一步：主壳注入底栏可见性控制，列表页接入滚动隐藏。
+
+##### 文件 3：core/designsystem/src/main/java/com/zhihuiji/core/designsystem/DampedSegmentedDragState.kt
+- 所属模块：core/designsystem（新建）
+- 本次修改内容：新增分段切换拖拽状态，提供阻尼拖拽、速度感知释放目标、按压脉冲和弹性吸附；并修正状态同步时机，避免在组合阶段直接触发动画协程。
+- 当前状态：In Progress
+- 下一步：接入 `LiquidSegmentedControl`，替换当前单纯 `animateDpAsState` 指示器位移。
+
+##### 文件 4：core/designsystem/src/main/java/com/zhihuiji/core/designsystem/FloatingLiquidBottomBar.kt
+- 所属模块：core/designsystem（新建）
+- 本次修改内容：保留底栏适配入口，但其内部不再维护独立 UI 逻辑，改为直接委托给统一的 `LiquidSegmentedControl`，确保底栏与页面切换条是同一种组件体系。
+- 当前状态：In Progress
+- 下一步：编译验证统一组件方案，并视情况进一步删薄适配层。
+
+##### 文件 5：core/designsystem/src/main/java/com/zhihuiji/core/designsystem/GlassScaffold.kt
+- 所属模块：core/designsystem
+- 本次修改内容：移除 Material `NavigationBar` / `NavigationBarItem` 组合，改为统一调用 `FloatingLiquidBottomBar`；现已注入全局底栏可见性通道，并加上显示/隐藏过渡动画，给滚动隐藏提供主壳承载。
+- 当前状态：In Progress
+- 下一步：主壳继续接入二次点击重选策略。
+
+##### 文件 6：core/designsystem/src/main/java/com/zhihuiji/core/designsystem/SegmentedTabs.kt
+- 所属模块：core/designsystem
+- 本次修改内容：不再单独维护一套标签切换 UI，改为直接委托到统一的 `LiquidSegmentedControl`，让页面内切换条与底栏共享同一套视觉和动画底层。
+- 当前状态：In Progress
+- 下一步：继续让底栏适配层也改为委托到统一组件。
+
+##### 文件 7：core/designsystem/src/main/java/com/zhihuiji/core/designsystem/LiquidGlassSurface.kt
+- 所属模块：core/designsystem
+- 本次修改内容：为玻璃容器新增 `lensProgress` 和高光强度控制，准备给底栏选中胶囊接入按压折射与高光增强效果。
+- 当前状态：In Progress
+- 下一步：让底栏选中指示器在按压/拖拽时驱动这些参数。
+
+##### 文件 8：app/src/main/java/com/zhihuiji/app/navigation/MainScreen.kt
+- 所属模块：app
+- 本次修改内容：主壳接入底栏可见性状态和二次点击策略；点击当前 tab 时不再重复导航，而是派发对应的 reselect signal，并主动恢复底栏显示。
+- 当前状态：In Progress
+- 下一步：把这些 reselect signal 继续传给 `MainNavGraph` 与各主页面。
+
+##### 文件 9：app/src/main/java/com/zhihuiji/app/navigation/MainNavGraph.kt
+- 所属模块：app
+- 本次修改内容：主导航图新增 reselect signal 透传，把首页/单据/档案/报表/助手的重选事件继续分发到对应页面，实现“主壳认知、页面响应”的结构。
+- 当前状态：In Progress
+- 下一步：各页面消费 signal，执行回顶或重置子 tab。
+
+##### 文件 10：app/src/main/java/com/zhihuiji/app/navigation/DocumentsScreen.kt
+- 所属模块：app
+- 本次修改内容：单据容器接入 reselect signal；重选“单据”时优先回到销售单子页，并向当前列表派发回顶信号。
+- 当前状态：In Progress
+- 下一步：档案容器和首页/报表/助手页面继续接入同类策略。
+
+##### 文件 11：app/src/main/java/com/zhihuiji/app/navigation/ArchivesScreen.kt
+- 所属模块：app
+- 本次修改内容：档案容器接入 reselect signal；重选“档案”时优先回到商品子页，并向对应列表派发回顶信号。
+- 当前状态：In Progress
+- 下一步：首页/报表/助手页面继续接入同类策略。
+
+##### 文件 12：feature/dashboard/src/main/java/com/zhihuiji/feature/dashboard/DashboardScreen.kt
+- 所属模块：feature/dashboard
+- 本次修改内容：首页接入底栏滚动隐藏和重选回顶效果，滚动经营概览时可驱动底栏显隐，重选“首页”时回到顶部。
+- 当前状态：In Progress
+- 下一步：报表和助手页接入同样的行为。
+
+##### 文件 13：feature/reports/src/main/java/com/zhihuiji/feature/reports/ReportScreen.kt
+- 所属模块：feature/reports
+- 本次修改内容：报表页接入底栏滚动隐藏和重选回顶效果，保证图表长页在向下浏览时可隐藏底栏，重选“报表”时快速回顶。
+- 当前状态：In Progress
+- 下一步：助手页接入同样的行为。
+
+##### 文件 14：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentWorkbenchScreen.kt
+- 所属模块：feature/agent
+- 本次修改内容：AI 助手页接入底栏滚动隐藏和重选回顶效果，长内容对话/卡片页向下浏览时可收起底栏，重选“助手”时回顶。
+- 当前状态：In Progress
+- 下一步：单据与档案列表页接入相同行为。
+
+##### 文件 15：feature/sales/src/main/java/com/zhihuiji/feature/sales/SaleOrderListScreen.kt
+- 所属模块：feature/sales
+- 本次修改内容：销售单列表接入 `LazyListState`，实现底栏滚动隐藏和重选“单据”后的回顶行为。
+- 当前状态：In Progress
+- 下一步：继续把采购/付款/资金流水与档案列表页接齐。
+
+##### 文件 16：feature/purchases/src/main/java/com/zhihuiji/feature/purchases/PurchaseOrderListScreen.kt
+- 所属模块：feature/purchases
+- 本次修改内容：采购单列表接入 `LazyListState`，实现底栏滚动隐藏和重选“单据”后的回顶行为。
+- 当前状态：In Progress
+- 下一步：继续付款单与资金流水列表。
+
+##### 文件 17：feature/payments/src/main/java/com/zhihuiji/feature/payments/PayOrderListScreen.kt
+- 所属模块：feature/payments
+- 本次修改内容：付款单列表接入 `LazyListState`，实现底栏滚动隐藏和重选“单据”后的回顶行为。
+- 当前状态：In Progress
+- 下一步：继续资金流水列表与档案列表。
+
+##### 文件 18：feature/finance/src/main/java/com/zhihuiji/feature/finance/FinanceRecordListScreen.kt
+- 所属模块：feature/finance
+- 本次修改内容：资金流水列表接入 `LazyListState`，实现底栏滚动隐藏和重选“单据”后的回顶行为。
+- 当前状态：In Progress
+- 下一步：继续档案侧商品/客户/供应商列表。
+
+##### 文件 19：feature/products/src/main/java/com/zhihuiji/feature/products/ProductListScreen.kt
+- 所属模块：feature/products
+- 本次修改内容：商品列表接入 `LazyListState`，实现底栏滚动隐藏和重选“档案”后的回顶行为。
+- 当前状态：In Progress
+- 下一步：继续客户和供应商列表。
+
+##### 文件 20：feature/customers/src/main/java/com/zhihuiji/feature/customers/CustomerListScreen.kt
+- 所属模块：feature/customers
+- 本次修改内容：客户列表接入 `LazyListState`，实现底栏滚动隐藏和重选“档案”后的回顶行为。
+- 当前状态：In Progress
+- 下一步：继续供应商列表。
+
+##### 文件 21：feature/suppliers/src/main/java/com/zhihuiji/feature/suppliers/SupplierListScreen.kt
+- 所属模块：feature/suppliers
+- 本次修改内容：供应商列表接入 `LazyListState`，实现底栏滚动隐藏和重选“档案”后的回顶行为。
+- 当前状态：In Progress
+- 下一步：整体编译验证，并检查顶层入口页面与适配层是否有签名未同步。
+
+##### 验证记录
+- 执行命令：`./gradlew :app:assembleDebug`
+- 结果：`BUILD SUCCESSFUL`
+- 当前结论：自定义浮动底栏已接入主壳，项目可正常编译，下一步适合上真机看选中胶囊宽度、上下留白和图标字重是否还需要继续贴近参考项目。
+
 ### 2026-05-24 第一阶段：从 0 到 1 完成全部模块初始实现
 
 #### Gradle 工程初始化

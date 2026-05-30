@@ -27,7 +27,9 @@ data class SaleOrderItemDto(
     @SerialName("product_id") val productId: Long,
     @SerialName("product_code") val productCode: String,
     @SerialName("product_name") val productName: String,
+    @Deprecated("Use parent SaleOrderDto.customerId instead", level = DeprecationLevel.WARNING)
     @SerialName("customer_id") val customerId: Long? = null,
+    @Deprecated("Use parent SaleOrderDto.customerName instead", level = DeprecationLevel.WARNING)
     @SerialName("customer_name") val customerName: String? = null,
     val quantity: Double = 0.0,
     @SerialName("unit_price") val unitPrice: Double = 0.0,
@@ -151,12 +153,12 @@ data class CreatePayOrderRequest(
 data class SaleOrderFilter(
     val keyword: String? = null,
     val status: Int? = null,
-    val minTotalAmount: String? = null,
-    val maxTotalAmount: String? = null,
+    val minTotalAmount: Double? = null,
+    val maxTotalAmount: Double? = null,
     val createdAfter: String? = null,
     val createdBefore: String? = null,
     val productKeyword: String? = null,
-    val paymentStatus: String? = null,
+    val paymentStatus: Int? = null,
 )
 
 data class PurchaseOrderFilter(

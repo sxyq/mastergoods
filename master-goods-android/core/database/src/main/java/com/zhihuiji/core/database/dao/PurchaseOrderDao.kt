@@ -9,6 +9,14 @@ interface PurchaseOrderDao {
     @Query("SELECT * FROM purchase_orders ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<PurchaseOrderEntity>>
 
+    @Query("""
+        SELECT * FROM purchase_orders
+        WHERE (:keyword IS NULL OR orderNo LIKE '%' || :keyword || '%' OR supplierName LIKE '%' || :keyword || '%')
+          AND (:status IS NULL OR status = :status)
+        ORDER BY updatedAt DESC
+    """)
+    fun search(keyword: String?, status: Int?): Flow<List<PurchaseOrderEntity>>
+
     @Query("SELECT * FROM purchase_orders WHERE id = :id")
     suspend fun findById(id: Long): PurchaseOrderEntity?
 

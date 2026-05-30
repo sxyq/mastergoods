@@ -7,6 +7,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface SupplierRepository extends JpaRepository<SupplierEntity, Long> {
     List<SupplierEntity> findByNameContainingIgnoreCaseOrPhoneContainingIgnoreCase(String nameKeyword, String phoneKeyword);
 
+    List<SupplierEntity> findByStatus(Integer status);
+
+    List<SupplierEntity> findByNameContainingIgnoreCaseOrPhoneContainingIgnoreCaseAndStatus(String nameKeyword, String phoneKeyword, Integer status);
+
     boolean existsByPhone(String phone);
 
     boolean existsByPhoneAndIdNot(String phone, Long id);

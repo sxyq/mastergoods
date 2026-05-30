@@ -9,6 +9,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -31,7 +32,7 @@ class SaleOrderListViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, filter = filter)
             saleOrderRepository.refreshSaleOrders(filter)
-            saleOrderRepository.observeSaleOrders(filter).collect { list ->
+            saleOrderRepository.observeSaleOrders(filter).collectLatest { list ->
                 _uiState.value = _uiState.value.copy(orders = list, isLoading = false)
             }
         }

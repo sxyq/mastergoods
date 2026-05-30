@@ -33,3 +33,41 @@ data class SupplierDto(
     @SerialName("created_at") val createdAt: Long? = null,
     @SerialName("updated_at") val updatedAt: Long? = null,
 )
+
+@Serializable
+data class CreateCustomerRequest(
+    val name: String = "",
+    val phone: String = "",
+    val level: Int = 0,
+    val address: String? = null,
+    val notes: String? = null,
+    val status: Int = 1,
+)
+
+@Serializable
+data class UpdateCustomerRequest(
+    val name: String = "",
+    val phone: String = "",
+    val level: Int = 0,
+    val address: String? = null,
+    val notes: String? = null,
+    val status: Int = 1,
+)
+
+@Serializable
+data class CreateSupplierRequest(
+    val name: String = "",
+    val phone: String = "",
+    val address: String? = null,
+    val notes: String? = null,
+    val status: Int = 1,
+)
+
+@Serializable
+data class UpdateSupplierRequest(
+    val name: String = "",
+    val phone: String = "",
+    val address: String? = null,
+    val notes: String? = null,
+    val status: Int = 1,
+)

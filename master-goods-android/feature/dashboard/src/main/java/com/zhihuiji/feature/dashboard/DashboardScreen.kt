@@ -8,7 +8,9 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -24,23 +26,24 @@ fun DashboardScreen(
     onNavigateToCustomers: () -> Unit,
     onNavigateToAgent: () -> Unit,
     showTopBar: Boolean = true,
+    reselectSignal: Int = 0,
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val scrollState = rememberScrollState()
     val salesAmount = uiState.salesSummary?.totalSalesAmount ?: 0.0
     val unpaidAmount = uiState.salesSummary?.totalUnpaidAmount ?: 0.0
     val profitAmount = uiState.profitSummary?.estimatedProfitAmount ?: 0.0
     val lowStockCount = uiState.lowStockProducts.size
-    val trendValues = remember(salesAmount) {
-        val base = salesAmount.coerceAtLeast(1.0)
-        listOf(base * 0.64, base * 0.51, base * 0.78, base * 0.67, base * 0.74, base * 0.88, base)
-    }
+
+    BottomBarScrollVisibilityEffect(scrollState)
+    BottomBarScrollToTopEffect(reselectSignal, scrollState)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .then(if (showTopBar) Modifier.glassBackground() else Modifier)
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth().height(48.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -59,7 +62,6 @@ fun DashboardScreen(
             KpiCard(
                 title = "今日销售",
                 value = MoneyFormatter.format(salesAmount),
-                trend = "较昨日 ↑ 18.6%",
                 icon = Icons.Default.Inventory2,
                 tone = KpiTone.PRIMARY,
                 modifier = Modifier.weight(1f),
@@ -67,7 +69,6 @@ fun DashboardScreen(
             KpiCard(
                 title = "待收款",
                 value = MoneyFormatter.format(unpaidAmount),
-                trend = "较昨日 ↑ 7.2%",
                 icon = Icons.Default.AccountBalanceWallet,
                 tone = KpiTone.WARNING,
                 modifier = Modifier.weight(1f),
@@ -86,18 +87,9 @@ fun DashboardScreen(
             KpiCard(
                 title = "净现金流",
                 value = MoneyFormatter.format(profitAmount),
-                trend = "较昨日 ↑ 13.4%",
                 icon = Icons.Default.PhoneInTalk,
                 tone = KpiTone.SUCCESS,
                 modifier = Modifier.weight(1f),
-            )
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-
-        ChartCard(title = "销售趋势", modifier = Modifier.fillMaxWidth()) {
-            LineTrendChart(
-                values = trendValues,
-                labels = listOf("05-10", "05-11", "05-12", "05-13", "05-14", "05-15", "05-16"),
             )
         }
         Spacer(modifier = Modifier.height(12.dp))

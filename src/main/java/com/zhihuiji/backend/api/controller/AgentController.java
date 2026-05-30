@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.dto.agent.AgentDto;
 import com.zhihuiji.backend.application.service.LlmDrivenAgentService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,6 +28,9 @@ public class AgentController {
         @RequestParam(value = "limit", defaultValue = "6") int limit,
         @RequestParam(value = "aging_days", defaultValue = "15") int agingDays
     ) {
+        if (windowDays < 1 || windowDays > 365) windowDays = 7;
+        if (limit < 1 || limit > 50) limit = 6;
+        if (agingDays < 1 || agingDays > 365) agingDays = 15;
         return ApiResponse.success(agentService.getWorkbench(windowDays, limit, agingDays));
     }
 
@@ -35,6 +39,8 @@ public class AgentController {
         @RequestParam(value = "limit", defaultValue = "6") int limit,
         @RequestParam(value = "aging_days", defaultValue = "15") int agingDays
     ) {
+        if (limit < 1 || limit > 50) limit = 6;
+        if (agingDays < 1 || agingDays > 365) agingDays = 15;
         return ApiResponse.success(agentService.getReconciliationFollowup(limit, agingDays));
     }
 
@@ -42,6 +48,7 @@ public class AgentController {
     public ApiResponse<AgentDto.ReportInsightDto> reportInsight(
         @RequestParam(value = "window_days", defaultValue = "7") int windowDays
     ) {
+        if (windowDays < 1 || windowDays > 365) windowDays = 7;
         return ApiResponse.success(agentService.getReportInsight(windowDays));
     }
 
@@ -50,11 +57,13 @@ public class AgentController {
         @RequestParam(value = "limit", defaultValue = "6") int limit,
         @RequestParam(value = "aging_days", defaultValue = "15") int agingDays
     ) {
+        if (limit < 1 || limit > 50) limit = 6;
+        if (agingDays < 1 || agingDays > 365) agingDays = 15;
         return ApiResponse.success(agentService.getAlerts(limit, agingDays));
     }
 
     @PostMapping("/query")
-    public ApiResponse<AgentDto.AgentAnswerDto> query(@RequestBody QueryRequest request) {
+    public ApiResponse<AgentDto.AgentAnswerDto> query(@Valid @RequestBody QueryRequest request) {
         return ApiResponse.success(agentService.answerQuestion(request.query()));
     }
 
@@ -64,8 +73,8 @@ public class AgentController {
     }
 
     @PostMapping("/operation-submit")
-    public ApiResponse<AgentDto.OperationSubmitResultDto> operationSubmit(@RequestBody SubmitRequest request) {
-        return ApiResponse.success(agentService.submitDraft(request.draft()));
+    public ApiResponse<AgentDto.OperationSubmitResultDto> operationSubmit(@Valid @RequestBody SubmitRequest request) {
+        return ApiResponse.success(agentService.submitDraft(request.draft(), request.idempotencyKey()));
     }
 
     @JsonNaming(PropertyNamingStrategies.LowerCamelCaseStrategy.class)
@@ -75,5 +84,5 @@ public class AgentController {
     public record DraftRequest(String instruction) {}
 
     @JsonNaming(PropertyNamingStrategies.LowerCamelCaseStrategy.class)
-    public record SubmitRequest(AgentDto.OperationDraftDto draft) {}
+    public record SubmitRequest(AgentDto.OperationDraftDto draft, String idempotencyKey) {}
 }

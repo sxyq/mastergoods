@@ -3,6 +3,7 @@ package com.zhihuiji.backend.api.controller;
 import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.application.service.CustomerService;
 import com.zhihuiji.backend.domain.entity.CustomerEntity;
+import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,12 +35,12 @@ public class CustomerController {
     }
 
     @PostMapping
-    public ApiResponse<CustomerEntity> create(@RequestBody CustomerEntity payload) {
+    public ApiResponse<CustomerEntity> create(@Valid @RequestBody CustomerEntity payload) {
         return ApiResponse.success(customerService.create(payload));
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<CustomerEntity> update(@PathVariable Long id, @RequestBody CustomerEntity payload) {
+    public ApiResponse<CustomerEntity> update(@PathVariable Long id, @Valid @RequestBody CustomerEntity payload) {
         return ApiResponse.success(customerService.update(id, payload));
     }
 

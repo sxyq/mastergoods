@@ -3,6 +3,7 @@ package com.zhihuiji.feature.products
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -25,11 +26,15 @@ import com.zhihuiji.core.designsystem.*
 fun ProductListScreen(
     onNavigateBack: () -> Unit,
     showTopBar: Boolean = true,
+    scrollToTopSignal: Int = 0,
     onNavigateToEditor: (Long?) -> Unit = {},
     viewModel: ProductListViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var selectedTab by remember { mutableIntStateOf(0) }
+    val listState = rememberLazyListState()
+
+    BottomBarScrollVisibilityEffect(listState)
+    BottomBarScrollToTopEffect(scrollToTopSignal, listState)
 
     Box(modifier = Modifier.fillMaxSize().then(if (showTopBar) Modifier.glassBackground() else Modifier)) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -45,21 +50,15 @@ fun ProductListScreen(
             )
             SegmentedTabs(
                 tabs = listOf("全部", "低库存", "正常", "缺货"),
-                selectedIndex = selectedTab,
-                onTabSelected = { selectedTab = it },
+                selectedIndex = uiState.stockFilter,
+                onTabSelected = { viewModel.setStockFilter(it) },
             )
-            if (uiState.products.isEmpty()) {
+            if (uiState.filteredProducts.isEmpty()) {
                 EmptyState(icon = Icons.Default.Inventory2, title = "暂无商品", modifier = Modifier.fillMaxSize().align(Alignment.CenterHorizontally))
             } else {
-                val filteredProducts = uiState.products.filter { product ->
-                    when (selectedTab) {
-                        1 -> product.stock < product.safeStock && product.stock > 0
-                        2 -> product.stock >= product.safeStock
-                        3 -> product.stock <= 0
-                        else -> true
-                    }
-                }
+                val filteredProducts = uiState.filteredProducts
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(top = 6.dp, bottom = 88.dp),

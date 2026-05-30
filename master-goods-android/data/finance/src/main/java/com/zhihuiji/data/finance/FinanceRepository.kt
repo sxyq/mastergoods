@@ -17,14 +17,8 @@ class FinanceRepository @Inject constructor(
     private val financeRecordDao: FinanceRecordDao,
 ) {
     fun observeFinanceRecords(filter: FinanceFilter): Flow<List<FinanceRecordDto>> =
-        financeRecordDao.observeAll().map { list ->
-            val kw = filter.keyword
-            var filtered = list.map { it.toDto() }
-            if (!kw.isNullOrBlank()) filtered = filtered.filter {
-                it.recordNo.contains(kw, true) || it.partnerName?.contains(kw, true) == true
-            }
-            if (filter.type != null) filtered = filtered.filter { it.type == filter.type }
-            filtered
+        financeRecordDao.search(filter.type, filter.keyword).map { list ->
+            list.map { it.toDto() }
         }
 
     suspend fun refreshFinanceRecords(filter: FinanceFilter) {

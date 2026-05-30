@@ -23,6 +23,7 @@ import com.zhihuiji.core.designsystem.*
 fun SaleOrderDetailScreen(
     orderId: Long,
     onNavigateBack: () -> Unit,
+    onNavigateToEdit: () -> Unit = {},
     viewModel: SaleOrderDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -137,7 +138,7 @@ fun SaleOrderDetailScreen(
                 secondaryActions = buildList {
                     if (order.status != 2) {
                         add { DangerOutlineButton(text = "作废", onClick = { viewModel.cancelOrder() }) }
-                        add { SecondaryOutlineButton(text = "修改", onClick = {}) }
+                        add { SecondaryOutlineButton(text = "修改", onClick = onNavigateToEdit) }
                     }
                 },
             )

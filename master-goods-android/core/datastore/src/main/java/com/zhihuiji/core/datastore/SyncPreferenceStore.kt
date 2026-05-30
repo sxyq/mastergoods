@@ -36,11 +36,6 @@ class SyncPreferenceStore @Inject constructor(
     }
 
     suspend fun clearAll() {
-        dataStore.edit { prefs ->
-            val keysToRemove = prefs.asMap().keys.filter {
-                it.name.startsWith("sync_cursor_") || it.name.startsWith("sync_timestamp_")
-            }
-            keysToRemove.forEach { prefs.remove(it) }
-        }
+        dataStore.edit { it.clear() }
     }
 }

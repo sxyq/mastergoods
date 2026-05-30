@@ -1,10 +1,12 @@
 package com.zhihuiji.backend.api.controller;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
+import com.zhihuiji.backend.api.common.ParseUtils;
 import com.zhihuiji.backend.api.dto.PayOrderDto;
 import com.zhihuiji.backend.application.service.PayOrderService;
 import com.zhihuiji.backend.domain.entity.PayOrderEntity;
 import java.util.List;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,8 +36,8 @@ public class PayOrderController {
             payOrderService.list(
                     keyword,
                     status,
-                    parseLong(createdAfter),
-                    parseLong(createdBefore)
+                    ParseUtils.parseLong(createdAfter),
+                    ParseUtils.parseLong(createdBefore)
                 ).stream()
                 .map(this::toDto)
                 .toList()
@@ -48,7 +50,7 @@ public class PayOrderController {
     }
 
     @PostMapping
-    public ApiResponse<PayOrderDto> create(@RequestBody CreateRequest request) {
+    public ApiResponse<PayOrderDto> create(@Valid @RequestBody CreateRequest request) {
         PayOrderEntity created = payOrderService.create(
             new PayOrderService.CreateCommand(
                 request.supplierId(),
@@ -64,7 +66,7 @@ public class PayOrderController {
     }
 
     @PutMapping("/{id}/status")
-    public ApiResponse<PayOrderDto> updateStatus(@PathVariable Long id, @RequestBody StatusRequest request) {
+    public ApiResponse<PayOrderDto> updateStatus(@PathVariable Long id, @Valid @RequestBody StatusRequest request) {
         return ApiResponse.success(toDto(payOrderService.updateStatus(id, request.status())));
     }
 
@@ -82,17 +84,6 @@ public class PayOrderController {
             entity.getCreatedAt(),
             entity.getUpdatedAt()
         );
-    }
-
-    private Long parseLong(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return null;
-        }
-        try {
-            return Long.parseLong(raw);
-        } catch (NumberFormatException ignore) {
-            return null;
-        }
     }
 
     public record CreateRequest(

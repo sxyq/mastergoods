@@ -7,8 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Density
 
 private val LightColorScheme = lightColorScheme(
     primary = ZhihuijiColors.Primary,
@@ -38,11 +36,8 @@ val LocalExtendedColors = staticCompositionLocalOf { ZhihuijiColors }
 @Composable
 fun ZhihuijiTheme(content: @Composable () -> Unit) {
     val colorScheme = LightColorScheme
-    val density = LocalDensity.current
-
     CompositionLocalProvider(
         LocalExtendedColors provides ZhihuijiColors,
-        LocalDensity provides Density(density = density.density, fontScale = 1f),
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

@@ -7,4 +7,10 @@ public record ProductAdjustStockRequest(
     Double delta,
     String reason,
     String operator
-) {}
+) {
+    public ProductAdjustStockRequest {
+        if (delta != null && delta == 0.0) {
+            throw new IllegalArgumentException("delta must not be zero");
+        }
+    }
+}

@@ -76,8 +76,6 @@ fun SaleOrderEditorScreen(
                                 QuantityStepper(
                                     value = line.quantity,
                                     onValueChange = { viewModel.changeQuantity(line.lineId, it.coerceAtLeast(1.0)) },
-                                    onMinus = { viewModel.changeQuantity(line.lineId, (line.quantity - 1).coerceAtLeast(1.0)) },
-                                    onPlus = { viewModel.changeQuantity(line.lineId, line.quantity + 1) },
                                     minusIcon = Icons.Default.Remove,
                                     plusIcon = Icons.Default.Add,
                                     modifier = Modifier.width(112.dp),

@@ -32,22 +32,25 @@ fun ProductEntity.toDto() = ProductDto(
     updatedAt = updatedAt,
 )
 
-fun ProductDto.toEntity() = ProductEntity(
-    id = id ?: 0L,
-    code = code,
-    name = name,
-    category = category,
-    unit = unit,
-    salePrice = salePrice,
-    purchasePrice = purchasePrice,
-    stock = stock,
-    safeStock = safeStock,
-    status = status,
-    syncStatus = syncStatus,
-    syncVersion = syncVersion,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-)
+fun ProductDto.toEntity(): ProductEntity? {
+    val entityId = id ?: return null
+    return ProductEntity(
+        id = entityId,
+        code = code,
+        name = name,
+        category = category,
+        unit = unit,
+        salePrice = salePrice,
+        purchasePrice = purchasePrice,
+        stock = stock,
+        safeStock = safeStock,
+        status = status,
+        syncStatus = syncStatus,
+        syncVersion = syncVersion,
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+    )
+}
 
 fun CustomerEntity.toDto() = CustomerDto(
     id = id,
@@ -64,20 +67,23 @@ fun CustomerEntity.toDto() = CustomerDto(
     updatedAt = updatedAt,
 )
 
-fun CustomerDto.toEntity() = CustomerEntity(
-    id = id ?: 0L,
-    name = name,
-    phone = phone,
-    level = level,
-    address = address,
-    notes = notes,
-    balance = balance,
-    status = status,
-    syncStatus = syncStatus,
-    syncVersion = syncVersion,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-)
+fun CustomerDto.toEntity(): CustomerEntity? {
+    val entityId = id ?: return null
+    return CustomerEntity(
+        id = entityId,
+        name = name,
+        phone = phone,
+        level = level,
+        address = address,
+        notes = notes,
+        balance = balance,
+        status = status,
+        syncStatus = syncStatus,
+        syncVersion = syncVersion,
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+    )
+}
 
 fun SupplierEntity.toDto() = SupplierDto(
     id = id,
@@ -93,19 +99,22 @@ fun SupplierEntity.toDto() = SupplierDto(
     updatedAt = updatedAt,
 )
 
-fun SupplierDto.toEntity() = SupplierEntity(
-    id = id ?: 0L,
-    name = name,
-    phone = phone,
-    address = address,
-    notes = notes,
-    balance = balance,
-    status = status,
-    syncStatus = syncStatus,
-    syncVersion = syncVersion,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-)
+fun SupplierDto.toEntity(): SupplierEntity? {
+    val entityId = id ?: return null
+    return SupplierEntity(
+        id = entityId,
+        name = name,
+        phone = phone,
+        address = address,
+        notes = notes,
+        balance = balance,
+        status = status,
+        syncStatus = syncStatus,
+        syncVersion = syncVersion,
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+    )
+}
 
 fun SaleOrderEntity.toDto() = SaleOrderDto(
     id = id,

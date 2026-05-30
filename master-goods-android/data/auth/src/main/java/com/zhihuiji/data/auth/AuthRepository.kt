@@ -1,7 +1,7 @@
 package com.zhihuiji.data.auth
 
+import androidx.annotation.VisibleForTesting
 import com.zhihuiji.core.datastore.SessionStore
-import com.zhihuiji.core.datastore.SettingsStore
 import com.zhihuiji.core.model.*
 import com.zhihuiji.core.network.ZhihuijiApi
 import com.zhihuiji.core.network.safeApiCall
@@ -12,7 +12,6 @@ import javax.inject.Singleton
 class AuthRepository @Inject constructor(
     private val api: ZhihuijiApi,
     private val sessionStore: SessionStore,
-    private val settingsStore: SettingsStore,
 ) {
     val isLoggedIn = sessionStore.isLoggedIn
 
@@ -28,6 +27,7 @@ class AuthRepository @Inject constructor(
         }
     }
 
+    @VisibleForTesting
     suspend fun refresh(refreshToken: String): Result<AuthResult> {
         return safeApiCall { api.refresh(RefreshRequest(refreshToken)) }.onSuccess { auth ->
             sessionStore.saveSession(auth.token, auth.refreshToken, auth.userId, auth.expiresIn)
@@ -36,8 +36,7 @@ class AuthRepository @Inject constructor(
 
     suspend fun logout() {
         try {
-            val token = sessionStore.requireAccessToken()
-            api.logout("Bearer $token")
+            api.logout()
         } catch (_: Exception) {
         } finally {
             sessionStore.clearSession()
@@ -45,12 +44,7 @@ class AuthRepository @Inject constructor(
     }
 
     suspend fun fetchCurrentUser(): Result<UserProfile> {
-        return try {
-            val token = sessionStore.requireAccessToken()
-            safeApiCall { api.me("Bearer $token") }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        return safeApiCall { api.me() }
     }
 
     suspend fun restoreSessionIfNeeded(): Boolean {
@@ -63,7 +57,7 @@ class AuthRepository @Inject constructor(
         }
     }
 
-    suspend fun clearSessionAndCache() {
+    suspend fun clearSession() {
         sessionStore.clearSession()
     }
 }

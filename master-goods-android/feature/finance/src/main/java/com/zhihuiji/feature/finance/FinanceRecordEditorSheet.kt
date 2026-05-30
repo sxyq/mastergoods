@@ -41,6 +41,19 @@ fun FinanceRecordEditorSheet(
                         shape = RoundedCornerShape(9.dp),
                         singleLine = true,
                     )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        val quickCategories = if (selectedType == 1)
+                            listOf("销售收入", "服务收入", "其他收入")
+                        else
+                            listOf("采购支出", "房租", "工资", "水电费", "其他支出")
+                        quickCategories.forEach { label ->
+                            FilterChip(
+                                selected = category == label,
+                                onClick = { category = label },
+                                label = { Text(label, style = ZhihuijiTypography.labelSmall) },
+                            )
+                        }
+                    }
                     OutlinedTextField(
                         value = amountText,
                         onValueChange = { amountText = it },

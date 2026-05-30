@@ -2,6 +2,7 @@ package com.zhihuiji.feature.agent
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.UiMessage
 import com.zhihuiji.core.model.*
 import com.zhihuiji.data.agent.AgentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,7 +19,7 @@ data class AgentUiState(
     val tasks: List<AgentTaskSummaryDto> = emptyList(),
     val notifications: List<AgentNotificationDto> = emptyList(),
     val query: String = "",
-    val error: String? = null,
+    val error: UiMessage? = null,
 )
 
 @HiltViewModel
@@ -33,7 +34,9 @@ class AgentViewModel @Inject constructor(
     fun loadWorkbench() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            agentRepository.getWorkbench().onSuccess { _uiState.value = _uiState.value.copy(workbench = it) }
+            agentRepository.getWorkbench()
+                .onSuccess { _uiState.value = _uiState.value.copy(workbench = it) }
+                .onFailure { _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it)) }
             _uiState.value = _uiState.value.copy(isLoading = false)
         }
     }
@@ -41,16 +44,25 @@ class AgentViewModel @Inject constructor(
     fun ask(question: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(query = question, isLoading = true)
-            agentRepository.query(question).onSuccess { _uiState.value = _uiState.value.copy(answer = it, isLoading = false) }
-                .onFailure { _uiState.value = _uiState.value.copy(error = it.message, isLoading = false) }
+            agentRepository.query(question)
+                .onSuccess { _uiState.value = _uiState.value.copy(answer = it, isLoading = false) }
+                .onFailure { _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it), isLoading = false) }
         }
     }
 
     fun loadTasks() {
-        viewModelScope.launch { agentRepository.listTasks().onSuccess { _uiState.value = _uiState.value.copy(tasks = it) } }
+        viewModelScope.launch {
+            agentRepository.listTasks()
+                .onSuccess { _uiState.value = _uiState.value.copy(tasks = it) }
+                .onFailure { _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it)) }
+        }
     }
 
     fun loadNotifications() {
-        viewModelScope.launch { agentRepository.listNotifications().onSuccess { _uiState.value = _uiState.value.copy(notifications = it) } }
+        viewModelScope.launch {
+            agentRepository.listNotifications()
+                .onSuccess { _uiState.value = _uiState.value.copy(notifications = it) }
+                .onFailure { _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it)) }
+        }
     }
 }

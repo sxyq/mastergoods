@@ -8,6 +8,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import com.zhihuiji.backend.api.common.IdGenerator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,14 +35,7 @@ public class PayOrderService {
         Long createdAfter,
         Long createdBefore
     ) {
-        String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
-        return payOrderRepository.findAll().stream()
-            .filter(item -> status == null || status.equals(item.getStatus()))
-            .filter(item -> createdAfter == null || item.getCreatedAt() >= createdAfter)
-            .filter(item -> createdBefore == null || item.getCreatedAt() <= createdBefore)
-            .filter(item -> normalizedKeyword.isBlank() || matchesKeyword(item, normalizedKeyword))
-            .sorted(Comparator.comparingLong(PayOrderEntity::getCreatedAt).reversed())
-            .toList();
+        return payOrderRepository.search(keyword, status, createdAfter, createdBefore);
     }
 
     public PayOrderEntity getById(Long id) {
@@ -53,7 +47,7 @@ public class PayOrderService {
         validateCreateCommand(command);
         long now = System.currentTimeMillis();
         PayOrderEntity entity = new PayOrderEntity();
-        entity.setId(nextId());
+        entity.setId(IdGenerator.nextId());
         entity.setOrderNo(generateOrderNo(now));
         entity.setSupplierId(command.supplierId());
         entity.setSupplierName(resolveSupplierName(command.supplierId(), command.supplierName()));
@@ -152,13 +146,7 @@ public class PayOrderService {
     }
 
     private String generateOrderNo(long timestamp) {
-        String millis = String.valueOf(timestamp);
-        String suffix = UUID.randomUUID().toString().substring(0, 4).toUpperCase(Locale.ROOT);
-        return "POUT" + millis + suffix;
-    }
-
-    private long nextId() {
-        return UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE;
+        return "POUT" + UUID.randomUUID().toString().replace("-", "").toUpperCase(Locale.ROOT);
     }
 
     private String normalizeNullableText(String raw) {

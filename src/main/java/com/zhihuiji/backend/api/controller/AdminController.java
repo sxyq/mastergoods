@@ -4,6 +4,7 @@ import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.application.service.AdminService;
 import com.zhihuiji.backend.application.service.DemoDataService;
 import java.util.List;
+import jakarta.validation.Valid;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,14 +38,14 @@ public class AdminController {
     }
 
     @PostMapping("/users")
-    public ApiResponse<AdminService.UserItem> createUser(@RequestBody AdminService.CreateUserRequest request) {
+    public ApiResponse<AdminService.UserItem> createUser(@Valid @RequestBody AdminService.CreateUserRequest request) {
         return ApiResponse.success(adminService.createUser(request));
     }
 
     @PutMapping("/users/{userId}")
     public ApiResponse<AdminService.UserItem> updateUser(
         @PathVariable Long userId,
-        @RequestBody AdminService.UpdateUserRequest request
+        @Valid @RequestBody AdminService.UpdateUserRequest request
     ) {
         return ApiResponse.success(adminService.updateUser(userId, request));
     }

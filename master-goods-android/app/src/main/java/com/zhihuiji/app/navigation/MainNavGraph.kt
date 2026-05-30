@@ -7,19 +7,8 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.zhihuiji.feature.customers.CustomerDetailScreen
-import com.zhihuiji.feature.customers.CustomerEditorScreen
 import com.zhihuiji.feature.dashboard.DashboardScreen
-import com.zhihuiji.feature.payments.PayOrderDetailScreen
-import com.zhihuiji.feature.payments.PayOrderEditorScreen
-import com.zhihuiji.feature.products.ProductEditorScreen
-import com.zhihuiji.feature.purchases.PurchaseOrderDetailScreen
-import com.zhihuiji.feature.purchases.PurchaseOrderEditorScreen
 import com.zhihuiji.feature.reports.ReportScreen
-import com.zhihuiji.feature.sales.SaleOrderDetailScreen
-import com.zhihuiji.feature.sales.SaleOrderEditorScreen
-import com.zhihuiji.feature.suppliers.SupplierDetailScreen
-import com.zhihuiji.feature.suppliers.SupplierEditorScreen
 import com.zhihuiji.feature.agent.AgentWorkbenchScreen
 
 object SubRoutes {
@@ -36,11 +25,14 @@ object SubRoutes {
     const val PAY_ORDER_DETAIL = "pay_order_detail"
 }
 
+internal fun toNullableId(rawId: Long): Long? = if (rawId > 0) rawId else null
+
 @Composable
 fun MainNavGraph(
     navController: NavHostController,
     modifier: Modifier = Modifier,
     onNavigateToSettings: () -> Unit,
+    reselectSignal: (String) -> Int = { 0 },
 ) {
     fun navigateBack() { navController.popBackStack() }
 
@@ -53,6 +45,7 @@ fun MainNavGraph(
             DashboardScreen(
                 onNavigateToSettings = onNavigateToSettings,
                 showTopBar = false,
+                reselectSignal = reselectSignal(TopLevelRoutes.HOME),
                 onNavigateToSales = {
                     navController.navigate("${TopLevelRoutes.DOCUMENTS}?initialTab=0") { launchSingleTop = true }
                 },
@@ -74,6 +67,7 @@ fun MainNavGraph(
             val initialTab = backStackEntry.arguments?.getInt("initialTab") ?: 0
             DocumentsScreen(
                 initialTab = initialTab,
+                reselectSignal = reselectSignal(TopLevelRoutes.DOCUMENTS),
                 onNavigateToSaleOrderEditor = {
                     navController.navigate(SubRoutes.SALE_ORDER_EDITOR) { launchSingleTop = true }
                 },
@@ -101,6 +95,7 @@ fun MainNavGraph(
             val initialTab = backStackEntry.arguments?.getInt("initialTab") ?: 0
             ArchivesScreen(
                 initialTab = initialTab,
+                reselectSignal = reselectSignal(TopLevelRoutes.ARCHIVES),
                 onNavigateToProductEditor = { productId ->
                     val route = if (productId != null) "${SubRoutes.PRODUCT_EDITOR}?productId=$productId" else SubRoutes.PRODUCT_EDITOR
                     navController.navigate(route) { launchSingleTop = true }
@@ -122,115 +117,27 @@ fun MainNavGraph(
             )
         }
         composable(TopLevelRoutes.REPORTS) {
-            ReportScreen(onNavigateBack = {}, showTopBar = false)
+            ReportScreen(onNavigateBack = {}, showTopBar = false, reselectSignal = reselectSignal(TopLevelRoutes.REPORTS))
         }
         composable(TopLevelRoutes.AGENT) {
-            AgentWorkbenchScreen(onNavigateBack = {}, showTopBar = false)
+            AgentWorkbenchScreen(onNavigateBack = {}, showTopBar = false, reselectSignal = reselectSignal(TopLevelRoutes.AGENT))
         }
 
-        composable(
-            route = "${SubRoutes.PRODUCT_EDITOR}?productId={productId}",
-            arguments = listOf(navArgument("productId") { type = NavType.LongType; defaultValue = 0L }),
-        ) { backStackEntry ->
-            val rawId = backStackEntry.arguments?.getLong("productId") ?: 0L
-            val productId = if (rawId > 0) rawId else null
-            ProductEditorScreen(
-                productId = productId,
-                onNavigateBack = { navigateBack() },
-            )
-        }
-        composable(
-            route = "${SubRoutes.CUSTOMER_EDITOR}?customerId={customerId}",
-            arguments = listOf(navArgument("customerId") { type = NavType.LongType; defaultValue = 0L }),
-        ) { backStackEntry ->
-            val rawId = backStackEntry.arguments?.getLong("customerId") ?: 0L
-            val customerId = if (rawId > 0) rawId else null
-            CustomerEditorScreen(
-                customerId = customerId,
-                onNavigateBack = { navigateBack() },
-            )
-        }
-        composable(
-            route = "${SubRoutes.CUSTOMER_DETAIL}/{customerId}",
-            arguments = listOf(navArgument("customerId") { type = NavType.LongType }),
-        ) { backStackEntry ->
-            val customerId = backStackEntry.arguments?.getLong("customerId") ?: return@composable
-            CustomerDetailScreen(
-                customerId = customerId,
-                onNavigateBack = { navigateBack() },
-                onNavigateToEditor = { id ->
-                    navController.navigate("${SubRoutes.CUSTOMER_EDITOR}?customerId=$id") { launchSingleTop = true }
-                },
-            )
-        }
-        composable(
-            route = "${SubRoutes.SUPPLIER_EDITOR}?supplierId={supplierId}",
-            arguments = listOf(navArgument("supplierId") { type = NavType.LongType; defaultValue = 0L }),
-        ) { backStackEntry ->
-            val rawId = backStackEntry.arguments?.getLong("supplierId") ?: 0L
-            val supplierId = if (rawId > 0) rawId else null
-            SupplierEditorScreen(
-                supplierId = supplierId,
-                onNavigateBack = { navigateBack() },
-            )
-        }
-        composable(
-            route = "${SubRoutes.SUPPLIER_DETAIL}/{supplierId}",
-            arguments = listOf(navArgument("supplierId") { type = NavType.LongType }),
-        ) { backStackEntry ->
-            val supplierId = backStackEntry.arguments?.getLong("supplierId") ?: return@composable
-            SupplierDetailScreen(
-                supplierId = supplierId,
-                onNavigateBack = { navigateBack() },
-                onNavigateToEditor = { id ->
-                    navController.navigate("${SubRoutes.SUPPLIER_EDITOR}?supplierId=$id") { launchSingleTop = true }
-                },
-            )
-        }
-        composable(SubRoutes.SALE_ORDER_EDITOR) {
-            SaleOrderEditorScreen(
-                onNavigateBack = { navigateBack() },
-            )
-        }
-        composable(
-            route = "${SubRoutes.SALE_ORDER_DETAIL}/{orderId}",
-            arguments = listOf(navArgument("orderId") { type = NavType.LongType }),
-        ) { backStackEntry ->
-            val orderId = backStackEntry.arguments?.getLong("orderId") ?: return@composable
-            SaleOrderDetailScreen(
-                orderId = orderId,
-                onNavigateBack = { navigateBack() },
-            )
-        }
-        composable(SubRoutes.PURCHASE_ORDER_EDITOR) {
-            PurchaseOrderEditorScreen(
-                onNavigateBack = { navigateBack() },
-            )
-        }
-        composable(
-            route = "${SubRoutes.PURCHASE_ORDER_DETAIL}/{orderId}",
-            arguments = listOf(navArgument("orderId") { type = NavType.LongType }),
-        ) { backStackEntry ->
-            val orderId = backStackEntry.arguments?.getLong("orderId") ?: return@composable
-            PurchaseOrderDetailScreen(
-                orderId = orderId,
-                onNavigateBack = { navigateBack() },
-            )
-        }
-        composable(SubRoutes.PAY_ORDER_EDITOR) {
-            PayOrderEditorScreen(
-                onNavigateBack = { navigateBack() },
-            )
-        }
-        composable(
-            route = "${SubRoutes.PAY_ORDER_DETAIL}/{orderId}",
-            arguments = listOf(navArgument("orderId") { type = NavType.LongType }),
-        ) { backStackEntry ->
-            val orderId = backStackEntry.arguments?.getLong("orderId") ?: return@composable
-            PayOrderDetailScreen(
-                orderId = orderId,
-                onNavigateBack = { navigateBack() },
-            )
-        }
+        productEditorRoute(::navigateBack)
+        customerRoutes(
+            navigateBack = ::navigateBack,
+            navigateToEditor = { id ->
+                navController.navigate("${SubRoutes.CUSTOMER_EDITOR}?customerId=$id") { launchSingleTop = true }
+            },
+        )
+        supplierRoutes(
+            navigateBack = ::navigateBack,
+            navigateToEditor = { id ->
+                navController.navigate("${SubRoutes.SUPPLIER_EDITOR}?supplierId=$id") { launchSingleTop = true }
+            },
+        )
+        saleOrderRoutes(::navigateBack)
+        purchaseOrderRoutes(::navigateBack)
+        payOrderRoutes(::navigateBack)
     }
 }

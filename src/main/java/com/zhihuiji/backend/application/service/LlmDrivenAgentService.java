@@ -19,11 +19,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 @Service
 public class LlmDrivenAgentService {
+    private static final Logger log = LoggerFactory.getLogger(LlmDrivenAgentService.class);
     private static final long DAY_MS = 24L * 60L * 60L * 1000L;
 
     private final AgentService agentService;
@@ -96,39 +99,9 @@ public class LlmDrivenAgentService {
             fallback.reconciliation(),
             reportInsight,
             fallback.alerts(),
-            productRepository.findAll().stream()
-                .sorted(Comparator.comparing(ProductEntity::getName))
-                .limit(20)
-                .map(product -> new ProductOption(
-                    product.getId(),
-                    product.getCode(),
-                    product.getName(),
-                    safeDouble(product.getPurchasePrice()),
-                    safeDouble(product.getSalePrice()),
-                    safeDouble(product.getStock()),
-                    safeDouble(product.getSafeStock())
-                ))
-                .toList(),
-            customerRepository.findAll().stream()
-                .sorted(Comparator.comparing(CustomerEntity::getName))
-                .limit(20)
-                .map(customer -> new PartyOption(
-                    customer.getId(),
-                    customer.getName(),
-                    customer.getPhone(),
-                    safeDouble(customer.getBalance())
-                ))
-                .toList(),
-            supplierRepository.findAll().stream()
-                .sorted(Comparator.comparing(SupplierEntity::getName))
-                .limit(20)
-                .map(supplier -> new PartyOption(
-                    supplier.getId(),
-                    supplier.getName(),
-                    supplier.getPhone(),
-                    safeDouble(supplier.getBalance())
-                ))
-                .toList()
+            loadProducts(20),
+            loadCustomers(20),
+            loadSuppliers(20)
         )));
 
         AgentDto.AgentWorkbenchDto workbench = agentLlmService.requestStructuredJson(workbenchSystemPrompt(), prompt)
@@ -232,39 +205,9 @@ public class LlmDrivenAgentService {
 
         OperationDraftContext context = new OperationDraftContext(
             instruction,
-            productRepository.findAll().stream()
-                .sorted(Comparator.comparing(ProductEntity::getName))
-                .limit(80)
-                .map(product -> new ProductOption(
-                    product.getId(),
-                    product.getCode(),
-                    product.getName(),
-                    safeDouble(product.getPurchasePrice()),
-                    safeDouble(product.getSalePrice()),
-                    safeDouble(product.getStock()),
-                    safeDouble(product.getSafeStock())
-                ))
-                .toList(),
-            customerRepository.findAll().stream()
-                .sorted(Comparator.comparing(CustomerEntity::getName))
-                .limit(80)
-                .map(customer -> new PartyOption(
-                    customer.getId(),
-                    customer.getName(),
-                    customer.getPhone(),
-                    safeDouble(customer.getBalance())
-                ))
-                .toList(),
-            supplierRepository.findAll().stream()
-                .sorted(Comparator.comparing(SupplierEntity::getName))
-                .limit(80)
-                .map(supplier -> new PartyOption(
-                    supplier.getId(),
-                    supplier.getName(),
-                    supplier.getPhone(),
-                    safeDouble(supplier.getBalance())
-                ))
-                .toList()
+            loadProducts(80),
+            loadCustomers(80),
+            loadSuppliers(80)
         );
         AgentDto.OperationDraftDto fallback = fallbackDraft(instruction);
         String prompt = """
@@ -293,8 +236,8 @@ public class LlmDrivenAgentService {
             .orElse(fallback);
     }
 
-    public AgentDto.OperationSubmitResultDto submitDraft(AgentDto.OperationDraftDto draft) {
-        return agentService.submitDraft(draft);
+    public AgentDto.OperationSubmitResultDto submitDraft(AgentDto.OperationDraftDto draft, String idempotencyKey) {
+        return agentService.submitDraft(draft, idempotencyKey);
     }
 
     private AgentDto.AgentAnswerDto toAnswerDto(JsonNode node, String query, AgentDto.AgentAnswerDto fallback) {
@@ -398,6 +341,48 @@ public class LlmDrivenAgentService {
         };
     }
 
+    private List<ProductOption> loadProducts(int limit) {
+        return productRepository.findAll().stream()
+            .sorted(Comparator.comparing(ProductEntity::getName))
+            .limit(limit)
+            .map(product -> new ProductOption(
+                product.getId(),
+                product.getCode(),
+                product.getName(),
+                safeDouble(product.getPurchasePrice()),
+                safeDouble(product.getSalePrice()),
+                safeDouble(product.getStock()),
+                safeDouble(product.getSafeStock())
+            ))
+            .toList();
+    }
+
+    private List<PartyOption> loadCustomers(int limit) {
+        return customerRepository.findAll().stream()
+            .sorted(Comparator.comparing(CustomerEntity::getName))
+            .limit(limit)
+            .map(customer -> new PartyOption(
+                customer.getId(),
+                customer.getName(),
+                customer.getPhone(),
+                safeDouble(customer.getBalance())
+            ))
+            .toList();
+    }
+
+    private List<PartyOption> loadSuppliers(int limit) {
+        return supplierRepository.findAll().stream()
+            .sorted(Comparator.comparing(SupplierEntity::getName))
+            .limit(limit)
+            .map(supplier -> new PartyOption(
+                supplier.getId(),
+                supplier.getName(),
+                supplier.getPhone(),
+                safeDouble(supplier.getBalance())
+            ))
+            .toList();
+    }
+
     private ProductEntity resolveProduct(JsonNode itemsNode) {
         JsonNode itemNode = firstItem(itemsNode);
         Long productId = readLong(itemNode, "productId");
@@ -406,6 +391,7 @@ public class LlmDrivenAgentService {
             if (byId.isPresent()) {
                 return byId.get();
             }
+            log.warn("LLM returned productId={} not found in database, falling back to name matching", productId);
         }
         String productCode = readText(itemNode, "productCode", "");
         if (StringUtils.hasText(productCode)) {
@@ -434,6 +420,7 @@ public class LlmDrivenAgentService {
             if (customer.isPresent()) {
                 return new PartyResolution(customer.get().getId(), customer.get().getName());
             }
+            log.warn("LLM returned customerId={} not found in database, falling back to name matching", partnerId);
         }
         String partnerName = readText(node, "partnerName", "");
         if (!StringUtils.hasText(partnerName)) {
@@ -453,6 +440,7 @@ public class LlmDrivenAgentService {
             if (supplier.isPresent()) {
                 return new PartyResolution(supplier.get().getId(), supplier.get().getName());
             }
+            log.warn("LLM returned supplierId={} not found in database, falling back to name matching", partnerId);
         }
         String partnerName = readText(node, "partnerName", "");
         if (!StringUtils.hasText(partnerName)) {

@@ -9,6 +9,14 @@ interface SaleOrderDao {
     @Query("SELECT * FROM sale_orders ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<SaleOrderEntity>>
 
+    @Query("""
+        SELECT * FROM sale_orders
+        WHERE (:keyword IS NULL OR orderNo LIKE '%' || :keyword || '%' OR customerName LIKE '%' || :keyword || '%')
+          AND (:status IS NULL OR status = :status)
+        ORDER BY updatedAt DESC
+    """)
+    fun search(keyword: String?, status: Int?): Flow<List<SaleOrderEntity>>
+
     @Query("SELECT * FROM sale_orders WHERE id = :id")
     suspend fun findById(id: Long): SaleOrderEntity?
 

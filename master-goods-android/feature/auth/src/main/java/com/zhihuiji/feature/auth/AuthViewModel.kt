@@ -10,6 +10,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -29,9 +31,11 @@ class AuthViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
+    private val isLoggedInState = sessionStore.isLoggedIn.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     init {
         viewModelScope.launch {
-            sessionStore.isLoggedIn.collect { logged ->
+            isLoggedInState.collect { logged ->
                 _uiState.value = _uiState.value.copy(isSessionReady = true, isLoggedIn = logged)
             }
         }
@@ -76,6 +80,9 @@ class AuthViewModel @Inject constructor(
     fun restoreSession() {
         viewModelScope.launch {
             val restored = authRepository.restoreSessionIfNeeded()
+            if (!restored) {
+                authRepository.clearSession()
+            }
             _uiState.value = _uiState.value.copy(isLoggedIn = restored)
         }
     }

@@ -8,6 +8,8 @@ import com.zhihuiji.core.model.PaymentRequest
 import com.zhihuiji.core.model.SaleOrderDto
 import com.zhihuiji.data.order.SaleOrderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,12 +35,16 @@ class SaleOrderDetailViewModel @Inject constructor(
     fun loadDetail(id: Long) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            saleOrderRepository.getSaleOrder(id).onSuccess { order ->
+            val orderDeferred = async { saleOrderRepository.getSaleOrder(id) }
+            val paymentsDeferred = async { saleOrderRepository.listSalePayments(id) }
+            val orderResult = orderDeferred.await()
+            val paymentsResult = paymentsDeferred.await()
+            orderResult.onSuccess { order ->
                 _uiState.value = _uiState.value.copy(order = order, isLoading = false)
             }.onFailure {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = UiMessage.fromThrowable(it))
             }
-            saleOrderRepository.listSalePayments(id).onSuccess { payments ->
+            paymentsResult.onSuccess { payments ->
                 _uiState.value = _uiState.value.copy(payments = payments)
             }
         }

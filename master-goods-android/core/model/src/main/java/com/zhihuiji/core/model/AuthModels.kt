@@ -22,9 +22,16 @@ data class RefreshRequest(
 )
 
 @Serializable
+enum class VerificationType(@SerialName("type") val value: String) {
+    @SerialName("register") REGISTER("register"),
+    @SerialName("login") LOGIN("login"),
+    @SerialName("reset_password") RESET_PASSWORD("reset_password"),
+}
+
+@Serializable
 data class VerifyCodeRequest(
     val phone: String,
-    val type: String,
+    val type: VerificationType,
 )
 
 @Serializable

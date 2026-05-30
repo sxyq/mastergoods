@@ -77,17 +77,12 @@ public class AdminService {
             saleOrderRepository.count(),
             purchaseOrderRepository.count(),
             agentTaskRepository.count(),
-            agentNotificationRepository.findTop30ByIsReadFalseOrderByCreatedAtDesc().size()
+            agentNotificationRepository.countByIsReadFalse()
         );
     }
 
     public List<UserItem> listUsers(String keyword) {
-        String normalized = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
-        return userRepository.findAll().stream()
-            .filter(user -> normalized.isBlank()
-                || user.getPhone().toLowerCase(Locale.ROOT).contains(normalized)
-                || user.getNickname().toLowerCase(Locale.ROOT).contains(normalized))
-            .sorted(Comparator.comparingLong(UserEntity::getCreatedAt).reversed())
+        return userRepository.searchByKeyword(keyword).stream()
             .map(this::toUserItem)
             .toList();
     }

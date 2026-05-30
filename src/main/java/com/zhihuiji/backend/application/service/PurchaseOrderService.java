@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import com.zhihuiji.backend.api.common.IdGenerator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,8 +39,8 @@ public class PurchaseOrderService {
             throw new IllegalArgumentException("采购明细不能为空");
         }
         long now = System.currentTimeMillis();
-        long orderId = nextId();
-        String orderNo = "PO" + now + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        long orderId = IdGenerator.nextId();
+        String orderNo = "PO" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
         double total = 0.0;
         int orderStatus = command.status() != null && command.status() == STATUS_DRAFT
             ? STATUS_DRAFT
@@ -65,7 +66,7 @@ public class PurchaseOrderService {
             }
 
             PurchaseOrderItemEntity entity = new PurchaseOrderItemEntity();
-            entity.setId(nextId());
+            entity.setId(IdGenerator.nextId());
             entity.setOrderId(orderId);
             entity.setProductId(product.getId());
             entity.setProductCode(product.getCode());
@@ -98,13 +99,7 @@ public class PurchaseOrderService {
     }
 
     public List<PurchaseOrderEntity> list(String keyword, Integer status) {
-        return purchaseOrderRepository.findAll().stream()
-            .filter(order -> status == null || order.getStatus().equals(status))
-            .filter(order -> keyword == null || keyword.isBlank()
-                || order.getOrderNo().toLowerCase().contains(keyword.toLowerCase())
-                || order.getSupplierName().toLowerCase().contains(keyword.toLowerCase()))
-            .sorted(Comparator.comparingLong(PurchaseOrderEntity::getCreatedAt).reversed())
-            .toList();
+        return purchaseOrderRepository.search(keyword, status);
     }
 
     public PurchaseDetail get(Long orderId) {
@@ -127,11 +122,6 @@ public class PurchaseOrderService {
                 .orElseThrow(() -> new IllegalArgumentException("商品不存在: " + item.productCode()));
         }
         throw new IllegalArgumentException("采购明细缺少商品标识");
-    }
-
-    private long nextId() {
-        long id = UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE;
-        return id == 0L ? (System.nanoTime() & Long.MAX_VALUE) : id;
     }
 
     public record PurchaseItemDraft(

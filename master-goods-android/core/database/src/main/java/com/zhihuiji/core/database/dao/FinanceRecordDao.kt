@@ -9,6 +9,14 @@ interface FinanceRecordDao {
     @Query("SELECT * FROM finance_records ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<FinanceRecordEntity>>
 
+    @Query("""
+        SELECT * FROM finance_records
+        WHERE (:type IS NULL OR type = :type)
+          AND (:keyword IS NULL OR category LIKE '%' || :keyword || '%' OR partnerName LIKE '%' || :keyword || '%')
+        ORDER BY updatedAt DESC
+    """)
+    fun search(type: Int?, keyword: String?): Flow<List<FinanceRecordEntity>>
+
     @Query("SELECT * FROM finance_records WHERE id = :id")
     suspend fun findById(id: Long): FinanceRecordEntity?
 

@@ -7,6 +7,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.zhihuiji.core.designsystem.*
 
@@ -27,6 +30,8 @@ fun RegisterScreen(
     var phone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var inviteCode by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    val phoneValid = phone.matches(Regex("^1\\d{10}$"))
 
     LaunchedEffect(uiState.isLoggedIn) {
         if (uiState.isLoggedIn) onRegisterSuccess()
@@ -49,11 +54,18 @@ fun RegisterScreen(
                         label = { Text("手机号") }, leadingIcon = { Icon(Icons.Default.Phone, null) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), singleLine = true,
+                        isError = phone.isNotBlank() && !phoneValid,
+                        supportingText = if (phone.isNotBlank() && !phoneValid) {{ Text("请输入11位手机号") }} else null,
                     )
                     OutlinedTextField(
                         value = password, onValueChange = { password = it },
                         label = { Text("密码") }, leadingIcon = { Icon(Icons.Default.Lock, null) },
-                        visualTransformation = PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, null)
+                            }
+                        },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), singleLine = true,
                     )
                     OutlinedTextField(
@@ -63,7 +75,7 @@ fun RegisterScreen(
                     )
                     PrimaryGradientButton(
                         text = "注册", onClick = { viewModel.register(phone, password, inviteCode) },
-                        enabled = phone.isNotBlank() && password.isNotBlank() && inviteCode.isNotBlank() && !uiState.isLoading,
+                        enabled = phoneValid && password.isNotBlank() && inviteCode.isNotBlank() && !uiState.isLoading,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     if (uiState.error != null) {

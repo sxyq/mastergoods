@@ -9,9 +9,12 @@ import com.zhihuiji.core.model.UserProfile
 import com.zhihuiji.data.auth.AuthRepository
 import com.zhihuiji.data.sync.SyncRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -36,18 +39,25 @@ class SettingsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            settingsStore.baseUrl.collect { _uiState.value = _uiState.value.copy(baseUrl = it) }
-        }
-        viewModelScope.launch {
-            settingsStore.clientId.collect { _uiState.value = _uiState.value.copy(clientId = it) }
+            settingsStore.baseUrl.combine(settingsStore.clientId) { url, id ->
+                _uiState.value.copy(baseUrl = url, clientId = id)
+            }.collect { _uiState.value = it }
         }
         loadSettings()
     }
 
     fun loadSettings() {
         viewModelScope.launch {
-            authRepository.fetchCurrentUser().onSuccess { _uiState.value = _uiState.value.copy(userProfile = it) }
-            syncRepository.healthCheck().onSuccess { _uiState.value = _uiState.value.copy(syncHealth = it) }
+            try {
+                coroutineScope {
+                    val userDeferred = async { authRepository.fetchCurrentUser() }
+                    val healthDeferred = async { syncRepository.healthCheck() }
+                    userDeferred.await().onSuccess { _uiState.value = _uiState.value.copy(userProfile = it) }
+                        .onFailure { _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it)) }
+                    healthDeferred.await().onSuccess { _uiState.value = _uiState.value.copy(syncHealth = it) }
+                        .onFailure { _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it)) }
+                }
+            } catch (_: Exception) {}
         }
     }
 

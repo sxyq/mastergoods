@@ -14,13 +14,13 @@ interface ZhihuijiApi {
     suspend fun refresh(@Body body: RefreshRequest): ApiResponse<AuthResult>
 
     @POST("auth/logout")
-    suspend fun logout(@Header("Authorization") authorization: String?): ApiResponse<Unit>
+    suspend fun logout(): ApiResponse<Unit>
 
     @POST("auth/verify-code")
     suspend fun verifyCode(@Body body: VerifyCodeRequest): ApiResponse<VerifyCodeResponse>
 
     @GET("auth/users/me")
-    suspend fun me(@Header("Authorization") authorization: String): ApiResponse<UserProfile>
+    suspend fun me(): ApiResponse<UserProfile>
 
     @GET("products")
     suspend fun products(@Query("keyword") keyword: String? = null): ApiResponse<List<ProductDto>>
@@ -32,10 +32,10 @@ interface ZhihuijiApi {
     suspend fun productByCode(@Query("code") code: String): ApiResponse<ProductDto?>
 
     @POST("products")
-    suspend fun createProduct(@Body body: ProductDto): ApiResponse<ProductDto>
+    suspend fun createProduct(@Body body: CreateProductRequest): ApiResponse<ProductDto>
 
     @PUT("products/{id}")
-    suspend fun updateProduct(@Path("id") id: Long, @Body body: ProductDto): ApiResponse<ProductDto>
+    suspend fun updateProduct(@Path("id") id: Long, @Body body: UpdateProductRequest): ApiResponse<ProductDto>
 
     @POST("products/{id}/adjust-stock")
     suspend fun adjustStock(@Path("id") id: Long, @Body body: ProductAdjustStockRequest): ApiResponse<ProductDto>
@@ -50,10 +50,10 @@ interface ZhihuijiApi {
     suspend fun customer(@Path("id") id: Long): ApiResponse<CustomerDto>
 
     @POST("customers")
-    suspend fun createCustomer(@Body body: CustomerDto): ApiResponse<CustomerDto>
+    suspend fun createCustomer(@Body body: CreateCustomerRequest): ApiResponse<CustomerDto>
 
     @PUT("customers/{id}")
-    suspend fun updateCustomer(@Path("id") id: Long, @Body body: CustomerDto): ApiResponse<CustomerDto>
+    suspend fun updateCustomer(@Path("id") id: Long, @Body body: UpdateCustomerRequest): ApiResponse<CustomerDto>
 
     @DELETE("customers/{id}")
     suspend fun deleteCustomer(@Path("id") id: Long): ApiResponse<Unit>
@@ -68,25 +68,16 @@ interface ZhihuijiApi {
     suspend fun supplier(@Path("id") id: Long): ApiResponse<SupplierDto>
 
     @POST("suppliers")
-    suspend fun createSupplier(@Body body: SupplierDto): ApiResponse<SupplierDto>
+    suspend fun createSupplier(@Body body: CreateSupplierRequest): ApiResponse<SupplierDto>
 
     @PUT("suppliers/{id}")
-    suspend fun updateSupplier(@Path("id") id: Long, @Body body: SupplierDto): ApiResponse<SupplierDto>
+    suspend fun updateSupplier(@Path("id") id: Long, @Body body: UpdateSupplierRequest): ApiResponse<SupplierDto>
 
     @DELETE("suppliers/{id}")
     suspend fun deleteSupplier(@Path("id") id: Long): ApiResponse<Unit>
 
     @GET("sale-orders")
-    suspend fun saleOrders(
-        @Query("keyword") keyword: String? = null,
-        @Query("status") status: Int? = null,
-        @Query("min_total_amount") minTotalAmount: String? = null,
-        @Query("max_total_amount") maxTotalAmount: String? = null,
-        @Query("created_after") createdAfter: String? = null,
-        @Query("created_before") createdBefore: String? = null,
-        @Query("product_keyword") productKeyword: String? = null,
-        @Query("payment_status") paymentStatus: String? = null,
-    ): ApiResponse<List<SaleOrderDto>>
+    suspend fun saleOrders(@QueryMap filter: Map<String, @JvmSuppressWildcards String?>): ApiResponse<List<SaleOrderDto>>
 
     @GET("sale-orders/{id}")
     suspend fun saleOrder(@Path("id") id: Long): ApiResponse<SaleOrderDto>

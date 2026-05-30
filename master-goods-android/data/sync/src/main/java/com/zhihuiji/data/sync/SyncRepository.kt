@@ -1,5 +1,6 @@
 package com.zhihuiji.data.sync
 
+import android.util.Log
 import com.zhihuiji.core.database.dao.CustomerDao
 import com.zhihuiji.core.database.dao.PayOrderDao
 import com.zhihuiji.core.database.dao.ProductDao
@@ -19,6 +20,7 @@ import com.zhihuiji.core.datastore.SyncPreferenceStore
 import com.zhihuiji.core.model.PullRequest
 import com.zhihuiji.core.model.PullResult
 import com.zhihuiji.core.model.SyncChangeDto
+import com.zhihuiji.core.model.SyncOperation
 import com.zhihuiji.core.model.SyncHealthResult
 import com.zhihuiji.core.model.UploadRequest
 import com.zhihuiji.core.model.UploadResult
@@ -51,6 +53,7 @@ class SyncRepository @Inject constructor(
     companion object {
         private const val GLOBAL_CURSOR_KEY = "server_pull"
         private const val DEFAULT_PULL_LIMIT = 200
+        private const val MAX_RETRY_PAGES = 3
     }
 
     suspend fun healthCheck(): Result<SyncHealthResult> = safeApiCall { api.syncHealth() }
@@ -58,14 +61,25 @@ class SyncRepository @Inject constructor(
     suspend fun pull(): Result<PullResult> {
         var sinceCursor = loadCursor().takeIf { it.isNotBlank() }
         var lastPage = PullResult()
+        var failedPages = 0
 
         while (true) {
             val pageResult = safeApiCall {
                 api.pull(PullRequest(sinceCursor = sinceCursor, limit = DEFAULT_PULL_LIMIT))
             }
-            val page = pageResult.getOrElse { return Result.failure(it) }
 
-            applyPulledChanges(page)
+            val page = if (pageResult.isSuccess) {
+                pageResult.getOrThrow()
+            } else {
+                failedPages++
+                val e = pageResult.exceptionOrNull()!!
+                if (failedPages >= MAX_RETRY_PAGES) return Result.failure(e)
+                Log.w("SyncRepository", "Pull page failed (attempt $failedPages), retrying", e)
+                continue
+            }
+
+            runCatching { applyPulledChanges(page) }
+                .onFailure { Log.e("SyncRepository", "Failed to apply pulled changes for cursor: $sinceCursor", it) }
             persistCursor(page.nextCursor)
 
             lastPage = page
@@ -100,6 +114,7 @@ class SyncRepository @Inject constructor(
                 "sale_order" -> applySaleOrderChange(change)
                 "purchase_order" -> applyPurchaseOrderChange(change)
                 "pay_order" -> applyPayOrderChange(change)
+                else -> Log.w("SyncRepository", "Unknown entityType: ${change.entityType}, skipping change for entityId: ${change.entityId}")
             }
         }
     }
@@ -129,7 +144,7 @@ class SyncRepository @Inject constructor(
 
     private suspend fun applyCustomerChange(change: SyncChangeDto) {
         val id = change.entityId.toLongOrNull() ?: return
-        if (change.operation == "delete") {
+        if (change.operation == SyncOperation.DELETE) {
             customerDao.deleteById(id)
             return
         }
@@ -154,7 +169,7 @@ class SyncRepository @Inject constructor(
 
     private suspend fun applySupplierChange(change: SyncChangeDto) {
         val id = change.entityId.toLongOrNull() ?: return
-        if (change.operation == "delete") {
+        if (change.operation == SyncOperation.DELETE) {
             supplierDao.deleteById(id)
             return
         }
@@ -178,7 +193,7 @@ class SyncRepository @Inject constructor(
 
     private suspend fun applyProductChange(change: SyncChangeDto) {
         val id = change.entityId.toLongOrNull() ?: return
-        if (change.operation == "delete") {
+        if (change.operation == SyncOperation.DELETE) {
             productDao.deleteById(id)
             return
         }
@@ -205,7 +220,7 @@ class SyncRepository @Inject constructor(
 
     private suspend fun applySaleOrderChange(change: SyncChangeDto) {
         val id = change.entityId.toLongOrNull() ?: return
-        if (change.operation == "delete") {
+        if (change.operation == SyncOperation.DELETE) {
             saleOrderDao.deleteById(id)
             return
         }
@@ -230,7 +245,7 @@ class SyncRepository @Inject constructor(
 
     private suspend fun applyPurchaseOrderChange(change: SyncChangeDto) {
         val id = change.entityId.toLongOrNull() ?: return
-        if (change.operation == "delete") {
+        if (change.operation == SyncOperation.DELETE) {
             purchaseOrderDao.deleteById(id)
             return
         }
@@ -251,7 +266,7 @@ class SyncRepository @Inject constructor(
 
     private suspend fun applyPayOrderChange(change: SyncChangeDto) {
         val id = change.entityId.toLongOrNull() ?: return
-        if (change.operation == "delete") {
+        if (change.operation == SyncOperation.DELETE) {
             payOrderDao.deleteById(id)
             return
         }

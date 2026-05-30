@@ -6,6 +6,7 @@ import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.dto.agent.AgentDto;
 import com.zhihuiji.backend.application.service.AgentTaskService;
 import java.util.List;
+import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,7 +27,7 @@ public class AgentTaskController {
     }
 
     @PostMapping("/tasks")
-    public ApiResponse<AgentDto.AgentTaskSummaryDto> createTask(@RequestBody CreateTaskRequest request) {
+    public ApiResponse<AgentDto.AgentTaskSummaryDto> createTask(@Valid @RequestBody CreateTaskRequest request) {
         return ApiResponse.success(agentTaskService.submitTask(request.taskType(), request.title(), request.input()));
     }
 

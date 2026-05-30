@@ -16,15 +16,10 @@ class PayOrderRepository @Inject constructor(
     private val api: ZhihuijiApi,
     private val payOrderDao: PayOrderDao,
 ) {
-    fun observePayOrders(filter: PayOrderFilter): Flow<List<PayOrderDto>> = payOrderDao.observeAll().map { rows ->
-        val kw = filter.keyword
-        var filtered = rows.map { it.toDto() }
-        if (!kw.isNullOrBlank()) filtered = filtered.filter {
-            it.orderNo.contains(kw, true) || it.supplierName.contains(kw, true)
+    fun observePayOrders(filter: PayOrderFilter): Flow<List<PayOrderDto>> =
+        payOrderDao.search(filter.keyword, filter.status).map { rows ->
+            rows.map { it.toDto() }
         }
-        if (filter.status != null) filtered = filtered.filter { it.status == filter.status }
-        filtered
-    }
 
     suspend fun refreshPayOrders(filter: PayOrderFilter) {
         val result = safeApiCall {

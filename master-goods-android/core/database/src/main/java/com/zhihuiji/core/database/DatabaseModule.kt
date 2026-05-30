@@ -17,7 +17,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): ZhihuijiDatabase {
         return Room.databaseBuilder(context, ZhihuijiDatabase::class.java, "zhihuiji.db")
-            .fallbackToDestructiveMigration()
+            .fallbackToDestructiveMigrationFrom(1)
             .build()
     }
 

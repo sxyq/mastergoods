@@ -28,6 +28,31 @@ data class ProductAdjustStockRequest(
     val operator: String? = null,
 )
 
+@Serializable
+data class CreateProductRequest(
+    val code: String = "",
+    val name: String = "",
+    val category: String = "",
+    val unit: String = "",
+    @SerialName("sale_price") val salePrice: Double = 0.0,
+    @SerialName("purchase_price") val purchasePrice: Double = 0.0,
+    val stock: Double = 0.0,
+    @SerialName("safe_stock") val safeStock: Double = 0.0,
+    val status: Int = 1,
+)
+
+@Serializable
+data class UpdateProductRequest(
+    val code: String = "",
+    val name: String = "",
+    val category: String = "",
+    val unit: String = "",
+    @SerialName("sale_price") val salePrice: Double = 0.0,
+    @SerialName("purchase_price") val purchasePrice: Double = 0.0,
+    @SerialName("safe_stock") val safeStock: Double = 0.0,
+    val status: Int = 1,
+)
+
 data class ProductDraft(
     val code: String = "",
     val name: String = "",
@@ -38,7 +63,7 @@ data class ProductDraft(
     val safeStock: Double = 0.0,
     val status: Int = 1,
 ) {
-    fun toDto() = ProductDto(
+    fun toCreateRequest() = CreateProductRequest(
         code = code,
         name = name,
         category = category,
@@ -46,6 +71,17 @@ data class ProductDraft(
         salePrice = salePrice,
         purchasePrice = purchasePrice,
         stock = 0.0,
+        safeStock = safeStock,
+        status = status,
+    )
+
+    fun toUpdateRequest() = UpdateProductRequest(
+        code = code,
+        name = name,
+        category = category,
+        unit = unit,
+        salePrice = salePrice,
+        purchasePrice = purchasePrice,
         safeStock = safeStock,
         status = status,
     )

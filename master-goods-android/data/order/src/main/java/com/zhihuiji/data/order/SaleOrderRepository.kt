@@ -1,5 +1,6 @@
 package com.zhihuiji.data.order
 
+import androidx.annotation.VisibleForTesting
 import com.zhihuiji.core.database.dao.SaleOrderDao
 import com.zhihuiji.core.database.toDto
 import com.zhihuiji.core.database.toEntity
@@ -16,29 +17,22 @@ class SaleOrderRepository @Inject constructor(
     private val api: ZhihuijiApi,
     private val saleOrderDao: SaleOrderDao,
 ) {
-    fun observeSaleOrders(filter: SaleOrderFilter): Flow<List<SaleOrderDto>> = saleOrderDao.observeAll().map { rows ->
-        val kw = filter.keyword
-        var filtered = rows.map { it.toDto() }
-        if (!kw.isNullOrBlank()) filtered = filtered.filter {
-            it.orderNo.contains(kw, true) || it.customerName?.contains(kw, true) == true
+    fun observeSaleOrders(filter: SaleOrderFilter): Flow<List<SaleOrderDto>> =
+        saleOrderDao.search(filter.keyword, filter.status).map { rows ->
+            rows.map { it.toDto() }
         }
-        if (filter.status != null) filtered = filtered.filter { it.status == filter.status }
-        filtered
-    }
 
     suspend fun refreshSaleOrders(filter: SaleOrderFilter) {
-        val result = safeApiCall {
-            api.saleOrders(
-                keyword = filter.keyword,
-                status = filter.status,
-                minTotalAmount = filter.minTotalAmount,
-                maxTotalAmount = filter.maxTotalAmount,
-                createdAfter = filter.createdAfter,
-                createdBefore = filter.createdBefore,
-                productKeyword = filter.productKeyword,
-                paymentStatus = filter.paymentStatus,
-            )
-        }
+        val params = mutableMapOf<String, String?>()
+        filter.keyword?.let { params["keyword"] = it }
+        filter.status?.let { params["status"] = it.toString() }
+        filter.minTotalAmount?.let { params["min_total_amount"] = it.toString() }
+        filter.maxTotalAmount?.let { params["max_total_amount"] = it.toString() }
+        filter.createdAfter?.let { params["created_after"] = it }
+        filter.createdBefore?.let { params["created_before"] = it }
+        filter.productKeyword?.let { params["product_keyword"] = it }
+        filter.paymentStatus?.let { params["payment_status"] = it.toString() }
+        val result = safeApiCall { api.saleOrders(params) }
         result.onSuccess { orders ->
             saleOrderDao.upsertAll(orders.map { it.toEntity() })
         }
@@ -59,13 +53,19 @@ class SaleOrderRepository @Inject constructor(
             result.onSuccess { saleOrderDao.upsert(it.toEntity()) }
         }
 
+    @VisibleForTesting
     suspend fun updateSaleDraft(id: Long, request: UpdateSaleDraftRequest): Result<SaleOrderDto> =
         safeApiCall { api.updateSaleDraft(id, request) }.also { result ->
             result.onSuccess { saleOrderDao.upsert(it.toEntity()) }
         }
 
-    suspend fun addSalePayment(id: Long, request: PaymentRequest): Result<PaymentDto> =
-        safeApiCall { api.addSalePayment(id, request) }
+    suspend fun addSalePayment(id: Long, request: PaymentRequest): Result<PaymentDto> {
+        val result = safeApiCall { api.addSalePayment(id, request) }
+        result.onSuccess {
+            safeApiCall { api.saleOrder(id) }.onSuccess { saleOrderDao.upsert(it.toEntity()) }
+        }
+        return result
+    }
 
     suspend fun listSalePayments(id: Long): Result<List<PaymentDto>> =
         safeApiCall { api.salePayments(id) }

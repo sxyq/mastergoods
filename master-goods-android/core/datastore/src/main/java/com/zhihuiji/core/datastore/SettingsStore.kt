@@ -18,13 +18,14 @@ class SettingsStore @Inject constructor(
     companion object {
         private val KEY_BASE_URL = stringPreferencesKey("base_url")
         private val KEY_CLIENT_ID = stringPreferencesKey("client_id")
-        const val DEFAULT_BASE_URL = "http://117.72.79.106/zhihuiji/v1/"
+        const val DEFAULT_BASE_URL = "https://api.zhihuiji.com/v1/"
         private const val SERVER_124_HOST = "124.222.153.108"
+        private const val DEV_FALLBACK_HOST = "117.72.79.106"
 
-        private fun normalizeBaseUrl(raw: String): String {
+        fun normalizeBaseUrl(raw: String): String {
             val trimmed = raw.trim()
             if (trimmed.isEmpty()) return DEFAULT_BASE_URL
-            if (trimmed.contains(SERVER_124_HOST)) return DEFAULT_BASE_URL
+            if (trimmed.contains(SERVER_124_HOST) || trimmed.contains(DEV_FALLBACK_HOST)) return DEFAULT_BASE_URL
             return if (trimmed.endsWith("/")) trimmed else "$trimmed/"
         }
     }

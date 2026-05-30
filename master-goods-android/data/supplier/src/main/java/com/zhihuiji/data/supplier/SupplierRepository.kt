@@ -24,14 +24,14 @@ class SupplierRepository @Inject constructor(
     suspend fun refreshSuppliers(keyword: String?, status: Int?) {
         val result = safeApiCall { api.suppliers(keyword, status) }
         result.onSuccess { suppliers ->
-            supplierDao.upsertAll(suppliers.map { it.toEntity() })
+            supplierDao.upsertAll(suppliers.mapNotNull { it.toEntity() })
         }
     }
 
     suspend fun getSupplier(id: Long): Result<SupplierDto> {
         val local = supplierDao.findById(id)?.toDto()
         val remote = safeApiCall { api.supplier(id) }
-        remote.onSuccess { supplierDao.upsert(it.toEntity()) }
+        remote.onSuccess { it.toEntity()?.let { entity -> supplierDao.upsert(entity) } }
         return remote.fold(
             onSuccess = { Result.success(it) },
             onFailure = { error -> local?.let(Result.Companion::success) ?: Result.failure(error) },
@@ -39,13 +39,13 @@ class SupplierRepository @Inject constructor(
     }
 
     suspend fun createSupplier(draft: SupplierDto): Result<SupplierDto> =
-        safeApiCall { api.createSupplier(draft) }.also { result ->
-            result.onSuccess { supplierDao.upsert(it.toEntity()) }
+        safeApiCall { api.createSupplier(CreateSupplierRequest(name = draft.name, phone = draft.phone, address = draft.address, notes = draft.notes, status = draft.status)) }.also { result ->
+            result.onSuccess { it.toEntity()?.let { entity -> supplierDao.upsert(entity) } }
         }
 
     suspend fun updateSupplier(id: Long, draft: SupplierDto): Result<SupplierDto> =
-        safeApiCall { api.updateSupplier(id, draft) }.also { result ->
-            result.onSuccess { supplierDao.upsert(it.toEntity()) }
+        safeApiCall { api.updateSupplier(id, UpdateSupplierRequest(name = draft.name, phone = draft.phone, address = draft.address, notes = draft.notes, status = draft.status)) }.also { result ->
+            result.onSuccess { it.toEntity()?.let { entity -> supplierDao.upsert(entity) } }
         }
 
     suspend fun deleteSupplier(id: Long): Result<Unit> =

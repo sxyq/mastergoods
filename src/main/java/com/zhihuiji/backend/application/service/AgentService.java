@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -35,10 +36,13 @@ import org.springframework.stereotype.Service;
 public class AgentService {
     private static final long DAY_MS = 24L * 60L * 60L * 1000L;
     private static final int DEFAULT_LIMIT = 6;
+    private static final long IDEMPOTENCY_TTL_MS = 60_000L;
     private static final Pattern QUANTITY_PATTERN = Pattern.compile("(\\d+(?:\\.\\d+)?)\\s*(?:个|件|箱|只|台|包|套|支|张)?");
     private static final Pattern PRICE_PATTERN = Pattern.compile("(?:单价|价格|每个|每件|每箱|每台|每套)\\s*(\\d+(?:\\.\\d+)?)");
     private static final Pattern SUPPLIER_PATTERN = Pattern.compile("供应商\\s*([\\p{L}\\p{N}_\\-]+)");
     private static final Pattern CUSTOMER_PATTERN = Pattern.compile("客户\\s*([\\p{L}\\p{N}_\\-]+)");
+
+    private final ConcurrentHashMap<String, CachedSubmitResult> idempotencyCache = new ConcurrentHashMap<>();
 
     private final ReportService reportService;
     private final SaleOrderService saleOrderService;
@@ -448,7 +452,22 @@ public class AgentService {
         );
     }
 
-    public AgentDto.OperationSubmitResultDto submitDraft(AgentDto.OperationDraftDto draft) {
+    public AgentDto.OperationSubmitResultDto submitDraft(AgentDto.OperationDraftDto draft, String idempotencyKey) {
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            CachedSubmitResult cached = idempotencyCache.get(idempotencyKey);
+            if (cached != null && (System.currentTimeMillis() - cached.timestamp) < IDEMPOTENCY_TTL_MS) {
+                return cached.result;
+            }
+        }
+        AgentDto.OperationSubmitResultDto result = doSubmitDraft(draft);
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            idempotencyCache.put(idempotencyKey, new CachedSubmitResult(result, System.currentTimeMillis()));
+            evictExpiredEntries();
+        }
+        return result;
+    }
+
+    private AgentDto.OperationSubmitResultDto doSubmitDraft(AgentDto.OperationDraftDto draft) {
         if (draft == null || draft.items().isEmpty()) {
             throw new IllegalArgumentException("草稿不能为空");
         }
@@ -456,54 +475,56 @@ public class AgentService {
             throw new IllegalArgumentException("当前草稿还不能提交，请先补齐必要信息");
         }
         AgentDto.OperationDraftItemDto item = draft.items().get(0);
-        if (Objects.equals(draft.operationType(), OperationType.PURCHASE.apiValue)) {
-            PurchaseOrderService.PurchaseDetail created = purchaseOrderService.create(
-                new PurchaseOrderService.CreatePurchaseOrderCommand(
-                    draft.partnerName(),
-                    List.of(new PurchaseOrderService.PurchaseItemDraft(
-                        item.productId(),
-                        item.productCode(),
-                        item.productName(),
-                        item.quantity(),
-                        item.unitPrice()
-                    )),
-                    draft.notes(),
-                    PurchaseOrderService.STATUS_RECEIVED
-                )
-            );
-            PurchaseOrderEntity order = created.order();
-            return new AgentDto.OperationSubmitResultDto(
-                draft.operationType(),
-                order.getId(),
-                order.getOrderNo(),
-                "采购入库单已提交",
-                "回到采购页确认到货数量与价格。"
-            );
-        }
-        if (Objects.equals(draft.operationType(), OperationType.SALE.apiValue)) {
-            SaleOrderService.OrderDetail created = saleOrderService.create(
-                new SaleOrderService.CreateSaleOrderCommand(
-                    draft.partnerId(),
-                    draft.partnerName(),
-                    List.of(new SaleOrderService.SaleItemDraft(
-                        item.productId(),
-                        item.quantity(),
-                        item.unitPrice()
-                    )),
-                    draft.notes(),
-                    0.0
-                )
-            );
-            SaleOrderEntity order = created.order();
-            return new AgentDto.OperationSubmitResultDto(
-                draft.operationType(),
-                order.getId(),
-                order.getOrderNo(),
-                "销售出库单已提交",
-                "回到销售单据页确认收款状态。"
-            );
-        }
-        throw new IllegalArgumentException("当前仅支持提交入库和出库草稿");
+        return switch (draft.operationType()) {
+            case "purchase" -> {
+                PurchaseOrderService.PurchaseDetail created = purchaseOrderService.create(
+                    new PurchaseOrderService.CreatePurchaseOrderCommand(
+                        draft.partnerName(),
+                        List.of(new PurchaseOrderService.PurchaseItemDraft(
+                            item.productId(),
+                            item.productCode(),
+                            item.productName(),
+                            item.quantity(),
+                            item.unitPrice()
+                        )),
+                        draft.notes(),
+                        PurchaseOrderService.STATUS_RECEIVED
+                    )
+                );
+                PurchaseOrderEntity order = created.order();
+                yield new AgentDto.OperationSubmitResultDto(
+                    draft.operationType(),
+                    order.getId(),
+                    order.getOrderNo(),
+                    "采购入库单已提交",
+                    "回到采购页确认到货数量与价格。"
+                );
+            }
+            case "sale" -> {
+                SaleOrderService.OrderDetail created = saleOrderService.create(
+                    new SaleOrderService.CreateSaleOrderCommand(
+                        draft.partnerId(),
+                        draft.partnerName(),
+                        List.of(new SaleOrderService.SaleItemDraft(
+                            item.productId(),
+                            item.quantity(),
+                            item.unitPrice()
+                        )),
+                        draft.notes(),
+                        0.0
+                    )
+                );
+                SaleOrderEntity order = created.order();
+                yield new AgentDto.OperationSubmitResultDto(
+                    draft.operationType(),
+                    order.getId(),
+                    order.getOrderNo(),
+                    "销售出库单已提交",
+                    "回到销售单据页确认收款状态。"
+                );
+            }
+            default -> throw new IllegalArgumentException("当前仅支持提交入库和出库草稿");
+        };
     }
 
     private AgentDto.ReconciliationFollowupDto buildReconciliationFollowup(long startAt, long endAt, int limit, int agingDays) {
@@ -815,5 +836,14 @@ public class AgentService {
         OperationType(String apiValue) {
             this.apiValue = apiValue;
         }
+    }
+
+    private record CachedSubmitResult(AgentDto.OperationSubmitResultDto result, long timestamp) {}
+
+    private void evictExpiredEntries() {
+        long now = System.currentTimeMillis();
+        idempotencyCache.entrySet().removeIf(entry ->
+            (now - entry.getValue().timestamp) >= IDEMPOTENCY_TTL_MS
+        );
     }
 }

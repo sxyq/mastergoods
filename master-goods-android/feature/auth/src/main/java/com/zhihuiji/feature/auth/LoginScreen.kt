@@ -28,6 +28,7 @@ fun LoginScreen(
     var phone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    val phoneValid = phone.matches(Regex("^1\\d{10}$"))
 
     LaunchedEffect(uiState.isLoggedIn) {
         if (uiState.isLoggedIn) onLoginSuccess()
@@ -57,6 +58,8 @@ fun LoginScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
                         singleLine = true,
+                        isError = phone.isNotBlank() && !phoneValid,
+                        supportingText = if (phone.isNotBlank() && !phoneValid) {{ Text("请输入11位手机号") }} else null,
                     )
                     OutlinedTextField(
                         value = password,
@@ -76,7 +79,7 @@ fun LoginScreen(
                     PrimaryGradientButton(
                         text = "登录",
                         onClick = { viewModel.login(phone, password) },
-                        enabled = phone.isNotBlank() && password.isNotBlank() && !uiState.isLoading,
+                        enabled = phoneValid && password.isNotBlank() && !uiState.isLoading,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     if (uiState.error != null) {

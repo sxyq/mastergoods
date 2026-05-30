@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.api.controller;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
+import com.zhihuiji.backend.api.common.ParseUtils;
 import com.zhihuiji.backend.api.dto.SaleOrderDto;
 import com.zhihuiji.backend.api.dto.SaleOrderItemDto;
 import com.zhihuiji.backend.api.dto.SaleOrderStatusRequest;
@@ -9,6 +10,7 @@ import com.zhihuiji.backend.domain.entity.PaymentEntity;
 import com.zhihuiji.backend.domain.entity.SaleOrderEntity;
 import com.zhihuiji.backend.domain.entity.SaleOrderItemEntity;
 import java.util.List;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -31,7 +33,7 @@ public class SaleOrderController {
     }
 
     @PostMapping
-    public ApiResponse<SaleOrderDto> create(@RequestBody CreateRequest request) {
+    public ApiResponse<SaleOrderDto> create(@Valid @RequestBody CreateRequest request) {
         List<SaleOrderService.SaleItemDraft> items = request.items().stream()
             .map(row -> new SaleOrderService.SaleItemDraft(row.productId(), row.quantity(), row.unitPrice()))
             .toList();
@@ -60,12 +62,12 @@ public class SaleOrderController {
         List<SaleOrderEntity> orders = saleOrderService.list(
             keyword,
             status,
-            parseDouble(minTotalAmount),
-            parseDouble(maxTotalAmount),
-            parseLong(createdAfter),
-            parseLong(createdBefore),
+            ParseUtils.parseDouble(minTotalAmount),
+            ParseUtils.parseDouble(maxTotalAmount),
+            ParseUtils.parseLong(createdAfter),
+            ParseUtils.parseLong(createdBefore),
             productKeyword,
-            parseInteger(paymentStatus)
+            ParseUtils.parseInteger(paymentStatus)
         );
         List<SaleOrderDto> payload = orders.stream()
             .map(order -> toDto(order, saleOrderService.listItems(order.getId())))
@@ -79,12 +81,12 @@ public class SaleOrderController {
     }
 
     @PutMapping({"/{id}", "/{id}/draft"})
-    public ApiResponse<SaleOrderDto> updateDraft(@PathVariable Long id, @RequestBody UpdateDraftRequest request) {
+    public ApiResponse<SaleOrderDto> updateDraft(@PathVariable Long id, @Valid @RequestBody UpdateDraftRequest request) {
         return ApiResponse.success(toDto(saleOrderService.updateDraft(id, request.discountAmount(), request.notes())));
     }
 
     @PostMapping("/{id}/payments")
-    public ApiResponse<PaymentEntity> addPayment(@PathVariable Long id, @RequestBody PaymentRequest request) {
+    public ApiResponse<PaymentEntity> addPayment(@PathVariable Long id, @Valid @RequestBody PaymentRequest request) {
         return ApiResponse.success(saleOrderService.addPayment(id, request.amount(), request.method(), request.referenceNo()));
     }
 
@@ -94,7 +96,7 @@ public class SaleOrderController {
     }
 
     @PutMapping("/{id}/status")
-    public ApiResponse<Void> updateStatus(@PathVariable Long id, @RequestBody SaleOrderStatusRequest request) {
+    public ApiResponse<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody SaleOrderStatusRequest request) {
         saleOrderService.updateStatus(id, request.status());
         return ApiResponse.success(null);
     }
@@ -148,39 +150,6 @@ public class SaleOrderController {
             order.getCreatedAt(),
             order.getUpdatedAt()
         );
-    }
-
-    private Double parseDouble(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return null;
-        }
-        try {
-            return Double.parseDouble(raw);
-        } catch (NumberFormatException ignore) {
-            return null;
-        }
-    }
-
-    private Long parseLong(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return null;
-        }
-        try {
-            return Long.parseLong(raw);
-        } catch (NumberFormatException ignore) {
-            return null;
-        }
-    }
-
-    private Integer parseInteger(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return null;
-        }
-        try {
-            return Integer.parseInt(raw);
-        } catch (NumberFormatException ignore) {
-            return null;
-        }
     }
 
     public record CreateRequest(

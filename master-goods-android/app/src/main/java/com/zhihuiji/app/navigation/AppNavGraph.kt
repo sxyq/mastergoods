@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -36,21 +37,10 @@ fun AppNavGraph() {
     val authViewModel: AuthViewModel = hiltViewModel()
     val uiState by authViewModel.uiState.collectAsState()
 
-    if (!uiState.isSessionReady) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .glassBackground(),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("智慧记", style = ZhihuijiTypography.displayLarge, color = ZhihuijiColors.Primary)
-        }
-        return
-    }
-
     val startDestination = if (uiState.isLoggedIn) MainRoutes.MAIN else AuthRoutes.LOGIN
 
-    NavHost(navController = navController, startDestination = startDestination) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        NavHost(navController = navController, startDestination = startDestination) {
         composable(AuthRoutes.LOGIN) {
             LoginScreen(
                 onLoginSuccess = {
@@ -88,6 +78,17 @@ fun AppNavGraph() {
                     }
                 },
             )
+        }
+        }
+        if (!uiState.isSessionReady) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .glassBackground(),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(color = ZhihuijiColors.Primary)
+            }
         }
     }
 }

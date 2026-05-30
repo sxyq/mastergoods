@@ -5,7 +5,7 @@ import com.zhihuiji.backend.domain.entity.ProductEntity;
 import com.zhihuiji.backend.infrastructure.repository.InventoryAdjustmentRepository;
 import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
 import java.util.List;
-import java.util.UUID;
+import com.zhihuiji.backend.api.common.IdGenerator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -95,7 +95,7 @@ public class ProductService {
         ProductEntity saved = productRepository.save(target);
 
         InventoryAdjustmentEntity adjustment = new InventoryAdjustmentEntity();
-        adjustment.setId(nextId());
+        adjustment.setId(IdGenerator.nextId());
         adjustment.setProductId(saved.getId());
         adjustment.setProductCode(saved.getCode());
         adjustment.setProductName(saved.getName());
@@ -106,10 +106,5 @@ public class ProductService {
         adjustment.setCreatedAt(now);
         inventoryAdjustmentRepository.save(adjustment);
         return saved;
-    }
-
-    private long nextId() {
-        long id = UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE;
-        return id == 0L ? (System.nanoTime() & Long.MAX_VALUE) : id;
     }
 }

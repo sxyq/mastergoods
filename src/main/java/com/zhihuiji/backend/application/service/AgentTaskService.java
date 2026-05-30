@@ -25,7 +25,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -62,8 +64,9 @@ public class AgentTaskService {
     private final SupplierRepository supplierRepository;
     private final SaleOrderRepository saleOrderRepository;
     private final ObjectMapper objectMapper;
-    private final Executor agentTaskExecutor;
+    private final ExecutorService agentTaskExecutor;
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
+    private static final long TASK_TIMEOUT_SECONDS = 120L;
 
     public AgentTaskService(
         AgentTaskRepository agentTaskRepository,
@@ -77,7 +80,7 @@ public class AgentTaskService {
         SupplierRepository supplierRepository,
         SaleOrderRepository saleOrderRepository,
         ObjectMapper objectMapper,
-        @Qualifier("agentTaskExecutor") Executor agentTaskExecutor
+        @Qualifier("agentTaskExecutor") ExecutorService agentTaskExecutor
     ) {
         this.agentTaskRepository = agentTaskRepository;
         this.notificationRepository = notificationRepository;
@@ -105,7 +108,7 @@ public class AgentTaskService {
         task.setCreatedAt(now);
         task.setUpdatedAt(now);
         AgentTaskEntity saved = agentTaskRepository.save(task);
-        agentTaskExecutor.execute(() -> executeTask(saved.getId()));
+        agentTaskExecutor.submit(() -> executeTask(saved.getId()));
         return toSummary(saved);
     }
 
@@ -188,7 +191,28 @@ public class AgentTaskService {
         task.setCreatedAt(now);
         task.setUpdatedAt(now);
         AgentTaskEntity saved = agentTaskRepository.save(task);
-        agentTaskExecutor.execute(() -> executeTask(saved.getId()));
+        agentTaskExecutor.submit(() -> {
+            try {
+                agentTaskExecutor.submit(() -> executeTask(saved.getId()))
+                    .get(TASK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            } catch (TimeoutException tex) {
+                markTaskFailed(saved.getId(), "任务执行超时(" + TASK_TIMEOUT_SECONDS + "s)");
+            } catch (Exception ex) {
+                markTaskFailed(saved.getId(), ex.getMessage());
+            }
+        });
+    }
+
+    private void markTaskFailed(Long taskId, String reason) {
+        AgentTaskEntity task = agentTaskRepository.findById(taskId).orElse(null);
+        if (task != null && !STATUS_COMPLETED.equals(task.getStatus()) && !STATUS_FAILED.equals(task.getStatus())) {
+            task.setStatus(STATUS_FAILED);
+            task.setProgress(100);
+            task.setCompletedAt(System.currentTimeMillis());
+            task.setUpdatedAt(System.currentTimeMillis());
+            task.setResultJson(toJson(failureResult(task, new RuntimeException(reason))));
+            agentTaskRepository.save(task);
+        }
     }
 
     private void executeTask(Long taskId) {

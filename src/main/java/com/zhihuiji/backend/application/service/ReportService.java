@@ -65,19 +65,14 @@ public class ReportService {
 
     public ReportDto.SalesSummaryReportDto salesSummary(Long startAt, Long endAt) {
         TimeRange range = normalizeRange(startAt, endAt);
-        List<SaleOrderEntity> orders = saleOrderRepository.findByCreatedAtBetween(range.startAt(), range.endAt())
-            .stream()
-            .filter(this::isNonCancelledOrder)
-            .toList();
-        double totalSales = orders.stream().mapToDouble(o -> safeDouble(o.getTotalAmount())).sum();
-        double totalPaid = orders.stream().mapToDouble(o -> safeDouble(o.getPaidAmount())).sum();
-        double totalUnpaid = orders.stream()
-            .mapToDouble(o -> Math.max(0.0, safeDouble(o.getTotalAmount()) - safeDouble(o.getPaidAmount())))
-            .sum();
+        double totalSales = safeDouble(saleOrderRepository.sumTotalAmountBetween(range.startAt(), range.endAt()));
+        double totalPaid = safeDouble(saleOrderRepository.sumPaidAmountBetween(range.startAt(), range.endAt()));
+        long orderCount = saleOrderRepository.countNonCancelledBetween(range.startAt(), range.endAt());
         double totalRefund = paymentRepository.findByCreatedAtBetween(range.startAt(), range.endAt()).stream()
             .filter(this::isRefundPayment)
             .mapToDouble(p -> Math.abs(safeDouble(p.getAmount())))
             .sum();
+        double totalUnpaid = Math.max(0.0, totalSales - totalPaid);
         return new ReportDto.SalesSummaryReportDto(
             range.startAt(),
             range.endAt(),
@@ -85,7 +80,7 @@ public class ReportService {
             totalPaid,
             totalRefund,
             totalUnpaid,
-            orders.size()
+            (int) orderCount
         );
     }
 

@@ -1,6 +1,7 @@
 package com.zhihuiji.core.designsystem
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -37,6 +38,7 @@ fun FilterChipRow(
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
                     .background(bgColor)
+                    .clickable { onChipSelected(index) }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
             )
         }

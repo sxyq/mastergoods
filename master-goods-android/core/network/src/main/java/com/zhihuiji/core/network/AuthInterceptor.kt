@@ -12,13 +12,20 @@ import javax.inject.Singleton
 class AuthInterceptor @Inject constructor(
     private val sessionStore: SessionStore,
 ) : Interceptor {
+    @Volatile
+    private var cachedToken: String? = null
+
+    fun updateToken(token: String?) {
+        cachedToken = token
+    }
+
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
         if (isAnonymousRequest(originalRequest.url.encodedPath)) {
             return chain.proceed(originalRequest)
         }
 
-        val token = runBlocking { sessionStore.token.first() }
+        val token = cachedToken ?: runBlocking { sessionStore.token.first() }
         val request = originalRequest.newBuilder().apply {
             if (!token.isNullOrBlank()) {
                 header("Authorization", "Bearer $token")

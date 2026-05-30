@@ -15,6 +15,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -28,9 +30,14 @@ import com.zhihuiji.feature.products.ProductListScreen
 import com.zhihuiji.feature.suppliers.SupplierListScreen
 import androidx.compose.ui.unit.dp
 
+private const val TAB_PRODUCTS = "商品"
+private const val TAB_CUSTOMERS = "客户"
+private const val TAB_SUPPLIERS = "供应商"
+
 @Composable
 fun ArchivesScreen(
     initialTab: Int = 0,
+    reselectSignal: Int = 0,
     onNavigateToProductEditor: (Long?) -> Unit = {},
     onNavigateToCustomerEditor: (Long?) -> Unit = {},
     onNavigateToCustomerDetail: (Long) -> Unit = {},
@@ -38,7 +45,22 @@ fun ArchivesScreen(
     onNavigateToSupplierDetail: (Long) -> Unit = {},
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(initialTab) }
-    val tabs = listOf("商品", "客户", "供应商")
+    var productScrollToTopSignal by rememberSaveable { mutableIntStateOf(0) }
+    var customerScrollToTopSignal by rememberSaveable { mutableIntStateOf(0) }
+    var supplierScrollToTopSignal by rememberSaveable { mutableIntStateOf(0) }
+    val tabs = listOf(TAB_PRODUCTS, TAB_CUSTOMERS, TAB_SUPPLIERS)
+
+    LaunchedEffect(reselectSignal) {
+        if (reselectSignal > 0) {
+            when (selectedTab) {
+                0 -> productScrollToTopSignal++
+                1, 2 -> {
+                    selectedTab = 0
+                    productScrollToTopSignal++
+                }
+            }
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -77,23 +99,26 @@ fun ArchivesScreen(
         )
         Box(modifier = Modifier.fillMaxSize()) {
             when (selectedTab) {
-                0 -> ProductListScreen(
+                0 -> key(0) { ProductListScreen(
                     onNavigateBack = {},
                     showTopBar = false,
+                    scrollToTopSignal = productScrollToTopSignal,
                     onNavigateToEditor = onNavigateToProductEditor,
-                )
-                1 -> CustomerListScreen(
+                ) }
+                1 -> key(1) { CustomerListScreen(
                     onNavigateBack = {},
                     showTopBar = false,
+                    scrollToTopSignal = customerScrollToTopSignal,
                     onNavigateToEditor = onNavigateToCustomerEditor,
                     onNavigateToDetail = onNavigateToCustomerDetail,
-                )
-                2 -> SupplierListScreen(
+                ) }
+                2 -> key(2) { SupplierListScreen(
                     onNavigateBack = {},
                     showTopBar = false,
+                    scrollToTopSignal = supplierScrollToTopSignal,
                     onNavigateToEditor = onNavigateToSupplierEditor,
                     onNavigateToDetail = onNavigateToSupplierDetail,
-                )
+                ) }
             }
         }
     }

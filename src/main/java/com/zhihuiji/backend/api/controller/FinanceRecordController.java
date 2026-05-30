@@ -1,10 +1,12 @@
 package com.zhihuiji.backend.api.controller;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
+import com.zhihuiji.backend.api.common.ParseUtils;
 import com.zhihuiji.backend.api.dto.FinanceRecordDto;
 import com.zhihuiji.backend.application.service.FinanceRecordService;
 import com.zhihuiji.backend.domain.entity.FinanceRecordEntity;
 import java.util.List;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,7 +31,7 @@ public class FinanceRecordController {
         @RequestParam(value = "created_before", required = false) String createdBefore
     ) {
         List<FinanceRecordDto> payload = financeRecordService
-            .list(keyword, type, parseLong(createdAfter), parseLong(createdBefore))
+            .list(keyword, type, ParseUtils.parseLong(createdAfter), ParseUtils.parseLong(createdBefore))
             .stream()
             .map(this::toDto)
             .toList();
@@ -37,7 +39,7 @@ public class FinanceRecordController {
     }
 
     @PostMapping
-    public ApiResponse<FinanceRecordDto> create(@RequestBody CreateRequest request) {
+    public ApiResponse<FinanceRecordDto> create(@Valid @RequestBody CreateRequest request) {
         FinanceRecordEntity created = financeRecordService.create(
             new FinanceRecordService.CreateCommand(
                 request.type(),
@@ -64,17 +66,6 @@ public class FinanceRecordController {
             entity.getCreatedAt(),
             entity.getUpdatedAt()
         );
-    }
-
-    private Long parseLong(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return null;
-        }
-        try {
-            return Long.parseLong(raw);
-        } catch (NumberFormatException ignore) {
-            return null;
-        }
     }
 
     public record CreateRequest(

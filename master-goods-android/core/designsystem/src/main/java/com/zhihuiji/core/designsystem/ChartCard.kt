@@ -47,14 +47,17 @@ fun LineTrendChart(
     labels: List<String>,
     modifier: Modifier = Modifier,
 ) {
-    val maxValue = max(values.maxOrNull() ?: 0.0, 1.0)
+    val safeSize = minOf(values.size, labels.size)
+    val safeValues = values.take(safeSize)
+    val safeLabels = labels.take(safeSize)
+    val maxValue = max(safeValues.maxOrNull() ?: 0.0, 1.0)
     Canvas(modifier = modifier.fillMaxWidth().height(112.dp)) {
         val left = 8.dp.toPx()
         val right = size.width - 8.dp.toPx()
         val top = 10.dp.toPx()
         val bottom = size.height - 24.dp.toPx()
         val chartHeight = bottom - top
-        val stepX = if (values.size > 1) (right - left) / (values.size - 1) else 0f
+        val stepX = if (safeValues.size > 1) (right - left) / (safeValues.size - 1) else 0f
 
         repeat(4) { index ->
             val y = top + chartHeight * index / 3f
@@ -66,7 +69,7 @@ fun LineTrendChart(
             )
         }
 
-        val points = values.mapIndexed { index, value ->
+        val points = safeValues.mapIndexed { index, value ->
             val x = left + stepX * index
             val y = bottom - (value / maxValue).toFloat() * chartHeight
             Offset(x, y)
@@ -95,7 +98,7 @@ fun LineTrendChart(
         }
     }
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        labels.forEach {
+        safeLabels.forEach {
             Text(text = it, style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextTertiary)
         }
     }
@@ -157,10 +160,11 @@ fun RingMetricChart(
 fun HorizontalBarChart(
     items: List<Pair<String, Double>>,
     modifier: Modifier = Modifier,
+    maxBars: Int = 5,
 ) {
     val maxValue = max(items.maxOfOrNull { it.second } ?: 0.0, 1.0)
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items.take(5).forEachIndexed { index, item ->
+        items.take(maxBars).forEachIndexed { index, item ->
             val fraction = (item.second / maxValue).toFloat().coerceIn(0.05f, 1f)
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

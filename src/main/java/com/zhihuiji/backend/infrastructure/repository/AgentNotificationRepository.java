@@ -12,4 +12,8 @@ public interface AgentNotificationRepository extends JpaRepository<AgentNotifica
     List<AgentNotificationEntity> findTop30ByIsDeliveredFalseOrderByCreatedAtDesc();
 
     List<AgentNotificationEntity> findTop30ByIsReadFalseAndIsDeliveredFalseOrderByCreatedAtDesc();
+
+    long countByIsReadFalse();
+
+    void deleteAllByIsReadTrue();
 }

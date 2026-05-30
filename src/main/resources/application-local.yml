@@ -18,7 +18,7 @@ agent:
   llm:
     enabled: true
     base-url: https://api.longcat.chat/anthropic/
-    api-key: ak_1qe7Ym0Yp8Hs3qa74O5wt2gy6Rt6I
+    api-key: ${AGENT_LLM_API_KEY}
     model: LongCat-Flash-Thinking-2601
     anthropic-version: 2023-06-01
     max-tokens: 4096
