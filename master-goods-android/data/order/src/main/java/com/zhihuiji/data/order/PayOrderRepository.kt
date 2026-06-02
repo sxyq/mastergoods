@@ -17,7 +17,12 @@ class PayOrderRepository @Inject constructor(
     private val payOrderDao: PayOrderDao,
 ) {
     fun observePayOrders(filter: PayOrderFilter): Flow<List<PayOrderDto>> =
-        payOrderDao.search(filter.keyword, filter.status).map { rows ->
+        payOrderDao.search(
+            keyword = filter.keyword,
+            status = filter.status,
+            createdAfter = filter.createdAfter?.toLongOrNull(),
+            createdBefore = filter.createdBefore?.toLongOrNull(),
+        ).map { rows ->
             rows.map { it.toDto() }
         }
 

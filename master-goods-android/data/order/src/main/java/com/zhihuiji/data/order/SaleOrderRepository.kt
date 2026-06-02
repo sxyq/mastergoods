@@ -4,6 +4,7 @@ import androidx.annotation.VisibleForTesting
 import com.zhihuiji.core.database.dao.SaleOrderDao
 import com.zhihuiji.core.database.toDto
 import com.zhihuiji.core.database.toEntity
+import com.zhihuiji.core.database.toItemEntities
 import com.zhihuiji.core.model.*
 import com.zhihuiji.core.network.ZhihuijiApi
 import com.zhihuiji.core.network.safeApiCall
@@ -18,7 +19,16 @@ class SaleOrderRepository @Inject constructor(
     private val saleOrderDao: SaleOrderDao,
 ) {
     fun observeSaleOrders(filter: SaleOrderFilter): Flow<List<SaleOrderDto>> =
-        saleOrderDao.search(filter.keyword, filter.status).map { rows ->
+        saleOrderDao.search(
+            keyword = filter.keyword,
+            status = filter.status,
+            minTotalAmount = filter.minTotalAmount,
+            maxTotalAmount = filter.maxTotalAmount,
+            createdAfter = filter.createdAfter?.toLongOrNull(),
+            createdBefore = filter.createdBefore?.toLongOrNull(),
+            productKeyword = filter.productKeyword,
+            paymentStatus = filter.paymentStatus,
+        ).map { rows ->
             rows.map { it.toDto() }
         }
 
@@ -34,14 +44,22 @@ class SaleOrderRepository @Inject constructor(
         filter.paymentStatus?.let { params["payment_status"] = it.toString() }
         val result = safeApiCall { api.saleOrders(params) }
         result.onSuccess { orders ->
-            saleOrderDao.upsertAll(orders.map { it.toEntity() })
+            saleOrderDao.replaceOrderGraphs(
+                orders = orders.map { it.toEntity() },
+                items = orders.flatMap { it.toItemEntities() },
+            )
         }
     }
 
     suspend fun getSaleOrder(id: Long): Result<SaleOrderDto> {
-        val local = saleOrderDao.findById(id)?.toDto()
+        val local = saleOrderDao.findWithItemsById(id)?.toDto()
         val remote = safeApiCall { api.saleOrder(id) }
-        remote.onSuccess { saleOrderDao.upsert(it.toEntity()) }
+        remote.onSuccess {
+            saleOrderDao.replaceOrderGraph(
+                order = it.toEntity(),
+                items = it.toItemEntities(),
+            )
+        }
         return remote.fold(
             onSuccess = { Result.success(it) },
             onFailure = { error -> local?.let(Result.Companion::success) ?: Result.failure(error) },
@@ -50,13 +68,23 @@ class SaleOrderRepository @Inject constructor(
 
     suspend fun createSaleOrder(request: CreateSaleOrderRequest): Result<SaleOrderDto> =
         safeApiCall { api.createSaleOrder(request) }.also { result ->
-            result.onSuccess { saleOrderDao.upsert(it.toEntity()) }
+            result.onSuccess {
+                saleOrderDao.replaceOrderGraph(
+                    order = it.toEntity(),
+                    items = it.toItemEntities(),
+                )
+            }
         }
 
     @VisibleForTesting
     suspend fun updateSaleDraft(id: Long, request: UpdateSaleDraftRequest): Result<SaleOrderDto> =
         safeApiCall { api.updateSaleDraft(id, request) }.also { result ->
-            result.onSuccess { saleOrderDao.upsert(it.toEntity()) }
+            result.onSuccess {
+                saleOrderDao.replaceOrderGraph(
+                    order = it.toEntity(),
+                    items = it.toItemEntities(),
+                )
+            }
         }
 
     suspend fun addSalePayment(id: Long, request: PaymentRequest): Result<PaymentDto> {
@@ -73,13 +101,23 @@ class SaleOrderRepository @Inject constructor(
     suspend fun updateSaleStatus(id: Long, status: Int): Result<Unit> {
         val result = safeApiCall { api.updateSaleStatus(id, StatusRequest(status)) }
         result.onSuccess {
-            safeApiCall { api.saleOrder(id) }.onSuccess { saleOrderDao.upsert(it.toEntity()) }
+            safeApiCall { api.saleOrder(id) }.onSuccess {
+                saleOrderDao.replaceOrderGraph(
+                    order = it.toEntity(),
+                    items = it.toItemEntities(),
+                )
+            }
         }
         return result
     }
 
     suspend fun cancelSaleOrder(id: Long): Result<SaleOrderDto> =
         safeApiCall { api.cancelSaleOrder(id) }.also { result ->
-            result.onSuccess { saleOrderDao.upsert(it.toEntity()) }
+            result.onSuccess {
+                saleOrderDao.replaceOrderGraph(
+                    order = it.toEntity(),
+                    items = it.toItemEntities(),
+                )
+            }
         }
 }

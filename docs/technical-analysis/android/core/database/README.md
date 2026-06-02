@@ -32,6 +32,7 @@
 |---|---|---|---|---|---|
 | 首版 Room 缓存 | 新版已做 | 旧版本地库是完整账本 | 当前新版先做在线优先缓存 | 现有实体、DAO、mapper 已落地 | 当前可供 data 层观察 |
 | 销售单本地明细图 | 新版已做 | 旧版本地账本天然保留单据与明细关系 | 当前新版至少保证销售详情可本地回退并支持商品关键字搜索 | 已新增 `SaleOrderItemEntity`、`SaleOrderWithItems`、`SaleOrderDao.findWithItemsById/replaceOrderGraph(s)` | 仍只是首版缓存图，不等于完整本地账本 |
+| Room 正式迁移链路 | 新版已做 | 首版常依赖破坏式迁移换速度 | 当前新版开始为增量表扩展补 Migration | `DatabaseModule` 已新增 `1 -> 2` 迁移以落地 `sale_order_items` | 是正式迁移起点 |
 | owner 归属字段本地落盘 | 新版待做 | 旧版无统一 owner | 本地表结构承载 owner 语义 | 当前实体大多未体现 owner 维度 | 与后端一起演进 |
 | 多价格、账户、库存快照等表 | 旧版存在新版未做 | 旧版库表明显更多 | 新版本地缓存要覆盖更厚领域 | 当前 Room 仍是首版实体集 | 后续会增加实体与 DAO |
 | `fallbackToDestructiveMigration` 思路 | 新版需要去掉 | 首版常用破坏式迁移换速度 | 新版应走正式 Migration | 当前文档层面已明确不应继续依赖此思路 | 代码阶段再清理 |

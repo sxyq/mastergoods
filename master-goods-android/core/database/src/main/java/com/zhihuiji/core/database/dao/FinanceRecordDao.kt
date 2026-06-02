@@ -13,9 +13,16 @@ interface FinanceRecordDao {
         SELECT * FROM finance_records
         WHERE (:type IS NULL OR type = :type)
           AND (:keyword IS NULL OR category LIKE '%' || :keyword || '%' OR partnerName LIKE '%' || :keyword || '%')
+          AND (:createdAfter IS NULL OR createdAt >= :createdAfter)
+          AND (:createdBefore IS NULL OR createdAt <= :createdBefore)
         ORDER BY updatedAt DESC
     """)
-    fun search(type: Int?, keyword: String?): Flow<List<FinanceRecordEntity>>
+    fun search(
+        type: Int?,
+        keyword: String?,
+        createdAfter: Long?,
+        createdBefore: Long?,
+    ): Flow<List<FinanceRecordEntity>>
 
     @Query("SELECT * FROM finance_records WHERE id = :id")
     suspend fun findById(id: Long): FinanceRecordEntity?

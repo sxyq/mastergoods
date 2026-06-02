@@ -11,13 +11,14 @@ import com.zhihuiji.core.database.entity.*
         CustomerEntity::class,
         SupplierEntity::class,
         SaleOrderEntity::class,
+        SaleOrderItemEntity::class,
         PurchaseOrderEntity::class,
         PayOrderEntity::class,
         FinanceRecordEntity::class,
         AgentNotificationEntity::class,
         SyncCursorEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class ZhihuijiDatabase : RoomDatabase() {

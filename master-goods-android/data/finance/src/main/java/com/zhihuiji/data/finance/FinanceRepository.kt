@@ -17,7 +17,12 @@ class FinanceRepository @Inject constructor(
     private val financeRecordDao: FinanceRecordDao,
 ) {
     fun observeFinanceRecords(filter: FinanceFilter): Flow<List<FinanceRecordDto>> =
-        financeRecordDao.search(filter.type, filter.keyword).map { list ->
+        financeRecordDao.search(
+            type = filter.type,
+            keyword = filter.keyword,
+            createdAfter = filter.createdAfter?.toLongOrNull(),
+            createdBefore = filter.createdBefore?.toLongOrNull(),
+        ).map { list ->
             list.map { it.toDto() }
         }
 

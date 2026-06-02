@@ -6,6 +6,8 @@ import com.zhihuiji.core.database.entity.PayOrderEntity
 import com.zhihuiji.core.database.entity.ProductEntity
 import com.zhihuiji.core.database.entity.PurchaseOrderEntity
 import com.zhihuiji.core.database.entity.SaleOrderEntity
+import com.zhihuiji.core.database.entity.SaleOrderItemEntity
+import com.zhihuiji.core.database.entity.SaleOrderWithItems
 import com.zhihuiji.core.database.entity.SupplierEntity
 import com.zhihuiji.core.model.CustomerDto
 import com.zhihuiji.core.model.FinanceRecordDto
@@ -13,6 +15,7 @@ import com.zhihuiji.core.model.PayOrderDto
 import com.zhihuiji.core.model.ProductDto
 import com.zhihuiji.core.model.PurchaseOrderDto
 import com.zhihuiji.core.model.SaleOrderDto
+import com.zhihuiji.core.model.SaleOrderItemDto
 import com.zhihuiji.core.model.SupplierDto
 
 fun ProductEntity.toDto() = ProductDto(
@@ -116,12 +119,12 @@ fun SupplierDto.toEntity(): SupplierEntity? {
     )
 }
 
-fun SaleOrderEntity.toDto() = SaleOrderDto(
+fun SaleOrderEntity.toDto(items: List<SaleOrderItemDto> = emptyList()) = SaleOrderDto(
     id = id,
     orderNo = orderNo,
     customerId = customerId,
     customerName = customerName,
-    items = emptyList(),
+    items = items,
     subtotalAmount = subtotalAmount,
     discountAmount = discountAmount,
     totalAmount = totalAmount,
@@ -130,6 +133,22 @@ fun SaleOrderEntity.toDto() = SaleOrderDto(
     status = status,
     createdAt = createdAt,
     updatedAt = updatedAt,
+)
+
+fun SaleOrderItemEntity.toDto() = SaleOrderItemDto(
+    id = id,
+    orderId = orderId,
+    productId = productId,
+    productCode = productCode,
+    productName = productName,
+    quantity = quantity,
+    unitPrice = unitPrice,
+    amount = amount,
+    createdAt = createdAt,
+)
+
+fun SaleOrderWithItems.toDto() = order.toDto(
+    items = items.map { it.toDto() },
 )
 
 fun SaleOrderDto.toEntity() = SaleOrderEntity(
@@ -146,6 +165,20 @@ fun SaleOrderDto.toEntity() = SaleOrderEntity(
     createdAt = createdAt,
     updatedAt = updatedAt,
 )
+
+fun SaleOrderItemDto.toEntity() = SaleOrderItemEntity(
+    id = id,
+    orderId = orderId,
+    productId = productId,
+    productCode = productCode,
+    productName = productName,
+    quantity = quantity,
+    unitPrice = unitPrice,
+    amount = amount,
+    createdAt = createdAt,
+)
+
+fun SaleOrderDto.toItemEntities() = items.map { it.toEntity() }
 
 fun PurchaseOrderEntity.toDto() = PurchaseOrderDto(
     id = id,

@@ -1,50 +1,34 @@
-# Android Data 层 - Finance 子模块详尽代码分析
+# Android data/finance 模块分析
 
-> 自动生成于 2026-05-28，覆盖 finance 子模块全部 1 个 Kotlin 源文件
+- 对应源码目录：`master-goods-android/data/finance`
+- 关键源码：`FinanceRepository.kt`
 
----
+## 模块定位
 
-## 1. FinanceRepository
+`data/finance` 当前只覆盖轻量资金流水。  
+新版里，它会成为安卓侧财务域的数据入口，逐步扩展到：
 
-- **文件路径**: `data/finance/src/main/java/com/zhihuiji/data/finance/FinanceRepository.kt`
-- **父类/接口**: 无
-- **注解**: `@Singleton`
-- **职责**: 资金流水数据的查询和创建，支持本地数据库观察和远程 API 同步
-- **设计模式**: Repository 模式 + 单例模式（通过 Hilt `@Singleton`）
+- 账户主数据
+- 账户余额
+- 转账
+- 单据资金关联
+- 找零/零钱
+- 项目维度
+- owner 私有财务账本
 
-### 类属性
+## 状态图例
 
-##### api: ZhihuijiApi
-- 作用域：类私有（constructor 注入）
-- 初始值：由 Hilt 注入
-- 使用场景：调用资金流水相关 API
-- 建议：无
+- `新版已做`
+- `新版待做`
+- `旧版存在新版未做`
+- `新版需要去掉`
+- `需重构`
+- `待验证`
 
-##### financeRecordDao: FinanceRecordDao
-- 作用域：类私有（constructor 注入）
-- 初始值：由 Hilt 注入
-- 使用场景：本地数据库的资金流水 CRUD 操作
-- 建议：无
+## 状态表
 
-### 函数/方法
-
-##### observeFinanceRecords(filter: FinanceFilter): Flow<List<FinanceRecordDto>>
-- 参数：`filter: FinanceFilter` - 筛选条件（包含 keyword、type 等字段）
-- 返回值：`Flow<List<FinanceRecordDto>>` - 资金流水列表的响应式流
-- 实现逻辑：观察数据库全部数据（`financeRecordDao.observeAll()`），在内存中按关键词（recordNo 或 partnerName）和类型进行过滤
-- 调用关系：调用了 `financeRecordDao.observeAll()`、`toDto()`，被 `FinanceViewModel.loadRecords()` 调用
-- 建议：同其他 Repository，内存过滤在大数据量时性能不佳，建议将过滤逻辑下推到 DAO 层的 SQL 查询中
-
-##### refreshFinanceRecords(filter: FinanceFilter)
-- 参数：`filter: FinanceFilter` - 筛选条件（包含 keyword、type、createdAfter、createdBefore 等字段）
-- 返回值：无
-- 实现逻辑：从 API 拉取资金流水列表（传递 keyword、type、createdAfter、createdBefore 参数），成功后批量 upsert 到本地数据库
-- 调用关系：调用了 `safeApiCall()`、`api.financeRecords()`、`financeRecordDao.upsertAll()`、`toEntity()`，被 `FinanceViewModel.loadRecords()` 调用
-- 建议：无
-
-##### createFinanceRecord(request: CreateFinanceRecordRequest): Result<FinanceRecordDto>
-- 参数：`request: CreateFinanceRecordRequest` - 创建资金流水请求
-- 返回值：`Result<FinanceRecordDto>` - 创建后的资金流水数据
-- 实现逻辑：调用 API 创建资金流水，成功后 upsert 到本地数据库
-- 调用关系：调用了 `safeApiCall()`、`api.createFinanceRecord()`、`financeRecordDao.upsert()`，被 `FinanceViewModel.createRecord()` 调用
-- 建议：无
+| 对象 | 状态 | 旧版情况 | 新版目标 | 当前实现 | 备注 |
+|---|---|---|---|---|---|
+| 资金流水列表与新增 | 新版已做 | 旧版资金域更厚 | 支撑当前收支流水闭环 | `FinanceRepository.kt` 已实现 | 已供列表和新增使用 |
+| 账户、项目、找零、转账 | 旧版存在新版未做 | 旧版 `funds + accts + smallchange` 更完整 | 新版财务域要超过旧版 | 当前仅有轻量 `finance_records` 仓储 | 是明确扩域点 |
+| owner 与 `/v2` 财务契约 | 需重构 | 旧版无统一 owner | 资金数据按 owner 过滤并升级接口 | 当前仍依赖 `/v1` 基础流水接口 | 以后端为准 |

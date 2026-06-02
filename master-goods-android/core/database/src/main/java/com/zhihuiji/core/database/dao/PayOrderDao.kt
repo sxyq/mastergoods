@@ -13,9 +13,16 @@ interface PayOrderDao {
         SELECT * FROM pay_orders
         WHERE (:keyword IS NULL OR orderNo LIKE '%' || :keyword || '%' OR supplierName LIKE '%' || :keyword || '%')
           AND (:status IS NULL OR status = :status)
+          AND (:createdAfter IS NULL OR createdAt >= :createdAfter)
+          AND (:createdBefore IS NULL OR createdAt <= :createdBefore)
         ORDER BY updatedAt DESC
     """)
-    fun search(keyword: String?, status: Int?): Flow<List<PayOrderEntity>>
+    fun search(
+        keyword: String?,
+        status: Int?,
+        createdAfter: Long?,
+        createdBefore: Long?,
+    ): Flow<List<PayOrderEntity>>
 
     @Query("SELECT * FROM pay_orders WHERE id = :id")
     suspend fun findById(id: Long): PayOrderEntity?
