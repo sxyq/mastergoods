@@ -6,22 +6,22 @@ import org.junit.Test
 
 class NetworkConfigTest {
     @Test
-    fun defaultBaseUrl_targetsServer117WithV1Prefix() {
-        assertEquals("http://117.72.79.106/zhihuiji/v1/", NetworkConfig.baseUrl)
+    fun defaultBaseUrl_targetsHostedApiWithV1Prefix() {
+        assertEquals("https://api.zhihuiji.com/v1/", NetworkConfig.defaultBaseUrl)
     }
 
     @Test
     fun normalizeBaseUrl_trimsAndAppendsTrailingSlash() {
         assertEquals(
-            "http://117.72.79.106/zhihuiji/v1/",
+            "https://api.zhihuiji.com/v1/",
             NetworkConfig.normalizeBaseUrl(" http://117.72.79.106/zhihuiji/v1 "),
         )
     }
 
     @Test
-    fun normalizeBaseUrl_mapsServer124ToServer117() {
+    fun normalizeBaseUrl_mapsLegacyHostsToHostedApi() {
         assertEquals(
-            "http://117.72.79.106/zhihuiji/v1/",
+            "https://api.zhihuiji.com/v1/",
             NetworkConfig.normalizeBaseUrl("http://124.222.153.108/zhihuiji/v1/"),
         )
     }

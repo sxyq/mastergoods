@@ -7,6 +7,11 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val debugSigningSha256 = "8910A440E3C0D107E2B250D559DEF2AB7F02B5A1911556CA8154D9C9B4C77FD8"
+val releaseSigningSha256 = providers.gradleProperty("ZHIHUIJI_RELEASE_SIGNING_SHA256")
+    .orElse(debugSigningSha256)
+    .get()
+
 android {
     namespace = "com.zhihuiji.app"
     compileSdk = 35
@@ -22,8 +27,15 @@ android {
     }
 
     buildTypes {
-        release {
+        debug {
             isMinifyEnabled = false
+            isShrinkResources = false
+            buildConfigField("String", "APP_SIGNING_SHA256", "\"$debugSigningSha256\"")
+        }
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            buildConfigField("String", "APP_SIGNING_SHA256", "\"$releaseSigningSha256\"")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -42,6 +54,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

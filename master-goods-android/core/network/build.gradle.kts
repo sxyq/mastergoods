@@ -6,6 +6,14 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val pinnedHost = providers.gradleProperty("ZHIHUIJI_PINNED_HOST")
+    .orElse("api.zhihuiji.com")
+    .get()
+val pinnedSha256Pins = providers.gradleProperty("ZHIHUIJI_CERT_PINS")
+    .orElse("")
+    .get()
+val certPinningEnabled = pinnedSha256Pins.isNotBlank()
+
 android {
     namespace = "com.zhihuiji.core.network"
     compileSdk = 35
@@ -23,6 +31,27 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    buildTypes {
+        debug {
+            buildConfigField("boolean", "NETWORK_LOGGING_ENABLED", "true")
+            buildConfigField("boolean", "ALLOW_CLEARTEXT_BASE_URL", "true")
+            buildConfigField("boolean", "CERT_PINNING_ENABLED", "false")
+            buildConfigField("String", "PINNED_HOST", "\"$pinnedHost\"")
+            buildConfigField("String", "PINNED_SHA256_PINS", "\"\"")
+        }
+        release {
+            buildConfigField("boolean", "NETWORK_LOGGING_ENABLED", "false")
+            buildConfigField("boolean", "ALLOW_CLEARTEXT_BASE_URL", "false")
+            buildConfigField("boolean", "CERT_PINNING_ENABLED", certPinningEnabled.toString())
+            buildConfigField("String", "PINNED_HOST", "\"$pinnedHost\"")
+            buildConfigField("String", "PINNED_SHA256_PINS", "\"$pinnedSha256Pins\"")
+        }
     }
 }
 

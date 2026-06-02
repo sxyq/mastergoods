@@ -4,9 +4,15 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import java.net.URI
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
@@ -19,8 +25,10 @@ class SettingsStore @Inject constructor(
         private val KEY_BASE_URL = stringPreferencesKey("base_url")
         private val KEY_CLIENT_ID = stringPreferencesKey("client_id")
         const val DEFAULT_BASE_URL = "https://api.zhihuiji.com/v1/"
+        private const val PRODUCTION_HOST = "api.zhihuiji.com"
         private const val SERVER_124_HOST = "124.222.153.108"
         private const val DEV_FALLBACK_HOST = "117.72.79.106"
+        private val RELEASE_ALLOWED_HOSTS = setOf(PRODUCTION_HOST)
 
         fun normalizeBaseUrl(raw: String): String {
             val trimmed = raw.trim()
@@ -28,6 +36,27 @@ class SettingsStore @Inject constructor(
             if (trimmed.contains(SERVER_124_HOST) || trimmed.contains(DEV_FALLBACK_HOST)) return DEFAULT_BASE_URL
             return if (trimmed.endsWith("/")) trimmed else "$trimmed/"
         }
+
+        fun isTrustedReleaseBaseUrl(baseUrl: String): Boolean {
+            val normalized = normalizeBaseUrl(baseUrl)
+            val uri = runCatching { URI(normalized) }.getOrNull() ?: return false
+            return uri.scheme.equals("https", ignoreCase = true) && uri.host in RELEASE_ALLOWED_HOSTS
+        }
+    }
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    @Volatile
+    private var cachedBaseUrl: String = DEFAULT_BASE_URL
+
+    @Volatile
+    private var cachedClientId: String = ""
+
+    init {
+        dataStore.data.onEach { prefs ->
+            cachedBaseUrl = normalizeBaseUrl(prefs[KEY_BASE_URL] ?: DEFAULT_BASE_URL)
+            cachedClientId = prefs[KEY_CLIENT_ID] ?: ""
+        }.launchIn(scope)
     }
 
     val baseUrl: Flow<String> = dataStore.data.map { prefs ->
@@ -39,10 +68,13 @@ class SettingsStore @Inject constructor(
     }
 
     suspend fun saveBaseUrl(baseUrl: String) {
-        dataStore.edit { it[KEY_BASE_URL] = normalizeBaseUrl(baseUrl) }
+        val normalized = sanitizeBaseUrlForCurrentBuild(baseUrl)
+        cachedBaseUrl = normalized
+        dataStore.edit { it[KEY_BASE_URL] = normalized }
     }
 
     suspend fun saveClientId(clientId: String) {
+        cachedClientId = clientId
         dataStore.edit { it[KEY_CLIENT_ID] = clientId }
     }
 
@@ -51,7 +83,20 @@ class SettingsStore @Inject constructor(
         val existing = prefs[KEY_CLIENT_ID]
         if (!existing.isNullOrBlank()) return existing
         val newId = java.util.UUID.randomUUID().toString()
+        cachedClientId = newId
         dataStore.edit { it[KEY_CLIENT_ID] = newId }
         return newId
+    }
+
+    fun peekBaseUrl(): String = sanitizeBaseUrlForCurrentBuild(cachedBaseUrl)
+
+    fun peekClientId(): String = cachedClientId
+
+    fun isBaseUrlEditable(): Boolean = BuildConfig.BASE_URL_EDITABLE
+
+    private fun sanitizeBaseUrlForCurrentBuild(raw: String): String {
+        val normalized = normalizeBaseUrl(raw)
+        if (BuildConfig.BASE_URL_EDITABLE) return normalized
+        return if (isTrustedReleaseBaseUrl(normalized)) normalized else DEFAULT_BASE_URL
     }
 }

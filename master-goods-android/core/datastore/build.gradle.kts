@@ -23,6 +23,19 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    buildTypes {
+        debug {
+            buildConfigField("boolean", "BASE_URL_EDITABLE", "true")
+        }
+        release {
+            buildConfigField("boolean", "BASE_URL_EDITABLE", "false")
+        }
+    }
 }
 
 dependencies {
