@@ -258,6 +258,102 @@
 - 当前状态：In Progress
 - 下一步：让底栏选中指示器在按压/拖拽时驱动这些参数。
 
+##### 文件 31：feature/agent/src/main/java/com/zhihuiji/feature/agent/OperationDraftScreen.kt
+- 所属模块：feature/agent
+- 本次修改内容：继续按 `08.png` 打磨“操作草稿”页，新增“草稿列表”标题区，把真实草稿与占位草稿都改成更接近业务卡片的字段布局，补上草稿编号、往来方、商品数、金额、创建时间，并让收款草稿主按钮更接近“新建草稿”的设计语义。
+- 当前状态：In Progress
+- 下一步：继续压近任务与通知页的筛选维度、状态层级和时间信息表现。
+
+##### 文件 32：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentTaskScreen.kt
+- 所属模块：feature/agent
+- 本次修改内容：继续按 `08.png` 打磨“任务与通知”页，把任务筛选补成“全部/排队/进行中/已完成/失败”五档；同时增强任务卡的进度文案、任务类型、耗时/等待状态展示，并为通知卡补上送达状态说明，让页面更接近设计稿中的状态中心层级。
+- 当前状态：In Progress
+- 下一步：继续收紧 AI 问答页的结构化答案层级和推荐问题形态。
+
+##### 文件 34：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentTaskScreen.kt
+- 所属模块：feature/agent
+- 本次修改内容：修复 `completedAt` 在跨模块 DTO 上触发的 smart cast 编译问题，改为先落到局部不可变变量后再计算耗时，确保任务页新增的“耗时”展示可稳定编译。
+- 当前状态：In Progress
+- 下一步：重新执行 `assembleDebug` 验证本轮 agent 页面细化是否全部通过。
+
+##### 文件 35：core/datastore/src/main/java/com/zhihuiji/core/datastore/SessionStore.kt
+- 所属模块：core/datastore
+- 本次修改内容：修复 APK 打包阶段暴露出的 Kotlin 编译问题，删除重复的 `Flow` 导入，避免 `Conflicting import` 导致 `core:datastore` 编译失败。
+- 当前状态：In Progress
+- 下一步：重新执行 `./gradlew :app:assembleDebug` 输出可安装 APK。
+
+##### 文件 36：app/build.gradle.kts
+- 所属模块：app
+- 本次修改内容：开始做 Android 加固，调整构建策略为 `debug` 不混淆、`release` 开启 `minify` 与 `shrinkResources`，让正式构建不再把完整类名、方法名和冗余资源直接暴露给逆向分析。
+- 当前状态：In Progress
+- 下一步：继续收紧 Manifest、备份策略与网络安全配置。
+
+##### 文件 37：app/src/main/AndroidManifest.xml
+- 所属模块：app
+- 本次修改内容：关闭 `allowBackup`，接入 `dataExtractionRules` 与 `fullBackupContent`，同时把网络策略切换到显式 `networkSecurityConfig`，收掉当前“全局允许备份 / 全局允许明文流量”的高暴露配置。
+- 当前状态：In Progress
+- 下一步：补齐 debug/release 两套网络安全 XML 与备份规则文件。
+
+##### 文件 38：app/src/debug/res/xml/network_security_config.xml
+- 所属模块：app
+- 本次修改内容：新增 debug 专用网络安全配置，默认拒绝明文流量，只对白名单开发地址（`10.0.2.2`、`localhost`、`127.0.0.1`、`117.72.79.106`）允许 HTTP，避免调试版也对任意明文目标放开。
+- 当前状态：In Progress
+- 下一步：新增 release 版本的严格 HTTPS 配置。
+
+##### 文件 39：app/src/release/res/xml/network_security_config.xml
+- 所属模块：app
+- 本次修改内容：新增 release 专用网络安全配置，正式版默认仅允许受信任 HTTPS 通信，从配置层切断任意明文抓包与中间人降级空间。
+- 当前状态：In Progress
+- 下一步：补齐备份与数据提取规则。
+
+##### 文件 40：app/src/main/res/xml/backup_rules.xml
+- 所属模块：app
+- 本次修改内容：新增传统备份规则，直接排除根路径，避免应用文件通过系统备份通道被整体带出。
+- 当前状态：In Progress
+- 下一步：补齐 Android 12+ 数据提取规则。
+
+##### 文件 41：app/src/main/res/xml/data_extraction_rules.xml
+- 所属模块：app
+- 本次修改内容：新增 Android 12+ 数据提取规则，禁止云备份与设备迁移把应用目录整体导出，补齐新系统路径下的数据保护。
+- 当前状态：In Progress
+- 下一步：收紧网络日志与 release 环境的 HTTPS 约束。
+
+##### 文件 42：core/network/build.gradle.kts
+- 所属模块：core/network
+- 本次修改内容：为网络模块开启 `BuildConfig` 并按 `debug/release` 注入安全开关，给后续的“仅调试版输出网络日志、仅调试版允许非 HTTPS 基础地址”提供变体级控制。
+- 当前状态：In Progress
+- 下一步：在 `NetworkModule` 中消费这些开关。
+
+##### 文件 43：core/network/src/main/java/com/zhihuiji/core/network/NetworkModule.kt
+- 所属模块：core/network
+- 本次修改内容：网络层开始消费安全开关，关闭 release 版的 OkHttp 日志输出，并在基础地址拦截器中强制正式构建只接受 HTTPS 基础地址，收掉请求头泄漏和 HTTP 降级面。
+- 当前状态：In Progress
+- 下一步：补充 UI 层的截图保护与 R8 混淆规则。
+
+##### 文件 44：app/src/main/java/com/zhihuiji/app/MainActivity.kt
+- 所属模块：app
+- 本次修改内容：为正式构建启用 `FLAG_SECURE`，减少敏感页面被系统截图、录屏、最近任务缩略图直接带出的风险；调试版保持不受影响，便于开发验收。
+- 当前状态：In Progress
+- 下一步：补齐 ProGuard / R8 规则，确保 release 混淆可稳定落地。
+
+##### 文件 45：app/proguard-rules.pro
+- 所属模块：app
+- 本次修改内容：补充 release 混淆规则，重点保留 kotlinx.serialization、Hilt/Dagger、Retrofit 接口与核心模型，确保正式版在开启 R8 后既具备混淆收益，又不因反射/生成代码被裁剪而失稳。
+- 当前状态：In Progress
+- 下一步：补一份逆向审计与加固记录文档，并执行 debug/release 双构建验证。
+
+##### 文件 46：docs/android-security-hardening-audit.md
+- 所属模块：docs
+- 本次修改内容：新增“Android 逆向审计与加固记录”，记录本轮从 APK/Manifest/网络/备份面观察到的暴露点，以及已经落地的 build、Manifest、network、FLAG_SECURE 等加固措施，便于后续复查与继续补强。
+- 当前状态：In Progress
+- 下一步：执行 debug / release 构建验证，确认本轮加固没有破坏工程产物。
+
+##### 文件 33：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatScreen.kt
+- 所属模块：feature/agent
+- 本次修改内容：继续按 `08.png` 打磨“AI问答”页，把推荐问题从按钮改成更轻的胶囊问题项；同时给助手回复卡补上“经营分析结果”头部标识，并增强 TOP3 商品区标题信息层级，使整页更接近专业分析问答界面的视觉结构。
+- 当前状态：In Progress
+- 下一步：编译验证并视报错继续做最小修正。
+
 ##### 文件 8：app/src/main/java/com/zhihuiji/app/navigation/MainScreen.kt
 - 所属模块：app
 - 本次修改内容：主壳接入底栏可见性状态和二次点击策略；点击当前 tab 时不再重复导航，而是派发对应的 reselect signal，并主动恢复底栏显示。
@@ -341,6 +437,66 @@
 - 本次修改内容：供应商列表接入 `LazyListState`，实现底栏滚动隐藏和重选“档案”后的回顶行为。
 - 当前状态：In Progress
 - 下一步：整体编译验证，并检查顶层入口页面与适配层是否有签名未同步。
+
+##### 文件 22：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentViewModel.kt
+- 所属模块：feature/agent
+- 本次修改内容：将 agent 状态中心从单页工作台扩展为多页共享状态，新增聊天消息、操作草稿、提交结果、任务详情、通知更新等状态与加载方法，为 AI 问答 / 操作草稿 / 任务通知页面拆分做准备。
+- 当前状态：In Progress
+- 下一步：新增独立的 `AgentChatScreen`、`OperationDraftScreen`、`AgentTaskScreen`、`NotificationScreen` 并接入这些状态。
+
+##### 文件 23：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatScreen.kt
+- 所属模块：feature/agent（新建）
+- 本次修改内容：新增独立 AI 问答页，拆出聊天气泡、助手结构化回答卡片、建议问题区和底部输入栏，视觉结构开始向设计稿 `08.png` 的第二屏靠拢。
+- 当前状态：In Progress
+- 下一步：把工作台页入口和导航接到该页面，并继续新增操作草稿页。
+
+##### 文件 24：feature/agent/src/main/java/com/zhihuiji/feature/agent/OperationDraftScreen.kt
+- 所属模块：feature/agent（新建）
+- 本次修改内容：新增操作草稿页，包含分类 Tab、仅看我创建、指令生成草稿、草稿卡片、警告与提交结果区，初步贴近设计稿 `08.png` 的第三屏结构。
+- 当前状态：In Progress
+- 下一步：补任务与通知页，并把工作台快捷入口接到问答 / 草稿 / 任务通知页面。
+
+##### 文件 25：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentTaskScreen.kt
+- 所属模块：feature/agent（新建）
+- 本次修改内容：新增任务与通知中心页，并补 `NotificationScreen` 包装入口；实现“任务 / 通知”双 Tab、状态筛选、任务进度卡、通知已读操作，并继续增强状态 Chip、图标分层、进度描述与通知语义色，进一步贴近设计稿 `08.png` 的第四屏结构；同时补齐 `background` 导入，修复本轮视觉增强引入的编译错误。
+- 当前状态：In Progress
+- 下一步：修改工作台页与主导航，把问答 / 草稿 / 任务通知真正接入助手入口流转。
+
+##### 文件 26：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentWorkbenchScreen.kt
+- 所属模块：feature/agent
+- 本次修改内容：将助手首页重构为更接近设计稿 `08.png` 的工作台首屏，补齐右上角入口、四宫格 KPI、经营洞察、快捷操作和推荐问题，并增加跳转到问答 / 草稿 / 任务通知的回调入口。
+- 当前状态：In Progress
+- 下一步：在主导航中新增 agent 子路由，把这些回调真正接入页面流转。
+
+##### 文件 27：app/src/main/java/com/zhihuiji/app/navigation/MainNavGraph.kt
+- 所属模块：app
+- 本次修改内容：新增 agent 子路由，接入 `AgentChatScreen`、`OperationDraftScreen`、`AgentTaskScreen`、`NotificationScreen`，并将工作台页的问答 / 草稿 / 任务通知入口真正挂到导航流转上；同时对聊天初始问题参数增加 `Uri.encode`，避免中文问句造成路由解析问题。
+- 当前状态：In Progress
+- 下一步：修正路由参数细节后执行编译验证，确保四页都能正常进入。
+
+##### 文件 28：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatScreen.kt
+- 所属模块：feature/agent
+- 本次修改内容：为 `FlowRow` 增加 `ExperimentalLayoutApi` 显式 `OptIn`，修复 AI 问答页因实验布局 API 导致的 Kotlin 编译失败；同时将发送图标切换到 `Icons.AutoMirrored.Filled.Send`，清理 Compose deprecation 警告，并继续补强“销售概览 / 指标卡 / 趋势图 / Top3 商品”结构，让问答页更贴近 `08.png` 第二屏的分析回答样式。
+- 当前状态：In Progress
+- 下一步：继续修复工作台页与草稿页相同的实验布局 API 编译问题。
+
+##### 文件 29：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentWorkbenchScreen.kt
+- 所属模块：feature/agent
+- 本次修改内容：为工作台页增加 `ExperimentalLayoutApi` 显式 `OptIn`，修复四宫格 `FlowRow` 造成的 Kotlin 编译失败；同时将 `ReceiptLong` 切换为 `AutoMirrored` 版本，清理 Compose deprecation 警告，并继续强化顶部入口、快捷操作、推荐问题与 KPI 卡的视觉层级，使首页更贴近 `08.png` 第一屏。
+- 当前状态：In Progress
+- 下一步：继续修复操作草稿页的实验布局 API 编译问题，并重新执行构建验证。
+
+##### 文件 30：feature/agent/src/main/java/com/zhihuiji/feature/agent/OperationDraftScreen.kt
+- 所属模块：feature/agent
+- 本次修改内容：为操作草稿页及其私有 `DraftCard` 增加 `ExperimentalLayoutApi` 显式 `OptIn`，修复警告标签区 `FlowRow` 造成的 Kotlin 编译失败，并继续增强草稿卡片的类型图标、编号、副标题与操作层级，让页面更贴近 `08.png` 第三屏；同时补齐 `background / Box / size / RoundedCornerShape` 等 Compose 导入，修复本轮视觉增强引入的编译错误。
+- 当前状态：In Progress
+- 下一步：重新执行构建验证，并继续修复 agent 路由或 UI 细节问题。
+
+##### 文件 31：feature/agent/DEVELOPMENT.md
+- 所属模块：feature/agent
+- 本次修改内容：将模块说明从“脚手架已创建，页面未开始”更新为真实状态，明确 AI 工作台 / 问答 / 草稿 / 任务通知首版已完成，同时补充当前剩余差距与下一步完善方向。
+- 当前状态：In Progress
+- 下一步：继续通过真机截图核对 `08.png`，逐项微调视觉和交互细节。
 
 ##### 验证记录
 - 执行命令：`./gradlew :app:assembleDebug`
@@ -1106,7 +1262,7 @@
 ### 第九阶段：设计稿逐页对照调试记录（2026-05-25）
 
 #### 本阶段目标
-- 以 `/Users/sunyiyang/Desktop/Project/master-goods/image doc/01.png`、`03.png`、`06.png`、`08.png` 为主参考，逐页核对首页、单据、档案、报表、AI 工作台。
+- 以 `/Users/sunyiyang/Desktop/Project/master-goods/docs/design-mockups/01.png`、`03.png`、`06.png`、`08.png` 为主参考，逐页核对首页、单据、档案、报表、AI 工作台。
 - 不做安卓单机离线版，本阶段只做在线优先 UI 对齐和真机截图验证。
 
 #### 逐文件记录
@@ -1285,6 +1441,169 @@
 - 底栏：去掉默认 Material3 选中大胶囊后，视觉更接近设计稿中的简洁底部导航。
 - 卡片：圆角、边框、阴影和透明度更柔和，毛玻璃观感更明显。
 - 按钮/胶囊：整体边框更轻，和设计稿中的浅蓝边框体系更一致。
+
+### 第十一阶段：逆向审计与加固记录（2026-05-31）
+
+#### 本阶段目标
+- 参考逆向分析常见暴露面，针对当前 Android 包的可读性、网络明文、日志泄露、备份泄露和界面截屏风险做第一轮工程级加固，并保持可构建状态。
+
+#### 逐文件记录
+
+##### 文件 61：app/build.gradle.kts
+- 所属模块：app
+- 本次修改内容：在 `buildFeatures` 中显式开启 `buildConfig = true`，确保 `MainActivity` 中基于 `BuildConfig.DEBUG` 的发布版截屏保护逻辑可以稳定编译。
+- 当前状态：Done
+- 下一步：继续执行 `assembleDebug` 和 `assembleRelease`，确认本阶段所有加固改动都通过构建验证。
+
+##### 文件 62：core/datastore/src/main/java/com/zhihuiji/core/datastore/SecureSessionCipher.kt
+- 所属模块：core/datastore
+- 本次修改内容：新增基于 Android Keystore 的 AES/GCM 会话加密器，用于把 access token 和 refresh token 在落盘前加密，并兼容已存储密文的透明解密。
+- 当前状态：Done
+- 下一步：把 `SessionStore` 接到该加密器，并对历史明文 token 做自动迁移。
+
+##### 文件 63：core/datastore/src/main/java/com/zhihuiji/core/datastore/SessionStore.kt
+- 所属模块：core/datastore
+- 本次修改内容：会话读写改为“落盘前加密、读取时解密”，并在初始化监听中自动把历史明文 token 迁移成 Keystore 密文。
+- 当前状态：Done
+- 下一步：补一层运行时高风险环境检测，降低调试注入与 Frida 直接附加的暴露面。
+
+##### 文件 64：app/src/main/java/com/zhihuiji/app/security/RuntimeSecurityGuard.kt
+- 所属模块：app
+- 本次修改内容：新增发布版运行时高风险检测，覆盖调试器附加、Frida 默认端口探测与进程 maps 中的 Frida/Gum 痕迹，同时预留 root 检测能力用于后续分级策略。
+- 当前状态：Done
+- 下一步：把高风险运行时检测接入 `MainActivity`，仅在非 debug 构建下拦截明显的注入/调试场景。
+
+##### 文件 65：app/src/main/java/com/zhihuiji/app/MainActivity.kt
+- 所属模块：app
+- 本次修改内容：在发布版启动路径中接入 `RuntimeSecurityGuard.isHighRiskRuntime()`，与 `FLAG_SECURE` 组合生效；检测到调试器/Frida 高风险环境时直接终止界面初始化。
+- 当前状态：Done
+- 下一步：更新逆向加固审计文档，并重新执行 debug/release 构建验证。
+
+##### 文件 66：docs/android-security-hardening-audit.md
+- 所属模块：docs
+- 本次修改内容：把第二轮逆向加固结果补入审计文档，新增 Keystore 会话加密、历史明文迁移、Frida/Debugger 运行时拦截与后续证书绑定/完整性建议。
+- 当前状态：Done
+- 下一步：重新执行 `assembleDebug` 与 `assembleRelease`，确认第二轮加固后的完整工程仍可交付。
+
+##### 文件 67：core/datastore/build.gradle.kts
+- 所属模块：core/datastore
+- 本次修改内容：为 `core:datastore` 开启 `BuildConfig` 生成，并新增 `BASE_URL_EDITABLE` 构建开关，使 debug 可切环境、release 收紧为不可编辑。
+- 当前状态：Done
+- 下一步：把 `SettingsStore` 和设置页接到该构建开关，封住 release 任意改服务器地址的入口。
+
+##### 文件 68：core/datastore/src/main/java/com/zhihuiji/core/datastore/SettingsStore.kt
+- 所属模块：core/datastore
+- 本次修改内容：新增 release 主机白名单与 `isTrustedReleaseBaseUrl()` 校验；保存和读取基础地址时都会按构建类型做净化，release 下只接受受控 HTTPS 主机，其他地址一律回退到默认正式地址。
+- 当前状态：Done
+- 下一步：把网络拦截器和刷新 token 链路一并切到同一套 release 白名单规则，避免旁路请求绕过。
+
+##### 文件 69：core/network/src/main/java/com/zhihuiji/core/network/NetworkModule.kt
+- 所属模块：core/network
+- 本次修改内容：基础地址拦截器新增 release 主机白名单校验；正式构建除了必须 HTTPS 之外，还必须命中受控生产主机，否则直接拒绝请求。
+- 当前状态：Done
+- 下一步：同步修补 `TokenAuthenticator` 的刷新 token 链路，避免它绕过主拦截器单独访问未受控主机。
+
+##### 文件 70：core/network/src/main/java/com/zhihuiji/core/network/TokenAuthenticator.kt
+- 所属模块：core/network
+- 本次修改内容：刷新 token 前增加 release 主机白名单校验，防止认证器单独 new 出的 `OkHttpClient` 绕过基础地址拦截器，向未受控主机发起刷新请求。
+- 当前状态：Done
+- 下一步：把设置页改成“debug 可编辑 / release 只读展示”，从 UI 层彻底收掉生产环境可改服务器地址入口。
+
+##### 文件 71：feature/settings/src/main/java/com/zhihuiji/feature/settings/SettingsViewModel.kt
+- 所属模块：feature/settings
+- 本次修改内容：把“服务器地址是否可编辑”纳入 `SettingsUiState`，初始化时读取构建级开关；同时在保存逻辑中增加 release 拦截，避免 UI 之外的普通调用误改正式环境地址。
+- 当前状态：Done
+- 下一步：更新设置页显示逻辑，release 下改成只读展示和安全说明。
+
+##### 文件 72：feature/settings/src/main/java/com/zhihuiji/feature/settings/SettingsScreen.kt
+- 所属模块：feature/settings
+- 本次修改内容：设置页改为“debug 可编辑 / release 只读展示”；正式版仅显示当前受控服务器地址和安全说明，不再暴露手工输入与保存按钮。
+- 当前状态：Done
+- 下一步：把 root 检测并入高风险运行时判定，并重新执行 debug/release 构建验证。
+
+##### 文件 73：app/src/main/java/com/zhihuiji/app/security/RuntimeSecurityGuard.kt
+- 所属模块：app
+- 本次修改内容：将 `isRooted()` 正式并入 `isHighRiskRuntime()`，让发布版不仅拦调试器/Frida，也拦截已知 root 高风险运行环境。
+- 当前状态：Done
+- 下一步：更新逆向加固审计文档，然后重新跑完整构建验证。
+
+##### 文件 74：docs/android-security-hardening-audit.md
+- 所属模块：docs
+- 本次修改内容：补记第三轮逆向加固结果，新增 release 服务器地址入口收口、正式主机白名单、刷新 token 旁路收紧与 root 纳入阻断的说明。
+- 当前状态：Done
+- 下一步：执行 `assembleDebug` 与 `assembleRelease`，确认第三轮加固没有破坏联调和发版链路。
+
+##### 文件 75：core/datastore/src/main/java/com/zhihuiji/core/datastore/SettingsStore.kt
+- 所属模块：core/datastore
+- 本次修改内容：将 release 主机白名单校验从 `okhttp` URL 扩展改为 `java.net.URI` 标准库解析，避免为 `core:datastore` 引入额外网络依赖并修复构建错误。
+- 当前状态：Done
+- 下一步：重新执行 debug/release 构建，确认第三轮加固链路全部恢复通过。
+
+##### 文件 76：app/build.gradle.kts
+- 所属模块：app
+- 本次修改内容：新增构建期 `APP_SIGNING_SHA256` 常量；debug 使用本机 debug keystore 摘要，release 允许通过 `ZHIHUIJI_RELEASE_SIGNING_SHA256` 注入正式签名摘要，用于运行时签名完整性校验。
+- 当前状态：Done
+- 下一步：新增签名校验器并接入主入口，让发布版能识别重打包或非预期签名。
+
+##### 文件 77：app/src/main/java/com/zhihuiji/app/security/SignatureIntegrityChecker.kt
+- 所属模块：app
+- 本次修改内容：新增 APK 签名完整性校验器，兼容 Android P 及以下签名 API，按运行时安装包签名计算 SHA-256 并与构建期白名单摘要比对。
+- 当前状态：Done
+- 下一步：把签名校验器接到发布版启动链路，与现有高风险运行时拦截组合生效。
+
+##### 文件 78：app/src/main/java/com/zhihuiji/app/MainActivity.kt
+- 所属模块：app
+- 本次修改内容：在发布版启动链路中新增签名完整性校验，先校验 APK 签名是否命中构建期白名单，再继续执行 root/Frida/debugger 风险拦截。
+- 当前状态：Done
+- 下一步：为证书绑定补可安全启用的构建入口，并重新执行 debug/release 构建验证。
+
+##### 文件 79：core/network/build.gradle.kts
+- 所属模块：core/network
+- 本次修改内容：新增证书绑定相关构建常量；通过 `ZHIHUIJI_PINNED_HOST` 与 `ZHIHUIJI_CERT_PINS` 注入正式域名和公钥 pin，debug 默认关闭，release 仅在真实 pin 提供时启用。
+- 当前状态：Done
+- 下一步：在 `NetworkModule` 中接入 `CertificatePinner`，让证书绑定在提供真实 pin 后可直接生效。
+
+##### 文件 80：core/network/src/main/java/com/zhihuiji/core/network/NetworkModule.kt
+- 所属模块：core/network
+- 本次修改内容：新增 `CertificatePinner` 接入点；当 release 构建注入真实 pin 时自动启用公钥绑定，未提供 pin 时保持关闭，避免在证书链不明的环境里误锁发布包。
+- 当前状态：Done
+- 下一步：更新逆向加固审计文档，并重新执行 debug/release 构建验证。
+
+##### 文件 81：docs/android-security-hardening-audit.md
+- 所属模块：docs
+- 本次修改内容：补记第四轮逆向加固结果，新增 APK 签名完整性校验、证书绑定的构建入口，以及当前由于正式证书链不可用而未直接硬启 pinning 的说明。
+- 当前状态：Done
+- 下一步：执行 debug/release 构建验证，确认签名校验和 pinning 入口没有破坏现有发布链路。
+
+##### 文件 82：docs/android-security-hardening-audit.md
+- 所属模块：docs
+- 本次修改内容：新增“本轮加固总览”段落，把当前已经落地的服务器地址收口、Keystore 会话加密、运行时拦截、签名完整性校验、主机白名单与证书绑定入口集中整理到一个汇总视图中。
+- 当前状态：Done
+- 下一步：后续若继续做数据库加密或真实证书 pin 注入，可继续在该文档中追加统一汇总。
+
+##### 文件 83：tools/migrate_kingdee_zhihuiji.py
+- 所属模块：tools
+- 本次修改内容：新增旧版“智慧记进销存”到当前 Android Room 库的迁移脚本；支持读取 `9ffd...db` 主业务库、重建 `zhihuiji.db` 目标结构、迁移商品/客户/供应商/销售单/销售明细/采购单/付款单/资金流水，并可选直接通过 rooted ADB 推送到 `com.zhihuiji.app` 沙箱。
+- 当前状态：Done
+- 下一步：补充迁移说明文档，随后用真机实际生成并部署迁移后的数据库，验证导入结果。
+
+##### 文件 84：docs/android-kingdee-data-migration.md
+- 所属模块：docs
+- 本次修改内容：新增旧版“智慧记进销存”本地数据迁移说明，整理来源 APK、来源主业务库、当前支持的表映射、命令行用法、rooted ADB 部署逻辑、金额/状态映射规则与已知风险。
+- 当前状态：Done
+- 下一步：执行迁移脚本，核对生成库的表结构与数据量，再把结果实际推送到真机并验证。
+
+##### 文件 85：tools/migrate_kingdee_zhihuiji.py
+- 所属模块：tools
+- 本次修改内容：修复设备部署分支；优先走 `run-as com.zhihuiji.app` 将迁移库复制到 app 自己的 `databases/zhihuiji.db`，只有在 `run-as` 不可用时才回退到 rooted `su + dd` 路径，避免之前直接 root 复制命中 SELinux/目标文件名限制。
+- 当前状态：Done
+- 下一步：重新执行 `--deploy` 自验证，并在真机上读取目标库或启动 app，确认迁移结果已经实际生效。
+
+##### 文件 86：docs/android-kingdee-data-migration.md
+- 所属模块：docs
+- 本次修改内容：补记 2026-06-01 真机实测结果，记录 serial `50f87ee9`、各目标表实际迁移数量、Room identity hash 校验、设备回读 `SHA-256` 一致性，以及 `MainActivity` 无 Room/SQLite/FATAL 异常的启动验证结果。
+- 当前状态：Done
+- 下一步：如需把旧数据长期纳入正式业务链路，下一阶段应考虑做“本地导入后上送后端”或专门的导入 UI，而不是只停留在离线本地库替换。
 
 ## 当前整体结论
 

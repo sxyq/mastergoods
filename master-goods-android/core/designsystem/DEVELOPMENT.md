@@ -7,7 +7,7 @@
 ## 设计依据
 
 - 全局规范见 [UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/UI-DESIGN-SPEC.md)。
-- 参考设计图见 [image doc](</Users/sunyiyang/Desktop/Project/master-goods/image doc>)。
+- 参考设计图见 [design-mockups](/Users/sunyiyang/Desktop/Project/master-goods/docs/design-mockups)。
 
 ## 需要创建的主题类
 

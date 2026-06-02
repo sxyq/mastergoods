@@ -1,6 +1,6 @@
 # UI 设计规范
 
-本文档根据 [image doc](</Users/sunyiyang/Desktop/Project/master-goods/image doc>) 中 `01.png` 到 `08.png` 反推。最终 Android Compose 实现要以这些设计板为视觉目标，而不是只满足功能可用。
+本文档根据 [design-mockups](/Users/sunyiyang/Desktop/Project/master-goods/docs/design-mockups) 中 `01.png` 到 `08.png` 反推。最终 Android Compose 实现要以这些设计板为视觉目标，而不是只满足功能可用。
 
 ## 设计目标
 

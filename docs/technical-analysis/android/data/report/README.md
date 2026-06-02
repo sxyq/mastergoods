@@ -1,107 +1,31 @@
-# Android Data 层 - Report 子模块详尽代码分析
+# Android data/report 模块分析
 
-> 自动生成于 2026-05-28，覆盖 report 子模块全部 1 个 Kotlin 源文件
+- 对应源码目录：`master-goods-android/data/report`
+- 关键源码：`ReportRepository.kt`
 
----
+## 模块定位
 
-## 1. ReportRepository
+`data/report` 在新版里不是单纯“首页卡片接口仓储”，而是 owner 私有经营聚合读模型的入口。  
+重点会放在：
 
-- **文件路径**: `data/report/src/main/java/com/zhihuiji/data/report/ReportRepository.kt`
-- **父类/接口**: 无
-- **注解**: `@Singleton`
-- **职责**: 报表数据的获取，纯远程 API 调用，无本地缓存
-- **设计模式**: Repository 模式 + 单例模式（通过 Hilt `@Singleton`）
+- 销售/采购汇总
+- 财务账户报表
+- 库存账本与月统计
+- AI 辅助报表入口
 
-### 类属性
+## 状态图例
 
-##### api: ZhihuijiApi
-- 作用域：类私有（constructor 注入）
-- 初始值：由 Hilt 注入
-- 使用场景：调用报表相关 API
-- 建议：无
+- `新版已做`
+- `新版待做`
+- `旧版存在新版未做`
+- `新版需要去掉`
+- `需重构`
+- `待验证`
 
-### 函数/方法
+## 状态表
 
-##### salesSummary(startAt: Long, endAt: Long): Result<SalesSummaryReportDto>
-- 参数：`startAt: Long` - 起始时间戳；`endAt: Long` - 结束时间戳
-- 返回值：`Result<SalesSummaryReportDto>` - 销售汇总数据
-- 实现逻辑：委托给 `safeApiCall { api.salesSummary(startAt, endAt) }`
-- 调用关系：调用了 `safeApiCall()`、`api.salesSummary()`，被 `ReportViewModel.loadReports()`、`DashboardViewModel.loadDashboard()` 调用
-- 建议：无
-
-##### profitSummary(startAt: Long, endAt: Long): Result<ProfitSummaryReportDto>
-- 参数：`startAt: Long` - 起始时间戳；`endAt: Long` - 结束时间戳
-- 返回值：`Result<ProfitSummaryReportDto>` - 利润汇总数据
-- 实现逻辑：委托给 `safeApiCall { api.profitSummary(startAt, endAt) }`
-- 调用关系：调用了 `safeApiCall()`、`api.profitSummary()`，被 `ReportViewModel.loadReports()`、`DashboardViewModel.loadDashboard()` 调用
-- 建议：无
-
-##### refundRecords(startAt: Long, endAt: Long, limit: Int = 10): Result<List<RefundRecordDto>>
-- 参数：`startAt: Long` - 起始时间戳；`endAt: Long` - 结束时间戳；`limit: Int = 10` - 返回条数限制
-- 返回值：`Result<List<RefundRecordDto>>` - 退款记录列表
-- 实现逻辑：委托给 `safeApiCall { api.refundRecords(startAt, endAt, limit) }`
-- 调用关系：调用了 `safeApiCall()`、`api.refundRecords()`
-- 建议：当前未被任何 ViewModel 调用，考虑是否需要暴露给 UI 层
-
-##### stockOutRecords(startAt: Long, endAt: Long, limit: Int = 10): Result<List<StockOutRecordDto>>
-- 参数：`startAt: Long` - 起始时间戳；`endAt: Long` - 结束时间戳；`limit: Int = 10` - 返回条数限制
-- 返回值：`Result<List<StockOutRecordDto>>` - 出库记录列表
-- 实现逻辑：委托给 `safeApiCall { api.stockOutRecords(startAt, endAt, limit) }`
-- 调用关系：调用了 `safeApiCall()`、`api.stockOutRecords()`
-- 建议：当前未被任何 ViewModel 调用
-
-##### topProducts(startAt: Long, endAt: Long, limit: Int = 10): Result<List<TopSellingProductReportDto>>
-- 参数：`startAt: Long` - 起始时间戳；`endAt: Long` - 结束时间戳；`limit: Int = 10` - 返回条数限制
-- 返回值：`Result<List<TopSellingProductReportDto>>` - 热销商品排行
-- 实现逻辑：委托给 `safeApiCall { api.topProducts(startAt, endAt, limit) }`
-- 调用关系：调用了 `safeApiCall()`、`api.topProducts()`，被 `ReportViewModel.loadReports()` 调用
-- 建议：无
-
-##### profitByProducts(startAt: Long, endAt: Long, limit: Int = 10): Result<List<ProductProfitReportDto>>
-- 参数：`startAt: Long` - 起始时间戳；`endAt: Long` - 结束时间戳；`limit: Int = 10` - 返回条数限制
-- 返回值：`Result<List<ProductProfitReportDto>>` - 商品利润排行
-- 实现逻辑：委托给 `safeApiCall { api.profitByProducts(startAt, endAt, limit) }`
-- 调用关系：调用了 `safeApiCall()`、`api.profitByProducts()`
-- 建议：当前未被任何 ViewModel 调用
-
-##### profitByCustomers(startAt: Long, endAt: Long, limit: Int = 10): Result<List<CustomerProfitReportDto>>
-- 参数：`startAt: Long` - 起始时间戳；`endAt: Long` - 结束时间戳；`limit: Int = 10` - 返回条数限制
-- 返回值：`Result<List<CustomerProfitReportDto>>` - 客户利润排行
-- 实现逻辑：委托给 `safeApiCall { api.profitByCustomers(startAt, endAt, limit) }`
-- 调用关系：调用了 `safeApiCall()`、`api.profitByCustomers()`
-- 建议：当前未被任何 ViewModel 调用
-
-##### inventoryFlow(startAt: Long, endAt: Long, limit: Int = 10): Result<List<InventoryFlowReportDto>>
-- 参数：`startAt: Long` - 起始时间戳；`endAt: Long` - 结束时间戳；`limit: Int = 10` - 返回条数限制
-- 返回值：`Result<List<InventoryFlowReportDto>>` - 库存流水数据
-- 实现逻辑：委托给 `safeApiCall { api.inventoryFlow(startAt, endAt, limit) }`
-- 调用关系：调用了 `safeApiCall()`、`api.inventoryFlow()`
-- 建议：当前未被任何 ViewModel 调用
-
-##### customerSales(startAt: Long, endAt: Long, limit: Int = 10): Result<List<CustomerSalesReportDto>>
-- 参数：`startAt: Long` - 起始时间戳；`endAt: Long` - 结束时间戳；`limit: Int = 10` - 返回条数限制
-- 返回值：`Result<List<CustomerSalesReportDto>>` - 客户销售数据
-- 实现逻辑：委托给 `safeApiCall { api.customerSales(startAt, endAt, limit) }`
-- 调用关系：调用了 `safeApiCall()`、`api.customerSales()`
-- 建议：当前未被任何 ViewModel 调用
-
-##### topReceivableCustomers(limit: Int = 10): Result<List<CustomerReceivableReportDto>>
-- 参数：`limit: Int = 10` - 返回条数限制
-- 返回值：`Result<List<CustomerReceivableReportDto>>` - 应收客户排行
-- 实现逻辑：委托给 `safeApiCall { api.topReceivableCustomers(limit) }`
-- 调用关系：调用了 `safeApiCall()`、`api.topReceivableCustomers()`，被 `ReportViewModel.loadReports()`、`DashboardViewModel.loadDashboard()` 调用
-- 建议：无
-
-##### lowStockProducts(limit: Int = 10): Result<List<LowStockProductReportDto>>
-- 参数：`limit: Int = 10` - 返回条数限制
-- 返回值：`Result<List<LowStockProductReportDto>>` - 低库存商品列表
-- 实现逻辑：委托给 `safeApiCall { api.lowStockProducts(limit) }`
-- 调用关系：调用了 `safeApiCall()`、`api.lowStockProducts()`，被 `ReportViewModel.loadReports()`、`DashboardViewModel.loadDashboard()` 调用
-- 建议：无
-
-##### reconciliationSummary(startAt: Long, endAt: Long): Result<ReconciliationSummaryReportDto>
-- 参数：`startAt: Long` - 起始时间戳；`endAt: Long` - 结束时间戳
-- 返回值：`Result<ReconciliationSummaryReportDto>` - 对账汇总数据
-- 实现逻辑：委托给 `safeApiCall { api.reconciliationSummary(startAt, endAt) }`
-- 调用关系：调用了 `safeApiCall()`、`api.reconciliationSummary()`，被 `ReportViewModel.loadReports()` 调用
-- 建议：无
+| 对象 | 状态 | 旧版情况 | 新版目标 | 当前实现 | 备注 |
+|---|---|---|---|---|---|
+| 报表仓储骨架 | 新版已做 | 旧版统计更偏本地汇总 | 先对接当前后端报表接口 | `ReportRepository.kt` 已存在 | 已供报表首版页面使用 |
+| 更强的库存/月结/账户类报表 | 旧版存在新版未做 | 旧版库存与财务统计域更厚 | 新版报表要覆盖更完整经营域 | 当前报表仍偏首版 KPI 与排行 | 依赖后端扩域 |
+| owner-aware 报表查询 | 需重构 | 旧版无统一 owner | 所有报表按 owner 统计 | 当前仍主要依赖 `/v1` 聚合接口 | 要求后端先改 |

@@ -1,17 +1,13 @@
-# Android 脚手架说明
+# Android 工程说明
 
-这个目录是基于当前后端能力反推出来的 Android 端脚手架。
+这个目录是智慧记 Android 客户端工程，不再只是“脚手架”，当前已经包含可构建的多模块实现。
 
-约束：
-- 只创建目录和开发说明，不放任何 Kotlin 业务实现代码。
-- 目录命名使用真实 Android 多模块工程常见命名，便于后续直接补代码。
-- 每个模块都有 `DEVELOPMENT.md`，说明这个位置需要开发的类、函数、方法与验收点。
-
-## 目录总览
+## 当前工程结构
 
 ```text
 master-goods-android/
   app/
+  backdrop/
   core/
     common/
     designsystem/
@@ -43,7 +39,25 @@ master-goods-android/
     agent/
     settings/
   DEVELOPMENT-PLAN.md
+  UI-DESIGN-SPEC.md
 ```
+
+## 当前定位
+
+- `app`：应用主壳、认证流、主导航、五栏底部导航
+- `backdrop`：liquid glass / 毛玻璃效果底层实现
+- `core`：通用基础能力、网络、数据库、设计系统、数据存储
+- `data`：Repository 与数据访问层
+- `feature`：按业务域划分的页面与 ViewModel
+
+## 关键文档
+
+- 开发计划：
+  [DEVELOPMENT-PLAN.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/DEVELOPMENT-PLAN.md)
+- UI 设计规范：
+  [UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/UI-DESIGN-SPEC.md)
+- 视觉设计稿：
+  [docs/design-mockups](/Users/sunyiyang/Desktop/Project/master-goods/docs/design-mockups)
 
 ## 实际源码目录命名
 
@@ -76,6 +90,15 @@ master-goods-android/
 - `feature/agent/src/main/java/com/zhihuiji/feature/agent`
 - `feature/settings/src/main/java/com/zhihuiji/feature/settings`
 
-整体推进顺序见 [DEVELOPMENT-PLAN.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/DEVELOPMENT-PLAN.md)。
+## 文档使用建议
 
-UI 设计规范见 [UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/UI-DESIGN-SPEC.md)。后续所有 Compose 页面都要以 [image doc](</Users/sunyiyang/Desktop/Project/master-goods/image doc>) 中的设计图为视觉目标。
+- 看整体推进顺序：先看 `DEVELOPMENT-PLAN.md`
+- 看视觉目标：先看 `UI-DESIGN-SPEC.md` 和 `docs/design-mockups`
+- 看模块开发说明：进入各模块下的 `DEVELOPMENT.md`
+
+## 当前已知状态
+
+- 工程可构建
+- 主壳、五栏底部导航、核心列表/编辑/详情页已逐步落地
+- UI 仍在持续对齐设计稿
+- 本地导入链路已验证，但服务端“按账号隔离导入”仍需要后端补齐
