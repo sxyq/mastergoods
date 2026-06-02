@@ -81,9 +81,18 @@ fun NavGraphBuilder.supplierRoutes(navigateBack: () -> Unit, navigateToEditor: (
     }
 }
 
-fun NavGraphBuilder.saleOrderRoutes(navigateBack: () -> Unit) {
-    composable(SubRoutes.SALE_ORDER_EDITOR) {
+fun NavGraphBuilder.saleOrderRoutes(
+    navigateBack: () -> Unit,
+    navigateToEditor: (Long?) -> Unit,
+) {
+    composable(
+        route = "${SubRoutes.SALE_ORDER_EDITOR}?orderId={orderId}",
+        arguments = listOf(navArgument("orderId") { type = NavType.LongType; defaultValue = 0L }),
+    ) { backStackEntry ->
+        val rawId = backStackEntry.arguments?.getLong("orderId") ?: 0L
+        val orderId = toNullableId(rawId)
         SaleOrderEditorScreen(
+            orderId = orderId,
             onNavigateBack = { navigateBack() },
         )
     }
@@ -95,6 +104,7 @@ fun NavGraphBuilder.saleOrderRoutes(navigateBack: () -> Unit) {
         SaleOrderDetailScreen(
             orderId = orderId,
             onNavigateBack = { navigateBack() },
+            onNavigateToEdit = { navigateToEditor(orderId) },
         )
     }
 }

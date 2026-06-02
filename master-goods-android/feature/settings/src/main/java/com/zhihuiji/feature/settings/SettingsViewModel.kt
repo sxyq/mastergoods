@@ -20,6 +20,7 @@ import javax.inject.Inject
 
 data class SettingsUiState(
     val baseUrl: String = "",
+    val isBaseUrlEditable: Boolean = false,
     val clientId: String = "",
     val userProfile: UserProfile? = null,
     val syncHealth: SyncHealthResult? = null,
@@ -38,6 +39,7 @@ class SettingsViewModel @Inject constructor(
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
+        _uiState.value = _uiState.value.copy(isBaseUrlEditable = settingsStore.isBaseUrlEditable())
         viewModelScope.launch {
             settingsStore.baseUrl.combine(settingsStore.clientId) { url, id ->
                 _uiState.value.copy(baseUrl = url, clientId = id)
@@ -62,6 +64,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun saveBaseUrl(baseUrl: String) {
+        if (!settingsStore.isBaseUrlEditable()) return
         viewModelScope.launch { settingsStore.saveBaseUrl(baseUrl) }
     }
 

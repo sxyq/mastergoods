@@ -25,21 +25,31 @@ import com.zhihuiji.core.designsystem.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SaleOrderEditorScreen(
+    orderId: Long? = null,
     onNavigateBack: () -> Unit,
     viewModel: SaleOrderEditorViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val isEditing = uiState.editingOrderId != null
     var showProductPicker by remember { mutableStateOf(false) }
     var showCustomerPicker by remember { mutableStateOf(false) }
     var productSearchQuery by remember { mutableStateOf("") }
     var customerSearchQuery by remember { mutableStateOf("") }
+
+    LaunchedEffect(orderId) {
+        orderId?.let(viewModel::loadOrderForEdit)
+    }
 
     LaunchedEffect(uiState.saveSuccess) {
         if (uiState.saveSuccess) onNavigateBack()
     }
 
     Column(modifier = Modifier.fillMaxSize().glassBackground()) {
-        GlassTopBar(title = "销售开单", navigationIcon = Icons.AutoMirrored.Filled.ArrowBack, onNavigationClick = onNavigateBack)
+        GlassTopBar(
+            title = if (isEditing) "修改销售单" else "销售开单",
+            navigationIcon = Icons.AutoMirrored.Filled.ArrowBack,
+            onNavigationClick = onNavigateBack,
+        )
         Column(
             modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -52,7 +62,12 @@ fun SaleOrderEditorScreen(
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("结算方式：月结30天", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextSecondary)
-                        SecondaryOutlineButton(text = "选择", onClick = { showCustomerPicker = true }, modifier = Modifier.width(88.dp))
+                        SecondaryOutlineButton(
+                            text = if (isEditing) "已锁定" else "选择",
+                            onClick = { showCustomerPicker = true },
+                            enabled = !isEditing,
+                            modifier = Modifier.width(88.dp),
+                        )
                     }
                 }
             }
@@ -60,7 +75,12 @@ fun SaleOrderEditorScreen(
                 Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text("商品明细", style = ZhihuijiTypography.titleMedium)
-                        SecondaryOutlineButton(text = "扫码添加", onClick = { showProductPicker = true }, modifier = Modifier.width(104.dp))
+                        SecondaryOutlineButton(
+                            text = if (isEditing) "明细锁定" else "扫码添加",
+                            onClick = { showProductPicker = true },
+                            enabled = !isEditing,
+                            modifier = Modifier.width(104.dp),
+                        )
                     }
                     if (uiState.lines.isEmpty()) {
                         Text("暂无商品，点击添加商品选择", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextTertiary)
@@ -73,21 +93,37 @@ fun SaleOrderEditorScreen(
                                     Text(line.productName, style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextSecondary)
                                 }
                                 Text("¥${MoneyFormatter.formatWithoutSymbol(line.unitPrice)}", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextPrimary)
-                                QuantityStepper(
-                                    value = line.quantity,
-                                    onValueChange = { viewModel.changeQuantity(line.lineId, it.coerceAtLeast(1.0)) },
-                                    minusIcon = Icons.Default.Remove,
-                                    plusIcon = Icons.Default.Add,
-                                    modifier = Modifier.width(112.dp),
-                                    min = 1.0,
-                                )
+                                if (isEditing) {
+                                    Text(
+                                        text = line.quantity.toString(),
+                                        style = ZhihuijiTypography.bodyMedium,
+                                        color = ZhihuijiColors.TextPrimary,
+                                        modifier = Modifier.width(112.dp),
+                                    )
+                                } else {
+                                    QuantityStepper(
+                                        value = line.quantity,
+                                        onValueChange = { viewModel.changeQuantity(line.lineId, it.coerceAtLeast(1.0)) },
+                                        minusIcon = Icons.Default.Remove,
+                                        plusIcon = Icons.Default.Add,
+                                        modifier = Modifier.width(112.dp),
+                                        min = 1.0,
+                                    )
+                                }
                                 Text(MoneyFormatter.formatWithoutSymbol(line.amount), style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextPrimary, modifier = Modifier.width(52.dp))
-                                IconButton(onClick = { viewModel.removeItem(line.lineId) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Delete, null, tint = ZhihuijiColors.TextTertiary, modifier = Modifier.size(16.dp)) }
+                                if (!isEditing) {
+                                    IconButton(onClick = { viewModel.removeItem(line.lineId) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Delete, null, tint = ZhihuijiColors.TextTertiary, modifier = Modifier.size(16.dp)) }
+                                }
                             }
                             HorizontalDivider(color = ZhihuijiColors.BorderLight, thickness = 0.5.dp)
                         }
                     }
-                    SecondaryOutlineButton(text = "添加商品", onClick = { showProductPicker = true }, modifier = Modifier.fillMaxWidth())
+                    SecondaryOutlineButton(
+                        text = if (isEditing) "编辑明细需重新开单" else "添加商品",
+                        onClick = { showProductPicker = true },
+                        enabled = !isEditing,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
             GlassCard(modifier = Modifier.fillMaxWidth()) {
@@ -122,7 +158,12 @@ fun SaleOrderEditorScreen(
             }
         }
         BottomActionBar(primaryAction = {
-            PrimaryGradientButton(text = if (uiState.isSaving) "提交中..." else "提交订单", onClick = { viewModel.submitOrder() }, enabled = !uiState.isSaving, modifier = Modifier.fillMaxWidth())
+            PrimaryGradientButton(
+                text = if (uiState.isSaving) "提交中..." else if (isEditing) "保存修改" else "提交订单",
+                onClick = { viewModel.submitOrder() },
+                enabled = !uiState.isSaving,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }, secondaryActions = listOf {
             SecondaryOutlineButton(text = "保存草稿", onClick = onNavigateBack)
         })

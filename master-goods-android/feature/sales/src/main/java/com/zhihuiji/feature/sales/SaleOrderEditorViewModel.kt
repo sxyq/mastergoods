@@ -26,6 +26,7 @@ data class EditorLineItem(
 )
 
 data class SaleOrderEditorUiState(
+    val editingOrderId: Long? = null,
     val customerId: Long? = null,
     val customerName: String? = null,
     val lines: List<EditorLineItem> = emptyList(),
@@ -52,6 +53,38 @@ class SaleOrderEditorViewModel @Inject constructor(
         viewModelScope.launch {
             customerRepository.refreshCustomers(null)
             productRepository.refreshProducts(null)
+        }
+    }
+
+    fun loadOrderForEdit(orderId: Long) {
+        if (_uiState.value.editingOrderId == orderId) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSaving = false, error = null)
+            saleOrderRepository.getSaleOrder(orderId).onSuccess { order ->
+                val lines = order.items.map { item ->
+                    EditorLineItem(
+                        productId = item.productId,
+                        productCode = item.productCode,
+                        productName = item.productName,
+                        quantity = item.quantity,
+                        unitPrice = item.unitPrice,
+                        amount = item.amount,
+                    )
+                }
+                _uiState.value = SaleOrderEditorUiState(
+                    editingOrderId = order.id,
+                    customerId = order.customerId,
+                    customerName = order.customerName,
+                    lines = lines,
+                    discountAmount = order.discountAmount,
+                    notes = order.notes.orEmpty(),
+                    totalAmount = order.totalAmount,
+                    productSearchResults = _uiState.value.productSearchResults,
+                    customerSearchResults = _uiState.value.customerSearchResults,
+                )
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
+            }
         }
     }
 
@@ -117,16 +150,28 @@ class SaleOrderEditorViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true, error = null)
-            val request = CreateSaleOrderRequest(
-                customerId = _uiState.value.customerId,
-                customerName = _uiState.value.customerName,
-                items = _uiState.value.lines.map {
-                    CreateSaleOrderItemRequest(productId = it.productId ?: 0L, quantity = it.quantity, unitPrice = it.unitPrice)
-                },
-                notes = _uiState.value.notes.ifBlank { null },
-                discountAmount = _uiState.value.discountAmount,
-            )
-            saleOrderRepository.createSaleOrder(request).onSuccess {
+            val editingOrderId = _uiState.value.editingOrderId
+            val result = if (editingOrderId != null) {
+                saleOrderRepository.updateSaleDraft(
+                    editingOrderId,
+                    UpdateSaleDraftRequest(
+                        discountAmount = _uiState.value.discountAmount,
+                        notes = _uiState.value.notes.ifBlank { null },
+                    ),
+                )
+            } else {
+                val request = CreateSaleOrderRequest(
+                    customerId = _uiState.value.customerId,
+                    customerName = _uiState.value.customerName,
+                    items = _uiState.value.lines.map {
+                        CreateSaleOrderItemRequest(productId = it.productId ?: 0L, quantity = it.quantity, unitPrice = it.unitPrice)
+                    },
+                    notes = _uiState.value.notes.ifBlank { null },
+                    discountAmount = _uiState.value.discountAmount,
+                )
+                saleOrderRepository.createSaleOrder(request)
+            }
+            result.onSuccess {
                 _uiState.value = _uiState.value.copy(isSaving = false, saveSuccess = true)
             }.onFailure {
                 _uiState.value = _uiState.value.copy(isSaving = false, error = UiMessage.fromThrowable(it))

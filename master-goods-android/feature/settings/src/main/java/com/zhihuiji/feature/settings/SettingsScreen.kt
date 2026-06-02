@@ -52,18 +52,27 @@ fun SettingsScreen(
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("服务端设置", style = ZhihuijiTypography.titleMedium)
                 Text("服务器地址", style = ZhihuijiTypography.bodyMedium, color = ZhihuijiColors.TextSecondary)
-                OutlinedTextField(
-                    value = baseUrlDraft,
-                    onValueChange = { baseUrlDraft = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    textStyle = ZhihuijiTypography.bodySmall,
-                    singleLine = true,
-                )
-                SecondaryOutlineButton(
-                    text = "保存地址",
-                    onClick = { viewModel.saveBaseUrl(baseUrlDraft) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                if (uiState.isBaseUrlEditable) {
+                    OutlinedTextField(
+                        value = baseUrlDraft,
+                        onValueChange = { baseUrlDraft = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = ZhihuijiTypography.bodySmall,
+                        singleLine = true,
+                    )
+                    SecondaryOutlineButton(
+                        text = "保存地址",
+                        onClick = { viewModel.saveBaseUrl(baseUrlDraft) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    Text(uiState.baseUrl, style = ZhihuijiTypography.bodySmall)
+                    Text(
+                        "正式版已锁定受控服务器地址，不能手动修改。",
+                        style = ZhihuijiTypography.bodySmall,
+                        color = ZhihuijiColors.TextSecondary,
+                    )
+                }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("客户端ID", style = ZhihuijiTypography.bodyMedium, color = ZhihuijiColors.TextSecondary)
                     Text(uiState.clientId.take(8) + "...", style = ZhihuijiTypography.bodySmall)

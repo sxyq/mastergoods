@@ -136,7 +136,13 @@ fun MainNavGraph(
                 navController.navigate("${SubRoutes.SUPPLIER_EDITOR}?supplierId=$id") { launchSingleTop = true }
             },
         )
-        saleOrderRoutes(::navigateBack)
+        saleOrderRoutes(
+            navigateBack = ::navigateBack,
+            navigateToEditor = { id ->
+                val route = if (id != null) "${SubRoutes.SALE_ORDER_EDITOR}?orderId=$id" else SubRoutes.SALE_ORDER_EDITOR
+                navController.navigate(route) { launchSingleTop = true }
+            },
+        )
         purchaseOrderRoutes(::navigateBack)
         payOrderRoutes(::navigateBack)
     }
