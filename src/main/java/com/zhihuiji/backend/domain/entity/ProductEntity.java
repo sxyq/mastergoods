@@ -1,5 +1,6 @@
 package com.zhihuiji.backend.domain.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -16,8 +17,11 @@ public class ProductEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "owner_user_id", nullable = false)
+    private Long ownerUserId;
+
     @NotBlank
-    @Column(nullable = false, unique = true, length = 64)
+    @Column(nullable = false, length = 64)
     private String code;
 
     @NotBlank
@@ -28,9 +32,21 @@ public class ProductEntity {
     @Column(nullable = false, length = 64)
     private String category;
 
+    @JsonIgnore
+    @Column(name = "category_id")
+    private Long categoryId;
+
     @NotBlank
     @Column(nullable = false, length = 32)
     private String unit;
+
+    @JsonIgnore
+    @Column(name = "unit_id")
+    private Long unitId;
+
+    @JsonIgnore
+    @Column(name = "price_level_values_json", length = 4000)
+    private String priceLevelValuesJson;
 
     @NotNull
     @Column(name = "sale_price", nullable = false)
@@ -68,6 +84,18 @@ public class ProductEntity {
         return id;
     }
 
+    public Long getOwnerUserId() {
+        return ownerUserId;
+    }
+
+    public void setOwnerUserId(Long ownerUserId) {
+        this.ownerUserId = ownerUserId;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public String getCode() {
         return code;
     }
@@ -92,12 +120,36 @@ public class ProductEntity {
         this.category = category;
     }
 
+    public Long getCategoryId() {
+        return categoryId;
+    }
+
+    public void setCategoryId(Long categoryId) {
+        this.categoryId = categoryId;
+    }
+
     public String getUnit() {
         return unit;
     }
 
     public void setUnit(String unit) {
         this.unit = unit;
+    }
+
+    public Long getUnitId() {
+        return unitId;
+    }
+
+    public void setUnitId(Long unitId) {
+        this.unitId = unitId;
+    }
+
+    public String getPriceLevelValuesJson() {
+        return priceLevelValuesJson;
+    }
+
+    public void setPriceLevelValuesJson(String priceLevelValuesJson) {
+        this.priceLevelValuesJson = priceLevelValuesJson;
     }
 
     public Double getSalePrice() {

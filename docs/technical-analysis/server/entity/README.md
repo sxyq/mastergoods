@@ -1,336 +1,159 @@
-# Entity 层技术分析
-
-> 路径: `src/main/java/com/zhihuiji/backend/domain/entity/`
-
-本层为 JPA 实体，映射数据库表。所有实体使用 `Long` 类型时间戳（毫秒）而非 `LocalDateTime`。
-
----
-
-## UserEntity
-
-- **表名**: `users`
-- **ID 策略**: `IDENTITY`（自增）
-
-| 字段 | 列名 | 类型 | 约束 | 作用 | 修改建议 |
-|------|------|------|------|------|----------|
-| `id` | id | Long | PK, 自增 | 主键 | 无 |
-| `phone` | phone | String(32) | NOT NULL, UNIQUE | 手机号 | 无 |
-| `passwordHash` | password_hash | String(128) | NOT NULL | 密码哈希 | 无 |
-| `nickname` | nickname | String(64) | NOT NULL | 昵称 | 无 |
-| `status` | status | Integer | NOT NULL | 状态（0=停用, 1=启用） | 可改用枚举 |
-| `createdAt` | created_at | Long | NOT NULL | 创建时间戳 | 无 |
-| `updatedAt` | updated_at | Long | NOT NULL | 更新时间戳 | 无 |
-
----
-
-## SessionEntity
-
-- **表名**: `sessions`
-- **ID 策略**: `IDENTITY`
-
-| 字段 | 列名 | 类型 | 约束 | 作用 | 修改建议 |
-|------|------|------|------|------|----------|
-| `id` | id | Long | PK, 自增 | 主键 | 无 |
-| `userId` | user_id | Long | NOT NULL | 用户 ID | 缺少外键约束 |
-| `token` | token | String(128) | NOT NULL, UNIQUE | 访问令牌 | 无 |
-| `refreshToken` | refresh_token | String(128) | NOT NULL, UNIQUE | 刷新令牌 | 无 |
-| `expiresAt` | expires_at | Long | NOT NULL | 过期时间戳 | 无 |
-| `isActive` | is_active | Boolean | NOT NULL | 是否活跃 | 无 |
-| `createdAt` | created_at | Long | NOT NULL | 创建时间戳 | 无 |
-
----
-
-## ProductEntity
-
-- **表名**: `products`
-- **ID 策略**: `IDENTITY`
-- **校验**: `@NotBlank`(code, name, category, unit), `@NotNull`(salePrice, purchasePrice, stock, safeStock, status)
-
-| 字段 | 列名 | 类型 | 约束 | 作用 | 修改建议 |
-|------|------|------|------|------|----------|
-| `id` | id | Long | PK, 自增 | 主键 | 无 |
-| `code` | code | String(64) | NOT NULL, UNIQUE | 商品编码 | 无 |
-| `name` | name | String(128) | NOT NULL | 商品名称 | 无 |
-| `category` | category | String(64) | NOT NULL | 分类 | 无 |
-| `unit` | unit | String(32) | NOT NULL | 单位 | 无 |
-| `salePrice` | sale_price | Double | NOT NULL | 售价 | 应改用 BigDecimal |
-| `purchasePrice` | purchase_price | Double | NOT NULL | 进价 | 应改用 BigDecimal |
-| `stock` | stock | Double | NOT NULL | 当前库存 | 应改用 BigDecimal |
-| `safeStock` | safe_stock | Double | NOT NULL | 安全库存 | 应改用 BigDecimal |
-| `status` | status | Integer | NOT NULL | 状态 | 可改用枚举 |
-| `syncStatus` | sync_status | Integer | NOT NULL | 同步状态 | 无 |
-| `syncVersion` | sync_version | Long | NOT NULL | 同步版本号 | 无 |
-| `createdAt` | created_at | Long | NOT NULL | 创建时间戳 | 无 |
-| `updatedAt` | updated_at | Long | NOT NULL | 更新时间戳 | 无 |
-
----
-
-## CustomerEntity
-
-- **表名**: `customers`
-- **ID 策略**: `IDENTITY`
-
-| 字段 | 列名 | 类型 | 约束 | 作用 | 修改建议 |
-|------|------|------|------|------|----------|
-| `id` | id | Long | PK, 自增 | 主键 | 无 |
-| `name` | name | String(128) | NOT NULL | 名称 | 无 |
-| `phone` | phone | String(32) | NOT NULL, UNIQUE | 手机号 | 无 |
-| `level` | level_value | Integer | NOT NULL | 等级 | 字段名与列名不一致（level vs level_value），易混淆 |
-| `address` | address | String(255) | - | 地址 | 无 |
-| `notes` | notes | String(255) | - | 备注 | 无 |
-| `balance` | balance | Double | NOT NULL | 余额（应收） | 应改用 BigDecimal |
-| `status` | status | Integer | NOT NULL | 状态 | 可改用枚举 |
-| `syncStatus` | sync_status | Integer | NOT NULL | 同步状态 | 无 |
-| `syncVersion` | sync_version | Long | NOT NULL | 同步版本号 | 无 |
-| `createdAt` | created_at | Long | NOT NULL | 创建时间戳 | 无 |
-| `updatedAt` | updated_at | Long | NOT NULL | 更新时间戳 | 无 |
-
----
-
-## SupplierEntity
-
-- **表名**: `suppliers`
-- **ID 策略**: `IDENTITY`
-
-| 字段 | 列名 | 类型 | 约束 | 作用 | 修改建议 |
-|------|------|------|------|------|----------|
-| `id` | id | Long | PK, 自增 | 主键 | 无 |
-| `name` | name | String(128) | NOT NULL | 名称 | 无 |
-| `phone` | phone | String(32) | NOT NULL, UNIQUE | 手机号 | 无 |
-| `address` | address | String(255) | - | 地址 | 无 |
-| `notes` | notes | String(255) | - | 备注 | 无 |
-| `balance` | balance | Double | NOT NULL | 余额（应付） | 应改用 BigDecimal |
-| `status` | status | Integer | NOT NULL | 状态 | 可改用枚举 |
-| `syncStatus` | sync_status | Integer | NOT NULL | 同步状态 | 无 |
-| `syncVersion` | sync_version | Long | NOT NULL | 同步版本号 | 无 |
-| `createdAt` | created_at | Long | NOT NULL | 创建时间戳 | 无 |
-| `updatedAt` | updated_at | Long | NOT NULL | 更新时间戳 | 无 |
-
----
-
-## SaleOrderEntity
-
-- **表名**: `sale_orders`
-- **ID 策略**: 手动分配（无 @GeneratedValue）
-
-| 字段 | 列名 | 类型 | 约束 | 作用 | 修改建议 |
-|------|------|------|------|------|----------|
-| `id` | id | Long | PK | 主键 | 手动 ID 生成策略，存在碰撞风险 |
-| `orderNo` | order_no | String(64) | NOT NULL, UNIQUE | 单号 | 无 |
-| `customerId` | customer_id | Long | - | 客户 ID | 缺少外键约束 |
-| `customerName` | customer_name | String(128) | - | 客户名称（冗余） | 数据冗余，需保证与 Customer 同步 |
-| `subtotalAmount` | subtotal_amount | Double | NOT NULL | 小计 | 应改用 BigDecimal |
-| `discountAmount` | discount_amount | Double | NOT NULL | 折扣 | 应改用 BigDecimal |
-| `totalAmount` | total_amount | Double | NOT NULL | 总金额 | 应改用 BigDecimal |
-| `paidAmount` | paid_amount | Double | NOT NULL | 已付金额 | 应改用 BigDecimal |
-| `notes` | notes | String(255) | - | 备注 | 无 |
-| `status` | status | Integer | NOT NULL | 状态 | 可改用枚举 |
-| `syncStatus` | sync_status | Integer | NOT NULL | 同步状态 | 无 |
-| `syncVersion` | sync_version | Long | NOT NULL | 同步版本号 | 无 |
-| `createdAt` | created_at | Long | NOT NULL | 创建时间戳 | 无 |
-| `updatedAt` | updated_at | Long | NOT NULL | 更新时间戳 | 无 |
-
----
-
-## SaleOrderItemEntity
-
-- **表名**: `sale_order_items`
-- **ID 策略**: 手动分配
-
-| 字段 | 列名 | 类型 | 约束 | 作用 | 修改建议 |
-|------|------|------|------|------|----------|
-| `id` | id | Long | PK | 主键 | 同 SaleOrderEntity |
-| `orderId` | order_id | Long | NOT NULL | 销售单 ID | 缺少外键约束 |
-| `productId` | product_id | Long | NOT NULL | 商品 ID | 缺少外键约束 |
-| `productCode` | product_code | String(64) | NOT NULL | 商品编码（冗余） | 冗余字段 |
-| `productName` | product_name | String(128) | NOT NULL | 商品名称（冗余） | 冗余字段 |
-| `customerId` | customer_id | Long | - | 客户 ID | 冗余字段 |
-| `customerName` | customer_name | String(128) | - | 客户名称（冗余） | 冗余字段 |
-| `quantity` | quantity | Double | NOT NULL | 数量 | 应改用 BigDecimal |
-| `unitPrice` | unit_price | Double | NOT NULL | 单价 | 应改用 BigDecimal |
-| `amount` | amount | Double | NOT NULL | 金额 | 应改用 BigDecimal |
-| `createdAt` | created_at | Long | NOT NULL | 创建时间戳 | 无 |
-
----
-
-## PurchaseOrderEntity
-
-- **表名**: `purchase_orders`
-- **ID 策略**: 手动分配
-
-| 字段 | 列名 | 类型 | 约束 | 作用 | 修改建议 |
-|------|------|------|------|------|----------|
-| `id` | id | Long | PK | 主键 | 同上 |
-| `orderNo` | order_no | String(64) | NOT NULL, UNIQUE | 单号 | 无 |
-| `supplierName` | supplier_name | String(128) | NOT NULL | 供应商名称 | 缺少 supplierId 关联 |
-| `totalAmount` | total_amount | Double | NOT NULL | 总金额 | 应改用 BigDecimal |
-| `notes` | notes | String(255) | - | 备注 | 无 |
-| `status` | status | Integer | NOT NULL | 状态 | 可改用枚举 |
-| `syncStatus` | sync_status | Integer | NOT NULL | 同步状态 | 无 |
-| `syncVersion` | sync_version | Long | NOT NULL | 同步版本号 | 无 |
-| `createdAt` | created_at | Long | NOT NULL | 创建时间戳 | 无 |
-| `updatedAt` | updated_at | Long | NOT NULL | 更新时间戳 | 无 |
-
----
-
-## PurchaseOrderItemEntity
-
-- **表名**: `purchase_order_items`
-- **ID 策略**: 手动分配
-
-| 字段 | 列名 | 类型 | 约束 | 作用 | 修改建议 |
-|------|------|------|------|------|----------|
-| `id` | id | Long | PK | 主键 | 同上 |
-| `orderId` | order_id | Long | NOT NULL | 采购单 ID | 缺少外键约束 |
-| `productId` | product_id | Long | NOT NULL | 商品 ID | 缺少外键约束 |
-| `productCode` | product_code | String(64) | NOT NULL | 商品编码（冗余） | 冗余字段 |
-| `productName` | product_name | String(128) | NOT NULL | 商品名称（冗余） | 冗余字段 |
-| `quantity` | quantity | Double | NOT NULL | 数量 | 应改用 BigDecimal |
-| `unitCost` | unit_cost | Double | NOT NULL | 单价 | 应改用 BigDecimal |
-| `amount` | amount | Double | NOT NULL | 金额 | 应改用 BigDecimal |
-| `createdAt` | created_at | Long | NOT NULL | 创建时间戳 | 无 |
-
----
-
-## PaymentEntity
-
-- **表名**: `payments`
-- **ID 策略**: 手动分配
-
-| 字段 | 列名 | 类型 | 约束 | 作用 | 修改建议 |
-|------|------|------|------|------|----------|
-| `id` | id | Long | PK | 主键 | 同上 |
-| `orderId` | order_id | Long | NOT NULL | 销售单 ID | 缺少外键约束 |
-| `amount` | amount | Double | NOT NULL | 金额 | 应改用 BigDecimal |
-| `method` | method | Integer | NOT NULL | 支付方式 | 可改用枚举 |
-| `referenceNo` | reference_no | String(128) | - | 参考号 | 无 |
-| `type` | type | Integer | NOT NULL | 类型（1=收款, 2=退款） | 可改用枚举 |
-| `createdAt` | created_at | Long | NOT NULL | 创建时间戳 | 无 |
-
----
-
-## PayOrderEntity
-
-- **表名**: `pay_orders`
-- **ID 策略**: 手动分配
-
-| 字段 | 列名 | 类型 | 约束 | 作用 | 修改建议 |
-|------|------|------|------|------|----------|
-| `id` | id | Long | PK | 主键 | 同上 |
-| `orderNo` | order_no | String(64) | NOT NULL, UNIQUE | 单号 | 无 |
-| `supplierId` | supplier_id | Long | - | 供应商 ID | 缺少外键约束 |
-| `supplierName` | supplier_name | String(128) | NOT NULL | 供应商名称 | 冗余字段 |
-| `amount` | amount | Double | NOT NULL | 金额 | 应改用 BigDecimal |
-| `method` | method | Integer | NOT NULL | 付款方式 | 可改用枚举 |
-| `referenceNo` | reference_no | String(128) | - | 参考号 | 无 |
-| `notes` | notes | String(255) | - | 备注 | 无 |
-| `status` | status | Integer | NOT NULL | 状态 | 可改用枚举 |
-| `syncStatus` | sync_status | Integer | NOT NULL | 同步状态 | 无 |
-| `syncVersion` | sync_version | Long | NOT NULL | 同步版本号 | 无 |
-| `createdAt` | created_at | Long | NOT NULL | 创建时间戳 | 无 |
-| `updatedAt` | updated_at | Long | NOT NULL | 更新时间戳 | 无 |
-
----
-
-## FinanceRecordEntity
-
-- **表名**: `finance_records`
-- **ID 策略**: 手动分配
-
-| 字段 | 列名 | 类型 | 约束 | 作用 | 修改建议 |
-|------|------|------|------|------|----------|
-| `id` | id | Long | PK | 主键 | 同上 |
-| `recordNo` | record_no | String(64) | NOT NULL, UNIQUE | 流水号 | 无 |
-| `type` | type | Integer | NOT NULL | 类型（1=收入, 2=支出） | 可改用枚举 |
-| `category` | category | String(64) | NOT NULL | 分类 | 无 |
-| `partnerName` | partner_name | String(128) | - | 往来对象名称 | 无 |
-| `amount` | amount | Double | NOT NULL | 金额 | 应改用 BigDecimal |
-| `method` | method | Integer | NOT NULL | 收支方式 | 可改用枚举 |
-| `notes` | notes | String(255) | - | 备注 | 无 |
-| `syncStatus` | sync_status | Integer | NOT NULL | 同步状态 | 无 |
-| `syncVersion` | sync_version | Long | NOT NULL | 同步版本号 | 无 |
-| `createdAt` | created_at | Long | NOT NULL | 创建时间戳 | 无 |
-| `updatedAt` | updated_at | Long | NOT NULL | 更新时间戳 | 无 |
-
----
-
-## InventoryAdjustmentEntity
-
-- **表名**: `inventory_adjustments`
-- **ID 策略**: 手动分配
-
-| 字段 | 列名 | 类型 | 约束 | 作用 | 修改建议 |
-|------|------|------|------|------|----------|
-| `id` | id | Long | PK | 主键 | 同上 |
-| `productId` | product_id | Long | NOT NULL | 商品 ID | 缺少外键约束 |
-| `productCode` | product_code | String(64) | NOT NULL | 商品编码（冗余） | 冗余字段 |
-| `productName` | product_name | String(128) | NOT NULL | 商品名称（冗余） | 冗余字段 |
-| `quantity` | quantity | Double | NOT NULL | 调整数量 | 应改用 BigDecimal |
-| `flowType` | flow_type | Integer | NOT NULL | 流向（0=出库, 1=入库） | 可改用枚举 |
-| `reason` | reason | String(255) | - | 调整原因 | 无 |
-| `operatorName` | operator_name | String(128) | - | 操作人 | 无 |
-| `createdAt` | created_at | Long | NOT NULL | 创建时间戳 | 无 |
-
----
-
-## AgentTaskEntity
-
-- **表名**: `agent_tasks`
-- **ID 策略**: `IDENTITY`
-
-| 字段 | 列名 | 类型 | 约束 | 作用 | 修改建议 |
-|------|------|------|------|------|----------|
-| `id` | id | Long | PK, 自增 | 主键 | 无 |
-| `taskType` | task_type | String(64) | NOT NULL | 任务类型 | 可改用枚举 |
-| `title` | title | String(128) | NOT NULL | 标题 | 无 |
-| `triggerSource` | trigger_source | String(32) | NOT NULL | 触发来源 | 可改用枚举 |
-| `status` | status | String(32) | NOT NULL | 状态（queued/running/completed/failed） | 可改用枚举 |
-| `progress` | progress | Integer | NOT NULL | 进度百分比 | 无 |
-| `inputText` | input_text | String(1000) | - | 输入文本 | 无 |
-| `resultJson` | result_json | TEXT | - | 结果 JSON | 无 |
-| `createdAt` | created_at | Long | NOT NULL | 创建时间戳 | 无 |
-| `updatedAt` | updated_at | Long | NOT NULL | 更新时间戳 | 无 |
-| `completedAt` | completed_at | Long | - | 完成时间戳 | 无 |
-
----
-
-## AgentNotificationEntity
-
-- **表名**: `agent_notifications`
-- **ID 策略**: `IDENTITY`
-
-| 字段 | 列名 | 类型 | 约束 | 作用 | 修改建议 |
-|------|------|------|------|------|----------|
-| `id` | id | Long | PK, 自增 | 主键 | 无 |
-| `taskId` | task_id | Long | - | 关联任务 ID | 缺少外键约束 |
-| `title` | title | String(128) | NOT NULL | 标题 | 无 |
-| `body` | body | String(1000) | NOT NULL | 内容 | 无 |
-| `level` | level | String(32) | NOT NULL | 级别（info/warning/error） | 可改用枚举 |
-| `isRead` | is_read | Boolean | NOT NULL | 是否已读 | 无 |
-| `isDelivered` | is_delivered | Boolean | NOT NULL | 是否已送达 | 无 |
-| `createdAt` | created_at | Long | NOT NULL | 创建时间戳 | 无 |
-
----
-
-## SyncCursorEntity
-
-- **表名**: `sync_cursors`
-- **ID 策略**: 以 `clientId` 为主键（非自增）
-
-| 字段 | 列名 | 类型 | 约束 | 作用 | 修改建议 |
-|------|------|------|------|------|----------|
-| `clientId` | client_id | String(128) | PK | 客户端标识 | 无 |
-| `lastCursor` | last_cursor | String(128) | - | 上次同步游标 | 无 |
-| `updatedAt` | updated_at | Long | NOT NULL | 更新时间戳 | 无 |
-
----
-
-## 全局问题与修改建议
-
-1. **金额字段统一使用 Double**: 所有金额/数量字段使用 `Double`，存在精度丢失风险，应统一改用 `BigDecimal`。
-2. **缺少外键约束**: 所有关联字段（orderId, productId, customerId, supplierId, taskId, userId）均无 JPA 外键映射，数据一致性靠应用层保证。
-3. **ID 生成策略不一致**: 部分实体使用 `IDENTITY` 自增，部分手动分配 UUID，策略不统一。
-4. **冗余字段过多**: 商品编码/名称、客户名称等在订单明细中冗余存储，虽有助于快照但增加维护成本。
-5. **状态字段缺少枚举**: 所有 status/type 字段使用 Integer/String，缺少类型安全。
-6. **时间戳使用 Long**: 统一使用毫秒时间戳，缺少时区信息，建议迁移到 `Instant` 或 `OffsetDateTime`。
-7. **缺少审计字段**: 无通用基类（如 `BaseEntity`），createdAt/updatedAt 在每个实体中重复定义。
+# Server entity 模块分析
+
+- 对应源码目录：`src/main/java/com/zhihuiji/backend/domain/entity`
+- 当前实体数：22
+- 当前实体：
+  - `UserEntity`
+  - `SessionEntity`
+  - `ProductEntity`
+  - `ProductCategoryEntity`
+  - `ProductUnitEntity`
+  - `ProductPriceLevelEntity`
+  - `ProductSupplierRelationEntity`
+  - `CustomerEntity`
+  - `SupplierEntity`
+  - `PartnerGroupEntity`
+  - `PartnerContactEntity`
+  - `SaleOrderEntity`
+  - `SaleOrderItemEntity`
+  - `PurchaseOrderEntity`
+  - `PurchaseOrderItemEntity`
+  - `PaymentEntity`
+  - `PayOrderEntity`
+  - `FinanceRecordEntity`
+  - `InventoryAdjustmentEntity`
+  - `AgentTaskEntity`
+  - `AgentNotificationEntity`
+  - `SyncCursorEntity`
+- 关键辅助类型：
+  - `SyncCursorId`
+
+## 状态图例
+
+- `新版已做`
+- `新版待做`
+- `旧版存在新版未做`
+- `新版需要去掉`
+- `需重构`
+- `待验证`
+
+## 总体状态表
+
+| 对象 | 状态 | 旧版情况 | 新版目标 | 当前实现 | 备注 |
+|---|---|---|---|---|---|
+| 首版实体集合 | 新版已做 | 旧版本地库字段更厚 | 支撑当前 `/v1` 后端与 `/v2` 第三阶段扩域 | 22 个实体已存在 | 能支撑当前安卓版本与商品/伙伴/价格和供应关系扩域起点 |
+| `owner_user_id` 统一归属 | 新版已做 | 旧版无统一 owner | 所有核心业务实体统一补 owner 维度 | 首批核心实体已补 owner 字段与迁移 | repository/service 过滤继续推进 |
+| 商品分类、单位、价格层级、供应关系、分组、联系人实体 | 新版已做 | 旧版这些表域更厚 | 第二、三阶段逐步补第一批扩域表 | `ProductCategoryEntity`、`ProductUnitEntity`、`ProductPriceLevelEntity`、`ProductSupplierRelationEntity`、`PartnerGroupEntity`、`PartnerContactEntity` 已新增 | 商品媒体、账户、库存账本等仍待补 |
+| 会员实体 | 新版需要去掉 | 旧版可能存在会员/积分扩展 | 当前阶段不纳入 | 当前 server 也不应新增 member 实体 | 若恢复需单独 spec |
+
+## 现有实体字段清单
+
+| 实体 | 现有字段 | 当前状态 | 说明 |
+|---|---|---|---|
+| `UserEntity` | `id, phone, passwordHash, nickname, status, createdAt, updatedAt` | 新版已做 | 账号基础表可继续沿用 |
+| `SessionEntity` | `id, userId, token, refreshToken, expiresAt, isActive, createdAt` | 新版已做 | 会话表可继续沿用 |
+| `ProductEntity` | `id, ownerUserId, code, name, category, categoryId, unit, unitId, priceLevelValuesJson, salePrice, purchasePrice, stock, safeStock, status, syncStatus, syncVersion, createdAt, updatedAt` | 需重构 | 已补 owner、分类/单位引用和多价格值快照，仍缺媒体和更完整单位换算 |
+| `ProductCategoryEntity` | `id, ownerUserId, name, status, sortOrder, createdAt, updatedAt` | 新版已做 | 第二阶段商品分类主数据 |
+| `ProductUnitEntity` | `id, ownerUserId, name, status, sortOrder, createdAt, updatedAt` | 新版已做 | 第二阶段商品单位主数据 |
+| `ProductPriceLevelEntity` | `id, ownerUserId, code, name, status, sortOrder, createdAt, updatedAt` | 新版已做 | 第三阶段商品价格层级主数据 |
+| `ProductSupplierRelationEntity` | `id, ownerUserId, productId, supplierId, isDefault, purchasePriority, lastPurchasePrice, notes, createdAt, updatedAt` | 新版已做 | 第三阶段商品-供应商关系与采购偏好主数据 |
+| `CustomerEntity` | `id, ownerUserId, name, phone, level, groupId, address, notes, contactName, contactPhone, balance, status, syncStatus, syncVersion, createdAt, updatedAt` | 需重构 | 已补 owner 和 `groupId/contact*`，仍缺标签、价格策略等 |
+| `SupplierEntity` | `id, ownerUserId, name, phone, groupId, address, notes, contactName, contactPhone, balance, status, syncStatus, syncVersion, createdAt, updatedAt` | 需重构 | 已补 owner 和 `groupId/contact*`，仍缺标签、价格策略等 |
+| `PartnerGroupEntity` | `id, ownerUserId, partnerType, name, status, sortOrder, createdAt, updatedAt` | 新版已做 | 第二阶段客户/供应商分组主数据 |
+| `PartnerContactEntity` | `id, ownerUserId, partnerType, partnerId, name, phone, title, isPrimary, createdAt, updatedAt` | 新版已做 | 第二阶段客户/供应商联系人主数据 |
+| `SaleOrderEntity` | `id, ownerUserId, orderNo, customerId, customerName, subtotalAmount, discountAmount, totalAmount, paidAmount, notes, status, syncStatus, syncVersion, createdAt, updatedAt` | 需重构 | 已补 owner，仍缺运费、抹零、来源、订单态分层 |
+| `SaleOrderItemEntity` | `id, ownerUserId, orderId, productId, productCode, productName, customerId, customerName, quantity, unitPrice, amount, createdAt` | 需重构 | 已补 owner，明细仍偏轻 |
+| `PurchaseOrderEntity` | `id, ownerUserId, orderNo, supplierId, supplierName, totalAmount, notes, status, syncStatus, syncVersion, createdAt, updatedAt` | 需重构 | 已补 owner 和 `supplierId`，仍缺应付/实付、订单态 |
+| `PurchaseOrderItemEntity` | `id, ownerUserId, orderId, productId, productCode, productName, quantity, unitCost, amount, createdAt` | 需重构 | 已补 owner，仍缺更多采购字段 |
+| `PaymentEntity` | `id, ownerUserId, orderId, amount, method, referenceNo, type, createdAt` | 需重构 | 已补 owner，仍缺账户、单据资金关联细节 |
+| `PayOrderEntity` | `id, ownerUserId, orderNo, supplierId, supplierName, amount, method, referenceNo, notes, status, createdAt, updatedAt, syncStatus, syncVersion` | 需重构 | 已补 owner，仍缺账户、应付联动 |
+| `FinanceRecordEntity` | `id, ownerUserId, recordNo, type, category, partnerName, amount, method, notes, createdAt, updatedAt, syncStatus, syncVersion` | 需重构 | 已补 owner，仍是轻量流水模型 |
+| `InventoryAdjustmentEntity` | `id, ownerUserId, productId, productCode, productName, quantity, flowType, reason, operatorName, createdAt` | 需重构 | 已补 owner，仍缺账本/快照/月统计 |
+| `AgentTaskEntity` | `id, ownerUserId, taskType, title, triggerSource, status, progress, inputText, resultJson, createdAt, updatedAt, completedAt` | 需重构 | 已补 owner，查询与上下文仍需收口 |
+| `AgentNotificationEntity` | `id, ownerUserId, taskId, title, body, level, isRead, isDelivered, createdAt` | 需重构 | 已补 owner，查询与状态更新仍需收口 |
+| `SyncCursorEntity` | `ownerUserId, clientId, lastCursor, updatedAt` | 新版已做 | 已升级为 `owner_user_id + client_id` 复合语义 |
+| `SyncCursorId` | `ownerUserId, clientId` | 新版已做 | 作为 `SyncCursorEntity` 的复合键类型，确保 owner 分桶后的游标主键语义明确 |
+
+## 旧版表组到新版实体差异
+
+### 商品域
+
+| 旧版表/字段组 | 当前实体覆盖 | 状态 | 新版应补内容 | 备注 |
+|---|---|---|---|---|
+| `products.code/name/category(unit)` | `ProductEntity` 已覆盖基础字段 | 新版已做 | 保持 | 基础商品档案已存在 |
+| `unit2/ratio` | 未覆盖 | 旧版存在新版未做 | `product_units`、多单位换算 | 支撑多包装/换算 |
+| `pur_prc/sale_prc/trade_prc/prc4~prc10` | `salePrice/purchasePrice` + `priceLevelValuesJson` + `ProductPriceLevelEntity` 起步覆盖 | 需重构 | owner 私有价格层级定义 + 商品多价格值 | 第三阶段先用 `product_price_levels + products.price_level_values_json` 起步 |
+| `min_stock/max_stock/last_prc/init_*` | 仅 `safeStock` 与 `stock` | 旧版存在新版未做 | 库存阈值与初始化维度扩充 | 当前库存维度偏薄 |
+| `ptype_id` | `category:String` + `categoryId` 扩域位 | 需重构 | `product_categories` 独立表 | 第二阶段已补实体与迁移，`/v2/product-categories` 已落地 |
+| `单位体系` | `unit:String` + `unitId` 扩域位 | 需重构 | `product_units` 独立表 | 第二阶段已补实体与迁移，`/v2/product-units` 已落地 |
+| `product_suppliers` | `ProductSupplierRelationEntity` 起步覆盖 | 需重构 | 商品-供应商关系表与采购偏好 | 第三阶段已补 `/v2/product-supplier-relations` 起点、默认供应商和采购优先级 |
+
+### 往来单位域
+
+| 旧版表/字段组 | 当前实体覆盖 | 状态 | 新版应补内容 | 备注 |
+|---|---|---|---|---|
+| `companies.name/phone/addr/remark/cur_amt` | `CustomerEntity` / `SupplierEntity` 基础覆盖 | 新版已做 | 保持基础字段 | 现有分表比旧版更清晰 |
+| `linkman/tel/mobile/fax/mail/birthday` | `contactName/contactPhone` + `partner_contacts` 起步覆盖 | 需重构 | `partner_contacts` 与扩展字段 | 第二阶段先补联系人主表，其他画像后续扩 |
+| `grp_id/company_type_id/prc_level/disc` | `groupId` 起步覆盖 | 需重构 | 分组、类型、价格等级、折扣策略 | 第二阶段先补分组主表 |
+| `belong_uid` | 无统一 owner | 需重构 | 所有往来单位补 `owner_user_id` | 与账号隔离一致 |
+
+### 销售域
+
+| 旧版表/字段组 | 当前实体覆盖 | 状态 | 新版应补内容 | 备注 |
+|---|---|---|---|---|
+| `sales + saleitems` 基础单据与明细 | `SaleOrderEntity + SaleOrderItemEntity` 已覆盖基础链路 | 新版已做 | 保持基础交易闭环 | 当前销售主流程可用 |
+| `owe_amt/change_amt/express_amt/deduction_amt/disc` | 仅 `discountAmount/paidAmount` | 旧版存在新版未做 | 运费、抹零、优惠、未收金额细化 | 当前交易过程字段偏少 |
+| `trade_type/trade_src/user_id/username` | 未覆盖 | 旧版存在新版未做 | 交易来源、操作人、渠道字段 | 有利于经营分析 |
+| `sorders/sorderitems` 订单态 | 未覆盖 | 旧版存在新版未做 | `sales_drafts`、`sales_orders`、`sales_returns` | 不能只靠负数表示退货 |
+| `payments` 更细资金联动 | `PaymentEntity` 仅基础表 | 需重构 | 账户、单据资金关系、退款细化 | 要与财务域协同 |
+
+### 采购与财务域
+
+| 旧版表/字段组 | 当前实体覆盖 | 状态 | 新版应补内容 | 备注 |
+|---|---|---|---|---|
+| `purs + puritems` 基础采购 | `PurchaseOrderEntity + PurchaseOrderItemEntity` 基础覆盖 | 新版已做 | 保持基础采购闭环 | 当前采购主流程可用 |
+| `porders/porderitems` 订单/入库态 | 未覆盖 | 旧版存在新版未做 | `purchase_receipts`、采购订单态 | 当前没有待收货链路 |
+| `funds` | `FinanceRecordEntity` 轻量覆盖 | 需重构 | 更厚流水模型 | 当前只有轻量流水 |
+| `accts` | 未覆盖 | 旧版存在新版未做 | `accounts` | 财务主数据缺失 |
+| `billfunds/smallchange/projects` | 未覆盖 | 旧版存在新版未做 | 单据资金关联、找零、项目维度 | 财务闭环要补齐 |
+
+### 库存与 AI 域
+
+| 旧版表/字段组 | 当前实体覆盖 | 状态 | 新版应补内容 | 备注 |
+|---|---|---|---|---|
+| `inventories/inventoryitems/stocks/stocks_month` | `InventoryAdjustmentEntity` 仅覆盖基础调整 | 旧版存在新版未做 | `inventory_ledger`、`inventory_snapshots`、`inventory_monthly_stats` | 当前库存分析能力不足 |
+| AI 任务与通知 | 旧版无对应域 | `AgentTaskEntity` / `AgentNotificationEntity` 已覆盖 | 新版已做 | 后续再补 conversation/message/draft | 这是新版优势域 |
+
+## 第一阶段后端重构落点
+
+1. 给以下实体统一补 `ownerUserId`
+   - `ProductEntity`
+   - `CustomerEntity`
+   - `SupplierEntity`
+   - `SaleOrderEntity`
+   - `SaleOrderItemEntity`
+   - `PurchaseOrderEntity`
+   - `PurchaseOrderItemEntity`
+   - `PaymentEntity`
+   - `PayOrderEntity`
+   - `FinanceRecordEntity`
+   - `InventoryAdjustmentEntity`
+   - `AgentTaskEntity`
+   - `AgentNotificationEntity`
+   - `SyncCursorEntity`
+2. owner 底座已开始落地，但 repository、service、controller 仍需继续改造，才能真正实现查询隔离
+3. 第二阶段已先新增不破坏现有 `/v1` 的扩域实体起点
+   - `product_categories`
+   - `product_units`
+   - `partner_contacts`
+   - `partner_groups`
+4. 第三阶段已继续补
+   - `product_price_levels`
+   - `product_supplier_relations`
+   - `products.price_level_values_json`
+5. 下阶段继续补
+   - `accounts`
+   - `bill_fund_links`
+   - `inventory_ledger`
+   - `inventory_snapshots`
+6. 本阶段不新增会员相关实体

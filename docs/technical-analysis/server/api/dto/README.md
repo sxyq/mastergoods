@@ -1,242 +1,130 @@
-# DTO 层技术分析
+# Server api/dto 模块分析
 
-> 路径: `src/main/java/com/zhihuiji/backend/api/dto/`
+- 对应源码目录：`src/main/java/com/zhihuiji/backend/api/dto`
+- 当前包含：
+  - 销售/采购/付款/资金等 DTO
+  - `v2/sales`
+  - `v2/purchase`
+  - `v2/pay`
+  - `v2/product`
+  - `v2/partner`
+  - `agent/*`
+  - `report/*`
 
-本层为数据传输对象（Data Transfer Object），用于 Controller 与 Service 之间的数据隔离，避免直接暴露领域实体。
+## 状态图例
 
----
+- `新版已做`
+- `新版待做`
+- `旧版存在新版未做`
+- `新版需要去掉`
+- `需重构`
+- `待验证`
 
-## AgentDto
+## 总体状态表
 
-- **文件**: `agent/AgentDto.java`
-- **命名策略**: `LowerCamelCaseStrategy`（驼峰）
-- **作用**: AI Agent 相关的所有 DTO 聚合类，包含工作台、问答、草稿、任务、通知等数据结构。
+| 对象 | 状态 | 旧版情况 | 新版目标 | 当前实现 | 备注 |
+|---|---|---|---|---|---|
+| `/v1` DTO 集合 | 新版已做 | 旧版无当前 server DTO 分层 | 为安卓和管理端提供接口模型 | 当前 DTO 已覆盖首版主要接口 | 可继续服务 `/v1` |
+| `/v2` request/response/summary 分层 | 新版已做 | 旧版无 `/v2` | 形成更清晰的读模型、写模型、统计模型 | 已建立 `api/dto/v2/sales|purchase|pay|product|partner` 首批命名空间 | 财务、库存、媒体等继续补齐 |
+| 商品多价格/账户/库存快照等 DTO | 旧版存在新版未做 | 旧版领域更厚 | 新版 DTO 要覆盖更完整业务域 | 当前 DTO 仍偏首版字段集 | 将显著扩容 |
 
-### 内部 record
+## 现有 DTO 结构
 
-| Record | 作用 | 字段概览 | 修改建议 |
-|--------|------|----------|----------|
-| `AgentWorkbenchDto` | 工作台总览 | reconciliation, reportInsight, alerts, suggestedQuestions, suggestedInstructions, overviewBlocks, instantBlocks, proactiveAnswers, proactiveDrafts | 提供了简化构造器（6参数），其余默认空列表 |
-| `ReconciliationFollowupDto` | 对账催办 | totalReceivable, totalPayable, totalReceived, totalPaid, netCashFlow, receivableCustomers, payableSuppliers, agingRisks | 无 |
-| `FollowupPartyDto` | 催办对象 | entityId, entityType, name, phone, amount, actionLabel | 无 |
-| `AgingRiskDto` | 账龄风险 | entityType, entityId, name, orderNo, createdAt, ageDays, amount, summary, suggestedAction | 无 |
-| `ReportInsightDto` | 报表洞察 | periodLabel, currentSales, previousSales, salesChangeRate, narrative, leadingProductName, leadingProductAmount, leadingCustomerName, leadingCustomerAmount, highlights, suggestedActions | 无 |
-| `AlertDashboardDto` | 预警仪表盘 | alerts | 无 |
-| `AlertDto` | 单条预警 | id, type, severity, title, description, recommendedAction, entityName, entityId, metric | 无 |
-| `AgentAnswerDto` | 问答结果 | query, intent, answer, highlights, columns, rows, suggestedActions | 无 |
-| `OperationDraftDto` | 操作草稿 | operationType, summary, partnerRole, partnerId, partnerName, items, notes, canSubmit, warnings, suggestedActions | 无 |
-| `OperationDraftItemDto` | 草稿明细 | productId, productCode, productName, quantity, unitPrice, amount, currentStock | 无 |
-| `OperationSubmitResultDto` | 草稿提交结果 | operationType, orderId, orderNo, message, nextAction | 无 |
-| `AgentTaskSummaryDto` | 任务摘要 | id, taskType, title, status, triggerSource, progress, createdAt, updatedAt, completedAt | 无 |
-| `AgentTaskMetricDto` | 指标 | label, value, delta, emphasis | 无 |
-| `AgentTaskSectionDto` | 段落 | title, narrative, bullets | 无 |
-| `AgentTaskTableDto` | 表格 | title, columns, rows | 无 |
-| `AgentTaskChartSeriesDto` | 图表系列 | name, values | 无 |
-| `AgentTaskChartDto` | 图表 | title, chartType, categories, series | 无 |
-| `AgentRenderBlockDto` | 渲染块 | type, title, subtitle, tone, text, bullets, metrics, table, chart, draft | type 仅允许 hero/metric_grid/bullet_list/table/chart/draft |
-| `AgentTaskResultDto` | 任务结果 | title, subtitle, summary, metrics, sections, tables, charts, suggestedActions, draft, renderBlocks | 无 |
-| `AgentTaskDetailDto` | 任务详情 | task, input, result | 无 |
-| `AgentNotificationDto` | 通知 | id, title, body, level, taskId, isRead, isDelivered, createdAt | 无 |
+### 基础业务 DTO
 
----
+| DTO | 现有字段 | 当前状态 | 说明 |
+|---|---|---|---|
+| `SaleOrderDto` | `id, orderNo, customerId, customerName, items, subtotalAmount, discountAmount, totalAmount, paidAmount, notes, status, createdAt, updatedAt` | 需重构 | 基础销售 DTO 已存在，但字段仍偏薄 |
+| `SaleOrderItemDto` | `id, orderId, productId, productCode, productName, customerId, customerName, quantity, unitPrice, amount, createdAt` | 需重构 | 明细冗余多，缺 owner 与更细业务字段 |
+| `PurchaseOrderDto` | `id, orderNo, supplierId, supplierName, items, totalAmount, notes, status, createdAt, updatedAt` | 需重构 | 已补 supplierId，仍缺应付/实付等 |
+| `PurchaseOrderItemDto` | `id, orderId, productCode, productName, quantity, unitCost, amount, createdAt` | 需重构 | 与后续采购订单态/入库态不匹配 |
+| `PayOrderDto` | `id, orderNo, supplierId, supplierName, amount, method, referenceNo, notes, status, createdAt, updatedAt` | 需重构 | 缺账户、项目、单据联动语义 |
+| `FinanceRecordDto` | `id, recordNo, type, category, partnerName, amount, method, notes, createdAt, updatedAt` | 需重构 | 只有轻量流水字段 |
+| `SupplierDto` | `id, name, phone, address, notes, balance, status, createdAt, updatedAt` | 需重构 | 供应商画像偏薄 |
+| `ProductAdjustStockRequest` | `delta, reason, operator` | 新版已做 | 基础库存调整请求 |
+| `SaleOrderStatusRequest` | `status` | 新版已做 | 基础状态更新请求 |
 
-## ReportDto
+### Agent DTO
 
-- **文件**: `report/ReportDto.java`
-- **命名策略**: `SnakeCaseStrategy`（下划线）
-- **作用**: 报表相关 DTO 聚合类。
+| DTO 组 | 当前状态 | 说明 |
+|---|---|---|
+| `AnswerDtos` | 新版已做 | AI 问答结果 |
+| `OperationDraftDtos` | 新版已做 | 草稿与提交结果 |
+| `AgentTaskDtos` | 新版已做 | 任务摘要、详情、图表块、通知 |
+| `WorkbenchDtos` | 新版已做 | AI 工作台聚合读模型 |
+| `AlertDtos` / `ReconciliationDtos` | 新版已做 | 经营提醒与对账结果 |
+| `AgentDto` | 新版需要去掉 | 已退化为 legacy marker，应继续避免依赖 |
 
-### 内部 record
+### Report DTO
 
-| Record | 作用 | 字段概览 | 修改建议 |
-|--------|------|----------|----------|
-| `SalesSummaryReportDto` | 销售汇总 | startAt, endAt, totalSalesAmount, totalPaidAmount, totalRefundAmount, totalUnpaidAmount, totalOrderCount | 无 |
-| `ProfitSummaryReportDto` | 利润汇总 | startAt, endAt, estimatedCostAmount, estimatedProfitAmount, estimatedProfitRate | 无 |
-| `RefundRecordReportDto` | 退款记录 | paymentId, orderId, orderNo, customerName, refundAmount, method, referenceNo, createdAt | 无 |
-| `StockOutRecordReportDto` | 出库记录 | orderId, orderNo, customerId, customerName, productId, productCode, productName, quantity, unitPrice, amount, itemCreatedAt, orderCreatedAt | 无 |
-| `TopSellingProductReportDto` | 热销商品 | productId, productCode, productName, totalQuantity, totalAmount | 无 |
-| `ProfitByProductReportDto` | 商品利润 | productId, productCode, productName, totalSalesAmount, totalCostAmount, totalProfitAmount, profitRate | 无 |
-| `ProfitByCustomerReportDto` | 客户利润 | customerId, customerName, totalSalesAmount, totalCostAmount, totalProfitAmount, profitRate | 无 |
-| `InventoryFlowRecordDto` | 库存流水 | orderId, orderNo, productId, productCode, productName, quantity, flowType, flowTime, customerName, sourceType, sourceLabel, adjustReason, operatorName | 无 |
-| `CustomerSalesReportDto` | 客户销售 | customerId, customerName, totalOrders, totalAmount | 无 |
-| `CustomerReceivableReportDto` | 应收客户 | customerId, customerName, phone, balance | 无 |
-| `LowStockProductReportDto` | 低库存商品 | productId, productCode, productName, stock, safeStock | 无 |
-| `ReconciliationSummaryReportDto` | 对账汇总 | startAt, endAt, totalReceivableAmount, totalPayableAmount, totalReceivedAmount, totalPaidAmount, netCashFlow | 无 |
+| DTO 组 | 当前状态 | 说明 |
+|---|---|---|
+| `ReportDto.*` | 需重构 | 已覆盖首版报表，但字段命名与安卓侧已有偏差，也缺更厚的库存/财务统计 DTO |
 
----
+## 旧版表域到新版 DTO 差异
 
-## FinanceRecordDto
+### 商品与往来单位
 
-- **文件**: `FinanceRecordDto.java`
-- **命名策略**: `SnakeCaseStrategy`
-- **作用**: 资金流水 DTO。
+| 旧版能力 | 当前 DTO 覆盖 | 状态 | 新版 DTO 目标 | 备注 |
+|---|---|---|---|---|
+| 商品多价格、多单位、供应关系 | 未覆盖 | 旧版存在新版未做 | `ProductCategoryDto`、`ProductUnitDto`、`ProductPriceLevelDto`、`ProductSupplierRelationDto` | 当前 `ProductDto` 只覆盖基础档案 |
+| 客户/供应商联系人、分组、等级、折扣 | 未覆盖 | 旧版存在新版未做 | `PartnerGroupDto`、`PartnerContactDto`、`PartnerPricingPolicyDto` | 当前 `CustomerDto` / `SupplierDto` 还不在 server DTO 层独立成完整结构 |
 
-| 字段 | 类型 | 作用 | 修改建议 |
-|------|------|------|----------|
-| `id` | Long | 记录 ID | 无 |
-| `recordNo` | String | 流水号 | 无 |
-| `type` | Integer | 类型（1=收入, 2=支出） | 可改用枚举提升可读性 |
-| `category` | String | 分类 | 无 |
-| `partnerName` | String | 往来对象名称 | 无 |
-| `amount` | Double | 金额 | 应改用 BigDecimal 避免浮点精度问题 |
-| `method` | Integer | 收支方式 | 可改用枚举 |
-| `notes` | String | 备注 | 无 |
-| `createdAt` | Long | 创建时间戳 | 无 |
-| `updatedAt` | Long | 更新时间戳 | 无 |
+### 销售与采购
 
----
+| 旧版能力 | 当前 DTO 覆盖 | 状态 | 新版 DTO 目标 | 备注 |
+|---|---|---|---|---|
+| 销售订单态/草稿态/退货态 | 未覆盖 | 旧版存在新版未做 | `SalesDraftDto`、`SalesReturnDto`、`SalesOrderSummaryDto`、`SalesOrderDetailDto` | 不能继续只靠一套 `SaleOrderDto` |
+| 采购订单态/入库态 | 未覆盖 | 旧版存在新版未做 | `PurchaseReceiptDto`、`PurchaseOrderSummaryDto`、`PurchaseOrderDetailDto` | 当前 `PurchaseOrderDto` 过于单薄 |
+| 运费、抹零、来源渠道、操作人 | 未覆盖 | 旧版存在新版未做 | 明确进入 `/v2` 订单 DTO | 有利于报表与审计 |
 
-## PayOrderDto
+### 财务与库存
 
-- **文件**: `PayOrderDto.java`
-- **命名策略**: `SnakeCaseStrategy`
-- **作用**: 付款单 DTO。
+| 旧版能力 | 当前 DTO 覆盖 | 状态 | 新版 DTO 目标 | 备注 |
+|---|---|---|---|---|
+| 账户主数据 | 未覆盖 | 旧版存在新版未做 | `AccountDto`、`AccountBalanceDto` | 当前只有 `method` 整数 |
+| 单据资金联动、找零、项目 | 未覆盖 | 旧版存在新版未做 | `BillFundLinkDto`、`CashChangeDto`、`FinanceProjectDto` | 当前 `FinanceRecordDto` 不足以表达 |
+| 库存流水/快照/月统计 | 未覆盖 | 旧版存在新版未做 | `InventoryLedgerDto`、`InventorySnapshotDto`、`InventoryMonthlyStatsDto` | 当前只有报表投影，没有完整 DTO 域 |
 
-| 字段 | 类型 | 作用 | 修改建议 |
-|------|------|------|----------|
-| `id` | Long | ID | 无 |
-| `orderNo` | String | 单号 | 无 |
-| `supplierId` | Long | 供应商 ID | 无 |
-| `supplierName` | String | 供应商名称 | 无 |
-| `amount` | Double | 金额 | 应改用 BigDecimal |
-| `method` | Integer | 付款方式 | 可改用枚举 |
-| `referenceNo` | String | 参考号 | 无 |
-| `notes` | String | 备注 | 无 |
-| `status` | Integer | 状态（0=草稿, 1=已付, 2=已取消） | 可改用枚举 |
-| `createdAt` | Long | 创建时间戳 | 无 |
-| `updatedAt` | Long | 更新时间戳 | 无 |
+## `/v2` DTO 重构原则
 
----
+| 原则 | 状态 | 说明 |
+|---|---|---|
+| 读写模型分离 | 新版待做 | `Create*Request`、`Update*Request`、`*SummaryDto`、`*DetailDto` 分开 |
+| owner 归属不直接裸露给普通客户端 | 需重构 | 客户端只感知当前账号数据，owner 主要由认证上下文决定 |
+| 不再让 Entity 兼任 Request | 新版需要去掉 | `/v2` 必须全部改用专用请求 DTO |
+| 统一金额与数量语义 | 需重构 | DTO 先文档化为“高精度金额/数量语义”，后续代码再决定序列化策略 |
 
-## ProductAdjustStockRequest
+## 第一阶段 DTO 落点
 
-- **文件**: `ProductAdjustStockRequest.java`
-- **作用**: 库存调整请求 DTO。
+1. 保留 `/v1` DTO 不删
+2. 新增 `/v2` 命名空间：
+   - `api/dto/v2/auth`
+   - `api/dto/v2/product`
+   - `api/dto/v2/partner`
+   - `api/dto/v2/sales`
+   - `api/dto/v2/purchase`
+   - `api/dto/v2/finance`
+   - `api/dto/v2/inventory`
+   - `api/dto/v2/media`
+   - `api/dto/v2/agent`
+   - `api/dto/v2/sync`
+3. 本阶段不新增会员相关 DTO
 
-| 字段 | 类型 | 作用 | 修改建议 |
-|------|------|------|----------|
-| `delta` | Double | 库存变化量（正=入库，负=出库），@NotNull | 应改用 BigDecimal |
-| `reason` | String | 调整原因 | 应加 @NotBlank |
-| `operator` | String | 操作人 | 应加 @NotBlank |
+## 第一阶段已落地
 
----
+| DTO 组 | 状态 | 当前实现 | 备注 |
+|---|---|---|---|
+| `api/dto/v2/sales/V2SaleOrderDtos` | 新版已做 | 已覆盖销售单列表/详情/创建/草稿更新/收款/状态更新/取消 | snake_case 输出 |
+| `api/dto/v2/purchase/V2PurchaseOrderDtos` | 新版已做 | 已覆盖采购单列表/详情/创建 | snake_case 输出 |
+| `api/dto/v2/pay/V2PayOrderDtos` | 新版已做 | 已覆盖付款单列表/详情/创建/状态更新 | snake_case 输出 |
+| `api/dto/v2/product/V2ProductDtos` | 新版已做 | 已覆盖商品、分类、单位、价格层级、供应关系的读写模型 | 已包含 `ProductResponse/ProductWriteRequest/CategoryWriteRequest/UnitWriteRequest/PriceLevelWriteRequest/ProductSupplierRelationWriteRequest` |
+| `api/dto/v2/partner/V2PartnerDtos` | 新版已做 | 已覆盖客户、供应商、分组、联系人读写模型 | 包含 group/contact 与 customer/supplier 两层 DTO |
 
-## PurchaseOrderDto
+## 商品域第三阶段 DTO 补充
 
-- **文件**: `PurchaseOrderDto.java`
-- **作用**: 采购单 DTO。
-
-| 字段 | 类型 | 作用 | 修改建议 |
-|------|------|------|----------|
-| `id` | Long | ID | 无 |
-| `orderNo` | String | 单号 | 无 |
-| `supplierName` | String | 供应商名称 | 无 |
-| `items` | List\<PurchaseOrderItemDto\> | 采购明细列表 | 无 |
-| `totalAmount` | Double | 总金额 | 应改用 BigDecimal |
-| `notes` | String | 备注 | 无 |
-| `status` | Integer | 状态 | 可改用枚举 |
-| `createdAt` | Long | 创建时间戳 | 无 |
-| `updatedAt` | Long | 更新时间戳 | 无 |
-
----
-
-## PurchaseOrderItemDto
-
-- **文件**: `PurchaseOrderItemDto.java`
-- **作用**: 采购明细 DTO。
-
-| 字段 | 类型 | 作用 | 修改建议 |
-|------|------|------|----------|
-| `id` | Long | ID | 无 |
-| `orderId` | Long | 采购单 ID | 无 |
-| `productCode` | String | 商品编码 | 无 |
-| `productName` | String | 商品名称 | 无 |
-| `quantity` | Double | 数量 | 应改用 BigDecimal |
-| `unitCost` | Double | 单价 | 应改用 BigDecimal |
-| `amount` | Double | 金额 | 应改用 BigDecimal |
-| `createdAt` | Long | 创建时间戳 | 无 |
-
----
-
-## SaleOrderDto
-
-- **文件**: `SaleOrderDto.java`
-- **作用**: 销售单 DTO。
-
-| 字段 | 类型 | 作用 | 修改建议 |
-|------|------|------|----------|
-| `id` | Long | ID | 无 |
-| `orderNo` | String | 单号 | 无 |
-| `customerId` | Long | 客户 ID | 无 |
-| `customerName` | String | 客户名称 | 无 |
-| `items` | List\<SaleOrderItemDto\> | 销售明细列表 | 无 |
-| `subtotalAmount` | Double | 小计 | 应改用 BigDecimal |
-| `discountAmount` | Double | 折扣 | 应改用 BigDecimal |
-| `totalAmount` | Double | 总金额 | 应改用 BigDecimal |
-| `paidAmount` | Double | 已付金额 | 应改用 BigDecimal |
-| `notes` | String | 备注 | 无 |
-| `status` | Integer | 状态 | 可改用枚举 |
-| `createdAt` | Long | 创建时间戳 | 无 |
-| `updatedAt` | Long | 更新时间戳 | 无 |
-
----
-
-## SaleOrderItemDto
-
-- **文件**: `SaleOrderItemDto.java`
-- **作用**: 销售明细 DTO。
-
-| 字段 | 类型 | 作用 | 修改建议 |
-|------|------|------|----------|
-| `id` | Long | ID | 无 |
-| `orderId` | Long | 销售单 ID | 无 |
-| `productId` | Long | 商品 ID | 无 |
-| `productCode` | String | 商品编码 | 无 |
-| `productName` | String | 商品名称 | 无 |
-| `customerId` | Long | 客户 ID | 无 |
-| `customerName` | String | 客户名称 | 无 |
-| `quantity` | Double | 数量 | 应改用 BigDecimal |
-| `unitPrice` | Double | 单价 | 应改用 BigDecimal |
-| `amount` | Double | 金额 | 应改用 BigDecimal |
-| `createdAt` | Long | 创建时间戳 | 无 |
-
----
-
-## SaleOrderStatusRequest
-
-- **文件**: `SaleOrderStatusRequest.java`
-- **作用**: 销售单状态变更请求。
-
-| 字段 | 类型 | 作用 | 修改建议 |
-|------|------|------|----------|
-| `status` | Integer | 目标状态 | 应加 @NotNull 和范围校验 |
-
----
-
-## SupplierDto
-
-- **文件**: `SupplierDto.java`
-- **命名策略**: `SnakeCaseStrategy`
-- **作用**: 供应商 DTO。
-
-| 字段 | 类型 | 作用 | 修改建议 |
-|------|------|------|----------|
-| `id` | Long | ID | 无 |
-| `name` | String | 名称 | 无 |
-| `phone` | String | 电话 | 无 |
-| `address` | String | 地址 | 无 |
-| `notes` | String | 备注 | 无 |
-| `balance` | Double | 余额 | 应改用 BigDecimal |
-| `status` | Integer | 状态 | 可改用枚举 |
-| `createdAt` | Long | 创建时间戳 | 无 |
-| `updatedAt` | Long | 更新时间戳 | 无 |
-
----
-
-## 全局问题与修改建议
-
-1. **金额字段使用 Double**: 所有金额相关字段（amount, price, balance 等）均使用 `Double`，存在浮点精度丢失风险，应统一改用 `BigDecimal`。
-2. **状态字段使用 Integer**: 多处状态字段使用 `Integer`，缺少类型安全，建议改用枚举。
-3. **命名策略不一致**: `AgentDto` 使用 `LowerCamelCaseStrategy`，`ReportDto`/`FinanceRecordDto` 等使用 `SnakeCaseStrategy`，应统一。
-4. **缺少校验注解**: `ProductAdjustStockRequest` 的 reason/operator、`SaleOrderStatusRequest` 的 status 缺少校验。
-5. **AgentDto 过于庞大**: 单文件包含 20+ 个 record，建议按职责拆分为 `AgentWorkbenchDto`、`AgentTaskDto`、`AgentNotificationDto` 等独立文件。
+| DTO | 状态 | 当前实现 | 备注 |
+|---|---|---|---|
+| `PriceLevelResponse` / `PriceLevelWriteRequest` | 新版已做 | 已承接 `/v2/product-price-levels` 读写 | owner 级价格层级主数据 |
+| `ProductPriceValueResponse` / `ProductPriceValueWriteRequest` | 新版已做 | 已承接 `/v2/products` 内嵌多价格值 | 通过 `level_id + price` 表达商品价格快照 |
+| `ProductSupplierRelationResponse` / `ProductSupplierRelationWriteRequest` | 新版已做 | 已承接 `/v2/product-supplier-relations` 与 `/v2/products` 内嵌供应关系 | 含默认供应商、优先级、最近采购价、备注 |
