@@ -6,7 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
-import com.zhihuiji.backend.api.dto.agent.AgentDto;
+import com.zhihuiji.backend.api.dto.agent.AnswerDtos;
+import com.zhihuiji.backend.api.dto.agent.OperationDraftDtos;
 import com.zhihuiji.backend.api.dto.report.ReportDto;
 import com.zhihuiji.backend.domain.entity.CustomerEntity;
 import com.zhihuiji.backend.domain.entity.ProductEntity;
@@ -46,7 +47,7 @@ class AgentServiceTest {
     @Mock
     private PayOrderRepository payOrderRepository;
     @Mock
-    private AgentLlmService agentLlmService;
+    private CurrentOwnerService currentOwnerService;
 
     private AgentService agentService;
 
@@ -63,11 +64,13 @@ class AgentServiceTest {
             saleOrderRepository,
             saleOrderItemRepository,
             paymentRepository,
-            payOrderRepository
+            payOrderRepository,
+            currentOwnerService
         );
-        when(paymentRepository.findAll()).thenReturn(List.of());
-        when(saleOrderRepository.findAll()).thenReturn(List.of());
-        when(payOrderRepository.findAll()).thenReturn(List.of());
+        when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
+        when(paymentRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
+        when(saleOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
+        when(payOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
         when(reportService.lowStockProducts(6)).thenReturn(List.of());
     }
 
@@ -77,7 +80,7 @@ class AgentServiceTest {
             new ReportDto.CustomerReceivableReportDto(1L, "客户甲", "13800138000", 2800.0)
         ));
 
-        AgentDto.AgentAnswerDto answer = agentService.answerQuestion("哪些客户欠款最多");
+        AnswerDtos.AgentAnswerDto answer = agentService.answerQuestion("哪些客户欠款最多");
 
         assertEquals("receivables", answer.intent());
         assertTrue(answer.answer().contains("客户甲"));
@@ -109,11 +112,11 @@ class AgentServiceTest {
         supplier.setCreatedAt(1L);
         supplier.setUpdatedAt(1L);
 
-        when(productRepository.findAll()).thenReturn(List.of(product));
-        when(supplierRepository.findAll()).thenReturn(List.of(supplier));
-        when(customerRepository.findAll()).thenReturn(List.of());
+        when(productRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(product));
+        when(supplierRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(supplier));
+        when(customerRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
 
-        AgentDto.OperationDraftDto draft = agentService.draftOperation("给供应商A入库 20 个工业传感器 S7，单价 35");
+        OperationDraftDtos.OperationDraftDto draft = agentService.draftOperation("给供应商A入库 20 个工业传感器 S7，单价 35");
 
         assertEquals("purchase", draft.operationType());
         assertTrue(draft.canSubmit());
@@ -148,11 +151,11 @@ class AgentServiceTest {
         customer.setCreatedAt(1L);
         customer.setUpdatedAt(1L);
 
-        when(productRepository.findAll()).thenReturn(List.of(product));
-        when(customerRepository.findAll()).thenReturn(List.of(customer));
-        when(supplierRepository.findAll()).thenReturn(List.of());
+        when(productRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(product));
+        when(customerRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(customer));
+        when(supplierRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
 
-        AgentDto.OperationDraftDto draft = agentService.draftOperation("给客户B销售 5 个绝缘手套 A12，单价 48");
+        OperationDraftDtos.OperationDraftDto draft = agentService.draftOperation("给客户B销售 5 个绝缘手套 A12，单价 48");
 
         assertNotNull(draft);
         assertEquals("sale", draft.operationType());

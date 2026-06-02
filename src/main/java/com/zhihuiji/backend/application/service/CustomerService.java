@@ -8,27 +8,38 @@ import org.springframework.stereotype.Service;
 @Service
 public class CustomerService {
     private final CustomerRepository customerRepository;
+    private final CurrentOwnerService currentOwnerService;
 
-    public CustomerService(CustomerRepository customerRepository) {
+    public CustomerService(CustomerRepository customerRepository, CurrentOwnerService currentOwnerService) {
         this.customerRepository = customerRepository;
+        this.currentOwnerService = currentOwnerService;
     }
 
     public List<CustomerEntity> list(String keyword) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         if (keyword == null || keyword.isBlank()) {
-            return customerRepository.findAll();
+            return customerRepository.findAllByOwnerUserId(ownerUserId);
         }
-        return customerRepository.findByNameContainingIgnoreCaseOrPhoneContainingIgnoreCase(keyword, keyword);
+        return customerRepository.findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndPhoneContainingIgnoreCase(
+            ownerUserId,
+            keyword,
+            ownerUserId,
+            keyword
+        );
     }
 
     public CustomerEntity get(Long id) {
-        return customerRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("客户不存在"));
+        return customerRepository.findByIdAndOwnerUserId(id, currentOwnerService.requireCurrentOwnerUserId())
+            .orElseThrow(() -> new IllegalArgumentException("客户不存在"));
     }
 
     public CustomerEntity create(CustomerEntity customer) {
-        if (customerRepository.findByPhone(customer.getPhone()).isPresent()) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        if (customerRepository.findByOwnerUserIdAndPhone(ownerUserId, customer.getPhone()).isPresent()) {
             throw new IllegalArgumentException("手机号已存在");
         }
         long now = System.currentTimeMillis();
+        customer.setOwnerUserId(ownerUserId);
         customer.setCreatedAt(now);
         customer.setUpdatedAt(now);
         customer.setSyncStatus(0);
@@ -38,6 +49,11 @@ public class CustomerService {
 
     public CustomerEntity update(Long id, CustomerEntity payload) {
         CustomerEntity target = get(id);
+        customerRepository.findByOwnerUserIdAndPhone(currentOwnerService.requireCurrentOwnerUserId(), payload.getPhone())
+            .filter(existing -> !existing.getId().equals(id))
+            .ifPresent(existing -> {
+                throw new IllegalArgumentException("手机号已存在");
+            });
         target.setName(payload.getName());
         target.setPhone(payload.getPhone());
         target.setLevel(payload.getLevel());
@@ -52,7 +68,6 @@ public class CustomerService {
     }
 
     public void delete(Long id) {
-        customerRepository.deleteById(id);
+        customerRepository.delete(get(id));
     }
 }
-

@@ -1,5 +1,8 @@
 package com.zhihuiji.backend.application.service;
 
+import com.zhihuiji.backend.api.common.PayOrderStatus;
+import com.zhihuiji.backend.api.common.PaymentType;
+import com.zhihuiji.backend.api.common.PurchaseOrderStatus;
 import com.zhihuiji.backend.domain.entity.AgentNotificationEntity;
 import com.zhihuiji.backend.domain.entity.AgentTaskEntity;
 import com.zhihuiji.backend.domain.entity.CustomerEntity;
@@ -41,6 +44,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Profile("local")
 public class DemoDataService {
+    private static final String DEMO_OWNER_PHONE = "13800138111";
+
     private final UserRepository userRepository;
     private final SessionRepository sessionRepository;
     private final ProductRepository productRepository;
@@ -114,15 +119,16 @@ public class DemoDataService {
 
         long now = System.currentTimeMillis();
         createUsers(now);
-        Map<String, SupplierEntity> suppliers = createSuppliers(now);
-        Map<String, CustomerEntity> customers = createCustomers(now);
-        Map<String, ProductEntity> products = createProducts(now);
+        Long ownerUserId = requireDemoOwnerUserId();
+        Map<String, SupplierEntity> suppliers = createSuppliers(ownerUserId, now);
+        Map<String, CustomerEntity> customers = createCustomers(ownerUserId, now);
+        Map<String, ProductEntity> products = createProducts(ownerUserId, now);
 
-        createPurchaseOrders(suppliers, products);
-        createSaleOrders(customers, products);
-        createPayOrders(suppliers);
-        patchInventoryForAnomalies(products, now);
-        createWarmAgentArtifacts();
+        createPurchaseOrders(ownerUserId, suppliers, products);
+        createSaleOrders(ownerUserId, customers, products);
+        createPayOrders(ownerUserId, suppliers);
+        patchInventoryForAnomalies(ownerUserId, products, now);
+        createWarmAgentArtifacts(ownerUserId);
         return snapshot(true);
     }
 
@@ -181,15 +187,22 @@ public class DemoDataService {
         userRepository.save(user);
     }
 
-    private Map<String, SupplierEntity> createSuppliers(long now) {
+    private Long requireDemoOwnerUserId() {
+        return userRepository.findByPhone(DEMO_OWNER_PHONE)
+            .map(UserEntity::getId)
+            .orElseThrow(() -> new IllegalStateException("demo owner is missing"));
+    }
+
+    private Map<String, SupplierEntity> createSuppliers(Long ownerUserId, long now) {
         Map<String, SupplierEntity> map = new HashMap<>();
-        map.put("supplier-a", createSupplier("供应商A", "13900010001", "华东供货中心", "常规补货", 12800.0, now));
-        map.put("supplier-b", createSupplier("供应商B", "13900010002", "工业配件市场", "账期 15 天", 8600.0, now));
-        map.put("supplier-c", createSupplier("供应商C", "13900010003", "包装耗材仓", "包装材料", 3200.0, now));
+        map.put("supplier-a", createSupplier(ownerUserId, "供应商A", "13900010001", "华东供货中心", "常规补货", 12800.0, now));
+        map.put("supplier-b", createSupplier(ownerUserId, "供应商B", "13900010002", "工业配件市场", "账期 15 天", 8600.0, now));
+        map.put("supplier-c", createSupplier(ownerUserId, "供应商C", "13900010003", "包装耗材仓", "包装材料", 3200.0, now));
         return map;
     }
 
     private SupplierEntity createSupplier(
+        Long ownerUserId,
         String name,
         String phone,
         String address,
@@ -198,6 +211,7 @@ public class DemoDataService {
         long now
     ) {
         SupplierEntity supplier = new SupplierEntity();
+        supplier.setOwnerUserId(ownerUserId);
         supplier.setName(name);
         supplier.setPhone(phone);
         supplier.setAddress(address);
@@ -211,15 +225,16 @@ public class DemoDataService {
         return supplierRepository.save(supplier);
     }
 
-    private Map<String, CustomerEntity> createCustomers(long now) {
+    private Map<String, CustomerEntity> createCustomers(Long ownerUserId, long now) {
         Map<String, CustomerEntity> map = new HashMap<>();
-        map.put("customer-a", createCustomer("门店客户A", "13700020001", "静安门店", "核心连锁门店", 15800.0, now));
-        map.put("customer-b", createCustomer("客户B", "13700020002", "嘉定工业园", "工业客户", 9200.0, now));
-        map.put("customer-c", createCustomer("客户C", "13700020003", "闵行仓配点", "账期客户", 4100.0, now));
+        map.put("customer-a", createCustomer(ownerUserId, "门店客户A", "13700020001", "静安门店", "核心连锁门店", 15800.0, now));
+        map.put("customer-b", createCustomer(ownerUserId, "客户B", "13700020002", "嘉定工业园", "工业客户", 9200.0, now));
+        map.put("customer-c", createCustomer(ownerUserId, "客户C", "13700020003", "闵行仓配点", "账期客户", 4100.0, now));
         return map;
     }
 
     private CustomerEntity createCustomer(
+        Long ownerUserId,
         String name,
         String phone,
         String address,
@@ -228,6 +243,7 @@ public class DemoDataService {
         long now
     ) {
         CustomerEntity customer = new CustomerEntity();
+        customer.setOwnerUserId(ownerUserId);
         customer.setName(name);
         customer.setPhone(phone);
         customer.setLevel(2);
@@ -242,17 +258,18 @@ public class DemoDataService {
         return customerRepository.save(customer);
     }
 
-    private Map<String, ProductEntity> createProducts(long now) {
+    private Map<String, ProductEntity> createProducts(Long ownerUserId, long now) {
         Map<String, ProductEntity> map = new HashMap<>();
-        map.put("sensor-s7", createProduct("S7-0021", "工业传感器 S7", "工业件", "个", 58.0, 35.0, 22.0, 30.0, now));
-        map.put("glove-a12", createProduct("A12-0045", "绝缘手套 A12", "劳保", "只", 48.0, 26.0, 24.0, 18.0, now));
-        map.put("box-xl", createProduct("XL-0012", "包装纸箱 XL", "耗材", "箱", 12.0, 5.0, 12.0, 20.0, now));
-        map.put("scanner-q9", createProduct("Q9-1008", "扫码枪 Q9", "设备", "台", 168.0, 120.0, 31.0, 12.0, now));
-        map.put("tape-b3", createProduct("B3-0811", "封箱胶带 B3", "耗材", "卷", 8.0, 3.0, 64.0, 30.0, now));
+        map.put("sensor-s7", createProduct(ownerUserId, "S7-0021", "工业传感器 S7", "工业件", "个", 58.0, 35.0, 22.0, 30.0, now));
+        map.put("glove-a12", createProduct(ownerUserId, "A12-0045", "绝缘手套 A12", "劳保", "只", 48.0, 26.0, 24.0, 18.0, now));
+        map.put("box-xl", createProduct(ownerUserId, "XL-0012", "包装纸箱 XL", "耗材", "箱", 12.0, 5.0, 12.0, 20.0, now));
+        map.put("scanner-q9", createProduct(ownerUserId, "Q9-1008", "扫码枪 Q9", "设备", "台", 168.0, 120.0, 31.0, 12.0, now));
+        map.put("tape-b3", createProduct(ownerUserId, "B3-0811", "封箱胶带 B3", "耗材", "卷", 8.0, 3.0, 64.0, 30.0, now));
         return map;
     }
 
     private ProductEntity createProduct(
+        Long ownerUserId,
         String code,
         String name,
         String category,
@@ -264,6 +281,7 @@ public class DemoDataService {
         long now
     ) {
         ProductEntity product = new ProductEntity();
+        product.setOwnerUserId(ownerUserId);
         product.setCode(code);
         product.setName(name);
         product.setCategory(category);
@@ -280,36 +298,41 @@ public class DemoDataService {
         return productRepository.save(product);
     }
 
-    private void createPurchaseOrders(Map<String, SupplierEntity> suppliers, Map<String, ProductEntity> products) {
-        var received = purchaseOrderService.create(
+    private void createPurchaseOrders(Long ownerUserId, Map<String, SupplierEntity> suppliers, Map<String, ProductEntity> products) {
+        var received = purchaseOrderService.createForOwner(
+            ownerUserId,
             new PurchaseOrderService.CreatePurchaseOrderCommand(
+                suppliers.get("supplier-a").getId(),
                 suppliers.get("supplier-a").getName(),
                 List.of(
                     new PurchaseOrderService.PurchaseItemDraft(products.get("sensor-s7").getId(), null, null, 20.0, 34.0),
                     new PurchaseOrderService.PurchaseItemDraft(products.get("scanner-q9").getId(), null, null, 8.0, 118.0)
                 ),
                 "四月第一批补货",
-                PurchaseOrderService.STATUS_RECEIVED
+                PurchaseOrderStatus.RECEIVED.code()
             )
         );
-        backdatePurchaseOrder(received.order().getId(), nowMinusDays(12), nowMinusDays(12));
+        backdatePurchaseOrder(ownerUserId, received.order().getId(), nowMinusDays(12), nowMinusDays(12));
 
-        var draft = purchaseOrderService.create(
+        var draft = purchaseOrderService.createForOwner(
+            ownerUserId,
             new PurchaseOrderService.CreatePurchaseOrderCommand(
+                suppliers.get("supplier-c").getId(),
                 suppliers.get("supplier-c").getName(),
                 List.of(
                     new PurchaseOrderService.PurchaseItemDraft(products.get("box-xl").getId(), null, null, 18.0, 4.6),
                     new PurchaseOrderService.PurchaseItemDraft(products.get("tape-b3").getId(), null, null, 40.0, 2.8)
                 ),
                 "包装耗材待到货",
-                PurchaseOrderService.STATUS_DRAFT
+                PurchaseOrderStatus.DRAFT.code()
             )
         );
-        backdatePurchaseOrder(draft.order().getId(), nowMinusDays(5), nowMinusDays(5));
+        backdatePurchaseOrder(ownerUserId, draft.order().getId(), nowMinusDays(5), nowMinusDays(5));
     }
 
-    private void createSaleOrders(Map<String, CustomerEntity> customers, Map<String, ProductEntity> products) {
-        var so1 = saleOrderService.create(
+    private void createSaleOrders(Long ownerUserId, Map<String, CustomerEntity> customers, Map<String, ProductEntity> products) {
+        var so1 = saleOrderService.createForOwner(
+            ownerUserId,
             new SaleOrderService.CreateSaleOrderCommand(
                 customers.get("customer-a").getId(),
                 customers.get("customer-a").getName(),
@@ -321,11 +344,12 @@ public class DemoDataService {
                 30.0
             )
         );
-        backdateSaleOrder(so1.order().getId(), nowMinusDays(18), nowMinusDays(18));
-        saleOrderService.addPayment(so1.order().getId(), 220.0, 1, "POS-A001");
-        backdateLatestPayment(so1.order().getId(), nowMinusDays(17));
+        backdateSaleOrder(ownerUserId, so1.order().getId(), nowMinusDays(18), nowMinusDays(18));
+        saleOrderService.addPaymentForOwner(ownerUserId, so1.order().getId(), 220.0, 1, "POS-A001");
+        backdateLatestPayment(ownerUserId, so1.order().getId(), nowMinusDays(17));
 
-        var so2 = saleOrderService.create(
+        var so2 = saleOrderService.createForOwner(
+            ownerUserId,
             new SaleOrderService.CreateSaleOrderCommand(
                 customers.get("customer-b").getId(),
                 customers.get("customer-b").getName(),
@@ -337,11 +361,12 @@ public class DemoDataService {
                 0.0
             )
         );
-        backdateSaleOrder(so2.order().getId(), nowMinusDays(9), nowMinusDays(9));
-        saleOrderService.addPayment(so2.order().getId(), 300.0, 2, "WX-B221");
-        backdateLatestPayment(so2.order().getId(), nowMinusDays(8));
+        backdateSaleOrder(ownerUserId, so2.order().getId(), nowMinusDays(9), nowMinusDays(9));
+        saleOrderService.addPaymentForOwner(ownerUserId, so2.order().getId(), 300.0, 2, "WX-B221");
+        backdateLatestPayment(ownerUserId, so2.order().getId(), nowMinusDays(8));
 
-        var so3 = saleOrderService.create(
+        var so3 = saleOrderService.createForOwner(
+            ownerUserId,
             new SaleOrderService.CreateSaleOrderCommand(
                 customers.get("customer-c").getId(),
                 customers.get("customer-c").getName(),
@@ -353,14 +378,15 @@ public class DemoDataService {
                 0.0
             )
         );
-        backdateSaleOrder(so3.order().getId(), nowMinusDays(3), nowMinusDays(3));
+        backdateSaleOrder(ownerUserId, so3.order().getId(), nowMinusDays(3), nowMinusDays(3));
 
-        saleOrderService.cancel(so3.order().getId());
-        markRefundAsHistorical(so3.order().getId(), nowMinusDays(2));
+        saleOrderService.cancelForOwner(ownerUserId, so3.order().getId());
+        markRefundAsHistorical(ownerUserId, so3.order().getId(), nowMinusDays(2));
     }
 
-    private void createPayOrders(Map<String, SupplierEntity> suppliers) {
-        PayOrderEntity draft = payOrderService.create(
+    private void createPayOrders(Long ownerUserId, Map<String, SupplierEntity> suppliers) {
+        PayOrderEntity draft = payOrderService.createForOwner(
+            ownerUserId,
             new PayOrderService.CreateCommand(
                 suppliers.get("supplier-b").getId(),
                 null,
@@ -368,12 +394,13 @@ public class DemoDataService {
                 4,
                 "BANK-PO-001",
                 "工业配件账期付款待审核",
-                PayOrderService.STATUS_DRAFT
+                PayOrderStatus.DRAFT.code()
             )
         );
-        backdatePayOrder(draft.getId(), nowMinusDays(21));
+        backdatePayOrder(ownerUserId, draft.getId(), nowMinusDays(21));
 
-        PayOrderEntity paid = payOrderService.create(
+        PayOrderEntity paid = payOrderService.createForOwner(
+            ownerUserId,
             new PayOrderService.CreateCommand(
                 suppliers.get("supplier-a").getId(),
                 null,
@@ -381,21 +408,21 @@ public class DemoDataService {
                 4,
                 "BANK-PO-002",
                 "已付款对账单",
-                PayOrderService.STATUS_PAID
+                PayOrderStatus.PAID.code()
             )
         );
-        backdatePayOrder(paid.getId(), nowMinusDays(6));
+        backdatePayOrder(ownerUserId, paid.getId(), nowMinusDays(6));
     }
 
-    private void patchInventoryForAnomalies(Map<String, ProductEntity> products, long now) {
-        ProductEntity glove = reloadProduct(products.get("glove-a12").getId());
+    private void patchInventoryForAnomalies(Long ownerUserId, Map<String, ProductEntity> products, long now) {
+        ProductEntity glove = reloadProduct(ownerUserId, products.get("glove-a12").getId());
         glove.setStock(8.0);
         glove.setSafeStock(18.0);
         glove.setUpdatedAt(now);
         glove.setSyncVersion(glove.getSyncVersion() + 1);
         productRepository.save(glove);
 
-        ProductEntity box = reloadProduct(products.get("box-xl").getId());
+        ProductEntity box = reloadProduct(ownerUserId, products.get("box-xl").getId());
         box.setStock(12.0);
         box.setSafeStock(20.0);
         box.setUpdatedAt(now);
@@ -403,12 +430,13 @@ public class DemoDataService {
         productRepository.save(box);
     }
 
-    private ProductEntity reloadProduct(Long productId) {
-        return productRepository.findById(productId).orElseThrow();
+    private ProductEntity reloadProduct(Long ownerUserId, Long productId) {
+        return productRepository.findByIdAndOwnerUserId(productId, ownerUserId).orElseThrow();
     }
 
-    private void createWarmAgentArtifacts() {
+    private void createWarmAgentArtifacts(Long ownerUserId) {
         AgentTaskEntity task = new AgentTaskEntity();
+        task.setOwnerUserId(ownerUserId);
         task.setTaskType("anomaly_watch");
         task.setTitle("历史异常巡检");
         task.setTriggerSource("scheduler");
@@ -422,6 +450,7 @@ public class DemoDataService {
         task = agentTaskRepository.save(task);
 
         AgentNotificationEntity notification = new AgentNotificationEntity();
+        notification.setOwnerUserId(ownerUserId);
         notification.setTaskId(task.getId());
         notification.setTitle("历史异常巡检已完成");
         notification.setBody("这是用于演示通知链路的种子数据。");
@@ -432,53 +461,53 @@ public class DemoDataService {
         agentNotificationRepository.save(notification);
     }
 
-    private void backdateSaleOrder(Long orderId, long createdAt, long updatedAt) {
-        SaleOrderEntity order = saleOrderRepository.findById(orderId).orElseThrow();
+    private void backdateSaleOrder(Long ownerUserId, Long orderId, long createdAt, long updatedAt) {
+        SaleOrderEntity order = saleOrderRepository.findByIdAndOwnerUserId(orderId, ownerUserId).orElseThrow();
         order.setCreatedAt(createdAt);
         order.setUpdatedAt(updatedAt);
         saleOrderRepository.save(order);
-        List<SaleOrderItemEntity> items = saleOrderItemRepository.findByOrderId(orderId);
+        List<SaleOrderItemEntity> items = saleOrderItemRepository.findByOwnerUserIdAndOrderId(ownerUserId, orderId);
         items.forEach(item -> item.setCreatedAt(createdAt));
         saleOrderItemRepository.saveAll(items);
     }
 
-    private void backdateLatestPayment(Long orderId, long createdAt) {
-        List<PaymentEntity> payments = paymentRepository.findByOrderId(orderId);
+    private void backdateLatestPayment(Long ownerUserId, Long orderId, long createdAt) {
+        List<PaymentEntity> payments = paymentRepository.findByOwnerUserIdAndOrderId(ownerUserId, orderId);
         if (payments.isEmpty()) {
             return;
         }
         PaymentEntity latest = payments.stream()
-            .filter(payment -> Objects.equals(payment.getType(), SaleOrderService.PAYMENT_TYPE_RECEIVE))
+            .filter(payment -> Objects.equals(payment.getType(), PaymentType.RECEIVE.code()))
             .reduce((left, right) -> right)
             .orElse(payments.get(payments.size() - 1));
         latest.setCreatedAt(createdAt);
         paymentRepository.save(latest);
     }
 
-    private void markRefundAsHistorical(Long orderId, long createdAt) {
-        List<PaymentEntity> payments = paymentRepository.findByOrderId(orderId);
+    private void markRefundAsHistorical(Long ownerUserId, Long orderId, long createdAt) {
+        List<PaymentEntity> payments = paymentRepository.findByOwnerUserIdAndOrderId(ownerUserId, orderId);
         payments.stream()
-            .filter(payment -> Objects.equals(payment.getType(), SaleOrderService.PAYMENT_TYPE_REFUND))
+            .filter(payment -> Objects.equals(payment.getType(), PaymentType.REFUND.code()))
             .forEach(payment -> payment.setCreatedAt(createdAt));
         paymentRepository.saveAll(payments);
-        SaleOrderEntity order = saleOrderRepository.findById(orderId).orElseThrow();
+        SaleOrderEntity order = saleOrderRepository.findByIdAndOwnerUserId(orderId, ownerUserId).orElseThrow();
         order.setCreatedAt(nowMinusDays(4));
         order.setUpdatedAt(createdAt);
         saleOrderRepository.save(order);
     }
 
-    private void backdatePurchaseOrder(Long orderId, long createdAt, long updatedAt) {
-        PurchaseOrderEntity order = purchaseOrderRepository.findById(orderId).orElseThrow();
+    private void backdatePurchaseOrder(Long ownerUserId, Long orderId, long createdAt, long updatedAt) {
+        PurchaseOrderEntity order = purchaseOrderRepository.findByIdAndOwnerUserId(orderId, ownerUserId).orElseThrow();
         order.setCreatedAt(createdAt);
         order.setUpdatedAt(updatedAt);
         purchaseOrderRepository.save(order);
-        List<PurchaseOrderItemEntity> items = purchaseOrderItemRepository.findByOrderId(orderId);
+        List<PurchaseOrderItemEntity> items = purchaseOrderItemRepository.findByOwnerUserIdAndOrderId(ownerUserId, orderId);
         items.forEach(item -> item.setCreatedAt(createdAt));
         purchaseOrderItemRepository.saveAll(items);
     }
 
-    private void backdatePayOrder(Long orderId, long createdAt) {
-        PayOrderEntity order = payOrderRepository.findById(orderId).orElseThrow();
+    private void backdatePayOrder(Long ownerUserId, Long orderId, long createdAt) {
+        PayOrderEntity order = payOrderRepository.findByIdAndOwnerUserId(orderId, ownerUserId).orElseThrow();
         order.setCreatedAt(createdAt);
         order.setUpdatedAt(createdAt);
         payOrderRepository.save(order);

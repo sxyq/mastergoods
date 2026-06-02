@@ -3,7 +3,7 @@ package com.zhihuiji.backend.api.controller;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.zhihuiji.backend.api.common.ApiResponse;
-import com.zhihuiji.backend.api.dto.agent.AgentDto;
+import com.zhihuiji.backend.api.dto.agent.*;
 import com.zhihuiji.backend.application.service.AgentTaskService;
 import java.util.List;
 import jakarta.validation.Valid;
@@ -27,22 +27,22 @@ public class AgentTaskController {
     }
 
     @PostMapping("/tasks")
-    public ApiResponse<AgentDto.AgentTaskSummaryDto> createTask(@Valid @RequestBody CreateTaskRequest request) {
+    public ApiResponse<AgentTaskDtos.AgentTaskSummaryDto> createTask(@Valid @RequestBody CreateTaskRequest request) {
         return ApiResponse.success(agentTaskService.submitTask(request.taskType(), request.title(), request.input()));
     }
 
     @GetMapping("/tasks")
-    public ApiResponse<List<AgentDto.AgentTaskSummaryDto>> listTasks() {
+    public ApiResponse<List<AgentTaskDtos.AgentTaskSummaryDto>> listTasks() {
         return ApiResponse.success(agentTaskService.listTasks());
     }
 
     @GetMapping("/tasks/{taskId}")
-    public ApiResponse<AgentDto.AgentTaskDetailDto> getTask(@PathVariable Long taskId) {
+    public ApiResponse<AgentTaskDtos.AgentTaskDetailDto> getTask(@PathVariable Long taskId) {
         return ApiResponse.success(agentTaskService.getTask(taskId));
     }
 
     @GetMapping("/notifications")
-    public ApiResponse<List<AgentDto.AgentNotificationDto>> notifications(
+    public ApiResponse<List<AgentTaskDtos.AgentNotificationDto>> notifications(
         @RequestParam(value = "unread_only", defaultValue = "false") boolean unreadOnly,
         @RequestParam(value = "undelivered_only", defaultValue = "false") boolean undeliveredOnly
     ) {
@@ -50,12 +50,12 @@ public class AgentTaskController {
     }
 
     @PostMapping("/notifications/{notificationId}/read")
-    public ApiResponse<AgentDto.AgentNotificationDto> markRead(@PathVariable Long notificationId) {
+    public ApiResponse<AgentTaskDtos.AgentNotificationDto> markRead(@PathVariable Long notificationId) {
         return ApiResponse.success(agentTaskService.markNotificationRead(notificationId));
     }
 
     @PostMapping("/notifications/{notificationId}/delivered")
-    public ApiResponse<AgentDto.AgentNotificationDto> markDelivered(@PathVariable Long notificationId) {
+    public ApiResponse<AgentTaskDtos.AgentNotificationDto> markDelivered(@PathVariable Long notificationId) {
         return ApiResponse.success(agentTaskService.markNotificationDelivered(notificationId));
     }
 

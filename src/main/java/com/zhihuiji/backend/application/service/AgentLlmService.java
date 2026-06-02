@@ -2,7 +2,7 @@ package com.zhihuiji.backend.application.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zhihuiji.backend.api.dto.agent.AgentDto;
+import com.zhihuiji.backend.api.dto.agent.*;
 import com.zhihuiji.backend.infrastructure.ai.LongCatAnthropicClient;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +34,7 @@ public class AgentLlmService {
             .filter(node -> !node.isMissingNode() && !node.isEmpty());
     }
 
-    public AgentDto.AgentAnswerDto enrichAnswer(AgentDto.AgentAnswerDto fallback) {
+    public AnswerDtos.AgentAnswerDto enrichAnswer(AnswerDtos.AgentAnswerDto fallback) {
         String prompt = """
             Rewrite this warehouse answer in Chinese.
             Keep facts exactly consistent with the context.
@@ -44,7 +44,7 @@ public class AgentLlmService {
             %s
             """.formatted(toJson(fallback));
         return requestStructuredJson(answerSystemPrompt(), prompt)
-            .map(node -> new AgentDto.AgentAnswerDto(
+            .map(node -> new AnswerDtos.AgentAnswerDto(
                 fallback.query(),
                 fallback.intent(),
                 readText(node, "answer", fallback.answer()),
@@ -56,7 +56,7 @@ public class AgentLlmService {
             .orElse(fallback);
     }
 
-    public AgentDto.ReportInsightDto enrichReportInsight(AgentDto.ReportInsightDto fallback) {
+    public ReconciliationDtos.ReportInsightDto enrichReportInsight(ReconciliationDtos.ReportInsightDto fallback) {
         String prompt = """
             Rewrite this report insight in Chinese for a warehouse operator.
             Keep all numbers and named entities consistent with the context.
@@ -65,7 +65,7 @@ public class AgentLlmService {
             %s
             """.formatted(toJson(fallback));
         return requestStructuredJson(insightSystemPrompt(), prompt)
-            .map(node -> new AgentDto.ReportInsightDto(
+            .map(node -> new ReconciliationDtos.ReportInsightDto(
                 fallback.periodLabel(),
                 fallback.currentSales(),
                 fallback.previousSales(),
@@ -81,7 +81,7 @@ public class AgentLlmService {
             .orElse(fallback);
     }
 
-    public AgentDto.OperationDraftDto enrichDraft(String instruction, AgentDto.OperationDraftDto fallback) {
+    public OperationDraftDtos.OperationDraftDto enrichDraft(String instruction, OperationDraftDtos.OperationDraftDto fallback) {
         String prompt = """
             Refine this draft response in Chinese for a warehouse operator.
             Do not change operationType, partner identity, items, quantities, unit prices, stock, or canSubmit.
@@ -92,7 +92,7 @@ public class AgentLlmService {
             %s
             """.formatted(instruction, toJson(fallback));
         return requestStructuredJson(draftSystemPrompt(), prompt)
-            .map(node -> new AgentDto.OperationDraftDto(
+            .map(node -> new OperationDraftDtos.OperationDraftDto(
                 fallback.operationType(),
                 readText(node, "summary", fallback.summary()),
                 fallback.partnerRole(),

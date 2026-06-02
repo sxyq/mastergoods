@@ -9,24 +9,24 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import com.zhihuiji.backend.api.common.IdGenerator;
+import com.zhihuiji.backend.api.common.PayOrderStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PayOrderService {
-    public static final int STATUS_DRAFT = 0;
-    public static final int STATUS_PAID = 1;
-    public static final int STATUS_CANCELLED = 2;
-
     private final PayOrderRepository payOrderRepository;
     private final SupplierRepository supplierRepository;
+    private final CurrentOwnerService currentOwnerService;
 
     public PayOrderService(
         PayOrderRepository payOrderRepository,
-        SupplierRepository supplierRepository
+        SupplierRepository supplierRepository,
+        CurrentOwnerService currentOwnerService
     ) {
         this.payOrderRepository = payOrderRepository;
         this.supplierRepository = supplierRepository;
+        this.currentOwnerService = currentOwnerService;
     }
 
     public List<PayOrderEntity> list(
@@ -35,35 +35,48 @@ public class PayOrderService {
         Long createdAfter,
         Long createdBefore
     ) {
-        return payOrderRepository.search(keyword, status, createdAfter, createdBefore);
+        return payOrderRepository.search(
+            currentOwnerService.requireCurrentOwnerUserId(),
+            keyword,
+            status,
+            createdAfter,
+            createdBefore
+        );
     }
 
     public PayOrderEntity getById(Long id) {
-        return payOrderRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("付款单不存在"));
+        return payOrderRepository.findByIdAndOwnerUserId(id, currentOwnerService.requireCurrentOwnerUserId())
+            .orElseThrow(() -> new IllegalArgumentException("付款单不存在"));
     }
 
     @Transactional
     public PayOrderEntity create(CreateCommand command) {
+        return createForOwner(currentOwnerService.requireCurrentOwnerUserId(), command);
+    }
+
+    @Transactional
+    public PayOrderEntity createForOwner(Long ownerUserId, CreateCommand command) {
         validateCreateCommand(command);
         long now = System.currentTimeMillis();
         PayOrderEntity entity = new PayOrderEntity();
         entity.setId(IdGenerator.nextId());
+        entity.setOwnerUserId(ownerUserId);
         entity.setOrderNo(generateOrderNo(now));
         entity.setSupplierId(command.supplierId());
-        entity.setSupplierName(resolveSupplierName(command.supplierId(), command.supplierName()));
+        entity.setSupplierName(resolveSupplierName(ownerUserId, command.supplierId(), command.supplierName()));
         entity.setAmount(command.amount());
         entity.setMethod(command.method());
         entity.setReferenceNo(normalizeNullableText(command.referenceNo()));
         entity.setNotes(normalizeNullableText(command.notes()));
-        entity.setStatus(command.status() == null ? STATUS_DRAFT : command.status());
+        entity.setStatus(command.status() == null ? PayOrderStatus.DRAFT.code() : command.status());
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
         entity.setSyncStatus(0);
         entity.setSyncVersion(1L);
         PayOrderEntity saved = payOrderRepository.save(entity);
 
-        if (saved.getSupplierId() != null && saved.getStatus() == STATUS_PAID) {
-            SupplierEntity supplier = supplierRepository.findById(saved.getSupplierId())
+        if (saved.getSupplierId() != null && saved.getStatus() == PayOrderStatus.PAID.code()) {
+            SupplierEntity supplier = supplierRepository.findByIdAndOwnerUserId(saved.getSupplierId(), ownerUserId)
                 .orElseThrow(() -> new IllegalArgumentException("供应商不存在"));
             supplier.setBalance(Math.max(0.0, safeDouble(supplier.getBalance()) - saved.getAmount()));
             supplier.setUpdatedAt(now);
@@ -79,7 +92,7 @@ public class PayOrderService {
         if (status == null) {
             throw new IllegalArgumentException("状态不能为空");
         }
-        if (status != STATUS_DRAFT && status != STATUS_PAID && status != STATUS_CANCELLED) {
+        if (!PayOrderStatus.isValid(status)) {
             throw new IllegalArgumentException("状态不合法");
         }
         PayOrderEntity target = getById(id);
@@ -88,11 +101,11 @@ public class PayOrderService {
         }
         long now = System.currentTimeMillis();
         if (target.getSupplierId() != null) {
-            SupplierEntity supplier = supplierRepository.findById(target.getSupplierId())
+            SupplierEntity supplier = supplierRepository.findByIdAndOwnerUserId(target.getSupplierId(), currentOwnerService.requireCurrentOwnerUserId())
                 .orElseThrow(() -> new IllegalArgumentException("供应商不存在"));
-            if (target.getStatus() == STATUS_PAID && status != STATUS_PAID) {
+            if (target.getStatus() == PayOrderStatus.PAID.code() && status != PayOrderStatus.PAID.code()) {
                 supplier.setBalance(Math.max(0.0, safeDouble(supplier.getBalance()) + target.getAmount()));
-            } else if (target.getStatus() != STATUS_PAID && status == STATUS_PAID) {
+            } else if (target.getStatus() != PayOrderStatus.PAID.code() && status == PayOrderStatus.PAID.code()) {
                 supplier.setBalance(Math.max(0.0, safeDouble(supplier.getBalance()) - target.getAmount()));
             }
             supplier.setUpdatedAt(now);
@@ -121,14 +134,14 @@ public class PayOrderService {
             throw new IllegalArgumentException("供应商不能为空");
         }
         Integer status = command.status();
-        if (status != null && status != STATUS_DRAFT && status != STATUS_PAID && status != STATUS_CANCELLED) {
+        if (status != null && !PayOrderStatus.isValid(status)) {
             throw new IllegalArgumentException("状态不合法");
         }
     }
 
-    private String resolveSupplierName(Long supplierId, String fallbackName) {
+    private String resolveSupplierName(Long ownerUserId, Long supplierId, String fallbackName) {
         if (supplierId != null) {
-            SupplierEntity supplier = supplierRepository.findById(supplierId)
+            SupplierEntity supplier = supplierRepository.findByIdAndOwnerUserId(supplierId, ownerUserId)
                 .orElseThrow(() -> new IllegalArgumentException("供应商不存在"));
             return supplier.getName();
         }

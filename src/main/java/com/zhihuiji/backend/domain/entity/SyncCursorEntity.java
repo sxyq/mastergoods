@@ -3,11 +3,17 @@ package com.zhihuiji.backend.domain.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
 
 @Entity
+@IdClass(SyncCursorId.class)
 @Table(name = "sync_cursors")
 public class SyncCursorEntity {
+    @Id
+    @Column(name = "owner_user_id", nullable = false)
+    private Long ownerUserId;
+
     @Id
     @Column(name = "client_id", length = 128)
     private String clientId;
@@ -17,6 +23,14 @@ public class SyncCursorEntity {
 
     @Column(name = "updated_at", nullable = false)
     private Long updatedAt;
+
+    public Long getOwnerUserId() {
+        return ownerUserId;
+    }
+
+    public void setOwnerUserId(Long ownerUserId) {
+        this.ownerUserId = ownerUserId;
+    }
 
     public String getClientId() {
         return clientId;
@@ -42,4 +56,3 @@ public class SyncCursorEntity {
         this.updatedAt = updatedAt;
     }
 }
-

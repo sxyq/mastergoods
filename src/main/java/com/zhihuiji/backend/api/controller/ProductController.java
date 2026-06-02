@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.api.controller;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
+import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.api.dto.ProductAdjustStockRequest;
 import com.zhihuiji.backend.application.service.ProductService;
 import com.zhihuiji.backend.domain.entity.ProductEntity;
@@ -26,8 +27,12 @@ public class ProductController {
     }
 
     @GetMapping
-    public ApiResponse<List<ProductEntity>> list(@RequestParam(value = "keyword", required = false) String keyword) {
-        return ApiResponse.success(productService.list(keyword));
+    public ApiResponse<List<ProductEntity>> list(
+        @RequestParam(value = "keyword", required = false) String keyword,
+        @RequestParam(value = "page", required = false) Integer page,
+        @RequestParam(value = "size", required = false) Integer size
+    ) {
+        return ApiResponse.success(PaginationUtils.slice(productService.list(keyword), page, size));
     }
 
     @GetMapping("/{id}")

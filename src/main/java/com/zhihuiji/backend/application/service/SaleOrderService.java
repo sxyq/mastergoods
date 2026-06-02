@@ -19,39 +19,42 @@ import java.util.Locale;
 import java.util.UUID;
 import com.zhihuiji.backend.api.common.IdGenerator;
 import com.zhihuiji.backend.api.common.OrderStatus;
+import com.zhihuiji.backend.api.common.PaymentType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class SaleOrderService {
-    public static final int STATUS_DRAFT = 0;
-    public static final int STATUS_COMPLETED = 1;
-    public static final int STATUS_CANCELLED = 2;
-    public static final int PAYMENT_TYPE_RECEIVE = 1;
-    public static final int PAYMENT_TYPE_REFUND = 2;
-
     private final SaleOrderRepository saleOrderRepository;
     private final SaleOrderItemRepository saleOrderItemRepository;
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
     private final PaymentRepository paymentRepository;
+    private final CurrentOwnerService currentOwnerService;
 
     public SaleOrderService(
         SaleOrderRepository saleOrderRepository,
         SaleOrderItemRepository saleOrderItemRepository,
         ProductRepository productRepository,
         CustomerRepository customerRepository,
-        PaymentRepository paymentRepository
+        PaymentRepository paymentRepository,
+        CurrentOwnerService currentOwnerService
     ) {
         this.saleOrderRepository = saleOrderRepository;
         this.saleOrderItemRepository = saleOrderItemRepository;
         this.productRepository = productRepository;
         this.customerRepository = customerRepository;
         this.paymentRepository = paymentRepository;
+        this.currentOwnerService = currentOwnerService;
     }
 
     @Transactional
     public OrderDetail create(CreateSaleOrderCommand command) {
+        return createForOwner(currentOwnerService.requireCurrentOwnerUserId(), command);
+    }
+
+    @Transactional
+    public OrderDetail createForOwner(Long ownerUserId, CreateSaleOrderCommand command) {
         if (command.items().isEmpty()) {
             throw new IllegalArgumentException("订单明细不能为空");
         }
@@ -62,7 +65,7 @@ public class SaleOrderService {
         double subtotal = 0.0;
         List<SaleOrderItemEntity> itemEntities = new ArrayList<>();
         for (SaleItemDraft item : command.items()) {
-            ProductEntity product = productRepository.findByIdForUpdate(item.productId())
+            ProductEntity product = productRepository.findByIdForUpdate(ownerUserId, item.productId())
                 .orElseThrow(() -> new IllegalArgumentException("商品不存在: " + item.productId()));
             if (product.getStock() < item.quantity()) {
                 throw new IllegalArgumentException("库存不足: " + product.getName());
@@ -75,6 +78,7 @@ public class SaleOrderService {
 
             SaleOrderItemEntity entity = new SaleOrderItemEntity();
             entity.setId(IdGenerator.nextId());
+            entity.setOwnerUserId(ownerUserId);
             entity.setOrderId(orderId);
             entity.setProductId(product.getId());
             entity.setProductCode(product.getCode());
@@ -93,6 +97,7 @@ public class SaleOrderService {
         double total = Math.max(0.0, subtotal - discount);
         SaleOrderEntity order = new SaleOrderEntity();
         order.setId(orderId);
+        order.setOwnerUserId(ownerUserId);
         order.setOrderNo(orderNo);
         order.setCustomerId(command.customerId());
         order.setCustomerName(command.customerName());
@@ -101,7 +106,7 @@ public class SaleOrderService {
         order.setTotalAmount(total);
         order.setPaidAmount(0.0);
         order.setNotes(command.notes());
-        order.setStatus(STATUS_DRAFT);
+        order.setStatus(OrderStatus.DRAFT.code());
         order.setSyncStatus(0);
         order.setSyncVersion(1L);
         order.setCreatedAt(now);
@@ -110,7 +115,7 @@ public class SaleOrderService {
         saleOrderItemRepository.saveAll(itemEntities);
 
         if (order.getCustomerId() != null) {
-            CustomerEntity customer = customerRepository.findById(order.getCustomerId())
+            CustomerEntity customer = customerRepository.findByIdAndOwnerUserId(order.getCustomerId(), ownerUserId)
                 .orElseThrow(() -> new IllegalArgumentException("客户不存在"));
             customer.setBalance(customer.getBalance() + total);
             customer.setUpdatedAt(now);
@@ -135,44 +140,46 @@ public class SaleOrderService {
         String productKeyword,
         Integer paymentStatus
     ) {
-        List<SaleOrderEntity> results = saleOrderRepository.search(keyword, status, minTotalAmount, maxTotalAmount, createdAfter, createdBefore);
-        if (paymentStatus != null) {
-            results = results.stream()
-                .filter(order -> isPaymentStatusMatched(order, paymentStatus))
-                .toList();
-        }
-        if (productKeyword != null && !productKeyword.isBlank()) {
-            results = results.stream()
-                .filter(order -> isProductKeywordMatched(order.getId(), productKeyword))
-                .toList();
-        }
-        return results;
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        return saleOrderRepository.search(
+            ownerUserId,
+            keyword,
+            status,
+            minTotalAmount,
+            maxTotalAmount,
+            createdAfter,
+            createdBefore,
+            productKeyword,
+            paymentStatus
+        );
     }
 
     public OrderDetail get(Long orderId) {
-        SaleOrderEntity order = saleOrderRepository.findById(orderId)
+        SaleOrderEntity order = saleOrderRepository.findByIdAndOwnerUserId(orderId, currentOwnerService.requireCurrentOwnerUserId())
             .orElseThrow(() -> new IllegalArgumentException("订单不存在"));
         return toDetail(order);
     }
 
     public List<SaleOrderItemEntity> listItems(Long orderId) {
-        return saleOrderItemRepository.findByOrderId(orderId);
+        return saleOrderItemRepository.findByOwnerUserIdAndOrderId(currentOwnerService.requireCurrentOwnerUserId(), orderId);
     }
 
     public List<PaymentEntity> listPayments(Long orderId) {
-        if (!saleOrderRepository.existsById(orderId)) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        if (!saleOrderRepository.existsByIdAndOwnerUserId(orderId, ownerUserId)) {
             throw new IllegalArgumentException("订单不存在");
         }
-        return paymentRepository.findByOrderId(orderId).stream()
+        return paymentRepository.findByOwnerUserIdAndOrderId(ownerUserId, orderId).stream()
             .sorted(Comparator.comparingLong(PaymentEntity::getCreatedAt))
             .toList();
     }
 
     @Transactional
     public OrderDetail updateDraft(Long orderId, Double discountAmount, String notes) {
-        SaleOrderEntity order = saleOrderRepository.findById(orderId)
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        SaleOrderEntity order = saleOrderRepository.findByIdAndOwnerUserId(orderId, ownerUserId)
             .orElseThrow(() -> new IllegalArgumentException("订单不存在"));
-        if (order.getStatus() == STATUS_CANCELLED) {
+        if (order.getStatus() == OrderStatus.CANCELLED.code()) {
             throw new IllegalArgumentException("已取消订单不可编辑");
         }
         double subtotal = order.getSubtotalAmount();
@@ -189,7 +196,7 @@ public class SaleOrderService {
         saleOrderRepository.save(order);
 
         if (order.getCustomerId() != null && Math.abs(delta) > 0.000001) {
-            CustomerEntity customer = customerRepository.findById(order.getCustomerId())
+            CustomerEntity customer = customerRepository.findByIdAndOwnerUserId(order.getCustomerId(), ownerUserId)
                 .orElseThrow(() -> new IllegalArgumentException("客户不存在"));
             customer.setBalance(customer.getBalance() + delta);
             customer.setUpdatedAt(System.currentTimeMillis());
@@ -202,9 +209,14 @@ public class SaleOrderService {
 
     @Transactional
     public PaymentEntity addPayment(Long orderId, Double amount, Integer method, String referenceNo) {
-        SaleOrderEntity order = saleOrderRepository.findById(orderId)
+        return addPaymentForOwner(currentOwnerService.requireCurrentOwnerUserId(), orderId, amount, method, referenceNo);
+    }
+
+    @Transactional
+    public PaymentEntity addPaymentForOwner(Long ownerUserId, Long orderId, Double amount, Integer method, String referenceNo) {
+        SaleOrderEntity order = saleOrderRepository.findByIdAndOwnerUserId(orderId, ownerUserId)
             .orElseThrow(() -> new IllegalArgumentException("订单不存在"));
-        if (order.getStatus() == STATUS_CANCELLED) {
+        if (order.getStatus() == OrderStatus.CANCELLED.code()) {
             throw new IllegalArgumentException("已取消订单不可收款");
         }
         double unpaid = Math.max(0.0, order.getTotalAmount() - order.getPaidAmount());
@@ -215,17 +227,18 @@ public class SaleOrderService {
         long now = System.currentTimeMillis();
         PaymentEntity payment = new PaymentEntity();
         payment.setId(IdGenerator.nextId());
+        payment.setOwnerUserId(ownerUserId);
         payment.setOrderId(orderId);
         payment.setAmount(amount);
         payment.setMethod(method);
         payment.setReferenceNo(referenceNo);
-        payment.setType(PAYMENT_TYPE_RECEIVE);
+        payment.setType(PaymentType.RECEIVE.code());
         payment.setCreatedAt(now);
         payment = paymentRepository.save(payment);
 
         order.setPaidAmount(order.getPaidAmount() + amount);
         if (Math.abs(order.getPaidAmount() - order.getTotalAmount()) < 0.000001 || order.getPaidAmount() > order.getTotalAmount()) {
-            order.setStatus(STATUS_COMPLETED);
+            order.setStatus(OrderStatus.COMPLETED.code());
         }
         order.setUpdatedAt(now);
         order.setSyncStatus(0);
@@ -233,7 +246,7 @@ public class SaleOrderService {
         saleOrderRepository.save(order);
 
         if (order.getCustomerId() != null) {
-            CustomerEntity customer = customerRepository.findById(order.getCustomerId())
+            CustomerEntity customer = customerRepository.findByIdAndOwnerUserId(order.getCustomerId(), ownerUserId)
                 .orElseThrow(() -> new IllegalArgumentException("客户不存在"));
             customer.setBalance(Math.max(0.0, customer.getBalance() - amount));
             customer.setUpdatedAt(now);
@@ -249,28 +262,28 @@ public class SaleOrderService {
         if (status == null) {
             throw new IllegalArgumentException("状态不能为空");
         }
-        SaleOrderEntity order = saleOrderRepository.findById(orderId)
+        SaleOrderEntity order = saleOrderRepository.findByIdAndOwnerUserId(orderId, currentOwnerService.requireCurrentOwnerUserId())
             .orElseThrow(() -> new IllegalArgumentException("订单不存在"));
         if (order.getStatus().equals(status)) {
             return;
         }
-        if (status == STATUS_CANCELLED) {
+        if (status == OrderStatus.CANCELLED.code()) {
             cancel(orderId);
             return;
         }
-        if (status != STATUS_DRAFT && status != STATUS_COMPLETED) {
+        if (status != OrderStatus.DRAFT.code() && status != OrderStatus.COMPLETED.code()) {
             throw new IllegalArgumentException("不支持的状态值");
         }
-        if (order.getStatus() == STATUS_CANCELLED) {
+        if (order.getStatus() == OrderStatus.CANCELLED.code()) {
             throw new IllegalArgumentException("已取消订单不可变更状态");
         }
-        if (status == STATUS_COMPLETED && order.getStatus() == STATUS_DRAFT) {
+        if (status == OrderStatus.COMPLETED.code() && order.getStatus() == OrderStatus.DRAFT.code()) {
             throw new IllegalArgumentException("草稿订单需先确认后再标记为已完成");
         }
-        if (status == STATUS_DRAFT && order.getStatus() == STATUS_COMPLETED) {
+        if (status == OrderStatus.DRAFT.code() && order.getStatus() == OrderStatus.COMPLETED.code()) {
             throw new IllegalArgumentException("已完成订单不可回退为草稿");
         }
-        if (status == STATUS_COMPLETED && order.getPaidAmount() + 0.000001 < order.getTotalAmount()) {
+        if (status == OrderStatus.COMPLETED.code() && order.getPaidAmount() + 0.000001 < order.getTotalAmount()) {
             throw new IllegalArgumentException("未付清订单不可标记为已完成");
         }
 
@@ -282,23 +295,28 @@ public class SaleOrderService {
     }
 
     public byte[] exportPdf(Long orderId) {
-        SaleOrderEntity order = saleOrderRepository.findById(orderId)
+        SaleOrderEntity order = saleOrderRepository.findByIdAndOwnerUserId(orderId, currentOwnerService.requireCurrentOwnerUserId())
             .orElseThrow(() -> new IllegalArgumentException("订单不存在"));
         return buildSimplePdf(order);
     }
 
     @Transactional
     public OrderDetail cancel(Long orderId) {
-        SaleOrderEntity order = saleOrderRepository.findById(orderId)
+        return cancelForOwner(currentOwnerService.requireCurrentOwnerUserId(), orderId);
+    }
+
+    @Transactional
+    public OrderDetail cancelForOwner(Long ownerUserId, Long orderId) {
+        SaleOrderEntity order = saleOrderRepository.findByIdAndOwnerUserId(orderId, ownerUserId)
             .orElseThrow(() -> new IllegalArgumentException("订单不存在"));
-        if (order.getStatus() == STATUS_CANCELLED) {
+        if (order.getStatus() == OrderStatus.CANCELLED.code()) {
             return toDetail(order);
         }
 
         long now = System.currentTimeMillis();
-        List<SaleOrderItemEntity> items = saleOrderItemRepository.findByOrderId(orderId);
+        List<SaleOrderItemEntity> items = saleOrderItemRepository.findByOwnerUserIdAndOrderId(ownerUserId, orderId);
         for (SaleOrderItemEntity item : items) {
-            ProductEntity product = productRepository.findByIdForUpdate(item.getProductId())
+            ProductEntity product = productRepository.findByIdForUpdate(ownerUserId, item.getProductId())
                 .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
             product.setStock(product.getStock() + item.getQuantity());
             product.setUpdatedAt(now);
@@ -309,7 +327,7 @@ public class SaleOrderService {
 
         double unpaid = Math.max(0.0, order.getTotalAmount() - order.getPaidAmount());
         if (order.getCustomerId() != null && unpaid > 0) {
-            CustomerEntity customer = customerRepository.findById(order.getCustomerId())
+            CustomerEntity customer = customerRepository.findByIdAndOwnerUserId(order.getCustomerId(), ownerUserId)
                 .orElseThrow(() -> new IllegalArgumentException("客户不存在"));
             customer.setBalance(Math.max(0.0, customer.getBalance() - unpaid));
             customer.setUpdatedAt(now);
@@ -321,46 +339,22 @@ public class SaleOrderService {
         if (order.getPaidAmount() > 0) {
             PaymentEntity refund = new PaymentEntity();
             refund.setId(IdGenerator.nextId());
+            refund.setOwnerUserId(ownerUserId);
             refund.setOrderId(orderId);
             refund.setAmount(order.getPaidAmount());
             refund.setMethod(1);
             refund.setReferenceNo("AUTO-REFUND");
-            refund.setType(PAYMENT_TYPE_REFUND);
+            refund.setType(PaymentType.REFUND.code());
             refund.setCreatedAt(now);
             paymentRepository.save(refund);
         }
 
-        order.setStatus(STATUS_CANCELLED);
+        order.setStatus(OrderStatus.CANCELLED.code());
         order.setUpdatedAt(now);
         order.setSyncStatus(0);
         order.setSyncVersion(order.getSyncVersion() + 1);
         saleOrderRepository.save(order);
         return toDetail(order);
-    }
-
-    private boolean isPaymentStatusMatched(SaleOrderEntity order, Integer paymentStatus) {
-        if (paymentStatus == null) {
-            return true;
-        }
-        if (paymentStatus == 0) {
-            return order.getPaidAmount() + 0.000001 < order.getTotalAmount();
-        }
-        if (paymentStatus == 1) {
-            return order.getPaidAmount() + 0.000001 >= order.getTotalAmount();
-        }
-        return true;
-    }
-
-    private boolean isProductKeywordMatched(Long orderId, String productKeyword) {
-        if (productKeyword == null || productKeyword.isBlank()) {
-            return true;
-        }
-        String normalized = productKeyword.toLowerCase(Locale.ROOT);
-        return saleOrderItemRepository.findByOrderId(orderId).stream()
-            .anyMatch(item ->
-                item.getProductCode().toLowerCase(Locale.ROOT).contains(normalized)
-                    || item.getProductName().toLowerCase(Locale.ROOT).contains(normalized)
-            );
     }
 
     private byte[] buildSimplePdf(SaleOrderEntity order) {
@@ -415,8 +409,8 @@ public class SaleOrderService {
     }
 
     private OrderDetail toDetail(SaleOrderEntity order) {
-        List<SaleOrderItemEntity> items = saleOrderItemRepository.findByOrderId(order.getId());
-        List<PaymentEntity> payments = paymentRepository.findByOrderId(order.getId());
+        List<SaleOrderItemEntity> items = saleOrderItemRepository.findByOwnerUserIdAndOrderId(order.getOwnerUserId(), order.getId());
+        List<PaymentEntity> payments = paymentRepository.findByOwnerUserIdAndOrderId(order.getOwnerUserId(), order.getId());
         return new OrderDetail(order, items, payments);
     }
 

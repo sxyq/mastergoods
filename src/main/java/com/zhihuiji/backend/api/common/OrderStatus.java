@@ -1,13 +1,33 @@
 package com.zhihuiji.backend.api.common;
 
-public final class OrderStatus {
-    private OrderStatus() {}
+import java.util.Arrays;
 
-    public static final int DRAFT = 0;
-    public static final int COMPLETED = 1;
-    public static final int CANCELLED = 2;
+public enum OrderStatus {
+    DRAFT(0),
+    COMPLETED(1),
+    CANCELLED(2);
+
+    private final int code;
+
+    OrderStatus(int code) {
+        this.code = code;
+    }
+
+    public int code() {
+        return code;
+    }
 
     public static boolean isValid(int status) {
-        return status == DRAFT || status == COMPLETED || status == CANCELLED;
+        return fromCode(status) != null;
+    }
+
+    public static OrderStatus fromCode(Integer status) {
+        if (status == null) {
+            return null;
+        }
+        return Arrays.stream(values())
+            .filter(value -> value.code == status)
+            .findFirst()
+            .orElse(null);
     }
 }

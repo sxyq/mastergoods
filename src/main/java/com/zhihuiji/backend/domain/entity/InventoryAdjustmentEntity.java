@@ -11,6 +11,9 @@ public class InventoryAdjustmentEntity {
     @Id
     private Long id;
 
+    @Column(name = "owner_user_id", nullable = false)
+    private Long ownerUserId;
+
     @Column(name = "product_id", nullable = false)
     private Long productId;
 
@@ -41,6 +44,14 @@ public class InventoryAdjustmentEntity {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Long getOwnerUserId() {
+        return ownerUserId;
+    }
+
+    public void setOwnerUserId(Long ownerUserId) {
+        this.ownerUserId = ownerUserId;
     }
 
     public Long getProductId() {
@@ -107,4 +118,3 @@ public class InventoryAdjustmentEntity {
         this.createdAt = createdAt;
     }
 }
-

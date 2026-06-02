@@ -25,6 +25,8 @@ class AuthServiceTest {
     @Mock
     private SessionRepository sessionRepository;
     @Mock
+    private SessionAccessService sessionAccessService;
+    @Mock
     private PasswordEncoder passwordEncoder;
     @Mock
     private TokenService tokenService;
@@ -34,33 +36,33 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        authService = new AuthService("", userRepository, sessionRepository, passwordEncoder, tokenService);
+        authService = new AuthService("", userRepository, sessionRepository, sessionAccessService, passwordEncoder, tokenService);
     }
 
     @Test
-    void registerThrowsWhenInviteCodeNotConfigured() {
-        IllegalStateException ex = assertThrows(
-            IllegalStateException.class,
+    void registerThrowsWhenVerifyCodeInvalid() {
+        IllegalArgumentException ex = assertThrows(
+            IllegalArgumentException.class,
             () -> authService.register("13800138000", "123456", "021218")
         );
-        assertEquals("invite code is not configured", ex.getMessage());
+        assertEquals("verify code is invalid", ex.getMessage());
     }
 
     @Test
-    void registerThrowsWhenInviteCodeInvalid() {
-        authService = new AuthService("021218", userRepository, sessionRepository, passwordEncoder, tokenService);
+    void registerThrowsWhenVerifyCodeInvalidAgainstConfiguredInviteCode() {
+        authService = new AuthService("021218", userRepository, sessionRepository, sessionAccessService, passwordEncoder, tokenService);
 
         IllegalArgumentException ex = assertThrows(
             IllegalArgumentException.class,
             () -> authService.register("13800138000", "123456", "bad")
         );
 
-        assertEquals("invite code is invalid", ex.getMessage());
+        assertEquals("verify code is invalid", ex.getMessage());
     }
 
     @Test
     void registerCreatesUserAndActiveSession() {
-        authService = new AuthService("021218", userRepository, sessionRepository, passwordEncoder, tokenService);
+        authService = new AuthService("021218", userRepository, sessionRepository, sessionAccessService, passwordEncoder, tokenService);
         when(userRepository.findByPhone("13800138000")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("123456")).thenReturn("HASH");
         when(tokenService.issueToken()).thenReturn("token-1", "refresh-1");
@@ -134,7 +136,7 @@ class AuthServiceTest {
         old.setExpiresAt(System.currentTimeMillis() + 10000L);
         old.setCreatedAt(1L);
 
-        when(sessionRepository.findByRefreshTokenAndIsActiveTrue("refresh-old")).thenReturn(Optional.of(old));
+        when(sessionAccessService.findActiveSessionByRefreshToken("refresh-old")).thenReturn(Optional.of(old));
         when(tokenService.issueToken()).thenReturn("token-new", "refresh-new");
         when(sessionRepository.save(any(SessionEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -155,7 +157,7 @@ class AuthServiceTest {
         session.setIsActive(true);
         session.setExpiresAt(System.currentTimeMillis() + 10000L);
         session.setCreatedAt(1L);
-        when(sessionRepository.findByTokenAndIsActiveTrue("token")).thenReturn(Optional.of(session));
+        when(sessionAccessService.findActiveSessionByToken("token")).thenReturn(Optional.of(session));
 
         authService.logout("token");
 
@@ -178,7 +180,7 @@ class AuthServiceTest {
         user.setNickname("测试用户");
         user.setStatus(1);
 
-        when(sessionRepository.findByTokenAndIsActiveTrue("token")).thenReturn(Optional.of(session));
+        when(sessionAccessService.findActiveSessionByToken("token")).thenReturn(Optional.of(session));
         when(userRepository.findById(3L)).thenReturn(Optional.of(user));
 
         AuthService.UserProfile profile = authService.me("token");

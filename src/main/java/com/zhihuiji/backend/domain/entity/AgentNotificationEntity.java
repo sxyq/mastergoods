@@ -14,6 +14,9 @@ public class AgentNotificationEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "owner_user_id", nullable = false)
+    private Long ownerUserId;
+
     @Column(name = "task_id")
     private Long taskId;
 
@@ -37,6 +40,14 @@ public class AgentNotificationEntity {
 
     public Long getId() {
         return id;
+    }
+
+    public Long getOwnerUserId() {
+        return ownerUserId;
+    }
+
+    public void setOwnerUserId(Long ownerUserId) {
+        this.ownerUserId = ownerUserId;
     }
 
     public Long getTaskId() {

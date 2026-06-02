@@ -2,7 +2,7 @@ package com.zhihuiji.backend.application.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zhihuiji.backend.api.dto.agent.AgentDto;
+import com.zhihuiji.backend.api.dto.agent.*;
 import com.zhihuiji.backend.api.dto.report.ReportDto;
 import com.zhihuiji.backend.domain.entity.CustomerEntity;
 import com.zhihuiji.backend.domain.entity.ProductEntity;
@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -35,6 +36,7 @@ public class LlmDrivenAgentService {
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
     private final SupplierRepository supplierRepository;
+    private final CurrentOwnerService currentOwnerService;
     private final ObjectMapper objectMapper;
 
     public LlmDrivenAgentService(
@@ -44,7 +46,8 @@ public class LlmDrivenAgentService {
         ProductRepository productRepository,
         CustomerRepository customerRepository,
         SupplierRepository supplierRepository,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        CurrentOwnerService currentOwnerService
     ) {
         this.agentService = agentService;
         this.agentLlmService = agentLlmService;
@@ -53,15 +56,16 @@ public class LlmDrivenAgentService {
         this.customerRepository = customerRepository;
         this.supplierRepository = supplierRepository;
         this.objectMapper = objectMapper;
+        this.currentOwnerService = currentOwnerService;
     }
 
-    public AgentDto.AgentWorkbenchDto getWorkbench(int windowDays, int limit, int agingDays) {
-        AgentDto.AgentWorkbenchDto fallback = agentService.getWorkbench(windowDays, limit, agingDays);
-        AgentDto.ReportInsightDto reportInsight = agentService.getReportInsight(windowDays);
+    public WorkbenchDtos.AgentWorkbenchDto getWorkbench(int windowDays, int limit, int agingDays) {
+        WorkbenchDtos.AgentWorkbenchDto fallback = agentService.getWorkbench(windowDays, limit, agingDays);
+        ReconciliationDtos.ReportInsightDto reportInsight = agentService.getReportInsight(windowDays);
         List<String> suggestedQuestions = fallback.suggestedQuestions();
         List<String> suggestedInstructions = fallback.suggestedInstructions();
         if (!agentLlmService.isEnabled()) {
-            return new AgentDto.AgentWorkbenchDto(
+            return new WorkbenchDtos.AgentWorkbenchDto(
                 fallback.reconciliation(),
                 reportInsight,
                 fallback.alerts(),
@@ -104,17 +108,17 @@ public class LlmDrivenAgentService {
             loadSuppliers(20)
         )));
 
-        AgentDto.AgentWorkbenchDto workbench = agentLlmService.requestStructuredJson(workbenchSystemPrompt(), prompt)
+        WorkbenchDtos.AgentWorkbenchDto workbench = agentLlmService.requestStructuredJson(workbenchSystemPrompt(), prompt)
             .map(node -> {
                 List<String> llmQuestions = readStringList(node, "suggestedQuestions", suggestedQuestions, 4);
                 List<String> llmInstructions = readStringList(node, "suggestedInstructions", suggestedInstructions, 3);
-                AgentDto.AgentAnswerDto proactiveAnswer = readProactiveAnswer(node, llmQuestions);
-                AgentDto.ReportInsightDto proactiveInsight = readWorkbenchInsight(node, reportInsight);
-                List<AgentDto.AgentAnswerDto> proactiveAnswers = proactiveAnswer == null
+                AnswerDtos.AgentAnswerDto proactiveAnswer = readProactiveAnswer(node, llmQuestions);
+                ReconciliationDtos.ReportInsightDto proactiveInsight = readWorkbenchInsight(node, reportInsight);
+                List<AnswerDtos.AgentAnswerDto> proactiveAnswers = proactiveAnswer == null
                     ? buildFallbackProactiveAnswers(llmQuestions)
                     : List.of(proactiveAnswer);
-                List<AgentDto.OperationDraftDto> proactiveDrafts = readProactiveDraft(node, llmInstructions);
-                return new AgentDto.AgentWorkbenchDto(
+                List<OperationDraftDtos.OperationDraftDto> proactiveDrafts = readProactiveDraft(node, llmInstructions);
+                return new WorkbenchDtos.AgentWorkbenchDto(
                     fallback.reconciliation(),
                     proactiveInsight,
                     fallback.alerts(),
@@ -132,7 +136,7 @@ public class LlmDrivenAgentService {
                     proactiveDrafts
                 );
             })
-            .orElseGet(() -> new AgentDto.AgentWorkbenchDto(
+            .orElseGet(() -> new WorkbenchDtos.AgentWorkbenchDto(
                 fallback.reconciliation(),
                 reportInsight,
                 fallback.alerts(),
@@ -149,19 +153,19 @@ public class LlmDrivenAgentService {
         return workbench;
     }
 
-    public AgentDto.ReconciliationFollowupDto getReconciliationFollowup(int limit, int agingDays) {
+    public ReconciliationDtos.ReconciliationFollowupDto getReconciliationFollowup(int limit, int agingDays) {
         return agentService.getReconciliationFollowup(limit, agingDays);
     }
 
-    public AgentDto.ReportInsightDto getReportInsight(int windowDays) {
+    public ReconciliationDtos.ReportInsightDto getReportInsight(int windowDays) {
         return agentLlmService.enrichReportInsight(agentService.getReportInsight(windowDays));
     }
 
-    public AgentDto.AlertDashboardDto getAlerts(int limit, int agingDays) {
+    public AlertDtos.AlertDashboardDto getAlerts(int limit, int agingDays) {
         return agentService.getAlerts(limit, agingDays);
     }
 
-    public AgentDto.AgentAnswerDto answerQuestion(String query) {
+    public AnswerDtos.AgentAnswerDto answerQuestion(String query) {
         if (!agentLlmService.isEnabled()) {
             return fallbackAnswer(query);
         }
@@ -177,7 +181,7 @@ public class LlmDrivenAgentService {
             agentService.getReconciliationFollowup(6, 15),
             agentService.getAlerts(6, 15)
         );
-        AgentDto.AgentAnswerDto fallback = fallbackAnswer(query);
+        AnswerDtos.AgentAnswerDto fallback = fallbackAnswer(query);
         String prompt = """
             Answer the warehouse question in Chinese using only the supplied context.
             Return strict JSON with keys:
@@ -198,7 +202,7 @@ public class LlmDrivenAgentService {
             .orElse(fallback);
     }
 
-    public AgentDto.OperationDraftDto draftOperation(String instruction) {
+    public OperationDraftDtos.OperationDraftDto draftOperation(String instruction) {
         if (!agentLlmService.isEnabled()) {
             return fallbackDraft(instruction);
         }
@@ -209,7 +213,7 @@ public class LlmDrivenAgentService {
             loadCustomers(80),
             loadSuppliers(80)
         );
-        AgentDto.OperationDraftDto fallback = fallbackDraft(instruction);
+        OperationDraftDtos.OperationDraftDto fallback = fallbackDraft(instruction);
         String prompt = """
             Parse the warehouse instruction and return one structured draft.
             Use only product, customer, and supplier choices present in the context.
@@ -236,14 +240,14 @@ public class LlmDrivenAgentService {
             .orElse(fallback);
     }
 
-    public AgentDto.OperationSubmitResultDto submitDraft(AgentDto.OperationDraftDto draft, String idempotencyKey) {
+    public OperationDraftDtos.OperationSubmitResultDto submitDraft(OperationDraftDtos.OperationDraftDto draft, String idempotencyKey) {
         return agentService.submitDraft(draft, idempotencyKey);
     }
 
-    private AgentDto.AgentAnswerDto toAnswerDto(JsonNode node, String query, AgentDto.AgentAnswerDto fallback) {
+    private AnswerDtos.AgentAnswerDto toAnswerDto(JsonNode node, String query, AnswerDtos.AgentAnswerDto fallback) {
         List<String> columns = readStringList(node, "columns", fallback.columns(), 8);
         List<List<String>> rows = readTable(node.path("rows"), columns.size(), fallback.rows(), 8);
-        return new AgentDto.AgentAnswerDto(
+        return new AnswerDtos.AgentAnswerDto(
             query,
             readText(node, "intent", fallback.intent()),
             readText(node, "answer", fallback.answer()),
@@ -254,11 +258,11 @@ public class LlmDrivenAgentService {
         );
     }
 
-    private boolean hasAnswerBody(AgentDto.AgentAnswerDto answer) {
+    private boolean hasAnswerBody(AnswerDtos.AgentAnswerDto answer) {
         return StringUtils.hasText(answer.answer());
     }
 
-    private AgentDto.OperationDraftDto toDraftDto(JsonNode node, String instruction, AgentDto.OperationDraftDto fallback) {
+    private OperationDraftDtos.OperationDraftDto toDraftDto(JsonNode node, String instruction, OperationDraftDtos.OperationDraftDto fallback) {
         String operationType = normalizeOperationType(readText(node, "operationType", fallback.operationType()));
         String partnerRole = "purchase".equals(operationType) ? "supplier" : "customer";
         ProductEntity product = resolveProduct(node.path("items"));
@@ -297,9 +301,9 @@ public class LlmDrivenAgentService {
         }
 
         boolean canSubmit = warnings.isEmpty() && product != null && partner != null && quantity > 0.0 && !"return".equals(operationType);
-        List<AgentDto.OperationDraftItemDto> items = product == null || quantity <= 0.0
+        List<OperationDraftDtos.OperationDraftItemDto> items = product == null || quantity <= 0.0
             ? List.of()
-            : List.of(new AgentDto.OperationDraftItemDto(
+            : List.of(new OperationDraftDtos.OperationDraftItemDto(
                 product.getId(),
                 product.getCode(),
                 product.getName(),
@@ -310,7 +314,7 @@ public class LlmDrivenAgentService {
             ));
 
         String partnerName = partner == null ? fallback.partnerName() : partner.name();
-        return new AgentDto.OperationDraftDto(
+        return new OperationDraftDtos.OperationDraftDto(
             operationType,
             buildSummary(operationType, partnerName),
             partnerRole,
@@ -342,8 +346,7 @@ public class LlmDrivenAgentService {
     }
 
     private List<ProductOption> loadProducts(int limit) {
-        return productRepository.findAll().stream()
-            .sorted(Comparator.comparing(ProductEntity::getName))
+        return productRepository.findAllByOwnerUserIdOrderByNameAsc(currentOwnerService.requireCurrentOwnerUserId(), PageRequest.of(0, limit)).stream()
             .limit(limit)
             .map(product -> new ProductOption(
                 product.getId(),
@@ -358,8 +361,7 @@ public class LlmDrivenAgentService {
     }
 
     private List<PartyOption> loadCustomers(int limit) {
-        return customerRepository.findAll().stream()
-            .sorted(Comparator.comparing(CustomerEntity::getName))
+        return customerRepository.findAllByOwnerUserIdOrderByNameAsc(currentOwnerService.requireCurrentOwnerUserId(), PageRequest.of(0, limit)).stream()
             .limit(limit)
             .map(customer -> new PartyOption(
                 customer.getId(),
@@ -371,8 +373,7 @@ public class LlmDrivenAgentService {
     }
 
     private List<PartyOption> loadSuppliers(int limit) {
-        return supplierRepository.findAll().stream()
-            .sorted(Comparator.comparing(SupplierEntity::getName))
+        return supplierRepository.findAllByOwnerUserIdOrderByNameAsc(currentOwnerService.requireCurrentOwnerUserId(), PageRequest.of(0, limit)).stream()
             .limit(limit)
             .map(supplier -> new PartyOption(
                 supplier.getId(),
@@ -385,9 +386,10 @@ public class LlmDrivenAgentService {
 
     private ProductEntity resolveProduct(JsonNode itemsNode) {
         JsonNode itemNode = firstItem(itemsNode);
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         Long productId = readLong(itemNode, "productId");
         if (productId != null && productId > 0L) {
-            Optional<ProductEntity> byId = productRepository.findById(productId);
+            Optional<ProductEntity> byId = productRepository.findByIdAndOwnerUserId(productId, ownerUserId);
             if (byId.isPresent()) {
                 return byId.get();
             }
@@ -395,7 +397,7 @@ public class LlmDrivenAgentService {
         }
         String productCode = readText(itemNode, "productCode", "");
         if (StringUtils.hasText(productCode)) {
-            Optional<ProductEntity> byCode = productRepository.findByCode(productCode.trim());
+            Optional<ProductEntity> byCode = productRepository.findByOwnerUserIdAndCode(ownerUserId, productCode.trim());
             if (byCode.isPresent()) {
                 return byCode.get();
             }
@@ -404,7 +406,7 @@ public class LlmDrivenAgentService {
         if (!StringUtils.hasText(productName)) {
             return null;
         }
-        return productRepository.findAll().stream()
+        return productRepository.findAllByOwnerUserId(ownerUserId).stream()
             .filter(product -> textMatches(product.getName(), productName) || textMatches(productName, product.getName()))
             .sorted(Comparator.comparingInt(
                 (ProductEntity product) -> productMatchScore(product, productCode, productName)
@@ -414,9 +416,10 @@ public class LlmDrivenAgentService {
     }
 
     private PartyResolution resolveCustomer(JsonNode node) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         Long partnerId = readLong(node, "partnerId");
         if (partnerId != null && partnerId > 0L) {
-            Optional<CustomerEntity> customer = customerRepository.findById(partnerId);
+            Optional<CustomerEntity> customer = customerRepository.findByIdAndOwnerUserId(partnerId, ownerUserId);
             if (customer.isPresent()) {
                 return new PartyResolution(customer.get().getId(), customer.get().getName());
             }
@@ -426,7 +429,7 @@ public class LlmDrivenAgentService {
         if (!StringUtils.hasText(partnerName)) {
             return null;
         }
-        return customerRepository.findAll().stream()
+        return customerRepository.findAllByOwnerUserId(ownerUserId).stream()
             .filter(customer -> textMatches(customer.getName(), partnerName) || textMatches(partnerName, customer.getName()))
             .findFirst()
             .map(customer -> new PartyResolution(customer.getId(), customer.getName()))
@@ -434,9 +437,10 @@ public class LlmDrivenAgentService {
     }
 
     private PartyResolution resolveSupplier(JsonNode node) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         Long partnerId = readLong(node, "partnerId");
         if (partnerId != null && partnerId > 0L) {
-            Optional<SupplierEntity> supplier = supplierRepository.findById(partnerId);
+            Optional<SupplierEntity> supplier = supplierRepository.findByIdAndOwnerUserId(partnerId, ownerUserId);
             if (supplier.isPresent()) {
                 return new PartyResolution(supplier.get().getId(), supplier.get().getName());
             }
@@ -446,7 +450,7 @@ public class LlmDrivenAgentService {
         if (!StringUtils.hasText(partnerName)) {
             return null;
         }
-        return supplierRepository.findAll().stream()
+        return supplierRepository.findAllByOwnerUserId(ownerUserId).stream()
             .filter(supplier -> textMatches(supplier.getName(), partnerName) || textMatches(partnerName, supplier.getName()))
             .findFirst()
             .map(supplier -> new PartyResolution(supplier.getId(), supplier.getName()))
@@ -556,7 +560,7 @@ public class LlmDrivenAgentService {
         }
     }
 
-    private List<AgentDto.AgentAnswerDto> buildFallbackProactiveAnswers(List<String> questions) {
+    private List<AnswerDtos.AgentAnswerDto> buildFallbackProactiveAnswers(List<String> questions) {
         return questions.stream()
             .filter(StringUtils::hasText)
             .limit(1)
@@ -564,7 +568,7 @@ public class LlmDrivenAgentService {
             .toList();
     }
 
-    private List<AgentDto.OperationDraftDto> buildFallbackProactiveDrafts(List<String> instructions) {
+    private List<OperationDraftDtos.OperationDraftDto> buildFallbackProactiveDrafts(List<String> instructions) {
         return instructions.stream()
             .filter(StringUtils::hasText)
             .limit(1)
@@ -572,22 +576,22 @@ public class LlmDrivenAgentService {
             .toList();
     }
 
-    private List<AgentDto.AgentRenderBlockDto> buildFallbackOverviewBlocks(
-        AgentDto.ReconciliationFollowupDto reconciliation,
-        AgentDto.ReportInsightDto reportInsight,
-        AgentDto.AlertDashboardDto alerts
+    private List<AgentTaskDtos.AgentRenderBlockDto> buildFallbackOverviewBlocks(
+        ReconciliationDtos.ReconciliationFollowupDto reconciliation,
+        ReconciliationDtos.ReportInsightDto reportInsight,
+        AlertDtos.AlertDashboardDto alerts
     ) {
-        List<AgentDto.AgentTaskMetricDto> metrics = List.of(
-            new AgentDto.AgentTaskMetricDto("待催收", formatMoney(reconciliation.totalReceivable()), "", "warning"),
-            new AgentDto.AgentTaskMetricDto("待付款", formatMoney(reconciliation.totalPayable()), "", "success"),
-            new AgentDto.AgentTaskMetricDto(
+        List<AgentTaskDtos.AgentTaskMetricDto> metrics = List.of(
+            new AgentTaskDtos.AgentTaskMetricDto("待催收", formatMoney(reconciliation.totalReceivable()), "", "warning"),
+            new AgentTaskDtos.AgentTaskMetricDto("待付款", formatMoney(reconciliation.totalPayable()), "", "success"),
+            new AgentTaskDtos.AgentTaskMetricDto(
                 "高风险异常",
                 String.valueOf(alerts.alerts().stream().filter(alert -> "high".equals(alert.severity())).count()),
                 "",
                 "high"
             )
         );
-        AgentDto.AgentTaskTableDto table = new AgentDto.AgentTaskTableDto(
+        AgentTaskDtos.AgentTaskTableDto table = new AgentTaskDtos.AgentTaskTableDto(
             "待催收客户",
             List.of("客户", "电话", "金额", "动作"),
             reconciliation.receivableCustomers().stream()
@@ -596,7 +600,7 @@ public class LlmDrivenAgentService {
                 .toList()
         );
         return List.of(
-            new AgentDto.AgentRenderBlockDto(
+            new AgentTaskDtos.AgentRenderBlockDto(
                 "hero",
                 reportInsight.periodLabel(),
                 "经营摘要",
@@ -608,7 +612,7 @@ public class LlmDrivenAgentService {
                 null,
                 null
             ),
-            new AgentDto.AgentRenderBlockDto(
+            new AgentTaskDtos.AgentRenderBlockDto(
                 "metric_grid",
                 "经营指标",
                 "由 Agent 选择当前最值得关注的指标",
@@ -620,7 +624,7 @@ public class LlmDrivenAgentService {
                 null,
                 null
             ),
-            new AgentDto.AgentRenderBlockDto(
+            new AgentTaskDtos.AgentRenderBlockDto(
                 "table",
                 "催办对象",
                 "优先跟进前五个应收对象",
@@ -632,7 +636,7 @@ public class LlmDrivenAgentService {
                 null,
                 null
             ),
-            new AgentDto.AgentRenderBlockDto(
+            new AgentTaskDtos.AgentRenderBlockDto(
                 "bullet_list",
                 "建议动作",
                 "按优先级执行",
@@ -647,13 +651,13 @@ public class LlmDrivenAgentService {
         );
     }
 
-    private List<AgentDto.AgentRenderBlockDto> buildFallbackInstantBlocks(
-        List<AgentDto.AgentAnswerDto> proactiveAnswers,
-        List<AgentDto.OperationDraftDto> proactiveDrafts
+    private List<AgentTaskDtos.AgentRenderBlockDto> buildFallbackInstantBlocks(
+        List<AnswerDtos.AgentAnswerDto> proactiveAnswers,
+        List<OperationDraftDtos.OperationDraftDto> proactiveDrafts
     ) {
-        List<AgentDto.AgentRenderBlockDto> blocks = new ArrayList<>();
+        List<AgentTaskDtos.AgentRenderBlockDto> blocks = new ArrayList<>();
         proactiveAnswers.stream().findFirst().ifPresent(answer ->
-            blocks.add(new AgentDto.AgentRenderBlockDto(
+            blocks.add(new AgentTaskDtos.AgentRenderBlockDto(
                 "bullet_list",
                 answer.query(),
                 answer.intent(),
@@ -661,13 +665,13 @@ public class LlmDrivenAgentService {
                 answer.answer(),
                 answer.highlights().isEmpty() ? answer.suggestedActions() : answer.highlights(),
                 List.of(),
-                answer.columns().isEmpty() ? null : new AgentDto.AgentTaskTableDto("即时明细", answer.columns(), answer.rows()),
+                answer.columns().isEmpty() ? null : new AgentTaskDtos.AgentTaskTableDto("即时明细", answer.columns(), answer.rows()),
                 null,
                 null
             ))
         );
         proactiveDrafts.stream().findFirst().ifPresent(draft ->
-            blocks.add(new AgentDto.AgentRenderBlockDto(
+            blocks.add(new AgentTaskDtos.AgentRenderBlockDto(
                 "draft",
                 draft.summary(),
                 draft.operationType(),
@@ -683,18 +687,18 @@ public class LlmDrivenAgentService {
         return blocks;
     }
 
-    private AgentDto.AgentAnswerDto readProactiveAnswer(JsonNode node, List<String> fallbackQuestions) {
+    private AnswerDtos.AgentAnswerDto readProactiveAnswer(JsonNode node, List<String> fallbackQuestions) {
         JsonNode proactiveNode = node.path("proactiveAnswer");
         if (proactiveNode.isMissingNode() || proactiveNode.isEmpty()) {
             return null;
         }
         String fallbackQuery = fallbackQuestions.isEmpty() ? "当前最值得关注的经营问题是什么" : fallbackQuestions.get(0);
-        AgentDto.AgentAnswerDto fallback = fallbackAnswer(fallbackQuery);
-        AgentDto.AgentAnswerDto answer = toAnswerDto(proactiveNode, readText(proactiveNode, "query", fallbackQuery), fallback);
+        AnswerDtos.AgentAnswerDto fallback = fallbackAnswer(fallbackQuery);
+        AnswerDtos.AgentAnswerDto answer = toAnswerDto(proactiveNode, readText(proactiveNode, "query", fallbackQuery), fallback);
         return hasAnswerBody(answer) ? answer : null;
     }
 
-    private List<AgentDto.OperationDraftDto> readProactiveDraft(JsonNode node, List<String> fallbackInstructions) {
+    private List<OperationDraftDtos.OperationDraftDto> readProactiveDraft(JsonNode node, List<String> fallbackInstructions) {
         JsonNode proactiveNode = node.path("proactiveDraft");
         if (proactiveNode.isMissingNode() || proactiveNode.isEmpty()) {
             return buildFallbackProactiveDrafts(fallbackInstructions);
@@ -702,17 +706,17 @@ public class LlmDrivenAgentService {
         String fallbackInstruction = fallbackInstructions.isEmpty()
             ? "根据当前风险生成一条采购或销售草稿"
             : fallbackInstructions.get(0);
-        AgentDto.OperationDraftDto fallback = fallbackDraft(fallbackInstruction);
-        AgentDto.OperationDraftDto draft = toDraftDto(proactiveNode, fallbackInstruction, fallback);
+        OperationDraftDtos.OperationDraftDto fallback = fallbackDraft(fallbackInstruction);
+        OperationDraftDtos.OperationDraftDto draft = toDraftDto(proactiveNode, fallbackInstruction, fallback);
         return List.of(draft);
     }
 
-    private AgentDto.ReportInsightDto readWorkbenchInsight(JsonNode node, AgentDto.ReportInsightDto fallback) {
+    private ReconciliationDtos.ReportInsightDto readWorkbenchInsight(JsonNode node, ReconciliationDtos.ReportInsightDto fallback) {
         JsonNode insightNode = node.path("reportInsightSummary");
         if (insightNode.isMissingNode() || insightNode.isEmpty()) {
             return fallback;
         }
-        return new AgentDto.ReportInsightDto(
+        return new ReconciliationDtos.ReportInsightDto(
             fallback.periodLabel(),
             fallback.currentSales(),
             fallback.previousSales(),
@@ -727,44 +731,44 @@ public class LlmDrivenAgentService {
         );
     }
 
-    private List<AgentDto.AgentRenderBlockDto> readRenderBlocks(
+    private List<AgentTaskDtos.AgentRenderBlockDto> readRenderBlocks(
         JsonNode node,
-        List<AgentDto.AgentRenderBlockDto> fallback
+        List<AgentTaskDtos.AgentRenderBlockDto> fallback
     ) {
         if (!node.isArray()) {
             return fallback;
         }
-        List<AgentDto.AgentRenderBlockDto> blocks = new ArrayList<>();
+        List<AgentTaskDtos.AgentRenderBlockDto> blocks = new ArrayList<>();
         node.forEach(item -> blocks.add(toRenderBlock(item)));
         return blocks.stream().filter(block -> StringUtils.hasText(block.type())).toList().isEmpty()
             ? fallback
             : blocks.stream().filter(block -> StringUtils.hasText(block.type())).toList();
     }
 
-    private AgentDto.AgentRenderBlockDto toRenderBlock(JsonNode node) {
-        AgentDto.AgentTaskTableDto table = null;
+    private AgentTaskDtos.AgentRenderBlockDto toRenderBlock(JsonNode node) {
+        AgentTaskDtos.AgentTaskTableDto table = null;
         JsonNode tableNode = node.path("table");
         if (!tableNode.isMissingNode() && !tableNode.isEmpty()) {
-            table = new AgentDto.AgentTaskTableDto(
+            table = new AgentTaskDtos.AgentTaskTableDto(
                 readText(tableNode, "title", ""),
                 readStringList(tableNode, "columns", List.of(), 10),
                 readTable(tableNode.path("rows"), 0, List.of(), 20)
             );
         }
 
-        AgentDto.AgentTaskChartDto chart = null;
+        AgentTaskDtos.AgentTaskChartDto chart = null;
         JsonNode chartNode = node.path("chart");
         if (!chartNode.isMissingNode() && !chartNode.isEmpty()) {
-            List<AgentDto.AgentTaskChartSeriesDto> series = new ArrayList<>();
+            List<AgentTaskDtos.AgentTaskChartSeriesDto> series = new ArrayList<>();
             chartNode.path("series").forEach(seriesNode -> {
                 List<Double> values = new ArrayList<>();
                 seriesNode.path("values").forEach(valueNode -> values.add(valueNode.asDouble(0.0)));
-                series.add(new AgentDto.AgentTaskChartSeriesDto(
+                series.add(new AgentTaskDtos.AgentTaskChartSeriesDto(
                     readText(seriesNode, "name", "series"),
                     values
                 ));
             });
-            chart = new AgentDto.AgentTaskChartDto(
+            chart = new AgentTaskDtos.AgentTaskChartDto(
                 readText(chartNode, "title", ""),
                 readText(chartNode, "chartType", "bar"),
                 readStringList(chartNode, "categories", List.of(), 20),
@@ -772,7 +776,7 @@ public class LlmDrivenAgentService {
             );
         }
 
-        return new AgentDto.AgentRenderBlockDto(
+        return new AgentTaskDtos.AgentRenderBlockDto(
             readText(node, "type", ""),
             readText(node, "title", ""),
             readText(node, "subtitle", ""),
@@ -786,12 +790,12 @@ public class LlmDrivenAgentService {
         );
     }
 
-    private List<AgentDto.AgentTaskMetricDto> readMetrics(JsonNode node) {
+    private List<AgentTaskDtos.AgentTaskMetricDto> readMetrics(JsonNode node) {
         if (!node.isArray()) {
             return List.of();
         }
-        List<AgentDto.AgentTaskMetricDto> metrics = new ArrayList<>();
-        node.forEach(item -> metrics.add(new AgentDto.AgentTaskMetricDto(
+        List<AgentTaskDtos.AgentTaskMetricDto> metrics = new ArrayList<>();
+        node.forEach(item -> metrics.add(new AgentTaskDtos.AgentTaskMetricDto(
             readText(item, "label", ""),
             readText(item, "value", ""),
             readText(item, "delta", ""),
@@ -800,11 +804,11 @@ public class LlmDrivenAgentService {
         return metrics;
     }
 
-    private AgentDto.AgentAnswerDto fallbackAnswer(String query) {
+    private AnswerDtos.AgentAnswerDto fallbackAnswer(String query) {
         try {
             return agentService.answerQuestion(query);
         } catch (Exception ex) {
-            return new AgentDto.AgentAnswerDto(
+            return new AnswerDtos.AgentAnswerDto(
                 query,
                 "general",
                 StringUtils.hasText(ex.getMessage()) ? ex.getMessage() : "当前无法从业务数据中得到答案。",
@@ -816,11 +820,11 @@ public class LlmDrivenAgentService {
         }
     }
 
-    private AgentDto.OperationDraftDto fallbackDraft(String instruction) {
+    private OperationDraftDtos.OperationDraftDto fallbackDraft(String instruction) {
         try {
             return agentService.draftOperation(instruction);
         } catch (Exception ex) {
-            return new AgentDto.OperationDraftDto(
+            return new OperationDraftDtos.OperationDraftDto(
                 "purchase",
                 "生成采购草稿失败",
                 "supplier",
@@ -907,9 +911,9 @@ public class LlmDrivenAgentService {
     }
 
     private record WorkbenchPromptContext(
-        AgentDto.ReconciliationFollowupDto reconciliation,
-        AgentDto.ReportInsightDto reportInsight,
-        AgentDto.AlertDashboardDto alerts,
+        ReconciliationDtos.ReconciliationFollowupDto reconciliation,
+        ReconciliationDtos.ReportInsightDto reportInsight,
+        AlertDtos.AlertDashboardDto alerts,
         List<ProductOption> products,
         List<PartyOption> customers,
         List<PartyOption> suppliers
@@ -920,9 +924,9 @@ public class LlmDrivenAgentService {
         List<ReportDto.TopSellingProductReportDto> topProductsToday,
         List<ReportDto.CustomerReceivableReportDto> receivables,
         List<ReportDto.LowStockProductReportDto> lowStockProducts,
-        AgentDto.ReportInsightDto reportInsight7d,
-        AgentDto.ReconciliationFollowupDto reconciliation,
-        AgentDto.AlertDashboardDto alerts
+        ReconciliationDtos.ReportInsightDto reportInsight7d,
+        ReconciliationDtos.ReconciliationFollowupDto reconciliation,
+        AlertDtos.AlertDashboardDto alerts
     ) {}
 
     private record OperationDraftContext(

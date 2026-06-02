@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.api.controller;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
+import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.api.common.ParseUtils;
 import com.zhihuiji.backend.api.dto.SaleOrderDto;
 import com.zhihuiji.backend.api.dto.SaleOrderItemDto;
@@ -57,7 +58,9 @@ public class SaleOrderController {
         @RequestParam(value = "created_after", required = false) String createdAfter,
         @RequestParam(value = "created_before", required = false) String createdBefore,
         @RequestParam(value = "product_keyword", required = false) String productKeyword,
-        @RequestParam(value = "payment_status", required = false) String paymentStatus
+        @RequestParam(value = "payment_status", required = false) String paymentStatus,
+        @RequestParam(value = "page", required = false) Integer page,
+        @RequestParam(value = "size", required = false) Integer size
     ) {
         List<SaleOrderEntity> orders = saleOrderService.list(
             keyword,
@@ -69,7 +72,7 @@ public class SaleOrderController {
             productKeyword,
             ParseUtils.parseInteger(paymentStatus)
         );
-        List<SaleOrderDto> payload = orders.stream()
+        List<SaleOrderDto> payload = PaginationUtils.slice(orders, page, size).stream()
             .map(order -> toDto(order, saleOrderService.listItems(order.getId())))
             .toList();
         return ApiResponse.success(payload);

@@ -43,6 +43,8 @@ class SyncServiceTest {
     private PurchaseOrderRepository purchaseOrderRepository;
     @Mock
     private PayOrderRepository payOrderRepository;
+    @Mock
+    private CurrentOwnerService currentOwnerService;
 
     private SyncService syncService;
 
@@ -57,8 +59,10 @@ class SyncServiceTest {
             saleOrderRepository,
             purchaseOrderRepository,
             payOrderRepository,
-            new ObjectMapper()
+            new ObjectMapper(),
+            currentOwnerService
         );
+        when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
     }
 
     @Test
@@ -72,7 +76,7 @@ class SyncServiceTest {
 
     @Test
     void uploadNormalizesClientIdAndPersistsMaximumCursor() {
-        when(syncCursorRepository.findById("anonymous")).thenReturn(Optional.empty());
+        when(syncCursorRepository.findByOwnerUserIdAndClientId(1L, "anonymous")).thenReturn(Optional.empty());
         when(syncCursorRepository.save(org.mockito.ArgumentMatchers.any(SyncCursorEntity.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -88,18 +92,19 @@ class SyncServiceTest {
         assertEquals(2, result.acceptedCount());
         assertEquals(0, result.failedCount());
         assertEquals("anonymous", captureSavedCursor().getClientId());
+        assertEquals(1L, captureSavedCursor().getOwnerUserId());
         assertEquals("9999999999999", result.nextCursor());
         assertEquals("9999999999999", captureSavedCursor().getLastCursor());
     }
 
     @Test
     void pullCollectsAndSortsAllEntityTypesWithPaging() {
-        when(customerRepository.findAll()).thenReturn(List.of(customer(1L, 100L)));
-        when(supplierRepository.findAll()).thenReturn(List.of(supplier(2L, 200L)));
-        when(productRepository.findAll()).thenReturn(List.of(product(3L, 300L)));
-        when(saleOrderRepository.findAll()).thenReturn(List.of(saleOrder(4L, 400L)));
-        when(purchaseOrderRepository.findAll()).thenReturn(List.of(purchaseOrder(5L, 500L)));
-        when(payOrderRepository.findAll()).thenReturn(List.of(payOrder(6L, 600L)));
+        when(customerRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(customer(1L, 100L)));
+        when(supplierRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(supplier(2L, 200L)));
+        when(productRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(product(3L, 300L)));
+        when(saleOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(saleOrder(4L, 400L)));
+        when(purchaseOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(purchaseOrder(5L, 500L)));
+        when(payOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(payOrder(6L, 600L)));
 
         SyncService.PullResult result = syncService.pull("0", 2);
 
@@ -114,12 +119,12 @@ class SyncServiceTest {
     void pullFallsBackToCreatedAtAndClampsInvalidLimit() {
         CustomerEntity customer = customer(7L, 100L);
         customer.setUpdatedAt(null);
-        when(customerRepository.findAll()).thenReturn(List.of(customer));
-        when(supplierRepository.findAll()).thenReturn(List.of());
-        when(productRepository.findAll()).thenReturn(List.of());
-        when(saleOrderRepository.findAll()).thenReturn(List.of());
-        when(purchaseOrderRepository.findAll()).thenReturn(List.of());
-        when(payOrderRepository.findAll()).thenReturn(List.of());
+        when(customerRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(customer));
+        when(supplierRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
+        when(productRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
+        when(saleOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
+        when(purchaseOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
+        when(payOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
 
         SyncService.PullResult result = syncService.pull("bad-cursor", 0);
 
@@ -138,6 +143,7 @@ class SyncServiceTest {
     private static CustomerEntity customer(Long id, long updatedAt) {
         CustomerEntity entity = new CustomerEntity();
         setId(entity, id);
+        entity.setOwnerUserId(1L);
         entity.setName("客户" + id);
         entity.setPhone("1380013800" + id);
         entity.setLevel(1);
@@ -153,6 +159,7 @@ class SyncServiceTest {
     private static SupplierEntity supplier(Long id, long updatedAt) {
         SupplierEntity entity = new SupplierEntity();
         setId(entity, id);
+        entity.setOwnerUserId(1L);
         entity.setName("供应商" + id);
         entity.setPhone("1390013900" + id);
         entity.setBalance(20.0);
@@ -167,6 +174,7 @@ class SyncServiceTest {
     private static ProductEntity product(Long id, long updatedAt) {
         ProductEntity entity = new ProductEntity();
         setId(entity, id);
+        entity.setOwnerUserId(1L);
         entity.setCode("P" + id);
         entity.setName("商品" + id);
         entity.setCategory("默认");
@@ -186,6 +194,7 @@ class SyncServiceTest {
     private static SaleOrderEntity saleOrder(Long id, long updatedAt) {
         SaleOrderEntity entity = new SaleOrderEntity();
         entity.setId(id);
+        entity.setOwnerUserId(1L);
         entity.setOrderNo("SO-" + id);
         entity.setCustomerId(1L);
         entity.setCustomerName("客户" + id);
@@ -205,6 +214,7 @@ class SyncServiceTest {
     private static PurchaseOrderEntity purchaseOrder(Long id, long updatedAt) {
         PurchaseOrderEntity entity = new PurchaseOrderEntity();
         entity.setId(id);
+        entity.setOwnerUserId(1L);
         entity.setOrderNo("PO-" + id);
         entity.setSupplierName("供应商" + id);
         entity.setTotalAmount(10.0);
@@ -220,6 +230,7 @@ class SyncServiceTest {
     private static PayOrderEntity payOrder(Long id, long updatedAt) {
         PayOrderEntity entity = new PayOrderEntity();
         entity.setId(id);
+        entity.setOwnerUserId(1L);
         entity.setOrderNo("PAY-" + id);
         entity.setSupplierId(2L);
         entity.setSupplierName("供应商" + id);

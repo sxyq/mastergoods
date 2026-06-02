@@ -5,6 +5,7 @@ import java.util.List;
 public record PurchaseOrderDto(
     Long id,
     String orderNo,
+    Long supplierId,
     String supplierName,
     List<PurchaseOrderItemDto> items,
     Double totalAmount,

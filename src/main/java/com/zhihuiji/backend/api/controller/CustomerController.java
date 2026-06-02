@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.api.controller;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
+import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.application.service.CustomerService;
 import com.zhihuiji.backend.domain.entity.CustomerEntity;
 import jakarta.validation.Valid;
@@ -25,8 +26,12 @@ public class CustomerController {
     }
 
     @GetMapping
-    public ApiResponse<List<CustomerEntity>> list(@RequestParam(value = "keyword", required = false) String keyword) {
-        return ApiResponse.success(customerService.list(keyword));
+    public ApiResponse<List<CustomerEntity>> list(
+        @RequestParam(value = "keyword", required = false) String keyword,
+        @RequestParam(value = "page", required = false) Integer page,
+        @RequestParam(value = "size", required = false) Integer size
+    ) {
+        return ApiResponse.success(PaginationUtils.slice(customerService.list(keyword), page, size));
     }
 
     @GetMapping("/{id}")
@@ -50,4 +55,3 @@ public class CustomerController {
         return ApiResponse.success(null);
     }
 }
-

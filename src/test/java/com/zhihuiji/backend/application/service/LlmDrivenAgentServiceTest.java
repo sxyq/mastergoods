@@ -7,7 +7,11 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zhihuiji.backend.api.dto.agent.AgentDto;
+import com.zhihuiji.backend.api.dto.agent.AlertDtos;
+import com.zhihuiji.backend.api.dto.agent.AnswerDtos;
+import com.zhihuiji.backend.api.dto.agent.OperationDraftDtos;
+import com.zhihuiji.backend.api.dto.agent.ReconciliationDtos;
+import com.zhihuiji.backend.api.dto.agent.WorkbenchDtos;
 import com.zhihuiji.backend.api.dto.report.ReportDto;
 import com.zhihuiji.backend.domain.entity.ProductEntity;
 import com.zhihuiji.backend.domain.entity.SupplierEntity;
@@ -34,6 +38,8 @@ class LlmDrivenAgentServiceTest {
     private CustomerRepository customerRepository;
     @Mock
     private SupplierRepository supplierRepository;
+    @Mock
+    private CurrentOwnerService currentOwnerService;
 
     private ObjectMapper objectMapper;
     private LlmDrivenAgentService service;
@@ -49,8 +55,10 @@ class LlmDrivenAgentServiceTest {
             productRepository,
             customerRepository,
             supplierRepository,
-            objectMapper
+            objectMapper,
+            currentOwnerService
         );
+        when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
     }
 
     @Test
@@ -63,13 +71,13 @@ class LlmDrivenAgentServiceTest {
         when(reportService.lowStockProducts(org.mockito.ArgumentMatchers.anyInt()))
             .thenReturn(List.of(new ReportDto.LowStockProductReportDto(2L, "A12", "glove", 3, 10)));
         when(agentService.getReportInsight(org.mockito.ArgumentMatchers.anyInt()))
-            .thenReturn(new AgentDto.ReportInsightDto("7d", 1000, 900, 11.1, "fallback", "sensor", 200, "customer-a", 300, List.of("h1"), List.of("a1")));
+            .thenReturn(new ReconciliationDtos.ReportInsightDto("7d", 1000, 900, 11.1, "fallback", "sensor", 200, "customer-a", 300, List.of("h1"), List.of("a1")));
         when(agentService.getReconciliationFollowup(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
-            .thenReturn(new AgentDto.ReconciliationFollowupDto(2800, 1200, 300, 100, 200, List.of(), List.of(), List.of()));
+            .thenReturn(new ReconciliationDtos.ReconciliationFollowupDto(2800, 1200, 300, 100, 200, List.of(), List.of(), List.of()));
         when(agentService.getAlerts(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
-            .thenReturn(new AgentDto.AlertDashboardDto(List.of()));
+            .thenReturn(new AlertDtos.AlertDashboardDto(List.of()));
         when(agentService.answerQuestion(anyString()))
-            .thenReturn(new AgentDto.AgentAnswerDto("q", "fallback", "fallback", List.of(), List.of(), List.of(), List.of()));
+            .thenReturn(new AnswerDtos.AgentAnswerDto("q", "fallback", "fallback", List.of(), List.of(), List.of(), List.of()));
         when(agentLlmService.requestStructuredJson(anyString(), anyString()))
             .thenReturn(Optional.of(objectMapper.readTree("""
                 {
@@ -82,7 +90,7 @@ class LlmDrivenAgentServiceTest {
                 }
                 """)));
 
-        AgentDto.AgentAnswerDto answer = service.answerQuestion("who owes the most");
+        AnswerDtos.AgentAnswerDto answer = service.answerQuestion("who owes the most");
 
         assertEquals("receivables", answer.intent());
         assertEquals("customer-a owes the most.", answer.answer());
@@ -93,6 +101,7 @@ class LlmDrivenAgentServiceTest {
     @Test
     void draftOperationUsesLlmToResolveStructuredDraft() throws Exception {
         ProductEntity product = new ProductEntity();
+        product.setId(7L);
         product.setCode("S7");
         product.setName("sensor");
         product.setPurchasePrice(35.0);
@@ -101,26 +110,34 @@ class LlmDrivenAgentServiceTest {
         product.setSafeStock(20.0);
 
         SupplierEntity supplier = new SupplierEntity();
+        supplier.setId(11L);
         supplier.setName("supplier-a");
         supplier.setPhone("13900000000");
         supplier.setBalance(0.0);
 
         when(agentLlmService.isEnabled()).thenReturn(true);
-        when(productRepository.findAll()).thenReturn(List.of(product));
-        when(productRepository.findByCode("S7")).thenReturn(Optional.of(product));
-        when(customerRepository.findAll()).thenReturn(List.of());
-        when(supplierRepository.findAll()).thenReturn(List.of(supplier));
+        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.any()))
+            .thenReturn(List.of(product));
+        when(productRepository.findByOwnerUserIdAndCode(1L, "S7")).thenReturn(Optional.of(product));
+        when(productRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(product));
+        when(customerRepository.findAllByOwnerUserIdOrderByNameAsc(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.any()))
+            .thenReturn(List.of());
+        when(supplierRepository.findAllByOwnerUserIdOrderByNameAsc(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.any()))
+            .thenReturn(List.of(supplier));
+        when(supplierRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(supplier));
         when(agentService.draftOperation(anyString()))
-            .thenReturn(new AgentDto.OperationDraftDto("purchase", "fallback", "supplier", null, null, List.of(), "note", false, List.of("warn"), List.of("action")));
+            .thenReturn(new OperationDraftDtos.OperationDraftDto("purchase", "fallback", "supplier", null, null, List.of(), "note", false, List.of("warn"), List.of("action")));
         when(agentLlmService.requestStructuredJson(anyString(), anyString()))
             .thenReturn(Optional.of(objectMapper.readTree("""
                 {
                   "operationType": "purchase",
                   "partnerRole": "supplier",
+                  "partnerId": 11,
                   "partnerName": "supplier-a",
                   "notes": "purchase sensor",
                   "items": [
                     {
+                      "productId": 7,
                       "productCode": "S7",
                       "productName": "sensor",
                       "quantity": 20,
@@ -130,10 +147,11 @@ class LlmDrivenAgentServiceTest {
                 }
                 """)));
 
-        AgentDto.OperationDraftDto draft = service.draftOperation("purchase 20 sensor S7 from supplier-a at 35");
+        OperationDraftDtos.OperationDraftDto draft = service.draftOperation("purchase 20 sensor S7 from supplier-a at 35");
 
         assertEquals("purchase", draft.operationType());
         assertEquals("supplier-a", draft.partnerName());
+        assertEquals(11L, draft.partnerId());
         assertEquals(1, draft.items().size());
         assertEquals("S7", draft.items().get(0).productCode());
         assertEquals(20.0, draft.items().get(0).quantity());
@@ -145,21 +163,21 @@ class LlmDrivenAgentServiceTest {
     void workbenchIncludesProactiveAnswerAndDraft() {
         when(agentLlmService.isEnabled()).thenReturn(false);
         when(agentService.getWorkbench(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
-            .thenReturn(new AgentDto.AgentWorkbenchDto(
-                new AgentDto.ReconciliationFollowupDto(10, 20, 30, 40, -10, List.of(), List.of(), List.of()),
-                new AgentDto.ReportInsightDto("7d", 100, 90, 11.1, "narrative", "sensor", 60, "customer-a", 40, List.of("h1"), List.of("a1")),
-                new AgentDto.AlertDashboardDto(List.of()),
+            .thenReturn(new WorkbenchDtos.AgentWorkbenchDto(
+                new ReconciliationDtos.ReconciliationFollowupDto(10, 20, 30, 40, -10, List.of(), List.of(), List.of()),
+                new ReconciliationDtos.ReportInsightDto("7d", 100, 90, 11.1, "narrative", "sensor", 60, "customer-a", 40, List.of("h1"), List.of("a1")),
+                new AlertDtos.AlertDashboardDto(List.of()),
                 List.of("who owes the most"),
                 List.of("purchase 20 sensor S7 from supplier-a at 35")
             ));
         when(agentService.getReportInsight(org.mockito.ArgumentMatchers.anyInt()))
-            .thenReturn(new AgentDto.ReportInsightDto("7d", 100, 90, 11.1, "narrative", "sensor", 60, "customer-a", 40, List.of("h1"), List.of("a1")));
+            .thenReturn(new ReconciliationDtos.ReportInsightDto("7d", 100, 90, 11.1, "narrative", "sensor", 60, "customer-a", 40, List.of("h1"), List.of("a1")));
         when(agentService.answerQuestion("who owes the most"))
-            .thenReturn(new AgentDto.AgentAnswerDto("who owes the most", "receivables", "customer-a", List.of(), List.of(), List.of(), List.of()));
+            .thenReturn(new AnswerDtos.AgentAnswerDto("who owes the most", "receivables", "customer-a", List.of(), List.of(), List.of(), List.of()));
         when(agentService.draftOperation("purchase 20 sensor S7 from supplier-a at 35"))
-            .thenReturn(new AgentDto.OperationDraftDto("purchase", "draft", "supplier", 1L, "supplier-a", List.of(), "note", false, List.of("warn"), List.of("act")));
+            .thenReturn(new OperationDraftDtos.OperationDraftDto("purchase", "draft", "supplier", 1L, "supplier-a", List.of(), "note", false, List.of("warn"), List.of("act")));
 
-        AgentDto.AgentWorkbenchDto workbench = service.getWorkbench(7, 6, 15);
+        WorkbenchDtos.AgentWorkbenchDto workbench = service.getWorkbench(7, 6, 15);
 
         assertEquals(1, workbench.proactiveAnswers().size());
         assertEquals(1, workbench.proactiveDrafts().size());

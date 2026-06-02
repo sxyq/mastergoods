@@ -8,37 +8,54 @@ import org.springframework.stereotype.Service;
 @Service
 public class SupplierService {
     private final SupplierRepository supplierRepository;
+    private final CurrentOwnerService currentOwnerService;
 
-    public SupplierService(SupplierRepository supplierRepository) {
+    public SupplierService(SupplierRepository supplierRepository, CurrentOwnerService currentOwnerService) {
         this.supplierRepository = supplierRepository;
+        this.currentOwnerService = currentOwnerService;
     }
 
     public List<SupplierEntity> list(String keyword, Integer status) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         boolean hasKeyword = keyword != null && !keyword.isBlank();
         if (hasKeyword && status != null) {
-            return supplierRepository.findByNameContainingIgnoreCaseOrPhoneContainingIgnoreCaseAndStatus(keyword.trim(), keyword.trim(), status);
+            return supplierRepository.findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndPhoneContainingIgnoreCaseAndStatus(
+                ownerUserId,
+                keyword.trim(),
+                ownerUserId,
+                keyword.trim(),
+                status
+            );
         }
         if (hasKeyword) {
-            return supplierRepository.findByNameContainingIgnoreCaseOrPhoneContainingIgnoreCase(keyword.trim(), keyword.trim());
+            return supplierRepository.findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndPhoneContainingIgnoreCase(
+                ownerUserId,
+                keyword.trim(),
+                ownerUserId,
+                keyword.trim()
+            );
         }
         if (status != null) {
-            return supplierRepository.findByStatus(status);
+            return supplierRepository.findByOwnerUserIdAndStatus(ownerUserId, status);
         }
-        return supplierRepository.findAll();
+        return supplierRepository.findAllByOwnerUserId(ownerUserId);
     }
 
     public SupplierEntity get(Long id) {
-        return supplierRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("供应商不存在"));
+        return supplierRepository.findByIdAndOwnerUserId(id, currentOwnerService.requireCurrentOwnerUserId())
+            .orElseThrow(() -> new IllegalArgumentException("供应商不存在"));
     }
 
     public SupplierEntity create(SupplierEntity supplier) {
         validatePayload(supplier);
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         long now = System.currentTimeMillis();
         supplier.setName(supplier.getName().trim());
         supplier.setPhone(normalizePhone(supplier.getPhone()));
-        if (supplierRepository.existsByPhone(supplier.getPhone())) {
+        if (supplierRepository.existsByOwnerUserIdAndPhone(ownerUserId, supplier.getPhone())) {
             throw new IllegalArgumentException("供应商手机号已存在");
         }
+        supplier.setOwnerUserId(ownerUserId);
         supplier.setAddress(normalizeNullableText(supplier.getAddress()));
         supplier.setNotes(normalizeNullableText(supplier.getNotes()));
         supplier.setBalance(normalizeAmount(supplier.getBalance()));
@@ -53,9 +70,10 @@ public class SupplierService {
     public SupplierEntity update(Long id, SupplierEntity payload) {
         SupplierEntity target = get(id);
         validatePayload(payload);
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         target.setName(payload.getName().trim());
         target.setPhone(normalizePhone(payload.getPhone()));
-        if (supplierRepository.existsByPhoneAndIdNot(target.getPhone(), id)) {
+        if (supplierRepository.existsByOwnerUserIdAndPhoneAndIdNot(ownerUserId, target.getPhone(), id)) {
             throw new IllegalArgumentException("供应商手机号已存在");
         }
         target.setAddress(normalizeNullableText(payload.getAddress()));
@@ -69,10 +87,7 @@ public class SupplierService {
     }
 
     public void delete(Long id) {
-        if (!supplierRepository.existsById(id)) {
-            throw new IllegalArgumentException("供应商不存在");
-        }
-        supplierRepository.deleteById(id);
+        supplierRepository.delete(get(id));
     }
 
     private void validatePayload(SupplierEntity supplier) {

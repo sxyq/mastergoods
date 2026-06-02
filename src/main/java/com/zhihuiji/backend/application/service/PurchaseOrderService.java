@@ -11,30 +11,36 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import com.zhihuiji.backend.api.common.IdGenerator;
+import com.zhihuiji.backend.api.common.PurchaseOrderStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PurchaseOrderService {
-    public static final int STATUS_DRAFT = 0;
-    public static final int STATUS_RECEIVED = 1;
-
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PurchaseOrderItemRepository purchaseOrderItemRepository;
     private final ProductRepository productRepository;
+    private final CurrentOwnerService currentOwnerService;
 
     public PurchaseOrderService(
         PurchaseOrderRepository purchaseOrderRepository,
         PurchaseOrderItemRepository purchaseOrderItemRepository,
-        ProductRepository productRepository
+        ProductRepository productRepository,
+        CurrentOwnerService currentOwnerService
     ) {
         this.purchaseOrderRepository = purchaseOrderRepository;
         this.purchaseOrderItemRepository = purchaseOrderItemRepository;
         this.productRepository = productRepository;
+        this.currentOwnerService = currentOwnerService;
     }
 
     @Transactional
     public PurchaseDetail create(CreatePurchaseOrderCommand command) {
+        return createForOwner(currentOwnerService.requireCurrentOwnerUserId(), command);
+    }
+
+    @Transactional
+    public PurchaseDetail createForOwner(Long ownerUserId, CreatePurchaseOrderCommand command) {
         if (command.items().isEmpty()) {
             throw new IllegalArgumentException("采购明细不能为空");
         }
@@ -42,13 +48,13 @@ public class PurchaseOrderService {
         long orderId = IdGenerator.nextId();
         String orderNo = "PO" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
         double total = 0.0;
-        int orderStatus = command.status() != null && command.status() == STATUS_DRAFT
-            ? STATUS_DRAFT
-            : STATUS_RECEIVED;
+        int orderStatus = command.status() != null && command.status() == PurchaseOrderStatus.DRAFT.code()
+            ? PurchaseOrderStatus.DRAFT.code()
+            : PurchaseOrderStatus.RECEIVED.code();
 
         List<PurchaseOrderItemEntity> itemEntities = new ArrayList<>();
         for (PurchaseItemDraft item : command.items()) {
-            ProductEntity product = resolveProduct(item);
+            ProductEntity product = resolveProduct(ownerUserId, item);
             double quantity = item.quantity() == null ? 0.0 : item.quantity();
             double unitCost = item.unitCost() == null ? 0.0 : item.unitCost();
             if (quantity <= 0.0 || unitCost < 0.0) {
@@ -56,7 +62,7 @@ public class PurchaseOrderService {
             }
             double amount = quantity * unitCost;
             total += amount;
-            if (orderStatus == STATUS_RECEIVED) {
+            if (orderStatus == PurchaseOrderStatus.RECEIVED.code()) {
                 product.setStock(product.getStock() + quantity);
                 product.setPurchasePrice(unitCost);
                 product.setUpdatedAt(now);
@@ -67,6 +73,7 @@ public class PurchaseOrderService {
 
             PurchaseOrderItemEntity entity = new PurchaseOrderItemEntity();
             entity.setId(IdGenerator.nextId());
+            entity.setOwnerUserId(ownerUserId);
             entity.setOrderId(orderId);
             entity.setProductId(product.getId());
             entity.setProductCode(product.getCode());
@@ -84,7 +91,9 @@ public class PurchaseOrderService {
 
         PurchaseOrderEntity order = new PurchaseOrderEntity();
         order.setId(orderId);
+        order.setOwnerUserId(ownerUserId);
         order.setOrderNo(orderNo);
+        order.setSupplierId(command.supplierId());
         order.setSupplierName(command.supplierName());
         order.setTotalAmount(total);
         order.setNotes(command.notes());
@@ -99,26 +108,27 @@ public class PurchaseOrderService {
     }
 
     public List<PurchaseOrderEntity> list(String keyword, Integer status) {
-        return purchaseOrderRepository.search(keyword, status);
+        return purchaseOrderRepository.search(currentOwnerService.requireCurrentOwnerUserId(), keyword, status);
     }
 
     public PurchaseDetail get(Long orderId) {
-        PurchaseOrderEntity order = purchaseOrderRepository.findById(orderId)
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        PurchaseOrderEntity order = purchaseOrderRepository.findByIdAndOwnerUserId(orderId, ownerUserId)
             .orElseThrow(() -> new IllegalArgumentException("采购单不存在"));
-        return new PurchaseDetail(order, purchaseOrderItemRepository.findByOrderId(orderId));
+        return new PurchaseDetail(order, purchaseOrderItemRepository.findByOwnerUserIdAndOrderId(ownerUserId, orderId));
     }
 
     public List<PurchaseOrderItemEntity> listItems(Long orderId) {
-        return purchaseOrderItemRepository.findByOrderId(orderId);
+        return purchaseOrderItemRepository.findByOwnerUserIdAndOrderId(currentOwnerService.requireCurrentOwnerUserId(), orderId);
     }
 
-    private ProductEntity resolveProduct(PurchaseItemDraft item) {
+    private ProductEntity resolveProduct(Long ownerUserId, PurchaseItemDraft item) {
         if (item.productId() != null && item.productId() > 0L) {
-            return productRepository.findByIdForUpdate(item.productId())
+            return productRepository.findByIdForUpdate(ownerUserId, item.productId())
                 .orElseThrow(() -> new IllegalArgumentException("商品不存在: " + item.productId()));
         }
         if (item.productCode() != null && !item.productCode().isBlank()) {
-            return productRepository.findByCodeForUpdate(item.productCode())
+            return productRepository.findByCodeForUpdate(ownerUserId, item.productCode())
                 .orElseThrow(() -> new IllegalArgumentException("商品不存在: " + item.productCode()));
         }
         throw new IllegalArgumentException("采购明细缺少商品标识");
@@ -133,6 +143,7 @@ public class PurchaseOrderService {
     ) {}
 
     public record CreatePurchaseOrderCommand(
+        Long supplierId,
         String supplierName,
         List<PurchaseItemDraft> items,
         String notes,

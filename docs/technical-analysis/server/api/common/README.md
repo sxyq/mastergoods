@@ -1,72 +1,35 @@
-# Common 层技术分析
+# Server api/common 模块分析
 
-> 路径: `src/main/java/com/zhihuiji/backend/api/common/`
+- 对应源码目录：`src/main/java/com/zhihuiji/backend/api/common`
+- 关键源码：
+  - `ApiResponse.java`
+  - `BusinessException.java`
+  - `GlobalExceptionHandler.java`
+  - `IdGenerator.java`
+  - `ParseUtils.java`
+  - `PaginationUtils.java`
+  - `OrderStatus.java`
+  - `PartnerTypes.java`
+  - `PayOrderStatus.java`
+  - `PaymentStatus.java`
+  - `PaymentType.java`
+  - `PurchaseOrderStatus.java`
 
-本层提供 API 层公共组件：统一响应体和全局异常处理。
+## 状态图例
 
----
+- `新版已做`
+- `新版待做`
+- `旧版存在新版未做`
+- `新版需要去掉`
+- `需重构`
+- `待验证`
 
-## ApiResponse
+## 状态表
 
-- **文件**: `ApiResponse.java`
-- **类型**: `record`
-- **作用**: 统一 API 响应包装体，所有 Controller 返回值均使用此结构。
-
-### 字段
-
-| 字段 | 类型 | 作用 | 修改建议 |
-|------|------|------|----------|
-| `code` | int | 业务状态码（0=成功，非0=失败） | 无 |
-| `message` | String | 状态描述 | 无 |
-| `data` | T | 业务数据（泛型） | 无 |
-| `timestamp` | long | 响应时间戳（毫秒） | 无 |
-
-### 函数
-
-| 函数 | 作用 | 修改建议 |
-|------|------|----------|
-| `success(data)` | 构建成功响应（code=0, message="success"） | 无 |
-| `failure(code, message)` | 构建失败响应（data=null） | 无 |
-
-### 修改建议
-
-1. **缺少泛型约束**: `failure` 方法返回 `ApiResponse<Void>` 但类型推断可能产生歧义，建议显式声明。
-2. **缺少常用 HTTP 状态码常量**: 可定义 `CODE_SUCCESS = 0`、`CODE_BAD_REQUEST = 400` 等常量。
-3. **timestamp 可选**: 对于缓存场景，时间戳可能导致响应体变化，可考虑移除或改为请求 ID。
-
----
-
-## GlobalExceptionHandler
-
-- **文件**: `GlobalExceptionHandler.java`
-- **注解**: `@RestControllerAdvice`
-- **作用**: 全局异常拦截，将各类异常转换为统一的 `ApiResponse` 格式。
-
-### 成员变量
-
-| 变量 | 类型 | 作用 | 修改建议 |
-|------|------|------|----------|
-| `log` | Logger | 日志记录器 | 无 |
-
-### 函数
-
-| 函数 | 异常类型 | HTTP 状态码 | 业务码 | 作用 | 修改建议 |
-|------|----------|-------------|--------|------|----------|
-| `handleValidation` | `MethodArgumentNotValidException` | 400 | 400 | 处理 @Valid 校验失败 | 仅取第一个错误，可改为汇总所有错误 |
-| `handleConstraint` | `ConstraintViolationException` | 400 | 400 | 处理约束违反 | 未返回具体字段信息 |
-| `handleUnreadableBody` | `HttpMessageNotReadableException` | 400 | 400 | 处理请求体不可读 | 无 |
-| `handleTypeMismatch` | `MethodArgumentTypeMismatchException` | 400 | 400 | 处理参数类型不匹配 | 无 |
-| `handleMissingParameter` | `MissingServletRequestParameterException` | 400 | 400 | 处理缺少请求参数 | 无 |
-| `handleMissingHeader` | `MissingRequestHeaderException` | 401/400 | 401/400 | 处理缺少请求头 | 对 Authorization 头特殊处理返回 401 |
-| `handleBusiness` | `IllegalArgumentException` | 422 | 422 | 处理业务逻辑异常 | **所有业务异常都用 IllegalArgumentException**，建议定义专用业务异常类 |
-| `handleServiceState` | `IllegalStateException` | 503 | 503 | 处理服务状态异常 | 无 |
-| `handleMethodNotSupported` | `HttpRequestMethodNotSupportedException` | 405 | 405 | 处理 HTTP 方法不支持 | 无 |
-| `handleNoResource` | `NoResourceFoundException` | 404 | 404 | 处理资源未找到 | 无 |
-| `handleUnknown` | `Exception` | 500 | 500 | 兜底异常处理 | ✏️ 响应已脱敏（返回 "Internal server error"），但服务端日志记录了完整异常栈，生产环境应控制日志级别 |
-
-### 修改建议
-
-1. **业务异常类缺失**: 项目中所有业务异常均抛出 `IllegalArgumentException`，与参数校验异常混淆，应定义 `BusinessException` 区分。
-2. ✏️ **错误信息国际化**: 当前 handler 方法使用英文消息（如 "Invalid request"、"Internal server error"），但业务层 `IllegalArgumentException` 的中文消息被透传到响应中，混合了中英文。建议统一为 i18n 消息或定义专用业务异常类区分。
-3. **验证错误汇总**: `handleValidation` 仅返回第一个字段错误，应返回全部错误以便前端一次性展示。
-4. **缺少请求追踪**: 建议在异常响应中加入 `traceId` 或 `requestId`，方便问题定位。
+| 对象 | 状态 | 旧版情况 | 新版目标 | 当前实现 | 备注 |
+|---|---|---|---|---|---|
+| `/v1` 通用响应与异常处理 | 新版已做 | 旧版无统一远程 API 包装 | 保持统一 `ApiResponse` 与异常模型 | 当前工具和枚举已存在 | 支撑所有控制器 |
+| `/v2` 更完整状态枚举与分页协议 | 需重构 | 旧版无 `/v2` | 按领域扩展共用协议 | 已补 `PartnerTypes` 与轻量 `PaginationUtils`，但仍缺数据库原生分页与统一分页响应协议 | 后续跟 `/v2` 一起补 |
+| `partner_type` 常量收口 | 新版已做 | 首版在多处直接写 `"customer"` / `"supplier"` 字符串 | 统一往来单位类型常量与校验入口 | 已新增 `PartnerTypes` | 主要供 `/v2` partner controller/service 复用 |
+| 轻量内存分页辅助 | 新版已做 | 首版列表接口多为全量返回或各自手切分页 | 提供统一的 page/size 切片工具，避免控制器重复写边界处理 | 已新增 `PaginationUtils.slice()` | 只是过渡工具，不等于最终数据库分页能力 |
+| 轻量字符串/整数状态泛用 | 需重构 | 首版快速交付更宽松 | 更强的类型安全与 owner-aware 协议 | 当前仍存在较轻的工具型实现 | 等后端正式重构 |

@@ -2,6 +2,7 @@ package com.zhihuiji.backend.api.controller;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.common.ParseUtils;
+import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.api.dto.PayOrderDto;
 import com.zhihuiji.backend.application.service.PayOrderService;
 import com.zhihuiji.backend.domain.entity.PayOrderEntity;
@@ -30,15 +31,17 @@ public class PayOrderController {
         @RequestParam(value = "keyword", required = false) String keyword,
         @RequestParam(value = "status", required = false) Integer status,
         @RequestParam(value = "created_after", required = false) String createdAfter,
-        @RequestParam(value = "created_before", required = false) String createdBefore
+        @RequestParam(value = "created_before", required = false) String createdBefore,
+        @RequestParam(value = "page", required = false) Integer page,
+        @RequestParam(value = "size", required = false) Integer size
     ) {
         return ApiResponse.success(
-            payOrderService.list(
+            PaginationUtils.slice(payOrderService.list(
                     keyword,
                     status,
                     ParseUtils.parseLong(createdAfter),
                     ParseUtils.parseLong(createdBefore)
-                ).stream()
+                ), page, size).stream()
                 .map(this::toDto)
                 .toList()
         );

@@ -11,6 +11,9 @@ public class FinanceRecordEntity {
     @Id
     private Long id;
 
+    @Column(name = "owner_user_id", nullable = false)
+    private Long ownerUserId;
+
     @Column(name = "record_no", nullable = false, unique = true, length = 64)
     private String recordNo;
 
@@ -50,6 +53,14 @@ public class FinanceRecordEntity {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Long getOwnerUserId() {
+        return ownerUserId;
+    }
+
+    public void setOwnerUserId(Long ownerUserId) {
+        this.ownerUserId = ownerUserId;
     }
 
     public String getRecordNo() {

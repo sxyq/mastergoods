@@ -10,7 +10,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zhihuiji.backend.api.dto.agent.AgentDto;
+import com.zhihuiji.backend.api.dto.agent.AgentTaskDtos;
+import com.zhihuiji.backend.api.dto.agent.AlertDtos;
+import com.zhihuiji.backend.api.dto.agent.AnswerDtos;
+import com.zhihuiji.backend.api.dto.agent.OperationDraftDtos;
+import com.zhihuiji.backend.api.dto.agent.ReconciliationDtos;
+import com.zhihuiji.backend.api.dto.agent.WorkbenchDtos;
 import com.zhihuiji.backend.application.service.AgentTaskService;
 import com.zhihuiji.backend.application.service.DemoDataService;
 import com.zhihuiji.backend.application.service.LlmDrivenAgentService;
@@ -46,28 +51,28 @@ class AdminControllerTest {
     void setUp() {
         demoDataService.seed(true);
         when(llmDrivenAgentService.getWorkbench(anyInt(), anyInt(), anyInt())).thenReturn(
-            new AgentDto.AgentWorkbenchDto(
-                new AgentDto.ReconciliationFollowupDto(1, 2, 3, 4, 5, List.of(), List.of(), List.of()),
-                new AgentDto.ReportInsightDto("7d", 10, 8, 25, "narrative", "S7", 10, "customer-a", 9, List.of(), List.of()),
-                new AgentDto.AlertDashboardDto(List.of()),
+            new WorkbenchDtos.AgentWorkbenchDto(
+                new ReconciliationDtos.ReconciliationFollowupDto(1, 2, 3, 4, 5, List.of(), List.of(), List.of()),
+                new ReconciliationDtos.ReportInsightDto("7d", 10, 8, 25, "narrative", "S7", 10, "customer-a", 9, List.of(), List.of()),
+                new AlertDtos.AlertDashboardDto(List.of()),
                 List.of("q1"),
                 List.of("i1")
             )
         );
         when(llmDrivenAgentService.answerQuestion(anyString())).thenReturn(
-            new AgentDto.AgentAnswerDto("query", "intent", "answer", List.of(), List.of(), List.of(), List.of())
+            new AnswerDtos.AgentAnswerDto("query", "intent", "answer", List.of(), List.of(), List.of(), List.of())
         );
         when(llmDrivenAgentService.draftOperation(anyString())).thenReturn(
-            new AgentDto.OperationDraftDto("purchase", "draft summary", "supplier", 1L, "供应商A", List.of(), "", true, List.of(), List.of())
+            new OperationDraftDtos.OperationDraftDto("purchase", "draft summary", "supplier", 1L, "供应商A", List.of(), "", true, List.of(), List.of())
         );
         when(agentTaskService.submitTask(anyString(), anyString(), anyString())).thenReturn(
-            new AgentDto.AgentTaskSummaryDto(99L, "sales_report_deep_dive", "后台报表复盘 smoke", "queued", "manual", 0, now(), now(), null)
+            new AgentTaskDtos.AgentTaskSummaryDto(99L, "sales_report_deep_dive", "后台报表复盘 smoke", "queued", "manual", 0, now(), now(), null)
         );
         when(agentTaskService.getTask(99L)).thenReturn(
-            new AgentDto.AgentTaskDetailDto(
-                new AgentDto.AgentTaskSummaryDto(99L, "sales_report_deep_dive", "后台报表复盘 smoke", "completed", "manual", 100, now(), now(), now()),
+            new AgentTaskDtos.AgentTaskDetailDto(
+                new AgentTaskDtos.AgentTaskSummaryDto(99L, "sales_report_deep_dive", "后台报表复盘 smoke", "completed", "manual", 100, now(), now(), now()),
                 "请复盘近 7 天销售趋势、客户贡献、利润驱动和补货机会。",
-                new AgentDto.AgentTaskResultDto(
+                new AgentTaskDtos.AgentTaskResultDto(
                     "title",
                     "subtitle",
                     "task summary",

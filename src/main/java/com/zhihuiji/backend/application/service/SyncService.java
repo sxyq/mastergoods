@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.application.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhihuiji.backend.domain.entity.CustomerEntity;
 import com.zhihuiji.backend.domain.entity.PayOrderEntity;
@@ -37,6 +38,7 @@ public class SyncService {
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PayOrderRepository payOrderRepository;
     private final ObjectMapper objectMapper;
+    private final CurrentOwnerService currentOwnerService;
 
     public SyncService(
         SyncCursorRepository syncCursorRepository,
@@ -46,7 +48,8 @@ public class SyncService {
         SaleOrderRepository saleOrderRepository,
         PurchaseOrderRepository purchaseOrderRepository,
         PayOrderRepository payOrderRepository,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        CurrentOwnerService currentOwnerService
     ) {
         this.syncCursorRepository = syncCursorRepository;
         this.customerRepository = customerRepository;
@@ -56,6 +59,7 @@ public class SyncService {
         this.purchaseOrderRepository = purchaseOrderRepository;
         this.payOrderRepository = payOrderRepository;
         this.objectMapper = objectMapper;
+        this.currentOwnerService = currentOwnerService;
     }
 
     public HealthResult health() {
@@ -64,33 +68,50 @@ public class SyncService {
 
     @Transactional
     public UploadResult upload(String clientId, List<SyncChange> changes, String lastSyncCursor) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         long now = System.currentTimeMillis();
         String normalizedClientId = normalizeClientId(clientId);
         List<SyncChange> safeChanges = changes == null ? List.of() : changes;
         long nextCursor = Math.max(now, parseCursor(lastSyncCursor));
+        int acceptedCount = 0;
+        int failedCount = 0;
         for (SyncChange change : safeChanges) {
-            nextCursor = Math.max(nextCursor, safeLong(change.updatedAt()));
+            try {
+                applyUploadedChange(ownerUserId, change);
+                acceptedCount++;
+                nextCursor = Math.max(nextCursor, safeLong(change.updatedAt()));
+            } catch (RuntimeException ignored) {
+                failedCount++;
+            }
         }
 
-        SyncCursorEntity cursor = syncCursorRepository.findById(normalizedClientId).orElseGet(SyncCursorEntity::new);
+        SyncCursorEntity cursor = syncCursorRepository.findByOwnerUserIdAndClientId(ownerUserId, normalizedClientId)
+            .orElseGet(SyncCursorEntity::new);
+        cursor.setOwnerUserId(ownerUserId);
         cursor.setClientId(normalizedClientId);
         cursor.setLastCursor(String.valueOf(nextCursor));
         cursor.setUpdatedAt(now);
         syncCursorRepository.save(cursor);
-        return new UploadResult(safeChanges.size(), 0, "accepted", cursor.getLastCursor());
+        return new UploadResult(
+            acceptedCount,
+            failedCount,
+            failedCount == 0 ? "applied" : "partially applied",
+            cursor.getLastCursor()
+        );
     }
 
     public PullResult pull(String sinceCursor, int limit) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         long since = parseCursor(sinceCursor);
         int safeLimit = normalizeLimit(limit);
 
         List<SyncChange> changes = new ArrayList<>();
-        changes.addAll(collectCustomerChanges(since));
-        changes.addAll(collectSupplierChanges(since));
-        changes.addAll(collectProductChanges(since));
-        changes.addAll(collectSaleOrderChanges(since));
-        changes.addAll(collectPurchaseOrderChanges(since));
-        changes.addAll(collectPayOrderChanges(since));
+        changes.addAll(collectCustomerChanges(ownerUserId, since));
+        changes.addAll(collectSupplierChanges(ownerUserId, since));
+        changes.addAll(collectProductChanges(ownerUserId, since));
+        changes.addAll(collectSaleOrderChanges(ownerUserId, since));
+        changes.addAll(collectPurchaseOrderChanges(ownerUserId, since));
+        changes.addAll(collectPayOrderChanges(ownerUserId, since));
 
         changes.sort(
             Comparator.comparingLong((SyncChange c) -> safeLong(c.updatedAt()))
@@ -107,9 +128,9 @@ public class SyncService {
         return new PullResult(page, String.valueOf(nextCursor), hasMore);
     }
 
-    private List<SyncChange> collectCustomerChanges(long since) {
+    private List<SyncChange> collectCustomerChanges(Long ownerUserId, long since) {
         List<SyncChange> rows = new ArrayList<>();
-        for (CustomerEntity entity : customerRepository.findAll()) {
+        for (CustomerEntity entity : customerRepository.findAllByOwnerUserId(ownerUserId)) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (changedAt <= since || entity.getId() == null) {
                 continue;
@@ -129,9 +150,9 @@ public class SyncService {
         return rows;
     }
 
-    private List<SyncChange> collectSupplierChanges(long since) {
+    private List<SyncChange> collectSupplierChanges(Long ownerUserId, long since) {
         List<SyncChange> rows = new ArrayList<>();
-        for (SupplierEntity entity : supplierRepository.findAll()) {
+        for (SupplierEntity entity : supplierRepository.findAllByOwnerUserId(ownerUserId)) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (changedAt <= since || entity.getId() == null) {
                 continue;
@@ -152,9 +173,9 @@ public class SyncService {
         return rows;
     }
 
-    private List<SyncChange> collectProductChanges(long since) {
+    private List<SyncChange> collectProductChanges(Long ownerUserId, long since) {
         List<SyncChange> rows = new ArrayList<>();
-        for (ProductEntity entity : productRepository.findAll()) {
+        for (ProductEntity entity : productRepository.findAllByOwnerUserId(ownerUserId)) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (changedAt <= since || entity.getId() == null) {
                 continue;
@@ -179,9 +200,9 @@ public class SyncService {
         return rows;
     }
 
-    private List<SyncChange> collectSaleOrderChanges(long since) {
+    private List<SyncChange> collectSaleOrderChanges(Long ownerUserId, long since) {
         List<SyncChange> rows = new ArrayList<>();
-        for (SaleOrderEntity entity : saleOrderRepository.findAll()) {
+        for (SaleOrderEntity entity : saleOrderRepository.findAllByOwnerUserId(ownerUserId)) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (changedAt <= since || entity.getId() == null) {
                 continue;
@@ -204,9 +225,9 @@ public class SyncService {
         return rows;
     }
 
-    private List<SyncChange> collectPurchaseOrderChanges(long since) {
+    private List<SyncChange> collectPurchaseOrderChanges(Long ownerUserId, long since) {
         List<SyncChange> rows = new ArrayList<>();
-        for (PurchaseOrderEntity entity : purchaseOrderRepository.findAll()) {
+        for (PurchaseOrderEntity entity : purchaseOrderRepository.findAllByOwnerUserId(ownerUserId)) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (changedAt <= since || entity.getId() == null) {
                 continue;
@@ -235,9 +256,9 @@ public class SyncService {
         return rows;
     }
 
-    private List<SyncChange> collectPayOrderChanges(long since) {
+    private List<SyncChange> collectPayOrderChanges(Long ownerUserId, long since) {
         List<SyncChange> rows = new ArrayList<>();
-        for (PayOrderEntity entity : payOrderRepository.findAll()) {
+        for (PayOrderEntity entity : payOrderRepository.findAllByOwnerUserId(ownerUserId)) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (changedAt <= since || entity.getId() == null) {
                 continue;
@@ -304,6 +325,237 @@ public class SyncService {
 
     private long safeLong(Long value) {
         return value == null ? 0L : value;
+    }
+
+    private void applyUploadedChange(Long ownerUserId, SyncChange change) {
+        if (change == null || change.entityType() == null || change.entityId() == null || change.operation() == null) {
+            throw new IllegalArgumentException("sync change is incomplete");
+        }
+        switch (change.entityType()) {
+            case "customer" -> applyCustomerUpload(ownerUserId, change);
+            case "supplier" -> applySupplierUpload(ownerUserId, change);
+            case "product" -> applyProductUpload(ownerUserId, change);
+            case "sale_order" -> applySaleOrderUpload(ownerUserId, change);
+            case "purchase_order" -> applyPurchaseOrderUpload(ownerUserId, change);
+            case "pay_order" -> applyPayOrderUpload(ownerUserId, change);
+            default -> throw new IllegalArgumentException("unsupported entity type: " + change.entityType());
+        }
+    }
+
+    private void applyCustomerUpload(Long ownerUserId, SyncChange change) {
+        Long id = parseEntityId(change.entityId());
+        if (isDelete(change.operation())) {
+            customerRepository.findByIdAndOwnerUserId(id, ownerUserId).ifPresent(customerRepository::delete);
+            return;
+        }
+        JsonNode payload = readPayload(change.payload());
+        CustomerEntity entity = customerRepository.findByIdAndOwnerUserId(id, ownerUserId).orElseGet(CustomerEntity::new);
+        entity.setId(id);
+        entity.setOwnerUserId(ownerUserId);
+        entity.setName(readText(payload, "name", entity.getName(), "未命名客户"));
+        entity.setPhone(readText(payload, "phone", entity.getPhone(), "unknown-" + id));
+        entity.setLevel(readInt(payload, "level", entity.getLevel(), 0));
+        entity.setAddress(readNullableText(payload, "address", entity.getAddress()));
+        entity.setNotes(readNullableText(payload, "notes", entity.getNotes()));
+        entity.setBalance(readDouble(payload, "balance", entity.getBalance(), 0.0));
+        entity.setStatus(readInt(payload, "status", entity.getStatus(), 1));
+        entity.setSyncStatus(readInt(payload, "sync_status", entity.getSyncStatus(), 0));
+        entity.setSyncVersion(readLong(payload, "sync_version", entity.getSyncVersion(), 0L));
+        entity.setCreatedAt(readLong(payload, "created_at", entity.getCreatedAt(), safeLong(change.updatedAt())));
+        entity.setUpdatedAt(readLong(payload, "updated_at", entity.getUpdatedAt(), safeLong(change.updatedAt())));
+        customerRepository.save(entity);
+    }
+
+    private void applySupplierUpload(Long ownerUserId, SyncChange change) {
+        Long id = parseEntityId(change.entityId());
+        if (isDelete(change.operation())) {
+            supplierRepository.findByIdAndOwnerUserId(id, ownerUserId).ifPresent(supplierRepository::delete);
+            return;
+        }
+        JsonNode payload = readPayload(change.payload());
+        SupplierEntity entity = supplierRepository.findByIdAndOwnerUserId(id, ownerUserId).orElseGet(SupplierEntity::new);
+        entity.setId(id);
+        entity.setOwnerUserId(ownerUserId);
+        entity.setName(readText(payload, "name", entity.getName(), "未命名供应商"));
+        entity.setPhone(readText(payload, "phone", entity.getPhone(), "unknown-" + id));
+        entity.setAddress(readNullableText(payload, "address", entity.getAddress()));
+        entity.setNotes(readNullableText(payload, "notes", entity.getNotes()));
+        entity.setBalance(readDouble(payload, "balance", entity.getBalance(), 0.0));
+        entity.setStatus(readInt(payload, "status", entity.getStatus(), 1));
+        entity.setSyncStatus(readInt(payload, "sync_status", entity.getSyncStatus(), 0));
+        entity.setSyncVersion(readLong(payload, "sync_version", entity.getSyncVersion(), 0L));
+        entity.setCreatedAt(readLong(payload, "created_at", entity.getCreatedAt(), safeLong(change.updatedAt())));
+        entity.setUpdatedAt(readLong(payload, "updated_at", entity.getUpdatedAt(), safeLong(change.updatedAt())));
+        supplierRepository.save(entity);
+    }
+
+    private void applyProductUpload(Long ownerUserId, SyncChange change) {
+        Long id = parseEntityId(change.entityId());
+        if (isDelete(change.operation())) {
+            productRepository.findByIdAndOwnerUserId(id, ownerUserId).ifPresent(productRepository::delete);
+            return;
+        }
+        JsonNode payload = readPayload(change.payload());
+        ProductEntity entity = productRepository.findByIdAndOwnerUserId(id, ownerUserId).orElseGet(ProductEntity::new);
+        entity.setId(id);
+        entity.setOwnerUserId(ownerUserId);
+        entity.setCode(readText(payload, "code", entity.getCode(), "P-" + id));
+        entity.setName(readText(payload, "name", entity.getName(), "未命名商品"));
+        entity.setCategory(readText(payload, "category", entity.getCategory(), "默认分类"));
+        entity.setUnit(readText(payload, "unit", entity.getUnit(), "件"));
+        entity.setSalePrice(readDouble(payload, "sale_price", entity.getSalePrice(), 0.0));
+        entity.setPurchasePrice(readDouble(payload, "purchase_price", entity.getPurchasePrice(), 0.0));
+        entity.setStock(readDouble(payload, "stock", entity.getStock(), 0.0));
+        entity.setSafeStock(readDouble(payload, "safe_stock", entity.getSafeStock(), 0.0));
+        entity.setStatus(readInt(payload, "status", entity.getStatus(), 1));
+        entity.setSyncStatus(readInt(payload, "sync_status", entity.getSyncStatus(), 0));
+        entity.setSyncVersion(readLong(payload, "sync_version", entity.getSyncVersion(), 0L));
+        entity.setCreatedAt(readLong(payload, "created_at", entity.getCreatedAt(), safeLong(change.updatedAt())));
+        entity.setUpdatedAt(readLong(payload, "updated_at", entity.getUpdatedAt(), safeLong(change.updatedAt())));
+        productRepository.save(entity);
+    }
+
+    private void applySaleOrderUpload(Long ownerUserId, SyncChange change) {
+        Long id = parseEntityId(change.entityId());
+        if (isDelete(change.operation())) {
+            saleOrderRepository.findByIdAndOwnerUserId(id, ownerUserId).ifPresent(saleOrderRepository::delete);
+            return;
+        }
+        JsonNode payload = readPayload(change.payload());
+        SaleOrderEntity entity = saleOrderRepository.findByIdAndOwnerUserId(id, ownerUserId).orElseGet(SaleOrderEntity::new);
+        entity.setId(id);
+        entity.setOwnerUserId(ownerUserId);
+        entity.setOrderNo(readText(payload, "order_no", entity.getOrderNo(), "SO-" + id));
+        entity.setCustomerId(readNullableLong(payload, "customer_id", entity.getCustomerId()));
+        entity.setCustomerName(readNullableText(payload, "customer_name", entity.getCustomerName()));
+        entity.setSubtotalAmount(readDouble(payload, "subtotal_amount", entity.getSubtotalAmount(), 0.0));
+        entity.setDiscountAmount(readDouble(payload, "discount_amount", entity.getDiscountAmount(), 0.0));
+        entity.setTotalAmount(readDouble(payload, "total_amount", entity.getTotalAmount(), 0.0));
+        entity.setPaidAmount(readDouble(payload, "paid_amount", entity.getPaidAmount(), 0.0));
+        entity.setNotes(readNullableText(payload, "notes", entity.getNotes()));
+        entity.setStatus(readInt(payload, "status", entity.getStatus(), 0));
+        entity.setSyncStatus(readInt(payload, "sync_status", entity.getSyncStatus(), 0));
+        entity.setSyncVersion(readLong(payload, "sync_version", entity.getSyncVersion(), 0L));
+        entity.setCreatedAt(readLong(payload, "created_at", entity.getCreatedAt(), safeLong(change.updatedAt())));
+        entity.setUpdatedAt(readLong(payload, "updated_at", entity.getUpdatedAt(), safeLong(change.updatedAt())));
+        saleOrderRepository.save(entity);
+    }
+
+    private void applyPurchaseOrderUpload(Long ownerUserId, SyncChange change) {
+        Long id = parseEntityId(change.entityId());
+        if (isDelete(change.operation())) {
+            purchaseOrderRepository.findByIdAndOwnerUserId(id, ownerUserId).ifPresent(purchaseOrderRepository::delete);
+            return;
+        }
+        JsonNode payload = readPayload(change.payload());
+        PurchaseOrderEntity entity = purchaseOrderRepository.findByIdAndOwnerUserId(id, ownerUserId).orElseGet(PurchaseOrderEntity::new);
+        entity.setId(id);
+        entity.setOwnerUserId(ownerUserId);
+        entity.setOrderNo(readText(payload, "order_no", entity.getOrderNo(), "PO-" + id));
+        entity.setSupplierName(readText(payload, "supplier_name", entity.getSupplierName(), "未命名供应商"));
+        entity.setTotalAmount(readDouble(payload, "total_amount", entity.getTotalAmount(), 0.0));
+        entity.setNotes(readNullableText(payload, "notes", entity.getNotes()));
+        entity.setStatus(readInt(payload, "status", entity.getStatus(), 0));
+        entity.setSyncStatus(readInt(payload, "sync_status", entity.getSyncStatus(), 0));
+        entity.setSyncVersion(readLong(payload, "sync_version", entity.getSyncVersion(), 0L));
+        entity.setCreatedAt(readLong(payload, "created_at", entity.getCreatedAt(), safeLong(change.updatedAt())));
+        entity.setUpdatedAt(readLong(payload, "updated_at", entity.getUpdatedAt(), safeLong(change.updatedAt())));
+        purchaseOrderRepository.save(entity);
+    }
+
+    private void applyPayOrderUpload(Long ownerUserId, SyncChange change) {
+        Long id = parseEntityId(change.entityId());
+        if (isDelete(change.operation())) {
+            payOrderRepository.findByIdAndOwnerUserId(id, ownerUserId).ifPresent(payOrderRepository::delete);
+            return;
+        }
+        JsonNode payload = readPayload(change.payload());
+        PayOrderEntity entity = payOrderRepository.findByIdAndOwnerUserId(id, ownerUserId).orElseGet(PayOrderEntity::new);
+        entity.setId(id);
+        entity.setOwnerUserId(ownerUserId);
+        entity.setOrderNo(readText(payload, "order_no", entity.getOrderNo(), "PAY-" + id));
+        entity.setSupplierId(readNullableLong(payload, "supplier_id", entity.getSupplierId()));
+        entity.setSupplierName(readText(payload, "supplier_name", entity.getSupplierName(), "未命名供应商"));
+        entity.setAmount(readDouble(payload, "amount", entity.getAmount(), 0.0));
+        entity.setMethod(readInt(payload, "method", entity.getMethod(), 0));
+        entity.setStatus(readInt(payload, "status", entity.getStatus(), 0));
+        entity.setReferenceNo(readNullableText(payload, "reference_no", entity.getReferenceNo()));
+        entity.setNotes(readNullableText(payload, "notes", entity.getNotes()));
+        entity.setSyncStatus(readInt(payload, "sync_status", entity.getSyncStatus(), 0));
+        entity.setSyncVersion(readLong(payload, "sync_version", entity.getSyncVersion(), 0L));
+        entity.setCreatedAt(readLong(payload, "created_at", entity.getCreatedAt(), safeLong(change.updatedAt())));
+        entity.setUpdatedAt(readLong(payload, "updated_at", entity.getUpdatedAt(), safeLong(change.updatedAt())));
+        payOrderRepository.save(entity);
+    }
+
+    private JsonNode readPayload(String payload) {
+        if (payload == null || payload.isBlank()) {
+            return objectMapper.createObjectNode();
+        }
+        try {
+            return objectMapper.readTree(payload);
+        } catch (JsonProcessingException error) {
+            throw new IllegalArgumentException("invalid sync payload", error);
+        }
+    }
+
+    private Long parseEntityId(String entityId) {
+        try {
+            return Long.parseLong(entityId);
+        } catch (NumberFormatException error) {
+            throw new IllegalArgumentException("invalid entity id: " + entityId, error);
+        }
+    }
+
+    private boolean isDelete(String operation) {
+        return "delete".equalsIgnoreCase(operation);
+    }
+
+    private String readText(JsonNode payload, String field, String currentValue, String defaultValue) {
+        JsonNode node = payload.path(field);
+        if (!node.isMissingNode() && !node.isNull()) {
+            String value = node.asText();
+            if (!value.isBlank()) {
+                return value;
+            }
+        }
+        return currentValue != null && !currentValue.isBlank() ? currentValue : defaultValue;
+    }
+
+    private String readNullableText(JsonNode payload, String field, String currentValue) {
+        JsonNode node = payload.path(field);
+        if (node.isMissingNode()) return currentValue;
+        return node.isNull() ? null : node.asText();
+    }
+
+    private Integer readInt(JsonNode payload, String field, Integer currentValue, int defaultValue) {
+        JsonNode node = payload.path(field);
+        if (!node.isMissingNode() && !node.isNull()) {
+            return node.asInt(defaultValue);
+        }
+        return currentValue != null ? currentValue : defaultValue;
+    }
+
+    private Long readLong(JsonNode payload, String field, Long currentValue, long defaultValue) {
+        JsonNode node = payload.path(field);
+        if (!node.isMissingNode() && !node.isNull()) {
+            return node.asLong(defaultValue);
+        }
+        return currentValue != null ? currentValue : defaultValue;
+    }
+
+    private Long readNullableLong(JsonNode payload, String field, Long currentValue) {
+        JsonNode node = payload.path(field);
+        if (node.isMissingNode()) return currentValue;
+        return node.isNull() ? null : node.asLong();
+    }
+
+    private Double readDouble(JsonNode payload, String field, Double currentValue, double defaultValue) {
+        JsonNode node = payload.path(field);
+        if (!node.isMissingNode() && !node.isNull()) {
+            return node.asDouble(defaultValue);
+        }
+        return currentValue != null ? currentValue : defaultValue;
     }
 
     public record SyncChange(String entityType, String entityId, String operation, String payload, Long updatedAt) {}

@@ -15,9 +15,11 @@ public class FinanceRecordService {
     public static final int TYPE_EXPENSE = 2;
 
     private final FinanceRecordRepository financeRecordRepository;
+    private final CurrentOwnerService currentOwnerService;
 
-    public FinanceRecordService(FinanceRecordRepository financeRecordRepository) {
+    public FinanceRecordService(FinanceRecordRepository financeRecordRepository, CurrentOwnerService currentOwnerService) {
         this.financeRecordRepository = financeRecordRepository;
+        this.currentOwnerService = currentOwnerService;
     }
 
     public List<FinanceRecordEntity> list(
@@ -26,7 +28,13 @@ public class FinanceRecordService {
         Long createdAfter,
         Long createdBefore
     ) {
-        return financeRecordRepository.search(keyword, type, createdAfter, createdBefore);
+        return financeRecordRepository.search(
+            currentOwnerService.requireCurrentOwnerUserId(),
+            keyword,
+            type,
+            createdAfter,
+            createdBefore
+        );
     }
 
     public FinanceRecordEntity create(CreateCommand command) {
@@ -35,6 +43,7 @@ public class FinanceRecordService {
         long now = System.currentTimeMillis();
         FinanceRecordEntity entity = new FinanceRecordEntity();
         entity.setId(IdGenerator.nextId());
+        entity.setOwnerUserId(currentOwnerService.requireCurrentOwnerUserId());
         entity.setRecordNo(generateRecordNo(now));
         entity.setType(command.type());
         entity.setCategory(normalizeCategory(command.category()));

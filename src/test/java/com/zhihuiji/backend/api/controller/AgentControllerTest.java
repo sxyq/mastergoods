@@ -9,8 +9,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zhihuiji.backend.api.dto.agent.AgentDto;
+import com.zhihuiji.backend.api.dto.agent.AlertDtos;
+import com.zhihuiji.backend.api.dto.agent.AnswerDtos;
+import com.zhihuiji.backend.api.dto.agent.ReconciliationDtos;
+import com.zhihuiji.backend.api.dto.agent.WorkbenchDtos;
 import com.zhihuiji.backend.application.service.LlmDrivenAgentService;
+import com.zhihuiji.backend.application.service.SessionAccessService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,10 +34,12 @@ class AgentControllerTest {
 
     @MockBean
     private LlmDrivenAgentService agentService;
+    @MockBean
+    private SessionAccessService sessionAccessService;
 
     @Test
     void workbenchReturnsSuccess() throws Exception {
-        AgentDto.ReportInsightDto insight = new AgentDto.ReportInsightDto(
+        ReconciliationDtos.ReportInsightDto insight = new ReconciliationDtos.ReportInsightDto(
             "7d",
             10,
             8,
@@ -47,10 +53,10 @@ class AgentControllerTest {
             List.of("a1")
         );
         when(agentService.getWorkbench(anyInt(), anyInt(), anyInt())).thenReturn(
-            new AgentDto.AgentWorkbenchDto(
-                new AgentDto.ReconciliationFollowupDto(1, 2, 3, 4, -1, List.of(), List.of(), List.of()),
+            new WorkbenchDtos.AgentWorkbenchDto(
+                new ReconciliationDtos.ReconciliationFollowupDto(1, 2, 3, 4, -1, List.of(), List.of(), List.of()),
                 insight,
-                new AgentDto.AlertDashboardDto(List.of()),
+                new AlertDtos.AlertDashboardDto(List.of()),
                 List.of("q1"),
                 List.of("i1")
             )
@@ -64,7 +70,7 @@ class AgentControllerTest {
 
     @Test
     void queryReturnsSuccess() throws Exception {
-        AgentDto.AgentAnswerDto answer = new AgentDto.AgentAnswerDto(
+        AnswerDtos.AgentAnswerDto answer = new AnswerDtos.AgentAnswerDto(
             "who owes the most",
             "receivables",
             "answer",

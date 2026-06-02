@@ -11,8 +11,14 @@ public class PurchaseOrderEntity {
     @Id
     private Long id;
 
+    @Column(name = "owner_user_id", nullable = false)
+    private Long ownerUserId;
+
     @Column(name = "order_no", nullable = false, unique = true, length = 64)
     private String orderNo;
+
+    @Column(name = "supplier_id")
+    private Long supplierId;
 
     @Column(name = "supplier_name", nullable = false, length = 128)
     private String supplierName;
@@ -44,6 +50,22 @@ public class PurchaseOrderEntity {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Long getOwnerUserId() {
+        return ownerUserId;
+    }
+
+    public void setOwnerUserId(Long ownerUserId) {
+        this.ownerUserId = ownerUserId;
+    }
+
+    public Long getSupplierId() {
+        return supplierId;
+    }
+
+    public void setSupplierId(Long supplierId) {
+        this.supplierId = supplierId;
     }
 
     public String getOrderNo() {
@@ -118,4 +140,3 @@ public class PurchaseOrderEntity {
         this.updatedAt = updatedAt;
     }
 }
-

@@ -16,24 +16,33 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final InventoryAdjustmentRepository inventoryAdjustmentRepository;
+    private final CurrentOwnerService currentOwnerService;
 
     public ProductService(
         ProductRepository productRepository,
-        InventoryAdjustmentRepository inventoryAdjustmentRepository
+        InventoryAdjustmentRepository inventoryAdjustmentRepository,
+        CurrentOwnerService currentOwnerService
     ) {
         this.productRepository = productRepository;
         this.inventoryAdjustmentRepository = inventoryAdjustmentRepository;
+        this.currentOwnerService = currentOwnerService;
     }
 
     public List<ProductEntity> list(String keyword) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         if (keyword == null || keyword.isBlank()) {
-            return productRepository.findAll();
+            return productRepository.findAllByOwnerUserId(ownerUserId);
         }
-        return productRepository.findByNameContainingIgnoreCaseOrCodeContainingIgnoreCase(keyword, keyword);
+        return productRepository.findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndCodeContainingIgnoreCase(
+            ownerUserId,
+            keyword,
+            ownerUserId,
+            keyword
+        );
     }
 
     public ProductEntity get(Long id) {
-        return productRepository.findById(id)
+        return productRepository.findByIdAndOwnerUserId(id, currentOwnerService.requireCurrentOwnerUserId())
             .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
     }
 
@@ -41,14 +50,17 @@ public class ProductService {
         if (code == null || code.isBlank()) {
             return null;
         }
-        return productRepository.findByCode(code.trim()).orElse(null);
+        return productRepository.findByOwnerUserIdAndCode(currentOwnerService.requireCurrentOwnerUserId(), code.trim())
+            .orElse(null);
     }
 
     public ProductEntity create(ProductEntity product) {
-        if (productRepository.findByCode(product.getCode()).isPresent()) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        if (productRepository.findByOwnerUserIdAndCode(ownerUserId, product.getCode()).isPresent()) {
             throw new IllegalArgumentException("商品编码已存在");
         }
         long now = System.currentTimeMillis();
+        product.setOwnerUserId(ownerUserId);
         product.setCreatedAt(now);
         product.setUpdatedAt(now);
         product.setSyncStatus(0);
@@ -73,7 +85,7 @@ public class ProductService {
     }
 
     public void delete(Long id) {
-        productRepository.deleteById(id);
+        productRepository.delete(get(id));
     }
 
     @Transactional
@@ -81,7 +93,8 @@ public class ProductService {
         if (delta == null || Math.abs(delta) < 0.000001) {
             throw new IllegalArgumentException("库存调整值不能为空或0");
         }
-        ProductEntity target = productRepository.findByIdForUpdate(id)
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        ProductEntity target = productRepository.findByIdForUpdate(ownerUserId, id)
             .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
         long now = System.currentTimeMillis();
         double nextStock = target.getStock() + delta;
@@ -96,6 +109,7 @@ public class ProductService {
 
         InventoryAdjustmentEntity adjustment = new InventoryAdjustmentEntity();
         adjustment.setId(IdGenerator.nextId());
+        adjustment.setOwnerUserId(ownerUserId);
         adjustment.setProductId(saved.getId());
         adjustment.setProductCode(saved.getCode());
         adjustment.setProductName(saved.getName());

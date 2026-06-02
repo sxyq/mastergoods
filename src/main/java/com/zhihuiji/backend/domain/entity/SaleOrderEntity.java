@@ -11,6 +11,9 @@ public class SaleOrderEntity {
     @Id
     private Long id;
 
+    @Column(name = "owner_user_id", nullable = false)
+    private Long ownerUserId;
+
     @Column(name = "order_no", nullable = false, unique = true, length = 64)
     private String orderNo;
 
@@ -56,6 +59,14 @@ public class SaleOrderEntity {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Long getOwnerUserId() {
+        return ownerUserId;
+    }
+
+    public void setOwnerUserId(Long ownerUserId) {
+        this.ownerUserId = ownerUserId;
     }
 
     public String getOrderNo() {
@@ -162,4 +173,3 @@ public class SaleOrderEntity {
         this.updatedAt = updatedAt;
     }
 }
-

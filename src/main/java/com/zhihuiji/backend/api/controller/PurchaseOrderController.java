@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.api.controller;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
+import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.api.dto.PurchaseOrderDto;
 import com.zhihuiji.backend.api.dto.PurchaseOrderItemDto;
 import com.zhihuiji.backend.application.service.PurchaseOrderService;
@@ -38,6 +39,7 @@ public class PurchaseOrderController {
             .toList();
         return ApiResponse.success(toDto(purchaseOrderService.create(
             new PurchaseOrderService.CreatePurchaseOrderCommand(
+                request.supplierId(),
                 request.supplierName(),
                 items,
                 request.notes(),
@@ -49,9 +51,11 @@ public class PurchaseOrderController {
     @GetMapping
     public ApiResponse<List<PurchaseOrderDto>> list(
         @RequestParam(value = "keyword", required = false) String keyword,
-        @RequestParam(value = "status", required = false) Integer status
+        @RequestParam(value = "status", required = false) Integer status,
+        @RequestParam(value = "page", required = false) Integer page,
+        @RequestParam(value = "size", required = false) Integer size
     ) {
-        List<PurchaseOrderDto> payload = purchaseOrderService.list(keyword, status).stream()
+        List<PurchaseOrderDto> payload = PaginationUtils.slice(purchaseOrderService.list(keyword, status), page, size).stream()
             .map(order -> toDto(order, purchaseOrderService.listItems(order.getId())))
             .toList();
         return ApiResponse.success(payload);
@@ -82,6 +86,7 @@ public class PurchaseOrderController {
         return new PurchaseOrderDto(
             order.getId(),
             order.getOrderNo(),
+            order.getSupplierId(),
             order.getSupplierName(),
             itemDtos,
             order.getTotalAmount(),
@@ -93,6 +98,7 @@ public class PurchaseOrderController {
     }
 
     public record CreateRequest(
+        Long supplierId,
         String supplierName,
         List<ItemRequest> items,
         String notes,

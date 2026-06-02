@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.api.controller;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
+import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.application.service.SupplierService;
 import com.zhihuiji.backend.domain.entity.SupplierEntity;
 import jakarta.validation.Valid;
@@ -27,9 +28,11 @@ public class SupplierController {
     @GetMapping
     public ApiResponse<List<SupplierEntity>> list(
         @RequestParam(value = "keyword", required = false) String keyword,
-        @RequestParam(value = "status", required = false) Integer status
+        @RequestParam(value = "status", required = false) Integer status,
+        @RequestParam(value = "page", required = false) Integer page,
+        @RequestParam(value = "size", required = false) Integer size
     ) {
-        return ApiResponse.success(supplierService.list(keyword, status));
+        return ApiResponse.success(PaginationUtils.slice(supplierService.list(keyword, status), page, size));
     }
 
     @GetMapping("/{id}")

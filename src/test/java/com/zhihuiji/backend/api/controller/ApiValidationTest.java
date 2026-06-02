@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.zhihuiji.backend.application.service.AuthService;
 import com.zhihuiji.backend.application.service.ProductService;
+import com.zhihuiji.backend.application.service.SessionAccessService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -26,6 +27,8 @@ class ApiValidationTest {
 
     @MockBean
     private ProductService productService;
+    @MockBean
+    private SessionAccessService sessionAccessService;
 
     @Test
     void authRejectsInvalidBodiesAndMissingBearerWithoutServerError() throws Exception {

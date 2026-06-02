@@ -48,7 +48,8 @@ public class AuthController {
 
     @PostMapping("/verify-code")
     public ApiResponse<VerifyCodeResponse> verifyCode(@Valid @RequestBody VerifyCodeRequest request) {
-        return ApiResponse.failure(10001, "verify code provider is not configured");
+        AuthService.VerifyCodeResult result = authService.issueVerifyCode(request.phone(), request.type());
+        return ApiResponse.success(new VerifyCodeResponse(result.success(), result.expireSeconds()));
     }
 
     @GetMapping("/users/me")

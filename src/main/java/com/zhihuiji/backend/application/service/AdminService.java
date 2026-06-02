@@ -1,7 +1,7 @@
 package com.zhihuiji.backend.application.service;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
-import com.zhihuiji.backend.api.dto.agent.AgentDto;
+import com.zhihuiji.backend.api.dto.agent.*;
 import com.zhihuiji.backend.domain.entity.UserEntity;
 import com.zhihuiji.backend.infrastructure.repository.AgentNotificationRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentTaskRepository;
@@ -77,7 +77,9 @@ public class AdminService {
             saleOrderRepository.count(),
             purchaseOrderRepository.count(),
             agentTaskRepository.count(),
-            agentNotificationRepository.countByIsReadFalse()
+            agentNotificationRepository.findAll().stream()
+                .filter(notification -> !Boolean.TRUE.equals(notification.getIsRead()))
+                .count()
         );
     }
 
@@ -131,15 +133,15 @@ public class AdminService {
     }
 
     public AgentSmokeResult runAgentSmoke() {
-        AgentDto.AgentWorkbenchDto workbench = llmDrivenAgentService.getWorkbench(7, 6, 15);
-        AgentDto.AgentAnswerDto answer = llmDrivenAgentService.answerQuestion("按紧急程度告诉我现在该先补哪些货，并说下原因。");
-        AgentDto.OperationDraftDto draft = llmDrivenAgentService.draftOperation("帮我给 supplier-a 入库 20 个 sensor S7，单价 35。");
-        AgentDto.AgentTaskSummaryDto task = agentTaskService.submitTask(
+        WorkbenchDtos.AgentWorkbenchDto workbench = llmDrivenAgentService.getWorkbench(7, 6, 15);
+        AnswerDtos.AgentAnswerDto answer = llmDrivenAgentService.answerQuestion("按紧急程度告诉我现在该先补哪些货，并说下原因。");
+        OperationDraftDtos.OperationDraftDto draft = llmDrivenAgentService.draftOperation("帮我给 supplier-a 入库 20 个 sensor S7，单价 35。");
+        AgentTaskDtos.AgentTaskSummaryDto task = agentTaskService.submitTask(
             "sales_report_deep_dive",
             "后台报表复盘 smoke",
             "请复盘近 7 天销售趋势、客户贡献、利润驱动和补货机会。"
         );
-        AgentDto.AgentTaskDetailDto detail = waitForTask(task.id(), 5);
+        AgentTaskDtos.AgentTaskDetailDto detail = waitForTask(task.id(), 5);
         String taskSummary = detail.result() == null
             ? "任务已提交，结果将在后台继续生成。"
             : detail.result().summary();
@@ -153,9 +155,9 @@ public class AdminService {
         );
     }
 
-    private AgentDto.AgentTaskDetailDto waitForTask(Long taskId, int maxAttempts) {
+    private AgentTaskDtos.AgentTaskDetailDto waitForTask(Long taskId, int maxAttempts) {
         for (int i = 0; i < maxAttempts; i++) {
-            AgentDto.AgentTaskDetailDto detail = agentTaskService.getTask(taskId);
+            AgentTaskDtos.AgentTaskDetailDto detail = agentTaskService.getTask(taskId);
             if ("completed".equals(detail.task().status()) || "failed".equals(detail.task().status())) {
                 return detail;
             }

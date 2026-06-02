@@ -1,6 +1,10 @@
 package com.zhihuiji.backend.application.service;
 
-import com.zhihuiji.backend.api.dto.agent.AgentDto;
+import com.zhihuiji.backend.api.common.OrderStatus;
+import com.zhihuiji.backend.api.common.PayOrderStatus;
+import com.zhihuiji.backend.api.common.PaymentType;
+import com.zhihuiji.backend.api.common.PurchaseOrderStatus;
+import com.zhihuiji.backend.api.dto.agent.*;
 import com.zhihuiji.backend.domain.entity.CustomerEntity;
 import com.zhihuiji.backend.domain.entity.PaymentEntity;
 import com.zhihuiji.backend.domain.entity.PayOrderEntity;
@@ -54,6 +58,7 @@ public class AgentService {
     private final SaleOrderItemRepository saleOrderItemRepository;
     private final PaymentRepository paymentRepository;
     private final PayOrderRepository payOrderRepository;
+    private final CurrentOwnerService currentOwnerService;
 
     public AgentService(
         ReportService reportService,
@@ -65,7 +70,8 @@ public class AgentService {
         SaleOrderRepository saleOrderRepository,
         SaleOrderItemRepository saleOrderItemRepository,
         PaymentRepository paymentRepository,
-        PayOrderRepository payOrderRepository
+        PayOrderRepository payOrderRepository,
+        CurrentOwnerService currentOwnerService
     ) {
         this.reportService = reportService;
         this.saleOrderService = saleOrderService;
@@ -77,12 +83,13 @@ public class AgentService {
         this.saleOrderItemRepository = saleOrderItemRepository;
         this.paymentRepository = paymentRepository;
         this.payOrderRepository = payOrderRepository;
+        this.currentOwnerService = currentOwnerService;
     }
 
-    public AgentDto.AgentWorkbenchDto getWorkbench(int windowDays, int limit, int agingDays) {
+    public WorkbenchDtos.AgentWorkbenchDto getWorkbench(int windowDays, int limit, int agingDays) {
         int safeWindowDays = normalizePositive(windowDays, 7, 30);
         int safeLimit = normalizePositive(limit, DEFAULT_LIMIT, 20);
-        return new AgentDto.AgentWorkbenchDto(
+        return new WorkbenchDtos.AgentWorkbenchDto(
             getReconciliationFollowup(safeLimit, agingDays),
             getReportInsight(safeWindowDays),
             getAlerts(safeLimit, agingDays),
@@ -99,16 +106,16 @@ public class AgentService {
         );
     }
 
-    public AgentDto.ReconciliationFollowupDto getReconciliationFollowup(int limit, int agingDays) {
+    public ReconciliationDtos.ReconciliationFollowupDto getReconciliationFollowup(int limit, int agingDays) {
         int safeLimit = normalizePositive(limit, DEFAULT_LIMIT, 20);
         int safeAgingDays = normalizePositive(agingDays, 15, 120);
         long now = System.currentTimeMillis();
         long startAt = now - 30L * DAY_MS;
-        AgentDto.ReconciliationFollowupDto summary = buildReconciliationFollowup(startAt, now, safeLimit, safeAgingDays);
+        ReconciliationDtos.ReconciliationFollowupDto summary = buildReconciliationFollowup(startAt, now, safeLimit, safeAgingDays);
         return summary;
     }
 
-    public AgentDto.ReportInsightDto getReportInsight(int windowDays) {
+    public ReconciliationDtos.ReportInsightDto getReportInsight(int windowDays) {
         int safeWindowDays = normalizePositive(windowDays, 7, 30);
         long now = System.currentTimeMillis();
         long currentStart = now - safeWindowDays * DAY_MS;
@@ -154,7 +161,7 @@ public class AgentService {
         if (current.totalUnpaidAmount() > 0.0) {
             actions.add("同步催收未结清客户，优先处理高金额订单。");
         }
-        return new AgentDto.ReportInsightDto(
+        return new ReconciliationDtos.ReportInsightDto(
             safeWindowDays + "天",
             current.totalSalesAmount(),
             previous.totalSalesAmount(),
@@ -169,14 +176,14 @@ public class AgentService {
         );
     }
 
-    public AgentDto.AlertDashboardDto getAlerts(int limit, int agingDays) {
+    public AlertDtos.AlertDashboardDto getAlerts(int limit, int agingDays) {
         int safeLimit = normalizePositive(limit, DEFAULT_LIMIT, 20);
         int safeAgingDays = normalizePositive(agingDays, 15, 120);
         long now = System.currentTimeMillis();
-        List<AgentDto.AlertDto> alerts = new ArrayList<>();
+        List<AlertDtos.AlertDto> alerts = new ArrayList<>();
 
         reportService.lowStockProducts(safeLimit).forEach(product ->
-            alerts.add(new AgentDto.AlertDto(
+            alerts.add(new AlertDtos.AlertDto(
                 "low-stock-" + product.productId(),
                 "low_stock",
                 product.stock() <= 0 ? "high" : "medium",
@@ -189,13 +196,13 @@ public class AgentService {
             ))
         );
 
-        saleOrderRepository.findAll().stream()
-            .filter(order -> order.getStatus() != null && order.getStatus() != SaleOrderService.STATUS_CANCELLED)
+        saleOrderRepository.findAllByOwnerUserId(currentOwnerService.requireCurrentOwnerUserId()).stream()
+            .filter(order -> order.getStatus() != null && order.getStatus() != OrderStatus.CANCELLED.code())
             .filter(order -> unpaidAmount(order) > 0.0)
             .filter(order -> ageDays(order.getCreatedAt(), now) >= safeAgingDays)
             .sorted(Comparator.comparingDouble(this::unpaidAmount).reversed())
             .limit(safeLimit)
-            .forEach(order -> alerts.add(new AgentDto.AlertDto(
+            .forEach(order -> alerts.add(new AlertDtos.AlertDto(
                 "receivable-aging-" + order.getId(),
                 "receivable_aging",
                 "medium",
@@ -207,12 +214,12 @@ public class AgentService {
                 round2(unpaidAmount(order))
             )));
 
-        payOrderRepository.findAll().stream()
-            .filter(order -> order.getStatus() != null && order.getStatus() == PayOrderService.STATUS_DRAFT)
+        payOrderRepository.findAllByOwnerUserId(currentOwnerService.requireCurrentOwnerUserId()).stream()
+            .filter(order -> order.getStatus() != null && order.getStatus() == PayOrderStatus.DRAFT.code())
             .filter(order -> ageDays(order.getCreatedAt(), now) >= safeAgingDays)
             .sorted(Comparator.comparingDouble(order -> -safeDouble(order.getAmount())))
             .limit(Math.max(1, safeLimit / 2))
-            .forEach(order -> alerts.add(new AgentDto.AlertDto(
+            .forEach(order -> alerts.add(new AlertDtos.AlertDto(
                 "payable-aging-" + order.getId(),
                 "payable_aging",
                 "medium",
@@ -224,16 +231,16 @@ public class AgentService {
                 round2(order.getAmount())
             )));
 
-        Map<Long, Long> refundCountsByOrder = paymentRepository.findAll().stream()
+        Map<Long, Long> refundCountsByOrder = paymentRepository.findAllByOwnerUserId(currentOwnerService.requireCurrentOwnerUserId()).stream()
             .filter(this::isRefundPayment)
             .collect(Collectors.groupingBy(PaymentEntity::getOrderId, Collectors.counting()));
         refundCountsByOrder.entrySet().stream()
             .filter(entry -> entry.getValue() >= 2)
             .limit(Math.max(1, safeLimit / 2))
             .forEach(entry -> {
-                SaleOrderEntity order = saleOrderRepository.findById(entry.getKey()).orElse(null);
+                SaleOrderEntity order = saleOrderRepository.findByIdAndOwnerUserId(entry.getKey(), currentOwnerService.requireCurrentOwnerUserId()).orElse(null);
                 if (order != null) {
-                    alerts.add(new AgentDto.AlertDto(
+                    alerts.add(new AlertDtos.AlertDto(
                         "refund-risk-" + order.getId(),
                         "refund_risk",
                         "high",
@@ -247,17 +254,17 @@ public class AgentService {
                 }
             });
 
-        List<AgentDto.AlertDto> deduped = alerts.stream()
+        List<AlertDtos.AlertDto> deduped = alerts.stream()
             .sorted(Comparator.comparing(this::severityRank).reversed())
             .limit(safeLimit * 2L)
             .collect(Collectors.collectingAndThen(
-                Collectors.toMap(AgentDto.AlertDto::id, alert -> alert, (left, right) -> left),
+                Collectors.toMap(AlertDtos.AlertDto::id, alert -> alert, (left, right) -> left),
                 map -> new ArrayList<>(map.values())
             ));
-        return new AgentDto.AlertDashboardDto(deduped.stream().limit(safeLimit).toList());
+        return new AlertDtos.AlertDashboardDto(deduped.stream().limit(safeLimit).toList());
     }
 
-    public AgentDto.AgentAnswerDto answerQuestion(String query) {
+    public AnswerDtos.AgentAnswerDto answerQuestion(String query) {
         String normalized = normalizeText(query);
         if (normalized.isBlank()) {
             throw new IllegalArgumentException("问题不能为空");
@@ -270,7 +277,7 @@ public class AgentService {
                 return emptyAnswer(query, "top_product_today", "今天还没有出库记录。");
             }
             var first = rows.get(0);
-            return new AgentDto.AgentAnswerDto(
+            return new AnswerDtos.AgentAnswerDto(
                 query,
                 "top_product_today",
                 String.format(Locale.ROOT, "今天出库最多的是 %s，销售额 %.2f，数量 %.2f。", first.productName(), first.totalAmount(), first.totalQuantity()),
@@ -287,7 +294,7 @@ public class AgentService {
             if (rows.isEmpty()) {
                 return emptyAnswer(query, "receivables", "当前没有待催收客户。");
             }
-            return new AgentDto.AgentAnswerDto(
+            return new AnswerDtos.AgentAnswerDto(
                 query,
                 "receivables",
                 String.format(Locale.ROOT, "待催收金额最高的是 %s，余额 %.2f。", rows.get(0).customerName(), rows.get(0).balance()),
@@ -304,7 +311,7 @@ public class AgentService {
             if (rows.isEmpty()) {
                 return emptyAnswer(query, "inventory_alerts", "近7天没有低库存商品。");
             }
-            return new AgentDto.AgentAnswerDto(
+            return new AnswerDtos.AgentAnswerDto(
                 query,
                 "inventory_alerts",
                 String.format(Locale.ROOT, "当前共有 %d 个低库存商品，最紧急的是 %s。", rows.size(), rows.get(0).productName()),
@@ -318,7 +325,7 @@ public class AgentService {
         }
         if (normalized.contains("本周销售") || normalized.contains("最近7天")) {
             var insight = getReportInsight(7);
-            return new AgentDto.AgentAnswerDto(
+            return new AnswerDtos.AgentAnswerDto(
                 query,
                 "sales_insight",
                 insight.narrative(),
@@ -337,7 +344,7 @@ public class AgentService {
             if (recon.payableSuppliers().isEmpty()) {
                 return emptyAnswer(query, "payables", "当前没有待付款供应商。");
             }
-            return new AgentDto.AgentAnswerDto(
+            return new AnswerDtos.AgentAnswerDto(
                 query,
                 "payables",
                 String.format(Locale.ROOT, "待付款最高的是 %s，金额 %.2f。", recon.payableSuppliers().get(0).name(), recon.payableSuppliers().get(0).amount()),
@@ -351,7 +358,7 @@ public class AgentService {
                 List.of("优先支付金额高且账龄长的供应商。")
             );
         }
-        return new AgentDto.AgentAnswerDto(
+        return new AnswerDtos.AgentAnswerDto(
             query,
             "unsupported",
             "我目前支持经营问答、应收应付、库存异常、本周销售和单据草稿这几类问题。",
@@ -366,7 +373,7 @@ public class AgentService {
         );
     }
 
-    public AgentDto.OperationDraftDto draftOperation(String instruction) {
+    public OperationDraftDtos.OperationDraftDto draftOperation(String instruction) {
         String normalized = normalizeText(instruction);
         if (normalized.isBlank()) {
             throw new IllegalArgumentException("指令不能为空");
@@ -411,9 +418,9 @@ public class AgentService {
         }
 
         boolean canSubmit = warnings.isEmpty() && operationType != OperationType.RETURN && product != null && quantity > 0.0;
-        List<AgentDto.OperationDraftItemDto> items = product == null || quantity <= 0.0
+        List<OperationDraftDtos.OperationDraftItemDto> items = product == null || quantity <= 0.0
             ? List.of()
-            : List.of(new AgentDto.OperationDraftItemDto(
+            : List.of(new OperationDraftDtos.OperationDraftItemDto(
                 product.getId(),
                 product.getCode(),
                 product.getName(),
@@ -438,7 +445,7 @@ public class AgentService {
             case SALE -> String.format(Locale.ROOT, "为 %s 生成出库草稿", safeString(partnerName, "未识别客户"));
             case RETURN -> "生成退货建议草稿";
         };
-        return new AgentDto.OperationDraftDto(
+        return new OperationDraftDtos.OperationDraftDto(
             operationType.apiValue,
             summary,
             partnerRole,
@@ -452,14 +459,14 @@ public class AgentService {
         );
     }
 
-    public AgentDto.OperationSubmitResultDto submitDraft(AgentDto.OperationDraftDto draft, String idempotencyKey) {
+    public OperationDraftDtos.OperationSubmitResultDto submitDraft(OperationDraftDtos.OperationDraftDto draft, String idempotencyKey) {
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             CachedSubmitResult cached = idempotencyCache.get(idempotencyKey);
             if (cached != null && (System.currentTimeMillis() - cached.timestamp) < IDEMPOTENCY_TTL_MS) {
                 return cached.result;
             }
         }
-        AgentDto.OperationSubmitResultDto result = doSubmitDraft(draft);
+        OperationDraftDtos.OperationSubmitResultDto result = doSubmitDraft(draft);
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             idempotencyCache.put(idempotencyKey, new CachedSubmitResult(result, System.currentTimeMillis()));
             evictExpiredEntries();
@@ -467,18 +474,19 @@ public class AgentService {
         return result;
     }
 
-    private AgentDto.OperationSubmitResultDto doSubmitDraft(AgentDto.OperationDraftDto draft) {
+    private OperationDraftDtos.OperationSubmitResultDto doSubmitDraft(OperationDraftDtos.OperationDraftDto draft) {
         if (draft == null || draft.items().isEmpty()) {
             throw new IllegalArgumentException("草稿不能为空");
         }
         if (!draft.canSubmit()) {
             throw new IllegalArgumentException("当前草稿还不能提交，请先补齐必要信息");
         }
-        AgentDto.OperationDraftItemDto item = draft.items().get(0);
+        OperationDraftDtos.OperationDraftItemDto item = draft.items().get(0);
         return switch (draft.operationType()) {
             case "purchase" -> {
                 PurchaseOrderService.PurchaseDetail created = purchaseOrderService.create(
                     new PurchaseOrderService.CreatePurchaseOrderCommand(
+                        draft.partnerId(),
                         draft.partnerName(),
                         List.of(new PurchaseOrderService.PurchaseItemDraft(
                             item.productId(),
@@ -488,11 +496,11 @@ public class AgentService {
                             item.unitPrice()
                         )),
                         draft.notes(),
-                        PurchaseOrderService.STATUS_RECEIVED
+                        PurchaseOrderStatus.RECEIVED.code()
                     )
                 );
                 PurchaseOrderEntity order = created.order();
-                yield new AgentDto.OperationSubmitResultDto(
+                yield new OperationDraftDtos.OperationSubmitResultDto(
                     draft.operationType(),
                     order.getId(),
                     order.getOrderNo(),
@@ -515,7 +523,7 @@ public class AgentService {
                     )
                 );
                 SaleOrderEntity order = created.order();
-                yield new AgentDto.OperationSubmitResultDto(
+                yield new OperationDraftDtos.OperationSubmitResultDto(
                     draft.operationType(),
                     order.getId(),
                     order.getOrderNo(),
@@ -527,10 +535,10 @@ public class AgentService {
         };
     }
 
-    private AgentDto.ReconciliationFollowupDto buildReconciliationFollowup(long startAt, long endAt, int limit, int agingDays) {
+    private ReconciliationDtos.ReconciliationFollowupDto buildReconciliationFollowup(long startAt, long endAt, int limit, int agingDays) {
         var summary = reportService.reconciliationSummary(startAt, endAt);
-        List<AgentDto.FollowupPartyDto> receivableCustomers = reportService.receivables(limit).stream()
-            .map(item -> new AgentDto.FollowupPartyDto(
+        List<ReconciliationDtos.FollowupPartyDto> receivableCustomers = reportService.receivables(limit).stream()
+            .map(item -> new ReconciliationDtos.FollowupPartyDto(
                 item.customerId(),
                 "customer",
                 item.customerName(),
@@ -539,11 +547,11 @@ public class AgentService {
                 "催收"
             ))
             .toList();
-        List<AgentDto.FollowupPartyDto> payableSuppliers = supplierRepository.findAll().stream()
+        List<ReconciliationDtos.FollowupPartyDto> payableSuppliers = supplierRepository.findAllByOwnerUserId(currentOwnerService.requireCurrentOwnerUserId()).stream()
             .filter(supplier -> safeDouble(supplier.getBalance()) > 0.0)
             .sorted(Comparator.comparingDouble((SupplierEntity supplier) -> safeDouble(supplier.getBalance())).reversed())
             .limit(limit)
-            .map(supplier -> new AgentDto.FollowupPartyDto(
+            .map(supplier -> new ReconciliationDtos.FollowupPartyDto(
                 supplier.getId(),
                 "supplier",
                 supplier.getName(),
@@ -552,8 +560,8 @@ public class AgentService {
                 "付款"
             ))
             .toList();
-        List<AgentDto.AgingRiskDto> agingRisks = buildAgingRisks(agingDays, limit);
-        return new AgentDto.ReconciliationFollowupDto(
+        List<ReconciliationDtos.AgingRiskDto> agingRisks = buildAgingRisks(agingDays, limit);
+        return new ReconciliationDtos.ReconciliationFollowupDto(
             round2(summary.totalReceivableAmount()),
             round2(summary.totalPayableAmount()),
             round2(summary.totalReceivedAmount()),
@@ -565,14 +573,14 @@ public class AgentService {
         );
     }
 
-    private List<AgentDto.AgingRiskDto> buildAgingRisks(int agingDays, int limit) {
+    private List<ReconciliationDtos.AgingRiskDto> buildAgingRisks(int agingDays, int limit) {
         long now = System.currentTimeMillis();
-        List<AgentDto.AgingRiskDto> rows = new ArrayList<>();
-        saleOrderRepository.findAll().stream()
-            .filter(order -> order.getStatus() == null || order.getStatus() != SaleOrderService.STATUS_CANCELLED)
+        List<ReconciliationDtos.AgingRiskDto> rows = new ArrayList<>();
+        saleOrderRepository.findAllByOwnerUserId(currentOwnerService.requireCurrentOwnerUserId()).stream()
+            .filter(order -> order.getStatus() == null || order.getStatus() != OrderStatus.CANCELLED.code())
             .filter(order -> unpaidAmount(order) > 0.0)
             .filter(order -> ageDays(order.getCreatedAt(), now) >= agingDays)
-            .forEach(order -> rows.add(new AgentDto.AgingRiskDto(
+            .forEach(order -> rows.add(new ReconciliationDtos.AgingRiskDto(
                 "customer",
                 order.getCustomerId(),
                 safeString(order.getCustomerName(), "散客"),
@@ -583,10 +591,10 @@ public class AgentService {
                 "销售单长时间未回款",
                 "联系客户确认回款节点"
             )));
-        payOrderRepository.findAll().stream()
-            .filter(order -> order.getStatus() != null && order.getStatus() == PayOrderService.STATUS_DRAFT)
+        payOrderRepository.findAllByOwnerUserId(currentOwnerService.requireCurrentOwnerUserId()).stream()
+            .filter(order -> order.getStatus() != null && order.getStatus() == PayOrderStatus.DRAFT.code())
             .filter(order -> ageDays(order.getCreatedAt(), now) >= agingDays)
-            .forEach(order -> rows.add(new AgentDto.AgingRiskDto(
+            .forEach(order -> rows.add(new ReconciliationDtos.AgingRiskDto(
                 "supplier",
                 order.getSupplierId(),
                 safeString(order.getSupplierName(), "供应商"),
@@ -598,13 +606,13 @@ public class AgentService {
                 "核对对账单并安排付款"
             )));
         return rows.stream()
-            .sorted(Comparator.comparingDouble(AgentDto.AgingRiskDto::amount).reversed())
+            .sorted(Comparator.comparingDouble(ReconciliationDtos.AgingRiskDto::amount).reversed())
             .limit(limit)
             .toList();
     }
 
     private ProductEntity resolveProduct(String normalizedInstruction) {
-        List<ProductEntity> products = productRepository.findAll();
+        List<ProductEntity> products = productRepository.findAllByOwnerUserId(currentOwnerService.requireCurrentOwnerUserId());
         List<ProductEntity> matches = products.stream()
             .filter(product -> containsIgnoreCase(normalizedInstruction, product.getCode()) || containsIgnoreCase(normalizedInstruction, product.getName()))
             .sorted(Comparator.comparingInt((ProductEntity product) -> matchScore(normalizedInstruction, product)).reversed())
@@ -625,12 +633,12 @@ public class AgentService {
     private CustomerEntity resolveCustomer(String normalizedInstruction) {
         String guessedName = guessCustomerName(normalizedInstruction);
         if (!guessedName.isBlank()) {
-            return customerRepository.findAll().stream()
+            return customerRepository.findAllByOwnerUserId(currentOwnerService.requireCurrentOwnerUserId()).stream()
                 .filter(customer -> containsIgnoreCase(customer.getName(), guessedName) || containsIgnoreCase(guessedName, customer.getName()))
                 .findFirst()
                 .orElse(null);
         }
-        return customerRepository.findAll().stream()
+        return customerRepository.findAllByOwnerUserId(currentOwnerService.requireCurrentOwnerUserId()).stream()
             .filter(customer -> containsIgnoreCase(normalizedInstruction, customer.getName()))
             .findFirst()
             .orElse(null);
@@ -639,12 +647,12 @@ public class AgentService {
     private SupplierEntity resolveSupplier(String normalizedInstruction) {
         String guessedName = guessSupplierName(normalizedInstruction);
         if (!guessedName.isBlank()) {
-            return supplierRepository.findAll().stream()
+            return supplierRepository.findAllByOwnerUserId(currentOwnerService.requireCurrentOwnerUserId()).stream()
                 .filter(supplier -> containsIgnoreCase(supplier.getName(), guessedName) || containsIgnoreCase(guessedName, supplier.getName()))
                 .findFirst()
                 .orElse(null);
         }
-        return supplierRepository.findAll().stream()
+        return supplierRepository.findAllByOwnerUserId(currentOwnerService.requireCurrentOwnerUserId()).stream()
             .filter(supplier -> containsIgnoreCase(normalizedInstruction, supplier.getName()))
             .findFirst()
             .orElse(null);
@@ -720,8 +728,8 @@ public class AgentService {
             .trim();
     }
 
-    private AgentDto.AgentAnswerDto emptyAnswer(String query, String intent, String answer) {
-        return new AgentDto.AgentAnswerDto(query, intent, answer, List.of(), List.of(), List.of(), List.of());
+    private AnswerDtos.AgentAnswerDto emptyAnswer(String query, String intent, String answer) {
+        return new AnswerDtos.AgentAnswerDto(query, intent, answer, List.of(), List.of(), List.of(), List.of());
     }
 
     private double unpaidAmount(SaleOrderEntity order) {
@@ -746,11 +754,11 @@ public class AgentService {
     }
 
     private boolean isRefundPayment(PaymentEntity payment) {
-        return (payment.getType() != null && payment.getType() == SaleOrderService.PAYMENT_TYPE_REFUND)
+        return (payment.getType() != null && payment.getType() == PaymentType.REFUND.code())
             || safeDouble(payment.getAmount()) < 0.0;
     }
 
-    private int severityRank(AgentDto.AlertDto alert) {
+    private int severityRank(AlertDtos.AlertDto alert) {
         return switch (alert.severity()) {
             case "high" -> 3;
             case "medium" -> 2;
@@ -838,7 +846,7 @@ public class AgentService {
         }
     }
 
-    private record CachedSubmitResult(AgentDto.OperationSubmitResultDto result, long timestamp) {}
+    private record CachedSubmitResult(OperationDraftDtos.OperationSubmitResultDto result, long timestamp) {}
 
     private void evictExpiredEntries() {
         long now = System.currentTimeMillis();

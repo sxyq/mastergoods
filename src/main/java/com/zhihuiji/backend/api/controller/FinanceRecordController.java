@@ -2,6 +2,7 @@ package com.zhihuiji.backend.api.controller;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.common.ParseUtils;
+import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.api.dto.FinanceRecordDto;
 import com.zhihuiji.backend.application.service.FinanceRecordService;
 import com.zhihuiji.backend.domain.entity.FinanceRecordEntity;
@@ -28,11 +29,13 @@ public class FinanceRecordController {
         @RequestParam(value = "keyword", required = false) String keyword,
         @RequestParam(value = "type", required = false) Integer type,
         @RequestParam(value = "created_after", required = false) String createdAfter,
-        @RequestParam(value = "created_before", required = false) String createdBefore
+        @RequestParam(value = "created_before", required = false) String createdBefore,
+        @RequestParam(value = "page", required = false) Integer page,
+        @RequestParam(value = "size", required = false) Integer size
     ) {
-        List<FinanceRecordDto> payload = financeRecordService
+        List<FinanceRecordDto> payload = PaginationUtils.slice(financeRecordService
             .list(keyword, type, ParseUtils.parseLong(createdAfter), ParseUtils.parseLong(createdBefore))
-            .stream()
+            , page, size).stream()
             .map(this::toDto)
             .toList();
         return ApiResponse.success(payload);

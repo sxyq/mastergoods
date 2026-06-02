@@ -1,5 +1,6 @@
 package com.zhihuiji.backend.domain.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -14,17 +15,32 @@ public class SupplierEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "owner_user_id", nullable = false)
+    private Long ownerUserId;
+
     @Column(nullable = false, length = 128)
     private String name;
 
     @Column(nullable = false, length = 32)
     private String phone;
 
+    @JsonIgnore
+    @Column(name = "group_id")
+    private Long groupId;
+
     @Column(length = 255)
     private String address;
 
     @Column(length = 255)
     private String notes;
+
+    @JsonIgnore
+    @Column(name = "contact_name", length = 128)
+    private String contactName;
+
+    @JsonIgnore
+    @Column(name = "contact_phone", length = 32)
+    private String contactPhone;
 
     @Column(nullable = false)
     private Double balance;
@@ -48,6 +64,18 @@ public class SupplierEntity {
         return id;
     }
 
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getOwnerUserId() {
+        return ownerUserId;
+    }
+
+    public void setOwnerUserId(Long ownerUserId) {
+        this.ownerUserId = ownerUserId;
+    }
+
     public String getName() {
         return name;
     }
@@ -64,6 +92,14 @@ public class SupplierEntity {
         this.phone = phone;
     }
 
+    public Long getGroupId() {
+        return groupId;
+    }
+
+    public void setGroupId(Long groupId) {
+        this.groupId = groupId;
+    }
+
     public String getAddress() {
         return address;
     }
@@ -78,6 +114,22 @@ public class SupplierEntity {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    public String getContactName() {
+        return contactName;
+    }
+
+    public void setContactName(String contactName) {
+        this.contactName = contactName;
+    }
+
+    public String getContactPhone() {
+        return contactPhone;
+    }
+
+    public void setContactPhone(String contactPhone) {
+        this.contactPhone = contactPhone;
     }
 
     public Double getBalance() {

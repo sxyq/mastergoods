@@ -24,37 +24,40 @@ class ProductServiceTest {
     private ProductRepository productRepository;
     @Mock
     private InventoryAdjustmentRepository inventoryAdjustmentRepository;
+    @Mock
+    private CurrentOwnerService currentOwnerService;
 
     private ProductService productService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        productService = new ProductService(productRepository, inventoryAdjustmentRepository);
+        productService = new ProductService(productRepository, inventoryAdjustmentRepository, currentOwnerService);
+        when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
     }
 
     @Test
     void listUsesAllProductsWhenKeywordBlankAndSearchWhenPresent() {
         ProductEntity product = product("P1", 10.0);
-        when(productRepository.findAll()).thenReturn(List.of(product));
-        when(productRepository.findByNameContainingIgnoreCaseOrCodeContainingIgnoreCase("P1", "P1"))
+        when(productRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(product));
+        when(productRepository.findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndCodeContainingIgnoreCase(1L, "P1", 1L, "P1"))
             .thenReturn(List.of(product));
 
         assertEquals(1, productService.list(" ").size());
         assertEquals(1, productService.list("P1").size());
 
-        verify(productRepository).findAll();
-        verify(productRepository).findByNameContainingIgnoreCaseOrCodeContainingIgnoreCase("P1", "P1");
+        verify(productRepository).findAllByOwnerUserId(1L);
+        verify(productRepository).findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndCodeContainingIgnoreCase(1L, "P1", 1L, "P1");
     }
 
     @Test
     void createRejectsDuplicateCodeAndInitializesSyncFields() {
         ProductEntity existing = product("P1", 10.0);
-        when(productRepository.findByCode("P1")).thenReturn(Optional.of(existing));
+        when(productRepository.findByOwnerUserIdAndCode(1L, "P1")).thenReturn(Optional.of(existing));
 
         assertThrows(IllegalArgumentException.class, () -> productService.create(product("P1", 10.0)));
 
-        when(productRepository.findByCode("P2")).thenReturn(Optional.empty());
+        when(productRepository.findByOwnerUserIdAndCode(1L, "P2")).thenReturn(Optional.empty());
         when(productRepository.save(any(ProductEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ProductEntity created = productService.create(product("P2", 5.0));
@@ -74,7 +77,7 @@ class ProductServiceTest {
         payload.setCategory("新分类");
         payload.setUnit("箱");
         payload.setStatus(0);
-        when(productRepository.findById(1L)).thenReturn(Optional.of(target));
+        when(productRepository.findByIdAndOwnerUserId(1L, 1L)).thenReturn(Optional.of(target));
         when(productRepository.save(any(ProductEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ProductEntity updated = productService.update(1L, payload);
@@ -93,7 +96,7 @@ class ProductServiceTest {
         ProductEntity target = product("P1", 10.0);
         target.setStock(10.0);
         target.setSyncVersion(1L);
-        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(target));
+        when(productRepository.findByIdForUpdate(1L, 1L)).thenReturn(Optional.of(target));
         when(productRepository.save(any(ProductEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(inventoryAdjustmentRepository.save(any(InventoryAdjustmentEntity.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
@@ -109,6 +112,7 @@ class ProductServiceTest {
         assertEquals(1, captor.getAllValues().get(0).getFlowType());
         assertEquals(0, captor.getAllValues().get(1).getFlowType());
         assertEquals("admin", captor.getAllValues().get(0).getOperatorName());
+        assertEquals(1L, captor.getAllValues().get(0).getOwnerUserId());
 
         assertThrows(IllegalArgumentException.class, () -> productService.adjustStock(1L, 0.0, "无效", "admin"));
         assertThrows(IllegalArgumentException.class, () -> productService.adjustStock(1L, -100.0, "超扣", "admin"));
@@ -116,8 +120,8 @@ class ProductServiceTest {
 
     @Test
     void getAndFindByCodeHandleMissingValues() {
-        when(productRepository.findById(404L)).thenReturn(Optional.empty());
-        when(productRepository.findByCode("P1")).thenReturn(Optional.of(product("P1", 10.0)));
+        when(productRepository.findByIdAndOwnerUserId(404L, 1L)).thenReturn(Optional.empty());
+        when(productRepository.findByOwnerUserIdAndCode(1L, "P1")).thenReturn(Optional.of(product("P1", 10.0)));
 
         assertThrows(IllegalArgumentException.class, () -> productService.get(404L));
         assertEquals(null, productService.findByCode(null));
@@ -137,6 +141,7 @@ class ProductServiceTest {
         entity.setStock(10.0);
         entity.setSafeStock(2.0);
         entity.setStatus(1);
+        entity.setOwnerUserId(1L);
         entity.setSyncStatus(0);
         entity.setSyncVersion(1L);
         entity.setCreatedAt(1L);

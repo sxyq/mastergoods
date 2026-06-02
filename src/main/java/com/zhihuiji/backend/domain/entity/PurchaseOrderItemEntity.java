@@ -11,6 +11,9 @@ public class PurchaseOrderItemEntity {
     @Id
     private Long id;
 
+    @Column(name = "owner_user_id", nullable = false)
+    private Long ownerUserId;
+
     @Column(name = "order_id", nullable = false)
     private Long orderId;
 
@@ -41,6 +44,14 @@ public class PurchaseOrderItemEntity {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Long getOwnerUserId() {
+        return ownerUserId;
+    }
+
+    public void setOwnerUserId(Long ownerUserId) {
+        this.ownerUserId = ownerUserId;
     }
 
     public Long getOrderId() {
@@ -107,4 +118,3 @@ public class PurchaseOrderItemEntity {
         this.createdAt = createdAt;
     }
 }
-

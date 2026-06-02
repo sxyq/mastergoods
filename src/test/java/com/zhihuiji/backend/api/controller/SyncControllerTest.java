@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhihuiji.backend.application.service.SessionAccessService;
 import com.zhihuiji.backend.application.service.SyncService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,8 @@ class SyncControllerTest {
 
     @MockBean
     private SyncService syncService;
+    @MockBean
+    private SessionAccessService sessionAccessService;
 
     @Test
     void healthReturnsSuccess() throws Exception {

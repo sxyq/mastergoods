@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.api.controller;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
+import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.application.service.AdminService;
 import com.zhihuiji.backend.application.service.DemoDataService;
 import java.util.List;
@@ -32,9 +33,11 @@ public class AdminController {
 
     @GetMapping("/users")
     public ApiResponse<List<AdminService.UserItem>> users(
-        @RequestParam(value = "keyword", required = false) String keyword
+        @RequestParam(value = "keyword", required = false) String keyword,
+        @RequestParam(value = "page", required = false) Integer page,
+        @RequestParam(value = "size", required = false) Integer size
     ) {
-        return ApiResponse.success(adminService.listUsers(keyword));
+        return ApiResponse.success(PaginationUtils.slice(adminService.listUsers(keyword), page, size));
     }
 
     @PostMapping("/users")

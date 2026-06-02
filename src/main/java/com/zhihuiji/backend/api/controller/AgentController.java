@@ -3,9 +3,11 @@ package com.zhihuiji.backend.api.controller;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.zhihuiji.backend.api.common.ApiResponse;
-import com.zhihuiji.backend.api.dto.agent.AgentDto;
+import com.zhihuiji.backend.api.dto.agent.*;
 import com.zhihuiji.backend.application.service.LlmDrivenAgentService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,7 +25,7 @@ public class AgentController {
     }
 
     @GetMapping("/workbench")
-    public ApiResponse<AgentDto.AgentWorkbenchDto> workbench(
+    public ApiResponse<WorkbenchDtos.AgentWorkbenchDto> workbench(
         @RequestParam(value = "window_days", defaultValue = "7") int windowDays,
         @RequestParam(value = "limit", defaultValue = "6") int limit,
         @RequestParam(value = "aging_days", defaultValue = "15") int agingDays
@@ -35,7 +37,7 @@ public class AgentController {
     }
 
     @GetMapping("/reconciliation-followup")
-    public ApiResponse<AgentDto.ReconciliationFollowupDto> reconciliationFollowup(
+    public ApiResponse<ReconciliationDtos.ReconciliationFollowupDto> reconciliationFollowup(
         @RequestParam(value = "limit", defaultValue = "6") int limit,
         @RequestParam(value = "aging_days", defaultValue = "15") int agingDays
     ) {
@@ -45,7 +47,7 @@ public class AgentController {
     }
 
     @GetMapping("/report-insight")
-    public ApiResponse<AgentDto.ReportInsightDto> reportInsight(
+    public ApiResponse<ReconciliationDtos.ReportInsightDto> reportInsight(
         @RequestParam(value = "window_days", defaultValue = "7") int windowDays
     ) {
         if (windowDays < 1 || windowDays > 365) windowDays = 7;
@@ -53,7 +55,7 @@ public class AgentController {
     }
 
     @GetMapping("/alerts")
-    public ApiResponse<AgentDto.AlertDashboardDto> alerts(
+    public ApiResponse<AlertDtos.AlertDashboardDto> alerts(
         @RequestParam(value = "limit", defaultValue = "6") int limit,
         @RequestParam(value = "aging_days", defaultValue = "15") int agingDays
     ) {
@@ -63,26 +65,26 @@ public class AgentController {
     }
 
     @PostMapping("/query")
-    public ApiResponse<AgentDto.AgentAnswerDto> query(@Valid @RequestBody QueryRequest request) {
+    public ApiResponse<AnswerDtos.AgentAnswerDto> query(@Valid @RequestBody QueryRequest request) {
         return ApiResponse.success(agentService.answerQuestion(request.query()));
     }
 
     @PostMapping("/operation-draft")
-    public ApiResponse<AgentDto.OperationDraftDto> operationDraft(@RequestBody DraftRequest request) {
+    public ApiResponse<OperationDraftDtos.OperationDraftDto> operationDraft(@Valid @RequestBody DraftRequest request) {
         return ApiResponse.success(agentService.draftOperation(request.instruction()));
     }
 
     @PostMapping("/operation-submit")
-    public ApiResponse<AgentDto.OperationSubmitResultDto> operationSubmit(@Valid @RequestBody SubmitRequest request) {
+    public ApiResponse<OperationDraftDtos.OperationSubmitResultDto> operationSubmit(@Valid @RequestBody SubmitRequest request) {
         return ApiResponse.success(agentService.submitDraft(request.draft(), request.idempotencyKey()));
     }
 
     @JsonNaming(PropertyNamingStrategies.LowerCamelCaseStrategy.class)
-    public record QueryRequest(String query) {}
+    public record QueryRequest(@NotBlank String query) {}
 
     @JsonNaming(PropertyNamingStrategies.LowerCamelCaseStrategy.class)
-    public record DraftRequest(String instruction) {}
+    public record DraftRequest(@NotBlank String instruction) {}
 
     @JsonNaming(PropertyNamingStrategies.LowerCamelCaseStrategy.class)
-    public record SubmitRequest(AgentDto.OperationDraftDto draft, String idempotencyKey) {}
+    public record SubmitRequest(@NotNull OperationDraftDtos.OperationDraftDto draft, @NotBlank String idempotencyKey) {}
 }
