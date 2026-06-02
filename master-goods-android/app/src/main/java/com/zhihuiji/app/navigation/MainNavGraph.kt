@@ -1,5 +1,6 @@
 package com.zhihuiji.app.navigation
 
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -7,7 +8,11 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.zhihuiji.feature.agent.AgentChatScreen
+import com.zhihuiji.feature.agent.AgentTaskScreen
 import com.zhihuiji.feature.dashboard.DashboardScreen
+import com.zhihuiji.feature.agent.NotificationScreen
+import com.zhihuiji.feature.agent.OperationDraftScreen
 import com.zhihuiji.feature.reports.ReportScreen
 import com.zhihuiji.feature.agent.AgentWorkbenchScreen
 
@@ -23,6 +28,10 @@ object SubRoutes {
     const val PURCHASE_ORDER_DETAIL = "purchase_order_detail"
     const val PAY_ORDER_EDITOR = "pay_order_editor"
     const val PAY_ORDER_DETAIL = "pay_order_detail"
+    const val AGENT_CHAT = "agent_chat"
+    const val AGENT_DRAFTS = "agent_drafts"
+    const val AGENT_TASKS = "agent_tasks"
+    const val AGENT_NOTIFICATIONS = "agent_notifications"
 }
 
 internal fun toNullableId(rawId: Long): Long? = if (rawId > 0) rawId else null
@@ -120,7 +129,53 @@ fun MainNavGraph(
             ReportScreen(onNavigateBack = {}, showTopBar = false, reselectSignal = reselectSignal(TopLevelRoutes.REPORTS))
         }
         composable(TopLevelRoutes.AGENT) {
-            AgentWorkbenchScreen(onNavigateBack = {}, showTopBar = false, reselectSignal = reselectSignal(TopLevelRoutes.AGENT))
+            AgentWorkbenchScreen(
+                onNavigateBack = {},
+                showTopBar = false,
+                reselectSignal = reselectSignal(TopLevelRoutes.AGENT),
+                onNavigateToChat = { question ->
+                    val route = if (question.isNullOrBlank()) {
+                        SubRoutes.AGENT_CHAT
+                    } else {
+                        "${SubRoutes.AGENT_CHAT}?question=${Uri.encode(question)}"
+                    }
+                    navController.navigate(route) { launchSingleTop = true }
+                },
+                onNavigateToDrafts = {
+                    navController.navigate(SubRoutes.AGENT_DRAFTS) { launchSingleTop = true }
+                },
+                onNavigateToTasks = { initialTab ->
+                    navController.navigate("${SubRoutes.AGENT_TASKS}?initialTab=$initialTab") { launchSingleTop = true }
+                },
+            )
+        }
+        composable(
+            route = "${SubRoutes.AGENT_CHAT}?question={question}",
+            arguments = listOf(navArgument("question") {
+                type = NavType.StringType
+                defaultValue = ""
+                nullable = false
+            }),
+        ) { backStackEntry ->
+            AgentChatScreen(
+                onNavigateBack = ::navigateBack,
+                initialQuestion = backStackEntry.arguments?.getString("question")?.ifBlank { null },
+            )
+        }
+        composable(SubRoutes.AGENT_DRAFTS) {
+            OperationDraftScreen(onNavigateBack = ::navigateBack)
+        }
+        composable(
+            route = "${SubRoutes.AGENT_TASKS}?initialTab={initialTab}",
+            arguments = listOf(navArgument("initialTab") { type = NavType.IntType; defaultValue = 0 }),
+        ) { backStackEntry ->
+            AgentTaskScreen(
+                onNavigateBack = ::navigateBack,
+                initialTab = backStackEntry.arguments?.getInt("initialTab") ?: 0,
+            )
+        }
+        composable(SubRoutes.AGENT_NOTIFICATIONS) {
+            NotificationScreen(onNavigateBack = ::navigateBack)
         }
 
         productEditorRoute(::navigateBack)

@@ -1,93 +1,31 @@
-# Android Data 层 - Agent 子模块详尽代码分析
+# Android data/agent 模块分析
 
-> 自动生成于 2026-05-28，覆盖 agent 子模块全部 1 个 Kotlin 源文件
+- 对应源码目录：`master-goods-android/data/agent`
+- 关键源码：`AgentRepository.kt`
 
----
+## 模块定位
 
-## 1. AgentRepository
+`data/agent` 是 AI 助手的数据入口。  
+新版里，它会从首版聚合接口调用，逐步演变成：
 
-- **文件路径**: `data/agent/src/main/java/com/zhihuiji/data/agent/AgentRepository.kt`
-- **父类/接口**: 无
-- **注解**: `@Singleton`
-- **职责**: AI 助手相关功能，包括工作台数据获取、自然语言查询、操作草稿生成与提交、任务管理和通知管理
-- **设计模式**: Repository 模式 + 单例模式（通过 Hilt `@Singleton`）
+- owner 私有 AI 上下文获取
+- 会话/消息获取与提交
+- 草稿结果缓存
+- 任务与通知读取
 
-### 类属性
+## 状态图例
 
-##### api: ZhihuijiApi
-- 作用域：类私有（constructor 注入）
-- 初始值：由 Hilt 注入
-- 使用场景：调用 AI 助手相关 API
-- 建议：无
+- `新版已做`
+- `新版待做`
+- `旧版存在新版未做`
+- `新版需要去掉`
+- `需重构`
+- `待验证`
 
-### 函数/方法
+## 状态表
 
-##### getWorkbench(windowDays: Int = 7, limit: Int = 6, agingDays: Int = 15): Result<AgentWorkbenchDto>
-- 参数：`windowDays: Int = 7` - 时间窗口天数；`limit: Int = 6` - 返回条数限制；`agingDays: Int = 15` - 账龄天数
-- 返回值：`Result<AgentWorkbenchDto>` - 工作台数据
-- 实现逻辑：委托给 `safeApiCall { api.agentWorkbench(windowDays, limit, agingDays) }`
-- 调用关系：调用了 `safeApiCall()`、`api.agentWorkbench()`，被 `DashboardViewModel.loadDashboard()`、`AgentViewModel.loadWorkbench()` 调用
-- 建议：无
-
-##### query(question: String): Result<AgentAnswerDto>
-- 参数：`question: String` - 用户提问
-- 返回值：`Result<AgentAnswerDto>` - AI 回答
-- 实现逻辑：委托给 `safeApiCall { api.agentQuery(AgentQueryRequest(question)) }`
-- 调用关系：调用了 `safeApiCall()`、`api.agentQuery()`，被 `AgentViewModel.ask()` 调用
-- 建议：无
-
-##### generateOperationDraft(instruction: String): Result<OperationDraftDto>
-- 参数：`instruction: String` - 操作指令
-- 返回值：`Result<OperationDraftDto>` - 操作草稿
-- 实现逻辑：委托给 `safeApiCall { api.operationDraft(OperationDraftRequest(instruction)) }`
-- 调用关系：调用了 `safeApiCall()`、`api.operationDraft()`
-- 建议：当前未被任何 ViewModel 调用，UI 层的快捷操作按钮尚未接入此功能
-
-##### submitOperationDraft(draft: OperationDraftDto): Result<OperationSubmitResultDto>
-- 参数：`draft: OperationDraftDto` - 操作草稿
-- 返回值：`Result<OperationSubmitResultDto>` - 提交结果
-- 实现逻辑：委托给 `safeApiCall { api.operationSubmit(OperationSubmitRequest(draft)) }`
-- 调用关系：调用了 `safeApiCall()`、`api.operationSubmit()`
-- 建议：当前未被任何 ViewModel 调用
-
-##### createTask(request: CreateAgentTaskRequest): Result<AgentTaskDto>
-- 参数：`request: CreateAgentTaskRequest` - 创建任务请求
-- 返回值：`Result<AgentTaskDto>` - 创建的任务
-- 实现逻辑：委托给 `safeApiCall { api.createAgentTask(request) }`
-- 调用关系：调用了 `safeApiCall()`、`api.createAgentTask()`
-- 建议：当前未被任何 ViewModel 调用
-
-##### listTasks(): Result<List<AgentTaskSummaryDto>>
-- 参数：无
-- 返回值：`Result<List<AgentTaskSummaryDto>>` - 任务列表
-- 实现逻辑：委托给 `safeApiCall { api.agentTasks() }`
-- 调用关系：调用了 `safeApiCall()`、`api.agentTasks()`，被 `AgentViewModel.loadTasks()` 调用
-- 建议：无
-
-##### getTask(taskId: Long): Result<AgentTaskDto>
-- 参数：`taskId: Long` - 任务 ID
-- 返回值：`Result<AgentTaskDto>` - 任务详情
-- 实现逻辑：委托给 `safeApiCall { api.agentTask(taskId) }`
-- 调用关系：调用了 `safeApiCall()`、`api.agentTask()`
-- 建议：当前未被任何 ViewModel 调用
-
-##### listNotifications(unreadOnly: Boolean = false, undeliveredOnly: Boolean = false): Result<List<AgentNotificationDto>>
-- 参数：`unreadOnly: Boolean = false` - 仅未读；`undeliveredOnly: Boolean = false` - 仅未送达
-- 返回值：`Result<List<AgentNotificationDto>>` - 通知列表
-- 实现逻辑：委托给 `safeApiCall { api.notifications(unreadOnly, undeliveredOnly) }`
-- 调用关系：调用了 `safeApiCall()`、`api.notifications()`，被 `AgentViewModel.loadNotifications()` 调用
-- 建议：无
-
-##### markNotificationRead(id: Long): Result<Unit>
-- 参数：`id: Long` - 通知 ID
-- 返回值：`Result<Unit>` - 操作结果
-- 实现逻辑：委托给 `safeApiCall { api.markNotificationRead(id) }`
-- 调用关系：调用了 `safeApiCall()`、`api.markNotificationRead()`
-- 建议：当前未被任何 ViewModel 调用
-
-##### markNotificationDelivered(id: Long): Result<Unit>
-- 参数：`id: Long` - 通知 ID
-- 返回值：`Result<Unit>` - 操作结果
-- 实现逻辑：委托给 `safeApiCall { api.markNotificationDelivered(id) }`
-- 调用关系：调用了 `safeApiCall()`、`api.markNotificationDelivered()`
-- 建议：当前未被任何 ViewModel 调用
+| 对象 | 状态 | 旧版情况 | 新版目标 | 当前实现 | 备注 |
+|---|---|---|---|---|---|
+| AI 工作台/问答/任务仓储 | 新版已做 | 旧版无这类 AI 数据层 | 承载助手域接口调用 | 当前 `AgentRepository.kt` 已存在 | 是我们相对旧版的优势域 |
+| 对话/草稿缓存与 `/v2` 契约 | 新版待做 | 旧版无对应域 | 扩展 conversation/message/draft 数据结构 | 当前仍偏首版接口聚合 | 先以后端 spec 为准 |
+| owner 私有 AI 上下文 | 新版待做 | 旧版无对应域 | AI 结果只面向当前 owner 数据域 | 当前还未显式体现 | 需与 auth/sync 联动 |
