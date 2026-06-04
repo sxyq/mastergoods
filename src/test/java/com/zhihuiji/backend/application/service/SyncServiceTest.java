@@ -3,9 +3,11 @@ package com.zhihuiji.backend.application.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.zhihuiji.backend.domain.entity.CustomerEntity;
 import com.zhihuiji.backend.domain.entity.PayOrderEntity;
 import com.zhihuiji.backend.domain.entity.ProductEntity;
@@ -113,6 +115,45 @@ class SyncServiceTest {
         assertEquals("200", result.nextCursor());
         assertEquals("customer", result.changes().get(0).entityType());
         assertEquals("supplier", result.changes().get(1).entityType());
+    }
+
+    @Test
+    void pullIncludesPayOrderAccountIdInPayload() throws Exception {
+        when(customerRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
+        when(supplierRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
+        when(productRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
+        when(saleOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
+        when(purchaseOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
+        when(payOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(payOrder(6L, 600L)));
+
+        SyncService.PullResult result = syncService.pull("0", 10);
+
+        JsonNode payload = new ObjectMapper().readTree(result.changes().get(0).payload());
+        assertEquals(8L, payload.get("account_id").asLong());
+    }
+
+    @Test
+    void uploadAppliesPayOrderAccountIdFromPayload() {
+        PayOrderEntity existing = payOrder(6L, 100L);
+        existing.setAccountId(null);
+        when(payOrderRepository.findByIdAndOwnerUserId(6L, 1L)).thenReturn(Optional.of(existing));
+        when(payOrderRepository.save(any(PayOrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(syncCursorRepository.findByOwnerUserIdAndClientId(1L, "device-a")).thenReturn(Optional.empty());
+        when(syncCursorRepository.save(any(SyncCursorEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        syncService.upload(
+            "device-a",
+            List.of(new SyncService.SyncChange(
+                "pay_order",
+                "6",
+                "upsert",
+                "{\"order_no\":\"PAY-6\",\"supplier_id\":2,\"supplier_name\":\"供应商6\",\"amount\":10.0,\"method\":1,\"account_id\":8,\"status\":1,\"created_at\":100,\"updated_at\":100}",
+                100L
+            )),
+            "0"
+        );
+
+        assertEquals(8L, existing.getAccountId());
     }
 
     @Test
@@ -236,6 +277,7 @@ class SyncServiceTest {
         entity.setSupplierName("供应商" + id);
         entity.setAmount(10.0);
         entity.setMethod(1);
+        entity.setAccountId(8L);
         entity.setStatus(1);
         entity.setCreatedAt(updatedAt);
         entity.setUpdatedAt(updatedAt);

@@ -69,6 +69,12 @@ public final class V2SaleOrderDtos {
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record UpdateDraftRequest(
         Double discountAmount,
+        String notes,
+        List<CreateItemRequest> items
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record ConfirmRequest(
         String notes
     ) {}
 

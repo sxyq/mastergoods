@@ -3,10 +3,10 @@ package com.zhihuiji.core.designsystem
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
-import androidx.compose.foundation.gestures.horizontalDrag
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -31,16 +31,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.material3.minimumInteractiveComponentSize
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -106,6 +104,7 @@ fun <T> LiquidSegmentedControl(
                 .height(height),
         ) {
             val itemWidth = maxWidth / items.size
+            val itemWidthPx = with(density) { itemWidth.toPx() }
             val indicatorHorizontalInset = if (style == LiquidSegmentedStyle.BottomBar) 5.dp else 0.dp
             val indicatorWidth = itemWidth - indicatorHorizontalInset * 2
             val indicatorPosition = if (style == LiquidSegmentedStyle.BottomBar) {
@@ -117,6 +116,25 @@ fun <T> LiquidSegmentedControl(
                 dragState.pressProgress.coerceIn(0f, 1f)
             } else {
                 0f
+            }
+            val dragModifier = if (style == LiquidSegmentedStyle.BottomBar) {
+                Modifier.draggable(
+                    orientation = Orientation.Horizontal,
+                    state = rememberDraggableState { delta ->
+                        dragState.onDrag(delta, itemWidthPx)
+                    },
+                    startDragImmediately = false,
+                    onDragStarted = {
+                        dragState.setPressed(true)
+                    },
+                    onDragStopped = { velocity ->
+                        dragState.onDragEnd(velocity, itemWidthPx) { index ->
+                            onItemSelected(items[index].key)
+                        }
+                    },
+                )
+            } else {
+                Modifier
             }
 
             LiquidGlassSurface(
@@ -146,41 +164,7 @@ fun <T> LiquidSegmentedControl(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .then(
-                        if (style == LiquidSegmentedStyle.BottomBar) {
-                            Modifier.pointerInput(items, selectedIndex) {
-                                awaitEachGesture {
-                                    val tracker = VelocityTracker()
-                                    val down = awaitFirstDown(requireUnconsumed = false)
-                                    dragState.setPressed(true)
-                                    tracker.addPosition(down.uptimeMillis, down.position)
-                                    val change = awaitHorizontalTouchSlopOrCancellation(down.id) { pointerInputChange, over ->
-                                        pointerInputChange.consume()
-                                        dragState.onDrag(over, with(density) { itemWidth.toPx() })
-                                        tracker.addPosition(pointerInputChange.uptimeMillis, pointerInputChange.position)
-                                    }
-                                    if (change != null) {
-                                        horizontalDrag(change.id) { pointerInputChange ->
-                                            val delta = pointerInputChange.positionChange().x
-                                            if (delta != 0f) {
-                                                dragState.onDrag(delta, with(density) { itemWidth.toPx() })
-                                            }
-                                            tracker.addPosition(pointerInputChange.uptimeMillis, pointerInputChange.position)
-                                            pointerInputChange.consume()
-                                        }
-                                        val velocity = tracker.calculateVelocity().x
-                                        dragState.onDragEnd(velocity, with(density) { itemWidth.toPx() }) { index ->
-                                            onItemSelected(items[index].key)
-                                        }
-                                    } else {
-                                        dragState.setPressed(false)
-                                    }
-                                }
-                            }
-                        } else {
-                            Modifier
-                        }
-                    ),
+                    .then(dragModifier),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -238,6 +222,7 @@ private fun <T> LiquidSegmentedItemCell(
     style: LiquidSegmentedStyle,
     onClick: () -> Unit,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
     val iconScale = animateFloatAsState(
         targetValue = 0.94f + 0.06f * emphasis.coerceIn(0f, 1f),
         animationSpec = tween(durationMillis = 220),
@@ -258,9 +243,14 @@ private fun <T> LiquidSegmentedItemCell(
     if (style == LiquidSegmentedStyle.BottomBar) {
         Column(
             modifier = modifier
+                .minimumInteractiveComponentSize()
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(24.dp))
-                .clickable(onClick = onClick)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = onClick,
+                )
                 .padding(vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
@@ -287,9 +277,14 @@ private fun <T> LiquidSegmentedItemCell(
     } else {
         Box(
             modifier = modifier
+                .minimumInteractiveComponentSize()
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(12.dp))
-                .clickable(onClick = onClick)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = onClick,
+                )
                 .padding(horizontal = 12.dp, vertical = 7.dp),
             contentAlignment = Alignment.Center,
         ) {

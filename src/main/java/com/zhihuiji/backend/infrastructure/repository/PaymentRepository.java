@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PaymentRepository extends JpaRepository<PaymentEntity, Long> {
+    java.util.Optional<PaymentEntity> findByIdAndOwnerUserId(Long id, Long ownerUserId);
+
     List<PaymentEntity> findByOwnerUserIdAndOrderId(Long ownerUserId, Long orderId);
 
     List<PaymentEntity> findByOwnerUserIdAndCreatedAtBetween(Long ownerUserId, Long startAt, Long endAt);
@@ -37,4 +39,6 @@ public interface PaymentRepository extends JpaRepository<PaymentEntity, Long> {
     );
 
     List<PaymentEntity> findAllByOwnerUserId(Long ownerUserId);
+
+    void deleteByOwnerUserIdAndOrderId(Long ownerUserId, Long orderId);
 }

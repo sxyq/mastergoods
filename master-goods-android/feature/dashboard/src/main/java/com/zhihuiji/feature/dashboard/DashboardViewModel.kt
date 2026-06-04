@@ -3,8 +3,12 @@ package com.zhihuiji.feature.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.common.UiMessage
-import com.zhihuiji.core.model.*
-import com.zhihuiji.data.report.ReportRepository
+import com.zhihuiji.core.model.v2.finance.AccountV2Dto
+import com.zhihuiji.core.model.v2.order.SaleOrderV2Dto
+import com.zhihuiji.core.model.v2.product.ProductV2Dto
+import com.zhihuiji.data.finance.FinanceV2Repository
+import com.zhihuiji.data.order.SaleOrderV2Repository
+import com.zhihuiji.data.product.ProductV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -15,18 +19,26 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+// 待验证：客户端聚合，非服务端聚合，数据准确性待验证
 data class DashboardUiState(
     val isLoading: Boolean = false,
-    val salesSummary: SalesSummaryReportDto? = null,
-    val profitSummary: ProfitSummaryReportDto? = null,
-    val lowStockProducts: List<LowStockProductReportDto> = emptyList(),
-    val topReceivables: List<CustomerReceivableReportDto> = emptyList(),
+    val saleOrders: List<SaleOrderV2Dto> = emptyList(),
+    val accounts: List<AccountV2Dto> = emptyList(),
+    val lowStockProducts: List<ProductV2Dto> = emptyList(),
     val error: UiMessage? = null,
-)
+) {
+    val totalSalesAmount: Double get() = saleOrders.sumOf { it.totalAmount }
+    val totalPaidAmount: Double get() = saleOrders.sumOf { it.paidAmount }
+    val totalUnpaidAmount: Double get() = totalSalesAmount - totalPaidAmount
+    val totalAccountBalance: Double get() = accounts.sumOf { it.balance }
+    val lowStockCount: Int get() = lowStockProducts.size
+}
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    private val reportRepository: ReportRepository,
+    private val saleOrderV2Repository: SaleOrderV2Repository,
+    private val financeV2Repository: FinanceV2Repository,
+    private val productV2Repository: ProductV2Repository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
@@ -36,15 +48,30 @@ class DashboardViewModel @Inject constructor(
     fun loadDashboard() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            val now = System.currentTimeMillis()
-            val sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000L
             try {
                 coroutineScope {
                     val deferreds = listOf(
-                        async { reportRepository.salesSummary(sevenDaysAgo, now).onSuccess { _uiState.value = _uiState.value.copy(salesSummary = it) } },
-                        async { reportRepository.profitSummary(sevenDaysAgo, now).onSuccess { _uiState.value = _uiState.value.copy(profitSummary = it) } },
-                        async { reportRepository.lowStockProducts().onSuccess { _uiState.value = _uiState.value.copy(lowStockProducts = it) } },
-                        async { reportRepository.topReceivableCustomers().onSuccess { _uiState.value = _uiState.value.copy(topReceivables = it) } },
+                        async {
+                            saleOrderV2Repository.listSaleOrders().onSuccess { orders ->
+                                _uiState.value = _uiState.value.copy(saleOrders = orders)
+                            }.onFailure {
+                                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
+                            }
+                        },
+                        async {
+                            financeV2Repository.listAccounts().onSuccess { accounts ->
+                                _uiState.value = _uiState.value.copy(accounts = accounts)
+                            }.onFailure {
+                                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
+                            }
+                        },
+                        async {
+                            productV2Repository.listLowStockProducts().onSuccess { products ->
+                                _uiState.value = _uiState.value.copy(lowStockProducts = products)
+                            }.onFailure {
+                                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
+                            }
+                        },
                     )
                     deferreds.awaitAll()
                 }

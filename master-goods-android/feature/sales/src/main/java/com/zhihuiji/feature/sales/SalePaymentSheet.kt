@@ -56,10 +56,10 @@ fun SalePaymentSheet(
             )
                 }
             }
-            PrimaryGradientButton(
+            PrimaryButton(
                 text = "确认收款",
                 onClick = {
-                    val amt = amountText.toDoubleOrNull() ?: return@PrimaryGradientButton
+                    val amt = amountText.toDoubleOrNull() ?: return@PrimaryButton
                     if (amt > 0) onConfirm(amt, selectedMethod, referenceNo.ifBlank { null })
                 },
                 enabled = (amountText.toDoubleOrNull() ?: 0.0) > 0,

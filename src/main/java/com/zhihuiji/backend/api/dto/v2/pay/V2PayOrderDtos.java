@@ -16,6 +16,7 @@ public final class V2PayOrderDtos {
         Integer method,
         String referenceNo,
         String notes,
+        Long accountId,
         Integer status,
         Long createdAt,
         Long updatedAt
@@ -29,6 +30,7 @@ public final class V2PayOrderDtos {
         Integer method,
         String referenceNo,
         String notes,
+        Long accountId,
         Integer status
     ) {}
 

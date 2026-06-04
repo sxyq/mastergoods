@@ -18,6 +18,7 @@ import com.zhihuiji.feature.agent.AgentWorkbenchScreen
 
 object SubRoutes {
     const val PRODUCT_EDITOR = "product_editor"
+    const val PRODUCT_DETAIL = "product_detail"
     const val CUSTOMER_EDITOR = "customer_editor"
     const val CUSTOMER_DETAIL = "customer_detail"
     const val SUPPLIER_EDITOR = "supplier_editor"
@@ -105,6 +106,9 @@ fun MainNavGraph(
             ArchivesScreen(
                 initialTab = initialTab,
                 reselectSignal = reselectSignal(TopLevelRoutes.ARCHIVES),
+                onNavigateToProductDetail = { productId ->
+                    navController.navigate("${SubRoutes.PRODUCT_DETAIL}/$productId") { launchSingleTop = true }
+                },
                 onNavigateToProductEditor = { productId ->
                     val route = if (productId != null) "${SubRoutes.PRODUCT_EDITOR}?productId=$productId" else SubRoutes.PRODUCT_EDITOR
                     navController.navigate(route) { launchSingleTop = true }
@@ -179,6 +183,12 @@ fun MainNavGraph(
         }
 
         productEditorRoute(::navigateBack)
+        productDetailRoutes(
+            navigateBack = ::navigateBack,
+            navigateToEditor = { id ->
+                navController.navigate("${SubRoutes.PRODUCT_EDITOR}?productId=$id") { launchSingleTop = true }
+            },
+        )
         customerRoutes(
             navigateBack = ::navigateBack,
             navigateToEditor = { id ->

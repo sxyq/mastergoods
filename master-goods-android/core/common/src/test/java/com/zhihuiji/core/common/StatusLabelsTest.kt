@@ -8,8 +8,12 @@ class StatusLabelsTest {
     fun statusLabels_coverPrimaryBusinessStates() {
         assertEquals("草稿", StatusLabels.saleOrderStatus(0))
         assertEquals("已完成", StatusLabels.saleOrderStatus(1))
+        assertEquals("已确认", StatusLabels.saleOrderStatus(3))
         assertEquals("待付款", StatusLabels.payOrderStatus(0))
         assertEquals("已付款", StatusLabels.payOrderStatus(1))
+        assertEquals("正常", StatusLabels.customerStatus(1))
+        assertEquals("已停用", StatusLabels.customerStatus(0))
+        assertEquals("欠款", StatusLabels.customerListStatus(1, 12.0))
         assertEquals("收入", StatusLabels.financeType(1))
         assertEquals("支出", StatusLabels.financeType(2))
     }

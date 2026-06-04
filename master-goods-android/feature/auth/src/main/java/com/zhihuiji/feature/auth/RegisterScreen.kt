@@ -37,13 +37,24 @@ fun RegisterScreen(
         if (uiState.isLoggedIn) onRegisterSuccess()
     }
 
-    Box(modifier = Modifier.fillMaxSize().glassBackground()) {
-        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
-            IconButton(onClick = onNavigateBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text("创建账号", style = ZhihuijiTypography.displayMedium, color = ZhihuijiColors.TextPrimary)
+    GlassScaffold(
+        selectedDestination = "",
+        destinations = emptyList(),
+        onNavigate = {},
+        showBottomBar = false,
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            GlassTopBar(
+                title = "创建账号",
+                navigationIcon = Icons.AutoMirrored.Filled.ArrowBack,
+                onNavigationClick = onNavigateBack,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
             Text("注册后即可使用智慧记全部功能", style = ZhihuijiTypography.bodyMedium, color = ZhihuijiColors.TextSecondary)
             Spacer(modifier = Modifier.height(18.dp))
 
@@ -73,7 +84,7 @@ fun RegisterScreen(
                         label = { Text("邀请码") }, leadingIcon = { Icon(Icons.Default.VpnKey, null) },
                         modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), singleLine = true,
                     )
-                    PrimaryGradientButton(
+                    PrimaryButton(
                         text = "注册", onClick = { viewModel.register(phone, password, inviteCode) },
                         enabled = phoneValid && password.isNotBlank() && inviteCode.isNotBlank() && !uiState.isLoading,
                         modifier = Modifier.fillMaxWidth(),

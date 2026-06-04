@@ -72,6 +72,14 @@ public class V2SaleOrderController {
         return ApiResponse.success(v2SaleOrderService.updateDraft(id, request));
     }
 
+    @PutMapping("/{id}/confirm")
+    public ApiResponse<V2SaleOrderDtos.SaleOrderResponse> confirm(
+        @PathVariable Long id,
+        @Valid @RequestBody V2SaleOrderDtos.ConfirmRequest request
+    ) {
+        return ApiResponse.success(v2SaleOrderService.confirm(id, request));
+    }
+
     @PostMapping("/{id}/payments")
     public ApiResponse<V2SaleOrderDtos.PaymentResponse> addPayment(
         @PathVariable Long id,

@@ -87,6 +87,11 @@ ALTER TABLE products DROP CONSTRAINT IF EXISTS products_code_key;
 ALTER TABLE customers DROP CONSTRAINT IF EXISTS customers_phone_key;
 ALTER TABLE suppliers DROP CONSTRAINT IF EXISTS suppliers_phone_key;
 
+ALTER TABLE purchase_orders DROP CONSTRAINT IF EXISTS fk_purchase_orders_supplier;
+ALTER TABLE purchase_orders
+    ADD CONSTRAINT fk_purchase_orders_supplier
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL;
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_products_owner_code ON products(owner_user_id, code);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_customers_owner_phone ON customers(owner_user_id, phone);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_suppliers_owner_phone ON suppliers(owner_user_id, phone);

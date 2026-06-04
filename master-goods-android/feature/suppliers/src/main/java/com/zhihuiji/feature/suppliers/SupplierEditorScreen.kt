@@ -32,48 +32,55 @@ fun SupplierEditorScreen(
         if (uiState.saveSuccess) onNavigateBack()
     }
 
-    Column(modifier = Modifier.fillMaxSize().glassBackground()) {
-        GlassTopBar(
-            title = if (uiState.existingId != null) "编辑供应商" else "新增供应商",
-            navigationIcon = Icons.AutoMirrored.Filled.ArrowBack,
-            onNavigationClick = onNavigateBack,
-        )
-        Column(
-            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = uiState.draft.name, onValueChange = { viewModel.updateDraft { d -> d.copy(name = it) } },
-                        label = { Text("名称") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), singleLine = true,
-                    )
-                    OutlinedTextField(
-                        value = uiState.draft.phone, onValueChange = { viewModel.updateDraft { d -> d.copy(phone = it) } },
-                        label = { Text("手机号") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), singleLine = true,
-                    )
-                    OutlinedTextField(
-                        value = uiState.draft.address ?: "", onValueChange = { viewModel.updateDraft { d -> d.copy(address = it.ifBlank { null }) } },
-                        label = { Text("地址") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), singleLine = true,
-                    )
-                    OutlinedTextField(
-                        value = uiState.draft.notes ?: "", onValueChange = { viewModel.updateDraft { d -> d.copy(notes = it.ifBlank { null }) } },
-                        label = { Text("备注") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), maxLines = 3,
-                    )
+    GlassScaffold(
+        selectedDestination = "",
+        destinations = emptyList(),
+        onNavigate = {},
+        showBottomBar = false,
+    ) { _ ->
+        Column(modifier = Modifier.fillMaxSize()) {
+            GlassTopBar(
+                title = if (uiState.existingId != null) "编辑供应商" else "新增供应商",
+                navigationIcon = Icons.AutoMirrored.Filled.ArrowBack,
+                onNavigationClick = onNavigateBack,
+            )
+            Column(
+                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                GlassCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(
+                            value = uiState.draft.name, onValueChange = { viewModel.updateDraft { d -> d.copy(name = it) } },
+                            label = { Text("名称") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = uiState.draft.phone, onValueChange = { viewModel.updateDraft { d -> d.copy(phone = it) } },
+                            label = { Text("手机号") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = uiState.draft.address ?: "", onValueChange = { viewModel.updateDraft { d -> d.copy(address = it.ifBlank { null }) } },
+                            label = { Text("地址") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = uiState.draft.notes ?: "", onValueChange = { viewModel.updateDraft { d -> d.copy(notes = it.ifBlank { null }) } },
+                            label = { Text("备注") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), maxLines = 3,
+                        )
+                    }
+                }
+                if (uiState.error != null) {
+                    Text(uiState.error!!.text, style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.Danger)
                 }
             }
-            if (uiState.error != null) {
-                Text(uiState.error!!.text, style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.Danger)
-            }
+            BottomActionBar(primaryAction = {
+                PrimaryButton(
+                    text = if (uiState.isSaving) "保存中..." else "保存",
+                    onClick = { viewModel.saveSupplier() }, enabled = !uiState.isSaving, modifier = Modifier.fillMaxWidth(),
+                )
+            }, secondaryActions = listOf {
+                SecondaryOutlineButton(text = "取消", onClick = onNavigateBack)
+            })
         }
-        BottomActionBar(primaryAction = {
-            PrimaryGradientButton(
-                text = if (uiState.isSaving) "保存中..." else "保存",
-                onClick = { viewModel.saveSupplier() }, enabled = !uiState.isSaving, modifier = Modifier.fillMaxWidth(),
-            )
-        }, secondaryActions = listOf {
-            SecondaryOutlineButton(text = "取消", onClick = onNavigateBack)
-        })
     }
 }

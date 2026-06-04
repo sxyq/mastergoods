@@ -9,7 +9,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -37,7 +36,12 @@ fun PurchaseOrderListScreen(
     BottomBarScrollVisibilityEffect(listState)
     BottomBarScrollToTopEffect(scrollToTopSignal, listState)
 
-    Box(modifier = Modifier.fillMaxSize().then(if (showTopBar) Modifier.glassBackground() else Modifier)) {
+    GlassScaffold(
+        selectedDestination = "",
+        destinations = emptyList(),
+        onNavigate = {},
+        showBottomBar = false,
+    ) { _ ->
         Column(modifier = Modifier.fillMaxSize()) {
             if (showTopBar) {
                 GlassTopBar(title = "采购单", navigationIcon = Icons.AutoMirrored.Filled.ArrowBack, onNavigationClick = onNavigateBack)
@@ -45,11 +49,21 @@ fun PurchaseOrderListScreen(
             SearchFilterBar(query = uiState.filter.keyword ?: "", onQueryChange = { viewModel.loadOrders(uiState.filter.copy(keyword = it.ifBlank { null })) }, placeholder = "搜索单号/供应商/商品", filterIcon = Icons.Default.Tune, onFilterClick = {})
             SegmentedTabs(tabs = listOf("全部", "草稿", "已收货"), selectedIndex = when(uiState.filter.status) { 0 -> 1; 1 -> 2; else -> 0 }, onTabSelected = { viewModel.loadOrders(uiState.filter.copy(status = if(it == 0) null else it - 1)) })
             if (uiState.orders.isEmpty()) {
-                EmptyState(icon = Icons.Default.ShoppingCart, title = "暂无采购单", modifier = Modifier.fillMaxSize().align(Alignment.CenterHorizontally))
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    EmptyState(icon = Icons.Default.ShoppingCart, title = "暂无采购单", modifier = Modifier.fillMaxWidth())
+                }
             } else {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(top = 6.dp, bottom = 88.dp),
                 ) {
@@ -61,7 +75,7 @@ fun PurchaseOrderListScreen(
                                     StatusPill(text = StatusLabels.purchaseOrderStatus(order.status), tone = if(order.status == 1) PillTone.SUCCESS else PillTone.WARNING)
                                 }
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("供应商：${order.supplierName}", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
+                                    Text("供应商：${order.supplierName ?: ""}", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
                                     Text("金额：${MoneyFormatter.format(order.totalAmount)}", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
                                 }
                                 Text("日期：${TimeFormatter.formatDateTime(order.createdAt)}", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextTertiary)
@@ -72,8 +86,13 @@ fun PurchaseOrderListScreen(
             }
         }
         if (showTopBar) {
-            FloatingActionButton(onClick = onNavigateToEditor, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), containerColor = ZhihuijiColors.Primary) {
-                Icon(Icons.Default.Add, null, tint = androidx.compose.ui.graphics.Color.White)
+            Box(modifier = Modifier.fillMaxSize()) {
+                FloatingPrimaryActionButton(
+                    text = "采购开单",
+                    icon = Icons.Default.Add,
+                    onClick = onNavigateToEditor,
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                )
             }
         }
     }

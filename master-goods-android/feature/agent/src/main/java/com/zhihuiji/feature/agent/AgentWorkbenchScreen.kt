@@ -42,9 +42,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.zhihuiji.core.designsystem.BottomBarScrollToTopEffect
 import com.zhihuiji.core.designsystem.BottomBarScrollVisibilityEffect
+import com.zhihuiji.core.designsystem.EmptyState
 import com.zhihuiji.core.designsystem.GlassCard
+import com.zhihuiji.core.designsystem.GlassScaffold
 import com.zhihuiji.core.designsystem.GlassTopBar
+import com.zhihuiji.core.designsystem.PillTone
 import com.zhihuiji.core.designsystem.SecondaryOutlineButton
+import com.zhihuiji.core.designsystem.StatusPill
 import com.zhihuiji.core.designsystem.ZhihuijiColors
 import com.zhihuiji.core.designsystem.ZhihuijiTypography
 import androidx.compose.ui.Alignment
@@ -53,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import java.util.Calendar
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -68,10 +73,10 @@ fun AgentWorkbenchScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val workbench = uiState.workbench
     val scrollState = rememberScrollState()
-    val suggestions = remember {
+    val quickQuestions = remember {
         listOf(
-            "本月销售趋势前十的商品有哪些？",
-            "最近30天未下单的客户有哪些？",
+            "最近有哪些客户需要我优先跟进？",
+            "帮我整理今天待处理的经营风险。",
         )
     }
 
@@ -81,149 +86,157 @@ fun AgentWorkbenchScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .then(if (showTopBar) Modifier else Modifier)
             .verticalScroll(scrollState)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        if (showTopBar) {
-            GlassTopBar(
-                title = "AI 助手",
-                navigationIcon = Icons.AutoMirrored.Filled.ArrowBack,
-                onNavigationClick = onNavigateBack,
-            )
-        } else {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column {
-                    Text("智慧记", style = ZhihuijiTypography.headlineMedium, color = ZhihuijiColors.TextPrimary)
-                    Text("AI工作台", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TopIconAction(icon = Icons.Default.History, onClick = { onNavigateToTasks(0) })
-                    TopIconAction(icon = Icons.Default.CenterFocusStrong, onClick = { onNavigateToDrafts() })
-                }
+            if (showTopBar) {
+                GlassTopBar(
+                    title = "AI 助手",
+                    navigationIcon = Icons.AutoMirrored.Filled.ArrowBack,
+                    onNavigationClick = onNavigateBack,
+                )
+            } else {
+                GlassTopBar(
+                    title = "AI 助手",
+                    actions = {
+                        TopIconAction(icon = Icons.Default.History, onClick = { onNavigateToTasks(0) })
+                        TopIconAction(icon = Icons.Default.CenterFocusStrong, onClick = { onNavigateToDrafts() })
+                    },
+                )
             }
-        }
 
-        Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-        GlassCard(modifier = Modifier.fillMaxWidth(), onClick = { onNavigateToChat(null) }) {
-            Row(
-                modifier = Modifier.padding(14.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Top,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .background(ZhihuijiColors.Primary.copy(alpha = 0.12f), CircleShape),
-                    contentAlignment = Alignment.Center,
+            GlassCard(modifier = Modifier.fillMaxWidth(), onClick = { onNavigateToChat(null) }) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.Top,
                 ) {
-                    Icon(Icons.Default.SmartToy, null, modifier = Modifier.size(30.dp), tint = ZhihuijiColors.Primary)
-                }
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("下午好！我是智慧记AI助手", style = ZhihuijiTypography.titleMedium, color = ZhihuijiColors.TextPrimary)
-                    Text("为你提供经营分析、单据生成与智慧建议", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
-                    Text(
-                        "立即发起问答，查看趋势分析、草稿建议与任务进度",
-                        style = ZhihuijiTypography.labelMedium,
-                        color = ZhihuijiColors.Primary,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(ZhihuijiColors.Primary.copy(alpha = 0.12f), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Default.SmartToy, null, modifier = Modifier.size(30.dp), tint = ZhihuijiColors.Primary)
+                    }
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(agentGreetingText(), style = ZhihuijiTypography.titleMedium, color = ZhihuijiColors.TextPrimary)
+                        Text("为你提供经营分析、单据生成与智慧建议", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
+                        Text(
+                            if (workbench == null) "当前可先使用问答与草稿能力，工作台总览会在这里逐步展示" else "立即发起问答，查看趋势分析、草稿建议与任务进度",
+                            style = ZhihuijiTypography.labelMedium,
+                            color = ZhihuijiColors.Primary,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            maxItemsInEachRow = 2,
-        ) {
-            AgentKpiMiniCard(
-                title = workbench?.kpis?.getOrNull(0)?.label ?: "今日销售(元)",
-                value = workbench?.kpis?.getOrNull(0)?.value ?: "12,840",
-                sub = workbench?.kpis?.getOrNull(0)?.trend ?: "较昨日 ↑ 18.6%",
-                icon = Icons.Default.AutoGraph,
-                iconTint = ZhihuijiColors.Primary,
-            )
-            AgentKpiMiniCard(
-                title = workbench?.kpis?.getOrNull(1)?.label ?: "待收款(元)",
-                value = workbench?.kpis?.getOrNull(1)?.value ?: "3,260",
-                sub = workbench?.kpis?.getOrNull(1)?.trend ?: "共5笔",
-                icon = Icons.Default.Wallet,
-                iconTint = ZhihuijiColors.Warning,
-            )
-            AgentKpiMiniCard(
-                title = workbench?.kpis?.getOrNull(2)?.label ?: "待付款(元)",
-                value = workbench?.kpis?.getOrNull(2)?.value ?: "6,540",
-                sub = workbench?.kpis?.getOrNull(2)?.trend ?: "共4笔",
-                icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                iconTint = ZhihuijiColors.Warning,
-            )
-            AgentKpiMiniCard(
-                title = workbench?.kpis?.getOrNull(3)?.label ?: "低库存预警",
-                value = workbench?.kpis?.getOrNull(3)?.value ?: "8",
-                sub = workbench?.kpis?.getOrNull(3)?.trend ?: "待补货商品",
-                icon = Icons.Default.WarningAmber,
-                iconTint = ZhihuijiColors.Warning,
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        GlassCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SectionHeader(title = "经营洞察", actionText = "更多", onAction = { onNavigateToChat("帮我分析一下最近7天的销售情况") })
-                AgentInsightItem(
-                    icon = Icons.Default.AutoGraph,
-                    color = ZhihuijiColors.Success,
-                    title = workbench?.insights?.getOrNull(0)?.title ?: "销售趋势良好",
-                    body = workbench?.insights?.getOrNull(0)?.content ?: "今日销售较昨日增长 18.6%，主要增长来自日用品类商品。",
+            if (workbench == null) {
+                AgentUnavailableCard(
+                    title = "工作台总览暂未显示",
+                    body = "当前可先使用问答与草稿能力。经营总览、洞察和任务摘要会在可用后显示，这里先不展示未确认的经营数字。",
+                    actionText = "先去问答",
+                    onAction = { onNavigateToChat("帮我总结最近7天的经营风险") },
                 )
-                AgentInsightItem(
-                    icon = Icons.Default.NotificationsActive,
-                    color = ZhihuijiColors.Warning,
-                    title = workbench?.insights?.getOrNull(1)?.title ?: "回款提醒",
-                    body = workbench?.insights?.getOrNull(1)?.content ?: "有 3 笔应收款即将超期，请及时跟进客户。",
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        GlassCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SectionHeader(title = "快捷操作", actionText = "刷新", onAction = { viewModel.loadWorkbench() })
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    AgentQuickAction(Icons.AutoMirrored.Filled.ReceiptLong, "生成销售单") { onNavigateToDrafts() }
-                    AgentQuickAction(Icons.Default.Inventory2, "生成采购单") { onNavigateToDrafts() }
-                    AgentQuickAction(Icons.Default.Groups, "应收跟进") { onNavigateToTasks(1) }
-                    AgentQuickAction(Icons.Default.WarningAmber, "库存预警") { onNavigateToChat("哪些商品需要紧急补货？") }
+            } else {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    maxItemsInEachRow = 2,
+                ) {
+                    workbench.kpis.take(4).forEachIndexed { index, kpi ->
+                        AgentKpiMiniCard(
+                            title = kpi.label,
+                            value = kpi.value,
+                            sub = kpi.trend ?: "",
+                            icon = when (index) {
+                                0 -> Icons.Default.AutoGraph
+                                1 -> Icons.Default.Wallet
+                                2 -> Icons.AutoMirrored.Filled.ReceiptLong
+                                else -> Icons.Default.WarningAmber
+                            },
+                            iconTint = when (index) {
+                                0 -> ZhihuijiColors.Primary
+                                1 -> ZhihuijiColors.Warning
+                                2 -> ZhihuijiColors.Warning
+                                else -> ZhihuijiColors.Warning
+                            },
+                        )
+                    }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-        GlassCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SectionHeader(title = "大家都在问", actionText = "换一批", onAction = {})
-                suggestions.forEach { question ->
-                    QuestionRow(question = question, onClick = { onNavigateToChat(question) })
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SectionHeader(title = "经营洞察", actionText = "更多", onAction = { onNavigateToChat("帮我分析一下最近7天的销售情况") })
+                    if (workbench?.insights?.isNotEmpty() == true) {
+                        workbench.insights.take(2).forEachIndexed { index, insight ->
+                            AgentInsightItem(
+                                icon = if (index == 0) Icons.Default.AutoGraph else Icons.Default.NotificationsActive,
+                                color = if (index == 0) ZhihuijiColors.Success else ZhihuijiColors.Warning,
+                                title = insight.title,
+                                body = insight.content,
+                            )
+                        }
+                    } else {
+                        EmptyState(
+                            icon = Icons.Default.NotificationsActive,
+                            title = "经营洞察暂未显示",
+                            subtitle = "可以先通过 AI 问答获取趋势分析；这里会在可用后展示卡片化洞察。",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                        )
+                    }
                 }
             }
-        }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SectionHeader(title = "快捷操作", actionText = "刷新", onAction = { viewModel.loadWorkbench() })
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        AgentQuickAction(Icons.AutoMirrored.Filled.ReceiptLong, "生成销售单") { onNavigateToDrafts() }
+                        AgentQuickAction(Icons.Default.Inventory2, "生成采购单") { onNavigateToDrafts() }
+                        AgentQuickAction(Icons.Default.Groups, "任务中心") { onNavigateToTasks(0) }
+                        AgentQuickAction(Icons.Default.WarningAmber, "库存预警") { onNavigateToChat("哪些商品需要紧急补货？") }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SectionHeader(title = "本地快捷提问", actionText = "换一批", onAction = {})
+                    quickQuestions.forEach { question ->
+                        QuestionRow(question = question, onClick = { onNavigateToChat(question) })
+                    }
+                }
+            }
 
         Spacer(modifier = Modifier.height(88.dp))
     }
+}
+
+private fun agentGreetingText(calendar: Calendar = Calendar.getInstance()): String {
+    val hour = calendar.get(Calendar.HOUR_OF_DAY)
+    val greeting = when (hour) {
+        in 0..5 -> "凌晨好"
+        in 6..11 -> "早上好"
+        in 12..17 -> "下午好"
+        else -> "晚上好"
+    }
+    return "$greeting！我是智慧记AI助手"
 }
 
 @Composable
@@ -273,6 +286,29 @@ private fun AgentKpiMiniCard(
             ) {
                 Icon(icon, null, tint = iconTint, modifier = Modifier.size(20.dp))
             }
+        }
+    }
+}
+
+@Composable
+private fun AgentUnavailableCard(
+    title: String,
+    body: String,
+    actionText: String,
+    onAction: () -> Unit,
+) {
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(title, style = ZhihuijiTypography.titleMedium, color = ZhihuijiColors.TextPrimary)
+                StatusPill(text = "稍后可用", tone = PillTone.INFO)
+            }
+            Text(body, style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
+            SecondaryOutlineButton(text = actionText, onClick = onAction)
         }
     }
 }

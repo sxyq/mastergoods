@@ -37,4 +37,7 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     implementation(libs.retrofit)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.core)
 }

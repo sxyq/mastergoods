@@ -1,0 +1,155 @@
+WARNING: We recommend using a newer Android Gradle plugin to use compileSdk = 35
+
+This Android Gradle plugin (8.5.2) was tested up to compileSdk = 34.
+
+You are strongly encouraged to update your project to use a newer
+Android Gradle plugin that has been tested with compileSdk = 35.
+
+If you are already using the latest version of the Android Gradle plugin,
+you may need to wait until a newer version with support for compileSdk = 35 is available.
+
+For more information refer to the compatibility table:
+https://d.android.com/r/tools/api-level-support
+
+To suppress this warning, add/update
+    android.suppressUnsupportedCompileSdk=35
+to this project's gradle.properties.
+> Task :core:datastore:preBuild UP-TO-DATE
+> Task :core:database:preBuild UP-TO-DATE
+> Task :core:model:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:datastore:preDebugBuild UP-TO-DATE
+> Task :core:database:preDebugBuild UP-TO-DATE
+> Task :core:model:preBuild UP-TO-DATE
+> Task :core:datastore:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:model:preDebugBuild UP-TO-DATE
+> Task :core:network:preBuild UP-TO-DATE
+> Task :core:database:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :data:finance:preBuild UP-TO-DATE
+> Task :data:finance:preDebugBuild UP-TO-DATE
+> Task :data:agent:preBuild UP-TO-DATE
+> Task :core:network:preDebugBuild UP-TO-DATE
+> Task :core:model:generateDebugResValues UP-TO-DATE
+> Task :data:finance:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:database:generateDebugResValues UP-TO-DATE
+> Task :data:agent:preDebugBuild UP-TO-DATE
+> Task :data:agent:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:network:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:model:generateDebugResources UP-TO-DATE
+> Task :core:database:generateDebugResources UP-TO-DATE
+> Task :data:agent:generateDebugResValues UP-TO-DATE
+> Task :data:finance:generateDebugResValues UP-TO-DATE
+> Task :data:finance:generateDebugResources UP-TO-DATE
+> Task :data:agent:generateDebugResources UP-TO-DATE
+> Task :core:datastore:generateDebugBuildConfig UP-TO-DATE
+> Task :core:network:generateDebugBuildConfig UP-TO-DATE
+> Task :core:datastore:generateDebugResValues UP-TO-DATE
+> Task :core:network:generateDebugResValues UP-TO-DATE
+> Task :core:network:generateDebugResources UP-TO-DATE
+> Task :core:database:packageDebugResources UP-TO-DATE
+> Task :core:datastore:generateDebugResources UP-TO-DATE
+> Task :data:agent:packageDebugResources UP-TO-DATE
+> Task :core:model:packageDebugResources UP-TO-DATE
+> Task :data:finance:packageDebugResources UP-TO-DATE
+> Task :core:network:packageDebugResources UP-TO-DATE
+> Task :core:datastore:packageDebugResources UP-TO-DATE
+> Task :core:network:parseDebugLocalResources UP-TO-DATE
+> Task :core:database:parseDebugLocalResources UP-TO-DATE
+> Task :data:agent:parseDebugLocalResources UP-TO-DATE
+> Task :core:datastore:parseDebugLocalResources UP-TO-DATE
+> Task :core:model:parseDebugLocalResources UP-TO-DATE
+> Task :core:network:generateDebugRFile UP-TO-DATE
+> Task :data:finance:parseDebugLocalResources UP-TO-DATE
+> Task :core:database:generateDebugRFile UP-TO-DATE
+> Task :core:datastore:generateDebugRFile UP-TO-DATE
+> Task :data:agent:generateDebugRFile UP-TO-DATE
+> Task :core:model:generateDebugRFile UP-TO-DATE
+> Task :data:finance:generateDebugRFile UP-TO-DATE
+> Task :data:finance:javaPreCompileDebug UP-TO-DATE
+> Task :data:agent:javaPreCompileDebug UP-TO-DATE
+> Task :core:network:javaPreCompileDebug UP-TO-DATE
+> Task :data:finance:preDebugUnitTestBuild UP-TO-DATE
+> Task :data:agent:preDebugUnitTestBuild UP-TO-DATE
+> Task :core:network:preDebugUnitTestBuild UP-TO-DATE
+> Task :core:database:javaPreCompileDebug UP-TO-DATE
+> Task :core:network:generateDebugUnitTestStubRFile UP-TO-DATE
+> Task :data:agent:generateDebugUnitTestStubRFile UP-TO-DATE
+> Task :data:finance:generateDebugUnitTestStubRFile UP-TO-DATE
+> Task :data:agent:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :data:finance:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :core:network:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :core:model:compileDebugKotlin UP-TO-DATE
+> Task :core:model:javaPreCompileDebug UP-TO-DATE
+> Task :core:model:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:model:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:model:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:model:preDebugUnitTestBuild UP-TO-DATE
+> Task :core:datastore:kspDebugKotlin UP-TO-DATE
+> Task :core:model:generateDebugUnitTestStubRFile UP-TO-DATE
+> Task :core:datastore:compileDebugKotlin UP-TO-DATE
+> Task :core:datastore:javaPreCompileDebug UP-TO-DATE
+> Task :core:datastore:compileDebugJavaWithJavac UP-TO-DATE
+> Task :core:database:kspDebugKotlin UP-TO-DATE
+> Task :core:model:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :core:model:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :core:model:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :core:database:compileDebugKotlin UP-TO-DATE
+> Task :core:database:compileDebugJavaWithJavac UP-TO-DATE
+> Task :core:model:processDebugJavaRes UP-TO-DATE
+> Task :core:database:transformDebugClassesWithAsm UP-TO-DATE
+> Task :core:datastore:transformDebugClassesWithAsm UP-TO-DATE
+> Task :core:database:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:datastore:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:model:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :core:database:processDebugJavaRes UP-TO-DATE
+> Task :core:database:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:datastore:processDebugJavaRes UP-TO-DATE
+> Task :core:datastore:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:model:testDebugUnitTest UP-TO-DATE
+> Task :core:network:kspDebugKotlin UP-TO-DATE
+> Task :core:network:compileDebugKotlin UP-TO-DATE
+> Task :core:network:compileDebugJavaWithJavac UP-TO-DATE
+> Task :core:network:transformDebugClassesWithAsm UP-TO-DATE
+> Task :core:network:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:network:processDebugJavaRes UP-TO-DATE
+> Task :core:network:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:network:kspDebugUnitTestKotlin UP-TO-DATE
+> Task :data:finance:kspDebugKotlin UP-TO-DATE
+> Task :data:agent:kspDebugKotlin UP-TO-DATE
+> Task :data:finance:compileDebugKotlin UP-TO-DATE
+> Task :data:agent:compileDebugKotlin UP-TO-DATE
+> Task :data:agent:compileDebugJavaWithJavac UP-TO-DATE
+> Task :data:finance:compileDebugJavaWithJavac UP-TO-DATE
+> Task :core:network:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :data:finance:transformDebugClassesWithAsm UP-TO-DATE
+> Task :data:agent:transformDebugClassesWithAsm UP-TO-DATE
+> Task :core:network:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :data:finance:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :data:agent:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :data:finance:processDebugJavaRes UP-TO-DATE
+> Task :data:agent:processDebugJavaRes UP-TO-DATE
+> Task :data:finance:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :data:agent:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :data:agent:kspDebugUnitTestKotlin UP-TO-DATE
+> Task :data:finance:kspDebugUnitTestKotlin UP-TO-DATE
+> Task :core:network:hiltAggregateDepsDebugUnitTest UP-TO-DATE
+> Task :core:network:hiltJavaCompileDebugUnitTest NO-SOURCE
+> Task :data:agent:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :data:finance:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :data:agent:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :core:network:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :data:finance:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :core:network:transformDebugUnitTestClassesWithAsm UP-TO-DATE
+> Task :data:finance:hiltAggregateDepsDebugUnitTest UP-TO-DATE
+> Task :data:agent:hiltAggregateDepsDebugUnitTest UP-TO-DATE
+> Task :data:finance:hiltJavaCompileDebugUnitTest NO-SOURCE
+> Task :data:agent:hiltJavaCompileDebugUnitTest NO-SOURCE
+> Task :data:agent:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :data:finance:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :core:network:testDebugUnitTest UP-TO-DATE
+> Task :data:finance:transformDebugUnitTestClassesWithAsm UP-TO-DATE
+> Task :data:agent:transformDebugUnitTestClassesWithAsm UP-TO-DATE
+> Task :data:agent:testDebugUnitTest UP-TO-DATE
+> Task :data:finance:testDebugUnitTest UP-TO-DATE
+
+BUILD SUCCESSFUL in 2s
+106 actionable tasks: 106 up-to-date

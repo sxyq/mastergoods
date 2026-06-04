@@ -6,6 +6,11 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PartnerContactRepository extends JpaRepository<PartnerContactEntity, Long> {
+    List<PartnerContactEntity> findAllByOwnerUserIdAndPartnerTypeOrderByUpdatedAtAscIdAsc(
+        Long ownerUserId,
+        String partnerType
+    );
+
     List<PartnerContactEntity> findAllByOwnerUserIdAndPartnerTypeAndPartnerIdOrderByIsPrimaryDescCreatedAtAsc(
         Long ownerUserId,
         String partnerType,
@@ -19,6 +24,8 @@ public interface PartnerContactRepository extends JpaRepository<PartnerContactEn
         String partnerType,
         Long partnerId
     );
+
+    void deleteByOwnerUserIdAndPartnerTypeAndPartnerId(Long ownerUserId, String partnerType, Long partnerId);
 
     boolean existsByOwnerUserIdAndPartnerTypeAndPartnerIdAndIsPrimaryTrueAndIdNot(
         Long ownerUserId,

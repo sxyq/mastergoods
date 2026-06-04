@@ -26,6 +26,12 @@ public class PurchaseOrderEntity {
     @Column(name = "total_amount", nullable = false)
     private Double totalAmount;
 
+    @Column(name = "paid_amount", nullable = false)
+    private Double paidAmount;
+
+    @Column(name = "received_amount", nullable = false)
+    private Double receivedAmount;
+
     @Column(length = 255)
     private String notes;
 
@@ -90,6 +96,22 @@ public class PurchaseOrderEntity {
 
     public void setTotalAmount(Double totalAmount) {
         this.totalAmount = totalAmount;
+    }
+
+    public Double getPaidAmount() {
+        return paidAmount;
+    }
+
+    public void setPaidAmount(Double paidAmount) {
+        this.paidAmount = paidAmount;
+    }
+
+    public Double getReceivedAmount() {
+        return receivedAmount;
+    }
+
+    public void setReceivedAmount(Double receivedAmount) {
+        this.receivedAmount = receivedAmount;
     }
 
     public String getNotes() {

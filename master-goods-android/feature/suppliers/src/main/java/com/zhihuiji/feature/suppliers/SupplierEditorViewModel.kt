@@ -3,8 +3,9 @@ package com.zhihuiji.feature.suppliers
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.common.UiMessage
-import com.zhihuiji.core.model.SupplierDto
-import com.zhihuiji.data.supplier.SupplierRepository
+import com.zhihuiji.core.model.v2.partner.SupplierV2Dto
+import com.zhihuiji.core.model.v2.partner.SupplierWriteV2Request
+import com.zhihuiji.data.supplier.SupplierV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,8 +13,41 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class SupplierV2Draft(
+    val name: String = "",
+    val phone: String = "",
+    val groupId: Long? = null,
+    val primaryContactName: String? = null,
+    val primaryContactPhone: String? = null,
+    val address: String? = null,
+    val notes: String? = null,
+    val status: Int = 1,
+)
+
+fun SupplierV2Dto.toDraft() = SupplierV2Draft(
+    name = name,
+    phone = phone,
+    groupId = groupId,
+    primaryContactName = primaryContactName,
+    primaryContactPhone = primaryContactPhone,
+    address = address,
+    notes = notes,
+    status = status,
+)
+
+fun SupplierV2Draft.toWriteRequest() = SupplierWriteV2Request(
+    name = name,
+    phone = phone,
+    groupId = groupId,
+    primaryContactName = primaryContactName,
+    primaryContactPhone = primaryContactPhone,
+    address = address,
+    notes = notes,
+    status = status,
+)
+
 data class SupplierEditorUiState(
-    val draft: SupplierDto = SupplierDto(),
+    val draft: SupplierV2Draft = SupplierV2Draft(),
     val existingId: Long? = null,
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
@@ -23,7 +57,7 @@ data class SupplierEditorUiState(
 
 @HiltViewModel
 class SupplierEditorViewModel @Inject constructor(
-    private val supplierRepository: SupplierRepository,
+    private val supplierV2Repository: SupplierV2Repository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SupplierEditorUiState())
     val uiState: StateFlow<SupplierEditorUiState> = _uiState.asStateFlow()
@@ -31,15 +65,15 @@ class SupplierEditorViewModel @Inject constructor(
     fun loadSupplier(id: Long) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            supplierRepository.getSupplier(id).onSuccess { dto ->
-                _uiState.value = _uiState.value.copy(existingId = id, draft = dto, isLoading = false)
+            supplierV2Repository.getSupplier(id).onSuccess { dto ->
+                _uiState.value = _uiState.value.copy(existingId = id, draft = dto.toDraft(), isLoading = false)
             }.onFailure {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = UiMessage.fromThrowable(it))
             }
         }
     }
 
-    fun updateDraft(update: (SupplierDto) -> SupplierDto) {
+    fun updateDraft(update: (SupplierV2Draft) -> SupplierV2Draft) {
         _uiState.value = _uiState.value.copy(draft = update(_uiState.value.draft))
     }
 
@@ -53,9 +87,9 @@ class SupplierEditorViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isSaving = true, error = null)
             val existingId = _uiState.value.existingId
             val result = if (existingId != null) {
-                supplierRepository.updateSupplier(existingId, draft)
+                supplierV2Repository.updateSupplier(existingId, draft.toWriteRequest())
             } else {
-                supplierRepository.createSupplier(draft)
+                supplierV2Repository.createSupplier(draft.toWriteRequest())
             }
             result.onSuccess {
                 _uiState.value = _uiState.value.copy(isSaving = false, saveSuccess = true)

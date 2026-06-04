@@ -3,62 +3,66 @@ package com.zhihuiji.feature.finance
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.common.UiMessage
-import com.zhihuiji.core.model.CreateFinanceRecordRequest
-import com.zhihuiji.core.model.FinanceRecordDto
-import com.zhihuiji.core.model.FinanceFilter
-import com.zhihuiji.data.finance.FinanceRepository
+import com.zhihuiji.core.model.v2.finance.AccountCreateV2Request
+import com.zhihuiji.core.model.v2.finance.AccountTransferV2Dto
+import com.zhihuiji.core.model.v2.finance.AccountV2Dto
+import com.zhihuiji.data.finance.FinanceV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+// TODO(B09): finance_records 写入路径已废弃，后续由 account-based 流程替代
 data class FinanceListUiState(
-    val records: List<FinanceRecordDto> = emptyList(),
-    val filter: FinanceFilter = FinanceFilter(),
+    val accounts: List<AccountV2Dto> = emptyList(),
+    val transfers: List<AccountTransferV2Dto> = emptyList(),
     val isLoading: Boolean = false,
     val createSuccess: Boolean = false,
     val error: UiMessage? = null,
 ) {
-    val totalIncome: Double get() = records.filter { it.type == 1 }.sumOf { it.amount }
-    val totalExpense: Double get() = records.filter { it.type == 2 }.sumOf { it.amount }
+    val totalBalance: Double get() = accounts.sumOf { it.balance }
 }
 
 @HiltViewModel
 class FinanceViewModel @Inject constructor(
-    private val financeRepository: FinanceRepository,
+    private val financeV2Repository: FinanceV2Repository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(FinanceListUiState())
     val uiState: StateFlow<FinanceListUiState> = _uiState.asStateFlow()
 
-    init { loadRecords() }
+    init { loadData() }
 
-    fun loadRecords(filter: FinanceFilter = _uiState.value.filter) {
+    fun loadData() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, filter = filter)
-            financeRepository.refreshFinanceRecords(filter)
-            financeRepository.observeFinanceRecords(filter).collectLatest { list ->
-                _uiState.value = _uiState.value.copy(records = list, isLoading = false)
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            financeV2Repository.listAccounts().onSuccess { accounts ->
+                _uiState.value = _uiState.value.copy(accounts = accounts)
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
             }
+            financeV2Repository.listTransfers().onSuccess { transfers ->
+                _uiState.value = _uiState.value.copy(transfers = transfers)
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
+            }
+            _uiState.value = _uiState.value.copy(isLoading = false)
         }
     }
 
-    fun changeType(type: Int?) { loadRecords(_uiState.value.filter.copy(type = type)) }
-
-    fun createRecord(type: Int, category: String, amount: Double, method: Int?, notes: String?) {
+    fun createAccount(code: String, name: String, type: Int, balance: Double?, notes: String?) {
         viewModelScope.launch {
-            val request = CreateFinanceRecordRequest(
+            val request = AccountCreateV2Request(
+                code = code,
+                name = name,
                 type = type,
-                category = category,
-                amount = amount,
-                method = method,
+                balance = balance,
                 notes = notes,
             )
-            financeRepository.createFinanceRecord(request).onSuccess {
+            financeV2Repository.createAccount(request).onSuccess {
                 _uiState.value = _uiState.value.copy(createSuccess = true)
-                loadRecords()
+                loadData()
             }.onFailure {
                 _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
             }

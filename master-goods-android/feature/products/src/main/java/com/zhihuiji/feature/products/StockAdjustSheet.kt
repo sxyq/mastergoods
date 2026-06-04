@@ -37,10 +37,10 @@ fun StockAdjustSheet(
                 value = reason, onValueChange = { reason = it },
                 label = { Text("调整原因") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), singleLine = true,
             )
-            PrimaryGradientButton(
+            PrimaryButton(
                 text = "确认调整",
                 onClick = {
-                    val qty = deltaText.toDoubleOrNull() ?: return@PrimaryGradientButton
+                    val qty = deltaText.toDoubleOrNull() ?: return@PrimaryButton
                     val signedDelta = when (adjustType) {
                         0 -> qty
                         1 -> -qty

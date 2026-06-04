@@ -10,7 +10,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -27,6 +26,7 @@ fun ProductListScreen(
     onNavigateBack: () -> Unit,
     showTopBar: Boolean = true,
     scrollToTopSignal: Int = 0,
+    onNavigateToDetail: (Long) -> Unit = {},
     onNavigateToEditor: (Long?) -> Unit = {},
     viewModel: ProductListViewModel = hiltViewModel(),
 ) {
@@ -36,7 +36,12 @@ fun ProductListScreen(
     BottomBarScrollVisibilityEffect(listState)
     BottomBarScrollToTopEffect(scrollToTopSignal, listState)
 
-    Box(modifier = Modifier.fillMaxSize().then(if (showTopBar) Modifier.glassBackground() else Modifier)) {
+    GlassScaffold(
+        selectedDestination = "",
+        destinations = emptyList(),
+        onNavigate = {},
+        showBottomBar = false,
+    ) { _ ->
         Column(modifier = Modifier.fillMaxSize()) {
             if (showTopBar) {
                 GlassTopBar(
@@ -54,12 +59,22 @@ fun ProductListScreen(
                 onTabSelected = { viewModel.setStockFilter(it) },
             )
             if (uiState.filteredProducts.isEmpty()) {
-                EmptyState(icon = Icons.Default.Inventory2, title = "暂无商品", modifier = Modifier.fillMaxSize().align(Alignment.CenterHorizontally))
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    EmptyState(icon = Icons.Default.Inventory2, title = "暂无商品", modifier = Modifier.fillMaxWidth())
+                }
             } else {
                 val filteredProducts = uiState.filteredProducts
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(top = 6.dp, bottom = 88.dp),
                 ) {
@@ -70,7 +85,7 @@ fun ProductListScreen(
                         }
                     }
                     items(filteredProducts) { product ->
-                        GlassCard(modifier = Modifier.fillMaxWidth(), onClick = { onNavigateToEditor(product.id) }) {
+                        GlassCard(modifier = Modifier.fillMaxWidth(), onClick = { onNavigateToDetail(product.id) }) {
                             Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
@@ -91,7 +106,12 @@ fun ProductListScreen(
                                 Column(horizontalAlignment = Alignment.End) {
                                     Text(MoneyFormatter.format(product.salePrice), style = ZhihuijiTypography.titleSmall, color = ZhihuijiColors.TextPrimary)
                                     Spacer(Modifier.height(8.dp))
-                                    StatusPill(text = StatusLabels.stockStatus(product.stock, product.safeStock), tone = if (product.stock < product.safeStock) PillTone.WARNING else PillTone.SUCCESS)
+                                    val stockTone = when {
+                                        product.stock <= 0.000001 -> PillTone.DANGER
+                                        product.stock < product.safeStock -> PillTone.WARNING
+                                        else -> PillTone.SUCCESS
+                                    }
+                                    StatusPill(text = StatusLabels.stockStatus(product.stock, product.safeStock), tone = stockTone)
                                 }
                             }
                         }
@@ -100,8 +120,13 @@ fun ProductListScreen(
             }
         }
         if (showTopBar) {
-            FloatingActionButton(onClick = { onNavigateToEditor(null) }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), containerColor = ZhihuijiColors.Primary) {
-                Icon(Icons.Default.Add, null, tint = androidx.compose.ui.graphics.Color.White)
+            Box(modifier = Modifier.fillMaxSize()) {
+                FloatingPrimaryActionButton(
+                    text = "新增商品",
+                    icon = Icons.Default.Add,
+                    onClick = { onNavigateToEditor(null) },
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                )
             }
         }
     }

@@ -1,7 +1,6 @@
 package com.zhihuiji.feature.agent
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -40,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.zhihuiji.core.designsystem.GlassCard
+import com.zhihuiji.core.designsystem.GlassScaffold
 import com.zhihuiji.core.designsystem.GlassTopBar
 import com.zhihuiji.core.designsystem.PrimaryButton
 import com.zhihuiji.core.designsystem.ZhihuijiColors
@@ -48,10 +47,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import kotlin.math.max
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -61,6 +58,7 @@ fun AgentChatScreen(
     viewModel: AgentViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // TODO: v2迁移 - 问答流程已改为 createConversation → createMessage(role=user) → poll messages
     var input by rememberSaveable { mutableStateOf(initialQuestion.orEmpty()) }
     val scrollState = rememberScrollState()
     val suggestions = remember {
@@ -78,113 +76,124 @@ fun AgentChatScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Transparent)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-    ) {
-        GlassTopBar(
-            title = "AI问答",
-            navigationIcon = Icons.AutoMirrored.Filled.ArrowBack,
-            onNavigationClick = onNavigateBack,
-            actions = {
-                Icon(
-                    imageVector = Icons.Default.HeadsetMic,
-                    contentDescription = null,
-                    tint = ZhihuijiColors.TextSecondary,
-                    modifier = Modifier.padding(end = 12.dp),
-                )
-            },
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-
+    GlassScaffold(
+        selectedDestination = "",
+        destinations = emptyList(),
+        onNavigate = {},
+        showBottomBar = false,
+    ) { _ ->
         Column(
             modifier = Modifier
-                .weight(1f)
-                .verticalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            if (uiState.chatMessages.isEmpty()) {
-                GlassCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("向 AI 询问经营问题", style = ZhihuijiTypography.titleMedium, color = ZhihuijiColors.TextPrimary)
-                        Text("你可以直接问销售趋势、回款风险、库存预警，助手会返回结构化分析结果。", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
-                    }
-                }
-            }
+            GlassTopBar(
+                title = "AI问答",
+                navigationIcon = Icons.AutoMirrored.Filled.ArrowBack,
+                onNavigationClick = onNavigateBack,
+            )
+            Spacer(modifier = Modifier.height(10.dp))
 
-            uiState.chatMessages.forEach { message ->
-                if (message.role == ChatRole.USER) {
-                    UserBubble(text = message.text, timestampLabel = message.timestampLabel)
-                } else {
-                    AssistantBubble(message = message)
-                }
-            }
-
-            if (uiState.isLoading) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.padding(start = 4.dp),
-                ) {
-                    BubbleAvatar(bot = true)
-                    GlassCard {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = ZhihuijiColors.Primary)
-                            Text("正在分析中…", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            suggestions.forEach { suggestion ->
-                SuggestionChip(
-                    text = suggestion,
-                    onClick = { viewModel.ask(suggestion) },
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        GlassCard(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier.padding(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("输入你的问题…") },
-                    shape = RoundedCornerShape(14.dp),
-                    singleLine = true,
-                )
-                PrimaryButton(
-                    text = "发送",
-                    icon = Icons.AutoMirrored.Filled.Send,
-                    onClick = {
-                        val text = input.trim()
-                        if (text.isNotBlank()) {
-                            viewModel.ask(text)
-                            input = ""
+                if (uiState.chatMessages.isEmpty()) {
+                    WelcomeHeroCard()
+                }
+
+                uiState.chatMessages.forEach { message ->
+                    if (message.role == ChatRole.USER) {
+                        UserBubble(text = message.text, timestampLabel = message.timestampLabel)
+                    } else {
+                        AssistantBubble(message = message)
+                    }
+                }
+
+                if (uiState.isLoading) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.padding(start = 4.dp),
+                    ) {
+                        BubbleAvatar(bot = true)
+                        GlassCard {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = ZhihuijiColors.Primary)
+                                Text("正在分析中…", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
+                            }
                         }
-                    },
-                )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                suggestions.forEach { suggestion ->
+                    SuggestionChip(
+                        text = suggestion,
+                        onClick = { viewModel.ask(suggestion) },
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = input,
+                        onValueChange = { input = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("输入你的问题…") },
+                        shape = RoundedCornerShape(14.dp),
+                        singleLine = true,
+                    )
+                    PrimaryButton(
+                        text = "发送",
+                        icon = Icons.AutoMirrored.Filled.Send,
+                        onClick = {
+                            val text = input.trim()
+                            if (text.isNotBlank()) {
+                                viewModel.ask(text)
+                                input = ""
+                            }
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WelcomeHeroCard() {
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            BubbleAvatar(bot = true)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.weight(1f)) {
+                Text("你好，我是智慧记 AI 助手", style = ZhihuijiTypography.titleMedium, color = ZhihuijiColors.TextPrimary)
+                Text("可以先从销售趋势、回款风险、库存预警这些经营问题开始提问。", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
+                Text("回答会基于当前已接入的数据能力生成；没有接通的能力会明确说明，不伪造成已完成分析。", style = ZhihuijiTypography.labelMedium, color = ZhihuijiColors.Primary)
             }
         }
     }
@@ -265,45 +274,44 @@ private fun AssistantBubble(
 @Composable
 private fun StructuredAnswerCard(answer: com.zhihuiji.core.model.AgentAnswerDto) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SalesOverviewCard(answer = answer)
+        if (answer.highlights.isNotEmpty()) {
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("重点摘要", style = ZhihuijiTypography.titleSmall, color = ZhihuijiColors.TextPrimary)
+                    answer.highlights.forEachIndexed { index, highlight ->
+                        Text(
+                            text = "${index + 1}. $highlight",
+                            style = ZhihuijiTypography.bodySmall,
+                            color = ZhihuijiColors.TextSecondary,
+                        )
+                    }
+                }
+            }
+        }
 
         if (answer.rows.isNotEmpty() && answer.columns.isNotEmpty()) {
             GlassCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("销售TOP3商品", style = ZhihuijiTypography.titleSmall, color = ZhihuijiColors.TextPrimary)
-                        Text("销量 / 占比", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextSecondary)
+                        Text("结构化结果", style = ZhihuijiTypography.titleSmall, color = ZhihuijiColors.TextPrimary)
+                        Text("按返回字段展示", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextSecondary)
                     }
-                    answer.rows.take(3).forEach { row ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(22.dp)
-                                        .background(ZhihuijiColors.Primary.copy(alpha = 0.10f), CircleShape),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text("${answer.rows.indexOf(row) + 1}", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.Primary, fontWeight = FontWeight.SemiBold)
-                                }
-                                Column {
-                                    Text(row.getOrNull(0).orEmpty(), style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextPrimary)
-                                    Text(
-                                        row.drop(1).joinToString("  "),
-                                        style = ZhihuijiTypography.labelSmall,
-                                        color = ZhihuijiColors.TextSecondary,
+                    answer.rows.take(3).forEachIndexed { rowIndex, row ->
+                        GlassCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = "结果 ${rowIndex + 1}",
+                                    style = ZhihuijiTypography.labelMedium,
+                                    color = ZhihuijiColors.Primary,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                answer.columns.forEachIndexed { columnIndex, column ->
+                                    AnswerFieldRow(
+                                        label = column,
+                                        value = row.getOrNull(columnIndex).orEmpty().ifBlank { "-" },
                                     )
                                 }
                             }
-                            Text(
-                                row.lastOrNull().orEmpty(),
-                                style = ZhihuijiTypography.bodySmall,
-                                color = ZhihuijiColors.TextPrimary,
-                                fontWeight = FontWeight.SemiBold,
-                            )
                         }
                     }
                 }
@@ -324,92 +332,13 @@ private fun StructuredAnswerCard(answer: com.zhihuiji.core.model.AgentAnswerDto)
 }
 
 @Composable
-private fun SalesOverviewCard(
-    answer: com.zhihuiji.core.model.AgentAnswerDto,
-) {
-    val headlineA = answer.highlights.getOrNull(0) ?: "销售金额稳步提升"
-    val headlineB = answer.highlights.getOrNull(1) ?: "订单量较前周期增长"
-    val chartPoints = listOf(0.42f, 0.36f, 0.58f, 0.46f, 0.63f, 0.56f)
-
-    GlassCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("销售概览", style = ZhihuijiTypography.titleSmall, color = ZhihuijiColors.TextPrimary)
-                Text("近7天", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextSecondary)
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                AnswerMetricCard(
-                    title = "销售金额(元)",
-                    value = headlineA.filter { it.isDigit() || it == ',' }.ifBlank { "86,340" },
-                    trend = "较前7天 ↑ 12.4%",
-                    modifier = Modifier.weight(1f),
-                )
-                AnswerMetricCard(
-                    title = "订单数(笔)",
-                    value = headlineB.filter { it.isDigit() || it == ',' }.ifBlank { "238" },
-                    trend = "较前7天 ↑ 8.2%",
-                    modifier = Modifier.weight(1f),
-                )
-            }
-
-            TrendChartCard(points = chartPoints)
-        }
-    }
-}
-
-@Composable
-private fun AnswerMetricCard(
-    title: String,
+private fun AnswerFieldRow(
+    label: String,
     value: String,
-    trend: String,
-    modifier: Modifier = Modifier,
 ) {
-    GlassCard(modifier = modifier) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextSecondary)
-            Text(value, style = ZhihuijiTypography.titleLarge, color = ZhihuijiColors.TextPrimary, fontWeight = FontWeight.Bold)
-            Text(trend, style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.Success)
-        }
-    }
-}
-
-@Composable
-private fun TrendChartCard(
-    points: List<Float>,
-) {
-    GlassCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(2.4f),
-            ) {
-                if (points.isEmpty()) return@Canvas
-                val stepX = size.width / max(points.size - 1, 1)
-                val path = Path()
-                points.forEachIndexed { index, point ->
-                    val x = stepX * index
-                    val y = size.height * (1f - point.coerceIn(0.1f, 0.9f))
-                    if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                    drawCircle(
-                        color = ZhihuijiColors.Primary,
-                        radius = 6f,
-                        center = androidx.compose.ui.geometry.Offset(x, y),
-                    )
-                }
-                drawPath(
-                    path = path,
-                    color = ZhihuijiColors.Primary,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4f),
-                )
-            }
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                listOf("05-10", "05-11", "05-12", "05-13", "05-14", "05-15").forEach {
-                    Text(it, style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextTertiary)
-                }
-            }
-        }
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
+        Text(value, style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextPrimary, fontWeight = FontWeight.Medium)
     }
 }
 

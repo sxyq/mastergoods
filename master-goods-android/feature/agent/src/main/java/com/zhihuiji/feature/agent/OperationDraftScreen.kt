@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,31 +17,31 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.SyncAlt
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.common.TimeFormatter
-import com.zhihuiji.core.model.OperationDraftDto
-import com.zhihuiji.core.model.OperationType
+import com.zhihuiji.core.model.v2.agent.AgentDraftDto
+import com.zhihuiji.core.designsystem.BottomActionBar
+import com.zhihuiji.core.designsystem.EmptyState
 import com.zhihuiji.core.designsystem.GlassCard
+import com.zhihuiji.core.designsystem.GlassScaffold
 import com.zhihuiji.core.designsystem.GlassTopBar
+import com.zhihuiji.core.designsystem.PillTone
 import com.zhihuiji.core.designsystem.PrimaryButton
 import com.zhihuiji.core.designsystem.SecondaryOutlineButton
 import com.zhihuiji.core.designsystem.SegmentedTabs
+import com.zhihuiji.core.designsystem.StatusPill
 import com.zhihuiji.core.designsystem.ZhihuijiColors
 import com.zhihuiji.core.designsystem.ZhihuijiTypography
 import androidx.compose.ui.Alignment
@@ -51,7 +49,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun OperationDraftScreen(
     onNavigateBack: () -> Unit,
@@ -60,135 +57,176 @@ fun OperationDraftScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
     var selectedTab by rememberSaveable { mutableStateOf(0) }
-    var onlyMine by rememberSaveable { mutableStateOf(true) }
     var instruction by rememberSaveable { mutableStateOf("") }
-    val tabLabels = listOf("全部(6)", "销售(3)", "采购(2)", "其他(1)")
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-    ) {
-        GlassTopBar(
-            title = "操作草稿",
-            navigationIcon = Icons.AutoMirrored.Filled.ArrowBack,
-            onNavigationClick = onNavigateBack,
-        )
-        Spacer(modifier = Modifier.height(10.dp))
+    // v2: 加载草稿列表
+    LaunchedEffect(Unit) { viewModel.loadDrafts() }
 
+    val allDrafts = buildList {
+        uiState.draft?.let { currentDraft ->
+            add(currentDraft)
+        }
+        uiState.drafts.forEach { draft ->
+            if (draft.id != uiState.draft?.id) {
+                add(draft)
+            }
+        }
+    }.sortedByDescending { it.createdAt }
+    val saleCount = allDrafts.count { agentDraftCategoryKeyOf(it.draftType) == AGENT_DRAFT_CATEGORY_SALE }
+    val purchaseCount = allDrafts.count { agentDraftCategoryKeyOf(it.draftType) == AGENT_DRAFT_CATEGORY_PURCHASE }
+    val otherCount = allDrafts.size - saleCount - purchaseCount
+    val tabLabels = listOf(
+        "全部(${allDrafts.size})",
+        "销售($saleCount)",
+        "采购($purchaseCount)",
+        "其他($otherCount)",
+    )
+    val filteredDrafts = when (selectedTab) {
+        1 -> allDrafts.filter { agentDraftCategoryKeyOf(it.draftType) == AGENT_DRAFT_CATEGORY_SALE }
+        2 -> allDrafts.filter { agentDraftCategoryKeyOf(it.draftType) == AGENT_DRAFT_CATEGORY_PURCHASE }
+        3 -> allDrafts.filter { agentDraftCategoryKeyOf(it.draftType) == AGENT_DRAFT_CATEGORY_OTHER }
+        else -> allDrafts
+    }
+    val currentDraft = uiState.draft
+    val canSubmitCurrentDraft = currentDraft?.status == "draft"
+    val primaryActionText = if (canSubmitCurrentDraft) "提交草稿" else "生成草稿"
+
+    GlassScaffold(
+        selectedDestination = "",
+        destinations = emptyList(),
+        onNavigate = {},
+        showBottomBar = false,
+    ) { _ ->
         Column(
             modifier = Modifier
-                .weight(1f)
-                .verticalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            SegmentedTabs(
-                tabs = tabLabels,
-                selectedIndex = selectedTab,
-                onTabSelected = { selectedTab = it },
+            GlassTopBar(
+                title = "操作草稿",
+                navigationIcon = Icons.AutoMirrored.Filled.ArrowBack,
+                onNavigationClick = onNavigateBack,
             )
+            Spacer(modifier = Modifier.height(10.dp))
 
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = onlyMine, onCheckedChange = { onlyMine = it })
-                            Text("仅看我创建", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
-                        }
-                        Text("创建时间 ↓", style = ZhihuijiTypography.labelMedium, color = ZhihuijiColors.TextSecondary)
-                    }
-
-                    OutlinedTextField(
-                        value = instruction,
-                        onValueChange = { instruction = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("输入一段指令，例如：帮我生成一张给李想商贸的销售单") },
-                        shape = RoundedCornerShape(14.dp),
-                    )
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        SecondaryOutlineButton(
-                            text = "生成草稿",
-                            onClick = { viewModel.generateOperationDraft(instruction) },
-                            modifier = Modifier.weight(1f),
-                        )
-                        PrimaryButton(
-                            text = "提交草稿",
-                            onClick = { viewModel.submitDraft() },
-                            modifier = Modifier.weight(1f),
-                            enabled = uiState.draft?.canSubmit == true,
-                        )
-                    }
-                }
-            }
-
-            Row(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                    .weight(1f)
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text("草稿列表", style = ZhihuijiTypography.titleMedium, color = ZhihuijiColors.TextPrimary)
-                Text("共 3 条待处理", style = ZhihuijiTypography.labelMedium, color = ZhihuijiColors.TextSecondary)
-            }
-
-            uiState.draft?.let { draft ->
-                DraftCard(
-                    title = titleForDraft(draft.operationType),
-                    draft = draft,
-                    showPrimaryButton = true,
-                    onPrimaryAction = { viewModel.submitDraft() },
+                SegmentedTabs(
+                    tabs = tabLabels,
+                    selectedIndex = selectedTab,
+                    onTabSelected = { selectedTab = it },
                 )
-            }
 
-            DraftPlaceholderCard(
-                title = "销售单草稿",
-                summary = "根据你的近期对话，推荐补一张给李想商贸的销售单。",
-                accent = ZhihuijiColors.Primary,
-                meta = "草稿编号  XS-20250516-001",
-            )
-            DraftPlaceholderCard(
-                title = "采购单草稿",
-                summary = "根据低库存预警，推荐补货洗衣液与纸巾类商品。",
-                accent = ZhihuijiColors.Success,
-                meta = "草稿编号  CG-20250516-001",
-            )
-            DraftPlaceholderCard(
-                title = "收款草稿",
-                summary = "发现一笔逾期应收款，建议生成收款跟进草稿。",
-                accent = ZhihuijiColors.Warning,
-                meta = "草稿编号  SK-20250515-001",
-            )
-
-            uiState.submittedDraftResult?.let { result ->
                 GlassCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("提交结果", style = ZhihuijiTypography.titleSmall, color = ZhihuijiColors.TextPrimary)
-                        Text(result.message.ifBlank { "草稿已提交，等待下一步处理。" }, style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
-                        Text("下一步：${result.nextAction.ifBlank { "查看对应单据" }}", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.Primary)
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "草稿按本地可识别的销售/采购/其他口径分类。当前只基于指令关键词做本地归类，不伪造后端智能识别。",
+                            style = ZhihuijiTypography.bodySmall,
+                            color = ZhihuijiColors.TextSecondary,
+                        )
+
+                        OutlinedTextField(
+                            value = instruction,
+                            onValueChange = { instruction = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("输入一段指令，例如：帮我生成一张给李想商贸的销售单") },
+                            shape = RoundedCornerShape(14.dp),
+                        )
+
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("草稿列表", style = ZhihuijiTypography.titleMedium, color = ZhihuijiColors.TextPrimary)
+                    Text("共 ${filteredDrafts.size} 条", style = ZhihuijiTypography.labelMedium, color = ZhihuijiColors.TextSecondary)
+                }
+
+                filteredDrafts.forEach { draft ->
+                    DraftCard(
+                        draft = draft,
+                        showPrimaryButton = draft.id == uiState.draft?.id,
+                        onPrimaryAction = { viewModel.submitDraft() },
+                    )
+                }
+
+                if (filteredDrafts.isEmpty()) {
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
+                        EmptyState(
+                            icon = Icons.Default.Description,
+                            title = if (allDrafts.isEmpty()) "还没有真实草稿" else "当前分类下没有草稿",
+                            subtitle = if (allDrafts.isEmpty()) {
+                                "先输入操作意图生成一条真实草稿。当前页不再展示伪造编号或示例单据，避免把示例内容误看成已生成结果。"
+                            } else {
+                                "切换分类或继续生成真实草稿。仅在返回真实数据时展示对应条目。"
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 20.dp),
+                        )
+                    }
+                }
+
+                uiState.submittedDraftResult?.let { message ->
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("提交结果", style = ZhihuijiTypography.titleSmall, color = ZhihuijiColors.TextPrimary)
+                            Text(message, style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
+                        }
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            BottomActionBar(
+                primaryAction = {
+                    PrimaryButton(
+                        text = primaryActionText,
+                        onClick = {
+                            if (canSubmitCurrentDraft) {
+                                viewModel.submitDraft()
+                            } else {
+                                viewModel.generateOperationDraft(instruction)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = if (canSubmitCurrentDraft) true else instruction.isNotBlank(),
+                    )
+                },
+                secondaryActions = listOf(
+                    {
+                        SecondaryOutlineButton(
+                            text = "刷新草稿",
+                            onClick = { viewModel.loadDrafts() },
+                        )
+                    },
+                ),
+            )
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DraftCard(
-    title: String,
-    draft: OperationDraftDto,
+    draft: AgentDraftDto,
     showPrimaryButton: Boolean,
     onPrimaryAction: () -> Unit,
 ) {
-    val totalAmount = draft.items.sumOf { it.amount }
-    val accent = accentColorForDraft(draft.operationType)
-    val icon = iconForDraft(draft.operationType)
+    val accent = accentColorForDraftType(draft.draftType)
+    val icon = iconForDraftType(draft.draftType)
+    val displayTitle = draft.title.ifBlank { titleForDraftType(draft.draftType) }
+    val statusLabel = draftStatusLabel(draft.status)
+    val statusTone = draftStatusTone(draft.status)
     GlassCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -202,95 +240,25 @@ private fun DraftCard(
                         Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
                     }
                     Column {
-                        Text(title, style = ZhihuijiTypography.titleMedium, color = ZhihuijiColors.TextPrimary)
-                        Text(draft.summary.ifBlank { "待补充摘要" }, style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
+                        Text(displayTitle, style = ZhihuijiTypography.titleMedium, color = ZhihuijiColors.TextPrimary)
+                        StatusPill(text = statusLabel, tone = statusTone)
                     }
                 }
-                Icon(Icons.Default.MoreHoriz, contentDescription = null, tint = ZhihuijiColors.TextSecondary)
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                DraftMetaRow("草稿编号", draftCodeFor(draft))
-                DraftMetaRow("往来方", draft.partnerName.ifBlank { "-" })
-                DraftMetaRow("角色", draft.partnerRole.ifBlank { "-" })
-                DraftMetaRow("商品数", "${draft.items.size}")
-                DraftMetaRow("金额(元)", MoneyFormatter.formatWithoutSymbol(totalAmount))
-                DraftMetaRow("创建时间", draftCreatedTimeFor(draft))
-            }
-
-            if (draft.warnings.isNotEmpty()) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    draft.warnings.forEach { warning ->
-                        Text(
-                            text = warning,
-                            style = ZhihuijiTypography.labelSmall,
-                            color = ZhihuijiColors.Warning,
-                        )
-                    }
-                }
-            }
-
-            draft.items.take(3).forEach { item ->
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(item.productName.ifBlank { item.productCode }, style = ZhihuijiTypography.bodyMedium, color = ZhihuijiColors.TextPrimary)
-                        Text("¥${item.unitPrice} × ${item.quantity}", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
-                    }
-                    Text(MoneyFormatter.format(item.amount), style = ZhihuijiTypography.bodyMedium, color = ZhihuijiColors.TextPrimary, fontWeight = FontWeight.SemiBold)
-                }
+                DraftMetaRow("草稿类型", titleForDraftType(draft.draftType))
+                DraftMetaRow("状态", statusLabel)
+                DraftMetaRow("创建时间", TimeFormatter.formatDateTime(draft.createdAt))
+                DraftMetaRow("更新时间", TimeFormatter.formatDateTime(draft.updatedAt))
+                DraftMetaRow("内容状态", draftContentSummary(draft.contentJson))
+                DraftMetaRow("数据来源", "当前展示真实返回的标题、类型与时间；明细字段会在可用后继续补充")
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                SecondaryOutlineButton(text = "编辑", onClick = {}, modifier = Modifier.weight(1f))
                 if (showPrimaryButton) {
-                    PrimaryButton(text = "提交", onClick = onPrimaryAction, modifier = Modifier.weight(1f), enabled = draft.canSubmit)
+                    PrimaryButton(text = "提交", onClick = onPrimaryAction, modifier = Modifier.fillMaxWidth(), enabled = draft.status == "draft")
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DraftPlaceholderCard(
-    title: String,
-    summary: String,
-    accent: androidx.compose.ui.graphics.Color,
-    meta: String,
-) {
-    GlassCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .background(accent.copy(alpha = 0.12f), RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Icons.Default.Description, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
-                    }
-                    Column {
-                        Text(title, style = ZhihuijiTypography.titleMedium, color = ZhihuijiColors.TextPrimary)
-                        Text(meta, style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextSecondary)
-                    }
-                }
-                Icon(Icons.Default.Refresh, contentDescription = null, tint = ZhihuijiColors.TextSecondary)
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                DraftMetaRow("草稿编号", meta)
-                DraftMetaRow("往来方", placeholderPartnerFor(title))
-                DraftMetaRow("商品数", placeholderItemCountFor(title))
-                DraftMetaRow("金额(元)", placeholderAmountFor(title))
-                DraftMetaRow("创建时间", placeholderTimeFor(title))
-            }
-            Text(summary, style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                SecondaryOutlineButton(text = "编辑", onClick = {}, modifier = Modifier.weight(1f))
-                PrimaryButton(
-                    text = if (title.contains("收款")) "新建草稿" else "提交",
-                    onClick = {},
-                    modifier = Modifier.weight(1f),
-                )
             }
         }
     }
@@ -307,60 +275,46 @@ private fun DraftMetaRow(
     }
 }
 
-private fun titleForDraft(type: OperationType): String = when (type) {
-    OperationType.SALE -> "销售单草稿"
-    OperationType.PURCHASE -> "采购单草稿"
-    OperationType.RETURN -> "退货单草稿"
+private fun titleForDraftType(draftType: String): String = when {
+    agentDraftCategoryKeyOf(draftType) == AGENT_DRAFT_CATEGORY_SALE -> "销售单草稿"
+    agentDraftCategoryKeyOf(draftType) == AGENT_DRAFT_CATEGORY_PURCHASE -> "采购单草稿"
+    draftType.contains("return", ignoreCase = true) -> "退货单草稿"
+    draftType.equals("operation", ignoreCase = true) -> "操作草稿"
+    else -> "草稿"
 }
 
-private fun accentColorForDraft(type: OperationType): androidx.compose.ui.graphics.Color = when (type) {
-    OperationType.SALE -> ZhihuijiColors.Primary
-    OperationType.PURCHASE -> ZhihuijiColors.Success
-    OperationType.RETURN -> ZhihuijiColors.Warning
+private fun accentColorForDraftType(draftType: String): androidx.compose.ui.graphics.Color = when {
+    agentDraftCategoryKeyOf(draftType) == AGENT_DRAFT_CATEGORY_SALE -> ZhihuijiColors.Primary
+    agentDraftCategoryKeyOf(draftType) == AGENT_DRAFT_CATEGORY_PURCHASE -> ZhihuijiColors.Success
+    draftType.contains("return", ignoreCase = true) -> ZhihuijiColors.Warning
+    else -> ZhihuijiColors.Primary
 }
 
-private fun iconForDraft(type: OperationType) = when (type) {
-    OperationType.SALE -> Icons.Default.Description
-    OperationType.PURCHASE -> Icons.Default.ShoppingCart
-    OperationType.RETURN -> Icons.Default.SyncAlt
+private fun iconForDraftType(draftType: String) = when {
+    agentDraftCategoryKeyOf(draftType) == AGENT_DRAFT_CATEGORY_SALE -> Icons.Default.Description
+    agentDraftCategoryKeyOf(draftType) == AGENT_DRAFT_CATEGORY_PURCHASE -> Icons.Default.ShoppingCart
+    draftType.contains("return", ignoreCase = true) -> Icons.Default.SyncAlt
+    else -> Icons.Default.Description
 }
 
-private fun draftCodeFor(draft: OperationDraftDto): String {
-    val prefix = when (draft.operationType) {
-        OperationType.SALE -> "XS"
-        OperationType.PURCHASE -> "CG"
-        OperationType.RETURN -> "TH"
-    }
-    val partnerPart = (draft.partnerId ?: draft.items.size.toLong()).toString().padStart(3, '0')
-    return "$prefix-20250516-$partnerPart"
+private fun draftStatusLabel(status: String): String = when (status) {
+    "draft" -> "草稿"
+    "submitted" -> "已提交"
+    "approved" -> "已审核"
+    "rejected" -> "已驳回"
+    else -> status
 }
 
-private fun draftCreatedTimeFor(draft: OperationDraftDto): String = when (draft.operationType) {
-    OperationType.SALE -> "2025-05-16 10:28"
-    OperationType.PURCHASE -> "2025-05-16 09:48"
-    OperationType.RETURN -> TimeFormatter.formatDateTime(System.currentTimeMillis())
+private fun draftStatusTone(status: String): PillTone = when (status) {
+    "draft" -> PillTone.INFO
+    "submitted" -> PillTone.WARNING
+    "approved" -> PillTone.SUCCESS
+    "rejected" -> PillTone.DANGER
+    else -> PillTone.NEUTRAL
 }
 
-private fun placeholderPartnerFor(title: String): String = when {
-    title.contains("销售") -> "李想商贸"
-    title.contains("采购") -> "晨光纸品厂"
-    else -> "王五超市"
-}
-
-private fun placeholderItemCountFor(title: String): String = when {
-    title.contains("销售") -> "5"
-    title.contains("采购") -> "7"
-    else -> "1"
-}
-
-private fun placeholderAmountFor(title: String): String = when {
-    title.contains("销售") -> "1,258.00"
-    title.contains("采购") -> "2,865.50"
-    else -> "3,260.00"
-}
-
-private fun placeholderTimeFor(title: String): String = when {
-    title.contains("销售") -> "2025-05-16 10:28"
-    title.contains("采购") -> "2025-05-16 09:48"
-    else -> "2025-05-15 16:30"
+private fun draftContentSummary(contentJson: String): String = when {
+    contentJson.isBlank() -> "暂无内容"
+    contentJson == "{}" -> "暂未生成可解析明细"
+    else -> "已返回内容，后续可继续补充字段级展示"
 }

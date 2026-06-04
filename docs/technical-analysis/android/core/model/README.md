@@ -11,7 +11,15 @@
   - `ReportModels.kt`
   - `AgentModels.kt`
   - `SyncModels.kt`
-  - `StatusConstants.kt`
+- `StatusConstants.kt`
+- `v2/product/ProductV2Models.kt`
+- `v2/partner/PartnerV2Models.kt`
+- `v2/order/OrderV2Models.kt`
+- `v2/finance/FinanceV2Models.kt`
+- `v2/inventory/InventoryV2Models.kt`
+- `v2/sync/SyncV2Models.kt`
+- `v2/agent/AgentV2Models.kt`
+- `v2/media/MediaV2Models.kt`
 
 ## 模块定位
 
@@ -36,7 +44,7 @@
 | 对象 | 状态 | 旧版情况 | 新版目标 | 当前实现 | 备注 |
 |---|---|---|---|---|---|
 | `/v1` DTO 与筛选模型 | 新版已做 | 旧版无当前新版 DTO 体系 | 继续支撑现有功能 | 当前 10+ 模型文件已存在 | 兼容层保留 |
-| `/v2` 领域模型 | 新版待做 | 旧版字段更厚但无 `/v2` | 建立 owner-aware 的新版模型 | 后端单据域与商品/伙伴域 `/v2` DTO 已落地，安卓侧仍未建立 `core/model/v2` | 先从 order + product + partner 三域开始 |
+| `/v2` 领域模型 | 待验证 | 旧版字段更厚但无 `/v2` | 建立 owner-aware 的新版模型 | 已新增 `core/model/v2/product`、`partner`、`order`、`finance`、`inventory`、`sync`、`agent`、`media`，并完成本地 Kotlin 编译 | feature 层尚未接线，仍需联调验证 |
 | 模型分层边界 | 需重构 | 首版常把轻量请求/响应混在一起 | 拆出 request/query/summary/detail/form model | 当前仍偏首版轻模型 | 影响广泛 |
 | 商品/财务/库存扩域模型 | 旧版存在新版未做 | 旧版主数据与财务字段更厚 | 新版模型要覆盖更完整经营域 | 当前模型仍偏首版闭环 | 会新增多个文件组 |
 | 会员模型 | 新版需要去掉 | 旧版可存在会员扩展 | 当前阶段不纳入 | 不应新增 member 相关模型 | 如恢复需重新立项 |
@@ -60,14 +68,15 @@
 
 | 新版模型族 | 状态 | 说明 |
 |---|---|---|
-| `product` | 新版待做 | 分类、单位、价格层级、供应关系、媒体 |
-| `partner` | 新版待做 | 联系人、分组、标签、价格策略 |
-| `sales` | 新版待做 | 草稿、订单、收款、退货、来源、状态机 |
-| `purchase` | 新版待做 | 采购订单、收货/入库、应付联动 |
-| `finance` | 新版待做 | 账户、转账、找零、项目、单据资金关联 |
-| `inventory` | 新版待做 | 账本、快照、月统计 |
-| `sync` | 新版待做 | owner 分桶、导入任务、同步批次 |
-| `agent` | 新版待做 | 对话会话、消息、草稿缓存、推荐结果 |
+| `product` | 待验证 | 分类、单位、价格层级、供应关系、媒体首轮模型已落地 |
+| `partner` | 待验证 | 联系人、分组首轮模型已落地；标签、价格策略仍待后续扩域 |
+| `sales` | 待验证 | 销售单、支付、退货首轮模型已落地；B08 修复：5 个 Filter 类已补齐 `@Serializable` + `@SerialName` |
+| `purchase` | 待验证 | 采购单、采购收货首轮模型已落地 |
+| `finance` | 待验证 | 账户、转账、单据资金关联首轮模型已落地 |
+| `inventory` | 待验证 | 账本、快照、月统计首轮模型已落地 |
+| `sync` | 待验证 | owner 分桶 cursor、导入任务、pull/upload/ack 首轮模型已落地 |
+| `media` | 待验证 | 资源、绑定、上传元数据首轮模型已落地，真实上传链仍待联调 |
+| `agent` | 待验证 | 对话会话、消息、草稿首轮模型已落地，推荐结果缓存仍待后续扩展 |
 
 ## 与后端 DTO / 旧版能力的关键差异
 
@@ -127,6 +136,13 @@
 ## 当前结论
 
 - 现在的 `core/model` 依然适合作为 `/v1` 兼容层。
-- 后端已经给出首批 `/v2` 单据 DTO 命名空间，且商品域已进入第三阶段扩域；安卓模型迁移应该先从 `sales / purchase / pay` 与 `product` 四组开始。
+- 后端已经给出首批 `/v2` 单据 DTO 命名空间，且商品域已进入第三阶段扩域；当前安卓已把 `/v2` 首轮模型扩到 `product / partner / order / finance / inventory / sync / agent / media`。
 - 但它已经不适合作为新版所有能力的唯一承载点。
 - 安卓端后续要不要顺利跟上后端 `/v2`，很大程度取决于这里是否先完成分层规划。
+
+## UI 联动约束
+
+- 本模块虽然不直接负责页面绘制，但其输出的数据结构、状态枚举、错误语义和交互支撑能力必须服务于统一的 Android UI 基线。
+- 后续新增业务不能倒逼页面切换成另一套视觉风格；应优先通过补充 `core/designsystem` 通用组件或扩展既有页面母版来承接。
+- 需要映射到 UI 的状态、金额、风险、同步结果等，应继续服从统一的颜色语义、状态标签和信息层级。
+- Android 视觉真源固定为 `docs/design-mockups/01.png ~ 08.png` 与 `master-goods-android/UI-DESIGN-SPEC.md`。

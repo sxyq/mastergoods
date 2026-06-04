@@ -32,9 +32,9 @@
 
 | 对象 | 状态 | 旧版情况 | 新版目标 | 当前实现 | 备注 |
 |---|---|---|---|---|---|
-| 商品列表/编辑/库存调整闭环 | 新版已做 | 旧版商品域更厚 | 支撑当前商品主流程 | 页面、弹窗、ViewModel 已存在 | 业务链已走通 |
-| 多单位、多价格、供应关系页面 | 旧版存在新版未做 | 旧版商品能力明显更厚 | 新版商品页要超过旧版 | 当前编辑页仍是基础字段集 | 后端第三阶段已补 `product-price-levels` 与 `product-supplier-relations`，页面层仍未接入 |
-| `/v2` owner-aware 商品页 | 需重构 | 旧版无统一 owner | 页面状态管理与表单改为新版契约 | 后端已具备 `/v2/products`、`/v2/product-categories`、`/v2/product-units`、`/v2/product-price-levels`、`/v2/product-supplier-relations`，当前页面仍主要绑定 `/v1` | UI 不在本阶段修改 |
+| 商品列表/编辑/库存调整闭环 | 新版已做 | 旧版商品域更厚 | 支撑当前商品主流程 | 页面、弹窗、ViewModel 已存在 | 业务链已走通；已切到 ProductV2Repository |
+| 多单位、多价格、供应关系页面 | 待验证 | 旧版商品能力明显更厚 | 新版商品页要超过旧版 | 数据层已就绪，UI 仍为基础字段集 | 后端第三阶段已补 `product-price-levels` 与 `product-supplier-relations`，数据层已切 V2，页面层仍未接入 |
+| `/v2` owner-aware 商品页 | 待验证 | 旧版无统一 owner | 页面状态管理与表单改为新版契约 | 已切到 ProductV2Repository + ProductV2Dto | 本模块已使用 V2 Repository 替代 V1 Repository；UI 不在本阶段修改 |
 
 ## 后续页面拆分建议
 
@@ -44,3 +44,11 @@
 | 商品编辑页价格区 | 新版待做 | 支持基础价 + 多价格层级编辑 |
 | 商品编辑页供应关系区 | 新版待做 | 支持默认供应商、优先级、最近采购价、备注 |
 | 商品详情页供应链摘要 | 新版待做 | 汇总默认供应商与供应关系列表 |
+
+## UI 统一约束
+
+- 本模块后续新增业务必须继续复用当前设计图对应的页面母版，不允许因为领域变厚就切换成另一套视觉语言。
+- 页面结构优先落入既有模式：列表页、详情页、编辑页、报表页、AI 页、设置页。
+- 视觉基线固定为：浅蓝渐变背景、玻璃卡片、蓝色主按钮、白色次按钮、统一状态标签、五栏主壳。
+- 如需新增 UI 组件，先沉淀到 `core/designsystem`，再由本模块复用；不允许长期保留 feature 私有样式组件。
+- 验收时同时对照：`docs/design-mockups/01.png ~ 08.png`、`master-goods-android/UI-DESIGN-SPEC.md`、`docs/technical-analysis/android/core/designsystem/README.md`。

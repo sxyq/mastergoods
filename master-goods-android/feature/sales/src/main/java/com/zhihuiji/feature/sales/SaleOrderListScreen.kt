@@ -9,7 +9,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -33,24 +32,50 @@ fun SaleOrderListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
-    val statusTabs = listOf("全部", "待审核", "待发货", "待收款", "已完成", "已作废")
+    val statusTabs = listOf("全部", "草稿", "已完成", "已取消", "已确认")
+    val statusCodes = listOf(
+        null,
+        StatusLabels.Codes.SALE_DRAFT,
+        StatusLabels.Codes.SALE_COMPLETED,
+        StatusLabels.Codes.SALE_CANCELLED,
+        StatusLabels.Codes.SALE_CONFIRMED,
+    )
 
     BottomBarScrollVisibilityEffect(listState)
     BottomBarScrollToTopEffect(scrollToTopSignal, listState)
 
-    Box(modifier = Modifier.fillMaxSize().then(if (showTopBar) Modifier.glassBackground() else Modifier)) {
+    GlassScaffold(
+        selectedDestination = "",
+        destinations = emptyList(),
+        onNavigate = {},
+        showBottomBar = false,
+    ) { _ ->
         Column(modifier = Modifier.fillMaxSize()) {
             if (showTopBar) {
                 GlassTopBar(title = "销售单", navigationIcon = Icons.AutoMirrored.Filled.ArrowBack, onNavigationClick = onNavigateBack)
             }
             SearchFilterBar(query = uiState.filter.keyword ?: "", onQueryChange = { viewModel.updateFilter(keyword = it.ifBlank { null }) }, placeholder = "搜索单号/客户/商品", filterIcon = Icons.Default.Tune, onFilterClick = {})
-            SegmentedTabs(tabs = statusTabs, selectedIndex = when(uiState.filter.status) { 0 -> 1; 1 -> 4; 2 -> 5; else -> 0 }, onTabSelected = { viewModel.updateFilter(status = when (it) { 1 -> 0; 4 -> 1; 5 -> 2; else -> null }) })
+            SegmentedTabs(
+                tabs = statusTabs,
+                selectedIndex = statusCodes.indexOf(uiState.filter.status).takeIf { it >= 0 } ?: 0,
+                onTabSelected = { viewModel.updateFilter(status = statusCodes[it]) },
+            )
             if (uiState.orders.isEmpty()) {
-                EmptyState(icon = Icons.Default.Receipt, title = "暂无销售单", modifier = Modifier.fillMaxSize().align(Alignment.CenterHorizontally))
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    EmptyState(icon = Icons.Default.Receipt, title = "暂无销售单", modifier = Modifier.fillMaxWidth())
+                }
             } else {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(top = 6.dp, bottom = 88.dp),
                 ) {
@@ -59,7 +84,15 @@ fun SaleOrderListScreen(
                             Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                     Text(order.orderNo, style = ZhihuijiTypography.titleMedium, color = ZhihuijiColors.TextPrimary)
-                                    StatusPill(text = StatusLabels.saleOrderStatus(order.status), tone = when(order.status) { 1 -> PillTone.SUCCESS; 2 -> PillTone.NEUTRAL; else -> PillTone.INFO })
+                                    StatusPill(
+                                        text = StatusLabels.saleOrderStatus(order.status),
+                                        tone = when(order.status) {
+                                            StatusLabels.Codes.SALE_COMPLETED -> PillTone.SUCCESS
+                                            StatusLabels.Codes.SALE_CANCELLED -> PillTone.NEUTRAL
+                                            StatusLabels.Codes.SALE_CONFIRMED -> PillTone.INFO
+                                            else -> PillTone.WARNING
+                                        },
+                                    )
                                 }
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Text("客户：${order.customerName ?: "散客"}", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
@@ -83,8 +116,13 @@ fun SaleOrderListScreen(
             }
         }
         if (showTopBar) {
-            FloatingActionButton(onClick = onNavigateToEditor, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), containerColor = ZhihuijiColors.Primary) {
-                Icon(Icons.Default.Add, null, tint = androidx.compose.ui.graphics.Color.White)
+            Box(modifier = Modifier.fillMaxSize()) {
+                FloatingPrimaryActionButton(
+                    text = "销售开单",
+                    icon = Icons.Default.Add,
+                    onClick = onNavigateToEditor,
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                )
             }
         }
     }

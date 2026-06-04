@@ -27,13 +27,16 @@ class SettingsStore @Inject constructor(
         const val DEFAULT_BASE_URL = "https://api.zhihuiji.com/v1/"
         private const val PRODUCTION_HOST = "api.zhihuiji.com"
         private const val SERVER_124_HOST = "124.222.153.108"
-        private const val DEV_FALLBACK_HOST = "117.72.79.106"
+        private const val DEBUG_SERVER_117_HOST = "117.72.79.106"
         private val RELEASE_ALLOWED_HOSTS = setOf(PRODUCTION_HOST)
 
-        fun normalizeBaseUrl(raw: String): String {
+        fun normalizeBaseUrl(raw: String): String = normalizeBaseUrl(raw, allowDebug117Host = BuildConfig.BASE_URL_EDITABLE)
+
+        internal fun normalizeBaseUrl(raw: String, allowDebug117Host: Boolean): String {
             val trimmed = raw.trim()
             if (trimmed.isEmpty()) return DEFAULT_BASE_URL
-            if (trimmed.contains(SERVER_124_HOST) || trimmed.contains(DEV_FALLBACK_HOST)) return DEFAULT_BASE_URL
+            if (trimmed.contains(SERVER_124_HOST)) return DEFAULT_BASE_URL
+            if (!allowDebug117Host && trimmed.contains(DEBUG_SERVER_117_HOST)) return DEFAULT_BASE_URL
             return if (trimmed.endsWith("/")) trimmed else "$trimmed/"
         }
 

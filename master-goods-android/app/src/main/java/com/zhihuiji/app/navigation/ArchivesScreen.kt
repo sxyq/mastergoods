@@ -2,17 +2,9 @@ package com.zhihuiji.app.navigation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddCircleOutline
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -20,15 +12,24 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import com.zhihuiji.core.designsystem.GlassTopBar
 import com.zhihuiji.core.designsystem.SegmentedTabs
 import com.zhihuiji.core.designsystem.ZhihuijiColors
 import com.zhihuiji.core.designsystem.ZhihuijiTypography
 import com.zhihuiji.feature.customers.CustomerListScreen
 import com.zhihuiji.feature.products.ProductListScreen
 import com.zhihuiji.feature.suppliers.SupplierListScreen
-import androidx.compose.ui.unit.dp
 
 private const val TAB_PRODUCTS = "商品"
 private const val TAB_CUSTOMERS = "客户"
@@ -38,6 +39,7 @@ private const val TAB_SUPPLIERS = "供应商"
 fun ArchivesScreen(
     initialTab: Int = 0,
     reselectSignal: Int = 0,
+    onNavigateToProductDetail: (Long) -> Unit = {},
     onNavigateToProductEditor: (Long?) -> Unit = {},
     onNavigateToCustomerEditor: (Long?) -> Unit = {},
     onNavigateToCustomerDetail: (Long) -> Unit = {},
@@ -54,44 +56,46 @@ fun ArchivesScreen(
         if (reselectSignal > 0) {
             when (selectedTab) {
                 0 -> productScrollToTopSignal++
-                1, 2 -> {
-                    selectedTab = 0
-                    productScrollToTopSignal++
-                }
+                1 -> customerScrollToTopSignal++
+                2 -> supplierScrollToTopSignal++
             }
         }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier
-                .height(56.dp)
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text("智慧记", style = ZhihuijiTypography.titleLarge, color = ZhihuijiColors.TextPrimary)
-            Text(
-                tabs[selectedTab],
-                style = ZhihuijiTypography.titleMedium,
-                color = ZhihuijiColors.TextPrimary,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(onClick = {}) {
-                Icon(Icons.Default.FilterList, contentDescription = "筛选", tint = ZhihuijiColors.TextPrimary)
-            }
-            IconButton(
-                onClick = {
-                    when (selectedTab) {
-                        0 -> onNavigateToProductEditor(null)
-                        1 -> onNavigateToCustomerEditor(null)
-                        2 -> onNavigateToSupplierEditor(null)
-                    }
-                },
-            ) {
-                Icon(Icons.Default.AddCircleOutline, contentDescription = "新增", tint = ZhihuijiColors.TextPrimary)
-            }
+        val currentTabTitle = tabs.getOrElse(selectedTab) { TAB_PRODUCTS }
+        val currentTabIcon = when (selectedTab) {
+            0 -> Icons.Default.Inventory2
+            1 -> Icons.Default.Groups
+            else -> Icons.Default.LocalShipping
         }
+        GlassTopBar(
+            title = "智慧记",
+            actions = {
+                ArchiveTopBarAction(
+                    icon = currentTabIcon,
+                    contentDescription = currentTabTitle,
+                    onClick = {},
+                )
+                ArchiveTopBarAction(
+                    icon = Icons.Default.Add,
+                    contentDescription = "新增$currentTabTitle",
+                    onClick = {
+                        when (selectedTab) {
+                            0 -> onNavigateToProductEditor(null)
+                            1 -> onNavigateToCustomerEditor(null)
+                            else -> onNavigateToSupplierEditor(null)
+                        }
+                    },
+                )
+            },
+        )
+        Text(
+            text = currentTabTitle,
+            style = ZhihuijiTypography.titleMedium,
+            color = ZhihuijiColors.TextPrimary,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
         SegmentedTabs(
             tabs = tabs,
             selectedIndex = selectedTab,
@@ -103,6 +107,7 @@ fun ArchivesScreen(
                     onNavigateBack = {},
                     showTopBar = false,
                     scrollToTopSignal = productScrollToTopSignal,
+                    onNavigateToDetail = onNavigateToProductDetail,
                     onNavigateToEditor = onNavigateToProductEditor,
                 ) }
                 1 -> key(1) { CustomerListScreen(
@@ -121,5 +126,21 @@ fun ArchivesScreen(
                 ) }
             }
         }
+    }
+}
+
+@Composable
+private fun ArchiveTopBarAction(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
+    IconButton(onClick = onClick) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = ZhihuijiColors.TextPrimary,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }

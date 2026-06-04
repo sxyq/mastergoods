@@ -34,7 +34,10 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:model"))
     implementation(project(":core:designsystem"))
-    implementation(project(":data:report"))
+    implementation(project(":data:finance"))
+    implementation(project(":data:order"))
+    implementation(project(":data:product"))
+    implementation(project(":data:sync"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)

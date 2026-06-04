@@ -59,6 +59,14 @@ master-goods-android/
 - 视觉设计稿：
   [docs/design-mockups](/Users/sunyiyang/Desktop/Project/master-goods/docs/design-mockups)
 
+## UI 统一基线
+
+- Android 视觉真源固定为 `docs/design-mockups/01.png ~ 08.png`。
+- 页面母版与组件组合以 `UI-DESIGN-SPEC.md` 为准。
+- 具体实现必须通过 `core/designsystem` 承接，feature 页面不能长期保留私有风格组件。
+- 后续新增商品、单据、财务、库存、AI、同步等业务能力时，优先落入既有列表页、详情页、编辑页、报表页、AI 页、设置页母版。
+- 当前文档基线已经统一，但 B10 之前仍不能把 UI 视为设计稿级完成，后续还需要真机截图和逐页核对。
+
 ## 实际源码目录命名
 
 - `app/src/main/java/com/zhihuiji/app`

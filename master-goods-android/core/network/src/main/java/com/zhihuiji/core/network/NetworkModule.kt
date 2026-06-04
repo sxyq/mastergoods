@@ -20,6 +20,8 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
+    private val fallbackBaseUrl = NetworkConfig.DEFAULT_FALLBACK_URL.toHttpUrl()
+
     private fun buildCertificatePinner(): CertificatePinner? {
         if (!BuildConfig.CERT_PINNING_ENABLED) return null
         val host = BuildConfig.PINNED_HOST.trim()
@@ -68,15 +70,39 @@ object NetworkModule {
             "Release builds require a trusted production host"
         }
         val originalRequest = chain.request()
-        val newUrl = originalRequest.url.newBuilder()
-            .scheme(newBaseUrl.scheme)
-            .host(newBaseUrl.host)
-            .port(newBaseUrl.port)
-            .build()
+        val newUrl = rewriteUrlForBaseUrl(
+            originalUrl = originalRequest.url,
+            newBaseUrl = newBaseUrl,
+        )
         val newRequest = originalRequest.newBuilder()
             .url(newUrl)
             .build()
         chain.proceed(newRequest)
+    }
+
+    internal fun rewriteUrlForBaseUrl(
+        originalUrl: okhttp3.HttpUrl,
+        newBaseUrl: okhttp3.HttpUrl,
+        fallbackUrl: okhttp3.HttpUrl = fallbackBaseUrl,
+    ): okhttp3.HttpUrl {
+        val fallbackPathPrefix = fallbackUrl.encodedPath.removeSuffix("/")
+        val relativePath = when {
+            fallbackPathPrefix.isNotEmpty() && originalUrl.encodedPath.startsWith("$fallbackPathPrefix/") ->
+                originalUrl.encodedPath.removePrefix("$fallbackPathPrefix/")
+            originalUrl.encodedPath == fallbackPathPrefix -> ""
+            else -> originalUrl.encodedPath.removePrefix("/")
+        }
+        val rewrittenPath = when {
+            relativePath.isBlank() -> newBaseUrl.encodedPath
+            newBaseUrl.encodedPath.endsWith("/") -> newBaseUrl.encodedPath + relativePath
+            else -> "${newBaseUrl.encodedPath}/$relativePath"
+        }
+        return originalUrl.newBuilder()
+            .scheme(newBaseUrl.scheme)
+            .host(newBaseUrl.host)
+            .port(newBaseUrl.port)
+            .encodedPath(rewrittenPath)
+            .build()
     }
 
     @Provides
@@ -110,4 +136,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideZhihuijiApi(retrofit: Retrofit): ZhihuijiApi = retrofit.create(ZhihuijiApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideZhihuijiV2Api(retrofit: Retrofit): ZhihuijiV2Api = retrofit.create(ZhihuijiV2Api::class.java)
 }

@@ -5,6 +5,11 @@
   - `SaleOrderRepository.kt`
   - `PurchaseOrderRepository.kt`
   - `PayOrderRepository.kt`
+  - `SaleOrderV2Repository.kt`
+  - `SalesReturnV2Repository.kt`
+  - `PurchaseOrderV2Repository.kt`
+  - `PurchaseReceiptV2Repository.kt`
+  - `PayOrderV2Repository.kt`
 
 ## 模块定位
 
@@ -32,16 +37,16 @@
 | 列表筛选向 DAO 下沉 | 新版已做 | 旧版本地账本天然依赖 SQL 检索 | 当前新版把销售/付款/资金流水的时间、金额、商品关键字等筛选更多下沉到 Room DAO | `SaleOrderDao`、`PayOrderDao`、`FinanceRecordDao` 已增强搜索参数 | 减少纯内存过滤 |
 | 销售详情本地回退图 | 新版已做 | 旧版本地账本天然可直接查单据明细 | 当前新版至少保证销售详情在弱网/失败时仍能读到已同步的订单项 | `SaleOrderRepository` 已接入 `SaleOrderDao.findWithItemsById()` 与 `replaceOrderGraph(s)` | 采购/付款本地明细图仍偏轻 |
 | 销售订单态/采购订单态/退货态 | 旧版存在新版未做 | 旧版有 `sorders/porders` 等更细表域 | 新版要拆清草稿、订单、出入库、退货 | 当前仍以首版单据模型为主 | 会影响接口和页面 |
-| owner 过滤与 `/v2` 单据契约 | 新版待做 | 旧版无统一 owner | 所有单据仓储按 owner 与 `/v2` 行为重写 | 后端已落地 `/v2` 首批单据接口，但安卓仓储仍主要依赖 `/v1` | 下一阶段优先切换 `data/order` |
+| owner 过滤与 `/v2` 单据契约 | 待验证 | 旧版无统一 owner | 所有单据仓储按 owner 与 `/v2` 行为重写 | 已新增 `SaleOrderV2Repository`、`SalesReturnV2Repository`、`PurchaseOrderV2Repository`、`PurchaseReceiptV2Repository`、`PayOrderV2Repository`；B08 修复：5 个 Filter 类已补齐 `@Serializable` + `@SerialName` | 现阶段与 `/v1` 并行，feature 层尚未切换 |
 | “一个仓储包办整个单据域”思路 | 需重构 | 首版为提速可接受 | 新版要按场景与聚合根细化仓储职责 | 当前 `data/order` 仍偏粗粒度 | 代码阶段再落地 |
 
 ## 新版建议拆分方向
 
 | 仓储方向 | 状态 | 说明 |
 |---|---|---|
-| `sales` | 新版待做 | 销售草稿、销售订单、销售收款、销售退货 |
-| `purchase` | 新版待做 | 采购订单、收货/入库、应付联动 |
-| `payment` | 新版待做 | 单据付款、单据资金映射、状态更新 |
+| `sales` | 待验证 | `SaleOrderV2Repository` 已覆盖销售订单、草稿确认、收款、取消；`SalesReturnV2Repository` 已覆盖独立退货 |
+| `purchase` | 待验证 | `PurchaseOrderV2Repository` 与 `PurchaseReceiptV2Repository` 已覆盖采购订单与收货/入库 |
+| `payment` | 待验证 | `PayOrderV2Repository` 已覆盖付款单创建与状态更新 |
 | `billing` 或 `settlement` | 新版待做 | 单据与财务域的交叉层 |
 
 ## 当前代码与新版规划的断点
@@ -59,3 +64,10 @@
 | `/v2/sale-orders/*` | 新版已做 | `SaleOrderRepository` 后续应优先适配新的列表/详情/创建/收款语义 |
 | `/v2/purchase-orders/*` | 新版已做 | `PurchaseOrderRepository` 后续切换到 owner-aware 的采购接口 |
 | `/v2/pay-orders/*` | 新版已做 | `PayOrderRepository` 后续切换到 owner-aware 的付款接口 |
+
+## UI 联动约束
+
+- 本模块虽然不直接负责页面绘制，但其输出的数据结构、状态枚举、错误语义和交互支撑能力必须服务于统一的 Android UI 基线。
+- 后续新增业务不能倒逼页面切换成另一套视觉风格；应优先通过补充 `core/designsystem` 通用组件或扩展既有页面母版来承接。
+- 需要映射到 UI 的状态、金额、风险、同步结果等，应继续服从统一的颜色语义、状态标签和信息层级。
+- Android 视觉真源固定为 `docs/design-mockups/01.png ~ 08.png` 与 `master-goods-android/UI-DESIGN-SPEC.md`。

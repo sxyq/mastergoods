@@ -35,6 +35,9 @@ public class PayOrderEntity {
     @Column(length = 255)
     private String notes;
 
+    @Column(name = "account_id")
+    private Long accountId;
+
     @Column(nullable = false)
     private Integer status;
 
@@ -120,6 +123,14 @@ public class PayOrderEntity {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
     }
 
     public Integer getStatus() {

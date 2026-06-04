@@ -1,6 +1,6 @@
 # data/sync 模块开发说明
 
-- 当前状态：基础手动同步已实现（健康检查、pull、变更应用、游标持久化）；后台同步、离线回写和 WorkManager 仍开发中。
+- 当前状态：`SyncRepository` 已实现 `/v1` 基础手动同步；`SyncV2Repository` 已实现 `/v2` health/cursor/pull/ack/upload/import-jobs 与 inventory 读模型首轮承接。
 - 实际源码目录：`data/sync/src/main/java/com/zhihuiji/data/sync`
 - 目标：封装健康检查、手动同步、游标持久化和拉取变更应用。
 
@@ -8,6 +8,7 @@
 
 - `SyncRepository`
 - `ManualSyncUseCase`
+- `SyncV2Repository`
 
 ## 需要实现的关键函数
 
@@ -17,6 +18,11 @@
 - `applyPulledChanges(result: PullResult)`
 - `runManualSync()`
 - `clearSyncState()`
+- `/v2`：
+  - `health()/cursor()/acknowledgeCursor()/pull()/upload()`
+  - `listImportJobs()/getImportJob()/createImportJob()/retryImportJob()/cancelImportJob()`
+  - `listInventoryLedger()/listInventoryLedgerBySource()/createInventoryLedgerEntry()`
+  - `listInventorySnapshots()/createInventorySnapshot()/listInventoryMonthlyStats()`
 
 ## 风险说明
 
@@ -31,3 +37,10 @@
 
 - 同步健康状态要能展示为设置页的绿色或红色状态标签。
 - 手动同步需要提供加载中、成功、失败三种 UI 状态。
+
+## UI 联动约束
+
+- 本模块虽然不直接负责页面绘制，但其输出的数据结构、状态枚举、错误语义和交互支撑能力必须服务于统一的 Android UI 基线。
+- 后续新增业务不能倒逼页面切换成另一套视觉风格；应优先通过补充 `core/designsystem` 通用组件或扩展既有页面母版来承接。
+- 需要映射到 UI 的状态、金额、风险、同步结果等，应继续服从统一的颜色语义、状态标签和信息层级。
+- Android 视觉真源固定为 `docs/design-mockups/01.png ~ 08.png` 与 `master-goods-android/UI-DESIGN-SPEC.md`。

@@ -8,13 +8,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.People
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -38,7 +36,12 @@ fun CustomerListScreen(
     BottomBarScrollVisibilityEffect(listState)
     BottomBarScrollToTopEffect(scrollToTopSignal, listState)
 
-    Box(modifier = Modifier.fillMaxSize().then(if (showTopBar) Modifier.glassBackground() else Modifier)) {
+    GlassScaffold(
+        selectedDestination = "",
+        destinations = emptyList(),
+        onNavigate = {},
+        showBottomBar = false,
+    ) { _ ->
         Column(modifier = Modifier.fillMaxSize()) {
             if (showTopBar) {
                 GlassTopBar(title = "客户", navigationIcon = Icons.AutoMirrored.Filled.ArrowBack, onNavigationClick = onNavigateBack)
@@ -50,28 +53,41 @@ fun CustomerListScreen(
                 onTabSelected = { viewModel.setStatusFilter(it) },
             )
             if (uiState.filteredCustomers.isEmpty()) {
-                EmptyState(icon = Icons.Default.People, title = "暂无客户", modifier = Modifier.fillMaxSize().align(Alignment.CenterHorizontally))
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    EmptyState(icon = Icons.Default.People, title = "暂无客户", modifier = Modifier.fillMaxWidth())
+                }
             } else {
                 val filteredCustomers = uiState.filteredCustomers
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(top = 6.dp, bottom = 88.dp),
                 ) {
                     items(filteredCustomers) { customer ->
-                        GlassCard(modifier = Modifier.fillMaxWidth(), onClick = { customer.id?.let { onNavigateToDetail(it) } }) {
+                        GlassCard(modifier = Modifier.fillMaxWidth(), onClick = { onNavigateToDetail(customer.id) }) {
                             Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Text(customer.name, style = ZhihuijiTypography.titleSmall, color = ZhihuijiColors.TextPrimary)
-                                        Text("C${customer.id ?: 0}", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextTertiary)
+                                        Text("C${customer.id}", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextTertiary)
                                     }
-                                    Text("联系人：${customer.name}  ${customer.phone}", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
+                                    Text("联系人：${customer.primaryContactName ?: customer.name}  ${customer.primaryContactPhone ?: customer.phone}", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
                                     Text("应收余额 ${MoneyFormatter.format(customer.balance)}", style = ZhihuijiTypography.labelSmall, color = if (customer.balance > 0) ZhihuijiColors.Danger else ZhihuijiColors.TextSecondary)
                                 }
                                 Column(horizontalAlignment = Alignment.End) {
-                                    StatusPill(text = StatusLabels.supplierStatus(customer.status), tone = if (customer.status == 1) PillTone.SUCCESS else PillTone.NEUTRAL)
+                                    StatusPill(
+                                        text = StatusLabels.customerListStatus(customer.status, customer.balance),
+                                        tone = customerStatusTone(customer.status, customer.balance),
+                                    )
                                 }
                             }
                         }
@@ -80,9 +96,21 @@ fun CustomerListScreen(
             }
         }
         if (showTopBar) {
-            FloatingActionButton(onClick = { onNavigateToEditor(null) }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), containerColor = ZhihuijiColors.Primary) {
-                Icon(Icons.Default.Add, null, tint = androidx.compose.ui.graphics.Color.White)
+            Box(modifier = Modifier.fillMaxSize()) {
+                FloatingPrimaryActionButton(
+                    text = "新增客户",
+                    icon = Icons.Default.Add,
+                    onClick = { onNavigateToEditor(null) },
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                )
             }
         }
     }
+}
+
+private fun customerStatusTone(status: Int, balance: Double): PillTone = when {
+    status == StatusLabels.Codes.CUSTOMER_STATUS_DISABLED -> PillTone.NEUTRAL
+    balance > 0.0 -> PillTone.DANGER
+    status == StatusLabels.Codes.CUSTOMER_STATUS_ACTIVE -> PillTone.SUCCESS
+    else -> PillTone.NEUTRAL
 }

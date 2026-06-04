@@ -1,6 +1,6 @@
 # feature/products 模块开发说明
 
-- 当前状态：列表页+编辑页+库存调整已完成，业务链路已走通。
+- 当前状态：列表页、详情页、编辑页、库存调整已落地；本轮已补商品“列表 -> 详情 -> 编辑”路径，避免继续用“点列表即进编辑”代替详情页。
 - 实际源码目录：`feature/products/src/main/java/com/zhihuiji/feature/products`
 - 目标：实现商品列表、商品编辑、库存调整。
 
@@ -8,6 +8,7 @@
 
 - `ProductListScreen`
 - `ProductEditorScreen`
+- `ProductDetailScreen`
 - `StockAdjustSheet`
 - `ProductListViewModel`
 - `ProductEditorViewModel`
@@ -35,3 +36,11 @@
 - 商品详情首卡展示商品图、编码、名称、条码、分类和状态，下面分基础信息、库存信息、其他信息卡。
 - 编辑页使用表单分组卡：基本信息、价格设置、库存设置，底部固定“取消/保存”。
 - 库存调整页顶部展示商品摘要，中间为入库/出库/盘盈/盘亏分段按钮，底部使用调整确认面板。
+
+## UI 统一约束
+
+- 本模块后续新增业务必须继续复用当前设计图对应的页面母版，不允许因为领域变厚就切换成另一套视觉语言。
+- 页面结构优先落入既有模式：列表页、详情页、编辑页、报表页、AI 页、设置页。
+- 视觉基线固定为：浅蓝渐变背景、玻璃卡片、蓝色主按钮、白色次按钮、统一状态标签、五栏主壳。
+- 如需新增 UI 组件，先沉淀到 `core/designsystem`，再由本模块复用；不允许长期保留 feature 私有样式组件。
+- 验收时同时对照：`docs/design-mockups/01.png ~ 08.png`、`master-goods-android/UI-DESIGN-SPEC.md`、`docs/technical-analysis/android/core/designsystem/README.md`。

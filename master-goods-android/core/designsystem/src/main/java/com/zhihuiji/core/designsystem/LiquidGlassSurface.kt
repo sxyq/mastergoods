@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -34,7 +35,20 @@ fun LiquidGlassSurface(
     content: @Composable BoxScope.() -> Unit,
 ) {
     val backdrop = rememberLayerBackdrop()
-    val shape = RoundedCornerShape(cornerRadius)
+    val shape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
+    val lensRefractionHeight = remember(lensProgress) { (12f + 10f * lensProgress).dp }
+    val lensRefractionAmount = remember(lensProgress) { (10f + 10f * lensProgress).dp }
+    val shadowColor = remember(lensProgress) {
+        ZhihuijiColors.Primary.copy(alpha = 0.10f + 0.06f * lensProgress)
+    }
+    val innerShadow = remember(lensProgress) {
+        InnerShadow(radius = 7.dp + (3.dp * lensProgress), alpha = 0.28f + 0.10f * lensProgress)
+    }
+    val surfaceColor = remember(surfaceAlpha, lensProgress) {
+        Color.White.copy(alpha = surfaceAlpha + 0.04f * lensProgress)
+    }
+    val highlight = remember(highlightAlpha) { Highlight.Default.copy(alpha = highlightAlpha) }
+    val shadow = remember(shadowColor) { Shadow.Default.copy(color = shadowColor) }
 
     Box(
         modifier = modifier
@@ -48,26 +62,18 @@ fun LiquidGlassSurface(
                     vibrancy()
                     if (lensProgress > 0.001f) {
                         lens(
-                            refractionHeight = ((12f + 10f * lensProgress).dp).toPx(),
-                            refractionAmount = ((10f + 10f * lensProgress).dp).toPx(),
+                            refractionHeight = lensRefractionHeight.toPx(),
+                            refractionAmount = lensRefractionAmount.toPx(),
                             depthEffect = true,
                             chromaticAberration = lensProgress > 0.35f,
                         )
                     }
                 },
-                highlight = {
-                    Highlight.Default.copy(alpha = highlightAlpha)
-                },
-                shadow = {
-                    Shadow.Default.copy(
-                        color = ZhihuijiColors.Primary.copy(alpha = 0.10f + 0.06f * lensProgress),
-                    )
-                },
-                innerShadow = {
-                    InnerShadow(radius = 7.dp + (3.dp * lensProgress), alpha = 0.28f + 0.10f * lensProgress)
-                },
+                highlight = { highlight },
+                shadow = { shadow },
+                innerShadow = { innerShadow },
                 onDrawSurface = {
-                    drawRect(Color.White.copy(alpha = surfaceAlpha + 0.04f * lensProgress))
+                    drawRect(surfaceColor)
                 },
             )
             .padding(contentPadding),

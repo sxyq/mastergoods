@@ -7,6 +7,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface FinanceRecordRepository extends JpaRepository<FinanceRecordEntity, Long> {
+    java.util.Optional<FinanceRecordEntity> findByIdAndOwnerUserId(Long id, Long ownerUserId);
+
+    List<FinanceRecordEntity> findAllByOwnerUserIdOrderByUpdatedAtAscIdAsc(Long ownerUserId);
+
     @Query("SELECT r FROM FinanceRecordEntity r WHERE " +
         "r.ownerUserId = :ownerUserId AND " +
         "(:type IS NULL OR r.type = :type) AND " +

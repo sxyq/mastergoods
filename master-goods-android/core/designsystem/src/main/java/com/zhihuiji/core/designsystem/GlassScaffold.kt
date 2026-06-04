@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -36,6 +37,12 @@ fun GlassScaffold(
     topBarActions: @Composable (() -> Unit) = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
+    val bottomBarModifier = remember {
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+    }
+
     CompositionLocalProvider(
         LocalBottomBarVisible provides isBottomBarVisible,
         LocalSetBottomBarVisible provides setBottomBarVisible,
@@ -50,9 +57,7 @@ fun GlassScaffold(
                         exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
                     ) {
                         FloatingLiquidBottomBar(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            modifier = bottomBarModifier,
                             selectedDestination = selectedDestination,
                             destinations = destinations,
                             onNavigate = onNavigate,
@@ -65,7 +70,6 @@ fun GlassScaffold(
                 modifier = Modifier
                     .fillMaxSize()
                     .glassBackground()
-                    .padding(paddingValues)
             ) {
                 content(paddingValues)
             }

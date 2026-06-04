@@ -1,0 +1,400 @@
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.net.platform.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.aconfig.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.graphics.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.server.app is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.speech.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.stats is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.hardware.biometrics is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.car.feature is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.adpf is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.location.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.settingslib.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.managedprovisioning.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.app.assist.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.net is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.settingslib.widget.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.internal.camera.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.hardware.libsensor.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.internal.jank is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.providers.settings is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.multiuser is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.power.optimization is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.calllogbackup is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.battery is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.media.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.graphics.libvulkan.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.app.appfunctions.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.app.smartspace.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.providers.contacts.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.stability.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.shell.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.media.aaudio is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.hardware.radio is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): suspend_service.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.media.midi is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.libcore.readonly is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.settingslib.widget.selectorwithwidgetpreference.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.service.notification is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.systemui.shared is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.app.jank is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.app.wearable is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.media.audio is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.service.chooser is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.compat is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.alarm is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.apex.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.service.quickaccesswallet is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.app.usage is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.accessibility is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.app.supervision.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.utils is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.chre.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.content.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.media.codec is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.internal.os is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.nfc.nci.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.app is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.security.keystore2 is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.crashrecovery.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.tradeinmode.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.hardware.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.telecom.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.settingslib.media.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.policy is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.media.audiopolicy is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.egg.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.internal.compat.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.security is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.service.autofill is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.example.android.aconfig.demo.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.view.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.companion.virtual.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.aconfig_new_storage is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.wm.shell.recents is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.feature.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.systemui is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.graphics.skia.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.power.batterysaver is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.widget.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.media.editing.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.media.codec.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.powerstats is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.graphics.egl.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.media.audioserver is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.deviceidle is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.nfc is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.logmanager is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.permission.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.service.voice.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.content.pm is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.power.hint is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.wm is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.navimmersive.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.os is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.service.dreams is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): xiaomi.platform.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.graphics.libgui.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.hardware.usb.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.provider is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.job is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.internal.foldables.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.internal.telephony.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.webkit is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.credentials.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.display.feature.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.notification is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.appwidget.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.frameworks.sensorservice.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.window.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.adaptiveauth is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.net.wifi.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.media.tv.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.usb.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.os.vibrator is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.hardware.devicestate.feature.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.usage is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.server is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.wm.shell is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.view.inputmethod is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.graphics.hwui.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.backup is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.internal.pm.pkg.component.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.view.accessibility is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): android.media.audio is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.server.am is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.media.playback.flags is mapped to system
+06-04 15:19:18.287 I/AconfigPackage( 6801): com.android.settings.accessibility is mapped to system_ext
+06-04 15:19:18.288 I/AconfigPackage( 6801): com.android.settings.keyboard is mapped to system_ext
+06-04 15:19:18.288 I/AconfigPackage( 6801): com.android.settings.factory_reset is mapped to system_ext
+06-04 15:19:18.288 I/AconfigPackage( 6801): com.android.systemui.accessibility.accessibilitymenu is mapped to system_ext
+06-04 15:19:18.288 I/AconfigPackage( 6801): com.android.server.policy.feature.flags is mapped to system_ext
+06-04 15:19:18.288 I/AconfigPackage( 6801): com.android.settings.flags is mapped to system_ext
+06-04 15:19:18.288 I/AconfigPackage( 6801): com.android.settings.media_drm is mapped to system_ext
+06-04 15:19:18.288 I/AconfigPackage( 6801): com.android.launcher3 is mapped to system_ext
+06-04 15:19:18.288 I/AconfigPackage( 6801): android.uprobestats.mainline.flags is mapped to com.android.uprobestats
+06-04 15:19:18.288 I/AconfigPackage( 6801): android.graphics.pdf.flags is mapped to com.android.mediaprovider
+06-04 15:19:18.288 I/AconfigPackage( 6801): com.android.providers.media.flags is mapped to com.android.mediaprovider
+06-04 15:19:18.288 I/AconfigPackage( 6801): android.graphics.pdf.flags.readonly is mapped to com.android.mediaprovider
+06-04 15:19:18.289 I/AconfigPackage( 6801): com.android.uwb.flags is mapped to com.android.uwb
+06-04 15:19:18.289 I/AconfigPackage( 6801): com.android.ranging.flags is mapped to com.android.uwb
+06-04 15:19:18.289 I/AconfigPackage( 6801): android.media.swcodec.flags is mapped to com.android.media.swcodec
+06-04 15:19:18.289 I/AconfigPackage( 6801): com.android.media.extractor.flags is mapped to com.android.media
+06-04 15:19:18.290 I/AconfigPackage( 6801): com.android.media.mainline.flags is mapped to com.android.media
+06-04 15:19:18.290 I/AconfigPackage( 6801): com.android.wifi.flags is mapped to com.android.wifi
+06-04 15:19:18.290 I/AconfigPackage( 6801): com.android.net.ct.flags is mapped to com.android.tethering
+06-04 15:19:18.290 I/AconfigPackage( 6801): com.android.net.flags is mapped to com.android.tethering
+06-04 15:19:18.290 I/AconfigPackage( 6801): android.net.vcn is mapped to com.android.tethering
+06-04 15:19:18.290 I/AconfigPackage( 6801): com.android.nearby.flags is mapped to com.android.tethering
+06-04 15:19:18.290 I/AconfigPackage( 6801): android.net.http is mapped to com.android.tethering
+06-04 15:19:18.290 I/AconfigPackage( 6801): com.android.net.thread.flags is mapped to com.android.tethering
+06-04 15:19:18.291 I/AconfigPackage( 6801): com.android.adservices.ondevicepersonalization.flags is mapped to com.android.ondevicepersonalization
+06-04 15:19:18.291 I/AconfigPackage( 6801): android.os.profiling is mapped to com.android.profiling
+06-04 15:19:18.291 I/AconfigPackage( 6801): android.provider.flags is mapped to com.android.configinfrastructure
+06-04 15:19:18.291 I/AconfigPackage( 6801): com.android.server.deviceconfig is mapped to com.android.configinfrastructure
+06-04 15:19:18.292 I/AconfigPackage( 6801): com.android.appsearch.flags is mapped to com.android.appsearch
+06-04 15:19:18.292 I/AconfigPackage( 6801): com.android.permission.flags is mapped to com.android.permission
+06-04 15:19:18.292 I/AconfigPackage( 6801): com.android.art.flags is mapped to com.android.art
+06-04 15:19:18.292 I/AconfigPackage( 6801): com.android.libcore is mapped to com.android.art
+06-04 15:19:18.292 I/AconfigPackage( 6801): com.android.org.conscrypt.flags is mapped to com.android.conscrypt
+06-04 15:19:18.293 I/AconfigPackage( 6801): com.android.ipsec.flags is mapped to com.android.ipsec
+06-04 15:19:18.293 I/AconfigPackage( 6801): com.android.adservices.flags is mapped to com.android.adservices
+06-04 15:19:18.293 I/AconfigPackage( 6801): com.android.sdksandbox.flags is mapped to com.android.adservices
+06-04 15:19:18.294 I/AconfigPackage( 6801): com.android.bluetooth.flags is mapped to com.android.bt
+06-04 15:19:18.294 I/AconfigPackage( 6801): com.android.devicelock.flags is mapped to com.android.devicelock
+06-04 15:19:18.294 I/AconfigPackage( 6801): com.android.system.virtualmachine.flags is mapped to com.android.virt
+06-04 15:19:18.294 I/AconfigPackage( 6801): com.android.os.statsd.flags is mapped to com.android.os.statsd
+06-04 15:19:18.295 I/AconfigPackage( 6801): com.android.icu is mapped to com.android.i18n
+06-04 15:19:18.295 I/AconfigPackage( 6801): com.android.healthfitness.flags is mapped to com.android.healthfitness
+06-04 15:19:18.295 E/FeatureFlagsImplExport( 6801): android.os.flagging.AconfigStorageReadException: ERROR_PACKAGE_NOT_FOUND: package android.xr cannot be found on the device
+06-04 15:19:18.297 D/UiAutomationConnection( 6801): Created on user UserHandle{0}
+06-04 15:19:18.297 I/UiAutomation( 6801): Initialized for user 0 on display 0
+06-04 15:19:18.297 W/UiAutomation( 6801): Created with deprecatead constructor, assumes DEFAULT_DISPLAY
+06-04 15:19:18.299 D/AccessibilityManagerService( 2844): changeCurrentUserForTestAutomationIfNeededLocked(0): ignoring because device doesn't support visible background users
+06-04 15:19:18.299 I/UiAutomationManager( 2844): Registering UiTestAutomationService (id=com.android.server.accessibility/UiAutomation, flags=0x0) when called by user 0
+06-04 15:19:18.300 I/ActivityManager( 2844): unbindService com.android.server.am.ActiveServices@8145b40 conn=android.app.LoadedApk$ServiceDispatcher$InnerConnection@c767a1b callingPid=6801
+06-04 15:19:18.301 D/CompatChangeReporter( 2844): Compat change id reported: 311208629; UID 10127; state: ENABLED
+06-04 15:19:18.303 I/SDM     ( 2145): HWEventsDRM::SetEventState: Setup vsync event for CRTC 176, Connector 65
+06-04 15:19:18.304 I/MiuiNetworkPolicy( 2844): updateUidState uid = 10127, uidState = 4
+06-04 15:19:18.309 D/MI-SF   ( 2487): isTpIdleScene ,mAverageFrameRate is 0, 0 
+06-04 15:19:18.309 D/MI-SF   ( 2487): modeGroup0 mIsSupportAutomodeForMaxFpsSetting is 1(0), getCurrentBrightness() = 15(528), mIsKeepAutoMode 0 isAutoModeAllowed() 1
+06-04 15:19:18.309 D/RefreshRateSelector( 2487): fixedMode_group: 0, isFindModeGroup 0
+06-04 15:19:18.309 D/RefreshRateSelector( 2487): find max refresh rate:120, mode Group:0
+06-04 15:19:18.320 I/vendor.qti.hardware.display.composer-service( 2145): FrameNotifyProcess Sensor: notify citsensorservice to trigger cwb
+06-04 15:19:18.321 E/HWComposer( 2487): getLuts: getLuts failed for display 4630946545580055171: UNSUPPORTED (8)
+06-04 15:19:18.321 W/MagnificationConnectionManager( 2844): requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+06-04 15:19:18.322 I/libsensor-parseRGB( 3635): request dump start for mRequestDisplayId 0
+06-04 15:19:18.322 D/vendor.xiaomi.sensor.citsensorservice@2.0-service( 3635): handle id:22 wxh:1536x3200 uwxuh:1440x3200 size: 14745600 fd:16 fd_meta:17 flags:0x228 usage:0x33  format:0x3 layer_count: 1 reserved_size = 0
+06-04 15:19:18.322 I/libsensor-displayalgo( 3635): the value of channelCali C:424.758319,R:301.372150,G:122.319302,B:59.757001,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+06-04 15:19:18.322 D/libsensor-displayalgo( 3635): brightness:25.000000,R:638.363397,G:690.209001,B:719.699015,EVENT C:491.500000,R:318.500000,G:179.500000,B:94.000000, lux: 1.826197,cct:22707.513672, irPara: 1
+06-04 15:19:18.323 W/SDM     ( 2145): HWCSession::GetDisplayIndex: Display index not found for display 3.
+06-04 15:19:18.323 D/SDM     ( 2145): HWCSession::SetCWBOutputBuffer: CWB config passed by cwb_client : tappoint 1  CWB_ROI : (473.000000 173.000000 714.000000 414.000000). Display 0
+06-04 15:19:18.325 I/SafetyCenterAccessibilityListener(  586): accessibility event occurred, safety center feature not enabled.
+06-04 15:19:18.325 I/SafetyCenterAccessibilityListener(10080): accessibility event occurred, safety center feature not enabled.
+06-04 15:19:18.330 I/lyra-msg-act(13461): ActuatorControl::ActuatorControlProcess:310 monitor queueMap :0
+06-04 15:19:18.334 I/SafetyCenterAccessibilityListener(10080): accessibility event occurred, safety center feature not enabled.
+06-04 15:19:18.335 D/AS.AudioService( 2844): Accessibility volume enabled = false
+06-04 15:19:18.335 I/SafetyCenterAccessibilityListener(  586): accessibility event occurred, safety center feature not enabled.
+06-04 15:19:18.335 D/AS.AudioService( 2844): Accessibility volume enabled = false
+06-04 15:19:18.337 D/SDM     ( 2145): HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+06-04 15:19:18.351 D/SDM     ( 2145): HWCSession::NotifyCWBStatus: Notify the client about buffer status 0. Display: 0
+06-04 15:19:18.352 I/SDM     ( 2145): HWCSession::ProcessCWBStatus: CWB queue is empty. display_index: 0
+06-04 15:19:18.369 I/sensors-hal( 2057): handle_sns_std_sensor_event:65, light_event: ts=312692054607952, lux: 2.1
+06-04 15:19:18.369 D/libsensor-parseRGB( 3635): the value of RGB [18.837831 19.518468 19.893214]
+06-04 15:19:18.370 D/SRE     ( 2230): sensorCallback mDisplayId = 0 dataCallback value=<   2.1250,   0.0000,   0.0000>,time=312692054607952, sensor=5, temperature(K)=   0.0000
+06-04 15:19:18.370 D/SRE     ( 2230): setSREStrength mDisplayId = 0, mLastLux = 2, lux = 2, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+06-04 15:19:18.378 I/MiStcImpl( 2145): Dispatching command: 35 SET_HISTOGRAM
+06-04 15:19:18.396 I/od.sogou.xiaomi(12024): This is sticky GC, maxfree is 33554432 minfree is 8388608
+06-04 15:19:18.399 D/vendor.xiaomi.hardware.mimd@2.0-service( 1915): psi 7 is triggered, settimer.
+06-04 15:19:18.399 D/vendor.xiaomi.hardware.mimd@2.0-service( 1915): psi partial stall call back reclaimed -1 delay tasks
+06-04 15:19:18.456 I/cnss-daemon( 3484): nl80211 response handler invoked
+06-04 15:19:18.456 I/WifiHAL ( 2065): event received NL80211_CMD_VENDOR, vendor_id = 0x1374, subcmd = 0xd
+06-04 15:19:18.456 I/cnss-daemon( 3484): nl80211_response_handler: cmd 103, vendorID 4980, subcmd 13  received
+06-04 15:19:18.471 D/WifiStaIfaceHidlImpl( 2844): getCachedScanData is not implemented by HIDL
+06-04 15:19:18.475 I/wificond( 3344): station_bandwidth:  
+06-04 15:19:18.484 I/AICall_MemoryTrim$a(28142): Timer-11 trimMemory on background
+06-04 15:19:18.485 W/WindowManager(28142): SF-TrimMemory: run trimMemory, level: 80
+06-04 15:19:18.486 I/AICall_x0(28142): main invoke : null|80
+06-04 15:19:18.489 E/PhoneAdapter( 7478): get ntnphones failed, exception: java.lang.IllegalStateException: not support satellite!
+06-04 15:19:18.495 E/AmlWifiScoreReportInjector( 2844): current network is in roaming environment
+06-04 15:19:18.501 D/MiuiNM  ( 2844): tcp fail rate reach: 100
+06-04 15:19:18.502 W/ContextImpl( 2844): Calling a method in the system process without a qualified user: android.app.ContextImpl.sendBroadcast:1280 android.content.ContextWrapper.sendBroadcast:522 com.android.server.wifi.MiuiNetworkMonitor.sendBroadcastForNetwork:775 com.android.server.wifi.MiuiNetworkMonitor.notifyNetworkWarning:716 com.android.server.wifi.MiuiNetworkMonitor.evaluateNetworkQoE:628 
+06-04 15:19:18.505 D/BroadcastQueue( 2844): Logging broadcast for android, stopped=false, firstLaunch=false
+06-04 15:19:18.510 D/ProfileInstaller( 2764): Installing profile for com.zhihuiji.app
+06-04 15:19:18.519 I/libsensor-displayalgo( 3635): the value of channelCali C:424.758319,R:301.372150,G:122.319302,B:59.757001,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+06-04 15:19:18.519 D/libsensor-displayalgo( 3635): brightness:25.000000,R:638.363397,G:690.209001,B:719.699015,EVENT C:488.000000,R:319.500000,G:179.500000,B:93.000000, lux: 1.785692,cct:21150.515625, irPara: 1
+06-04 15:19:18.522 E/HWComposer( 2487): getLuts: getLuts failed for display 4630946545580055171: UNSUPPORTED (8)
+06-04 15:19:18.570 I/sensors-hal( 2057): handle_sns_std_sensor_event:65, light_event: ts=312692254608004, lux: 2.1
+06-04 15:19:18.573 D/SRE     ( 2230): sensorCallback mDisplayId = 0 dataCallback value=<   2.1250,   0.0000,   0.0000>,time=312692254608004, sensor=5, temperature(K)=   0.0000
+06-04 15:19:18.573 D/SRE     ( 2230): setSREStrength mDisplayId = 0, mLastLux = 2, lux = 2, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+06-04 15:19:18.581 I/MiStcImpl( 2145): Dispatching command: 35 SET_HISTOGRAM
+06-04 15:19:18.677 D/JavaheapMonitor(21396): Java heap used=4M max=256M, proc: com.miui.tsmclient:daemon
+06-04 15:19:18.677 V/JavaheapMonitor(21396): Check java heap usage finished! Next check delay: 300000
+06-04 15:19:18.698 D/BufferPoolAccessor2.0( 3336): bufferpool2 0xb4000078bbc2a068 : 8(56623104 size) total buffers - 4(28311552 size) used buffers - 206262/206377 (recycle/alloc) - 1964/206311 (fetch/transfer)
+06-04 15:19:18.698 D/BufferPoolAccessor2.0( 3336): evictor expired: 1, evicted: 1
+06-04 15:19:18.736 W/Auth    ( 1281): [TokenResponseCallback] TokenResponse failed with exception [CONTEXT service_id=343 ]
+06-04 15:19:18.736 W/Auth    ( 1281): dalz: Failed to process request
+06-04 15:19:18.736 W/Auth    ( 1281): 	at damg.a(:com.google.android.gms@261833035@26.18.33 (260400-913931251):23)
+06-04 15:19:18.736 W/Auth    ( 1281): 	at daqd.b(:com.google.android.gms@261833035@26.18.33 (260400-913931251):15)
+06-04 15:19:18.736 W/Auth    ( 1281): 	at daqu.onFailed(:com.google.android.gms@261833035@26.18.33 (260400-913931251):15)
+06-04 15:19:18.736 W/Auth    ( 1281): 	at m1.nt.onFailed(:com.google.android.gms.dynamite_cronetdynamite@261833035@26.18.33 (260400-0):3)
+06-04 15:19:18.736 W/Auth    ( 1281): 	at m1.mp.run(:com.google.android.gms.dynamite_cronetdynamite@261833035@26.18.33 (260400-0):16)
+06-04 15:19:18.736 W/Auth    ( 1281): 	at bkjq.c(:com.google.android.gms@261833035@26.18.33 (260400-913931251):50)
+06-04 15:19:18.736 W/Auth    ( 1281): 	at bkjq.run(:com.google.android.gms@261833035@26.18.33 (260400-913931251):66)
+06-04 15:19:18.736 W/Auth    ( 1281): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1302)
+06-04 15:19:18.736 W/Auth    ( 1281): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:677)
+06-04 15:19:18.736 W/Auth    ( 1281): 	at bkph.run(:com.google.android.gms@261833035@26.18.33 (260400-913931251):8)
+06-04 15:19:18.736 W/Auth    ( 1281): 	at java.lang.Thread.run(Thread.java:1119)
+06-04 15:19:18.736 W/Auth    ( 1281): Caused by: m1.nc: Exception in CronetUrlRequest: net::ERR_CONNECTION_TIMED_OUT, ErrorCode=6, InternalErrorCode=-118, Retryable=true
+06-04 15:19:18.736 W/Auth    ( 1281): 	at org.chromium.net.impl.CronetUrlRequest.onError(:com.google.android.gms.dynamite_cronetdynamite@261833035@26.18.33 (260400-0):3)
+06-04 15:19:18.773 I/sensors-hal( 2057): handle_sns_std_sensor_event:65, light_event: ts=312692454609515, lux: 2.1
+06-04 15:19:18.776 D/SRE     ( 2230): sensorCallback mDisplayId = 0 dataCallback value=<   2.1250,   0.0000,   0.0000>,time=312692454609515, sensor=5, temperature(K)=   0.0000
+06-04 15:19:18.776 D/SRE     ( 2230): setSREStrength mDisplayId = 0, mLastLux = 2, lux = 2, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+06-04 15:19:18.784 I/MiStcImpl( 2145): Dispatching command: 35 SET_HISTOGRAM
+06-04 15:19:18.800 I/MiuiNetworkPolicy( 2844): updateUidState uid = 10157, uidState = 19
+06-04 15:19:18.804 E/JobScheduler.Background( 2844): Couldn't determine stopped state for unknown package: com.google.android.ext.services
+06-04 15:19:18.805 D/BroadcastQueue( 2844): Logging broadcast for android, stopped=false, firstLaunch=false
+06-04 15:19:18.858 W/C2BqBuffer( 2202): last successful dequeue was 5402753 us ago, 73 consecutive failures
+06-04 15:19:18.971 I/sensors-hal( 2057): handle_sns_std_sensor_event:65, light_event: ts=312692654609515, lux: 2.1
+06-04 15:19:18.973 D/SRE     ( 2230): sensorCallback mDisplayId = 0 dataCallback value=<   2.1250,   0.0000,   0.0000>,time=312692654609515, sensor=5, temperature(K)=   0.0000
+06-04 15:19:18.973 D/SRE     ( 2230): setSREStrength mDisplayId = 0, mLastLux = 2, lux = 2, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+06-04 15:19:18.987 I/MiStcImpl( 2145): Dispatching command: 35 SET_HISTOGRAM
+06-04 15:19:19.174 I/sensors-hal( 2057): handle_sns_std_sensor_event:65, light_event: ts=312692854598421, lux: 2.1
+06-04 15:19:19.177 D/SRE     ( 2230): sensorCallback mDisplayId = 0 dataCallback value=<   2.1250,   0.0000,   0.0000>,time=312692854598421, sensor=5, temperature(K)=   0.0000
+06-04 15:19:19.177 D/SRE     ( 2230): setSREStrength mDisplayId = 0, mLastLux = 2, lux = 2, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+06-04 15:19:19.190 I/MiStcImpl( 2145): Dispatching command: 35 SET_HISTOGRAM
+06-04 15:19:19.244 D/JavaheapMonitor(12356): Java heap used=36M max=256M, proc: com.android.quicksearchbox
+06-04 15:19:19.245 V/JavaheapMonitor(12356): Check java heap usage finished! Next check delay: 300000
+06-04 15:19:19.336 W/uiautomator( 6801): type=1400 audit(0.0:499437): avc:  denied  { read } for  name="u:object_r:qemu_sf_lcd_density_prop:s0" dev="tmpfs" ino=366 scontext=u:r:shell:s0 tcontext=u:object_r:qemu_sf_lcd_density_prop:s0 tclass=file permissive=0
+06-04 15:19:19.336 W/uiautomator( 6801): type=1400 audit(0.0:499438): avc:  denied  { read } for  name="u:object_r:qemu_sf_lcd_density_prop:s0" dev="tmpfs" ino=366 scontext=u:r:shell:s0 tcontext=u:object_r:qemu_sf_lcd_density_prop:s0 tclass=file permissive=0
+06-04 15:19:19.342 W/libc    ( 6801): Access denied finding property "qemu.sf.lcd_density"
+06-04 15:19:19.342 W/libc    ( 6801): Access denied finding property "qemu.sf.lcd_density"
+06-04 15:19:19.348 D/GreezeManager( 2844): Uid 10140 was show on screen, skip it
+06-04 15:19:19.348 D/PolicyMaker( 2844): uid =10140 pkg=com.miui.home reason=VISIBLE_APP
+06-04 15:19:19.363 W/AccessibilityNodeInfoDumper( 6801): Fetch time: 10ms
+06-04 15:19:19.366 I/SDM     ( 2145): HWEventsDRM::SetEventState: Setup vsync event for CRTC 176, Connector 65
+06-04 15:19:19.373 I/sensors-hal( 2057): handle_sns_std_sensor_event:65, light_event: ts=312693054608786, lux: 2.1
+06-04 15:19:19.374 D/ActivityManager( 2844): Logging bindService for com.xiaomi.aicr, stopped=false, firstLaunch=false
+06-04 15:19:19.374 D/SRE     ( 2230): sensorCallback mDisplayId = 0 dataCallback value=<   2.1250,   0.0000,   0.0000>,time=312693054608786, sensor=5, temperature(K)=   0.0000
+06-04 15:19:19.374 D/SRE     ( 2230): setSREStrength mDisplayId = 0, mLastLux = 2, lux = 2, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+06-04 15:19:19.375 I/MiuiNetworkPolicy( 2844): updateUidState uid = 10127, uidState = 4
+06-04 15:19:19.376 W/MagnificationConnectionManager( 2844): requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+06-04 15:19:19.377 D/AccessibilityManagerService( 2844): restoreCurrentUserForTestAutomationIfNeededLocked(): ignoring because device doesn't support visible background users
+06-04 15:19:19.382 I/vendor.qti.hardware.display.composer-service( 2145): FrameNotifyProcess Sensor: notify citsensorservice to trigger cwb
+06-04 15:19:19.382 I/libsensor-parseRGB( 3635): request dump start for mRequestDisplayId 0
+06-04 15:19:19.383 D/vendor.xiaomi.sensor.citsensorservice@2.0-service( 3635): handle id:22 wxh:1536x3200 uwxuh:1440x3200 size: 14745600 fd:16 fd_meta:17 flags:0x228 usage:0x33  format:0x3 layer_count: 1 reserved_size = 0
+06-04 15:19:19.383 D/AndroidRuntime( 6801): callMain: return with no error.
+06-04 15:19:19.383 W/SDM     ( 2145): HWCSession::GetDisplayIndex: Display index not found for display 3.
+06-04 15:19:19.383 D/SDM     ( 2145): HWCSession::SetCWBOutputBuffer: CWB config passed by cwb_client : tappoint 1  CWB_ROI : (473.000000 173.000000 714.000000 414.000000). Display 0
+06-04 15:19:19.383 D/AndroidRuntime( 6801): Shutting down VM
+06-04 15:19:19.383 W/IPCThreadState( 6801): call to talkWithDriver in joinThreadPool returned error: -9 (Bad file descriptor), FD: -1
+06-04 15:19:19.384 W/IPCThreadState( 6801): call to talkWithDriver in joinThreadPool returned error: -9 (Bad file descriptor), FD: -1
+06-04 15:19:19.384 W/IPCThreadState( 6801): call to talkWithDriver in joinThreadPool returned error: -9 (Bad file descriptor), FD: -1
+06-04 15:19:19.392 I/MiStcImpl( 2145): Dispatching command: 35 SET_HISTOGRAM
+06-04 15:19:19.393 D/SDM     ( 2145): HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+06-04 15:19:19.394 E/HWComposer( 2487): getLuts: getLuts failed for display 4630946545580055171: UNSUPPORTED (8)
+06-04 15:19:19.403 I/SafetyCenterAccessibilityListener(  586): accessibility event occurred, safety center feature not enabled.
+06-04 15:19:19.403 I/SafetyCenterAccessibilityListener(10080): accessibility event occurred, safety center feature not enabled.
+06-04 15:19:19.407 D/AS.AudioService( 2844): Accessibility volume enabled = false
+06-04 15:19:19.407 I/system_server( 2844): AssetManager2(0xb400007252b21378) locale list changing from [] to [zh-CN]
+06-04 15:19:19.408 D/SDM     ( 2145): HWCSession::NotifyCWBStatus: Notify the client about buffer status 0. Display: 0
+06-04 15:19:19.408 I/SDM     ( 2145): HWCSession::ProcessCWBStatus: CWB queue is empty. display_index: 0
+06-04 15:19:19.419 V/A11yInputMethod(12899): startInput(): editor=android.view.inputmethod.EditorInfo@f223456
+06-04 15:19:19.420 V/A11yInputMethod(12899): CALL: onStartInput
+06-04 15:19:19.420 I/HandWritingStubImpl( 2764): getCurrentKeyboardType: 1
+06-04 15:19:19.424 D/libsensor-parseRGB( 3635): the value of RGB [18.837831 19.518468 19.893214]
+06-04 15:19:19.526 I/libsensor-displayalgo( 3635): the value of channelCali C:424.758319,R:301.372150,G:122.319302,B:59.757001,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+06-04 15:19:19.527 D/libsensor-displayalgo( 3635): brightness:25.000000,R:638.363397,G:690.209001,B:719.699015,EVENT C:491.000000,R:318.000000,G:179.000000,B:93.000000, lux: 1.834156,cct:23149.705078, irPara: 1
+06-04 15:19:19.570 I/sensors-hal( 2057): handle_sns_std_sensor_event:65, light_event: ts=312693254608710, lux: 2.1
+06-04 15:19:19.572 D/SRE     ( 2230): sensorCallback mDisplayId = 0 dataCallback value=<   2.1250,   0.0000,   0.0000>,time=312693254608710, sensor=5, temperature(K)=   0.0000
+06-04 15:19:19.572 D/SRE     ( 2230): setSREStrength mDisplayId = 0, mLastLux = 2, lux = 2, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+06-04 15:19:19.594 I/MiStcImpl( 2145): Dispatching command: 35 SET_HISTOGRAM
+06-04 15:19:19.597 E/HWComposer( 2487): getLuts: getLuts failed for display 4630946545580055171: UNSUPPORTED (8)
+06-04 15:19:19.770 I/sensors-hal( 2057): handle_sns_std_sensor_event:65, light_event: ts=312693454608397, lux: 2.1
+06-04 15:19:19.771 D/SRE     ( 2230): sensorCallback mDisplayId = 0 dataCallback value=<   2.1250,   0.0000,   0.0000>,time=312693454608397, sensor=5, temperature(K)=   0.0000
+06-04 15:19:19.771 D/SRE     ( 2230): setSREStrength mDisplayId = 0, mLastLux = 2, lux = 2, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+06-04 15:19:19.783 W/ActivityManagerServiceImpl( 2844): Sending non-protected broadcast com.modemenhance.ACTION_MODEMWIFI_RSSI_POLL from system 7478:com.android.phone/1001 pkg com.android.phone. Callers=
+06-04 15:19:19.788 D/BroadcastQueue( 2844): Logging broadcast for com.android.phone, stopped=false, firstLaunch=false
+06-04 15:19:19.788 W/m.android.phone( 7478): type=1400 audit(0.0:499439): avc:  denied  { read } for  name="u:object_r:vendor_wlan_eht_prop:s0" dev="tmpfs" ino=631 scontext=u:r:radio:s0 tcontext=u:object_r:vendor_wlan_eht_prop:s0 tclass=file permissive=0
+06-04 15:19:19.792 W/libc    ( 7478): Access denied finding property "persist.vendor.wlan.disable.eht"
+06-04 15:19:19.792 D/SlaveWifiManager( 7478): getWifiSlaveConnectionInfo
+06-04 15:19:19.796 I/MiStcImpl( 2145): Dispatching command: 35 SET_HISTOGRAM
+06-04 15:19:19.797 I/NetworkAccelerateSwitchService( 2844): EVENT_RSSI_POLL. mRssiPoll=true
+06-04 15:19:19.798 I/NetworkAccelerateSwitchService( 2844): checkWifiRssiAndLinkSpeed rssi:46
+06-04 15:19:19.798 I/NetworkAccelerateSwitchService( 2844): checkWifiRssiAndLinkSpeed mWifiFastFade:false mWifiFastFadeAdjustThreshold:false
+06-04 15:19:19.798 I/NetworkAccelerateSwitchService( 2844): getAverageWifiRssi:45
+06-04 15:19:19.798 D/NetworkAccelerateSwitchService( 2844): checkIntervalModeChange mMovementState:false mIntervalMode:0 mIsBadLinkLayerQoE:false mBadLinkLayerQoETimes = 0
+06-04 15:19:19.971 I/sensors-hal( 2057): handle_sns_std_sensor_event:65, light_event: ts=312693654608137, lux: 2.1
+06-04 15:19:19.975 D/SRE     ( 2230): sensorCallback mDisplayId = 0 dataCallback value=<   2.1250,   0.0000,   0.0000>,time=312693654608137, sensor=5, temperature(K)=   0.0000
+06-04 15:19:19.975 D/SRE     ( 2230): setSREStrength mDisplayId = 0, mLastLux = 2, lux = 2, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+06-04 15:19:20.001 I/MiStcImpl( 2145): Dispatching command: 35 SET_HISTOGRAM
+06-04 15:19:20.064 D/JavaheapMonitor( 7478): Java heap used=34M max=256M, proc: com.android.phone
+06-04 15:19:20.064 V/JavaheapMonitor( 7478): Check java heap usage finished! Next check delay: 300000
+06-04 15:19:20.171 I/sensors-hal( 2057): handle_sns_std_sensor_event:65, light_event: ts=312693854608293, lux: 2.1
+06-04 15:19:20.173 D/SRE     ( 2230): sensorCallback mDisplayId = 0 dataCallback value=<   2.1250,   0.0000,   0.0000>,time=312693854608293, sensor=5, temperature(K)=   0.0000
+06-04 15:19:20.173 D/SRE     ( 2230): setSREStrength mDisplayId = 0, mLastLux = 2, lux = 2, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+06-04 15:19:20.202 I/MiStcImpl( 2145): Dispatching command: 35 SET_HISTOGRAM
+06-04 15:19:20.212 I/QC2Comp ( 2202): [avcD_23] Stats: Pending(10) i/p-done(6) Works: Q: 206752/Done 206743|Work-Rate: Q(0.0/s Avg=3.5/s) Done(0.000/s Avg=3.497/s)| Stream: 30.00fps 3.4Mbps
+06-04 15:19:20.212 I/QC2Comp ( 2202): [avcD_23] Mem-usage:  [In-1D: 65 bufs 438.750 MB] [1D-17: 16 bufs 0.250 MB] [2D-18: 26 bufs 82.875 MB] | Total: 521.875 MB
+06-04 15:19:20.371 I/sensors-hal( 2057): handle_sns_std_sensor_event:65, light_event: ts=312694054609491, lux: 2.1
+06-04 15:19:20.373 D/SRE     ( 2230): sensorCallback mDisplayId = 0 dataCallback value=<   2.1250,   0.0000,   0.0000>,time=312694054609491, sensor=5, temperature(K)=   0.0000
+06-04 15:19:20.374 D/SRE     ( 2230): setSREStrength mDisplayId = 0, mLastLux = 2, lux = 2, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+06-04 15:19:20.383 D/StNfcHal( 2281): (#03091) Rx 6f 02 0f 21 20 00 a2 0a 08 06 00 19 ff 0d 55 50 03 64 
+06-04 15:19:20.383 D/StNfcHal( 2281): HalStopTimer 
+06-04 15:19:20.384 D/libnfc_nci(12117): vendor_nfc_handle_event: Enter event: 12
+06-04 15:19:20.387 D/StNfcOemExtension( 7395): StNfcVendorNciCallback.onVendorNciNotification: PROP:ST_NCI_MSG_PROP:212000A20A08060019FF0D55500364
+06-04 15:19:20.387 D/StNfcOemExtension( 7395): StNfcVendorNciCallback.onVendorNciNotification: unexpected
+06-04 15:19:20.387 D/StNfcExtensionService( 7395): srvStNfcOemExtensionVendorNtfCallback:  g=f, o=2, payload=212000A20A08060019FF0D55500364
+06-04 15:19:20.391 D/StNfcHal( 2281): (#03092) Rx 6f 02 3f 21 20 00 a2 0a 09 06 00 15 ff 10 55 50 09 2e a2 0a 0b 06 00 09 ff 09 55 50 09 36 a2 0a 
+06-04 15:19:20.391 D/StNfcHal( 2281): (#03092) rx 02 06 00 15 ff 10 55 50 09 39 a2 0a 06 06 00 05 ff 02 55 50 09 3a a2 0a 07 06 00 25 ff 1e 55 50 
+06-04 15:19:20.391 D/StNfcHal( 2281): (#03092) rx 09 3c 
+06-04 15:19:20.391 D/StNfcHal( 2281): HalStopTimer 
+06-04 15:19:20.391 D/libnfc_nci(12117): vendor_nfc_handle_event: Enter event: 12
+06-04 15:19:20.393 D/StNfcOemExtension( 7395): StNfcVendorNciCallback.onVendorNciNotification: PROP:ST_NCI_MSG_PROP:212000A20A09060015FF105550092EA20A0B060009FF0955500936A20A02060015FF1055500939A20A06060005FF025550093AA20A07060025FF1E5550093C
+06-04 15:19:20.393 D/StNfcOemExtension( 7395): StNfcVendorNciCallback.onVendorNciNotification: unexpected
+06-04 15:19:20.394 D/StNfcExtensionService( 7395): srvStNfcOemExtensionVendorNtfCallback:  g=f, o=2, payload=212000A20A09060015FF105550092EA20A0B060009FF0955500936A20A02060015FF1055500939A20A06060005FF025550093AA20A07060025FF1E5550093C
+06-04 15:19:20.398 V/OsAgent (12302): broadcastSystemEvent - 7
+06-04 15:19:20.402 I/MiuiNetworkPolicy( 2844): updateUidState uid = 10251, uidState = 5
+06-04 15:19:20.404 I/MiStcImpl( 2145): Dispatching command: 35 SET_HISTOGRAM
+06-04 15:19:20.405 I/MiuiNetworkPolicyTrafficLimit( 2844): updateWhiteListUidForMobileTraffic uid=10251,add=false
+06-04 15:19:20.405 I/MiuiNetworkPolicy( 2844): updateUidState uid = 10132, uidState = 5
+06-04 15:19:20.405 V/OsAgent (12302): broadcastSystemEvent - 7
+06-04 15:19:20.408 D/MiuiNetworkPolicyTrafficLimit( 2844): updateWhiteListUidForMobileTraffic rst=true
+06-04 15:19:20.482 I/cnss-daemon( 3484): nl80211 response handler invoked
+06-04 15:19:20.482 I/cnss-daemon( 3484): nl80211_response_handler: cmd 103, vendorID 4980, subcmd 13  received
+06-04 15:19:20.483 I/WifiHAL ( 2065): event received NL80211_CMD_VENDOR, vendor_id = 0x1374, subcmd = 0xd
+06-04 15:19:20.487 W/screencap( 6832): Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: SurfaceFlingerAIDL
+06-04 15:19:20.487 W/BpBinder( 6832): Linking to death on android.gui.ISurfaceComposer but there are no threads (yet?) listening to incoming transactions. See ProcessState::startThreadPool and ProcessState::setThreadPoolMaxThreadCount. Generally you should setup the binder threadpool before other initialization steps.
+06-04 15:19:20.487 W/ProcessState( 6832): Extra binder thread started, but 0 threads requested. Do not use *startThreadPool when zero threads are requested.
+06-04 15:19:20.487 I/SurfaceFlinger( 2487): SF-MICapture: mode:0, layerNames:(no_layer_names), blurRadius:0, scale:(1.000000,1.000000), blends:(no_color_mode)
+06-04 15:19:20.487 I/SurfaceFlinger( 2487): SF-MICapture: mode:0, layerName:com.zhihuiji.app/com.zhihuiji.app.MainActivity#2622
+06-04 15:19:20.488 I/SurfaceFlinger( 2487): SF-MICapture: mode:0, layerName:StatusBar1#133
+06-04 15:19:20.488 I/SurfaceFlinger( 2487): SF-MICapture: mode:0, layerName:Miui Bottom Caption of Task=636#2620
+06-04 15:19:20.488 I/SurfaceFlinger( 2487): SF-MICapture: mode:0, layerName:com.miui.securitycenter/.FloatingWindow#2529
+06-04 15:19:20.488 I/SurfaceFlinger( 2487): SF-MICapture: mode:0, layerName:GestureStubHome#77
+06-04 15:19:20.488 I/SurfaceFlinger( 2487): SF-MICapture: mode:0, layerName:GestureStubLeft#71
+06-04 15:19:20.488 I/SurfaceFlinger( 2487): SF-MICapture: mode:0, layerName:GestureStubRight#76
+06-04 15:19:20.488 I/SurfaceFlinger( 2487): SF-MICapture: mode:0, layerName:DockAssistantView#2528
+06-04 15:19:20.489 E/HWComposer( 2487): getLuts: getLuts failed for display 4630946545580055171: UNSUPPORTED (8)
+06-04 15:19:20.525 I/libsensor-displayalgo( 3635): the value of channelCali C:424.758319,R:301.372150,G:122.319302,B:59.757001,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+06-04 15:19:20.527 D/libsensor-displayalgo( 3635): brightness:25.000000,R:638.363397,G:690.209001,B:719.699015,EVENT C:501.000000,R:326.000000,G:184.000000,B:94.500000, lux: 1.996104,cct:20230.208984, irPara: 1
+06-04 15:19:20.555 D/JavaheapMonitor(12052): Java heap used=7M max=512M, proc: com.android.providers.media.module
+06-04 15:19:20.555 V/JavaheapMonitor(12052): Check java heap usage finished! Next check delay: 300000
+06-04 15:19:20.569 I/sensors-hal( 2057): handle_sns_std_sensor_event:65, light_event: ts=312694254609907, lux: 2.1
+06-04 15:19:20.570 D/SRE     ( 2230): sensorCallback mDisplayId = 0 dataCallback value=<   2.1250,   0.0000,   0.0000>,time=312694254609907, sensor=5, temperature(K)=   0.0000
+06-04 15:19:20.570 D/SRE     ( 2230): setSREStrength mDisplayId = 0, mLastLux = 2, lux = 2, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+06-04 15:19:20.592 I/AdrenoUtils( 6832): <ReadGpuID:407>: Reading chip ID through GSL
+06-04 15:19:20.606 I/MiStcImpl( 2145): Dispatching command: 35 SET_HISTOGRAM
+06-04 15:19:20.720 I/libsensor-displayalgo( 3635): the value of channelCali C:424.758319,R:301.372150,G:122.319302,B:59.757001,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+06-04 15:19:20.720 D/libsensor-displayalgo( 3635): brightness:25.000000,R:638.363397,G:690.209001,B:719.699015,EVENT C:503.000000,R:327.000000,G:184.500000,B:95.500000, lux: 2.002581,cct:19965.929688, irPara: 1
+06-04 15:19:20.721 I/libsensor-displayalgo( 3635): the value of channelCali C:424.758319,R:301.372150,G:122.319302,B:59.757001,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+06-04 15:19:20.721 D/libsensor-displayalgo( 3635): brightness:25.000000,R:638.363397,G:690.209001,B:719.699015,EVENT C:504.500000,R:327.500000,G:184.500000,B:96.000000, lux: 2.004485,cct:19947.240234, irPara: 1
+06-04 15:19:20.721 I/libsensor-displayalgo( 3635): the value of channelCali C:424.758319,R:301.372150,G:122.319302,B:59.757001,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+06-04 15:19:20.721 D/libsensor-displayalgo( 3635): brightness:25.000000,R:638.363397,G:690.209001,B:719.699015,EVENT C:502.000000,R:327.000000,G:184.500000,B:97.000000, lux: 1.950455,cct:19466.207031, irPara: 1
+06-04 15:19:20.721 I/libsensor-displayalgo( 3635): the value of channelCali C:424.758319,R:301.372150,G:122.319302,B:59.757001,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+06-04 15:19:20.721 D/libsensor-displayalgo( 3635): brightness:25.000000,R:638.363397,G:690.209001,B:719.699015,EVENT C:504.000000,R:329.000000,G:186.000000,B:96.500000, lux: 2.014208,cct:18963.404297, irPara: 1
+06-04 15:19:20.749 I/adbd    ( 3649): in ShellService: export ANDROID_LOG_TAGS=''; exec logcat '-d' '-v' 'time'
+06-04 15:19:20.770 I/sensors-hal( 2057): handle_sns_std_sensor_event:65, light_event: ts=312694454609647, lux: 2.1
+06-04 15:19:20.772 D/SRE     ( 2230): sensorCallback mDisplayId = 0 dataCallback value=<   2.1250,   0.0000,   0.0000>,time=312694454609647, sensor=5, temperature(K)=   0.0000
+06-04 15:19:20.772 D/SRE     ( 2230): setSREStrength mDisplayId = 0, mLastLux = 2, lux = 2, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+06-04 15:19:20.807 I/MiStcImpl( 2145): Dispatching command: 35 SET_HISTOGRAM

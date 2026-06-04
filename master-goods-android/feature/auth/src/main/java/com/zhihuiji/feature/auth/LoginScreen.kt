@@ -34,63 +34,72 @@ fun LoginScreen(
         if (uiState.isLoggedIn) onLoginSuccess()
     }
 
-    Box(
-        modifier = Modifier.fillMaxSize().glassBackground(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+    GlassScaffold(
+        selectedDestination = "",
+        destinations = emptyList(),
+        onNavigate = {},
+        showBottomBar = false,
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentAlignment = Alignment.Center,
         ) {
-            Text("智慧记", style = ZhihuijiTypography.displayLarge, color = ZhihuijiColors.Primary)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text("让生意更轻松", style = ZhihuijiTypography.bodyMedium, color = ZhihuijiColors.TextSecondary)
-            Spacer(modifier = Modifier.height(24.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("智慧记", style = ZhihuijiTypography.displayLarge, color = ZhihuijiColors.Primary)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("让生意更轻松", style = ZhihuijiTypography.bodyMedium, color = ZhihuijiColors.TextSecondary)
+                Spacer(modifier = Modifier.height(24.dp))
 
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = phone,
-                        onValueChange = { phone = it },
-                        label = { Text("手机号") },
-                        leadingIcon = { Icon(Icons.Default.Phone, null) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        singleLine = true,
-                        isError = phone.isNotBlank() && !phoneValid,
-                        supportingText = if (phone.isNotBlank() && !phoneValid) {{ Text("请输入11位手机号") }} else null,
-                    )
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = { Text("密码") },
-                        leadingIcon = { Icon(Icons.Default.Lock, null) },
-                        trailingIcon = {
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Icon(if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, null)
-                            }
-                        },
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        singleLine = true,
-                    )
-                    PrimaryGradientButton(
-                        text = "登录",
-                        onClick = { viewModel.login(phone, password) },
-                        enabled = phoneValid && password.isNotBlank() && !uiState.isLoading,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (uiState.error != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(uiState.error!!.text, style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.Danger)
+                GlassCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = phone,
+                            onValueChange = { phone = it },
+                            label = { Text("手机号") },
+                            leadingIcon = { Icon(Icons.Default.Phone, null) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            singleLine = true,
+                            isError = phone.isNotBlank() && !phoneValid,
+                            supportingText = if (phone.isNotBlank() && !phoneValid) {{ Text("请输入11位手机号") }} else null,
+                        )
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = { Text("密码") },
+                            leadingIcon = { Icon(Icons.Default.Lock, null) },
+                            trailingIcon = {
+                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                    Icon(if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, null)
+                                }
+                            },
+                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            singleLine = true,
+                        )
+                        PrimaryButton(
+                            text = "登录",
+                            onClick = { viewModel.login(phone, password) },
+                            enabled = phoneValid && password.isNotBlank() && !uiState.isLoading,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        if (uiState.error != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(uiState.error!!.text, style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.Danger)
+                        }
                     }
                 }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            TextButton(onClick = onNavigateToRegister) {
-                Text("没有账号？立即注册", color = ZhihuijiColors.Primary)
+                Spacer(modifier = Modifier.height(16.dp))
+                TextButton(onClick = onNavigateToRegister) {
+                    Text("没有账号？立即注册", color = ZhihuijiColors.Primary)
+                }
             }
         }
     }

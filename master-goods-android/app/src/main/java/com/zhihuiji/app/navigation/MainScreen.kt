@@ -14,12 +14,14 @@ import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -34,7 +36,7 @@ object TopLevelRoutes {
     const val AGENT = "main_agent"
 }
 
-val bottomBarDestinations = listOf(
+private val bottomBarDestinations = listOf(
     BottomBarDestination(
         route = TopLevelRoutes.HOME,
         label = "首页",
@@ -67,6 +69,17 @@ val bottomBarDestinations = listOf(
     ),
 )
 
+@Stable
+private class ReselectSignalState {
+    private val signals = mutableStateMapOf<String, Int>()
+
+    fun value(route: String): Int = signals[route] ?: 0
+
+    fun bump(route: String) {
+        signals[route] = (signals[route] ?: 0) + 1
+    }
+}
+
 @Composable
 fun MainScreen(
     onNavigateToSettings: () -> Unit,
@@ -81,8 +94,9 @@ fun MainScreen(
         currentRoute?.startsWith(dest.route) == true
     }
     var bottomBarVisible by remember { mutableStateOf(true) }
-    val reselectSignals = remember { mutableStateMapOf<String, Int>() }
-    fun reselectSignal(route: String): Int = reselectSignals[route] ?: 0
+    val reselectSignals = remember { ReselectSignalState() }
+    val currentSelectedRoute by rememberUpdatedState(selectedRoute)
+    val currentIsOnTopLevel by rememberUpdatedState(isOnTopLevel)
 
     LaunchedEffect(isOnTopLevel) {
         bottomBarVisible = isOnTopLevel
@@ -92,10 +106,12 @@ fun MainScreen(
         selectedDestination = selectedRoute,
         destinations = bottomBarDestinations,
         onNavigate = { route ->
-            if (route == selectedRoute) {
-                reselectSignals[route] = (reselectSignals[route] ?: 0) + 1
+            if (route == currentSelectedRoute) {
+                reselectSignals.bump(route)
                 bottomBarVisible = true
-            } else {
+                return@GlassScaffold
+            }
+            if (currentIsOnTopLevel) {
                 bottomBarVisible = true
                 navController.navigate(route) {
                     popUpTo(navController.graph.findStartDestination().id) {
@@ -109,12 +125,12 @@ fun MainScreen(
         showBottomBar = isOnTopLevel,
         isBottomBarVisible = bottomBarVisible,
         setBottomBarVisible = { bottomBarVisible = it },
-    ) { paddingValues ->
+    ) {
         MainNavGraph(
             navController = navController,
-            modifier = Modifier.padding(paddingValues),
+            modifier = androidx.compose.ui.Modifier,
             onNavigateToSettings = onNavigateToSettings,
-            reselectSignal = ::reselectSignal,
+            reselectSignal = reselectSignals::value,
         )
     }
 }

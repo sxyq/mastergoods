@@ -23,3 +23,20 @@ suspend fun <T> safeApiCall(block: suspend () -> ApiResponse<T>): Result<T> {
         Result.failure(NetworkException(-1, e.message ?: "未知错误"))
     }
 }
+
+suspend fun safeApiUnitCall(block: suspend () -> ApiResponse<*>): Result<Unit> {
+    return try {
+        val response = block()
+        if (response.code == 0) {
+            Result.success(Unit)
+        } else {
+            Result.failure(NetworkException(response.code, response.message))
+        }
+    } catch (e: HttpException) {
+        Result.failure(NetworkException(e.code(), e.message()))
+    } catch (e: IOException) {
+        Result.failure(NetworkException(-1, "网络连接失败，请检查网络设置"))
+    } catch (e: Exception) {
+        Result.failure(NetworkException(-1, e.message ?: "未知错误"))
+    }
+}

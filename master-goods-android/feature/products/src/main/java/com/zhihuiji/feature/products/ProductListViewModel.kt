@@ -3,24 +3,23 @@ package com.zhihuiji.feature.products
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.common.UiMessage
-import com.zhihuiji.core.model.ProductDto
-import com.zhihuiji.data.product.ProductRepository
+import com.zhihuiji.core.model.v2.product.ProductV2Dto
+import com.zhihuiji.data.product.ProductV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class ProductListUiState(
-    val products: List<ProductDto> = emptyList(),
+    val products: List<ProductV2Dto> = emptyList(),
     val keyword: String = "",
     val stockFilter: Int = 0,
     val isLoading: Boolean = false,
     val error: UiMessage? = null,
 ) {
-    val filteredProducts: List<ProductDto> get() = products.filter { product ->
+    val filteredProducts: List<ProductV2Dto> get() = products.filter { product ->
         when (stockFilter) {
             1 -> product.stock < product.safeStock && product.stock > 0
             2 -> product.stock >= product.safeStock
@@ -32,7 +31,7 @@ data class ProductListUiState(
 
 @HiltViewModel
 class ProductListViewModel @Inject constructor(
-    private val productRepository: ProductRepository,
+    private val productV2Repository: ProductV2Repository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ProductListUiState())
     val uiState: StateFlow<ProductListUiState> = _uiState.asStateFlow()
@@ -42,16 +41,17 @@ class ProductListViewModel @Inject constructor(
     fun loadProducts(keyword: String = _uiState.value.keyword) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, keyword = keyword)
-            productRepository.refreshProducts(keyword.ifBlank { null })
-            productRepository.observeProducts(keyword).collectLatest { list ->
+            productV2Repository.listProducts(keyword.ifBlank { null }).onSuccess { list ->
                 _uiState.value = _uiState.value.copy(products = list, isLoading = false)
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = UiMessage.fromThrowable(it))
             }
         }
     }
 
     fun deleteProduct(id: Long) {
         viewModelScope.launch {
-            productRepository.deleteProduct(id)
+            productV2Repository.deleteProduct(id)
             loadProducts()
         }
     }

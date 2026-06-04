@@ -39,7 +39,7 @@
 | 对象 | 状态 | 旧版情况 | 新版目标 | 当前实现 | 备注 |
 |---|---|---|---|---|---|
 | `docs/technical-analysis/android/core/common/README.md` | 新版已做 | 仍偏工具类清单 | 改成金额/状态/错误三类跨域语义文档 | 已补 `BigDecimal/Double` 并存、状态集扩展、废弃兼容逻辑说明 | 更利于后续模型精度治理 |
-| `docs/technical-analysis/android/core/designsystem/README.md` | 新版已做 | 偏现有 UI 组件说明 | 改成设计系统分层与领域组件规划文档 | 已补 token 层、容器层、领域组件方向、废弃兼容组件说明 | 不强调具体视觉样式 |
+| `docs/technical-analysis/android/core/designsystem/README.md` | 新版已做 | 偏现有 UI 组件说明 | 改成设计系统分层、领域组件规划与统一 UI 基线文档 | 已补 token 层、容器层、领域组件方向、废弃兼容组件说明，并明确设计稿真源与 `core/designsystem` 实现真源关系 | 不追逐像素细节，但必须约束新增业务保持同一视觉语言 |
 | `docs/technical-analysis/android/backdrop/README.md` | 新版已做 | 偏效果说明 | 改成底层渲染模块定位文档 | 已补构建信息、渲染职责、边界要求 | 明确不承载业务语义 |
 | 基于 git 日志的漏文档补记 | 新版已做 | 部分代码已落地但文档只覆盖主线目标，没有补到辅助类和安全收口细节 | 按真实改动回补遗漏文档，避免技术分析与当前代码脱节 | 已补 `SessionAccessService`、`PaginationUtils`、`PartnerTypes`、`SyncCursorId`、`V7/V8` 迁移、Android 本地订单图与安全收口等文档说明 | 作为本轮“代码先于文档”的回补收口 |
 

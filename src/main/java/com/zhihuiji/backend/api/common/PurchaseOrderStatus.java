@@ -4,7 +4,8 @@ import java.util.Arrays;
 
 public enum PurchaseOrderStatus {
     DRAFT(0),
-    RECEIVED(1);
+    RECEIVED(1),
+    CONFIRMED(2);
 
     private final int code;
 

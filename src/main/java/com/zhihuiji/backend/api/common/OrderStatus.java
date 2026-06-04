@@ -5,7 +5,8 @@ import java.util.Arrays;
 public enum OrderStatus {
     DRAFT(0),
     COMPLETED(1),
-    CANCELLED(2);
+    CANCELLED(2),
+    CONFIRMED(3);
 
     private final int code;
 

@@ -7,6 +7,7 @@ object StatusLabels {
         const val SALE_DRAFT = 0
         const val SALE_COMPLETED = 1
         const val SALE_CANCELLED = 2
+        const val SALE_CONFIRMED = 3
         const val PURCHASE_DRAFT = 0
         const val PURCHASE_RECEIVED = 1
         const val PAY_PENDING = 0
@@ -16,6 +17,8 @@ object StatusLabels {
         const val FINANCE_EXPENSE = 2
         const val ENTITY_ACTIVE = 1
         const val ENTITY_DISABLED = 0
+        const val CUSTOMER_STATUS_DISABLED = 0
+        const val CUSTOMER_STATUS_ACTIVE = 1
         const val CUSTOMER_NORMAL = 0
         const val CUSTOMER_VIP = 1
         const val CUSTOMER_SVIP = 2
@@ -34,6 +37,7 @@ object StatusLabels {
         Codes.SALE_DRAFT -> "草稿"
         Codes.SALE_COMPLETED -> "已完成"
         Codes.SALE_CANCELLED -> "已取消"
+        Codes.SALE_CONFIRMED -> "已确认"
         else -> "未知"
     }
 
@@ -59,6 +63,19 @@ object StatusLabels {
     fun supplierStatus(code: Int): String = when (code) {
         Codes.ENTITY_ACTIVE -> "启用"
         Codes.ENTITY_DISABLED -> "停用"
+        else -> "未知"
+    }
+
+    fun customerStatus(code: Int): String = when (code) {
+        Codes.CUSTOMER_STATUS_ACTIVE -> "正常"
+        Codes.CUSTOMER_STATUS_DISABLED -> "已停用"
+        else -> "未知"
+    }
+
+    fun customerListStatus(code: Int, balance: Double): String = when {
+        code == Codes.CUSTOMER_STATUS_DISABLED -> "已停用"
+        balance > EPSILON -> "欠款"
+        code == Codes.CUSTOMER_STATUS_ACTIVE -> "正常"
         else -> "未知"
     }
 

@@ -270,6 +270,7 @@ public class SyncService {
             payload.put("supplier_name", entity.getSupplierName());
             payload.put("amount", entity.getAmount());
             payload.put("method", entity.getMethod());
+            payload.put("account_id", entity.getAccountId());
             payload.put("status", entity.getStatus());
             payload.put("reference_no", entity.getReferenceNo());
             payload.put("notes", entity.getNotes());
@@ -478,6 +479,7 @@ public class SyncService {
         entity.setSupplierName(readText(payload, "supplier_name", entity.getSupplierName(), "未命名供应商"));
         entity.setAmount(readDouble(payload, "amount", entity.getAmount(), 0.0));
         entity.setMethod(readInt(payload, "method", entity.getMethod(), 0));
+        entity.setAccountId(readNullableLong(payload, "account_id", entity.getAccountId()));
         entity.setStatus(readInt(payload, "status", entity.getStatus(), 0));
         entity.setReferenceNo(readNullableText(payload, "reference_no", entity.getReferenceNo()));
         entity.setNotes(readNullableText(payload, "notes", entity.getNotes()));

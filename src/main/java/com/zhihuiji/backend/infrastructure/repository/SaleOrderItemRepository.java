@@ -9,11 +9,17 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface SaleOrderItemRepository extends JpaRepository<SaleOrderItemEntity, Long> {
+    List<SaleOrderItemEntity> findAllByOwnerUserIdOrderByCreatedAtAsc(Long ownerUserId);
+
+    java.util.Optional<SaleOrderItemEntity> findByIdAndOwnerUserId(Long id, Long ownerUserId);
+
     List<SaleOrderItemEntity> findByOwnerUserIdAndOrderId(Long ownerUserId, Long orderId);
 
     List<SaleOrderItemEntity> findByOwnerUserIdAndOrderIdIn(Long ownerUserId, Collection<Long> orderIds);
 
     List<SaleOrderItemEntity> findByOwnerUserIdAndCreatedAtBetween(Long ownerUserId, Long startAt, Long endAt);
+
+    void deleteByOwnerUserIdAndOrderId(Long ownerUserId, Long orderId);
 
     @Query("""
         SELECT COALESCE(SUM(item.amount), 0), COALESCE(SUM(item.quantity * p.purchasePrice), 0)

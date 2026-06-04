@@ -15,6 +15,8 @@ public final class V2PurchaseOrderDtos {
         String supplierName,
         List<PurchaseOrderItemResponse> items,
         Double totalAmount,
+        Double paidAmount,
+        Double receivedAmount,
         String notes,
         Integer status,
         Long createdAt,

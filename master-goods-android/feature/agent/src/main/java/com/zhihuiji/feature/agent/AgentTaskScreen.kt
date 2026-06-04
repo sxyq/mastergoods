@@ -37,17 +37,21 @@ import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.model.AgentNotificationDto
 import com.zhihuiji.core.model.AgentTaskStatus
 import com.zhihuiji.core.model.AgentTaskSummaryDto
+import com.zhihuiji.core.designsystem.EmptyState
+import com.zhihuiji.core.designsystem.FilterChipRow
 import com.zhihuiji.core.designsystem.GlassCard
+import com.zhihuiji.core.designsystem.GlassScaffold
 import com.zhihuiji.core.designsystem.GlassTopBar
+import com.zhihuiji.core.designsystem.PillTone
 import com.zhihuiji.core.designsystem.SecondaryOutlineButton
 import com.zhihuiji.core.designsystem.SegmentedTabs
+import com.zhihuiji.core.designsystem.StatusPill
 import com.zhihuiji.core.designsystem.ZhihuijiColors
 import com.zhihuiji.core.designsystem.ZhihuijiTypography
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -63,6 +67,7 @@ fun AgentTaskScreen(
     var noticeFilter by rememberSaveable { mutableStateOf(0) }
 
     LaunchedEffect(selectedTab, taskFilter, noticeFilter) {
+        // TODO: v2迁移 - task和notification端点暂未提供，列表将为空
         if (selectedTab == 0) {
             viewModel.loadTasks()
         } else {
@@ -70,58 +75,86 @@ fun AgentTaskScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-    ) {
-        GlassTopBar(
-            title = "任务与通知",
-            navigationIcon = Icons.AutoMirrored.Filled.ArrowBack,
-            onNavigationClick = onNavigateBack,
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-
+    GlassScaffold(
+        selectedDestination = "",
+        destinations = emptyList(),
+        onNavigate = {},
+        showBottomBar = false,
+    ) { _ ->
         Column(
             modifier = Modifier
-                .weight(1f)
-                .verticalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            SegmentedTabs(
-                tabs = listOf("任务", "通知"),
-                selectedIndex = selectedTab,
-                onTabSelected = { selectedTab = it },
+            GlassTopBar(
+                title = "任务与通知",
+                navigationIcon = Icons.AutoMirrored.Filled.ArrowBack,
+                onNavigationClick = onNavigateBack,
             )
+            Spacer(modifier = Modifier.height(10.dp))
 
-            if (selectedTab == 0) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 SegmentedTabs(
-                    tabs = listOf(
-                        "全部(${uiState.tasks.size})",
-                        "排队(${uiState.tasks.count { it.status == AgentTaskStatus.QUEUED }})",
-                        "进行中(${uiState.tasks.count { it.status == AgentTaskStatus.RUNNING }})",
-                        "已完成(${uiState.tasks.count { it.status == AgentTaskStatus.COMPLETED }})",
-                        "失败(${uiState.tasks.count { it.status == AgentTaskStatus.FAILED }})",
-                    ),
-                    selectedIndex = taskFilter,
-                    onTabSelected = { taskFilter = it },
+                    tabs = listOf("任务", "通知"),
+                    selectedIndex = selectedTab,
+                    onTabSelected = { selectedTab = it },
                 )
 
-                filteredTasks(uiState.tasks, taskFilter).forEach { task ->
-                    AgentTaskCard(task = task)
-                }
-            } else {
-                SegmentedTabs(
-                    tabs = listOf("全部(${uiState.notifications.size})", "未读(${uiState.notifications.count { !it.isRead }})"),
-                    selectedIndex = noticeFilter,
-                    onTabSelected = { noticeFilter = it },
-                )
+                AgentTaskNoticeBridgeCard(selectedTab = selectedTab)
 
-                filteredNotifications(uiState.notifications, noticeFilter).forEach { notification ->
-                    NotificationCard(
-                        notification = notification,
-                        onMarkRead = { viewModel.markNotificationRead(notification.id) },
+                if (selectedTab == 0) {
+                    val taskFilterChips = listOf(
+                            "全部(${uiState.tasks.size})",
+                            "排队(${uiState.tasks.count { it.status == AgentTaskStatus.QUEUED }})",
+                            "进行中(${uiState.tasks.count { it.status == AgentTaskStatus.RUNNING }})",
+                            "已完成(${uiState.tasks.count { it.status == AgentTaskStatus.COMPLETED }})",
+                            "失败(${uiState.tasks.count { it.status == AgentTaskStatus.FAILED }})",
                     )
+                    FilterChipRow(
+                        chips = taskFilterChips,
+                        selectedIndex = taskFilter,
+                        onChipSelected = { taskFilter = it },
+                    )
+
+                    val visibleTasks = filteredTasks(uiState.tasks, taskFilter)
+                    if (visibleTasks.isEmpty()) {
+                        AgentListEmptyState(
+                            icon = Icons.Default.HourglassTop,
+                            title = "任务列表准备中",
+                            subtitle = "当前仍缺少 `/v2/agent` 任务列表端点，页面继续保留完整筛选结构，但不伪造任务进度与执行结果。",
+                        )
+                    } else {
+                        visibleTasks.forEach { task ->
+                            AgentTaskCard(task = task)
+                        }
+                    }
+                } else {
+                    FilterChipRow(
+                        chips = listOf("全部(${uiState.notifications.size})", "未读(${uiState.notifications.count { !it.isRead }})"),
+                        selectedIndex = noticeFilter,
+                        onChipSelected = { noticeFilter = it },
+                    )
+
+                    val visibleNotifications = filteredNotifications(uiState.notifications, noticeFilter)
+                    if (visibleNotifications.isEmpty()) {
+                        AgentListEmptyState(
+                            icon = Icons.Default.Sync,
+                            title = "通知列表准备中",
+                            subtitle = "当前仍缺少 `/v2/agent` 通知列表端点，页面继续保留通知母版，但不伪造送达状态或消息正文。",
+                        )
+                    } else {
+                        visibleNotifications.forEach { notification ->
+                            NotificationCard(
+                                notification = notification,
+                                onMarkRead = { viewModel.markNotificationRead(notification.id) },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -141,8 +174,43 @@ fun NotificationScreen(
 }
 
 @Composable
+private fun AgentTaskNoticeBridgeCard(selectedTab: Int) {
+    val title = if (selectedTab == 0) "任务中心待联调" else "通知中心待联调"
+    val body = if (selectedTab == 0) {
+        "当前保留了设计稿对应的 Tab、筛选和状态卡布局；只有在服务端返回真实任务后，才展示进度条、耗时和执行结果。"
+    } else {
+        "当前保留了通知列表母版与已读筛选；只有在服务端返回真实通知后，才展示送达状态、已读状态和通知内容。"
+    }
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(title, style = ZhihuijiTypography.titleMedium, color = ZhihuijiColors.TextPrimary)
+            Text(body, style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
+            StatusPill(text = "待联调", tone = PillTone.INFO)
+        }
+    }
+}
+
+@Composable
+private fun AgentListEmptyState(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+) {
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        EmptyState(
+            icon = icon,
+            title = title,
+            subtitle = subtitle,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 20.dp),
+        )
+    }
+}
+
+@Composable
 private fun AgentTaskCard(task: AgentTaskSummaryDto) {
-    val (icon, iconColor, statusText, statusColor) = taskVisuals(task.status)
+    val (icon, iconColor, statusText, statusTone) = taskVisuals(task.status)
     GlassCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
@@ -161,10 +229,10 @@ private fun AgentTaskCard(task: AgentTaskSummaryDto) {
                     }
                     Column {
                         Text(task.title, style = ZhihuijiTypography.titleMedium, color = ZhihuijiColors.TextPrimary)
-                        Text("数据范围：销售单、收款单、库存单", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
+                        Text("数据范围：按任务实际输入决定，当前页不预设固定单据范围", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
                     }
                 }
-                StatusChip(text = statusText, color = statusColor)
+                StatusPill(text = statusText, tone = statusTone)
             }
 
             LinearProgressIndicator(
@@ -219,9 +287,9 @@ private fun NotificationCard(
                         Text(notification.content, style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
                     }
                 }
-                StatusChip(
+                StatusPill(
                     text = if (notification.isRead) "已读" else "未读",
-                    color = if (notification.isRead) ZhihuijiColors.Success else ZhihuijiColors.Primary,
+                    tone = if (notification.isRead) PillTone.SUCCESS else PillTone.INFO,
                 )
             }
 
@@ -259,11 +327,11 @@ private fun filteredNotifications(
     else -> notifications
 }
 
-private fun taskVisuals(status: AgentTaskStatus): Quad<ImageVector, androidx.compose.ui.graphics.Color, String, androidx.compose.ui.graphics.Color> = when (status) {
-    AgentTaskStatus.QUEUED -> Quad(Icons.Default.HourglassTop, ZhihuijiColors.Warning, StatusLabels.agentTaskStatus(status), ZhihuijiColors.Warning)
-    AgentTaskStatus.RUNNING -> Quad(Icons.Default.Sync, ZhihuijiColors.Primary, StatusLabels.agentTaskStatus(status), ZhihuijiColors.Primary)
-    AgentTaskStatus.COMPLETED -> Quad(Icons.Default.CheckCircle, ZhihuijiColors.Success, StatusLabels.agentTaskStatus(status), ZhihuijiColors.Success)
-    AgentTaskStatus.FAILED -> Quad(Icons.Default.ErrorOutline, ZhihuijiColors.Danger, StatusLabels.agentTaskStatus(status), ZhihuijiColors.Danger)
+private fun taskVisuals(status: AgentTaskStatus): Quad<ImageVector, androidx.compose.ui.graphics.Color, String, PillTone> = when (status) {
+    AgentTaskStatus.QUEUED -> Quad(Icons.Default.HourglassTop, ZhihuijiColors.Warning, StatusLabels.agentTaskStatus(status), PillTone.WARNING)
+    AgentTaskStatus.RUNNING -> Quad(Icons.Default.Sync, ZhihuijiColors.Primary, StatusLabels.agentTaskStatus(status), PillTone.INFO)
+    AgentTaskStatus.COMPLETED -> Quad(Icons.Default.CheckCircle, ZhihuijiColors.Success, StatusLabels.agentTaskStatus(status), PillTone.SUCCESS)
+    AgentTaskStatus.FAILED -> Quad(Icons.Default.ErrorOutline, ZhihuijiColors.Danger, StatusLabels.agentTaskStatus(status), PillTone.DANGER)
 }
 
 private data class Quad<A, B, C, D>(
@@ -272,20 +340,6 @@ private data class Quad<A, B, C, D>(
     val third: C,
     val fourth: D,
 )
-
-@Composable
-private fun StatusChip(
-    text: String,
-    color: Color,
-) {
-    Box(
-        modifier = Modifier
-            .background(color.copy(alpha = 0.10f), RoundedCornerShape(999.dp))
-            .padding(horizontal = 10.dp, vertical = 5.dp),
-    ) {
-        Text(text, style = ZhihuijiTypography.labelSmall, color = color, fontWeight = FontWeight.SemiBold)
-    }
-}
 
 private fun notificationAccent(notification: AgentNotificationDto): Color = when {
     notification.title.contains("失败") -> ZhihuijiColors.Danger

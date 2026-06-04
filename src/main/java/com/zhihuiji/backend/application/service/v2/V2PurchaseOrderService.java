@@ -58,6 +58,8 @@ public class V2PurchaseOrderService {
             order.getSupplierName(),
             items.stream().map(this::toItemResponse).toList(),
             order.getTotalAmount(),
+            order.getPaidAmount(),
+            order.getReceivedAmount(),
             order.getNotes(),
             order.getStatus(),
             order.getCreatedAt(),

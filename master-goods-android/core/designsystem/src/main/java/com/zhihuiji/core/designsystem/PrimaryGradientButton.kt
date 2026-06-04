@@ -66,6 +66,7 @@ fun SecondaryOutlineButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
     enabled: Boolean = true,
 ) {
     Button(
@@ -78,6 +79,10 @@ fun SecondaryOutlineButton(
         shape = RoundedCornerShape(10.dp),
         border = BorderStroke(0.8.dp, if (enabled) ZhihuijiColors.BorderLight else ZhihuijiColors.BorderLight.copy(alpha = 0.45f)),
     ) {
+        if (icon != null) {
+            Icon(imageVector = icon, contentDescription = null, tint = ZhihuijiColors.TextSecondary)
+            Spacer(modifier = Modifier.width(8.dp))
+        }
         Text(
             text = text,
             style = ZhihuijiTypography.labelLarge,
@@ -91,6 +96,7 @@ fun DangerOutlineButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
     enabled: Boolean = true,
 ) {
     Button(
@@ -103,6 +109,10 @@ fun DangerOutlineButton(
         shape = RoundedCornerShape(10.dp),
         border = BorderStroke(0.8.dp, if (enabled) ZhihuijiColors.Danger else ZhihuijiColors.Danger.copy(alpha = 0.45f)),
     ) {
+        if (icon != null) {
+            Icon(imageVector = icon, contentDescription = null, tint = if (enabled) ZhihuijiColors.Danger else ZhihuijiColors.Danger.copy(alpha = 0.45f))
+            Spacer(modifier = Modifier.width(8.dp))
+        }
         Text(
             text = text,
             style = ZhihuijiTypography.labelLarge,

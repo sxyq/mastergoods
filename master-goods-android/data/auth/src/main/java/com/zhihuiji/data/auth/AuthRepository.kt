@@ -12,6 +12,7 @@ import javax.inject.Singleton
 class AuthRepository @Inject constructor(
     private val api: ZhihuijiApi,
     private val sessionStore: SessionStore,
+    private val localDataCleaner: LocalDataCleaner,
 ) {
     val isLoggedIn = sessionStore.isLoggedIn
 
@@ -39,7 +40,7 @@ class AuthRepository @Inject constructor(
             api.logout()
         } catch (_: Exception) {
         } finally {
-            sessionStore.clearSession()
+            localDataCleaner.clearAll()
         }
     }
 
@@ -58,6 +59,6 @@ class AuthRepository @Inject constructor(
     }
 
     suspend fun clearSession() {
-        sessionStore.clearSession()
+        localDataCleaner.clearAll()
     }
 }

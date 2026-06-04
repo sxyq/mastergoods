@@ -8,7 +8,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocalShipping
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -35,7 +34,12 @@ fun SupplierListScreen(
     BottomBarScrollVisibilityEffect(listState)
     BottomBarScrollToTopEffect(scrollToTopSignal, listState)
 
-    Box(modifier = Modifier.fillMaxSize().then(if (showTopBar) Modifier.glassBackground() else Modifier)) {
+    GlassScaffold(
+        selectedDestination = "",
+        destinations = emptyList(),
+        onNavigate = {},
+        showBottomBar = false,
+    ) { _ ->
         Column(modifier = Modifier.fillMaxSize()) {
             if (showTopBar) {
                 GlassTopBar(title = "供应商", navigationIcon = Icons.AutoMirrored.Filled.ArrowBack, onNavigationClick = onNavigateBack)
@@ -43,23 +47,33 @@ fun SupplierListScreen(
             SegmentedTabs(tabs = listOf("全部", "启用", "停用"), selectedIndex = when(uiState.statusFilter) { 1 -> 1; 0 -> 2; else -> 0 }, onTabSelected = { viewModel.changeStatusFilter(when(it) { 1 -> 1; 2 -> 0; else -> null }) })
             SearchFilterBar(query = uiState.keyword, onQueryChange = { viewModel.loadSuppliers(keyword = it) }, placeholder = "搜索供应商名称/手机号", filterIcon = Icons.Default.LocalShipping, onFilterClick = {})
             if (uiState.suppliers.isEmpty()) {
-                EmptyState(icon = Icons.Default.LocalShipping, title = "暂无供应商", modifier = Modifier.fillMaxSize().align(Alignment.CenterHorizontally))
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    EmptyState(icon = Icons.Default.LocalShipping, title = "暂无供应商", modifier = Modifier.fillMaxWidth())
+                }
             } else {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(top = 6.dp, bottom = 88.dp),
                 ) {
                     items(uiState.suppliers) { supplier ->
-                        GlassCard(modifier = Modifier.fillMaxWidth(), onClick = { supplier.id?.let { onNavigateToDetail(it) } }) {
+                        GlassCard(modifier = Modifier.fillMaxWidth(), onClick = { onNavigateToDetail(supplier.id) }) {
                             Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Text(supplier.name, style = ZhihuijiTypography.titleSmall, color = ZhihuijiColors.TextPrimary)
-                                        Text("S${supplier.id ?: 0}", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextTertiary)
+                                        Text("S${supplier.id}", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextTertiary)
                                     }
-                                    Text("联系人：${supplier.name}  ${supplier.phone}", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
+                                    Text("联系人：${supplier.primaryContactName ?: supplier.name}  ${supplier.primaryContactPhone ?: supplier.phone}", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
                                     Text("应付余额 ${MoneyFormatter.format(supplier.balance)}", style = ZhihuijiTypography.labelSmall, color = if (supplier.balance > 0) ZhihuijiColors.Danger else ZhihuijiColors.TextSecondary)
                                 }
                                 Column(horizontalAlignment = Alignment.End) {
@@ -72,8 +86,13 @@ fun SupplierListScreen(
             }
         }
         if (showTopBar) {
-            FloatingActionButton(onClick = { onNavigateToEditor(null) }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), containerColor = ZhihuijiColors.Primary) {
-                Icon(Icons.Default.Add, null, tint = androidx.compose.ui.graphics.Color.White)
+            Box(modifier = Modifier.fillMaxSize()) {
+                FloatingPrimaryActionButton(
+                    text = "新增供应商",
+                    icon = Icons.Default.Add,
+                    onClick = { onNavigateToEditor(null) },
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                )
             }
         }
     }

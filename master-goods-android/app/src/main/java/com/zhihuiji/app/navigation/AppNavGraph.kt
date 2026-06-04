@@ -3,18 +3,17 @@ package com.zhihuiji.app.navigation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Text
+import androidx.compose.runtime.collectAsState
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.zhihuiji.core.designsystem.ZhihuijiColors
-import com.zhihuiji.core.designsystem.ZhihuijiTypography
 import com.zhihuiji.core.designsystem.glassBackground
 import com.zhihuiji.feature.auth.AuthViewModel
 import com.zhihuiji.feature.auth.LoginScreen
@@ -37,57 +36,61 @@ fun AppNavGraph() {
     val authViewModel: AuthViewModel = hiltViewModel()
     val uiState by authViewModel.uiState.collectAsState()
 
+    if (!uiState.isSessionReady) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .glassBackground(),
+            contentAlignment = Alignment.Center,
+        ) {
+            CircularProgressIndicator(color = ZhihuijiColors.Primary)
+        }
+        return
+    }
+
     val startDestination = if (uiState.isLoggedIn) MainRoutes.MAIN else AuthRoutes.LOGIN
 
     Box(modifier = Modifier.fillMaxSize()) {
-        NavHost(navController = navController, startDestination = startDestination) {
-        composable(AuthRoutes.LOGIN) {
-            LoginScreen(
-                onLoginSuccess = {
-                    navController.navigate(MainRoutes.MAIN) {
-                        popUpTo(AuthRoutes.LOGIN) { inclusive = true }
-                    }
-                },
-                onNavigateToRegister = { navController.navigate(AuthRoutes.REGISTER) },
-                viewModel = authViewModel,
-            )
-        }
-        composable(AuthRoutes.REGISTER) {
-            RegisterScreen(
-                onRegisterSuccess = {
-                    navController.navigate(MainRoutes.MAIN) {
-                        popUpTo(AuthRoutes.LOGIN) { inclusive = true }
-                    }
-                },
-                onNavigateBack = { navController.popBackStack() },
-                viewModel = authViewModel,
-            )
-        }
-        composable(MainRoutes.MAIN) {
-            MainScreen(
-                onNavigateToSettings = { navController.navigate(MainRoutes.SETTINGS) },
-            )
-        }
-        composable(MainRoutes.SETTINGS) {
-            SettingsScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onLogout = {
-                    authViewModel.logout()
-                    navController.navigate(AuthRoutes.LOGIN) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                },
-            )
-        }
-        }
-        if (!uiState.isSessionReady) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .glassBackground(),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator(color = ZhihuijiColors.Primary)
+        key(uiState.isLoggedIn) {
+            NavHost(navController = navController, startDestination = startDestination) {
+                composable(AuthRoutes.LOGIN) {
+                    LoginScreen(
+                        onLoginSuccess = {
+                            navController.navigate(MainRoutes.MAIN) {
+                                popUpTo(AuthRoutes.LOGIN) { inclusive = true }
+                            }
+                        },
+                        onNavigateToRegister = { navController.navigate(AuthRoutes.REGISTER) },
+                        viewModel = authViewModel,
+                    )
+                }
+                composable(AuthRoutes.REGISTER) {
+                    RegisterScreen(
+                        onRegisterSuccess = {
+                            navController.navigate(MainRoutes.MAIN) {
+                                popUpTo(AuthRoutes.LOGIN) { inclusive = true }
+                            }
+                        },
+                        onNavigateBack = { navController.popBackStack() },
+                        viewModel = authViewModel,
+                    )
+                }
+                composable(MainRoutes.MAIN) {
+                    MainScreen(
+                        onNavigateToSettings = { navController.navigate(MainRoutes.SETTINGS) },
+                    )
+                }
+                composable(MainRoutes.SETTINGS) {
+                    SettingsScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        onLogout = {
+                            authViewModel.logout()
+                            navController.navigate(AuthRoutes.LOGIN) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        },
+                    )
+                }
             }
         }
     }

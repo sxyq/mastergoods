@@ -40,4 +40,7 @@ dependencies {
 
     implementation(libs.retrofit)
     implementation(libs.workmanager)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.core)
 }

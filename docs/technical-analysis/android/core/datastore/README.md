@@ -33,7 +33,7 @@
 | token 安全存储 | 新版已做 | 旧版无当前安全约束 | 使用 Keystore 加密敏感会话 | 当前已接入 `SecureSessionCipher` | 继续保留 |
 | 历史明文会话迁移 | 新版已做 | 首轮加固前 token / refreshToken 可按明文残留在 DataStore | 升级后自动迁移旧安装数据，不要求用户重登 | `SessionStore` 已在读取期检测并把旧明文值重写为密文 | 属于安全与兼容的过渡逻辑 |
 | release 基础地址可编辑性收口 | 新版已做 | 首版为了联调允许直接修改服务器地址 | release 只允许受控正式地址，debug 保留联调切换 | `SettingsStore` 已结合 `BASE_URL_EDITABLE` 与主机白名单约束基础地址持久化 | 与 `core/network` 的运行时校验形成双层收口 |
-| owner 归属与导入状态 | 新版待做 | 旧版无统一 owner | 持久化当前 owner、导入批次、初始化完成度 | 当前只覆盖 session/baseUrl/cursor | 新版关键缺口 |
+| owner 归属与导入状态 | 需重构 | 旧版无统一 owner | 持久化当前 owner、导入批次、初始化完成度 | 后端已支持 owner+client cursor 与 import job，当前 DataStore 仍只覆盖 session/baseUrl/cursor | 新版关键缺口；其中 cursor 需按 opaque token 原样持久化，并区分“已拉取待 ack”与“已确认基线” |
 | 任意环境自由切换 | 新版需要去掉 | 首版为了联调允许较宽松切换 | release 必须受控，debug 再灵活 | 当前已部分收紧 | 后续继续统一到 `/v2` 环境策略 |
 
 ## 建议扩展的状态片段
@@ -49,4 +49,12 @@
 
 - 现有 DataStore 拆分方向是对的。
 - 但在新版里，它不该只服务“登录成功”和“记一个 cursor”。
+- 后续 `cursor` 字段不能假设为数值型；需要按字符串 token 原样存取。
 - 它还要承接 owner、导入、同步、环境四类全局轻状态。
+
+## UI 联动约束
+
+- 本模块虽然不直接负责页面绘制，但其输出的数据结构、状态枚举、错误语义和交互支撑能力必须服务于统一的 Android UI 基线。
+- 后续新增业务不能倒逼页面切换成另一套视觉风格；应优先通过补充 `core/designsystem` 通用组件或扩展既有页面母版来承接。
+- 需要映射到 UI 的状态、金额、风险、同步结果等，应继续服从统一的颜色语义、状态标签和信息层级。
+- Android 视觉真源固定为 `docs/design-mockups/01.png ~ 08.png` 与 `master-goods-android/UI-DESIGN-SPEC.md`。

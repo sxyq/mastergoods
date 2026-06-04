@@ -7,6 +7,14 @@
 - `In Progress`：已开始编码但未完成联调。
 - `Done`：已完成并通过联调。
 
+## UI 统一基线
+
+- Android 视觉真源固定为 `/Users/sunyiyang/Desktop/Project/master-goods/docs/design-mockups/01.png ~ 08.png`。
+- 页面母版与组件组合以 [UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/UI-DESIGN-SPEC.md) 为准。
+- 可复用实现以 [core/designsystem/DEVELOPMENT.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/core/designsystem/DEVELOPMENT.md) 为准。
+- 后续新增业务必须复用既有列表页、详情页、编辑页、报表页、AI 页、设置页母版；如需新组件，先沉淀到 `core/designsystem`。
+- 当前是“设计基线文档统一”，不是 B10 UI 实装完成；真机截图、逐页核对、细节微调仍属于后续验收。
+
 ## 模块状态总表
 
 | 模块 | 作用 | 依赖 | 当前状态 |
@@ -28,7 +36,7 @@
 | `data/agent` | AI 能力仓储 | `core/network`, `core/database` | Done |
 | `data/sync` | 同步与游标 | `core/network`, `core/database`, `core/datastore` | In Progress |
 | `feature/auth` | 登录注册界面 | `data/auth`, `core:datastore` | Done |
-| `feature/dashboard` | 首页经营看板 | `data/report`, `data/agent` | Done |
+| `feature/dashboard` | 首页经营看板 | `data/order`, `data/finance`, `data/product` | Done |
 | `feature/products` | 商品页面 | `data/product` | Done |
 | `feature/customers` | 客户页面 | `data/customer` | Done |
 | `feature/suppliers` | 供应商页面 | `data/supplier` | Done |
@@ -36,9 +44,9 @@
 | `feature/purchases` | 采购单页面 | `data/order`, `data/product`, `data:supplier` | Done |
 | `feature/payments` | 付款单页面 | `data/order`, `data:supplier` | Done |
 | `feature/finance` | 资金流水页面 | `data:finance` | Done |
-| `feature/reports` | 报表页面 | `data/report` | Done |
-| `feature/agent` | AI 助手页面 | `data/agent` | Done |
-| `feature/settings` | 设置与同步页面 | `data/auth`, `data/sync`, `core:datastore` | Done |
+| `feature/reports` | 报表页面 | `data/order`, `data/finance`, `data/product`, `data/sync` | Done |
+| `feature/agent` | AI 助手页面 | `data/agent` | In Progress |
+| `feature/settings` | 设置与同步页面 | `data/auth`, `data/sync`, `core:datastore` | In Progress |
 
 ## 推荐开发顺序
 
@@ -87,6 +95,38 @@
   - [feature/settings/DEVELOPMENT.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/feature/settings/DEVELOPMENT.md)
 
 ## 开发执行记录
+
+### 2026-06-04 B10/B11：dashboard / reports 收口与文档同步
+
+##### 文件 1：feature/dashboard/src/main/java/com/zhihuiji/feature/dashboard/DashboardScreen.kt
+- 所属模块：feature/dashboard
+- 本次修改内容：继续按 `UI-DESIGN-SPEC.md` 收紧首页经营看板的诚实态文案；把顶部设置入口图标改成与实际跳转一致的设置语义，并把总览说明、搜索提示、底部摘要统一为“当前仅汇总已接入数据”的表述。
+- 当前状态：Done
+- 下一步：真机继续核对首页首屏信息密度、留白和状态层级；如后端补齐首页聚合接口，再把趋势/通知等占位能力升级为真实联动。
+
+##### 文件 2：feature/reports/src/main/java/com/zhihuiji/feature/reports/ReportScreen.kt
+- 所属模块：feature/reports
+- 本次修改内容：继续收紧报表页的时间标签语义和诚实态说明，明确区分“销售/应收会随时间标签刷新”与“账户余额/库存成本/占位图仍是当前快照”，避免把静态占位误写成完整动态报表。
+- 当前状态：Done
+- 下一步：真机继续核对 `07.png` 对应的 KPI、图表比例和空态层级；如后端补齐趋势序列，再替换当前占位图说明。
+
+##### 文件 3：feature/dashboard/DEVELOPMENT.md
+- 所属模块：feature/dashboard
+- 本次修改内容：将模块说明从计划态函数清单改为源码真实状态，修正依赖、已实现结构、待验证边界与下一步，避免文档继续引用不存在的入口函数。
+- 当前状态：Done
+- 下一步：无
+
+##### 文件 4：feature/reports/DEVELOPMENT.md
+- 所属模块：feature/reports
+- 本次修改内容：将模块说明同步为当前源码真实状态，移除已不存在的多 Tab 计划类与旧函数名，补入真实依赖、时间标签边界和下一步联调方向。
+- 当前状态：Done
+- 下一步：无
+
+##### 文件 5：DEVELOPMENT-PLAN.md
+- 所属模块：总体计划
+- 本次修改内容：修正 `feature/dashboard` / `feature/reports` 在模块状态总表中的真实依赖，并补记本轮 dashboard / reports 收口与文档同步记录。
+- 当前状态：Done
+- 下一步：无
 
 ### 2026-05-25 第六阶段：按设计稿重构 UI
 
@@ -1632,7 +1672,7 @@
   - `data/sync` 的后台同步调度、离线回写与冲突处理
   - WorkManager 定时同步
   - SSE 通知推送
-  - UI 已按设计稿主风格完成统一重构，仍需真机截图后做像素级微调
+  - UI 已具备设计稿主风格基础，但 B10 前仍需按 `docs/design-mockups/01.png ~ 08.png` 与 `UI-DESIGN-SPEC.md` 逐页核对；新增业务必须复用统一页面母版和 `core/designsystem`
   - 单元测试
 
 ## 开发执行建议

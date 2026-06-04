@@ -9,6 +9,7 @@ import com.zhihuiji.feature.customers.CustomerDetailScreen
 import com.zhihuiji.feature.customers.CustomerEditorScreen
 import com.zhihuiji.feature.payments.PayOrderDetailScreen
 import com.zhihuiji.feature.payments.PayOrderEditorScreen
+import com.zhihuiji.feature.products.ProductDetailScreen
 import com.zhihuiji.feature.products.ProductEditorScreen
 import com.zhihuiji.feature.purchases.PurchaseOrderDetailScreen
 import com.zhihuiji.feature.purchases.PurchaseOrderEditorScreen
@@ -27,6 +28,20 @@ fun NavGraphBuilder.productEditorRoute(navigateBack: () -> Unit) {
         ProductEditorScreen(
             productId = productId,
             onNavigateBack = { navigateBack() },
+        )
+    }
+}
+
+fun NavGraphBuilder.productDetailRoutes(navigateBack: () -> Unit, navigateToEditor: (Long) -> Unit) {
+    composable(
+        route = "${SubRoutes.PRODUCT_DETAIL}/{productId}",
+        arguments = listOf(navArgument("productId") { type = NavType.LongType }),
+    ) { backStackEntry ->
+        val productId = backStackEntry.arguments?.getLong("productId") ?: return@composable
+        ProductDetailScreen(
+            productId = productId,
+            onNavigateBack = { navigateBack() },
+            onNavigateToEditor = { id -> navigateToEditor(id) },
         )
     }
 }

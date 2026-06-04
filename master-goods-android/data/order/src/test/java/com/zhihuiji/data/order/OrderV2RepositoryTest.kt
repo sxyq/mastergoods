@@ -1,0 +1,151 @@
+package com.zhihuiji.data.order
+
+import com.zhihuiji.core.model.ApiResponse
+import com.zhihuiji.core.model.StatusRequest
+import com.zhihuiji.core.model.v2.order.PayOrderV2Filter
+import com.zhihuiji.core.model.v2.order.PurchaseOrderV2Filter
+import com.zhihuiji.core.model.v2.order.SaleOrderV2Filter
+import com.zhihuiji.core.network.ZhihuijiV2Api
+import java.lang.reflect.Proxy
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class OrderV2RepositoryTest {
+
+    @Test
+    fun listSaleOrdersForwardsFilterArgumentsToApi() = runBlocking {
+        var invokedMethod: String? = null
+        var capturedArgs: List<Any?> = emptyList()
+        val api = fakeApi { methodName, args ->
+            invokedMethod = methodName
+            capturedArgs = args?.toList().orEmpty()
+            ApiResponse(code = 0, message = "ok", data = emptyList<com.zhihuiji.core.model.v2.order.SaleOrderV2Dto>())
+        }
+
+        val repository = SaleOrderV2Repository(api)
+        val result = repository.listSaleOrders(
+            SaleOrderV2Filter(
+                keyword = "SO",
+                status = 1,
+                minTotalAmount = "10",
+                maxTotalAmount = "99",
+                createdAfter = "2026-06-01T00:00:00Z",
+                createdBefore = "2026-06-03T00:00:00Z",
+                productKeyword = "milk",
+                paymentStatus = "0",
+            ),
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals("saleOrdersV2", invokedMethod)
+        assertEquals(
+            listOf("SO", 1, "10", "99", "2026-06-01T00:00:00Z", "2026-06-03T00:00:00Z", "milk", "0"),
+            capturedArgs.take(8),
+        )
+    }
+
+    @Test
+    fun updateSaleOrderStatusDelegatesToUpdateSaleOrderStatusV2() = runBlocking {
+        var invokedMethod: String? = null
+        var invokedId: Long? = null
+        var invokedStatus: StatusRequest? = null
+        val api = fakeApi { methodName, args ->
+            invokedMethod = methodName
+            invokedId = args?.get(0) as Long
+            invokedStatus = args[1] as StatusRequest
+            ApiResponse<Unit>(code = 0, message = "ok", data = null)
+        }
+
+        val repository = SaleOrderV2Repository(api)
+        val result = repository.updateStatus(6L, 2)
+
+        assertTrue(result.isSuccess)
+        assertEquals("updateSaleOrderStatusV2", invokedMethod)
+        assertEquals(6L, invokedId)
+        assertEquals(2, invokedStatus?.status)
+    }
+
+    @Test
+    fun listPurchaseOrdersForwardsFilterArgumentsToApi() = runBlocking {
+        var invokedMethod: String? = null
+        var capturedArgs: List<Any?> = emptyList()
+        val api = fakeApi { methodName, args ->
+            invokedMethod = methodName
+            capturedArgs = args?.toList().orEmpty()
+            ApiResponse(code = 0, message = "ok", data = emptyList<com.zhihuiji.core.model.v2.order.PurchaseOrderV2Dto>())
+        }
+
+        val repository = PurchaseOrderV2Repository(api)
+        val result = repository.listPurchaseOrders(PurchaseOrderV2Filter(keyword = "PO", status = 0))
+
+        assertTrue(result.isSuccess)
+        assertEquals("purchaseOrdersV2", invokedMethod)
+        assertEquals(listOf("PO", 0), capturedArgs.take(2))
+    }
+
+    @Test
+    fun listPayOrdersForwardsFilterArgumentsToApi() = runBlocking {
+        var invokedMethod: String? = null
+        var capturedArgs: List<Any?> = emptyList()
+        val api = fakeApi { methodName, args ->
+            invokedMethod = methodName
+            capturedArgs = args?.toList().orEmpty()
+            ApiResponse(code = 0, message = "ok", data = emptyList<com.zhihuiji.core.model.v2.order.PayOrderV2Dto>())
+        }
+
+        val repository = PayOrderV2Repository(api)
+        val result = repository.listPayOrders(
+            PayOrderV2Filter(
+                keyword = "PAY",
+                status = 1,
+                createdAfter = "2026-06-01T00:00:00Z",
+                createdBefore = "2026-06-03T00:00:00Z",
+            ),
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals("payOrdersV2", invokedMethod)
+        assertEquals(listOf("PAY", 1, "2026-06-01T00:00:00Z", "2026-06-03T00:00:00Z"), capturedArgs.take(4))
+    }
+
+    @Test
+    fun updatePayOrderStatusDelegatesToUpdatePayOrderStatusV2() = runBlocking {
+        var invokedMethod: String? = null
+        var invokedId: Long? = null
+        var invokedStatus: StatusRequest? = null
+        val api = fakeApi { methodName, args ->
+            invokedMethod = methodName
+            invokedId = args?.get(0) as Long
+            invokedStatus = args[1] as StatusRequest
+            ApiResponse(
+                code = 0,
+                message = "ok",
+                data = com.zhihuiji.core.model.v2.order.PayOrderV2Dto(id = 8L, status = 2),
+            )
+        }
+
+        val repository = PayOrderV2Repository(api)
+        val result = repository.updateStatus(8L, 2)
+
+        assertTrue(result.isSuccess)
+        assertEquals("updatePayOrderStatusV2", invokedMethod)
+        assertEquals(8L, invokedId)
+        assertEquals(2, invokedStatus?.status)
+    }
+
+    private fun fakeApi(handler: (methodName: String, args: Array<out Any?>?) -> Any?): ZhihuijiV2Api {
+        return Proxy.newProxyInstance(
+            ZhihuijiV2Api::class.java.classLoader,
+            arrayOf(ZhihuijiV2Api::class.java),
+        ) { _, method, args ->
+            when (method.name) {
+                "hashCode" -> 0
+                "toString" -> "OrderV2RepositoryTestApiProxy"
+                "equals" -> false
+                else -> handler(method.name, args)
+            }
+        } as ZhihuijiV2Api
+    }
+}

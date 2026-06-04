@@ -3,18 +3,17 @@ package com.zhihuiji.feature.purchases
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.common.UiMessage
-import com.zhihuiji.core.model.CreatePurchaseOrderItemRequest
-import com.zhihuiji.core.model.CreatePurchaseOrderRequest
-import com.zhihuiji.core.model.ProductDto
-import com.zhihuiji.core.model.SupplierDto
-import com.zhihuiji.data.order.PurchaseOrderRepository
-import com.zhihuiji.data.product.ProductRepository
-import com.zhihuiji.data.supplier.SupplierRepository
+import com.zhihuiji.core.model.v2.order.CreatePurchaseOrderItemV2Request
+import com.zhihuiji.core.model.v2.order.CreatePurchaseOrderV2Request
+import com.zhihuiji.core.model.v2.partner.SupplierV2Dto
+import com.zhihuiji.core.model.v2.product.ProductV2Dto
+import com.zhihuiji.data.order.PurchaseOrderV2Repository
+import com.zhihuiji.data.product.ProductV2Repository
+import com.zhihuiji.data.supplier.SupplierV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -34,8 +33,8 @@ data class PurchaseOrderEditorUiState(
     val lines: List<PurchaseLineItem> = emptyList(),
     val notes: String = "",
     val totalAmount: Double = 0.0,
-    val productSearchResults: List<ProductDto> = emptyList(),
-    val supplierSearchResults: List<SupplierDto> = emptyList(),
+    val productSearchResults: List<ProductV2Dto> = emptyList(),
+    val supplierSearchResults: List<SupplierV2Dto> = emptyList(),
     val isSaving: Boolean = false,
     val saveSuccess: Boolean = false,
     val error: UiMessage? = null,
@@ -43,17 +42,17 @@ data class PurchaseOrderEditorUiState(
 
 @HiltViewModel
 class PurchaseOrderEditorViewModel @Inject constructor(
-    private val purchaseOrderRepository: PurchaseOrderRepository,
-    private val productRepository: ProductRepository,
-    private val supplierRepository: SupplierRepository,
+    private val purchaseOrderV2Repository: PurchaseOrderV2Repository,
+    private val productV2Repository: ProductV2Repository,
+    private val supplierV2Repository: SupplierV2Repository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PurchaseOrderEditorUiState())
     val uiState: StateFlow<PurchaseOrderEditorUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
-            supplierRepository.refreshSuppliers(null, null)
-            productRepository.refreshProducts(null)
+            supplierV2Repository.listSuppliers()
+            productV2Repository.listProducts()
         }
     }
 
@@ -63,21 +62,29 @@ class PurchaseOrderEditorViewModel @Inject constructor(
 
     fun searchSuppliers(keyword: String) {
         viewModelScope.launch {
-            supplierRepository.refreshSuppliers(keyword.ifBlank { null }, null)
-            val list = supplierRepository.observeSuppliers(keyword, null).first()
-            _uiState.value = _uiState.value.copy(supplierSearchResults = list)
+            supplierV2Repository.listSuppliers(keyword = keyword.ifBlank { null })
+                .onSuccess { list ->
+                    _uiState.value = _uiState.value.copy(supplierSearchResults = list)
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
+                }
         }
     }
 
     fun searchProducts(keyword: String) {
         viewModelScope.launch {
-            productRepository.refreshProducts(keyword.ifBlank { null })
-            val list = productRepository.observeProducts(keyword).first()
-            _uiState.value = _uiState.value.copy(productSearchResults = list)
+            productV2Repository.listProducts(keyword = keyword.ifBlank { null })
+                .onSuccess { list ->
+                    _uiState.value = _uiState.value.copy(productSearchResults = list)
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
+                }
         }
     }
 
-    fun addItem(product: ProductDto) {
+    fun addItem(product: ProductV2Dto) {
         val existing = _uiState.value.lines.find { it.productId == product.id }
         if (existing != null) {
             changeQuantity(existing.lineId, existing.quantity + 1)
@@ -124,10 +131,11 @@ class PurchaseOrderEditorViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true, error = null)
-            val request = CreatePurchaseOrderRequest(
-                supplierName = _uiState.value.supplierName!!,
+            val request = CreatePurchaseOrderV2Request(
+                supplierId = _uiState.value.supplierId,
+                supplierName = _uiState.value.supplierName,
                 items = _uiState.value.lines.map {
-                    CreatePurchaseOrderItemRequest(
+                    CreatePurchaseOrderItemV2Request(
                         productId = it.productId,
                         productCode = it.productCode.ifBlank { null },
                         productName = it.productName.ifBlank { null },
@@ -137,7 +145,7 @@ class PurchaseOrderEditorViewModel @Inject constructor(
                 },
                 notes = _uiState.value.notes.ifBlank { null },
             )
-            purchaseOrderRepository.createPurchaseOrder(request).onSuccess {
+            purchaseOrderV2Repository.createPurchaseOrder(request).onSuccess {
                 _uiState.value = _uiState.value.copy(isSaving = false, saveSuccess = true)
             }.onFailure {
                 _uiState.value = _uiState.value.copy(isSaving = false, error = UiMessage.fromThrowable(it))

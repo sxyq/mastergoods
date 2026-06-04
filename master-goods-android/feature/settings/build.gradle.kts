@@ -34,9 +34,7 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:model"))
     implementation(project(":core:designsystem"))
-    implementation(project(":core:datastore"))
     implementation(project(":data:auth"))
-    implementation(project(":data:sync"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)

@@ -3,8 +3,8 @@ package com.zhihuiji.feature.payments
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.common.UiMessage
-import com.zhihuiji.core.model.PayOrderDto
-import com.zhihuiji.data.order.PayOrderRepository
+import com.zhihuiji.core.model.v2.order.PayOrderV2Dto
+import com.zhihuiji.data.order.PayOrderV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class PayOrderDetailUiState(
-    val order: PayOrderDto? = null,
+    val order: PayOrderV2Dto? = null,
     val isLoading: Boolean = false,
     val statusUpdateSuccess: Boolean = false,
     val error: UiMessage? = null,
@@ -21,7 +21,7 @@ data class PayOrderDetailUiState(
 
 @HiltViewModel
 class PayOrderDetailViewModel @Inject constructor(
-    private val payOrderRepository: PayOrderRepository,
+    private val payOrderV2Repository: PayOrderV2Repository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PayOrderDetailUiState())
     val uiState: StateFlow<PayOrderDetailUiState> = _uiState.asStateFlow()
@@ -29,7 +29,7 @@ class PayOrderDetailViewModel @Inject constructor(
     fun loadDetail(id: Long) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            payOrderRepository.getPayOrder(id).onSuccess { order ->
+            payOrderV2Repository.getPayOrder(id).onSuccess { order ->
                 _uiState.value = _uiState.value.copy(order = order, isLoading = false)
             }.onFailure {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = UiMessage.fromThrowable(it))
@@ -40,7 +40,7 @@ class PayOrderDetailViewModel @Inject constructor(
     fun updateStatus(status: Int) {
         val orderId = _uiState.value.order?.id ?: return
         viewModelScope.launch {
-            payOrderRepository.updatePayOrderStatus(orderId, status).onSuccess {
+            payOrderV2Repository.updateStatus(orderId, status).onSuccess {
                 _uiState.value = _uiState.value.copy(statusUpdateSuccess = true)
                 loadDetail(orderId)
             }.onFailure {

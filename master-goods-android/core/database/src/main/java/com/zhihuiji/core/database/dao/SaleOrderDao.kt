@@ -59,6 +59,9 @@ interface SaleOrderDao {
     @Query("DELETE FROM sale_order_items WHERE orderId = :orderId")
     suspend fun deleteItemsByOrderId(orderId: Long)
 
+    @Query("DELETE FROM sale_order_items WHERE id = :id")
+    suspend fun deleteItemById(id: Long)
+
     @Query("DELETE FROM sale_order_items WHERE orderId IN (:orderIds)")
     suspend fun deleteItemsByOrderIds(orderIds: List<Long>)
 

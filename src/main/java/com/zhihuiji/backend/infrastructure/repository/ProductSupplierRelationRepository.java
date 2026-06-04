@@ -7,6 +7,8 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ProductSupplierRelationRepository extends JpaRepository<ProductSupplierRelationEntity, Long> {
+    List<ProductSupplierRelationEntity> findAllByOwnerUserIdOrderByUpdatedAtAscIdAsc(Long ownerUserId);
+
     List<ProductSupplierRelationEntity> findAllByOwnerUserIdAndProductIdOrderByIsDefaultDescPurchasePriorityAscCreatedAtAsc(
         Long ownerUserId,
         Long productId
@@ -26,4 +28,6 @@ public interface ProductSupplierRelationRepository extends JpaRepository<Product
     boolean existsByOwnerUserIdAndProductIdAndSupplierIdAndIdNot(Long ownerUserId, Long productId, Long supplierId, Long id);
 
     void deleteAllByOwnerUserIdAndProductId(Long ownerUserId, Long productId);
+
+    void deleteByIdAndOwnerUserId(Long id, Long ownerUserId);
 }
