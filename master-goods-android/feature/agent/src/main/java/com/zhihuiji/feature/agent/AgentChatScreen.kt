@@ -440,6 +440,7 @@ private fun AssistantMessageHeader(
     hasToolEvidence: Boolean,
     hasAuditTrace: Boolean,
     hasCompletedTool: Boolean,
+    showBadges: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val statusLabel = assistantHeaderStatusLabel(
@@ -455,18 +456,6 @@ private fun AssistantMessageHeader(
         isStreaming -> WarningOrange
         else -> AgentAssistantAccent
     }
-    val provenanceLabel = assistantProvenanceLabel(
-        hasCompletedTool = hasCompletedTool,
-        hasToolEvidence = hasToolEvidence,
-        answerDeltaSource = answerDeltaSource,
-    )
-    val reviewLabel = when {
-        hasAuditTrace -> "有运行标识"
-        hasToolEvidence -> "有工具记录"
-        isStreaming -> "生成中"
-        else -> "未展开"
-    }
-
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -488,15 +477,27 @@ private fun AssistantMessageHeader(
             color = statusColor,
             fontWeight = FontWeight.SemiBold,
         )
-        Spacer(modifier = Modifier.weight(1f))
-        AssistantHeaderBadge(
-            text = provenanceLabel,
-            color = statusColor,
-        )
-        AssistantHeaderBadge(
-            text = reviewLabel,
-            color = if (hasAuditTrace) ZhihuijiPrimary else TextTertiary,
-        )
+        if (showBadges) {
+            val provenanceLabel = assistantProvenanceLabel(
+                hasCompletedTool = hasCompletedTool,
+                hasToolEvidence = hasToolEvidence,
+                answerDeltaSource = answerDeltaSource,
+            )
+            val reviewLabel = assistantReviewBadgeLabel(
+                isStreaming = isStreaming,
+                hasAuditTrace = hasAuditTrace,
+                hasToolEvidence = hasToolEvidence,
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            AssistantHeaderBadge(
+                text = provenanceLabel,
+                color = statusColor,
+            )
+            AssistantHeaderBadge(
+                text = reviewLabel,
+                color = if (hasAuditTrace) ZhihuijiPrimary else TextTertiary,
+            )
+        }
     }
 }
 
@@ -543,6 +544,7 @@ private fun AssistantMessageTimeline(
                 hasCompletedTool = message.runTrace?.toolCalls?.any {
                     it.status == ToolCallStatus.COMPLETED
                 } == true,
+                showBadges = message.shouldShowAssistantHeaderBadges(),
             )
             if (parts.isEmpty()) {
                 InlineStreamingStatus(

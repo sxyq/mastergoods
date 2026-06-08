@@ -80,4 +80,29 @@ class AgentResponseProvenanceTest {
         assertTrue(streamingModelAnswer.shouldShowInlineStreamingStatus())
         assertTrue(waitingForServerEvent.shouldShowInlineStreamingStatus())
     }
+
+    @Test
+    fun assistantHeaderBadgesAreHiddenAfterCompletion() {
+        val completedAnswer = ChatMessage(
+            id = "assistant-2",
+            conversationId = 1L,
+            role = MessageRole.ASSISTANT,
+            content = "已经完成回答",
+            isStreaming = false,
+            hasServerAnswerDelta = true,
+            answerDeltaSource = DeltaSourceModelStream,
+        )
+        val streamingAnswer = completedAnswer.copy(isStreaming = true)
+
+        assertFalse(completedAnswer.shouldShowAssistantHeaderBadges())
+        assertTrue(streamingAnswer.shouldShowAssistantHeaderBadges())
+        assertEquals(
+            "有运行标识",
+            assistantReviewBadgeLabel(
+                isStreaming = true,
+                hasAuditTrace = true,
+                hasToolEvidence = true,
+            )
+        )
+    }
 }

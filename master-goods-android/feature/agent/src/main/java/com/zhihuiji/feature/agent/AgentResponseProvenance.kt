@@ -48,3 +48,16 @@ internal fun String?.inlineStreamingLabel(): String =
 
 internal fun ChatMessage.shouldShowInlineStreamingStatus(): Boolean =
     isStreaming && (hasServerAnswerDelta || content.isBlank())
+
+internal fun ChatMessage.shouldShowAssistantHeaderBadges(): Boolean = isStreaming
+
+internal fun assistantReviewBadgeLabel(
+    isStreaming: Boolean,
+    hasAuditTrace: Boolean,
+    hasToolEvidence: Boolean,
+): String = when {
+    hasAuditTrace -> "有运行标识"
+    hasToolEvidence -> "有工具记录"
+    isStreaming -> "生成中"
+    else -> "未展开"
+}
