@@ -6,11 +6,12 @@
 
 1. [40-batch-development-master-plan.md](./spec/40-batch-development-master-plan.md)
 2. [42-android-liquid-glass-ui-refactor-plan.md](./spec/42-android-liquid-glass-ui-refactor-plan.md)
-3. [00-product-overview.md](./spec/00-product-overview.md)
-4. [01-status-taxonomy.md](./spec/01-status-taxonomy.md)
-5. [02-domain-model-overview.md](./spec/02-domain-model-overview.md)
-6. [10-auth-and-tenant.md](./spec/10-auth-and-tenant.md)
-7. 业务域 spec：`20 ~ 32`
+3. [43-ai-assistant-requirements.md](./spec/43-ai-assistant-requirements.md)
+4. [00-product-overview.md](./spec/00-product-overview.md)
+5. [01-status-taxonomy.md](./spec/01-status-taxonomy.md)
+6. [02-domain-model-overview.md](./spec/02-domain-model-overview.md)
+7. [10-auth-and-tenant.md](./spec/10-auth-and-tenant.md)
+8. 业务域 spec：`20 ~ 32`
 
 ## 文档分层
 
@@ -38,6 +39,10 @@
   - 这是跨后端、Android、联调与验收的总控文档
 - [42-android-liquid-glass-ui-refactor-plan.md](./spec/42-android-liquid-glass-ui-refactor-plan.md)
   - 这是当前 Android 全量 UI 重构的专项总计划
+- [43-ai-assistant-requirements.md](./spec/43-ai-assistant-requirements.md)
+  - 这是 AI 助手真实 agentic、无模拟数据、Markdown / 图表、流式体验与后续审查的需求基线
+- [AI_AGENT_P0_EVIDENCE_MATRIX.md](./acceptance-evidence/ai-agent/AI_AGENT_P0_EVIDENCE_MATRIX.md)
+  - 这是 AI 助手 AGT-P0-001..019 当前证据、缺口和下一步的统一总表
 
 ## 状态字段
 

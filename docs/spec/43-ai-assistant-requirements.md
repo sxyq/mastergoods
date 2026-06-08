@@ -1,7 +1,7 @@
 # 43 AI 助手真实 Agentic 需求文档
 
 > 状态：需求基线，供后续 AI 功能审查与修改使用
-> 版本：2026-06-09 v19
+> 版本：2026-06-09 v20
 > 维护范围：AI 助手需求基线与当前代码证据校准；不代表本轮已经完成所有后端或 Android 代码整改
 > 覆盖范围：后端 `/v2/agent/*`、Android AI 助手页面、AI 首页干净入口、真实数据查询、真实工具事件、草稿执行、取消确认、运行审计、性能可观测性、后续审查 checklist
 
@@ -18,13 +18,15 @@
 | SSE `answer_delta` 不再承载规则摘要假流式 | `V2AgentAiServiceTest.streamFallbackAnswerCompletesRuleSummaryWithoutFakeDeltas`、`streamDisabledModelAnswerCompletesRuleSummaryWithoutFakeDeltas` 通过，断言规则摘要路径 `answer_delta` 数量为 0，降级内容只在 `answer_completed` 返回 `mode`、`llm_status` 和规则摘要说明 | 证明降级摘要不会通过分块制造“吐字”体验；仍需真实抓包和 UI 展示截图 |
 | SSE `server_notice` 可承载服务端真实补充说明 | `V2AgentAiServiceTest.streamModelAnswerEmitsServerNoticeTailBeforeCompletionWhenBackendAppendsBoundaries` 证明模型真实 delta 后，后端追加的查询边界说明会以 `answer_delta(delta_source=server_notice)` 在 `answer_completed` 前发出；`AgentResponseProvenanceTest.serverNoticeDeltaIsLabeledAsBackendNoticeNotModelStream` 证明 Android 不把它标成模型流 | 证明查询边界 / 部分失败等服务端事实说明不会在最终完成事件突然整段跳出，也不会伪装成模型 token；仍需真实 SSE 抓包和真机截图 |
 | SSE 结构化结果块可随工具完成提前出现 | `V2AgentAiService.buildResponse()` 在每个工具返回后立即 `emitBlocks(...)`，最后单独发送 `evidence_card`；`V2AgentAiServiceTest.streamEmitsEachToolResultBlockBeforeNextToolCompletes` 断言第一个工具的 `result_block` 早于第二个工具完成，且证据卡早于 `answer_completed` | 证明服务端不再等最终回答完成后才统一发送全部图表 / 表格；仍需真实 SSE 抓包和真机截图证明端到端节奏 |
-| Android 对话时间线按服务端事件顺序渲染 | `ChatMessage.parts` 增加 `Text` / `ResultBlock` 顺序片段；`AgentChatViewModelAnswerMergeTest` 覆盖 answer delta、result block、final answer 的合并顺序，且最终答案不会重排已有 `Text -> ResultBlock -> Text` 时间线；`AgentChatScreen` 以 `AssistantMessageTimeline` 渲染片段 | 证明 Android 不再把所有结构化结果固定堆到回答下方，也不会在完成态把流式时间线重新搬动；仍需真实模型流式 SSE 和真机截图证明端到端体验 |
+| Android 对话时间线按服务端事件顺序渲染 | `ChatMessage.parts` 增加 `Text` / `ResultBlock` 顺序片段；`AgentChatViewModelAnswerMergeTest` 覆盖 answer delta、result block、final answer 的合并顺序，且最终答案不会重排已有 `Text -> ResultBlock -> Text` 时间线；同时覆盖 `result_block` 早于回答文本到达时先隐藏为 pending，等首段回答文本出现后再接入可见时间线；`AgentChatScreen` 以 `AssistantMessageTimeline` 渲染片段 | 证明 Android 不再把所有结构化结果固定堆到回答下方，也不会在完成态把流式时间线重新搬动；且不会出现“先直接给查询数据，等一会儿回答才出来”的倒置体验。仍需真实模型流式 SSE 和真机截图证明端到端体验 |
 | Android 工具提示只展示真实短状态并自动收敛 | `AgentChatScreenToolStatusTest.latestVisibleToolShowsRecentlyCompletedToolBriefly` 证明工具完成后可短暂显示完成态；`latestVisibleToolDoesNotKeepCompletedToolAsPersistentPill` 证明过期完成工具不会作为 inline pill 常驻；`AgentResponseProvenanceTest.streamingRunTracePanelCollapsesAfterVisibleTimelineArrives` 证明文本或 result block 到达后默认收起 RunTrace；`AgentResponseProvenanceTest.runTracePanelHidesForCompletedSuccessUnlessAttentionIsNeeded` 证明完成成功 / 规则摘要完成态不再默认展开过程面板 | 证明 UI 会像真实 agent 一样显示正在查询 / 刚完成 / 失败的短状态，但不会把完成工具或完整 RunTrace 长期贴在回答下方；错误、手动展开、首个可见事件前仍保留审计入口；仍需真实工具事件抓包和真机截图 |
+| P0 证据矩阵已有统一入口 | `docs/acceptance-evidence/ai-agent/AI_AGENT_P0_EVIDENCE_MATRIX.md` 将 AGT-P0-001..019 映射到当前代码证据、接口证据、Android 设备证据、缺口和下一步 | 证明后续审查有统一总表；该矩阵本身不让任何 partial 项升级为 pass，真实 provider stream、cancel 端到端、生产 profile、性能和全屏 UI 仍需补证据 |
 | Android SSE 客户端支持标准多行 SSE | `AgentSseClientCancellationTest.chatStream_buffersStandardMultiLineSseDataUntilBlankLine` 和 `chatStream_flushesLastBufferedSseEventWhenStreamEndsWithoutBlankLine` 覆盖多行 `data:` 缓冲与 EOF flush | 证明客户端可正确接收标准 SSE 事件；仍需真实后端流和供应商模型流抓包 |
 | AI workbench 是显式干净入口合同 | `V2AgentAiService.getWorkbench()` 返回 `status=clean_entry_ready`、`data_policy`、`capabilities` 和 `warnings`，并保持 KPI、风险、今日摘要、快捷报表问题为空；`V2AgentAiServiceTest.workbenchDoesNotExposeReportDashboardDefaults` 和 `AgentChatResponseSerializationTest.decodesCleanWorkbenchStatusContract` 覆盖服务端与 Android 模型；`tools/ai_agent_evidence_capture.sh self-test` 会拒绝缺少该状态合同的 workbench 证据 | 证明 workbench 不再只是空数组 placeholder，而是明确说明真实数据只在用户发起 chat run 后查询；仍需真机首页截图和 UI tree |
 | Android result block 渲染有坏数据门禁 | `ResultBlockRendererContractTest` 覆盖图表缺 labels、空 labels、缺 series、series 长度不一致、NaN / Infinity、柱状负数、donut / pie 非正数或无效分段、已知图表缺字段解析失败、未知 block 原始摘要、结构化 table 行列不一致和 table 单元格 Markdown；`ResultBlockRenderer` 对这些情况显示错误 / 空态 / 忽略提示，不补模拟图表或模拟表格数据 | 证明 UI 层不会主动补模拟图表 / 表格数据；仍需真实后端 block、真机截图和坏块视觉验收 |
 | Markdown 解析已有基础覆盖 | `AgentMarkdownTextParserTest` 覆盖表格 pipe、代码块尾部空白、链接文本旁可见 URL、`www.` 链接规范化和坏链接不丢正文 | 证明部分解析边界和链接 URL 不丢；仍需真机视觉截图、链接点击 / 复制、长表格、代码复制交互和流式半成品视觉验收 |
 | 服务端 cancel run 代码路径已存在 | `V2AgentController` 暴露 `POST /v2/agent/runs/{runId}/cancel`；`V2AgentAiService.cancelRun` 会校验 owner、标记 active run cancelled、发送 `run_cancelled`，不再立即移除仍运行的 active run；`V2AgentAiServiceTest.cancelRunMarksActiveStreamCancelledAndEmitsRunCancelledEvent` 已证明 active stream 取消后会发出 `run_cancelled`、阻止 `answer_completed`、并把审计状态写成 `cancelled`；`cancelRunDoesNotPretendUnknownRunWasCancelled` 和 `cancelRunDoesNotCancelOtherOwnerActiveRun` 证明未知 run / 跨 owner active run 只返回 `not_found/cancelled=false`，不会发送 `run_cancelled` 或伪造取消审计；Android `AgentChatViewModel.stopGeneration` 会调用 `AgentV2Repository.cancelRun` 并把服务端取消确认 / 未确认 / 失败写入反馈 | 证明当前代码有更诚实的取消路径，并已覆盖“不能把取消失败伪造成成功”的服务端合同；仍需真实 Android 点击停止后的 HTTP/SSE 抓包、审计接口对账和 Android 取消反馈截图 |
+| 生产 AI 对话路径 mock/demo 风险复核 | 2026-06-09 只读复核未发现 `/v2/agent/chat` 或 `/v2/agent/chat/stream` 生产主路径使用 mock/demo/sample/fake/placeholder 数据回答用户问题；`AdminController`、`AdminService`、`DemoDataService` 和 `LocalDemoDataInitializer` 均为 `@Profile("local")`；新增 `LocalProfileGuardTest.localAdminAndDemoBeansAreNotRegisteredOutsideLocalProfile` 并通过，证明这些 local admin/demo bean 在 `prod` profile 下不注册 | 降低 demo seed 误入生产 AI 数据路径的风险；仍需真实生产 profile 启动 / HTTP 证据证明 `/v1/admin/demo/seed` 不能访问，且任务 / 通知没有由 demo seed 污染 |
 
 ### 0.2 当前仍未完成 / 不得误判为通过
 
@@ -36,7 +38,7 @@
 | AI 首页干净入口 | 文档规定不得展示报表型数据，但仍需真机 UI tree / 截图确认当前实现 | `05-ui-home.png` 和 `09-ui-tree.xml`，证明无销售额、KPI、报表图、风险列表默认展示 |
 | RunTrace 展开与 UI 区分度 | 文档规定用户 / AI / 工具 / 结果 / 错误分层，但仍需视觉证据 | 真实对话截图，含展开 RunTrace、Markdown、result block、错误或降级态 |
 | 草稿真实执行 | 当前 P0 允许不执行写操作；不能把 `archived` 当执行成功 | P1 前确认按钮禁用或诚实归档；P1 后需业务单据真实创建 / 更新证据 |
-| 全链路性能优化 | 当前已做局部优化：SSE worker 使用专用 executor；Android answer_delta 48ms 批量刷新；流式中先轻量文本渲染，完成后再 Markdown；AI 聊天列表提供稳定 key / contentType，Markdown inline 解析结果按文本缓存以减少流式重组开销；部分工具查询改为 DB 分页；AI workbench 不再查最近会话 / 草稿；Reports 往来余额改走后端汇总；Dashboard 应收金额 / 应收客户数 / 净现金流优先走后端汇总；`docs/acceptance-evidence/performance/20260609-052957-backend-report-performance/` 已采集 7 个后端报表接口各 5 次样本且均为 HTTP 200 / `code=0`。仍不等于完整性能验收 | 性能基线、优化前后对比、首事件 / 工具 / 模型 / Android 首次可见耗时表 |
+| 全链路性能优化 | 当前已做局部优化：SSE worker 使用专用 executor；Android answer_delta 48ms 批量刷新；流式中先轻量文本渲染，完成后再 Markdown；AI 聊天列表提供稳定 key / contentType，Markdown inline 解析结果按文本缓存以减少流式重组开销；部分工具查询改为 DB 分页；AI workbench 不再查最近会话 / 草稿；Reports 往来余额改走后端汇总；Dashboard 应收金额 / 应收客户数 / 净现金流优先走后端汇总；`tools/ai_agent_evidence_capture.sh` 已增强 `11-latency.md`，可从 run audit 派生首事件、首工具、首 result block、首 `answer_delta`、首 `model_stream`、首 `server_notice`、完成态、工具耗时合计 / 最大值和事件计数；`docs/acceptance-evidence/performance/20260609-052957-backend-report-performance/` 已采集 7 个后端报表接口各 5 次样本且均为 HTTP 200 / `code=0`。仍不等于完整性能验收 | 性能基线、优化前后对比、真实 AI 三问接口耗时、provider `model_stream` 耗时、Android 首次可见耗时和帧统计 |
 | 底部 tap 栏 BiliPay 参考对齐 | 当前仅对齐了玻璃态、横向扫动、底栏区域上滑转发首页滚动，以及跨 tab 距离感动画；尚未重构为 BiliPay 的 `HorizontalPager + MainBottomPagerState + indicatorProgress` 主架构 | 后续若要求完全一比一，需用真实 pager 承载顶级页面，提供切换录屏、帧率 / jank 证据和与 `/Users/sunyiyang/Desktop/Project/Bilipay UI` 的文件级对照表 |
 
 ### 0.3 证据快照一致性规则
@@ -50,7 +52,7 @@
 
 截至 `ed4d630`，非流式 `AgentChatResponse` 已在后端 DTO 和 Android 模型中包含 `tool_calls`、`evidence_refs`、`performance_summary`、`result_blocks` 等审计字段；任何仍声称“同步响应尚未提供这些顶层字段”的旧结论必须视为过期。
 
-截至 2026-06-09 当前待提交工作树，Android 已增加按事件顺序渲染的 `ChatMessage.parts` 时间线、真实工具状态短提示、规则摘要 / 模型流标签区分、完成态提示收敛，以及标准多行 SSE 缓冲解析；后端 workbench 已增加 `clean_entry_ready`、`data_policy`、`capabilities` 和 `warnings` 以替代空壳式入口响应；后端流式接口已改为每个工具完成后即时发送该工具的 `result_block`，并在最终回答前发送 `evidence_card`。这些只能证明代码和单测层面契约，不得替代真实端到端验收证据。
+截至 `61b42bd`，Android 已增加按事件顺序渲染的 `ChatMessage.parts` 时间线、真实工具状态短提示、规则摘要 / 模型流标签区分、完成态提示收敛，以及标准多行 SSE 缓冲解析；后端 workbench 已增加 `clean_entry_ready`、`data_policy`、`capabilities` 和 `warnings` 以替代空壳式入口响应；后端流式接口已改为每个工具完成后即时发送该工具的 `result_block`，并在最终回答前发送 `evidence_card`。这些只能证明代码和单测层面契约，不得替代真实端到端验收证据。
 
 ## 1. 背景和原则
 
@@ -426,7 +428,7 @@ P1 增强事件：
 - `server_notice` 必须出现在真实 `model_stream` delta 之后、`answer_completed` 之前；Android 必须显示为“服务端说明”或等价文案，不得显示为模型正在生成。
 - `tool_query_rule_summary` 必须只出现在 `answer_completed` / `run_completed`，并返回 `plan_source`、`llm_status=disabled`、`stream_failed_or_empty` 或其它明确降级原因。
 - Android 可以把规则摘要作为完成态回答展示，但文案必须是“数据查询 / 规则摘要模式”，不得显示为“模型正在思考”或“正在吐字”。
-- `result_block` 必须按服务端真实事件顺序渲染：工具完成后可以先出现对应结构化结果；模型真流式时 `answer_delta(model_stream)` 按供应商回调到达；规则摘要降级时完整回答只能由 `answer_completed` 给出，不得用增量伪造。
+- `result_block` 必须按服务端真实事件顺序进入客户端状态，但用户可见时间线不得倒置成“先直接显示查询数据，稍后才出现回答”。当工具结果早于首段回答到达时，Android 应保留等待 / RunTrace 状态，并把 pending `result_block` 接在首段回答文本之后显示；模型真流式时 `answer_delta(model_stream)` 按供应商回调到达；规则摘要降级时完整回答只能由 `answer_completed` 给出，不得用增量伪造。
 
 禁止以下做法：
 
@@ -718,7 +720,7 @@ python3 tools/capture_ai_home_device_evidence.py --wake
 
 该脚本输出 `docs/acceptance-evidence/ai-agent/{yyyyMMdd-HHmmss}-device-ai-home/`，其中 `08-home-cleanliness.json` 和 `10-conclusion.md` 必须为 `pass-for-ai-home-cleanliness` 才能作为 AI 首页干净入口证据。通过条件必须同时看到 `AI 助手` 标题和至少一个 Hero 锚点（如“主屏保持干净”或“开始一次真实 Agent 对话”），且不得命中 `销售额`、`KPI`、`今日经营摘要`、`风险列表`、`销售趋势`、`净现金流`、`库存预警` 等默认报表 / 看板内容。若状态为 `blocked-by-locked-device`、`partial-not-in-app` 或 `partial-ai-home-not-detected`，只能作为失败 / 部分尝试保存，不能支撑 P0 通过。注意：`mFocusedApp` / `ResumedActivity` 可能在锁屏时仍显示 `com.zhihuiji.app`，不得把它当成可见 App 证据；必须同时确认 `device_locked=false`、无 Keyguard / NotificationShade 遮挡且 UI tree 来自真实 app 内容。
 
-`tools/ai_agent_evidence_capture.sh` 会自动生成 `00-env.md`、`00-request.json`、`01-http-response.json`、`02-raw-sse.log`、`03-run-audit.json`、`04-tool-results.json`、`10-forbidden-scan.txt`、`11-latency.md`、`12-conclusion.md`、`13-sse-audit-ui-reconciliation.md`、`14-agent-run-summary.json`、`15-forbidden-scan-review.md`、`16-workbench-response.json` 和 `17-workbench-cleanliness.md`。脚本默认结论为 `partial`，因为它只采集接口 / SSE / 审计证据，不会伪造真机截图或 UI tree。截图、UI tree 和 Android 首次可见耗时必须从真实设备补充。`12-conclusion.md` 必须列出不可替代证据清单，明确接口 / 审计对账不能证明 Android 渲染。`13-sse-audit-ui-reconciliation.md` 的 `pass-for-interface` 只能证明接口和服务端审计一致，不能替代 Android RunTrace 截图。`17-workbench-cleanliness.md` 的 `pass-for-interface` 只能证明后端 workbench 响应干净，不能替代 Android 首屏截图和 UI tree。`15-forbidden-scan-review.md` 是自动审查草案，不是自动通过证明；任何 `needs evidence` 行必须人工复核并给出源码 / 运行证据后才能 P0 通过。
+`tools/ai_agent_evidence_capture.sh` 会自动生成 `00-env.md`、`00-request.json`、`01-http-response.json`、`02-raw-sse.log`、`03-run-audit.json`、`04-tool-results.json`、`10-forbidden-scan.txt`、`11-latency.md`、`12-conclusion.md`、`13-sse-audit-ui-reconciliation.md`、`14-agent-run-summary.json`、`15-forbidden-scan-review.md`、`16-workbench-response.json` 和 `17-workbench-cleanliness.md`。其中 `11-latency.md` 必须包含接口侧 AI run timing summary：`first_event_latency_ms`、`first_tool_started_latency_ms`、`first_tool_completed_latency_ms`、`first_result_block_latency_ms`、`first_answer_delta_latency_ms`、`first_model_stream_delta_latency_ms`、`first_server_notice_delta_latency_ms`、`answer_completed_latency_ms`、`run_completed_latency_ms`、`tool_duration_sum_ms`、`tool_duration_max_ms` 和关键事件计数。脚本默认结论为 `partial`，因为它只采集接口 / SSE / 审计证据，不会伪造真机截图或 UI tree。截图、UI tree 和 Android 首次可见耗时必须从真实设备补充。`12-conclusion.md` 必须列出不可替代证据清单，明确接口 / 审计对账不能证明 Android 渲染。`13-sse-audit-ui-reconciliation.md` 的 `pass-for-interface` 只能证明接口和服务端审计一致，不能替代 Android RunTrace 截图。`17-workbench-cleanliness.md` 的 `pass-for-interface` 只能证明后端 workbench 响应干净，不能替代 Android 首屏截图和 UI tree。`15-forbidden-scan-review.md` 是自动审查草案，不是自动通过证明；任何 `needs evidence` 行必须人工复核并给出源码 / 运行证据后才能 P0 通过。
 
 已有证据包需要按最新脚本刷新派生产物时，使用：
 
@@ -951,7 +953,7 @@ AI 助手 P0 修改后的最小验证矩阵：
 |---|---|---|
 | 后端 agent 单测 | `JAVA_HOME=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home ./master-goods-android/gradlew -p /Users/sunyiyang/Desktop/Project/master-goods test --tests 'com.zhihuiji.backend.application.service.v2.V2AgentAiServiceTest' --tests 'com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest' --console=plain -Dorg.gradle.java.home=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home` | 固定 run 审计、SSE 合同、非流式合同和 audit API |
 | Android agent 合同 | `JAVA_HOME=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home ./gradlew :core:model:testDebugUnitTest :feature:agent:compileDebugKotlin --console=plain -Dorg.gradle.java.home=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home` | 固定模型解析、Markdown / stream 合同和 agent UI 编译 |
-| 证据脚本离线自测 | `./tools/ai_agent_evidence_capture.sh self-test` | 无需后端或 token，验证 SSE run_id 提取、audit tool result 展开、SSE/audit 对账和 run summary 派生逻辑 |
+| 证据脚本离线自测 | `./tools/ai_agent_evidence_capture.sh self-test` | 无需后端或 token，验证 SSE run_id 提取、audit tool result 展开、SSE/audit 对账、run summary 派生逻辑和 `11-latency.md` 的 AI run timing 字段 |
 | AI 首页设备脚本自测 | `python3 tools/capture_ai_home_device_evidence.py --self-test` | 无需设备，验证锁屏、弱锚点、默认报表内容和干净首页判定规则 |
 | 真实接口证据 | `TOKEN=<redacted> ./tools/ai_agent_evidence_capture.sh` 或 `LOGIN_PHONE=<phone> LOGIN_PASSWORD=<password> ./tools/ai_agent_evidence_capture.sh` | 生成 HTTP / SSE / run audit / workbench / 对账 / summary / 禁止项扫描 / latency 初稿；不得保存密码或 token |
 | AI 首页真机证据 | `ANDROID_SERIAL=<serial> python3 tools/capture_ai_home_device_evidence.py --wake`，且 `10-conclusion.md` 为 `pass-for-ai-home-cleanliness` | 证明 AI 初始屏是干净入口；锁屏、非 app、弱锚点或报表默认内容必须保持非通过 |
@@ -1082,7 +1084,7 @@ python3 tools/report_performance_evidence.py \
 | AGT-P0-002 | 每次聊天必须创建真实 `run_id` 并贯穿响应、SSE、RunTrace、审计 | P0 | chat / stream / audit 代码路径 | 同一 `run_id` 出现在接口、SSE、Android、审计记录 |
 | AGT-P0-003 | Planner 只能选择白名单只读工具，关键词只能用于兜底选工具 | P0 | Planner 输出结构、工具白名单、关键词路径 | 提问后能看到 plan、tool reason、工具结果来源 |
 | AGT-P0-004 | 工具调用必须 owner-aware，失败必须产生 `tool_failed` | P0 | repository 查询条件、异常处理、tool event 代码 | 构造工具失败后 UI 显示部分失败，不给确定结论 |
-| AGT-P0-005 | SSE 不得把完整答案或规则摘要固定切块伪造成流式 | P0 | `answer_delta.delta_source=model_stream` 只来自模型 streaming 回调；`server_notice` 只承载模型流之后的服务端事实说明；规则摘要只通过 `answer_completed` 降级返回 | 抓包证明 `model_stream` 对应模型真实 streaming；`server_notice` 不被 UI 标为模型流；`tool_query_rule_summary` 无 `answer_delta`，并带 `llm_status=disabled/stream_failed_or_empty` |
+| AGT-P0-005 | SSE 不得把完整答案或规则摘要固定切块伪造成流式；结构化结果不得抢在首段回答前作为主内容显示 | P0 | `answer_delta.delta_source=model_stream` 只来自模型 streaming 回调；`server_notice` 只承载模型流之后的服务端事实说明；规则摘要只通过 `answer_completed` 降级返回；Android pending `result_block` 不计入可见回答时间线直到首段回答文本出现 | 抓包证明 `model_stream` 对应模型真实 streaming；`server_notice` 不被 UI 标为模型流；`tool_query_rule_summary` 无 `answer_delta`，并带 `llm_status=disabled/stream_failed_or_empty`；真机截图证明回答和数据块边生成边自然渲染，且没有先数据后回答的倒置体验 |
 | AGT-P0-006 | RunTrace 展开必须真实改变状态并展示后端事件 | P0 | `toggleRunTrace` 有状态更新；事件映射来自 SSE | 点击展开后显示真实 safety / plan / tool / answer 事件 |
 | AGT-P0-007 | LLM 不可用必须诚实降级，不伪装智能推理 | P0 | 响应包含 `mode` / `llm_status` 或等价字段 | `AGENT_LLM_ENABLED=false` 时 UI 显示规则 / 数据查询模式 |
 | AGT-P0-008 | 草稿确认未实现真实执行前不得展示为提交成功 | P0 | Android 不再把 `archived` 当执行成功 | 点击确认前有禁用 / 提示；无业务单据假写入 |
@@ -1092,7 +1094,7 @@ python3 tools/report_performance_evidence.py \
 | AGT-P0-012 | 每个 run 必须可观测：`run_id` / `trace_id` 贯穿日志、SSE、工具、审计和响应 | P0 | 日志 MDC / trace 代码、audit schema、响应字段 | 用同一 ID 定位请求、事件、工具耗时和审计 |
 | AGT-P0-013 | P0 验收必须记录首事件、工具、模型和端到端耗时 | P0 | metrics / log 字段、测试脚本或手工验收表 | 3 个真实问题的耗时表和 slow warning 证据 |
 | AGT-P0-014 | AI 首页必须是干净入口，不展示报表页已有的 KPI、图表、风险、摘要或排行 | P0 | `AgentWorkbenchScreen` 代码无报表型组件；ViewModel 不触发工作台统计查询 | 首次进入 AI 首页截图无经营数据堆叠 |
-| AGT-P0-015 | AI 聊天必须有清晰角色和过程层级，Markdown 与图表保持美观可读 | P0 | 用户 / AI 气泡、RunTrace、ResultBlockRenderer、AgentMarkdownText 代码路径 | 一轮真实查询截图能区分消息、过程、结果块和错误 / 降级状态 |
+| AGT-P0-015 | AI 聊天必须有清晰角色和过程层级，Markdown 与图表保持美观可读；工具提示必须真实、短暂、可自动收敛 | P0 | 用户 / AI 气泡、RunTrace、ResultBlockRenderer、AgentMarkdownText、短暂工具 pill 代码路径 | 一轮真实查询截图能区分消息、过程、结果块和错误 / 降级状态；录屏或连续截图证明工具提示只在查询 / 刚完成 / 失败时短暂出现，不作为结果常驻 |
 | AGT-P0-016 | Markdown 渲染不得丢内容，链接 URL、表格、代码块和行内强调必须可读 | P0 | `AgentMarkdownText` 解析与渲染分支、失败兜底 | 用真实回答覆盖标题、列表、表格、引用、代码块、链接并截图 |
 | AGT-P0-017 | 已知 result block 类型解析失败不得静默消失，图表不得用示例数据补位 | P0 | `ResultBlockRenderer` 每个已知类型都有分支或失败卡；无 Android 示例图数据 | 构造缺字段 block 和空数据 block，确认 UI 显示真实空态 / 错误态 |
 | AGT-P0-018 | AI 初始屏文案不得把报表页能力伪装成默认看板 | P0 | quick questions、hero、notice 文案扫描 | 首屏截图 / UI tree 无默认“今日报表、风险看板、统计图看板” |
@@ -1102,11 +1104,11 @@ python3 tools/report_performance_evidence.py \
 
 ## 22. 当前代码证据快照
 
-本节记录 2026-06-08 当前工作树中可直接审查的证据。后续修复时应逐项更新结论，而不是删除问题。
+本节记录截至 `61b42bd` 当前工作树中可直接审查的证据。后续修复时应逐项更新结论，而不是删除问题。
 
 | 证据 | 当前状态 | 需求影响 |
 |---|---|---|
-| `src/main/java/com/zhihuiji/backend/application/service/DemoDataService.java:109-129` 只 seed 用户、供应商、客户、商品、采购、销售、付款和库存异常；`src/main/java/com/zhihuiji/backend/infrastructure/config/LocalDemoDataInitializer.java:9-20` 限定在 `local` profile 自动 seed。 | warm AI artifact seed 已不在当前 seed 流程中；`clearAll()` 的 agent task / notification 清理已改为 demo owner 范围，不再全表删除非 demo owner 的真实 AI 历史。`AdminControllerTest.seedResetDoesNotDeleteNonDemoOwnerAgentArtifacts()` 覆盖 reset 后真实 owner task / notification 保留。 | 支撑 AGT-P0-001、AGT-P0-009；后续仍需用生产 profile 启动证据证明 demo seed 不污染生产任务 / 通知。 |
+| `src/main/java/com/zhihuiji/backend/application/service/DemoDataService.java:109-129` 只 seed 用户、供应商、客户、商品、采购、销售、付款和库存异常；`src/main/java/com/zhihuiji/backend/infrastructure/config/LocalDemoDataInitializer.java:9-20` 限定在 `local` profile 自动 seed；`src/test/java/com/zhihuiji/backend/infrastructure/config/LocalProfileGuardTest.java` 断言 `AdminController`、`AdminService`、`DemoDataService` 和 `LocalDemoDataInitializer` 在 `prod` profile 下均不注册。 | warm AI artifact seed 已不在当前 seed 流程中；`clearAll()` 的 agent task / notification 清理已改为 demo owner 范围，不再全表删除非 demo owner 的真实 AI 历史。`AdminControllerTest.seedResetDoesNotDeleteNonDemoOwnerAgentArtifacts()` 覆盖 reset 后真实 owner task / notification 保留；`LocalProfileGuardTest.localAdminAndDemoBeansAreNotRegisteredOutsideLocalProfile` 把 local admin/demo 组件不得进 prod profile 固定为回归门禁。 | 支撑 AGT-P0-001、AGT-P0-009；后续仍需用生产 profile 启动 / HTTP 证据证明 demo seed 不污染生产任务 / 通知。 |
 | `src/main/java/com/zhihuiji/backend/api/controller/v2/V2AgentController.java:126-134` 暴露 `/v2/agent/chat` 和 `/v2/agent/chat/stream`，均进入 `V2AgentAiService`。 | 这是 AI 助手真实验收入口；后续验收不得用 legacy admin smoke 代替。 | 支撑 AGT-P0-002、AGT-P0-011。 |
 | `src/main/java/com/zhihuiji/backend/infrastructure/ai/LongCatAnthropicClient.java:55-59` 要求 enabled、apiKey、model、baseUrl 全部存在才调用模型；`LongCatAnthropicClient.java:206-277` 使用 `stream=true` 请求 OpenAI-compatible `chat/completions` 并逐行解析 SSE delta。 | 模型调用和 streaming 都在服务端；Android 不得持有密钥或 provider 配置。 | 支撑 AGT-P0-005、AGT-P0-007 和安全门禁。 |
 | `src/main/resources/application.yml:39-45`、`src/main/resources/application-prod.yml:43-48` 默认 `AGENT_LLM_ENABLED=false`；`src/main/resources/application-local.yml:17-22` local 默认 enabled 但 api-key 仍来自环境变量。 | P0 验收必须分别覆盖 disabled 降级和模型配置齐全后的真实 LLM 路径；不能把 local 默认 enabled 当作模型已可用证据。 | 支撑 AGT-P0-007、AGT-P0-013。 |

@@ -823,11 +823,17 @@ EOF
 EOF
   write_workbench_cleanliness_file "${tmp_dir}"
   grep -q 'Status: pass-for-interface' "${tmp_dir}/17-workbench-cleanliness.md"
+  write_latency_file "${tmp_dir}"
   write_conclusion_file "${tmp_dir}" "run-self-test"
   grep -q 'Status: partial' "${tmp_dir}/12-conclusion.md"
   grep -q 'Non-substitutable evidence' "${tmp_dir}/12-conclusion.md"
   grep -q 'cannot prove Android rendering' "${tmp_dir}/12-conclusion.md"
   grep -q 'Android first-visible timing' "${tmp_dir}/12-conclusion.md"
+  grep -q '`first_event_latency_ms`' "${tmp_dir}/11-latency.md"
+  grep -q '`first_model_stream_delta_latency_ms`' "${tmp_dir}/11-latency.md"
+  grep -q '`server_notice_delta_count`' "${tmp_dir}/11-latency.md"
+  grep -q '`tool_duration_sum_ms`' "${tmp_dir}/11-latency.md"
+  grep -q 'Provider-backed `model_stream` timing is present' "${tmp_dir}/11-latency.md"
 
   echo "ai_agent_evidence_capture self-test passed"
 }
@@ -860,6 +866,7 @@ EOF
 write_latency_file() {
   local dir="$1"
   local audit_file="${dir}/03-run-audit.json"
+  local summary_file="${dir}/.ai-run-timing-summary.json"
   local started completed duration tool_count event_count
   started=""
   completed=""
@@ -874,8 +881,96 @@ write_latency_file() {
     if [[ "${started}" =~ ^[0-9]+$ && "${completed}" =~ ^[0-9]+$ && "${completed}" -ge "${started}" ]]; then
       duration="$((completed - started))"
     fi
+    jq '
+      def payload: (.payload // {});
+      def event_type: (.event_type // .eventType // "");
+      def created_at: (.created_at // .createdAt // null);
+      def pnum($name): (payload[$name] // payload.data[$name] // null);
+      def nums($items): [$items[]? | select(type == "number")];
+      (.data // {}) as $data |
+      ($data.events // []) as $events |
+      ($data.started_at // $data.startedAt // null) as $started |
+      ($data.completed_at // $data.completedAt // null) as $completed |
+      nums($events | map(created_at)) as $createdTimes |
+      nums($events | map(select(event_type == "tool_started") | created_at)) as $toolStartedTimes |
+      nums($events | map(select(event_type == "tool_completed") | created_at)) as $toolCompletedTimes |
+      nums($events | map(select(event_type == "result_block") | created_at)) as $resultBlockTimes |
+      nums($events | map(select(event_type == "answer_delta") | created_at)) as $answerDeltaTimes |
+      nums($events | map(select(event_type == "answer_delta" and ((payload.delta_source // payload.deltaSource // payload.data.delta_source // payload.data.deltaSource // "") == "model_stream")) | created_at)) as $modelDeltaTimes |
+      nums($events | map(select(event_type == "answer_delta" and ((payload.delta_source // payload.deltaSource // payload.data.delta_source // payload.data.deltaSource // "") == "server_notice")) | created_at)) as $serverNoticeTimes |
+      nums($events | map(select(event_type == "answer_completed") | created_at)) as $answerCompletedTimes |
+      nums($events | map(select(event_type == "run_completed") | created_at)) as $runCompletedTimes |
+      nums($events | map(select(event_type == "tool_completed") | (pnum("duration_ms") // pnum("durationMs")))) as $toolDurations |
+      {
+        started_at: $started,
+        completed_at: $completed,
+        duration_ms:
+          (if ($started | type) == "number" and ($completed | type) == "number" and $completed >= $started
+           then ($completed - $started)
+           else null end),
+        first_event_at: ($createdTimes | min),
+        first_event_latency_ms:
+          (if ($started | type) == "number" and (($createdTimes | min) | type) == "number"
+           then (($createdTimes | min) - $started)
+           else null end),
+        first_tool_started_at: ($toolStartedTimes | min),
+        first_tool_started_latency_ms:
+          (if ($started | type) == "number" and (($toolStartedTimes | min) | type) == "number"
+           then (($toolStartedTimes | min) - $started)
+           else null end),
+        first_tool_completed_at: ($toolCompletedTimes | min),
+        first_tool_completed_latency_ms:
+          (if ($started | type) == "number" and (($toolCompletedTimes | min) | type) == "number"
+           then (($toolCompletedTimes | min) - $started)
+           else null end),
+        first_result_block_at: ($resultBlockTimes | min),
+        first_result_block_latency_ms:
+          (if ($started | type) == "number" and (($resultBlockTimes | min) | type) == "number"
+           then (($resultBlockTimes | min) - $started)
+           else null end),
+        first_answer_delta_at: ($answerDeltaTimes | min),
+        first_answer_delta_latency_ms:
+          (if ($started | type) == "number" and (($answerDeltaTimes | min) | type) == "number"
+           then (($answerDeltaTimes | min) - $started)
+           else null end),
+        first_model_stream_delta_at: ($modelDeltaTimes | min),
+        first_model_stream_delta_latency_ms:
+          (if ($started | type) == "number" and (($modelDeltaTimes | min) | type) == "number"
+           then (($modelDeltaTimes | min) - $started)
+           else null end),
+        first_server_notice_delta_at: ($serverNoticeTimes | min),
+        first_server_notice_delta_latency_ms:
+          (if ($started | type) == "number" and (($serverNoticeTimes | min) | type) == "number"
+           then (($serverNoticeTimes | min) - $started)
+           else null end),
+        answer_completed_at: ($answerCompletedTimes | min),
+        answer_completed_latency_ms:
+          (if ($started | type) == "number" and (($answerCompletedTimes | min) | type) == "number"
+           then (($answerCompletedTimes | min) - $started)
+           else null end),
+        run_completed_at: ($runCompletedTimes | min),
+        run_completed_latency_ms:
+          (if ($started | type) == "number" and (($runCompletedTimes | min) | type) == "number"
+           then (($runCompletedTimes | min) - $started)
+           else null end),
+        tool_duration_sum_ms: ($toolDurations | add),
+        tool_duration_max_ms: ($toolDurations | max),
+        tool_started_count: ($events | map(select(event_type == "tool_started")) | length),
+        tool_completed_count: ($events | map(select(event_type == "tool_completed")) | length),
+        tool_failed_count: ($events | map(select(event_type == "tool_failed")) | length),
+        result_block_count: ($events | map(select(event_type == "result_block")) | length),
+        answer_delta_count: ($events | map(select(event_type == "answer_delta")) | length),
+        model_stream_delta_count: ($modelDeltaTimes | length),
+        server_notice_delta_count: ($serverNoticeTimes | length),
+        answer_completed_count: ($events | map(select(event_type == "answer_completed")) | length),
+        run_completed_count: ($events | map(select(event_type == "run_completed")) | length)
+      }
+    ' "${audit_file}" > "${summary_file}"
+  else
+    jq -n '{error: "run audit missing or invalid"}' > "${summary_file}"
   fi
-  cat > "${dir}/11-latency.md" <<EOF
+  {
+    cat <<EOF
 # AI Agent Latency
 
 ## curl timings
@@ -890,12 +985,72 @@ $(if [[ -f "${dir}/01-http-metrics.txt" ]]; then cat "${dir}/01-http-metrics.txt
 - tool_count: ${tool_count:-missing}
 - event_count: ${event_count:-missing}
 
+## AI run timing summary
+
+EOF
+    if jq -e '.error' "${summary_file}" >/dev/null 2>&1; then
+      jq -r '"Status: partial\n\n" + .error' "${summary_file}"
+    else
+      echo "| Metric | Value |"
+      echo "|---|---|"
+      jq -r '
+        def show($v): if $v == null then "missing" else ($v | tostring) end;
+        [
+          ["first_event_latency_ms", .first_event_latency_ms],
+          ["first_tool_started_latency_ms", .first_tool_started_latency_ms],
+          ["first_tool_completed_latency_ms", .first_tool_completed_latency_ms],
+          ["first_result_block_latency_ms", .first_result_block_latency_ms],
+          ["first_answer_delta_latency_ms", .first_answer_delta_latency_ms],
+          ["first_model_stream_delta_latency_ms", .first_model_stream_delta_latency_ms],
+          ["first_server_notice_delta_latency_ms", .first_server_notice_delta_latency_ms],
+          ["answer_completed_latency_ms", .answer_completed_latency_ms],
+          ["run_completed_latency_ms", .run_completed_latency_ms],
+          ["duration_ms", .duration_ms],
+          ["tool_duration_sum_ms", .tool_duration_sum_ms],
+          ["tool_duration_max_ms", .tool_duration_max_ms],
+          ["tool_started_count", .tool_started_count],
+          ["tool_completed_count", .tool_completed_count],
+          ["tool_failed_count", .tool_failed_count],
+          ["result_block_count", .result_block_count],
+          ["answer_delta_count", .answer_delta_count],
+          ["model_stream_delta_count", .model_stream_delta_count],
+          ["server_notice_delta_count", .server_notice_delta_count],
+          ["answer_completed_count", .answer_completed_count],
+          ["run_completed_count", .run_completed_count]
+        ][]
+        | "| `\(.[0])` | `\(show(.[1]))` |"
+      ' "${summary_file}"
+      echo
+      echo "## Performance review notes"
+      echo
+      jq -r '
+        if (.model_stream_delta_count // 0) == 0 then
+          "- Provider-backed `model_stream` timing is missing; this run can only support rule-summary or non-model interface timing."
+        else
+          "- Provider-backed `model_stream` timing is present and must be reconciled with raw SSE and audit events."
+        end,
+        if (.first_result_block_latency_ms != null and .first_answer_delta_latency_ms == null) then
+          "- Result blocks arrived before answer deltas; Android must keep early blocks pending until answer text is visible to avoid a data-before-answer inversion."
+        else
+          "- Result block and answer timing should still be checked against Android screenshots or recording."
+        end,
+        if (.tool_failed_count // 0) > 0 then
+          "- Tool failures were observed; verify the answer and UI show partial/failed state rather than a confident full conclusion."
+        else
+          "- No tool_failed event was observed in this run."
+        end
+      ' "${summary_file}"
+    fi
+    cat <<'EOF'
+
 ## UI timing
 
 Android first-visible timing is not captured by this script. Add device-side
 screen recording, logcat, or frame timing evidence before marking this package
 pass.
 EOF
+  } > "${dir}/11-latency.md"
+  rm -f "${summary_file}"
 }
 
 write_conclusion_file() {
