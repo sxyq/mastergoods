@@ -302,6 +302,16 @@ class V2AgentAiServiceTest {
         assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")));
         String answerCompleted = firstPayload(emitter, "\"event_type\":\"answer_completed\"");
         assertTrue(answerCompleted.contains("\"plan_source\":\"keyword_fallback\""), answerCompleted);
+        assertTrue(
+            firstPayloadIndex(emitter, "\"event_type\":\"answer_delta\"")
+                < firstPayloadIndex(emitter, "\"event_type\":\"result_block\""),
+            String.join("\n", emitter.payloads)
+        );
+        assertTrue(
+            firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\"")
+                < firstPayloadIndex(emitter, "\"event_type\":\"result_block\""),
+            String.join("\n", emitter.payloads)
+        );
         assertTrue(emitter.completed);
     }
 
@@ -560,6 +570,11 @@ class V2AgentAiServiceTest {
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_rule_summary\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"stream_not_supported\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")), String.join("\n", emitter.payloads));
+        assertTrue(
+            firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\"")
+                < firstPayloadIndex(emitter, "\"event_type\":\"result_block\""),
+            String.join("\n", emitter.payloads)
+        );
         assertFalse(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())));
         assertTrue(emitter.completed);
     }
@@ -649,6 +664,15 @@ class V2AgentAiServiceTest {
             .filter(payload -> payload.contains(marker))
             .findFirst()
             .orElseThrow(() -> new AssertionError("Missing payload: " + marker + "\n" + String.join("\n", emitter.payloads)));
+    }
+
+    private static int firstPayloadIndex(CapturingEmitter emitter, String marker) {
+        for (int index = 0; index < emitter.payloads.size(); index++) {
+            if (emitter.payloads.get(index).contains(marker)) {
+                return index;
+            }
+        }
+        throw new AssertionError("Missing payload: " + marker + "\n" + String.join("\n", emitter.payloads));
     }
 
     private static List<String> answerDeltaPayloads(CapturingEmitter emitter) {

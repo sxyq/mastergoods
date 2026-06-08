@@ -518,6 +518,7 @@ public class V2AgentAiService {
                 finalAnswer.llmStatus(),
                 payload.planSource()
             );
+            emitBlocks(emitter, runId, payload.blocks());
             persistAssistantResponse(ownerUserId, conversation, finalAnswer.answer(), payload.blocks(), System.currentTimeMillis());
             sendEvent(emitter, eventMap("run_completed", mapOf(
                 "run_id", runId,
@@ -600,7 +601,6 @@ public class V2AgentAiService {
             ensureRunActive(runId);
             V2AgentDtos.ResultBlockDto evidenceBlock = buildEvidenceBlock(runId, toolResults);
             blocks.add(evidenceBlock);
-            emitBlocks(emitter, runId, List.of(evidenceBlock));
         }
 
         if (answers.isEmpty()) {
@@ -795,8 +795,6 @@ public class V2AgentAiService {
         );
 
         List<V2AgentDtos.ResultBlockDto> blocks = List.of(riskBlock, tableBlock);
-        emitBlocks(emitter, runId, blocks);
-
         String answer = products.isEmpty()
             ? "我已经检查了当前账号下的库存，暂时没有发现低于安全库存的商品。"
             : "我已经找出当前账号下最需要关注的低库存商品，建议先处理排在前面的补货项。";
@@ -858,8 +856,6 @@ public class V2AgentAiService {
         );
 
         List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, tableBlock);
-        emitBlocks(emitter, runId, blocks);
-
         String answer = products.isEmpty()
             ? "当前账号下还没有商品数据。"
             : "当前账号下已查询到 " + products.size() + " 个商品，"
@@ -930,8 +926,6 @@ public class V2AgentAiService {
             blocks.add(barBlock);
         }
         blocks.add(rankBlock);
-        emitBlocks(emitter, runId, blocks);
-
         String answer = customers.isEmpty()
             ? "当前账号下没有查询到欠款客户，应收风险比较低。"
             : "我已经按欠款金额从高到低整理出客户排行，可以先跟进前几位客户的回款。";
@@ -1003,8 +997,6 @@ public class V2AgentAiService {
             blocks.add(barBlock);
         }
         blocks.add(rankBlock);
-        emitBlocks(emitter, runId, blocks);
-
         String answer = topPayables.isEmpty()
             ? "当前账号下没有明显的供应商应付欠款。"
             : "当前账号下共有 " + topPayables.size() + " 个重点应付供应商，Top10 应付合计 "
@@ -1098,8 +1090,6 @@ public class V2AgentAiService {
         );
 
         List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, trendBlock, amountBlock, rankBlock, riskBlock);
-        emitBlocks(emitter, runId, blocks);
-
         String answer = "我已经把当前账号近7天的销售、回款、应收和库存风险汇总好了，可以先从重点客户回款和低库存商品两条线并行处理。";
         ToolExecutionResult toolResult = new ToolExecutionResult(
             "sales_overview_lookup",
@@ -1168,8 +1158,6 @@ public class V2AgentAiService {
         );
 
         List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, tableBlock);
-        emitBlocks(emitter, runId, blocks);
-
         String answer = recentOrders.isEmpty()
             ? "当前账号下还没有销售单数据。"
             : "我查到了最近 " + recentOrders.size() + " 条销售单，查询销售额 "
@@ -1237,8 +1225,6 @@ public class V2AgentAiService {
         );
 
         List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, tableBlock);
-        emitBlocks(emitter, runId, blocks);
-
         String answer = recentOrders.isEmpty()
             ? "当前账号下还没有采购单数据。"
             : "我查到了最近 " + recentOrders.size() + " 条采购单，查询采购额 "
@@ -1306,8 +1292,6 @@ public class V2AgentAiService {
         );
 
         List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, tableBlock);
-        emitBlocks(emitter, runId, blocks);
-
         String answer = recentOrders.isEmpty()
             ? "当前账号下还没有付款单数据。"
             : "我查到了最近 " + recentOrders.size() + " 条付款单，查询付款额 "
@@ -1392,8 +1376,6 @@ public class V2AgentAiService {
         );
 
         List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, donutBlock, tableBlock);
-        emitBlocks(emitter, runId, blocks);
-
         String answer = recentRecords.isEmpty()
             ? "当前账号下还没有资金流水数据。"
             : "我查到了最近 " + recentRecords.size() + " 条资金流水，查询收入 "

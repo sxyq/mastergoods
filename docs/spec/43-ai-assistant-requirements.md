@@ -422,6 +422,7 @@ P1 增强事件：
 - `model_stream` 必须配合 `mode=tool_query_llm_streamed` 或等价模型成功状态。
 - `tool_query_rule_summary` 必须只出现在 `answer_completed` / `run_completed`，并返回 `plan_source`、`llm_status=disabled`、`stream_failed_or_empty` 或其它明确降级原因。
 - Android 可以把规则摘要作为完成态回答展示，但文案必须是“数据查询 / 规则摘要模式”，不得显示为“模型正在思考”或“正在吐字”。
+- `result_block` 不得抢在回答事件之前堆出；模型真流式时必须先出现 `answer_delta`，规则摘要降级时必须先出现 `answer_completed`，结构化表格 / 图表随后按服务端真实事件顺序渲染。
 
 禁止以下做法：
 
