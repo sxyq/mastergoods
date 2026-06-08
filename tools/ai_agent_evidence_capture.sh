@@ -41,7 +41,8 @@ Output:
 
 This script captures HTTP/SSE/audit evidence only. It never fabricates UI
 screenshots; add adb screenshots and UI tree dumps separately before marking
-the evidence package pass.
+the evidence package pass. It also captures `/v2/agent/workbench` when auth is
+available, or records an honest skipped/failed workbench result when it is not.
 USAGE
 }
 
@@ -369,6 +370,154 @@ write_run_summary_file() {
   fi
 }
 
+capture_workbench_response() {
+  local dir="$1"
+  local output_file="${dir}/16-workbench-response.json"
+  local endpoint="${BASE_URL%/}/v2/agent/workbench"
+  local body_file="${dir}/.workbench-body.json"
+  local headers_file="${dir}/.workbench-headers.txt"
+  local metrics_file="${dir}/.workbench-metrics.txt"
+  local error_file="${dir}/.workbench-curl-error.txt"
+  local auth_args=()
+  local curl_output curl_status
+
+  if [[ -z "${TOKEN}" && "${ALLOW_NO_AUTH:-0}" != "1" ]]; then
+    if [[ -s "${output_file}" ]]; then
+      return 0
+    fi
+    jq -n \
+      --arg endpoint "${endpoint}" \
+      --arg captured_at "$(timestamp_utc)" \
+      '{captured_at: $captured_at, endpoint: $endpoint, status: "skipped", reason: "TOKEN missing and ALLOW_NO_AUTH is not 1; cannot fetch owner-scoped workbench response"}' \
+      > "${output_file}"
+    return 0
+  fi
+
+  if [[ -n "${TOKEN}" ]]; then
+    auth_args=(-H "Authorization: Bearer ${TOKEN}")
+  fi
+
+  set +e
+  curl_output="$(
+    curl -sS \
+      -w 'http_code=%{http_code}\ntime_namelookup=%{time_namelookup}\ntime_connect=%{time_connect}\ntime_starttransfer=%{time_starttransfer}\ntime_total=%{time_total}\n' \
+      -D "${headers_file}" \
+      ${auth_args[@]+"${auth_args[@]}"} \
+      -H "Accept: application/json" \
+      "${endpoint}" \
+      -o "${body_file}" \
+      2> "${error_file}"
+  )"
+  curl_status=$?
+  set -e
+  printf '%s' "${curl_output}" > "${metrics_file}"
+
+  if [[ "${curl_status}" -ne 0 ]]; then
+    jq -n \
+      --arg endpoint "${endpoint}" \
+      --arg captured_at "$(timestamp_utc)" \
+      --arg curl_status "${curl_status}" \
+      --rawfile stderr "${error_file}" \
+      '{captured_at: $captured_at, endpoint: $endpoint, status: "failed", curl_status: ($curl_status | tonumber), stderr: $stderr}' \
+      > "${output_file}"
+    rm -f "${body_file}" "${headers_file}" "${metrics_file}" "${error_file}"
+    return 0
+  fi
+
+  if jq -e . "${body_file}" >/dev/null 2>&1; then
+    jq -n \
+      --arg endpoint "${endpoint}" \
+      --arg captured_at "$(timestamp_utc)" \
+      --rawfile headers "${headers_file}" \
+      --rawfile metrics "${metrics_file}" \
+      --slurpfile body "${body_file}" \
+      '{captured_at: $captured_at, endpoint: $endpoint, status: "captured", headers: $headers, metrics: $metrics, body: $body[0]}' \
+      > "${output_file}"
+  else
+    jq -n \
+      --arg endpoint "${endpoint}" \
+      --arg captured_at "$(timestamp_utc)" \
+      --rawfile headers "${headers_file}" \
+      --rawfile metrics "${metrics_file}" \
+      --rawfile body "${body_file}" \
+      '{captured_at: $captured_at, endpoint: $endpoint, status: "invalid_json", headers: $headers, metrics: $metrics, raw_body: $body}' \
+      > "${output_file}"
+  fi
+  rm -f "${body_file}" "${headers_file}" "${metrics_file}" "${error_file}"
+}
+
+write_workbench_cleanliness_file() {
+  local dir="$1"
+  local response_file="${dir}/16-workbench-response.json"
+  local output_file="${dir}/17-workbench-cleanliness.md"
+  local summary_file="${dir}/.workbench-cleanliness.json"
+
+  if [[ ! -s "${response_file}" ]]; then
+    cat > "${output_file}" <<'EOF'
+# Workbench Cleanliness Review
+
+Status: partial
+
+`16-workbench-response.json` is missing. Capture `/v2/agent/workbench`
+before claiming the AI home entry is clean.
+EOF
+    return 0
+  fi
+
+  jq '
+    def data: (.body.data // .body // {});
+    def arr(v): if v == null then [] elif (v | type) == "array" then v else [v] end;
+    def text(v): if v == null then "" else (v | tostring) end;
+    def bad_question:
+      test("今日|销售额|报表|KPI|图表|看板|摘要|排行|经营概览|默认统计");
+    (.status // "unknown") as $status |
+    data as $data |
+    (arr($data.kpi_cards // $data.kpiCards)) as $kpi |
+    (arr($data.risk_alerts // $data.riskAlerts)) as $risks |
+    (text($data.today_summary // $data.todaySummary)) as $today |
+    (arr($data.quick_questions // $data.quickQuestions)) as $questions |
+    ($questions | map(select((text(.) | bad_question)))) as $badQuestions |
+    {
+      response_status: $status,
+      kpi_cards_count: (if $status == "captured" then ($kpi | length) else null end),
+      risk_alerts_count: (if $status == "captured" then ($risks | length) else null end),
+      today_summary_present: (if $status == "captured" then ($today | length > 0) else null end),
+      quick_questions_count: (if $status == "captured" then ($questions | length) else null end),
+      dashboard_like_quick_questions: (if $status == "captured" then $badQuestions else null end),
+      verdict:
+        (if (.status // "") != "captured" then "partial"
+         elif ($kpi | length) == 0
+          and ($risks | length) == 0
+          and (($today | length) == 0)
+          and (($badQuestions | length) == 0)
+         then "pass-for-interface"
+         else "fail"
+         end)
+    }
+  ' "${response_file}" > "${summary_file}"
+
+  {
+    echo "# Workbench Cleanliness Review"
+    echo
+    echo "| Check | Result |"
+    echo "|---|---|"
+    jq -r '
+      "| response status | `\(.response_status)` |",
+      "| kpi_cards count | `\(.kpi_cards_count // "n/a")` |",
+      "| risk_alerts count | `\(.risk_alerts_count // "n/a")` |",
+      "| today_summary present | `\(.today_summary_present // "n/a")` |",
+      "| quick_questions count | `\(.quick_questions_count // "n/a")` |",
+      "| dashboard-like quick questions | `\(if .dashboard_like_quick_questions == null then "n/a" else ((.dashboard_like_quick_questions // []) | join(" ; ")) end)` |"
+    ' "${summary_file}"
+    echo
+    jq -r '"Status: \(.verdict)"' "${summary_file}"
+    echo
+    echo "Only a captured response with Status: pass-for-interface proves the backend workbench response shape. Android first-screen screenshot and UI tree are still required before full P0 pass."
+  } > "${output_file}"
+
+  rm -f "${summary_file}"
+}
+
 refresh_existing_evidence() {
   local dir="$1"
   local run_id
@@ -385,8 +534,10 @@ refresh_existing_evidence() {
   if [[ -s "${dir}/03-run-audit.json" ]] && jq -e '.data' "${dir}/03-run-audit.json" >/dev/null 2>&1; then
     tool_results_filter < "${dir}/03-run-audit.json" > "${dir}/04-tool-results.json"
   fi
+  capture_workbench_response "${dir}"
   write_reconciliation_file "${dir}"
   write_run_summary_file "${dir}"
+  write_workbench_cleanliness_file "${dir}"
   capture_forbidden_scan "${dir}"
   write_forbidden_scan_review "${dir}"
   write_latency_file "${dir}"
@@ -487,6 +638,27 @@ EOF
   jq -e '.event_count == 2 and .tools[0].is_truncated == false' "${tmp_dir}/14-agent-run-summary.json" >/dev/null
   grep -q 'Status: pass-for-interface' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
 
+  cat > "${tmp_dir}/16-workbench-response.json" <<'EOF'
+{
+  "status": "captured",
+  "body": {
+    "code": 0,
+    "message": "success",
+    "data": {
+      "greeting": "你好，我是智慧记 AI 助手",
+      "kpi_cards": [],
+      "quick_questions": ["查看 AI 助手可以查询哪些真实数据"],
+      "recent_conversations": [],
+      "pending_drafts": [],
+      "risk_alerts": [],
+      "today_summary": null
+    }
+  }
+}
+EOF
+  write_workbench_cleanliness_file "${tmp_dir}"
+  grep -q 'Status: pass-for-interface' "${tmp_dir}/17-workbench-cleanliness.md"
+
   echo "ai_agent_evidence_capture self-test passed"
 }
 
@@ -562,10 +734,14 @@ write_conclusion_file() {
   local audit_status="missing"
   local mode_status="missing"
   local llm_status="missing"
+  local workbench_status="missing"
   if [[ -s "${dir}/03-run-audit.json" ]] && jq -e '.data' "${dir}/03-run-audit.json" >/dev/null 2>&1; then
     audit_status="$(jq -r '.data.status // "missing"' "${dir}/03-run-audit.json")"
     mode_status="$(jq -r '.data.mode // "missing"' "${dir}/03-run-audit.json")"
     llm_status="$(jq -r '.data.llm_status // "missing"' "${dir}/03-run-audit.json")"
+  fi
+  if [[ -s "${dir}/16-workbench-response.json" ]]; then
+    workbench_status="$(jq -r '.status // "missing"' "${dir}/16-workbench-response.json" 2>/dev/null || echo "invalid")"
   fi
   cat > "${dir}/12-conclusion.md" <<EOF
 # AI Agent Evidence Conclusion
@@ -581,11 +757,13 @@ Status: partial
 - HTTP/SSE evidence: captured according to MODE=${MODE}
 - Server run audit: $(if [[ -s "${dir}/03-run-audit.json" ]] && jq -e '.data.run_id or .data.runId' "${dir}/03-run-audit.json" >/dev/null 2>&1; then echo "captured"; else echo "missing or invalid"; fi)
 - Forbidden scan: captured in 10-forbidden-scan.txt
+- Workbench response: ${workbench_status}
 
 ## Still required before pass
 
 - Add real Android screenshots for AI home, chat answer, expanded RunTrace, and result blocks.
 - Add real UI tree dump from the same device/session.
+- Capture \`/v2/agent/workbench\` with a valid owner token; current status is ${workbench_status}.
 - Forbidden scan review draft is in 15-forbidden-scan-review.md; resolve any \`needs evidence\` row before pass.
 - Confirm answer numbers, rankings, risks, and charts map to tool evidence.
 - Confirm mode, llm_status, delta_source, RunTrace UI, and audit records agree.
@@ -849,8 +1027,10 @@ main() {
   fi
 
   capture_audit_and_tools "${dir}" "${run_id:-}"
+  capture_workbench_response "${dir}"
   write_reconciliation_file "${dir}"
   write_run_summary_file "${dir}"
+  write_workbench_cleanliness_file "${dir}"
   capture_forbidden_scan "${dir}"
   write_forbidden_scan_review "${dir}"
   write_latency_file "${dir}"

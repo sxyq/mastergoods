@@ -11,11 +11,13 @@ Status: partial
 - HTTP/SSE evidence: captured according to MODE=stream
 - Server run audit: captured
 - Forbidden scan: captured in 10-forbidden-scan.txt
+- Workbench response: skipped
 
 ## Still required before pass
 
 - Add real Android screenshots for AI home, chat answer, expanded RunTrace, and result blocks.
 - Add real UI tree dump from the same device/session.
+- Capture `/v2/agent/workbench` with a valid owner token; current status is skipped.
 - Forbidden scan review draft is in 15-forbidden-scan-review.md; resolve any `needs evidence` row before pass.
 - Confirm answer numbers, rankings, risks, and charts map to tool evidence.
 - Confirm mode, llm_status, delta_source, RunTrace UI, and audit records agree.

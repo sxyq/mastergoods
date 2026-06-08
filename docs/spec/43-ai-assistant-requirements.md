@@ -678,6 +678,8 @@ docs/acceptance-evidence/ai-agent/{yyyyMMdd-HHmm}-{run_id}/
 - `13-sse-audit-ui-reconciliation.md`：SSE 与服务端审计按 `seq` / `event_id` / `event_type` 自动对账；UI 列只能作为预期映射，仍需真机截图验证。
 - `14-agent-run-summary.json`：从 run audit 和 tool results 派生的 run 摘要、工具耗时、截断状态和事件列表。
 - `15-forbidden-scan-review.md`：禁止项命中逐项解释；任何 `needs evidence` 行必须在 P0 通过前处理。
+- `16-workbench-response.json`：`/v2/agent/workbench` 真实响应；无 auth / 无后端时必须写 `skipped` 或 `failed`，不得伪造。
+- `17-workbench-cleanliness.md`：自动检查 workbench 是否返回默认 KPI、风险、今日摘要或报表型快捷问题；`pass-for-interface` 仍不能替代真机首屏截图。
 
 命令模板：
 
@@ -695,7 +697,7 @@ adb -s <serial> exec-out screencap -p > "$RUN_ID_DIR/05-ui-chat.png"
 adb -s <serial> exec-out uiautomator dump /dev/tty > "$RUN_ID_DIR/09-ui-tree.xml"
 ```
 
-`tools/ai_agent_evidence_capture.sh` 会自动生成 `00-env.md`、`00-request.json`、`01-http-response.json`、`02-raw-sse.log`、`03-run-audit.json`、`04-tool-results.json`、`10-forbidden-scan.txt`、`11-latency.md`、`12-conclusion.md`、`13-sse-audit-ui-reconciliation.md`、`14-agent-run-summary.json` 和 `15-forbidden-scan-review.md`。脚本默认结论为 `partial`，因为它只采集接口 / SSE / 审计证据，不会伪造真机截图或 UI tree。截图、UI tree 和 Android 首次可见耗时必须从真实设备补充。`13-sse-audit-ui-reconciliation.md` 的 `pass-for-interface` 只能证明接口和服务端审计一致，不能替代 Android RunTrace 截图。`15-forbidden-scan-review.md` 是自动审查草案，不是自动通过证明；任何 `needs evidence` 行必须人工复核并给出源码 / 运行证据后才能 P0 通过。
+`tools/ai_agent_evidence_capture.sh` 会自动生成 `00-env.md`、`00-request.json`、`01-http-response.json`、`02-raw-sse.log`、`03-run-audit.json`、`04-tool-results.json`、`10-forbidden-scan.txt`、`11-latency.md`、`12-conclusion.md`、`13-sse-audit-ui-reconciliation.md`、`14-agent-run-summary.json`、`15-forbidden-scan-review.md`、`16-workbench-response.json` 和 `17-workbench-cleanliness.md`。脚本默认结论为 `partial`，因为它只采集接口 / SSE / 审计证据，不会伪造真机截图或 UI tree。截图、UI tree 和 Android 首次可见耗时必须从真实设备补充。`13-sse-audit-ui-reconciliation.md` 的 `pass-for-interface` 只能证明接口和服务端审计一致，不能替代 Android RunTrace 截图。`17-workbench-cleanliness.md` 的 `pass-for-interface` 只能证明后端 workbench 响应干净，不能替代 Android 首屏截图和 UI tree。`15-forbidden-scan-review.md` 是自动审查草案，不是自动通过证明；任何 `needs evidence` 行必须人工复核并给出源码 / 运行证据后才能 P0 通过。
 
 已有证据包需要按最新脚本刷新派生产物时，使用：
 
@@ -929,7 +931,7 @@ AI 助手 P0 修改后的最小验证矩阵：
 | 后端 agent 单测 | `JAVA_HOME=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home ./master-goods-android/gradlew -p /Users/sunyiyang/Desktop/Project/master-goods test --tests 'com.zhihuiji.backend.application.service.v2.V2AgentAiServiceTest' --tests 'com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest' --console=plain -Dorg.gradle.java.home=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home` | 固定 run 审计、SSE 合同、非流式合同和 audit API |
 | Android agent 合同 | `JAVA_HOME=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home ./gradlew :core:model:testDebugUnitTest :feature:agent:compileDebugKotlin --console=plain -Dorg.gradle.java.home=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home` | 固定模型解析、Markdown / stream 合同和 agent UI 编译 |
 | 证据脚本离线自测 | `./tools/ai_agent_evidence_capture.sh self-test` | 无需后端或 token，验证 SSE run_id 提取、audit tool result 展开、SSE/audit 对账和 run summary 派生逻辑 |
-| 真实接口证据 | `TOKEN=<redacted> ./tools/ai_agent_evidence_capture.sh` 或 `LOGIN_PHONE=<phone> LOGIN_PASSWORD=<password> ./tools/ai_agent_evidence_capture.sh` | 生成 HTTP / SSE / run audit / 对账 / summary / 禁止项扫描 / latency 初稿；不得保存密码或 token |
+| 真实接口证据 | `TOKEN=<redacted> ./tools/ai_agent_evidence_capture.sh` 或 `LOGIN_PHONE=<phone> LOGIN_PASSWORD=<password> ./tools/ai_agent_evidence_capture.sh` | 生成 HTTP / SSE / run audit / workbench / 对账 / summary / 禁止项扫描 / latency 初稿；不得保存密码或 token |
 | 真机证据 | ADB 截图、UI tree、logcat 或录屏 | 证明 AI 首页、聊天、RunTrace、Markdown、图表真实渲染 |
 | 禁止项扫描 | `10-forbidden-scan.txt` + `15-forbidden-scan-review.md`；所有 `needs evidence` 行必须人工处理 | 防止 mock、fake、demo、假流式、占位数据回流 |
 
