@@ -6,6 +6,7 @@ import com.zhihuiji.core.model.v2.agent.AgentChatRequest
 import com.zhihuiji.core.model.v2.agent.AgentMessageDto
 import com.zhihuiji.core.model.v2.agent.AgentStreamEvent
 import com.zhihuiji.core.model.v2.agent.ChatMessage
+import com.zhihuiji.core.model.v2.agent.ChatMessagePart
 import com.zhihuiji.core.model.v2.agent.MessageRole
 import com.zhihuiji.core.model.v2.agent.PlanStep
 import com.zhihuiji.core.model.v2.agent.ResultBlockDto
@@ -421,6 +422,7 @@ class AgentChatViewModel @Inject constructor(
                     val finalContent = msg.content.withAuthoritativeAnswer(event.answer)
                     msg.copy(
                         content = finalContent,
+                        parts = msg.parts.withAuthoritativeText(finalContent),
                         animateReveal = false,
                     )
                 }
@@ -438,7 +440,10 @@ class AgentChatViewModel @Inject constructor(
             is AgentStreamEvent.ResultBlockEvent -> {
                 flushPendingAnswerDelta()
                 updateAssistantMessage(assistantMessageId) { msg ->
-                    msg.copy(blocks = msg.blocks + event.block)
+                    msg.copy(
+                        blocks = msg.blocks + event.block,
+                        parts = msg.parts + ChatMessagePart.ResultBlock(event.block),
+                    )
                 }
             }
 
@@ -486,6 +491,7 @@ class AgentChatViewModel @Inject constructor(
                     val finalContent = msg.content.withAuthoritativeAnswer(finalAnswer)
                     msg.copy(
                         content = finalContent,
+                        parts = msg.parts.withAuthoritativeText(finalContent),
                         isStreaming = false,
                         animateReveal = false,
                     )
@@ -619,6 +625,7 @@ class AgentChatViewModel @Inject constructor(
         updateAssistantMessage(assistantMessageId) { msg ->
             msg.copy(
                 content = msg.content + delta,
+                parts = msg.parts.appendStreamingText(delta),
                 animateReveal = false,
                 hasServerAnswerDelta = true,
                 answerDeltaSource = deltaSource ?: msg.answerDeltaSource,
@@ -845,18 +852,34 @@ private fun List<ToolCallRecord>.updateToolCall(
     return updated
 }
 
-private fun AgentMessageDto.toChatMessage(): ChatMessage = ChatMessage(
-    id = id.toString(),
-    conversationId = conversationId,
-    role = when (role.lowercase()) {
-        "assistant" -> MessageRole.ASSISTANT
-        "system" -> MessageRole.SYSTEM
-        else -> MessageRole.USER
-    },
-    content = content,
-    blocks = parseStoredResultBlocks(structuredDataJson),
-    createdAt = createdAt,
-)
+private fun AgentMessageDto.toChatMessage(): ChatMessage {
+    val parsedBlocks = parseStoredResultBlocks(structuredDataJson)
+    return ChatMessage(
+        id = id.toString(),
+        conversationId = conversationId,
+        role = when (role.lowercase()) {
+            "assistant" -> MessageRole.ASSISTANT
+            "system" -> MessageRole.SYSTEM
+            else -> MessageRole.USER
+        },
+        content = content,
+        blocks = parsedBlocks,
+        parts = buildStoredMessageParts(content, parsedBlocks),
+        createdAt = createdAt,
+    )
+}
+
+private fun buildStoredMessageParts(
+    content: String,
+    blocks: List<ResultBlockDto>,
+): List<ChatMessagePart> {
+    val parts = mutableListOf<ChatMessagePart>()
+    if (content.isNotBlank()) {
+        parts += ChatMessagePart.Text(content)
+    }
+    parts += blocks.map(ChatMessagePart::ResultBlock)
+    return parts
+}
 
 private fun parseStoredResultBlocks(rawJson: String?): List<ResultBlockDto> {
     if (rawJson.isNullOrBlank()) {
@@ -877,11 +900,41 @@ private fun parseStoredResultBlocks(rawJson: String?): List<ResultBlockDto> {
     }
 }
 
-private fun String.withAuthoritativeAnswer(answer: String?): String {
+internal fun String.withAuthoritativeAnswer(answer: String?): String {
     val normalizedAnswer = answer?.takeIf { it.isNotBlank() } ?: return this
     return when {
         this == normalizedAnswer -> this
-        else -> normalizedAnswer
+        isBlank() -> normalizedAnswer
+        normalizedAnswer.startsWith(this) -> normalizedAnswer
+        else -> this
+    }
+}
+
+internal fun List<ChatMessagePart>.appendStreamingText(delta: String): List<ChatMessagePart> {
+    if (delta.isBlank()) return this
+    val last = lastOrNull()
+    return if (last is ChatMessagePart.Text) {
+        dropLast(1) + last.copy(markdown = last.markdown + delta)
+    } else {
+        this + ChatMessagePart.Text(delta)
+    }
+}
+
+internal fun List<ChatMessagePart>.withAuthoritativeText(content: String): List<ChatMessagePart> {
+    if (content.isBlank()) return this
+    val firstTextIndex = indexOfFirst { it is ChatMessagePart.Text }
+    if (firstTextIndex == -1) {
+        return this + ChatMessagePart.Text(content)
+    }
+    val currentText = this[firstTextIndex] as ChatMessagePart.Text
+    return when {
+        currentText.markdown == content -> this
+        content.startsWith(currentText.markdown) -> {
+            toMutableList().also { parts ->
+                parts[firstTextIndex] = currentText.copy(markdown = content)
+            }
+        }
+        else -> this + ChatMessagePart.Text(content)
     }
 }
 

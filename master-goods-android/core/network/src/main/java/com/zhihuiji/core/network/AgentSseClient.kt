@@ -78,26 +78,45 @@ class AgentSseClient(
 
                 val source = body.source()
 
+                val eventData = StringBuilder()
+
+                fun flushBufferedEvent(): AgentStreamEvent? {
+                    if (eventData.isEmpty()) return null
+                    val jsonLine = eventData.toString().trimEnd('\n')
+                    eventData.clear()
+                    if (jsonLine.isBlank() || jsonLine == "[DONE]") return null
+                    return parseEvent(jsonLine)
+                }
+
                 while (!source.exhausted()) {
                     val line = source.readUtf8Line() ?: break
 
-                    // 跳过空行和 SSE 注释行（如 :ping / :ok）
-                    if (line.isBlank() || line.startsWith(":")) continue
-
-                    // 支持 SSE 格式 "data:{...}"、"data: {...}" 或纯 ndjson "{...}"
-                    val jsonLine = when {
-                        line.startsWith("data:") -> line.removePrefix("data:").trimStart()
-                        line.startsWith("event:") || line.startsWith("id:") -> continue
-                        else -> line
+                    // 标准 SSE 以空行结束一个事件；后端当前单行 data 也兼容这个路径。
+                    if (line.isBlank()) {
+                        flushBufferedEvent()?.let { emit(it) }
+                        continue
                     }
 
-                    if (jsonLine.isBlank() || jsonLine == "[DONE]") continue
+                    // 跳过 SSE 注释行（如 :ping / :ok）
+                    if (line.startsWith(":")) continue
 
-                    val event = parseEvent(jsonLine)
-                    if (event != null) {
-                        emit(event)
+                    when {
+                        line.startsWith("data:") -> {
+                            eventData.append(line.removePrefix("data:").trimStart())
+                            eventData.append('\n')
+                        }
+                        line.startsWith("event:") || line.startsWith("id:") || line.startsWith("retry:") -> {
+                            continue
+                        }
+                        else -> {
+                            flushBufferedEvent()?.let { emit(it) }
+                            val jsonLine = line.trim()
+                            if (jsonLine.isBlank() || jsonLine == "[DONE]") continue
+                            parseEvent(jsonLine)?.let { emit(it) }
+                        }
                     }
                 }
+                flushBufferedEvent()?.let { emit(it) }
             }
         } catch (e: IOException) {
             currentCoroutineContext().ensureActive()

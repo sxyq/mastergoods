@@ -225,14 +225,13 @@ class V2AgentAiServiceTest {
 
         service.runChatStream(1L, conversation, "客户应收情况", "run-test", emitter);
 
-        long deltaCount = emitter.payloads.stream()
-            .filter(payload -> payload.contains("\"event_type\":\"answer_delta\""))
-            .count();
-        assertEquals(0, deltaCount, String.join("\n", emitter.payloads));
+        assertEquals(0, answerDeltaPayloads(emitter).size(), String.join("\n", emitter.payloads));
+        assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"delta_source\":\"model_stream\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_rule_summary\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"stream_failed_or_empty\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")), String.join("\n", emitter.payloads));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"event_type\":\"answer_completed\"")));
+        assertFalse(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())));
         assertTrue(emitter.completed);
     }
 
@@ -246,10 +245,8 @@ class V2AgentAiServiceTest {
 
         service.runChatStream(1L, conversation, "客户应收情况", "run-disabled", emitter);
 
-        long deltaCount = emitter.payloads.stream()
-            .filter(payload -> payload.contains("\"event_type\":\"answer_delta\""))
-            .count();
-        assertEquals(0, deltaCount, String.join("\n", emitter.payloads));
+        assertEquals(0, answerDeltaPayloads(emitter).size(), String.join("\n", emitter.payloads));
+        assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"delta_source\":\"model_stream\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_rule_summary\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"disabled\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")), String.join("\n", emitter.payloads));
@@ -257,6 +254,7 @@ class V2AgentAiServiceTest {
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"audit_id\":\"run-disabled:audit\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"trace_id\":\"run-disabled:trace\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"log_ref\":\"agent-run:run-disabled\"")));
+        assertFalse(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())));
         assertTrue(emitter.completed);
     }
 
@@ -539,10 +537,12 @@ class V2AgentAiServiceTest {
 
         service.runChatStream(1L, conversation(108L), "客户应收情况", "run-no-stream-provider", emitter);
 
-        assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"event_type\":\"answer_delta\"")));
+        assertEquals(0, answerDeltaPayloads(emitter).size(), String.join("\n", emitter.payloads));
+        assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"delta_source\":\"model_stream\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_rule_summary\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"stream_not_supported\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")), String.join("\n", emitter.payloads));
+        assertFalse(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())));
         assertTrue(emitter.completed);
     }
 
@@ -631,6 +631,12 @@ class V2AgentAiServiceTest {
             .filter(payload -> payload.contains(marker))
             .findFirst()
             .orElseThrow(() -> new AssertionError("Missing payload: " + marker + "\n" + String.join("\n", emitter.payloads)));
+    }
+
+    private static List<String> answerDeltaPayloads(CapturingEmitter emitter) {
+        return emitter.payloads.stream()
+            .filter(payload -> payload.contains("\"event_type\":\"answer_delta\""))
+            .toList();
     }
 
     private static AgentConversationEntity conversation(Long id) {

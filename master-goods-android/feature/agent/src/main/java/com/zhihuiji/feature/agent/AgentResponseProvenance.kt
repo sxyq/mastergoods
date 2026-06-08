@@ -10,7 +10,7 @@ internal fun assistantHeaderStatusLabel(
     hasToolEvidence: Boolean,
     hasAuditTrace: Boolean,
 ): String = when {
-    hasServerAnswerDelta -> answerDeltaSource.headerStatusLabel()
+    hasServerAnswerDelta -> answerDeltaSource.headerStatusLabel(isStreaming)
     isStreaming -> "正在等待服务端事件"
     hasAuditTrace || hasToolEvidence -> "服务端回复结果"
     else -> "助手回复"
@@ -28,12 +28,12 @@ internal fun assistantProvenanceLabel(
     else -> "服务端文本"
 }
 
-internal fun String?.headerStatusLabel(): String =
+internal fun String?.headerStatusLabel(isStreaming: Boolean = true): String =
     when (this) {
-        DeltaSourceModelStream -> "模型正在流式生成"
-        DeltaSourceRuleSummary -> "服务端返回规则摘要"
-        null -> "正在接收服务端回答"
-        else -> "正在接收服务端回答"
+        DeltaSourceModelStream -> if (isStreaming) "模型正在流式生成" else "模型流式回复"
+        DeltaSourceRuleSummary -> "数据查询 / 规则摘要模式"
+        null -> if (isStreaming) "正在接收服务端回答" else "服务端回复结果"
+        else -> if (isStreaming) "正在接收服务端回答" else "服务端回复结果"
     }
 
 internal fun String?.inlineStreamingLabel(): String =

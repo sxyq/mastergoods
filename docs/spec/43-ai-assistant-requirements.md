@@ -1,13 +1,13 @@
 # 43 AI 助手真实 Agentic 需求文档
 
 > 状态：需求基线，供后续 AI 功能审查与修改使用
-> 版本：2026-06-08 v18
+> 版本：2026-06-09 v19
 > 维护范围：AI 助手需求基线与当前代码证据校准；不代表本轮已经完成所有后端或 Android 代码整改
 > 覆盖范围：后端 `/v2/agent/*`、Android AI 助手页面、AI 首页干净入口、真实数据查询、真实工具事件、草稿执行、取消确认、运行审计、性能可观测性、后续审查 checklist
 
 ## 0. 当前证据快照
 
-本节只记录截至 2026-06-08 当前工作树可由代码和测试证明的事实，不能替代第 17 节端到端验收证据包。任何未列为“已证明”的能力，在后续审查中都必须按未完成处理。
+本节只记录截至 2026-06-09 当前工作树可由代码和测试证明的事实，不能替代第 17 节端到端验收证据包。任何未列为“已证明”的能力，在后续审查中都必须按未完成处理。
 
 ### 0.1 已由当前代码 / 测试证明
 
@@ -16,6 +16,9 @@
 | 非流式 `/v2/agent/chat` Android 模型兼容 agent 审计字段 | `master-goods-android/core/model/src/main/java/com/zhihuiji/core/model/v2/agent/AgentChatRequestResponse.kt` 已包含 `plan_summary`、`tool_calls`、`evidence_refs`、`result_blocks`、`performance_summary`；`AgentChatResponseSerializationTest.decodesNonStreamingAgentRunContract` 已通过 | 只能证明 Android 模型可解析这些字段，不证明真实接口端到端已返回完整字段 |
 | 非流式后端服务响应具备可审计字段 | `V2AgentAiServiceTest.nonStreamingChatIncludesAuditableAgentRunContract` 强制重跑通过，断言 `planSummary`、`toolCalls`、`evidenceRefs`、`evidence_card`、`performanceSummary` | 证明服务单测路径具备合同雏形；仍需真实 HTTP 响应和 owner 数据证据 |
 | SSE `answer_delta` 不再承载规则摘要假流式 | `V2AgentAiServiceTest.streamFallbackAnswerCompletesRuleSummaryWithoutFakeDeltas`、`streamDisabledModelAnswerCompletesRuleSummaryWithoutFakeDeltas` 通过，断言规则摘要路径 `answer_delta` 数量为 0，降级内容只在 `answer_completed` 返回 `mode`、`llm_status` 和规则摘要说明 | 证明降级摘要不会通过分块制造“吐字”体验；仍需真实抓包和 UI 展示截图 |
+| Android 对话时间线按服务端事件顺序渲染 | `ChatMessage.parts` 增加 `Text` / `ResultBlock` 顺序片段；`AgentChatViewModelAnswerMergeTest` 覆盖 answer delta、result block、final answer 的合并顺序；`AgentChatScreen` 以 `AssistantMessageTimeline` 渲染片段 | 证明 Android 不再把所有结构化结果固定堆到回答下方；仍需真实模型流式 SSE 和真机截图证明端到端体验 |
+| Android 工具提示只展示真实工具状态 | `AgentChatScreenToolStatusTest` 覆盖最新 running / pending / failed / completed 工具选择；`AgentResponseProvenanceTest` 区分 `model_stream`、`rule_summary` 和完成态标签 | 证明 UI 文案不会把规则摘要伪装成模型流；仍需真实工具事件抓包和真机截图 |
+| Android SSE 客户端支持标准多行 SSE | `AgentSseClientCancellationTest.chatStream_buffersStandardMultiLineSseDataUntilBlankLine` 和 `chatStream_flushesLastBufferedSseEventWhenStreamEndsWithoutBlankLine` 覆盖多行 `data:` 缓冲与 EOF flush | 证明客户端可正确接收标准 SSE 事件；仍需真实后端流和供应商模型流抓包 |
 | Android result block 图表渲染有坏数据门禁 | `ResultBlockRenderer` 对 `line_chart`、`bar_chart`、`donut_chart` 做 labels / series / 数值校验，并显示错误或空态文案 | 证明 UI 层不会主动补模拟图表数据；仍需真实后端 block 和真机截图 |
 | Markdown 解析已有基础覆盖 | `AgentMarkdownTextParserTest` 覆盖表格 pipe、代码块尾部空白、链接文本旁可见 URL、`www.` 链接规范化和坏链接不丢正文 | 证明部分解析边界和链接 URL 不丢；仍需真机视觉截图、链接点击 / 复制、长表格、代码复制交互和流式半成品视觉验收 |
 | 服务端 cancel run 代码路径已存在 | `V2AgentController` 暴露 `POST /v2/agent/runs/{runId}/cancel`；`V2AgentAiService.cancelRun` 会校验 owner、标记 active run cancelled、发送 `run_cancelled`，不再立即移除仍运行的 active run；`V2AgentAiServiceTest.cancelRunMarksActiveStreamCancelledAndEmitsRunCancelledEvent` 已证明 active stream 取消后会发出 `run_cancelled`、阻止 `answer_completed`、并把审计状态写成 `cancelled`；Android `AgentChatViewModel.stopGeneration` 会调用 `AgentV2Repository.cancelRun` 并把服务端取消确认 / 未确认 / 失败写入反馈 | 证明当前代码有更诚实的取消路径；仍需真实 Android 点击停止后的 HTTP/SSE 抓包、审计接口对账和 Android 取消反馈截图 |
@@ -26,7 +29,7 @@
 |---|---|---|
 | 一比一 UI 还原 | 本文档仅定义 AI 助手验收基线，不证明所有页面已按设计稿还原 | 每个界面与设计稿逐屏对照截图、差异清单、真机截图和可交互验证 |
 | 真实端到端 agentic run | 当前测试主要是单元测试和模型解析，尚未归档真实 `/v2/agent/chat` 或 `/chat/stream` 证据包 | 按第 17.1 节生成每个真实问题的 HTTP、SSE、工具结果、审计、截图、耗时证据 |
-| 真模型流式输出 | 当前已证明 `rule_summary` 诚实降级，不等于证明供应商 `model_stream` 真流式 | 抓包证明 `delta_source=model_stream` 与模型供应商 streaming、`mode`、`llm_status`、审计一致 |
+| 真模型流式输出 | 当前已证明 `rule_summary` 诚实降级、Android 可渲染 `model_stream` delta，不等于证明供应商 `model_stream` 真流式 | 抓包证明 `delta_source=model_stream` 与模型供应商 streaming、`mode`、`llm_status`、审计一致 |
 | AI 首页干净入口 | 文档规定不得展示报表型数据，但仍需真机 UI tree / 截图确认当前实现 | `05-ui-home.png` 和 `09-ui-tree.xml`，证明无销售额、KPI、报表图、风险列表默认展示 |
 | RunTrace 展开与 UI 区分度 | 文档规定用户 / AI / 工具 / 结果 / 错误分层，但仍需视觉证据 | 真实对话截图，含展开 RunTrace、Markdown、result block、错误或降级态 |
 | 草稿真实执行 | 当前 P0 允许不执行写操作；不能把 `archived` 当执行成功 | P1 前确认按钮禁用或诚实归档；P1 后需业务单据真实创建 / 更新证据 |
@@ -43,6 +46,8 @@
 - 若第 0 节与第 22 节结论冲突，以当前源码和最新测试为准，并在同一提交内修正文档旧结论。
 
 截至 `ed4d630`，非流式 `AgentChatResponse` 已在后端 DTO 和 Android 模型中包含 `tool_calls`、`evidence_refs`、`performance_summary`、`result_blocks` 等审计字段；任何仍声称“同步响应尚未提供这些顶层字段”的旧结论必须视为过期。
+
+截至 2026-06-09 当前待提交工作树，Android 已增加按事件顺序渲染的 `ChatMessage.parts` 时间线、真实工具状态短提示、规则摘要 / 模型流标签区分，以及标准多行 SSE 缓冲解析；这些只能证明代码和单测层面契约，不得替代真实端到端验收证据。
 
 ## 1. 背景和原则
 

@@ -27,6 +27,7 @@ class AgentResponseProvenanceTest {
     @Test
     fun modelStreamDeltaIsTheOnlyModelStreamingLabel() {
         assertEquals("模型正在流式生成", DeltaSourceModelStream.headerStatusLabel())
+        assertEquals("模型流式回复", DeltaSourceModelStream.headerStatusLabel(isStreaming = false))
         assertEquals("模型实时输出中", DeltaSourceModelStream.inlineStreamingLabel())
         assertEquals(
             "模型流",
@@ -40,7 +41,7 @@ class AgentResponseProvenanceTest {
 
     @Test
     fun ruleSummaryIsLabeledAsServerSummaryNotModelStream() {
-        assertEquals("服务端返回规则摘要", DeltaSourceRuleSummary.headerStatusLabel())
+        assertEquals("数据查询 / 规则摘要模式", DeltaSourceRuleSummary.headerStatusLabel())
         assertEquals("正在展示服务端规则摘要", DeltaSourceRuleSummary.inlineStreamingLabel())
         assertEquals(
             "服务端摘要",

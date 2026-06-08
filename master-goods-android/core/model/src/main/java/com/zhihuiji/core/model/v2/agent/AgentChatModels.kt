@@ -14,6 +14,7 @@ data class ChatMessage(
     val role: MessageRole,
     val content: String = "",
     val blocks: List<ResultBlockDto> = emptyList(),
+    val parts: List<ChatMessagePart> = emptyList(),
     val runTrace: RunTrace? = null,
     val isStreaming: Boolean = false,
     val animateReveal: Boolean = false,
@@ -28,6 +29,11 @@ enum class MessageRole {
     USER,
     ASSISTANT,
     SYSTEM,
+}
+
+sealed interface ChatMessagePart {
+    data class Text(val markdown: String) : ChatMessagePart
+    data class ResultBlock(val block: ResultBlockDto) : ChatMessagePart
 }
 
 /**

@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -71,8 +72,10 @@ import com.zhihuiji.core.designsystem.TextTertiary
 import com.zhihuiji.core.designsystem.WarningOrange
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 import com.zhihuiji.core.model.v2.agent.ChatMessage
+import com.zhihuiji.core.model.v2.agent.ChatMessagePart
 import com.zhihuiji.core.model.v2.agent.MessageRole
 import com.zhihuiji.core.model.v2.agent.ResultBlockDto
+import com.zhihuiji.core.model.v2.agent.ToolCallRecord
 import com.zhihuiji.core.model.v2.agent.ToolCallStatus
 
 private val AgentChatHorizontalPadding = 16.dp
@@ -273,11 +276,12 @@ private fun ChatMessageItem(
             },
             horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
         ) {
-            if (message.isError && message.content.isBlank() && message.blocks.isEmpty()) {
+            val displayParts = message.displayParts()
+            if (message.isError && displayParts.isEmpty()) {
                 AssistantErrorCard(message = message.errorMessage ?: "出错了")
             } else {
                 // 文本气泡
-                if (message.content.isNotBlank()) {
+                if (isUser && message.content.isNotBlank()) {
                     Text(
                         text = if (isUser) "我" else "智慧记 AI",
                         style = MaterialTheme.typography.labelSmall,
@@ -321,47 +325,34 @@ private fun ChatMessageItem(
                                 vertical = if (isUser) 11.dp else 14.dp,
                             )
                     ) {
-                        if (isUser) {
-                            Text(
-                                text = message.content,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White,
-                            )
-                        } else {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                AssistantMessageHeader(
-                                    isStreaming = message.isStreaming,
-                                    hasServerAnswerDelta = message.hasServerAnswerDelta,
-                                    answerDeltaSource = message.answerDeltaSource,
-                                    hasToolEvidence = message.runTrace?.toolCalls?.isNotEmpty() == true,
-                                    hasAuditTrace = message.runTrace?.auditId != null || message.runTrace?.traceId != null,
-                                    hasCompletedTool = message.runTrace?.toolCalls?.any {
-                                        it.status == ToolCallStatus.COMPLETED
-                                    } == true,
-                                )
-                                if (message.isStreaming && message.hasServerAnswerDelta) {
-                                    StreamingPlainAnswerText(text = message.content)
-                                } else {
-                                    AgentMarkdownText(
-                                        markdown = message.content,
-                                        contentColor = TextPrimary,
-                                    )
-                                }
-                                when {
-                                    message.hasServerAnswerDelta -> {
-                                        InlineStreamingStatus(message.answerDeltaSource.inlineStreamingLabel())
-                                    }
-                                    message.isStreaming -> InlineStreamingStatus("正在等待服务端工具或模型事件")
-                                }
-                            }
-                        }
+                        Text(
+                            text = message.content,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White,
+                        )
                     }
                 }
 
-                // 富结果块（仅助手消息）
-                if (!isUser && message.blocks.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    AssistantResultBlockStack(blocks = message.blocks)
+                if (!isUser) {
+                    Text(
+                        text = "智慧记 AI",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AgentAssistantAccent,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
+                    )
+                    AssistantMessageTimeline(
+                        message = message,
+                        parts = displayParts,
+                    )
+                }
+
+                if (!isUser && message.isStreaming) {
+                    val liveTool = message.runTrace?.toolCalls?.latestVisibleToolCall()
+                    if (liveTool != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        InlineToolActivityPill(toolCall = liveTool)
+                    }
                 }
 
                 if (!isUser && message.isError) {
@@ -405,6 +396,18 @@ private fun ChatMessageItem(
         }
     }
 }
+
+private fun ChatMessage.displayParts(): List<ChatMessagePart> =
+    parts.ifEmpty {
+        buildList {
+            if (content.isNotBlank()) {
+                add(ChatMessagePart.Text(content))
+            }
+            blocks.forEach { block ->
+                add(ChatMessagePart.ResultBlock(block))
+            }
+        }
+    }
 
 @Composable
 private fun AssistantErrorCard(
@@ -512,67 +515,193 @@ private fun AssistantHeaderBadge(
 }
 
 @Composable
-private fun StreamingPlainAnswerText(
-    text: String,
-    modifier: Modifier = Modifier,
-) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodyMedium,
-        color = TextPrimary,
-        modifier = modifier,
-    )
-}
-
-@Composable
-private fun AssistantResultBlockStack(
-    blocks: List<ResultBlockDto>,
+private fun AssistantMessageTimeline(
+    message: ChatMessage,
+    parts: List<ChatMessagePart>,
     modifier: Modifier = Modifier,
 ) {
     LiquidGlassSurface(
         modifier = modifier.fillMaxWidth(),
-        blurRadius = 34.dp,
-        shape = RoundedCornerShape(24.dp),
-        surfaceColor = Color(0xFFEAF4FF).copy(alpha = 0.78f),
+        blurRadius = 30.dp,
+        shape = RoundedCornerShape(20.dp),
+        surfaceColor = Color.White.copy(alpha = 0.82f),
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(Brush.horizontalGradient(AgentResultHeaderColors))
-                    .padding(horizontal = 12.dp, vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(7.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.88f))
+            AssistantMessageHeader(
+                isStreaming = message.isStreaming,
+                hasServerAnswerDelta = message.hasServerAnswerDelta,
+                answerDeltaSource = message.answerDeltaSource,
+                hasToolEvidence = message.runTrace?.toolCalls?.isNotEmpty() == true,
+                hasAuditTrace = message.runTrace?.auditId != null || message.runTrace?.traceId != null,
+                hasCompletedTool = message.runTrace?.toolCalls?.any {
+                    it.status == ToolCallStatus.COMPLETED
+                } == true,
+            )
+            if (parts.isEmpty()) {
+                InlineStreamingStatus(
+                    if (message.isStreaming) {
+                        "正在等待服务端工具或模型事件"
+                    } else {
+                        "暂无可展示回答"
+                    }
                 )
-                Text(
-                    text = "结构化结果 · ${blocks.size} 个结果块",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                Text(
-                    text = "服务端结果块",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.72f),
-                )
-            }
-            blocks.forEach { block ->
-                ResultBlockRenderer(block = block)
+            } else {
+                parts.forEach { part ->
+                    when (part) {
+                        is ChatMessagePart.Text -> {
+                            if (part.markdown.isNotBlank()) {
+                                AgentMarkdownText(
+                                    markdown = part.markdown,
+                                    contentColor = TextPrimary,
+                                )
+                            }
+                        }
+                        is ChatMessagePart.ResultBlock -> {
+                            TimelineResultBlock(block = part.block)
+                        }
+                    }
+                }
+                when {
+                    message.hasServerAnswerDelta -> {
+                        InlineStreamingStatus(message.answerDeltaSource.inlineStreamingLabel())
+                    }
+                    message.isStreaming -> InlineStreamingStatus("正在等待服务端工具或模型事件")
+                }
             }
         }
     }
 }
+
+@Composable
+private fun TimelineResultBlock(
+    block: ResultBlockDto,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(Brush.horizontalGradient(AgentResultHeaderColors))
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.88f))
+            )
+            Text(
+                text = block.title?.takeIf { it.isNotBlank() } ?: block.blockType.readableResultBlockName(),
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "实时结果",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.72f),
+            )
+        }
+        ResultBlockRenderer(block = block)
+    }
+}
+
+private fun String.readableResultBlockName(): String =
+    when (this) {
+        "kpi_grid" -> "指标结果"
+        "table" -> "表格结果"
+        "rank_list" -> "排行结果"
+        "line_chart", "area_chart", "trend_chart" -> "趋势图"
+        "bar_chart", "column_chart", "horizontal_bar_chart" -> "柱状图"
+        "donut_chart", "pie_chart" -> "占比图"
+        else -> replace('_', ' ')
+    }
+
+@Composable
+private fun InlineToolActivityPill(
+    toolCall: ToolCallRecord,
+    modifier: Modifier = Modifier,
+) {
+    val isRunning = toolCall.status == ToolCallStatus.RUNNING || toolCall.status == ToolCallStatus.PENDING
+    val tone = when (toolCall.status) {
+        ToolCallStatus.COMPLETED -> ZhihuijiPrimary
+        ToolCallStatus.FAILED -> DangerRed
+        else -> WarningOrange
+    }
+    val label = when (toolCall.status) {
+        ToolCallStatus.COMPLETED -> toolCall.resultSummary?.take(34)?.ifBlank { null } ?: "工具查询完成"
+        ToolCallStatus.FAILED -> toolCall.resultSummary?.take(34)?.ifBlank { null } ?: "工具查询失败"
+        ToolCallStatus.PENDING,
+        ToolCallStatus.RUNNING -> toolCall.resultSummary?.take(34)?.ifBlank { null } ?: "正在查询真实业务数据"
+    }
+
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(tone.copy(alpha = 0.10f))
+            .border(0.6.dp, tone.copy(alpha = 0.18f), RoundedCornerShape(999.dp))
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        if (isRunning) {
+            CircularProgressIndicator(
+                color = tone,
+                strokeWidth = 1.6.dp,
+                modifier = Modifier.size(13.dp),
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(tone)
+            )
+        }
+        Text(
+            text = toolCall.toolName.readableToolName(),
+            style = MaterialTheme.typography.labelSmall,
+            color = tone,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = TextSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+internal fun List<ToolCallRecord>.latestVisibleToolCall(): ToolCallRecord? =
+    asReversed().firstOrNull { call ->
+        call.status == ToolCallStatus.RUNNING ||
+            call.status == ToolCallStatus.PENDING ||
+            call.status == ToolCallStatus.FAILED
+    } ?: asReversed().firstOrNull { it.status == ToolCallStatus.COMPLETED }
+
+internal fun String.readableToolName(): String =
+    when (this) {
+        "cashflow_summary" -> "现金流"
+        "sales_trend" -> "销售趋势"
+        "stock_out_records" -> "缺货记录"
+        "inventory_flow" -> "库存流水"
+        "profit_summary" -> "利润分析"
+        "finance_records" -> "资金明细"
+        else -> replace('_', ' ')
+    }
 
 @Composable
 private fun InlineStreamingStatus(
