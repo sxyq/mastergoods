@@ -368,7 +368,7 @@ private fun ChatMessageItem(
 
                 // 过程轨迹（仅助手消息）
                 val runTrace = message.runTrace
-                if (!isUser && runTrace != null) {
+                if (!isUser && runTrace != null && message.shouldShowRunTracePanel()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     RunTracePanel(
                         runTrace = runTrace,

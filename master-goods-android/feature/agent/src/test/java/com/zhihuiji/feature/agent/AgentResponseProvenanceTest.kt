@@ -148,4 +148,40 @@ class AgentResponseProvenanceTest {
             )
         )
     }
+
+    @Test
+    fun runTracePanelHidesForCompletedSuccessUnlessAttentionIsNeeded() {
+        val completedSuccess = ChatMessage(
+            id = "assistant-4",
+            conversationId = 1L,
+            role = MessageRole.ASSISTANT,
+            content = "已经完成回答",
+            isStreaming = false,
+            hasServerAnswerDelta = true,
+            answerDeltaSource = DeltaSourceModelStream,
+            runTrace = RunTrace(
+                runId = "run-1",
+                mode = "tool_query_llm_streamed",
+                llmStatus = "streaming",
+                isExpanded = false,
+            ),
+        )
+        val streaming = completedSuccess.copy(isStreaming = true)
+        val error = completedSuccess.copy(isError = true)
+        val expanded = completedSuccess.copy(runTrace = completedSuccess.runTrace?.copy(isExpanded = true))
+        val ruleSummary = completedSuccess.copy(
+            hasServerAnswerDelta = false,
+            answerDeltaSource = null,
+            runTrace = completedSuccess.runTrace?.copy(
+                mode = "tool_query_rule_summary",
+                llmStatus = "disabled",
+            ),
+        )
+
+        assertFalse(completedSuccess.shouldShowRunTracePanel())
+        assertTrue(streaming.shouldShowRunTracePanel())
+        assertTrue(error.shouldShowRunTracePanel())
+        assertTrue(expanded.shouldShowRunTracePanel())
+        assertTrue(ruleSummary.shouldShowRunTracePanel())
+    }
 }

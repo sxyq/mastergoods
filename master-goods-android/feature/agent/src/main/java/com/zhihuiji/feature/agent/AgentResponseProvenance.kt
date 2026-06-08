@@ -60,6 +60,15 @@ internal fun ChatMessage.shouldShowAssistantHeader(): Boolean =
 
 internal fun ChatMessage.shouldShowAssistantHeaderBadges(): Boolean = isStreaming
 
+internal fun ChatMessage.shouldShowRunTracePanel(): Boolean =
+    isStreaming ||
+        isError ||
+        runTrace?.isExpanded == true ||
+        isRuleSummaryMode(
+            mode = runTrace?.mode,
+            llmStatus = runTrace?.llmStatus,
+        )
+
 internal fun assistantReviewBadgeLabel(
     isStreaming: Boolean,
     hasAuditTrace: Boolean,
