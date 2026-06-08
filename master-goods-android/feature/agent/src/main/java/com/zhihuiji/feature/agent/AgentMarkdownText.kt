@@ -81,6 +81,9 @@ private fun MarkdownHeading(block: MarkdownBlock.Heading, contentColor: Color) {
         2 -> MaterialTheme.typography.titleMedium
         else -> MaterialTheme.typography.titleSmall
     }
+    val inlineText = remember(block.text, contentColor) {
+        inlineMarkdown(block.text, contentColor)
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
@@ -94,7 +97,7 @@ private fun MarkdownHeading(block: MarkdownBlock.Heading, contentColor: Color) {
         )
         Spacer(modifier = Modifier.width(8.dp))
         MarkdownInlineText(
-            text = inlineMarkdown(block.text, contentColor),
+            text = inlineText,
             style = style,
             color = contentColor,
             fontWeight = FontWeight.Bold,
@@ -105,8 +108,11 @@ private fun MarkdownHeading(block: MarkdownBlock.Heading, contentColor: Color) {
 
 @Composable
 private fun MarkdownParagraph(text: String, contentColor: Color) {
+    val inlineText = remember(text, contentColor) {
+        inlineMarkdown(text, contentColor)
+    }
     MarkdownInlineText(
-        text = inlineMarkdown(text, contentColor),
+        text = inlineText,
         style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
         color = contentColor
     )
@@ -116,6 +122,9 @@ private fun MarkdownParagraph(text: String, contentColor: Color) {
 private fun MarkdownList(block: MarkdownBlock.ListBlock, contentColor: Color) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         block.items.forEachIndexed { index, item ->
+            val inlineText = remember(item, contentColor) {
+                inlineMarkdown(item, contentColor)
+            }
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = if (block.ordered) "${index + 1}." else "•",
@@ -125,7 +134,7 @@ private fun MarkdownList(block: MarkdownBlock.ListBlock, contentColor: Color) {
                     modifier = Modifier.width(22.dp)
                 )
                 MarkdownInlineText(
-                    text = inlineMarkdown(item, contentColor),
+                    text = inlineText,
                     style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 21.sp),
                     color = contentColor,
                     modifier = Modifier.weight(1f)
@@ -188,6 +197,10 @@ private fun MarkdownCodeBlock(block: MarkdownBlock.CodeBlock) {
 
 @Composable
 private fun MarkdownQuote(block: MarkdownBlock.Quote, contentColor: Color) {
+    val quoteColor = contentColor.copy(alpha = 0.86f)
+    val inlineText = remember(block.text, quoteColor) {
+        inlineMarkdown(block.text, quoteColor)
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -206,9 +219,9 @@ private fun MarkdownQuote(block: MarkdownBlock.Quote, contentColor: Color) {
         )
         Spacer(modifier = Modifier.width(10.dp))
         MarkdownInlineText(
-            text = inlineMarkdown(block.text, contentColor.copy(alpha = 0.86f)),
+            text = inlineText,
             style = MaterialTheme.typography.bodySmall.copy(lineHeight = 19.sp),
-            color = contentColor.copy(alpha = 0.86f),
+            color = quoteColor,
             modifier = Modifier.weight(1f)
         )
     }
@@ -253,10 +266,14 @@ private fun MarkdownTable(block: MarkdownBlock.Table) {
 private fun MarkdownTableRow(cells: List<String>, isHeader: Boolean) {
     Row {
         cells.forEach { cell ->
+            val cellColor = if (isHeader) TextPrimary else TextSecondary
+            val inlineText = remember(cell, cellColor) {
+                inlineMarkdown(cell, cellColor)
+            }
             MarkdownInlineText(
-                text = inlineMarkdown(cell, if (isHeader) TextPrimary else TextSecondary),
+                text = inlineText,
                 style = if (isHeader) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall,
-                color = if (isHeader) TextPrimary else TextSecondary,
+                color = cellColor,
                 fontWeight = if (isHeader) FontWeight.SemiBold else FontWeight.Normal,
                 modifier = Modifier
                     .width(124.dp)

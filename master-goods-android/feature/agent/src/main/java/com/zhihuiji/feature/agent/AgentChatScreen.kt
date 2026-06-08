@@ -188,7 +188,8 @@ fun AgentChatScreen(
                     ) {
                         items(
                             items = uiState.messages,
-                            key = { it.id }
+                            key = { it.id },
+                            contentType = { message -> "message-${message.role.name.lowercase()}" },
                         ) { message ->
                             ChatMessageItem(
                                 message = message,
@@ -199,7 +200,10 @@ fun AgentChatScreen(
                         val showStandaloneTyping = uiState.isStreaming &&
                             uiState.messages.lastOrNull { it.role == MessageRole.ASSISTANT }?.content.isNullOrBlank()
                         if (showStandaloneTyping) {
-                            item {
+                            item(
+                                key = "standalone-typing-indicator",
+                                contentType = "typing-indicator",
+                            ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.Start

@@ -34,7 +34,7 @@
 | AI 首页干净入口 | 文档规定不得展示报表型数据，但仍需真机 UI tree / 截图确认当前实现 | `05-ui-home.png` 和 `09-ui-tree.xml`，证明无销售额、KPI、报表图、风险列表默认展示 |
 | RunTrace 展开与 UI 区分度 | 文档规定用户 / AI / 工具 / 结果 / 错误分层，但仍需视觉证据 | 真实对话截图，含展开 RunTrace、Markdown、result block、错误或降级态 |
 | 草稿真实执行 | 当前 P0 允许不执行写操作；不能把 `archived` 当执行成功 | P1 前确认按钮禁用或诚实归档；P1 后需业务单据真实创建 / 更新证据 |
-| 全链路性能优化 | 当前已做局部优化：SSE worker 使用专用 executor；Android answer_delta 48ms 批量刷新；流式中先轻量文本渲染，完成后再 Markdown；部分工具查询改为 DB 分页；AI workbench 不再查最近会话 / 草稿；Reports 往来余额改走后端汇总；Dashboard 应收金额和应收客户数优先走后端汇总。仍不等于完整性能验收 | 性能基线、优化前后对比、首事件 / 工具 / 模型 / Android 首次可见耗时表 |
+| 全链路性能优化 | 当前已做局部优化：SSE worker 使用专用 executor；Android answer_delta 48ms 批量刷新；流式中先轻量文本渲染，完成后再 Markdown；AI 聊天列表提供稳定 key / contentType，Markdown inline 解析结果按文本缓存以减少流式重组开销；部分工具查询改为 DB 分页；AI workbench 不再查最近会话 / 草稿；Reports 往来余额改走后端汇总；Dashboard 应收金额和应收客户数优先走后端汇总。仍不等于完整性能验收 | 性能基线、优化前后对比、首事件 / 工具 / 模型 / Android 首次可见耗时表 |
 | 底部 tap 栏 BiliPay 参考对齐 | 当前仅对齐了玻璃态、横向扫动、底栏区域上滑转发首页滚动，以及跨 tab 距离感动画；尚未重构为 BiliPay 的 `HorizontalPager + MainBottomPagerState + indicatorProgress` 主架构 | 后续若要求完全一比一，需用真实 pager 承载顶级页面，提供切换录屏、帧率 / jank 证据和与 `/Users/sunyiyang/Desktop/Project/Bilipay UI` 的文件级对照表 |
 
 ### 0.3 证据快照一致性规则
