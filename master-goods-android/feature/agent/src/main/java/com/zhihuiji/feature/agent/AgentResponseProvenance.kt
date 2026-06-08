@@ -11,9 +11,12 @@ internal fun assistantHeaderStatusLabel(
     answerDeltaSource: String?,
     hasToolEvidence: Boolean,
     hasAuditTrace: Boolean,
+    mode: String? = null,
+    llmStatus: String? = null,
 ): String = when {
-    hasServerAnswerDelta -> answerDeltaSource.headerStatusLabel(isStreaming)
     isStreaming -> "正在等待服务端事件"
+    isRuleSummaryMode(mode = mode, llmStatus = llmStatus) -> "数据查询 / 规则摘要模式"
+    hasServerAnswerDelta -> answerDeltaSource.headerStatusLabel(isStreaming)
     hasAuditTrace || hasToolEvidence -> "服务端回复结果"
     else -> "助手回复"
 }
@@ -49,6 +52,12 @@ internal fun String?.inlineStreamingLabel(): String =
 internal fun ChatMessage.shouldShowInlineStreamingStatus(): Boolean =
     isStreaming && (hasServerAnswerDelta || content.isBlank())
 
+internal fun ChatMessage.shouldShowAssistantHeader(): Boolean =
+    isStreaming || isRuleSummaryMode(
+        mode = runTrace?.mode,
+        llmStatus = runTrace?.llmStatus,
+    )
+
 internal fun ChatMessage.shouldShowAssistantHeaderBadges(): Boolean = isStreaming
 
 internal fun assistantReviewBadgeLabel(
@@ -61,3 +70,12 @@ internal fun assistantReviewBadgeLabel(
     isStreaming -> "生成中"
     else -> "未展开"
 }
+
+internal fun isRuleSummaryMode(mode: String?, llmStatus: String?): Boolean =
+    mode == "tool_query_rule_summary" || llmStatus in setOf(
+        "disabled",
+        "not_configured",
+        "stream_not_supported",
+        "failed_or_empty",
+        "stream_failed_or_empty",
+    )

@@ -437,6 +437,8 @@ private fun AssistantMessageHeader(
     isStreaming: Boolean,
     hasServerAnswerDelta: Boolean,
     answerDeltaSource: String?,
+    mode: String?,
+    llmStatus: String?,
     hasToolEvidence: Boolean,
     hasAuditTrace: Boolean,
     hasCompletedTool: Boolean,
@@ -449,6 +451,8 @@ private fun AssistantMessageHeader(
         answerDeltaSource = answerDeltaSource,
         hasToolEvidence = hasToolEvidence,
         hasAuditTrace = hasAuditTrace,
+        mode = mode,
+        llmStatus = llmStatus,
     )
     val statusColor = when {
         answerDeltaSource == DeltaSourceModelStream -> AgentAssistantAccent
@@ -535,17 +539,21 @@ private fun AssistantMessageTimeline(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            AssistantMessageHeader(
-                isStreaming = message.isStreaming,
-                hasServerAnswerDelta = message.hasServerAnswerDelta,
-                answerDeltaSource = message.answerDeltaSource,
-                hasToolEvidence = message.runTrace?.toolCalls?.isNotEmpty() == true,
-                hasAuditTrace = message.runTrace?.auditId != null || message.runTrace?.traceId != null,
-                hasCompletedTool = message.runTrace?.toolCalls?.any {
-                    it.status == ToolCallStatus.COMPLETED
-                } == true,
-                showBadges = message.shouldShowAssistantHeaderBadges(),
-            )
+            if (message.shouldShowAssistantHeader()) {
+                AssistantMessageHeader(
+                    isStreaming = message.isStreaming,
+                    hasServerAnswerDelta = message.hasServerAnswerDelta,
+                    answerDeltaSource = message.answerDeltaSource,
+                    mode = message.runTrace?.mode,
+                    llmStatus = message.runTrace?.llmStatus,
+                    hasToolEvidence = message.runTrace?.toolCalls?.isNotEmpty() == true,
+                    hasAuditTrace = message.runTrace?.auditId != null || message.runTrace?.traceId != null,
+                    hasCompletedTool = message.runTrace?.toolCalls?.any {
+                        it.status == ToolCallStatus.COMPLETED
+                    } == true,
+                    showBadges = message.shouldShowAssistantHeaderBadges(),
+                )
+            }
             if (parts.isEmpty()) {
                 InlineStreamingStatus(
                     if (message.isStreaming) {

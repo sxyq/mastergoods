@@ -2,6 +2,7 @@ package com.zhihuiji.feature.agent
 
 import com.zhihuiji.core.model.v2.agent.ChatMessage
 import com.zhihuiji.core.model.v2.agent.MessageRole
+import com.zhihuiji.core.model.v2.agent.RunTrace
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -102,6 +103,48 @@ class AgentResponseProvenanceTest {
                 isStreaming = true,
                 hasAuditTrace = true,
                 hasToolEvidence = true,
+            )
+        )
+    }
+
+    @Test
+    fun completedSuccessAnswerHidesHeaderButRuleSummaryKeepsIt() {
+        val completedSuccess = ChatMessage(
+            id = "assistant-3",
+            conversationId = 1L,
+            role = MessageRole.ASSISTANT,
+            content = "已经完成回答",
+            isStreaming = false,
+            hasServerAnswerDelta = true,
+            answerDeltaSource = DeltaSourceModelStream,
+            runTrace = RunTrace(
+                runId = "run-1",
+                mode = "tool_query_llm_streamed",
+                llmStatus = "streaming",
+            ),
+        )
+        val completedRuleSummary = completedSuccess.copy(
+            hasServerAnswerDelta = false,
+            answerDeltaSource = null,
+            runTrace = RunTrace(
+                runId = "run-2",
+                mode = "tool_query_rule_summary",
+                llmStatus = "disabled",
+            ),
+        )
+
+        assertFalse(completedSuccess.shouldShowAssistantHeader())
+        assertTrue(completedRuleSummary.shouldShowAssistantHeader())
+        assertEquals(
+            "数据查询 / 规则摘要模式",
+            assistantHeaderStatusLabel(
+                isStreaming = false,
+                hasServerAnswerDelta = false,
+                answerDeltaSource = null,
+                hasToolEvidence = true,
+                hasAuditTrace = true,
+                mode = "tool_query_rule_summary",
+                llmStatus = "disabled",
             )
         )
     }
