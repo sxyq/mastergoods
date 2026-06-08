@@ -672,9 +672,10 @@ docs/acceptance-evidence/ai-agent/{yyyyMMdd-HHmm}-{run_id}/
 - `04-tool-results.json`：每个工具输入摘要、查询窗口、结果摘要、截断和耗时。
 - `05-ui-home.png`、`06-ui-chat.png`、`07-ui-runtrace.png`、`08-ui-blocks.png`：真机截图。
 - `09-ui-tree.xml`：`uiautomator` dump。
-- `10-forbidden-scan.txt`：禁止项扫描和逐项解释。
+- `10-forbidden-scan.txt`：禁止项扫描原始命中。
 - `11-latency.md`：首事件、首 token / 首摘要、工具、模型、端到端耗时。
 - `12-conclusion.md`：按 `pass` / `fail` / `partial` 写结论。
+- `15-forbidden-scan-review.md`：禁止项命中逐项解释；任何 `needs evidence` 行必须在 P0 通过前处理。
 
 命令模板：
 
@@ -692,7 +693,7 @@ adb -s <serial> exec-out screencap -p > "$RUN_ID_DIR/05-ui-chat.png"
 adb -s <serial> exec-out uiautomator dump /dev/tty > "$RUN_ID_DIR/09-ui-tree.xml"
 ```
 
-`tools/ai_agent_evidence_capture.sh` 会自动生成 `00-env.md`、`00-request.json`、`01-http-response.json`、`02-raw-sse.log`、`03-run-audit.json`、`04-tool-results.json`、`10-forbidden-scan.txt`、`11-latency.md` 和 `12-conclusion.md`。脚本默认结论为 `partial`，因为它只采集接口 / SSE / 审计证据，不会伪造真机截图或 UI tree。截图、UI tree 和 Android 首次可见耗时必须从真实设备补充。
+`tools/ai_agent_evidence_capture.sh` 会自动生成 `00-env.md`、`00-request.json`、`01-http-response.json`、`02-raw-sse.log`、`03-run-audit.json`、`04-tool-results.json`、`10-forbidden-scan.txt`、`11-latency.md`、`12-conclusion.md` 和 `15-forbidden-scan-review.md`。脚本默认结论为 `partial`，因为它只采集接口 / SSE / 审计证据，不会伪造真机截图或 UI tree。截图、UI tree 和 Android 首次可见耗时必须从真实设备补充。`15-forbidden-scan-review.md` 是自动审查草案，不是自动通过证明；任何 `needs evidence` 行必须人工复核并给出源码 / 运行证据后才能 P0 通过。
 
 如果没有现成 `TOKEN`，可以改用 `LOGIN_PHONE` / `LOGIN_PASSWORD` 让脚本先调用 `/v1/auth/login` 获取临时 token。脚本不得把密码、token 或模型密钥写入证据包；`00-env.md` 只能记录 token 来源和脱敏手机号尾号。
 
@@ -922,7 +923,7 @@ AI 助手 P0 修改后的最小验证矩阵：
 | 证据脚本离线自测 | `./tools/ai_agent_evidence_capture.sh self-test` | 无需后端或 token，验证 SSE run_id 提取和 audit tool result 展开逻辑 |
 | 真实接口证据 | `TOKEN=<redacted> ./tools/ai_agent_evidence_capture.sh` 或 `LOGIN_PHONE=<phone> LOGIN_PASSWORD=<password> ./tools/ai_agent_evidence_capture.sh` | 生成 HTTP / SSE / run audit / 禁止项扫描 / latency 初稿；不得保存密码或 token |
 | 真机证据 | ADB 截图、UI tree、logcat 或录屏 | 证明 AI 首页、聊天、RunTrace、Markdown、图表真实渲染 |
-| 禁止项扫描 | `10-forbidden-scan.txt` + 人工逐项解释 | 防止 mock、fake、demo、假流式、占位数据回流 |
+| 禁止项扫描 | `10-forbidden-scan.txt` + `15-forbidden-scan-review.md`；所有 `needs evidence` 行必须人工处理 | 防止 mock、fake、demo、假流式、占位数据回流 |
 
 P0 不通过条件：
 
