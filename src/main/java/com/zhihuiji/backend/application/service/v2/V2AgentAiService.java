@@ -735,7 +735,7 @@ public class V2AgentAiService {
                 break;
             }
         }
-        return new AgentToolPlan(deduplicated, "根据问题关键词选择只读查询工具", "keyword");
+        return new AgentToolPlan(deduplicated, "根据问题关键词兜底选择只读查询工具", "keyword_fallback");
     }
 
     private boolean isAllowedTool(String tool) {
@@ -2105,6 +2105,7 @@ public class V2AgentAiService {
                 : plan.rationale() + "：" + String.join("、", plan.tools());
             sendEvent(emitter, eventMap("plan_delta", mapOf(
                 "run_id", runId,
+                "plan_source", plan.source(),
                 "content", content,
                 "timestamp", System.currentTimeMillis()
             )));

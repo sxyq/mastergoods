@@ -151,7 +151,7 @@ P0 非目标：
 1. Android 提交用户问题到 `/v2/agent/chat` 或 `/v2/agent/chat/stream`。
 2. 后端创建 `runId`，绑定 `ownerUserId`、`conversationId`、用户问题摘要和模型状态。
 3. 安全检查拦截越权、敏感、SQL、破坏性或未确认写操作。
-4. Planner 生成只读工具计划；LLM 不可用时当前使用关键词 / 规则兜底 planner，并必须记录可区分的 `plan_source`（当前代码为 `keyword`，P1 可统一升级为 `rules` 或 `rules_fallback_due_to_model_error`）。
+4. Planner 生成只读工具计划；LLM 不可用或规划结果不可用时当前使用关键词兜底 planner，并必须记录可区分的 `plan_source=keyword_fallback`，不得把兜底规划伪装成模型规划。
 5. Tool Registry 按计划执行真实 owner-aware 查询。
 6. Orchestrator 聚合工具结果，生成 result blocks、证据摘要和回答所需事实。
 7. LLM 可用时基于事实生成回答；LLM 不可用时只输出事实摘要和降级说明。
@@ -170,7 +170,7 @@ P0 非目标：
 - `answer`
 - `blocks`
 - `tool_results_summary`
-- `plan_source`：`llm`、`keyword`、`rules`、`manual`、`unsupported`
+- `plan_source`：`llm`、`keyword_fallback`、`keyword`（旧兼容值）、`rules`、`manual`、`unsupported`
 - `plan_summary`：本次选择哪些工具、为什么选择、哪些工具未接入
 - `tool_calls[]`：至少包含 `tool_call_id`、`tool_name`、`status`、`input_summary`、`query_window`、`returned_count`、`total_count`、`is_truncated`、`duration_ms`、`error_code`
 - `evidence_refs[]`：回答中关键金额、数量、排行、风险对应的 `tool_call_id`、字段名、聚合窗口和截断状态
@@ -223,7 +223,7 @@ Planner 输入：
 Planner 输出：
 
 - `plan_id`
-- `plan_source`：`llm`、`rules`、`manual`
+- `plan_source`：`llm`、`keyword_fallback`、`rules`、`manual`
 - `steps`
 - 每个 step 的 `tool_name`、`input`、`reason`、`evidence_required`
 - `requires_draft` 和草稿类型候选。
@@ -1097,7 +1097,7 @@ python3 tools/report_performance_evidence.py \
 | `src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java:268-352` 当前 stream 会创建真实 `runId` 并发送 `run_started`、安全检查、最终完成事件；`V2AgentAiService.java:359-393` 会按计划执行工具并捕获失败。 | 已具备 run lifecycle 雏形，`sendEvent` 会为带 `run_id` 的事件补 `event_id`、`seq`、`conversation_id` 和 `timestamp`，主要过程事件已有 `audit_id` / `trace_id` / `observability`；`agent_run_audits` 会持久化 run 摘要状态、mode、llm_status、plan_source、tool_count 和 event_count；`agent_run_audit_events` 会持久化每个 SSE 事件 payload JSON。 | 部分支撑 AGT-P0-002、AGT-P0-012；仍需补完整 `data` 包裹式 envelope、真实抓包与数据库审计对账证据。 |
 | `V2AgentAiService.java:1361-1390` 已发送 `tool_started` / `tool_completed`；`V2AgentAiService.java:1393-1409` 已发送 `tool_failed`，且 `V2AgentAiService.java:370-380` 会在工具异常时进入失败事件路径。 | 工具失败事件路径已存在；started / completed / failed payload 已补 `input_summary`、`query_window`、`started_at`、`completed_at`、`duration_ms`、`returned_count`、`total_count`、`limit`、`is_truncated`、`next_cursor`、`evidence` 和 `trace_id`；Android `ToolCompleted` / `ToolCallRecord` / `ToolAuditRecord` 已接收并在 RunTrace 工具卡显示范围、依据、耗时和追踪摘要。 | 部分通过 AGT-P0-004、AGT-P0-006；下一步要补真实 SSE 抓包、超限数据验收和事件级审计。 |
 | `V2AgentAiService.java` 仅在模型 streaming 回调内发送 `answer_delta(delta_source=model_stream)`；LLM disabled 或 stream failed / empty 时不再发送规则摘要分块，而是通过 `answer_completed` 返回 `tool_query_rule_summary` 和对应 `llm_status`。`answer_delta` 已补 `audit_id`、`trace_id` 和 `observability`，Android `AgentStreamEvent.AnswerDelta` 可接收这些字段。`V2AgentAiServiceTest.streamFallbackAnswerCompletesRuleSummaryWithoutFakeDeltas`、`streamDisabledModelAnswerCompletesRuleSummaryWithoutFakeDeltas` 覆盖 fallback / disabled 的 `answer_delta` 数量为 0、`answer_completed` 含规则摘要和降级状态；`streamModelAnswerEmitsOnlyModelStreamDeltasAndStreamedCompletion` 覆盖模型流式成功时只发送 `delta_source=model_stream`、每个 delta 带 `audit_id` / `trace_id` / `log_ref`、最终 `mode=tool_query_llm_streamed` / `llm_status=streaming`，且不带规则摘要提示。`tools/ai_agent_evidence_capture.sh` 的 SSE / audit reconciliation 已抽取 `delta_source`、`mode`、`llm_status`，并把非 `model_stream` 的 `answer_delta` 判为 fail。 | 后端“固定切完整答案 / 规则摘要冒充流式”的代码边界已收口；成功流式、禁用降级和空流失败三条路径都有单元门禁，且模型 delta 能被抓包归因到同一 run / trace。证据脚本可自动拦截部分假流式回归。当前仍不能把它视为端到端通过，因为还缺真实模型 `model_stream` 抓包和真机 UI 证据。 | AGT-P0-005 后端和 Android 展示边界已改善；部分支撑 AGT-P0-012 可观测性；仍需 SSE 抓包、真机 UI、真实模型 delta 和 rule_summary 完成态截图验收。 |
-| `V2AgentAiService.java:405-430` 优先尝试 LLM 工具规划，`V2AgentAiService.java:1126-1159` 基于工具结果做 LLM / 规则最终回答；不可用时返回 `tool_query_rule_summary` / `disabled`。 | 比单纯关键词模板更接近真实 agent，但仍缺可持久化 plan、工具 reason、plan_source 审计和更多运行验收。 | 部分支撑 AGT-P0-003、AGT-P0-007、AGT-P0-011。 |
+| `V2AgentAiService.java` 优先尝试 LLM 工具规划；LLM 不可用或规划不可解析时使用 `plan_source=keyword_fallback`，`plan_delta`、run summary 和审计 payload 均可带出该来源；Android `RunTracePanel` 显示为“关键词兜底规划”。最终回答不可用时返回 `tool_query_rule_summary` / 对应 `llm_status`。 | 兜底规划和规则摘要不再被模糊标成普通关键词规划或模型规划；但这仍是 P0 过渡方案，不等同于 provider function-calling 或真模型规划。 | 部分支撑 AGT-P0-003、AGT-P0-007、AGT-P0-011；仍需真实 SSE / DB 对账和真机 UI 证据。 |
 | `src/main/java/com/zhihuiji/backend/api/dto/v2/agent/V2AgentDtos.java` 和 `master-goods-android/core/model/src/main/java/com/zhihuiji/core/model/v2/agent/AgentChatRequestResponse.kt` 当前非流式 `AgentChatResponse` 已包含 `tool_calls`、`evidence_refs`、`performance_summary`、`result_blocks`、`audit_id`、`trace_id` 和 `observability`。`AgentChatResponseSerializationTest.decodesNonStreamingAgentRunContract`、`V2AgentAiServiceTest.nonStreamingChatIncludesAuditableAgentRunContract` 已覆盖模型解析和服务单测合同。 | 同步接口合同已经具备独立审查 plan / tool / evidence / performance 的字段基础；仍不能替代真实 HTTP 响应、owner 数据、审计对账和真机 UI 证据。 | 部分支撑 AGT-P0-002、AGT-P0-003、AGT-P0-011、AGT-P0-012；运行验收仍需 `/v2/agent/chat` 真实响应包。 |
 | `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatViewModel.kt:163-230` 将服务端安全和 plan 事件写入 `RunTrace`；`AgentChatViewModel.kt:497-501` 的 `toggleRunTrace()` 已真实切换展开状态。 | Android 不再是 no-op 展开；仍需真机验证真实 SSE 事件能完整显示。 | 支撑 AGT-P0-006；运行验收仍需截图 / UI tree / SSE 日志。 |
 | `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatViewModel.kt:543-568` 和 `DraftListViewModel.kt:70-99` 仍通过 `status = "archived"` 处理当前草稿动作；`DraftListScreen.kt:51-54`、`DraftListScreen.kt:197-200` 明确写成“仅归档”，`DraftListScreen.kt:234-239` 将 archived 映射为 `StatusType.ARCHIVED`，`DraftListViewModel.kt:152-156` 将 archived 展示为“已归档（未执行）”。 | P0 代码文案边界已收口为“不执行业务写入 / 仅归档”，不再把 archived 显示为业务执行成功；P1 仍必须新增 confirm / reject / execution 接口和真实状态机。 | AGT-P0-008 代码边界已改善，仍需真机运行复核；AGT-P1-002 未通过。 |

@@ -58,6 +58,7 @@ sealed class AgentStreamEvent {
     @SerialName("plan_delta")
     data class PlanDelta(
         @SerialName("run_id") val runId: String,
+        @SerialName("plan_source") val planSource: String? = null,
         val content: String,
         val timestamp: Long = System.currentTimeMillis(),
     ) : AgentStreamEvent()

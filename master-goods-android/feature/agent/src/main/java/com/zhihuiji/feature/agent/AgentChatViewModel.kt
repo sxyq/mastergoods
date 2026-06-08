@@ -243,6 +243,7 @@ class AgentChatViewModel @Inject constructor(
             is AgentStreamEvent.PlanDelta -> {
                 updateRunTrace(assistantMessageId) { trace ->
                     trace.copy(
+                        planSource = event.planSource ?: trace.planSource,
                         planSteps = trace.planSteps + PlanStep(
                             content = event.content,
                             timestamp = event.timestamp,

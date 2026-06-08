@@ -355,6 +355,10 @@ class V2AgentAiServiceTest {
         assertTrue(runStarted.contains("\"seq\":1"), runStarted);
         assertTrue(runStarted.contains("\"conversation_id\":105"), runStarted);
 
+        String planDelta = firstPayload(emitter, "\"event_type\":\"plan_delta\"");
+        assertTrue(planDelta.contains("\"plan_source\":\"keyword_fallback\""), planDelta);
+        assertTrue(planDelta.contains("关键词兜底"), planDelta);
+
         String toolCompleted = firstPayload(emitter, "\"event_type\":\"tool_completed\"");
         assertTrue(toolCompleted.contains("\"event_id\""), toolCompleted);
         assertTrue(toolCompleted.contains("\"seq\""), toolCompleted);
@@ -375,7 +379,7 @@ class V2AgentAiServiceTest {
         assertEquals("completed", audit.getStatus());
         assertEquals("tool_query_llm_streamed", audit.getMode());
         assertEquals("streaming", audit.getLlmStatus());
-        assertEquals("keyword", audit.getPlanSource());
+        assertEquals("keyword_fallback", audit.getPlanSource());
         assertEquals(1, audit.getToolCount());
         assertTrue(audit.getEventCount() > 0);
         List<AgentRunAuditEventEntity> events = runAuditEvents.stream()
@@ -383,6 +387,8 @@ class V2AgentAiServiceTest {
             .toList();
         assertEquals(audit.getEventCount(), events.size());
         assertTrue(events.stream().anyMatch(event -> "run_started".equals(event.getEventType())));
+        assertTrue(events.stream().anyMatch(event -> "plan_delta".equals(event.getEventType())
+            && event.getPayloadJson().contains("\"plan_source\":\"keyword_fallback\"")));
         assertTrue(events.stream().anyMatch(event -> "tool_completed".equals(event.getEventType())
             && event.getPayloadJson().contains("\"tool_name\":\"customer_receivable_lookup\"")));
         assertTrue(events.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())
@@ -453,7 +459,7 @@ class V2AgentAiServiceTest {
             new V2AgentDtos.AgentChatRequest(null, "客户应收情况", false)
         );
 
-        assertEquals("keyword", response.planSource());
+        assertEquals("keyword_fallback", response.planSource());
         assertTrue(response.planSummary().contains("customer_receivable_lookup"), response.planSummary());
         assertFalse(response.toolCalls().isEmpty());
         V2AgentDtos.AgentToolCallDto toolCall = response.toolCalls().get(0);
@@ -576,7 +582,7 @@ class V2AgentAiServiceTest {
             new V2AgentDtos.AgentChatRequest(null, "recent sales purchase finance business overview", false)
         );
 
-        assertEquals("keyword", response.planSource());
+        assertEquals("keyword_fallback", response.planSource());
         assertTrue(response.planSummary().contains("supplier_payable_lookup"), response.planSummary());
         assertTrue(response.planSummary().contains("purchase_order_lookup"), response.planSummary());
         assertTrue(response.planSummary().contains("finance_record_lookup"), response.planSummary());
@@ -618,7 +624,7 @@ class V2AgentAiServiceTest {
         assertEquals("completed", response.status());
         assertEquals("tool_query_llm_streamed", response.mode());
         assertEquals("streaming", response.llmStatus());
-        assertEquals("keyword", response.planSource());
+        assertEquals("keyword_fallback", response.planSource());
         assertEquals("run-audit-read:audit", response.auditId());
         assertEquals("run-audit-read:trace", response.traceId());
         assertTrue(response.eventCount() > 0);

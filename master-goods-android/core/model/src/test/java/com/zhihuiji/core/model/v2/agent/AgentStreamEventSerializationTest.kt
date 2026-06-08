@@ -136,6 +136,28 @@ class AgentStreamEventSerializationTest {
     }
 
     @Test
+    fun decodesPlanDeltaSourceForFallbackPlanner() {
+        val event = json.decodeFromString(
+            AgentStreamEvent.serializer(),
+            """
+            {
+              "event_type": "plan_delta",
+              "run_id": "run-1",
+              "plan_source": "keyword_fallback",
+              "content": "根据问题关键词兜底选择只读查询工具：customer_receivable_lookup",
+              "timestamp": 1001
+            }
+            """.trimIndent()
+        )
+
+        assertTrue(event is AgentStreamEvent.PlanDelta)
+        val plan = event as AgentStreamEvent.PlanDelta
+        assertEquals("run-1", plan.runId)
+        assertEquals("keyword_fallback", plan.planSource)
+        assertTrue(plan.content.contains("兜底"))
+    }
+
+    @Test
     fun decodesBackendAnswerCompletedEvent() {
         val event = json.decodeFromString(
             AgentStreamEvent.serializer(),
@@ -178,7 +200,7 @@ class AgentStreamEventSerializationTest {
               "final_answer": "已完成",
               "mode": "tool_query_rule_summary",
               "llm_status": "disabled",
-              "plan_source": "keyword",
+              "plan_source": "keyword_fallback",
               "audit_id": "run-1:audit",
               "trace_id": "run-1:trace",
               "observability": {
@@ -196,6 +218,7 @@ class AgentStreamEventSerializationTest {
         assertTrue(event is AgentStreamEvent.RunCompleted)
         val completed = event as AgentStreamEvent.RunCompleted
         assertEquals("run-1", completed.runId)
+        assertEquals("keyword_fallback", completed.planSource)
         assertEquals("run-1:audit", completed.auditId)
         assertEquals("run-1:trace", completed.traceId)
         assertEquals("agent-run:run-1", completed.observability?.logRef)

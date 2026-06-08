@@ -328,6 +328,7 @@ private fun String.planSourceLabel(): String =
     when (this) {
         "llm" -> "模型规划"
         "keyword" -> "关键词规划"
+        "keyword_fallback" -> "关键词兜底规划"
         "safety" -> "安全策略"
         "tool" -> "工具结果"
         else -> this
