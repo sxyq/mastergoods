@@ -146,7 +146,7 @@ fun AgentChatScreen(
         topBar = {
             GlassTopBar(
                 title = "AI 对话",
-                subtitle = if (uiState.isStreaming) "等待服务端事件" else "服务端问答与结果块",
+                subtitle = if (uiState.isStreaming) "正在分析真实业务数据" else "真实问答与结果块",
                 onNavigationClick = onNavigateBack,
                 actions = {
                     if (uiState.messages.isNotEmpty()) {
@@ -419,9 +419,9 @@ private fun ChatMessage.displayParts(): List<ChatMessagePart> =
         buildList {
             if (content.isNotBlank()) {
                 add(ChatMessagePart.Text(content))
-            }
-            blocks.forEach { block ->
-                add(ChatMessagePart.ResultBlock(block))
+                blocks.forEach { block ->
+                    add(ChatMessagePart.ResultBlock(block))
+                }
             }
         }
     }
@@ -570,7 +570,7 @@ private fun AssistantMessageTimeline(
             if (parts.isEmpty()) {
                 InlineStreamingStatus(
                     if (message.isStreaming) {
-                        "正在等待服务端工具或模型事件"
+                        "正在分析问题并等待真实结果"
                     } else {
                         "暂无可展示回答"
                     }
@@ -587,14 +587,17 @@ private fun AssistantMessageTimeline(
                             }
                         }
                         is ChatMessagePart.ResultBlock -> {
-                            TimelineResultBlock(block = part.block)
+                            TimelineResultBlock(
+                                block = part.block,
+                                isStreaming = message.isStreaming,
+                            )
                         }
                     }
                 }
                 if (message.shouldShowInlineStreamingStatus()) {
                     InlineStreamingStatus(
                         message.answerDeltaSource?.inlineStreamingLabel()
-                            ?: "正在等待服务端工具或模型事件"
+                            ?: "正在分析问题并等待真实结果"
                     )
                 }
             }
@@ -605,6 +608,7 @@ private fun AssistantMessageTimeline(
 @Composable
 private fun TimelineResultBlock(
     block: ResultBlockDto,
+    isStreaming: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -635,7 +639,7 @@ private fun TimelineResultBlock(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = "实时结果",
+                text = resultBlockTimingLabel(isStreaming),
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.White.copy(alpha = 0.72f),
             )
@@ -643,6 +647,9 @@ private fun TimelineResultBlock(
         ResultBlockRenderer(block = block)
     }
 }
+
+internal fun resultBlockTimingLabel(isStreaming: Boolean): String =
+    if (isStreaming) "实时结果" else "查询结果"
 
 private fun String.readableResultBlockName(): String =
     when (this) {
@@ -716,11 +723,11 @@ internal fun List<ToolCallRecord>.latestVisibleToolCall(nowMs: Long = System.cur
     asReversed().firstOrNull { call ->
         call.status == ToolCallStatus.RUNNING ||
             call.status == ToolCallStatus.PENDING ||
-            call.status == ToolCallStatus.FAILED ||
-            (call.status == ToolCallStatus.COMPLETED && call.isRecentlyCompleted(nowMs))
+            (call.status == ToolCallStatus.FAILED && call.isRecentlyFinished(nowMs)) ||
+            (call.status == ToolCallStatus.COMPLETED && call.isRecentlyFinished(nowMs))
     }
 
-private fun ToolCallRecord.isRecentlyCompleted(nowMs: Long): Boolean {
+private fun ToolCallRecord.isRecentlyFinished(nowMs: Long): Boolean {
     val completedAt = completedAt ?: timestamp
     return nowMs - completedAt in 0..CompletedToolPillVisibleMs
 }
@@ -793,13 +800,13 @@ private fun RealQueryStatusCard(
             )
             Column {
                 Text(
-                    text = "正在等待服务端查询结果",
+                    text = "正在查询真实业务数据",
                     style = MaterialTheme.typography.labelLarge,
                     color = ZhihuijiPrimary,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "服务端会按当前账号权限选择可用工具；失败时会明确提示",
+                    text = "会按当前账号权限选择可用工具；失败时会明确提示",
                     style = MaterialTheme.typography.labelSmall,
                     color = TextSecondary
                 )
@@ -828,7 +835,7 @@ private fun StreamWaitingIndicator(
                 modifier = Modifier.size(16.dp)
             )
             Text(
-                text = "等待服务端流式片段",
+                text = "正在生成回答",
                 style = MaterialTheme.typography.labelSmall,
                 color = TextSecondary,
                 fontWeight = FontWeight.SemiBold
@@ -865,7 +872,7 @@ private fun ChatInputBar(
                 onValueChange = onInputChange,
                 modifier = Modifier.weight(1f),
                 label = null,
-                placeholder = "输入经营问题，服务端会选择可用工具...",
+                placeholder = "输入经营问题，AI 会查询真实业务数据...",
                 singleLine = true,
                 shape = RoundedCornerShape(24.dp),
                 enabled = !isStreaming,
@@ -940,7 +947,7 @@ private fun EmptyChatState(
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "发送问题后，服务端会基于当前账号权限选择可用工具，并返回 Markdown、表格或统计图。",
+                text = emptyChatHelperText(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextTertiary,
                 textAlign = TextAlign.Center,
@@ -949,13 +956,24 @@ private fun EmptyChatState(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                EmptyStatePill("服务端查询", ZhihuijiPrimary)
-                EmptyStatePill("模型流", AgentAssistantAccent)
-                EmptyStatePill("图表结果", WarningOrange)
+                emptyChatPills().forEachIndexed { index, label ->
+                    val accent = when (index) {
+                        0 -> ZhihuijiPrimary
+                        1 -> AgentAssistantAccent
+                        else -> WarningOrange
+                    }
+                    EmptyStatePill(label, accent)
+                }
             }
         }
     }
 }
+
+internal fun emptyChatHelperText(): String =
+    "发送问题后，AI 会按当前账号权限查询真实业务数据，并返回 Markdown、表格或统计图。"
+
+internal fun emptyChatPills(): List<String> =
+    listOf("真实查询", "流式回答", "图表结果")
 
 @Composable
 private fun EmptyStatePill(

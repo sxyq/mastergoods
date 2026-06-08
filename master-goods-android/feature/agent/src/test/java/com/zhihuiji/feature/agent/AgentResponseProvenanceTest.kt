@@ -27,7 +27,7 @@ class AgentResponseProvenanceTest {
             answerDeltaSource = null,
         )
 
-        assertEquals("服务端回复结果", status)
+        assertEquals("已基于真实查询回答", status)
         assertEquals("工具完成", provenance)
     }
 
@@ -49,9 +49,9 @@ class AgentResponseProvenanceTest {
     @Test
     fun ruleSummaryIsLabeledAsServerSummaryNotModelStream() {
         assertEquals("数据查询 / 规则摘要模式", DeltaSourceRuleSummary.headerStatusLabel())
-        assertEquals("正在展示服务端规则摘要", DeltaSourceRuleSummary.inlineStreamingLabel())
+        assertEquals("正在展示规则摘要", DeltaSourceRuleSummary.inlineStreamingLabel())
         assertEquals(
-            "服务端摘要",
+            "规则摘要",
             assistantProvenanceLabel(
                 hasCompletedTool = false,
                 hasToolEvidence = false,
@@ -62,14 +62,38 @@ class AgentResponseProvenanceTest {
 
     @Test
     fun serverNoticeDeltaIsLabeledAsBackendNoticeNotModelStream() {
-        assertEquals("正在补充服务端说明", DeltaSourceServerNotice.headerStatusLabel())
+        assertEquals("正在补充查询说明", DeltaSourceServerNotice.headerStatusLabel())
         assertEquals("正在补充查询边界说明", DeltaSourceServerNotice.inlineStreamingLabel())
         assertEquals(
-            "服务端说明",
+            "查询说明",
             assistantProvenanceLabel(
                 hasCompletedTool = false,
                 hasToolEvidence = false,
                 answerDeltaSource = DeltaSourceServerNotice,
+            )
+        )
+    }
+
+    @Test
+    fun defaultStreamingLabelsUseUserFacingAgentCopy() {
+        assertEquals(
+            "正在分析并生成回答",
+            assistantHeaderStatusLabel(
+                isStreaming = true,
+                hasServerAnswerDelta = false,
+                answerDeltaSource = null,
+                hasToolEvidence = true,
+                hasAuditTrace = true,
+            )
+        )
+        assertEquals("正在生成回答", null.headerStatusLabel())
+        assertEquals("正在生成回答", null.inlineStreamingLabel())
+        assertEquals(
+            "AI 文本",
+            assistantProvenanceLabel(
+                hasCompletedTool = false,
+                hasToolEvidence = false,
+                answerDeltaSource = null,
             )
         )
     }
@@ -224,5 +248,31 @@ class AgentResponseProvenanceTest {
         assertTrue(waitingForFirstVisibleEvent.shouldShowRunTracePanel())
         assertFalse(resultBlockVisible.shouldShowRunTracePanel())
         assertFalse(textVisible.shouldShowRunTracePanel())
+    }
+
+    @Test
+    fun pendingBlocksAreNotTreatedAsVisibleTimelineBeforeAnswerTextArrives() {
+        val block = ResultBlockDto(blockType = "line_chart", title = "销售趋势")
+        val waitingWithHiddenBlock = ChatMessage(
+            id = "assistant-6",
+            conversationId = 1L,
+            role = MessageRole.ASSISTANT,
+            content = "",
+            blocks = listOf(block),
+            parts = emptyList(),
+            isStreaming = true,
+            runTrace = RunTrace(runId = "run-2"),
+        )
+        val visibleAfterFirstAnswerText = waitingWithHiddenBlock.copy(
+            parts = listOf(
+                ChatMessagePart.Text("我查到了近 7 天销售趋势。"),
+                ChatMessagePart.ResultBlock(block),
+            )
+        )
+
+        assertFalse(waitingWithHiddenBlock.hasVisibleAssistantTimeline())
+        assertTrue(waitingWithHiddenBlock.shouldShowRunTracePanel())
+        assertTrue(visibleAfterFirstAnswerText.hasVisibleAssistantTimeline())
+        assertFalse(visibleAfterFirstAnswerText.shouldShowRunTracePanel())
     }
 }

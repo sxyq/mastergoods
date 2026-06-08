@@ -425,7 +425,7 @@ class AgentChatViewModel @Inject constructor(
                     val finalContent = msg.content.withAuthoritativeAnswer(event.answer)
                     msg.copy(
                         content = finalContent,
-                        parts = msg.parts.withAuthoritativeText(finalContent),
+                        parts = msg.parts.withAuthoritativeText(finalContent, msg.blocks),
                         animateReveal = false,
                     )
                 }
@@ -444,9 +444,10 @@ class AgentChatViewModel @Inject constructor(
             is AgentStreamEvent.ResultBlockEvent -> {
                 flushPendingAnswerDelta()
                 updateAssistantMessage(assistantMessageId) { msg ->
+                    val updatedBlocks = msg.blocks + event.block
                     msg.copy(
-                        blocks = msg.blocks + event.block,
-                        parts = msg.parts + ChatMessagePart.ResultBlock(event.block),
+                        blocks = updatedBlocks,
+                        parts = msg.parts.appendResultBlockAfterVisibleText(event.block),
                     )
                 }
             }
@@ -495,7 +496,7 @@ class AgentChatViewModel @Inject constructor(
                     val finalContent = msg.content.withAuthoritativeAnswer(finalAnswer)
                     msg.copy(
                         content = finalContent,
-                        parts = msg.parts.withAuthoritativeText(finalContent),
+                        parts = msg.parts.withAuthoritativeText(finalContent, msg.blocks),
                         isStreaming = false,
                         animateReveal = false,
                     )
@@ -632,7 +633,7 @@ class AgentChatViewModel @Inject constructor(
         updateAssistantMessage(assistantMessageId) { msg ->
             msg.copy(
                 content = msg.content + delta,
-                parts = msg.parts.appendStreamingText(delta),
+                parts = msg.parts.appendStreamingText(delta, msg.blocks),
                 animateReveal = false,
                 hasServerAnswerDelta = true,
                 answerDeltaSource = deltaSource ?: msg.answerDeltaSource,
@@ -921,8 +922,14 @@ internal fun String.withAuthoritativeAnswer(answer: String?): String {
     }
 }
 
-internal fun List<ChatMessagePart>.appendStreamingText(delta: String): List<ChatMessagePart> {
+internal fun List<ChatMessagePart>.appendStreamingText(
+    delta: String,
+    pendingBlocks: List<ResultBlockDto> = emptyList(),
+): List<ChatMessagePart> {
     if (delta.isBlank()) return this
+    if (none { it is ChatMessagePart.Text } && pendingBlocks.isNotEmpty()) {
+        return listOf(ChatMessagePart.Text(delta)) + pendingBlocks.map(ChatMessagePart::ResultBlock)
+    }
     val last = lastOrNull()
     return if (last is ChatMessagePart.Text) {
         dropLast(1) + last.copy(markdown = last.markdown + delta)
@@ -931,13 +938,28 @@ internal fun List<ChatMessagePart>.appendStreamingText(delta: String): List<Chat
     }
 }
 
-internal fun List<ChatMessagePart>.withAuthoritativeText(content: String): List<ChatMessagePart> {
+internal fun List<ChatMessagePart>.appendResultBlockAfterVisibleText(block: ResultBlockDto): List<ChatMessagePart> {
+    if (none { it is ChatMessagePart.Text }) {
+        return this
+    }
+    return this + ChatMessagePart.ResultBlock(block)
+}
+
+internal fun List<ChatMessagePart>.withAuthoritativeText(
+    content: String,
+    pendingBlocks: List<ResultBlockDto> = emptyList(),
+): List<ChatMessagePart> {
     if (content.isBlank()) return this
     val textIndexes = mapIndexedNotNull { index, part ->
         if (part is ChatMessagePart.Text) index else null
     }
     if (textIndexes.isEmpty()) {
-        return this + ChatMessagePart.Text(content)
+        val resultParts = if (any { it is ChatMessagePart.ResultBlock }) {
+            this
+        } else {
+            pendingBlocks.map(ChatMessagePart::ResultBlock)
+        }
+        return listOf(ChatMessagePart.Text(content)) + resultParts
     }
     if (textIndexes.size > 1) {
         return mergeAuthoritativeTextAcrossTimeline(content, textIndexes)
@@ -951,7 +973,7 @@ internal fun List<ChatMessagePart>.withAuthoritativeText(content: String): List<
                 parts[firstTextIndex] = currentText.copy(markdown = content)
             }
         }
-        else -> this + ChatMessagePart.Text(content)
+        else -> this
     }
 }
 
@@ -976,7 +998,7 @@ private fun List<ChatMessagePart>.mergeAuthoritativeTextAcrossTimeline(
                 }
             }
         }
-        else -> this + ChatMessagePart.Text(content)
+        else -> this
     }
 }
 

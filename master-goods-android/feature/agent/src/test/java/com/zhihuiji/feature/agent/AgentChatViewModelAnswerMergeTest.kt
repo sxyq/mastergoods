@@ -63,6 +63,26 @@ class AgentChatViewModelAnswerMergeTest {
     }
 
     @Test
+    fun resultBlockWaitsForFirstStreamingTextBeforeEnteringTimeline() {
+        val block = ResultBlockDto(blockType = "line_chart", title = "销售趋势")
+
+        val beforeAnswer = emptyList<ChatMessagePart>().appendResultBlockAfterVisibleText(block)
+        val afterFirstDelta = beforeAnswer.appendStreamingText(
+            delta = "我查到了销售趋势。",
+            pendingBlocks = listOf(block),
+        )
+
+        assertEquals(emptyList<ChatMessagePart>(), beforeAnswer)
+        assertEquals(
+            listOf(
+                ChatMessagePart.Text("我查到了销售趋势。"),
+                ChatMessagePart.ResultBlock(block),
+            ),
+            afterFirstDelta
+        )
+    }
+
+    @Test
     fun authoritativeTextUpdatesOnlyTextPartWithoutMovingResultBlocks() {
         val block = ResultBlockDto(blockType = "line_chart", title = "趋势")
         val parts = listOf(
@@ -82,7 +102,7 @@ class AgentChatViewModelAnswerMergeTest {
     }
 
     @Test
-    fun authoritativeTextAppendsAfterResultBlockWhenNoTextArrivedYet() {
+    fun authoritativeTextPrependsBeforeResultBlockWhenNoTextArrivedYet() {
         val block = ResultBlockDto(blockType = "table", title = "明细")
         val parts = listOf(ChatMessagePart.ResultBlock(block))
 
@@ -90,24 +110,21 @@ class AgentChatViewModelAnswerMergeTest {
 
         assertEquals(
             listOf(
-                ChatMessagePart.ResultBlock(block),
                 ChatMessagePart.Text("基于上方明细给出结论。"),
+                ChatMessagePart.ResultBlock(block),
             ),
             updated
         )
     }
 
     @Test
-    fun authoritativeTextAppendsConflictingFinalAnswerInsteadOfDroppingIt() {
+    fun authoritativeTextKeepsVisibleStreamWhenFinalAnswerConflicts() {
         val parts = listOf(ChatMessagePart.Text("模型已输出的真实片段"))
 
         val updated = parts.withAuthoritativeText("最终答案与片段不完全一致")
 
         assertEquals(
-            listOf(
-                ChatMessagePart.Text("模型已输出的真实片段"),
-                ChatMessagePart.Text("最终答案与片段不完全一致"),
-            ),
+            listOf(ChatMessagePart.Text("模型已输出的真实片段")),
             updated
         )
     }
@@ -144,6 +161,43 @@ class AgentChatViewModelAnswerMergeTest {
                 ChatMessagePart.Text("目前最高的是 A 商品，需要继续关注库存。"),
             ),
             updated
+        )
+    }
+
+    @Test
+    fun authoritativeTextDoesNotAppendDuplicateFinalAnswerAfterInterleavedResultBlock() {
+        val block = ResultBlockDto(blockType = "line_chart", title = "销售趋势")
+        val parts = listOf(
+            ChatMessagePart.Text("我先查询了近 7 天销售趋势。"),
+            ChatMessagePart.ResultBlock(block),
+            ChatMessagePart.Text("结论：销售额正在回升。"),
+        )
+
+        val updated = parts.withAuthoritativeText("最终汇总：销售额正在回升，请继续关注库存。")
+
+        assertEquals(parts, updated)
+    }
+
+    @Test
+    fun resultBlockThenCompletedAnswerKeepsAnswerBeforeDataBlock() {
+        val block = ResultBlockDto(blockType = "line_chart", title = "销售趋势")
+        val afterResultBlock = emptyList<ChatMessagePart>().appendResultBlockAfterVisibleText(block)
+
+        val afterAnswerCompleted = afterResultBlock.withAuthoritativeText(
+            content = "我查到了近 7 天销售趋势，整体正在回升。",
+            pendingBlocks = listOf(block),
+        )
+        val afterRunCompleted = afterAnswerCompleted.withAuthoritativeText(
+            content = "我查到了近 7 天销售趋势，整体正在回升。",
+            pendingBlocks = listOf(block),
+        )
+
+        assertEquals(
+            listOf(
+                ChatMessagePart.Text("我查到了近 7 天销售趋势，整体正在回升。"),
+                ChatMessagePart.ResultBlock(block),
+            ),
+            afterRunCompleted
         )
     }
 }
