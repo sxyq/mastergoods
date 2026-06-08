@@ -417,6 +417,8 @@ public class ReportService {
         TimeRange range = normalizeRange(startAt, endAt);
         double totalReceivable = safeDouble(customerRepository.sumPositiveBalance(ownerUserId));
         double totalPayable = safeDouble(supplierRepository.sumPositiveBalance(ownerUserId));
+        long totalReceivableCustomerCount = customerRepository.countByOwnerUserIdAndBalanceGreaterThan(ownerUserId, 0.0);
+        long totalPayableSupplierCount = supplierRepository.countByOwnerUserIdAndBalanceGreaterThan(ownerUserId, 0.0);
         double totalReceived = safeDouble(paymentRepository.sumReceivedAmountBetween(
             ownerUserId,
             range.startAt(),
@@ -435,6 +437,8 @@ public class ReportService {
             range.endAt(),
             totalReceivable,
             totalPayable,
+            totalReceivableCustomerCount,
+            totalPayableSupplierCount,
             totalReceived,
             totalPaid,
             totalReceived - totalPaid

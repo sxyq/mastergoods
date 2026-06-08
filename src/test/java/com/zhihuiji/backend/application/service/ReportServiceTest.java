@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
 import com.zhihuiji.backend.api.common.OrderStatus;
+import com.zhihuiji.backend.api.common.PayOrderStatus;
+import com.zhihuiji.backend.api.common.PaymentType;
 import com.zhihuiji.backend.api.dto.report.ReportDto;
 import com.zhihuiji.backend.domain.entity.ProductEntity;
 import com.zhihuiji.backend.domain.entity.SaleOrderEntity;
@@ -81,6 +83,26 @@ class ReportServiceTest {
         assertEquals(24.0, result.estimatedCostAmount());
         assertEquals(76.0, result.estimatedProfitAmount());
         assertEquals(76.0, result.estimatedProfitRate());
+    }
+
+    @Test
+    void reconciliationSummaryIncludesPartnerCountsFromDatabaseAggregates() {
+        when(customerRepository.sumPositiveBalance(1L)).thenReturn(300.0);
+        when(supplierRepository.sumPositiveBalance(1L)).thenReturn(120.0);
+        when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(4L);
+        when(supplierRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(2L);
+        when(paymentRepository.sumReceivedAmountBetween(1L, 0L, 2_000L, PaymentType.REFUND.code()))
+            .thenReturn(80.0);
+        when(payOrderRepository.sumAmountBetweenByStatus(1L, 0L, 2_000L, PayOrderStatus.PAID.code()))
+            .thenReturn(30.0);
+
+        ReportDto.ReconciliationSummaryReportDto result = reportService.reconciliationSummary(0L, 2_000L);
+
+        assertEquals(300.0, result.totalReceivableAmount());
+        assertEquals(120.0, result.totalPayableAmount());
+        assertEquals(4L, result.totalReceivableCustomerCount());
+        assertEquals(2L, result.totalPayableSupplierCount());
+        assertEquals(50.0, result.netCashFlow());
     }
 
     private static SaleOrderEntity saleOrder(Long id, Long createdAt) {

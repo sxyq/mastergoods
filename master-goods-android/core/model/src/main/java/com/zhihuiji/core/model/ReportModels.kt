@@ -129,6 +129,8 @@ data class ReconciliationSummaryReportDto(
     @SerialName("end_at") val endAt: Long,
     @SerialName("total_receivable_amount") val totalReceivableAmount: Double = 0.0,
     @SerialName("total_payable_amount") val totalPayableAmount: Double = 0.0,
+    @SerialName("total_receivable_customer_count") val totalReceivableCustomerCount: Long = 0L,
+    @SerialName("total_payable_supplier_count") val totalPayableSupplierCount: Long = 0L,
     @SerialName("total_received_amount") val totalReceivedAmount: Double = 0.0,
     @SerialName("total_paid_amount") val totalPaidAmount: Double = 0.0,
     @SerialName("net_cash_flow") val netCashFlow: Double = 0.0,

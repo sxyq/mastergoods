@@ -394,7 +394,7 @@ private fun parseMarkdown(markdown: String): List<MarkdownBlock> {
 }
 
 private fun headingMatch(line: String): Pair<Int, String>? {
-    val match = Regex("^(#{1,3})\\s+(.+)$").find(line) ?: return null
+    val match = Regex("^(#{1,6})\\s+(.+)$").find(line) ?: return null
     return match.groupValues[1].length to match.groupValues[2].trim()
 }
 

@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -178,11 +179,6 @@ class V2AgentAiServiceTest {
 
     @Test
     void workbenchDoesNotExposeReportDashboardDefaults() {
-        when(agentConversationRepository.findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(1L, PageRequest.of(0, 5)))
-            .thenReturn(List.of());
-        when(agentDraftRepository.findAllByOwnerUserIdAndStatusIgnoreCaseOrderByUpdatedAtDescIdDesc(1L, "active", PageRequest.of(0, 5)))
-            .thenReturn(List.of());
-
         V2AgentDtos.AgentWorkbenchResponse response = service.getWorkbench();
 
         assertTrue(response.kpiCards().isEmpty());
@@ -190,8 +186,12 @@ class V2AgentAiServiceTest {
         assertTrue(response.todaySummary() == null || response.todaySummary().isBlank());
         assertTrue(response.quickQuestions().isEmpty());
         assertTrue(response.quickQuestions().stream().noneMatch(V2AgentAiServiceTest::isReportLikeQuestion));
+        assertTrue(response.recentConversations().isEmpty());
+        assertTrue(response.pendingDrafts().isEmpty());
         assertEquals("你好，我是智慧记 AI 助手", response.greeting());
         assertFalse(isReportLikeQuestion(response.greeting()));
+        verify(currentOwnerService).requireCurrentOwnerUserId();
+        verifyNoInteractions(agentConversationRepository, agentDraftRepository, agentMessageRepository);
     }
 
     private static boolean isReportLikeQuestion(String question) {

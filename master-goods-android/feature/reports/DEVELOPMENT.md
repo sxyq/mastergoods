@@ -2,7 +2,7 @@
 
 - 当前状态：报表页首版已完成，并已按 `UI-DESIGN-SPEC.md` 继续收紧视觉层次、时间标签语义和诚实态文案。
 - 实际源码目录：`feature/reports/src/main/java/com/zhihuiji/feature/reports`
-- 当前真实依赖：`data/order`、`data/finance`、`data/product`、`data/sync`
+- 当前真实依赖：`data/report`
 - 目标：实现经营报表页，并明确哪些指标会随时间标签联动、哪些仍是当前快照。
 
 ## 需要创建的类
@@ -23,6 +23,7 @@
 - 修复时间区间 Tab 之前只改本地展示、不驱动真实数据刷新的问题；当前 `selectedPeriod` 已下沉到 `ReportViewModel`，切换后会重新按时间范围筛选订单数据并刷新报表状态。
 - 继续复用 `GlassTopBar`、`ChartCard`、`KpiCard`、`SearchFilterBar`、`FilterChipRow`、`BusinessListItem`、`EmptyState` 等现有组件，不新增 feature 私有视觉体系。
 - 明确保留“销售与应收随时间标签变化，库存成本/账户余额/占位图表仍是当前快照”的边界说明，避免把当前环境下的本地报表 UI 误写成完整动态报表已联调完成。
+- 不改 UI 的性能补强：`ReportViewModel` 的往来余额改走 `ReportRepository.reconciliationSummary()`，不再为应收 / 应付金额全量拉取客户和供应商列表；feature 模块也清理为只依赖 `data:report`。
 
 ## 验收标准
 
@@ -40,7 +41,7 @@
 
 ## 待验证边界
 
-- 当前时间标签只驱动销售单与应收筛选；账户余额、低库存、库存月统计仍来自当前快照。
+- 当前时间标签驱动销售汇总、利润预估、商品排行和往来汇总；账户余额、低库存、库存月统计仍来自当前快照。
 - “销售趋势”仍是诚实态占位，真实趋势序列、坐标与 tooltip 尚未联调。
 - 成本与利润仍基于客户端可得库存月统计估算，不代表服务端最终报表口径。
 

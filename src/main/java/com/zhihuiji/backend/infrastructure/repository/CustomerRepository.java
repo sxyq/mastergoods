@@ -28,5 +28,7 @@ public interface CustomerRepository extends JpaRepository<CustomerEntity, Long> 
     @Query("SELECT COALESCE(SUM(CASE WHEN c.balance > 0 THEN c.balance ELSE 0 END), 0) FROM CustomerEntity c WHERE c.ownerUserId = :ownerUserId")
     Double sumPositiveBalance(@org.springframework.data.repository.query.Param("ownerUserId") Long ownerUserId);
 
+    long countByOwnerUserIdAndBalanceGreaterThan(Long ownerUserId, Double balance);
+
     Optional<CustomerEntity> findByIdAndOwnerUserId(Long id, Long ownerUserId);
 }

@@ -132,6 +132,8 @@ public final class ReportDto {
         long endAt,
         double totalReceivableAmount,
         double totalPayableAmount,
+        long totalReceivableCustomerCount,
+        long totalPayableSupplierCount,
         double totalReceivedAmount,
         double totalPaidAmount,
         double netCashFlow

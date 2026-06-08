@@ -215,7 +215,10 @@ extract_sse_events_filter() {
       event_id: (.event_id // .eventId // null),
       event_type: (.event_type // .eventType // null),
       run_id: (.run_id // .runId // null),
-      tool_name: (.tool_name // .toolName // null)
+      tool_name: (.tool_name // .toolName // null),
+      delta_source: (.delta_source // .deltaSource // null),
+      mode: (.mode // null),
+      llm_status: (.llm_status // .llmStatus // null)
     }
   '
 }
@@ -249,7 +252,10 @@ EOF
       event_id: (.event_id // .eventId // null),
       event_type: (.event_type // .eventType // null),
       run_id: (.payload.run_id // .payload.runId // .data.run_id // .data.runId // null),
-      tool_name: (.payload.tool_name // .payload.toolName // null)
+      tool_name: (.payload.tool_name // .payload.toolName // null),
+      delta_source: (.payload.delta_source // .payload.deltaSource // null),
+      mode: (.payload.mode // null),
+      llm_status: (.payload.llm_status // .payload.llmStatus // null)
     }
   ' "${dir}/03-run-audit.json" > "${audit_events_file}"
   jq -s '.' "${sse_events_file}" > "${sse_events_json}"
@@ -271,6 +277,9 @@ EOF
         event_id: $sse.event_id,
         raw_sse_event_type: $sse.event_type,
         audit_event_type: ($audit.event_type // null),
+        delta_source: ($sse.delta_source // $audit.delta_source // null),
+        mode: ($sse.mode // $audit.mode // null),
+        llm_status: ($sse.llm_status // $audit.llm_status // null),
         android_runtrace_row:
           (if ($sse.event_type // "") | startswith("tool_") then
             "RunTrace tool card" + (if $sse.tool_name then ": " + $sse.tool_name else "" end)
@@ -285,6 +294,7 @@ EOF
           (if ($audit | length) == 0 then "fail"
           elif $sse.event_id != ($audit.event_id // null) then "fail"
           elif $sse.event_type != ($audit.event_type // null) then "fail"
+          elif ($sse.event_type // "") == "answer_delta" and ($sse.delta_source // $audit.delta_source // "") != "model_stream" then "fail"
           else "pass"
           end)
       }
@@ -294,22 +304,22 @@ EOF
   {
     echo "# SSE / Audit / UI Reconciliation"
     echo
-    echo "| seq | event_id | raw SSE event_type | audit event_type | Android RunTrace row | conclusion |"
-    echo "|---|---|---|---|---|---|"
+    echo "| seq | event_id | raw SSE event_type | audit event_type | delta_source | mode | llm_status | Android RunTrace row | conclusion |"
+    echo "|---|---|---|---|---|---|---|---|---|"
     jq -r '
       .[] |
-      "| \(.seq // "missing") | `\(.event_id // "missing")` | `\(.raw_sse_event_type // "missing")` | `\(.audit_event_type // "missing")` | \(.android_runtrace_row) | \(.conclusion) |"
+      "| \(.seq // "missing") | `\(.event_id // "missing")` | `\(.raw_sse_event_type // "missing")` | `\(.audit_event_type // "missing")` | `\(.delta_source // "n/a")` | `\(.mode // "n/a")` | `\(.llm_status // "n/a")` | \(.android_runtrace_row) | \(.conclusion) |"
     ' "${reconciliation_json}"
     if jq -e 'any(.conclusion == "fail")' "${reconciliation_json}" >/dev/null; then
       echo
       echo "Status: fail"
       echo
-      echo "At least one SSE event did not match the persisted audit event with the same seq."
+      echo "At least one SSE event did not match the persisted audit event with the same seq, or an answer_delta did not declare delta_source=model_stream."
     else
       echo
       echo "Status: pass-for-interface"
       echo
-      echo "SSE and server audit events match by seq, event_id, and event_type. Android UI evidence is still required before full P0 pass."
+      echo "SSE and server audit events match by seq, event_id, event_type, and any answer_delta events declare delta_source=model_stream. Android UI evidence is still required before full P0 pass."
     fi
   } > "${output_file}"
 

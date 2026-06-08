@@ -554,6 +554,10 @@ class AgentChatViewModel @Inject constructor(
 
     private fun saveAuditRecord() {
         val builder = currentAuditBuilder ?: return
+        saveAuditRecord(builder)
+    }
+
+    private fun saveAuditRecord(builder: AuditRecordBuilder) {
         val record = builder.build()
         viewModelScope.launch {
             try {
@@ -562,7 +566,9 @@ class AgentChatViewModel @Inject constructor(
                 // 审计记录保存失败不应影响主流程
             }
         }
-        currentAuditBuilder = null
+        if (currentAuditBuilder === builder) {
+            currentAuditBuilder = null
+        }
     }
 
     private fun updateAssistantMessage(
@@ -654,6 +660,7 @@ class AgentChatViewModel @Inject constructor(
     fun stopGeneration() {
         flushPendingAnswerDelta()
         val runId = _uiState.value.currentRunId
+        val cancellingAuditBuilder = currentAuditBuilder
         if (!runId.isNullOrBlank()) {
             viewModelScope.launch {
                 repository.cancelRun(runId)
@@ -663,25 +670,25 @@ class AgentChatViewModel @Inject constructor(
                         } else {
                             "已停止本机接收，服务端取消未确认：${response.status}"
                         }
-                        currentAuditBuilder?.errorInfo = ErrorAuditInfo(message = message)
+                        cancellingAuditBuilder?.errorInfo = ErrorAuditInfo(message = message)
                         _uiState.update { it.copy(error = message) }
-                        saveAuditRecord()
+                        cancellingAuditBuilder?.let(::saveAuditRecord)
                     }
                     .onFailure { error ->
                         val message = "已停止本机接收，服务端取消失败：${error.message ?: "未知错误"}"
-                        currentAuditBuilder?.errorInfo = ErrorAuditInfo(message = message)
+                        cancellingAuditBuilder?.errorInfo = ErrorAuditInfo(message = message)
                         _uiState.update { it.copy(error = message) }
-                        saveAuditRecord()
+                        cancellingAuditBuilder?.let(::saveAuditRecord)
                     }
             }
         }
         chatJob?.cancel()
         chatJob = null
-        currentAuditBuilder?.errorInfo = ErrorAuditInfo(
+        cancellingAuditBuilder?.errorInfo = ErrorAuditInfo(
             message = LOCAL_STREAM_STOP_MESSAGE,
         )
         if (runId.isNullOrBlank()) {
-            saveAuditRecord()
+            cancellingAuditBuilder?.let(::saveAuditRecord)
         }
         _uiState.update { state ->
             val stoppedMessages = state.messages.map { message ->

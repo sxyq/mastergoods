@@ -150,32 +150,14 @@ public class V2AgentAiService {
 
     @Transactional(readOnly = true)
     public V2AgentDtos.AgentWorkbenchResponse getWorkbench() {
-        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        List<AgentConversationEntity> conversations = agentConversationRepository
-            .findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(ownerUserId, PageRequest.of(0, 5));
-        List<AgentDraftEntity> pendingDraftRows = agentDraftRepository
-            .findAllByOwnerUserIdAndStatusIgnoreCaseOrderByUpdatedAtDescIdDesc(ownerUserId, "active", PageRequest.of(0, 5));
-
-        List<V2AgentDtos.RecentConversationItem> recentConversations = conversations.stream()
-            .limit(5)
-            .map(item -> new V2AgentDtos.RecentConversationItem(
-                item.getId(),
-                item.getTitle(),
-                item.getLastMessageAt() != null ? item.getLastMessageAt() : item.getUpdatedAt(),
-                countMessages(ownerUserId, item.getId())
-            ))
-            .toList();
-
-        List<V2AgentDtos.PendingDraftItem> pendingDrafts = pendingDraftRows.stream()
-            .map(item -> new V2AgentDtos.PendingDraftItem(item.getId(), item.getDraftType(), item.getTitle(), item.getCreatedAt()))
-            .toList();
+        currentOwnerService.requireCurrentOwnerUserId();
 
         return new V2AgentDtos.AgentWorkbenchResponse(
             "你好，我是智慧记 AI 助手",
             List.of(),
             List.of(),
-            recentConversations,
-            pendingDrafts,
+            List.of(),
+            List.of(),
             List.of(),
             null
         );

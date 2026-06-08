@@ -39,6 +39,8 @@ public interface SupplierRepository extends JpaRepository<SupplierEntity, Long> 
     @Query("SELECT COALESCE(SUM(CASE WHEN s.balance > 0 THEN s.balance ELSE 0 END), 0) FROM SupplierEntity s WHERE s.ownerUserId = :ownerUserId")
     Double sumPositiveBalance(@org.springframework.data.repository.query.Param("ownerUserId") Long ownerUserId);
 
+    long countByOwnerUserIdAndBalanceGreaterThan(Long ownerUserId, Double balance);
+
     boolean existsByOwnerUserIdAndPhone(Long ownerUserId, String phone);
 
     boolean existsByOwnerUserIdAndPhoneAndIdNot(Long ownerUserId, String phone, Long id);

@@ -42,6 +42,9 @@ class AgentSseClient(
     private val callFactory: (OkHttpClient, Request) -> Call = { client, request -> client.newCall(request) },
     private val streamDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
+    private val streamingOkHttpClient: OkHttpClient = okHttpClient.newBuilder()
+        .readTimeout(60, TimeUnit.SECONDS)
+        .build()
 
     /**
      * 发起流式聊天请求，返回事件流。
@@ -52,11 +55,6 @@ class AgentSseClient(
         val baseUrl = baseUrlProvider().removeSuffix("/")
         val url = "$baseUrl/v2/agent/chat/stream"
 
-        // SSE 需要更长的读取超时
-        val sseClient = okHttpClient.newBuilder()
-            .readTimeout(60, TimeUnit.SECONDS)
-            .build()
-
         val request = Request.Builder()
             .url(url)
             .post(requestBodyJson.toRequestBody("application/json".toMediaType()))
@@ -65,7 +63,7 @@ class AgentSseClient(
             .header("Connection", "keep-alive")
             .build()
 
-        val call = callFactory(sseClient, request)
+        val call = callFactory(streamingOkHttpClient, request)
         try {
             call.executeCancellable().use { response ->
                 if (!response.isSuccessful) {

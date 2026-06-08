@@ -28,6 +28,14 @@ class AgentMarkdownTextParserTest {
     }
 
     @Test
+    fun parseMarkdownSupportsDeepHeadingLevels() {
+        val blocks = parseMarkdownBlocks("#### 四级标题\n###### 六级标题")
+
+        assertEquals(listOf(4, 6), blocks.map(::headingLevel))
+        assertEquals(listOf("四级标题", "六级标题"), blocks.map(::headingText))
+    }
+
+    @Test
     fun inlineMarkdownShowsLinkLabelAndVisibleUrl() {
         val rendered = inlineMarkdownText("查看[官方文档](https://example.com/docs)后继续。")
 
@@ -75,6 +83,18 @@ class AgentMarkdownTextParserTest {
         val codeProperty = block.javaClass.getDeclaredMethod("getCode")
         codeProperty.isAccessible = true
         return codeProperty.invoke(block) as String
+    }
+
+    private fun headingLevel(block: Any): Int {
+        val levelProperty = block.javaClass.getDeclaredMethod("getLevel")
+        levelProperty.isAccessible = true
+        return levelProperty.invoke(block) as Int
+    }
+
+    private fun headingText(block: Any): String {
+        val textProperty = block.javaClass.getDeclaredMethod("getText")
+        textProperty.isAccessible = true
+        return textProperty.invoke(block) as String
     }
 
     private companion object {

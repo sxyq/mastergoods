@@ -3,12 +3,9 @@ package com.zhihuiji.feature.reports
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.model.TopSellingProductReportDto
-import com.zhihuiji.data.customer.CustomerV2Repository
 import com.zhihuiji.data.report.ReportRepository
-import com.zhihuiji.data.supplier.SupplierV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -77,8 +74,6 @@ private data class ReportDateRange(
 @HiltViewModel
 class ReportViewModel @Inject constructor(
     private val reportRepository: ReportRepository,
-    private val customerRepository: CustomerV2Repository,
-    private val supplierRepository: SupplierV2Repository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReportUiState())
@@ -102,7 +97,7 @@ class ReportViewModel @Inject constructor(
             val profitSummaryDeferred = async { reportRepository.profitSummary(dateRange.startAt, dateRange.endAt) }
             val topProductsDeferred = async { reportRepository.topProducts(dateRange.startAt, dateRange.endAt, limit = 5) }
             val partnerBalancesDeferred = if (forcePartnerRefresh || cachedPartnerBalances == null) {
-                async { fetchPartnerBalances() }
+                async { fetchPartnerBalances(dateRange) }
             } else {
                 null
             }
@@ -171,28 +166,13 @@ class ReportViewModel @Inject constructor(
         _uiState.update { it.copy(error = null, failedReportSections = emptyList()) }
     }
 
-    private suspend fun fetchPartnerBalances(): Result<PartnerBalanceSummary> = coroutineScope {
-        val customersDeferred = async { customerRepository.listCustomers() }
-        val suppliersDeferred = async { supplierRepository.listSuppliers() }
-
-        val customers = customersDeferred.await()
-        val suppliers = suppliersDeferred.await()
-        val results = listOf(customers, suppliers)
-        val error = results.filter { it.isFailure }.mapNotNull {
-            runCatching { it.getOrThrow() }.exceptionOrNull()
-        }.firstOrNull()
-
-        if (error != null) {
-            Result.failure(error)
-        } else {
-            Result.success(
-                PartnerBalanceSummary(
-                    receivableAmount = customers.getOrNull().orEmpty().sumOf { it.balance },
-                    payableAmount = suppliers.getOrNull().orEmpty().sumOf { it.balance },
-                )
+    private suspend fun fetchPartnerBalances(dateRange: ReportDateRange): Result<PartnerBalanceSummary> =
+        reportRepository.reconciliationSummary(dateRange.startAt, dateRange.endAt).map { summary ->
+            PartnerBalanceSummary(
+                receivableAmount = summary.totalReceivableAmount,
+                payableAmount = summary.totalPayableAmount,
             )
         }
-    }
 
     private fun getPeriodMillis(period: ReportPeriod): ReportDateRange {
         val now = LocalDateTime.now()

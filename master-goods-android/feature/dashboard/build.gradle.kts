@@ -39,6 +39,7 @@ dependencies {
     implementation(project(":data:product"))
     implementation(project(":data:customer"))
     implementation(project(":data:agent"))
+    implementation(project(":data:report"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
