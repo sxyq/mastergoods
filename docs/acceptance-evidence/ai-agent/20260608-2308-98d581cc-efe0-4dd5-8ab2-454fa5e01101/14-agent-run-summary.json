@@ -1,0 +1,214 @@
+{
+  "run_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101",
+  "status": "completed",
+  "mode": "tool_query_rule_summary",
+  "llm_status": "disabled",
+  "plan_source": "keyword",
+  "tool_count": 4,
+  "event_count": 28,
+  "performance": {
+    "started_at": 1780931280500,
+    "completed_at": 1780931280664,
+    "duration_ms": 164
+  },
+  "tools": [
+    {
+      "tool_name": "supplier_payable_lookup",
+      "returned_count": 3,
+      "limit": 10,
+      "is_truncated": false,
+      "duration_ms": 7,
+      "result_summary": "命中 3 个应付供应商",
+      "evidence": {
+        "source": "tool:supplier_payable_lookup",
+        "scope": "current_owner",
+        "returned_count": 3,
+        "is_truncated": false
+      }
+    },
+    {
+      "tool_name": "purchase_order_lookup",
+      "returned_count": 2,
+      "limit": 10,
+      "is_truncated": false,
+      "duration_ms": 9,
+      "result_summary": "命中 2 条采购单",
+      "evidence": {
+        "source": "tool:purchase_order_lookup",
+        "scope": "current_owner",
+        "returned_count": 2,
+        "is_truncated": false
+      }
+    },
+    {
+      "tool_name": "finance_record_lookup",
+      "returned_count": 0,
+      "limit": 10,
+      "is_truncated": false,
+      "duration_ms": 10,
+      "result_summary": "命中 0 条资金流水",
+      "evidence": {
+        "source": "tool:finance_record_lookup",
+        "scope": "current_owner",
+        "returned_count": 0,
+        "is_truncated": false
+      }
+    },
+    {
+      "tool_name": "sales_overview_lookup",
+      "returned_count": 2,
+      "limit": null,
+      "is_truncated": false,
+      "duration_ms": 16,
+      "result_summary": "已汇总近7天销售、应收和库存信号",
+      "evidence": {
+        "source": "tool:sales_overview_lookup",
+        "scope": "current_owner",
+        "returned_count": 2,
+        "is_truncated": false
+      }
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:1",
+      "event_type": "run_started"
+    },
+    {
+      "seq": 2,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:2",
+      "event_type": "safety_check_started"
+    },
+    {
+      "seq": 3,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:3",
+      "event_type": "safety_check_passed"
+    },
+    {
+      "seq": 4,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:4",
+      "event_type": "plan_delta"
+    },
+    {
+      "seq": 5,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:5",
+      "event_type": "tool_started"
+    },
+    {
+      "seq": 6,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:6",
+      "event_type": "tool_completed"
+    },
+    {
+      "seq": 7,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:7",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 8,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:8",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 9,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:9",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 10,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:10",
+      "event_type": "tool_started"
+    },
+    {
+      "seq": 11,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:11",
+      "event_type": "tool_completed"
+    },
+    {
+      "seq": 12,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:12",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 13,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:13",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 14,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:14",
+      "event_type": "tool_started"
+    },
+    {
+      "seq": 15,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:15",
+      "event_type": "tool_completed"
+    },
+    {
+      "seq": 16,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:16",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 17,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:17",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 18,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:18",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 19,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:19",
+      "event_type": "tool_started"
+    },
+    {
+      "seq": 20,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:20",
+      "event_type": "tool_completed"
+    },
+    {
+      "seq": 21,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:21",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 22,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:22",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 23,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:23",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 24,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:24",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 25,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:25",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 26,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:26",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 27,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:27",
+      "event_type": "answer_completed"
+    },
+    {
+      "seq": 28,
+      "event_id": "98d581cc-efe0-4dd5-8ab2-454fa5e01101:28",
+      "event_type": "run_completed"
+    }
+  ]
+}

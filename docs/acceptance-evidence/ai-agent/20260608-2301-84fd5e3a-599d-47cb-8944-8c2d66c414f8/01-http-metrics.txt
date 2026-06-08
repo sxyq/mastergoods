@@ -1,0 +1,5 @@
+http_code=200
+time_namelookup=0.000013
+time_connect=0.000147
+time_starttransfer=0.033091
+time_total=0.159214

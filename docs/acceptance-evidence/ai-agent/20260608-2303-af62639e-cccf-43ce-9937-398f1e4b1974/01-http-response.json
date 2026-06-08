@@ -1,0 +1,11 @@
+{
+  "captured_at": "2026-06-08T15:03:28Z",
+  "mode": "stream",
+  "endpoint": "http://localhost:18080/v2/agent/chat/stream",
+  "request": {
+    "message": "哪些客户还有应收款，金额是多少？",
+    "stream": true
+  },
+  "headers": "HTTP/1.1 200 \r\nVary: Origin\r\nVary: Access-Control-Request-Method\r\nVary: Access-Control-Request-Headers\r\nX-Content-Type-Options: nosniff\r\nX-XSS-Protection: 0\r\nCache-Control: no-cache, no-store, max-age=0, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\nX-Frame-Options: DENY\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\nDate: Mon, 08 Jun 2026 15:03:28 GMT\r\n\r\n",
+  "metrics": "http_code=200\ntime_namelookup=0.000008\ntime_connect=0.000132\ntime_starttransfer=0.004952\ntime_total=0.033356"
+}

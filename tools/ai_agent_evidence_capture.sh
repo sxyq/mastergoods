@@ -57,8 +57,20 @@ timestamp_utc() {
   date -u +"%Y-%m-%dT%H:%M:%SZ"
 }
 
+normalize_capture_file() {
+  local file="$1"
+  [[ -f "${file}" ]] || return 0
+  perl -0pi -e 's/\r\n/\n/g; s/[ \t]+\n/\n/g; s/\n+\z/\n/' "${file}"
+}
+
 safe_name() {
   printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '-'
+}
+
+unique_capture_suffix() {
+  local random_part
+  random_part="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 8 || true)"
+  printf '%s-%s' "$$" "${random_part:-manual}"
 }
 
 build_payload() {
@@ -411,6 +423,10 @@ capture_workbench_response() {
   curl_status=$?
   set -e
   printf '%s' "${curl_output}" > "${metrics_file}"
+  normalize_capture_file "${headers_file}"
+  normalize_capture_file "${metrics_file}"
+  normalize_capture_file "${body_file}"
+  normalize_capture_file "${error_file}"
 
   if [[ "${curl_status}" -ne 0 ]]; then
     jq -n \
@@ -908,6 +924,9 @@ capture_audit_and_tools() {
       -o "${dir}/03-run-audit.json"
   )"
   printf '%s' "${audit_http_status}" > "${dir}/03-run-audit-metrics.txt"
+  normalize_capture_file "${dir}/03-run-audit-headers.txt"
+  normalize_capture_file "${dir}/03-run-audit-metrics.txt"
+  normalize_capture_file "${dir}/03-run-audit.json"
   if ! grep -q '^http_code=2' "${dir}/03-run-audit-metrics.txt" || ! jq -e '.data.run_id or .data.runId' "${dir}/03-run-audit.json" >/dev/null 2>&1; then
     jq -n \
       --arg run_id "${run_id}" \
@@ -951,7 +970,7 @@ main() {
   mkdir -p "${EVIDENCE_ROOT}"
   local stamp dir run_id final_dir payload stream_flag endpoint http_status
   stamp="$(date +"%Y%m%d-%H%M")"
-  dir="${EVIDENCE_ROOT}/${stamp}-manual"
+  dir="${EVIDENCE_ROOT}/${stamp}-$(unique_capture_suffix)-manual"
   mkdir -p "${dir}"
   write_env_file "${dir}"
 
@@ -977,6 +996,9 @@ main() {
         "${endpoint}"
     )"
     printf '%s' "${http_status}" > "${dir}/01-http-metrics.txt"
+    normalize_capture_file "${dir}/01-http-headers.txt"
+    normalize_capture_file "${dir}/01-http-metrics.txt"
+    normalize_capture_file "${dir}/02-raw-sse.log"
     jq -n \
       --arg endpoint "${endpoint}" \
       --arg mode "${MODE}" \
@@ -1004,6 +1026,9 @@ main() {
         "${endpoint}"
     )"
     printf '%s' "${http_status}" > "${dir}/01-http-metrics.txt"
+    normalize_capture_file "${dir}/01-http-headers.txt"
+    normalize_capture_file "${dir}/01-http-metrics.txt"
+    normalize_capture_file "${dir}/01-http-body.json"
     jq -n \
       --arg endpoint "${endpoint}" \
       --arg mode "${MODE}" \

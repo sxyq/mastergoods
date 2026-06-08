@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 
 @Entity
@@ -29,7 +30,8 @@ public class AgentMessageEntity {
     @Column(nullable = false, length = 4000)
     private String content;
 
-    @Column(name = "structured_data_json", length = 4000)
+    @Lob
+    @Column(name = "structured_data_json", columnDefinition = "TEXT")
     private String structuredDataJson;
 
     @Column(name = "created_at", nullable = false)
