@@ -2,7 +2,7 @@
 
 - 当前状态：首页经营看板首版已完成，并已按 `UI-DESIGN-SPEC.md` 继续收紧视觉层次与诚实态文案。
 - 实际源码目录：`feature/dashboard/src/main/java/com/zhihuiji/feature/dashboard`
-- 当前真实依赖：`data/order`、`data/finance`、`data/product`、`data/customer`、`data/report`、`data/agent`
+- 当前真实依赖：`data/product`、`data/customer`、`data/report`、`data/agent`
 - 目标：实现首页经营看板，并明确区分“当前已接入数据”与“仍待联调能力”。
 
 ## 需要创建的类
@@ -37,7 +37,8 @@
 - 统一改为更接近设计稿的浅蓝毛玻璃首页信息结构，补充了总览卡、搜索/筛选、待办/资金/库存分组。
 - 复用 `GlassTopBar`、`GlassCard`、`KpiCard`、`BusinessListItem`、`SearchFilterBar`、`FilterChipRow`、`StatusPill`、`EmptyState` 等现有组件，避免私有样式漂移。
 - 明确补入“当前仅汇总销售单、账户余额、低库存接口”的诚实态文案，不把本地 UI 调整描述成完整经营总览已经联调完成。
-- 不改 UI 的性能补强：`receivableAmount` 和 `receivableCustomerCount` 优先使用 `ReportRepository.reconciliationSummary()` 的服务端 SUM / COUNT 字段，只有汇总失败或旧后端缺 count 时才兜底拉客户列表；销售额、订单数和趋势图改走 `ReportRepository.salesSummary()` / `salesTrend()` 服务端聚合，不再为首页拉全量销售订单；`netCashFlow` 仍保留资金流水收入 / 支出的原有口径，避免用回款 / 付款单口径替代。
+- 不改 UI 的性能补强：`receivableAmount` 和 `receivableCustomerCount` 优先使用 `ReportRepository.reconciliationSummary()` 的服务端 SUM / COUNT 字段，只有汇总失败或旧后端缺 count 时才兜底拉客户列表；销售额、订单数和趋势图改走 `ReportRepository.salesSummary()` / `salesTrend()` 服务端聚合，不再为首页拉全量销售订单；`netCashFlow` 改走 `ReportRepository.cashflowSummary()` 后端聚合，并继续保留资金流水收入 / 支出的原有口径，避免用回款 / 付款单口径替代。
+- 回归门禁：`DashboardViewModelDependencyTest` 固定 Dashboard 依赖 `ReportRepository` 且不重新引入 `FinanceRepository`；后端性能证据见 `docs/acceptance-evidence/performance/20260609-052957-backend-report-performance/`。
 
 ## 验收标准
 
@@ -47,8 +48,8 @@
 
 ## 待验证边界
 
-- 销售趋势和净现金流仍来自客户端本地聚合；应收金额和应收客户数已优先走服务端汇总，客户列表仅作为旧接口 / 失败兜底。
-- 页面未接入真实趋势序列、通知中心或扫码入口；文案与图标需保持诚实态，不把占位能力伪装成已上线功能。
+- 销售趋势、应收金额、应收客户数和净现金流已优先走服务端汇总；客户列表仅作为旧接口 / 失败兜底。仍需真机记录首页刷新首个可见耗时、frame timing 和截图。
+- 页面未接入通知中心或扫码入口；文案与图标需保持诚实态，不把占位能力伪装成已上线功能。
 - 视觉已进入收口阶段，但仍需通过真机截图继续核对首屏信息密度、状态色和留白。
 
 ## 下一步

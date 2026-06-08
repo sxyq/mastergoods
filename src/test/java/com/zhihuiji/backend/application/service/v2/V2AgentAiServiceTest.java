@@ -545,6 +545,32 @@ class V2AgentAiServiceTest {
     }
 
     @Test
+    void cancelRunDoesNotPretendUnknownRunWasCancelled() {
+        V2AgentDtos.AgentRunCancelResponse response = service.cancelRun("missing-run");
+
+        assertEquals("missing-run", response.runId());
+        assertEquals("not_found", response.status());
+        assertEquals(false, response.cancelled());
+        assertFalse(runAudits.containsKey("missing-run"));
+        assertFalse(runAuditEvents.stream().anyMatch(event -> "run_cancelled".equals(event.getEventType())));
+    }
+
+    @Test
+    void cancelRunDoesNotCancelOtherOwnerActiveRun() throws Exception {
+        CapturingEmitter emitter = new CapturingEmitter();
+        registerActiveRun(2L, "other-owner-run", 201L, emitter);
+
+        V2AgentDtos.AgentRunCancelResponse response = service.cancelRun("other-owner-run");
+
+        assertEquals("other-owner-run", response.runId());
+        assertEquals("not_found", response.status());
+        assertEquals(false, response.cancelled());
+        assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"event_type\":\"run_cancelled\"")));
+        assertFalse(runAudits.containsKey("other-owner-run"));
+        assertFalse(runAuditEvents.stream().anyMatch(event -> "run_cancelled".equals(event.getEventType())));
+    }
+
+    @Test
     void nonStreamingChatIncludesAuditableAgentRunContract() {
         when(longCatAnthropicClient.isConfigured()).thenReturn(false);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
@@ -800,6 +826,24 @@ class V2AgentAiServiceTest {
         Constructor<?> constructor = toolResultClass.getDeclaredConstructor(String.class, String.class, JsonNode.class);
         constructor.setAccessible(true);
         return constructor.newInstance(toolName, summary, facts);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void registerActiveRun(Long ownerUserId, String runId, Long conversationId, SseEmitter emitter) throws Exception {
+        Field activeRunsField = V2AgentAiService.class.getDeclaredField("activeRuns");
+        activeRunsField.setAccessible(true);
+        Map<String, Object> activeRuns = (Map<String, Object>) activeRunsField.get(service);
+        Class<?> activeRunClass = Class.forName(
+            "com.zhihuiji.backend.application.service.v2.V2AgentAiService$ActiveAgentRun"
+        );
+        Constructor<?> constructor = activeRunClass.getDeclaredConstructor(
+            Long.class,
+            String.class,
+            Long.class,
+            SseEmitter.class
+        );
+        constructor.setAccessible(true);
+        activeRuns.put(runId, constructor.newInstance(ownerUserId, runId, conversationId, emitter));
     }
 
     private static String firstPayload(CapturingEmitter emitter, String marker) {
