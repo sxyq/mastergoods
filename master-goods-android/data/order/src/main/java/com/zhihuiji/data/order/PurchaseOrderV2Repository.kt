@@ -20,4 +20,10 @@ class PurchaseOrderV2Repository @Inject constructor(
 
     suspend fun createPurchaseOrder(request: CreatePurchaseOrderV2Request): Result<PurchaseOrderV2Dto> =
         safeApiCall { api.createPurchaseOrderV2(request) }
+
+    suspend fun updatePurchaseOrder(id: Long, request: CreatePurchaseOrderV2Request): Result<PurchaseOrderV2Dto> =
+        safeApiCall { api.updatePurchaseOrderV2(id, request) }
+
+    suspend fun deletePurchaseOrder(id: Long): Result<Unit> =
+        safeApiCall { api.deletePurchaseOrderV2(id) }
 }

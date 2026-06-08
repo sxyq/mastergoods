@@ -32,7 +32,7 @@
 
 ## UI 设计规范
 
-- 对照设计图 `02.png` 的设置页实现（来源见 `docs/design-mockups`）。
+- 历史视觉参考曾对照旧设计图 `02.png`，当前请优先对照 Stitch 导出与 `docs/spec/42-android-liquid-glass-ui-refactor-plan.md`； 的设置页实现。
 - 顶部为返回按钮和标题“设置”。
 - 设置项按账号与安全、服务端设置、通用设置、关于分组，每组使用毛玻璃列表卡。
 - 每个设置项左侧可放蓝色线性图标，右侧展示当前值和箭头。
@@ -51,4 +51,4 @@
 - 页面结构优先落入既有模式：列表页、详情页、编辑页、报表页、AI 页、设置页。
 - 视觉基线固定为：浅蓝渐变背景、玻璃卡片、蓝色主按钮、白色次按钮、统一状态标签、五栏主壳。
 - 如需新增 UI 组件，先沉淀到 `core/designsystem`，再由本模块复用；不允许长期保留 feature 私有样式组件。
-- 验收时同时对照：`docs/design-mockups/01.png ~ 08.png`、`master-goods-android/UI-DESIGN-SPEC.md`、`docs/technical-analysis/android/core/designsystem/README.md`。
+- 验收时当前优先对照：`docs/spec/42-android-liquid-glass-ui-refactor-plan.md`、Stitch 导出清单、`master-goods-android/UI-DESIGN-SPEC.md`、`docs/technical-analysis/android/core/designsystem/README.md`；`docs/design-mockups/` 仅作历史参考。

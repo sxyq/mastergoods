@@ -126,6 +126,32 @@ class V2SalesReturnServiceTest {
         assertEquals(6.0, response.totalAmount());
     }
 
+    @Test
+    void listWithoutKeywordAvoidsSearchQuery() {
+        SalesReturnEntity salesReturn = salesReturn(7L, 0);
+        when(salesReturnRepository.findByOwnerUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(salesReturn));
+        when(salesReturnItemRepository.findByOwnerUserIdAndReturnIdOrderByCreatedAtAsc(1L, 7L)).thenReturn(List.of());
+
+        List<V2SalesReturnDtos.SalesReturnResponse> responses = service.list(null, null);
+
+        assertEquals(1, responses.size());
+        assertEquals("SR-7", responses.get(0).returnNo());
+        verify(salesReturnRepository, never()).search(any(), any(), any());
+    }
+
+    @Test
+    void listWithBlankKeywordAndStatusAvoidsSearchQuery() {
+        SalesReturnEntity salesReturn = salesReturn(8L, 1);
+        when(salesReturnRepository.findByOwnerUserIdAndStatusOrderByCreatedAtDesc(1L, 1)).thenReturn(List.of(salesReturn));
+        when(salesReturnItemRepository.findByOwnerUserIdAndReturnIdOrderByCreatedAtAsc(1L, 8L)).thenReturn(List.of());
+
+        List<V2SalesReturnDtos.SalesReturnResponse> responses = service.list("   ", 1);
+
+        assertEquals(1, responses.size());
+        assertEquals(1, responses.get(0).status());
+        verify(salesReturnRepository, never()).search(any(), any(), any());
+    }
+
     private static V2SalesReturnDtos.CreateRequest createRequest(Long customerId, Double quantity, Long originalOrderId) {
         return new V2SalesReturnDtos.CreateRequest(
             originalOrderId,
@@ -134,6 +160,21 @@ class V2SalesReturnServiceTest {
             List.of(new V2SalesReturnDtos.CreateItemRequest(11L, quantity, null)),
             "退货备注"
         );
+    }
+
+    private static SalesReturnEntity salesReturn(Long id, Integer status) {
+        SalesReturnEntity entity = new SalesReturnEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setReturnNo("SR-" + id);
+        entity.setCustomerId(2L);
+        entity.setCustomerName("客户A");
+        entity.setTotalAmount(6.0);
+        entity.setRefundAmount(0.0);
+        entity.setStatus(status);
+        entity.setCreatedAt(1000L);
+        entity.setUpdatedAt(2000L);
+        return entity;
     }
 
     private static ProductEntity product(Long id, String code, String name, Double salePrice) {

@@ -1,8 +1,5 @@
 package com.zhihuiji.backend.api.controller;
 
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -10,16 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zhihuiji.backend.api.dto.agent.AgentTaskDtos;
-import com.zhihuiji.backend.api.dto.agent.AlertDtos;
-import com.zhihuiji.backend.api.dto.agent.AnswerDtos;
-import com.zhihuiji.backend.api.dto.agent.OperationDraftDtos;
-import com.zhihuiji.backend.api.dto.agent.ReconciliationDtos;
-import com.zhihuiji.backend.api.dto.agent.WorkbenchDtos;
-import com.zhihuiji.backend.application.service.AgentTaskService;
 import com.zhihuiji.backend.application.service.DemoDataService;
-import com.zhihuiji.backend.application.service.LlmDrivenAgentService;
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,50 +30,9 @@ class AdminControllerTest {
     @Autowired
     private DemoDataService demoDataService;
 
-    @MockBean
-    private LlmDrivenAgentService llmDrivenAgentService;
-    @MockBean
-    private AgentTaskService agentTaskService;
-
     @BeforeEach
     void setUp() {
         demoDataService.seed(true);
-        when(llmDrivenAgentService.getWorkbench(anyInt(), anyInt(), anyInt())).thenReturn(
-            new WorkbenchDtos.AgentWorkbenchDto(
-                new ReconciliationDtos.ReconciliationFollowupDto(1, 2, 3, 4, 5, List.of(), List.of(), List.of()),
-                new ReconciliationDtos.ReportInsightDto("7d", 10, 8, 25, "narrative", "S7", 10, "customer-a", 9, List.of(), List.of()),
-                new AlertDtos.AlertDashboardDto(List.of()),
-                List.of("q1"),
-                List.of("i1")
-            )
-        );
-        when(llmDrivenAgentService.answerQuestion(anyString())).thenReturn(
-            new AnswerDtos.AgentAnswerDto("query", "intent", "answer", List.of(), List.of(), List.of(), List.of())
-        );
-        when(llmDrivenAgentService.draftOperation(anyString())).thenReturn(
-            new OperationDraftDtos.OperationDraftDto("purchase", "draft summary", "supplier", 1L, "供应商A", List.of(), "", true, List.of(), List.of())
-        );
-        when(agentTaskService.submitTask(anyString(), anyString(), anyString())).thenReturn(
-            new AgentTaskDtos.AgentTaskSummaryDto(99L, "sales_report_deep_dive", "后台报表复盘 smoke", "queued", "manual", 0, now(), now(), null)
-        );
-        when(agentTaskService.getTask(99L)).thenReturn(
-            new AgentTaskDtos.AgentTaskDetailDto(
-                new AgentTaskDtos.AgentTaskSummaryDto(99L, "sales_report_deep_dive", "后台报表复盘 smoke", "completed", "manual", 100, now(), now(), now()),
-                "请复盘近 7 天销售趋势、客户贡献、利润驱动和补货机会。",
-                new AgentTaskDtos.AgentTaskResultDto(
-                    "title",
-                    "subtitle",
-                    "task summary",
-                    List.of(),
-                    List.of(),
-                    List.of(),
-                    List.of(),
-                    List.of(),
-                    null,
-                    List.of()
-                )
-            )
-        );
     }
 
     @Test
@@ -99,8 +46,8 @@ class AdminControllerTest {
             .andExpect(jsonPath("$.data.supplierCount").value(3))
             .andExpect(jsonPath("$.data.saleOrderCount").value(3))
             .andExpect(jsonPath("$.data.purchaseOrderCount").value(2))
-            .andExpect(jsonPath("$.data.agentTaskCount").value(1))
-            .andExpect(jsonPath("$.data.unreadNotificationCount").value(1));
+            .andExpect(jsonPath("$.data.agentTaskCount").value(0))
+            .andExpect(jsonPath("$.data.unreadNotificationCount").value(0));
     }
 
     @Test
@@ -213,17 +160,10 @@ class AdminControllerTest {
     }
 
     @Test
-    void agentSmokeReturnsReadablePayload() throws Exception {
+    void agentSmokeIsGoneBecauseItDoesNotExerciseRealAgentFlow() throws Exception {
         mockMvc.perform(post("/v1/admin/agent/smoke"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.code").value(0))
-            .andExpect(jsonPath("$.data.workbenchNarrative").value("narrative"))
-            .andExpect(jsonPath("$.data.answerSummary").value("answer"))
-            .andExpect(jsonPath("$.data.taskStatus").value("completed"))
-            .andExpect(jsonPath("$.data.taskSummary").value("task summary"));
-    }
-
-    private long now() {
-        return System.currentTimeMillis();
+            .andExpect(status().isGone())
+            .andExpect(jsonPath("$.code").value(410))
+            .andExpect(jsonPath("$.message").value("Use authenticated /v2/agent/chat or /v2/agent/chat/stream with real owner-scoped data."));
     }
 }

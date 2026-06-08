@@ -54,15 +54,20 @@ master-goods-android/
 
 - 开发计划：
   [DEVELOPMENT-PLAN.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/DEVELOPMENT-PLAN.md)
-- UI 设计规范：
+- UI 设计规范摘要：
   [UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/UI-DESIGN-SPEC.md)
-- 视觉设计稿：
+- Stitch 全量 UI 重构计划：
+  [42-android-liquid-glass-ui-refactor-plan.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/spec/42-android-liquid-glass-ui-refactor-plan.md)
+- Stitch 设计稿导出：
+  [stitch_exports/visual-design_system_framework_14840154594131085259](/Users/sunyiyang/Desktop/Project/master-goods/stitch_exports/visual-design_system_framework_14840154594131085259)
+- 历史设计稿参考：
   [docs/design-mockups](/Users/sunyiyang/Desktop/Project/master-goods/docs/design-mockups)
 
 ## UI 统一基线
 
-- Android 视觉真源固定为 `docs/design-mockups/01.png ~ 08.png`。
-- 页面母版与组件组合以 `UI-DESIGN-SPEC.md` 为准。
+- Android 当前视觉真源以 Stitch 导出与 `42-android-liquid-glass-ui-refactor-plan.md` 为准。
+- `UI-DESIGN-SPEC.md` 现在是摘要规范入口，不再单独承载全部细节。
+- `docs/design-mockups/` 已降级为历史参考目录，旧 PNG 已移除，不再是当前验收输入。
 - 具体实现必须通过 `core/designsystem` 承接，feature 页面不能长期保留私有风格组件。
 - 后续新增商品、单据、财务、库存、AI、同步等业务能力时，优先落入既有列表页、详情页、编辑页、报表页、AI 页、设置页母版。
 - 当前文档基线已经统一，但 B10 之前仍不能把 UI 视为设计稿级完成，后续还需要真机截图和逐页核对。
@@ -101,7 +106,7 @@ master-goods-android/
 ## 文档使用建议
 
 - 看整体推进顺序：先看 `DEVELOPMENT-PLAN.md`
-- 看视觉目标：先看 `UI-DESIGN-SPEC.md` 和 `docs/design-mockups`
+- 看视觉目标：先看 `docs/spec/42-android-liquid-glass-ui-refactor-plan.md`，再看 `UI-DESIGN-SPEC.md`
 - 看模块开发说明：进入各模块下的 `DEVELOPMENT.md`
 
 ## 当前已知状态

@@ -17,8 +17,9 @@ import com.zhihuiji.core.database.entity.*
         FinanceRecordEntity::class,
         AgentNotificationEntity::class,
         SyncCursorEntity::class,
+        AgentAuditEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class ZhihuijiDatabase : RoomDatabase() {
@@ -31,4 +32,5 @@ abstract class ZhihuijiDatabase : RoomDatabase() {
     abstract fun financeRecordDao(): FinanceRecordDao
     abstract fun agentNotificationDao(): AgentNotificationDao
     abstract fun syncCursorDao(): SyncCursorDao
+    abstract fun agentAuditDao(): AgentAuditDao
 }

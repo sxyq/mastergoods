@@ -22,31 +22,13 @@ public interface SaleOrderItemRepository extends JpaRepository<SaleOrderItemEnti
     void deleteByOwnerUserIdAndOrderId(Long ownerUserId, Long orderId);
 
     @Query("""
-        SELECT COALESCE(SUM(item.amount), 0), COALESCE(SUM(item.quantity * p.purchasePrice), 0)
-        FROM SaleOrderItemEntity item, SaleOrderEntity orderEntity, ProductEntity p
-        WHERE item.orderId = orderEntity.id
-          AND item.ownerUserId = :ownerUserId
-          AND orderEntity.ownerUserId = :ownerUserId
-          AND p.ownerUserId = :ownerUserId
-          AND p.id = item.productId
-          AND orderEntity.createdAt BETWEEN :startAt AND :endAt
-          AND orderEntity.status <> :cancelledStatus
-    """)
-    Object[] summarizeProfit(
-        @Param("ownerUserId") Long ownerUserId,
-        @Param("startAt") Long startAt,
-        @Param("endAt") Long endAt,
-        @Param("cancelledStatus") Integer cancelledStatus
-    );
-
-    @Query("""
         SELECT item.productId, item.productCode, item.productName, COALESCE(SUM(item.quantity), 0), COALESCE(SUM(item.amount), 0)
         FROM SaleOrderItemEntity item, SaleOrderEntity orderEntity
         WHERE item.orderId = orderEntity.id
           AND item.ownerUserId = :ownerUserId
           AND orderEntity.ownerUserId = :ownerUserId
           AND orderEntity.createdAt BETWEEN :startAt AND :endAt
-          AND orderEntity.status <> :cancelledStatus
+          AND (orderEntity.status IS NULL OR orderEntity.status <> :cancelledStatus)
         GROUP BY item.productId, item.productCode, item.productName
         ORDER BY SUM(item.amount) DESC
     """)
@@ -69,7 +51,7 @@ public interface SaleOrderItemRepository extends JpaRepository<SaleOrderItemEnti
           AND p.ownerUserId = :ownerUserId
           AND p.id = item.productId
           AND orderEntity.createdAt BETWEEN :startAt AND :endAt
-          AND orderEntity.status <> :cancelledStatus
+          AND (orderEntity.status IS NULL OR orderEntity.status <> :cancelledStatus)
         GROUP BY item.productId, item.productCode, item.productName
         ORDER BY (SUM(item.amount) - SUM(item.quantity * p.purchasePrice)) DESC
     """)
@@ -92,7 +74,7 @@ public interface SaleOrderItemRepository extends JpaRepository<SaleOrderItemEnti
           AND p.ownerUserId = :ownerUserId
           AND p.id = item.productId
           AND orderEntity.createdAt BETWEEN :startAt AND :endAt
-          AND orderEntity.status <> :cancelledStatus
+          AND (orderEntity.status IS NULL OR orderEntity.status <> :cancelledStatus)
         GROUP BY orderEntity.customerId, orderEntity.customerName
         ORDER BY (SUM(item.amount) - SUM(item.quantity * p.purchasePrice)) DESC
     """)

@@ -1,56 +1,60 @@
 package com.zhihuiji.feature.payments
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.zhihuiji.core.common.UiMessage
 import com.zhihuiji.core.model.v2.order.PayOrderV2Dto
 import com.zhihuiji.data.order.PayOrderV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
 data class PayOrderDetailUiState(
-    val order: PayOrderV2Dto? = null,
     val isLoading: Boolean = false,
-    val statusUpdateSuccess: Boolean = false,
-    val error: UiMessage? = null,
+    val error: String? = null,
+    val order: PayOrderV2Dto? = null,
 )
 
 @HiltViewModel
 class PayOrderDetailViewModel @Inject constructor(
-    private val payOrderV2Repository: PayOrderV2Repository,
+    private val repository: PayOrderV2Repository,
+    savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
+
+    private val orderId: Long = checkNotNull(savedStateHandle.get<Long>("orderId")) { "orderId is required" }
+
     private val _uiState = MutableStateFlow(PayOrderDetailUiState())
     val uiState: StateFlow<PayOrderDetailUiState> = _uiState.asStateFlow()
 
-    fun loadDetail(id: Long) {
+    init {
+        loadOrder()
+    }
+
+    fun loadOrder() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            payOrderV2Repository.getPayOrder(id).onSuccess { order ->
-                _uiState.value = _uiState.value.copy(order = order, isLoading = false)
-            }.onFailure {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = UiMessage.fromThrowable(it))
-            }
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            repository.getPayOrder(orderId)
+                .onSuccess { order ->
+                    _uiState.update { it.copy(isLoading = false, order = order) }
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(isLoading = false, error = error.message) }
+                }
         }
     }
 
-    fun updateStatus(status: Int) {
-        val orderId = _uiState.value.order?.id ?: return
-        viewModelScope.launch {
-            payOrderV2Repository.updateStatus(orderId, status).onSuccess {
-                _uiState.value = _uiState.value.copy(statusUpdateSuccess = true)
-                loadDetail(orderId)
-            }.onFailure {
-                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
-            }
-        }
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
     }
-
-    fun cancelOrder() { updateStatus(2) }
-    fun completeOrder() { updateStatus(1) }
-
-    fun clearError() { _uiState.value = _uiState.value.copy(error = null) }
 }
+
+fun PayOrderV2Dto.createdAtText(): String = if (createdAt > 0) {
+    SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(createdAt))
+} else ""

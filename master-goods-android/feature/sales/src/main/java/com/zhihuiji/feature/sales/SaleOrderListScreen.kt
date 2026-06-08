@@ -1,129 +1,298 @@
 package com.zhihuiji.feature.sales
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.zhihuiji.core.common.MoneyFormatter
-import com.zhihuiji.core.common.StatusLabels
-import com.zhihuiji.core.common.TimeFormatter
-import com.zhihuiji.core.designsystem.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.designsystem.DangerRed
+import com.zhihuiji.core.designsystem.DocumentListBottomContentPadding
+import com.zhihuiji.core.designsystem.DocumentListFabBottomPadding
+import com.zhihuiji.core.designsystem.GlassBorderSoft
+import com.zhihuiji.core.designsystem.GlassSurfaceLow
+import com.zhihuiji.core.designsystem.LiquidGlassCard
+import com.zhihuiji.core.designsystem.SuccessGreen
+import com.zhihuiji.core.designsystem.TextPrimary
+import com.zhihuiji.core.designsystem.TextSecondary
+import com.zhihuiji.core.designsystem.TextTertiary
+import com.zhihuiji.core.designsystem.WarningOrange
+import com.zhihuiji.core.designsystem.ZhihuijiPrimary
+
+private val SaleOrderCardHeight = 116.dp
+private val SaleOrderCardPadding = 14.dp
+private val SaleOrderCardDividerTopPadding = 18.dp
+private val SaleOrderCardStatusEndPadding = 84.dp
+private val SaleOrderCardSpacing = 10.dp
 
 @Composable
 fun SaleOrderListScreen(
-    onNavigateBack: () -> Unit,
-    showTopBar: Boolean = true,
-    scrollToTopSignal: Int = 0,
-    onNavigateToEditor: () -> Unit = {},
+    modifier: Modifier = Modifier,
     onNavigateToDetail: (Long) -> Unit = {},
-    viewModel: SaleOrderListViewModel = hiltViewModel(),
+    onNavigateToCreate: () -> Unit = {},
+    viewModel: SaleOrderListViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val listState = rememberLazyListState()
-    val statusTabs = listOf("全部", "草稿", "已完成", "已取消", "已确认")
-    val statusCodes = listOf(
-        null,
-        StatusLabels.Codes.SALE_DRAFT,
-        StatusLabels.Codes.SALE_COMPLETED,
-        StatusLabels.Codes.SALE_CANCELLED,
-        StatusLabels.Codes.SALE_CONFIRMED,
-    )
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    BottomBarScrollVisibilityEffect(listState)
-    BottomBarScrollToTopEffect(scrollToTopSignal, listState)
-
-    GlassScaffold(
-        selectedDestination = "",
-        destinations = emptyList(),
-        onNavigate = {},
-        showBottomBar = false,
-    ) { _ ->
-        Column(modifier = Modifier.fillMaxSize()) {
-            if (showTopBar) {
-                GlassTopBar(title = "销售单", navigationIcon = Icons.AutoMirrored.Filled.ArrowBack, onNavigationClick = onNavigateBack)
-            }
-            SearchFilterBar(query = uiState.filter.keyword ?: "", onQueryChange = { viewModel.updateFilter(keyword = it.ifBlank { null }) }, placeholder = "搜索单号/客户/商品", filterIcon = Icons.Default.Tune, onFilterClick = {})
-            SegmentedTabs(
-                tabs = statusTabs,
-                selectedIndex = statusCodes.indexOf(uiState.filter.status).takeIf { it >= 0 } ?: 0,
-                onTabSelected = { viewModel.updateFilter(status = statusCodes[it]) },
-            )
-            if (uiState.orders.isEmpty()) {
+    Box(modifier = modifier.fillMaxSize()) {
+        when {
+            uiState.isLoading -> {
                 Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    EmptyState(icon = Icons.Default.Receipt, title = "暂无销售单", modifier = Modifier.fillMaxWidth())
+                    CircularProgressIndicator(color = ZhihuijiPrimary)
                 }
-            } else {
-                LazyColumn(
-                    state = listState,
+            }
+
+            uiState.error != null -> {
+                SaleOrderStateMessage(
+                    title = "销售单加载失败",
+                    message = uiState.error ?: "请稍后重试",
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(top = 6.dp, bottom = 88.dp),
+                        .align(Alignment.TopCenter)
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
+                )
+            }
+
+            uiState.orders.isEmpty() -> {
+                SaleOrderStateMessage(
+                    title = "暂无销售订单",
+                    message = "当前账号没有可展示的真实销售单",
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        start = 20.dp,
+                        top = 12.dp,
+                        end = 20.dp,
+                        bottom = DocumentListBottomContentPadding
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(SaleOrderCardSpacing)
                 ) {
-                    items(uiState.orders) { order ->
-                        GlassCard(modifier = Modifier.fillMaxWidth(), onClick = { onNavigateToDetail(order.id) }) {
-                            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                    Text(order.orderNo, style = ZhihuijiTypography.titleMedium, color = ZhihuijiColors.TextPrimary)
-                                    StatusPill(
-                                        text = StatusLabels.saleOrderStatus(order.status),
-                                        tone = when(order.status) {
-                                            StatusLabels.Codes.SALE_COMPLETED -> PillTone.SUCCESS
-                                            StatusLabels.Codes.SALE_CANCELLED -> PillTone.NEUTRAL
-                                            StatusLabels.Codes.SALE_CONFIRMED -> PillTone.INFO
-                                            else -> PillTone.WARNING
-                                        },
-                                    )
-                                }
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("客户：${order.customerName ?: "散客"}", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
-                                    Text("金额：${MoneyFormatter.format(order.totalAmount)}", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
-                                }
-                                Text("日期：${TimeFormatter.formatDateTime(order.createdAt)}", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextTertiary)
-                            }
-                        }
-                    }
-                    item {
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("共 ${uiState.orders.size} 条", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextSecondary)
-                            Text(
-                                "合计金额：${MoneyFormatter.format(uiState.orders.sumOf { it.totalAmount })}",
-                                style = ZhihuijiTypography.labelSmall,
-                                color = ZhihuijiColors.Primary,
-                            )
-                        }
+                    items(
+                        items = uiState.orders,
+                        key = { it.id }
+                    ) { order ->
+                        SaleOrderListItem(
+                            order = order,
+                            onClick = { onNavigateToDetail(order.id) }
+                        )
                     }
                 }
             }
         }
-        if (showTopBar) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                FloatingPrimaryActionButton(
-                    text = "销售开单",
-                    icon = Icons.Default.Add,
-                    onClick = onNavigateToEditor,
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = DocumentListFabBottomPadding)
+                .size(56.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(ZhihuijiPrimary)
+                .border(0.5.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+                .clickable(onClick = onNavigateToCreate)
+                .padding(14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "新增销售单",
+                tint = Color.White,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SaleOrderListItem(
+    order: SaleOrderItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LiquidGlassCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(SaleOrderCardHeight),
+        onClick = onClick,
+        surfaceColor = GlassSurfaceLow,
+        contentPadding = 0.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(SaleOrderCardPadding)
+        ) {
+            PaymentStatusPill(
+                label = order.paymentStatus,
+                modifier = Modifier.align(Alignment.TopEnd)
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = SaleOrderCardStatusEndPadding),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = order.orderNo,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Medium,
+                    color = TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = order.customerName.ifBlank { "未命名客户" },
+                    fontSize = 17.sp,
+                    lineHeight = 22.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(top = SaleOrderCardDividerTopPadding)
+                    .fillMaxWidth()
+                    .height(0.5.dp)
+                    .background(GlassBorderSoft)
+            )
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Schedule,
+                        contentDescription = null,
+                        tint = TextSecondary,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Text(
+                        text = order.timeLabel,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
+                        color = TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Text(
+                    text = order.amount,
+                    fontSize = 20.sp,
+                    lineHeight = 26.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (order.paymentStatus == "已收款") ZhihuijiPrimary else TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PaymentStatusPill(
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    val (color, background) = when (label) {
+        "已收款" -> SuccessGreen to SuccessGreen.copy(alpha = 0.10f)
+        "待收款" -> WarningOrange to WarningOrange.copy(alpha = 0.10f)
+        "已取消" -> DangerRed to DangerRed.copy(alpha = 0.10f)
+        else -> TextTertiary to TextTertiary.copy(alpha = 0.12f)
+    }
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(100.dp))
+            .background(background)
+            .border(0.5.dp, color.copy(alpha = 0.20f), RoundedCornerShape(100.dp))
+            .padding(horizontal = 10.dp, vertical = 2.dp)
+    ) {
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = color,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun SaleOrderStateMessage(
+    title: String,
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    LiquidGlassCard(
+        modifier = modifier.fillMaxWidth(),
+        surfaceColor = GlassSurfaceLow,
+        contentPadding = 16.dp
+    ) {
+        Text(
+            text = title,
+            fontSize = 18.sp,
+            lineHeight = 24.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = message,
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            color = TextSecondary
+        )
     }
 }

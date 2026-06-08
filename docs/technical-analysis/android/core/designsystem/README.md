@@ -109,4 +109,4 @@
   - 主次按钮层级
   - 状态色语义
 - 如果某个新业务页面“看起来放不进去”，优先补页面母版或补通用组件，而不是让 feature 自己发明第二套设计系统。
-- Android 视觉真源固定为 `docs/design-mockups/01.png ~ 08.png` 与 `master-goods-android/UI-DESIGN-SPEC.md`。
+- Android 当前视觉真源以 Stitch 导出、`docs/spec/42-android-liquid-glass-ui-refactor-plan.md` 与 `master-goods-android/UI-DESIGN-SPEC.md` 为准；`docs/design-mockups/` 仅作历史参考。

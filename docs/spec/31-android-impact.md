@@ -33,22 +33,25 @@
 1. 安卓端保留当前 `/v1` 可运行链路，作为兼容层。
 2. 新版安卓能力围绕 `/v2` 重新建模，不在旧模型上无限叠字段。
 3. 先按**账号归属、领域扩容、同步导入**三条主线调整文档和模块边界，再进入代码实现。
-4. 视觉风格不重新发明：新增业务必须继续服从现有设计图和 `core/designsystem`，只扩业务，不换视觉语言。
+4. 视觉风格不重新发明：新增业务必须继续服从 Stitch 新设计与 `core/designsystem`，只扩业务，不换视觉语言。
 5. 会员体系当前不纳入安卓新版范围，统一标记为 `新版需要去掉`。
 
 ## Android UI 统一基线
 
 Android 端后续不论新增多少业务域，都要继续共用同一套视觉基线：
 
-- 视觉真源：
-  - [README.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/design-mockups/README.md)
+- 当前视觉真源：
+  - [42-android-liquid-glass-ui-refactor-plan.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/spec/42-android-liquid-glass-ui-refactor-plan.md)
+  - [manifest.tsv](/Users/sunyiyang/Desktop/Project/master-goods/stitch_exports/visual-design_system_framework_14840154594131085259/manifest.tsv)
   - [UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/UI-DESIGN-SPEC.md)
 - 实现真源：
   - [README.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/technical-analysis/android/core/designsystem/README.md)
+- 历史参考：
+  - [README.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/design-mockups/README.md)
 
 统一要求：
 
-- 保持浅蓝渐变背景、玻璃卡片、蓝色主按钮、五栏主壳、轻量经营工具气质。
+- 保持浅蓝极光渐变背景、液态玻璃卡片、品牌蓝主按钮、五栏主壳、轻量经营工具气质。
 - 新业务页面优先落入现有母版：
   - 列表页
   - 详情页
@@ -57,7 +60,7 @@ Android 端后续不论新增多少业务域，都要继续共用同一套视觉
   - AI 页
   - 设置页
 - 允许新增的是领域组件，不允许新增另一套视觉系统。
-- 后续任何 `/v2` 扩域实现，如果让新页面明显偏离当前设计图，应先视为设计系统或页面职责问题，而不是直接接受漂移。
+- 后续任何 `/v2` 扩域实现，如果让新页面明显偏离当前 Stitch 设计或本轮 UI 重构计划，应先视为设计系统或页面职责问题，而不是直接接受漂移。
 
 ## B04/B05 审计修复后的规划同步
 

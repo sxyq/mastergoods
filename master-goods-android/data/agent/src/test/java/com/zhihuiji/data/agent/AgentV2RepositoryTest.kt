@@ -1,14 +1,25 @@
 package com.zhihuiji.data.agent
 
 import com.zhihuiji.core.model.ApiResponse
+import com.zhihuiji.core.model.v2.agent.AgentRunCancelDto
+import com.zhihuiji.core.network.AgentSseClient
 import com.zhihuiji.core.network.ZhihuijiV2Api
 import java.lang.reflect.Proxy
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AgentV2RepositoryTest {
+
+    private val fakeSseClient = AgentSseClient(
+        okHttpClient = okhttp3.OkHttpClient(),
+        json = Json { ignoreUnknownKeys = true },
+        baseUrlProvider = { "http://localhost" },
+    )
+
+    private val json = Json { ignoreUnknownKeys = true }
 
     @Test
     fun deleteDraftDelegatesToDeleteAgentDraftV2AndSucceeds() = runBlocking {
@@ -20,7 +31,7 @@ class AgentV2RepositoryTest {
             ApiResponse<Unit>(code = 0, message = "ok", data = null)
         }
 
-        val repository = AgentV2Repository(api)
+        val repository = AgentV2Repository(api, fakeSseClient, json)
         val result = repository.deleteDraft(5L)
 
         assertTrue(result.isSuccess)
@@ -38,12 +49,35 @@ class AgentV2RepositoryTest {
             ApiResponse<Unit>(code = 0, message = "ok", data = null)
         }
 
-        val repository = AgentV2Repository(api)
+        val repository = AgentV2Repository(api, fakeSseClient, json)
         val result = repository.deleteConversation(11L)
 
         assertTrue(result.isSuccess)
         assertEquals("deleteAgentConversationV2", invokedMethod)
         assertEquals(11L, invokedId)
+    }
+
+    @Test
+    fun cancelRunDelegatesToCancelAgentRunV2AndSucceeds() = runBlocking {
+        var invokedMethod: String? = null
+        var invokedRunId: String? = null
+        val api = fakeApi { methodName, args ->
+            invokedMethod = methodName
+            invokedRunId = args?.get(0) as String
+            ApiResponse(
+                code = 0,
+                message = "ok",
+                data = AgentRunCancelDto(runId = invokedRunId ?: "", status = "cancelled", cancelled = true),
+            )
+        }
+
+        val repository = AgentV2Repository(api, fakeSseClient, json)
+        val result = repository.cancelRun("run-123")
+
+        assertTrue(result.isSuccess)
+        assertEquals("cancelAgentRunV2", invokedMethod)
+        assertEquals("run-123", invokedRunId)
+        assertEquals(true, result.getOrThrow().cancelled)
     }
 
     @Test

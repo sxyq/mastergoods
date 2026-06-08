@@ -46,6 +46,31 @@ public class V2PurchaseOrderService {
         return toResponse(purchaseOrderService.get(id));
     }
 
+    public V2PurchaseOrderDtos.PurchaseOrderResponse update(Long id, V2PurchaseOrderDtos.CreateRequest request) {
+        List<PurchaseOrderService.PurchaseItemDraft> items = request.items().stream()
+            .map(row -> new PurchaseOrderService.PurchaseItemDraft(
+                row.productId(),
+                row.productCode(),
+                row.productName(),
+                row.quantity(),
+                row.unitCost()
+            ))
+            .toList();
+        return toResponse(purchaseOrderService.update(id,
+            new PurchaseOrderService.CreatePurchaseOrderCommand(
+                request.supplierId(),
+                request.supplierName(),
+                items,
+                request.notes(),
+                request.status()
+            )
+        ));
+    }
+
+    public void delete(Long id) {
+        purchaseOrderService.delete(id);
+    }
+
     private V2PurchaseOrderDtos.PurchaseOrderResponse toResponse(PurchaseOrderService.PurchaseDetail detail) {
         return toResponse(detail.order(), detail.items());
     }

@@ -1,0 +1,86 @@
+package com.zhihuiji.feature.products
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.zhihuiji.data.product.ProductV2Repository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+data class StockAdjustUiState(
+    val isLoading: Boolean = false,
+    val isSaved: Boolean = false,
+    val error: String? = null,
+    val productName: String? = null,
+    val productCode: String = "",
+    val categoryName: String = "",
+    val unitName: String = "",
+    val currentStock: Double = 0.0,
+)
+
+@HiltViewModel
+class StockAdjustViewModel @Inject constructor(
+    private val repository: ProductV2Repository
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(StockAdjustUiState())
+    val uiState: StateFlow<StockAdjustUiState> = _uiState.asStateFlow()
+
+    fun loadProduct(productId: Long) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            repository.getProduct(productId)
+                .onSuccess { dto ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            productName = dto.name,
+                            productCode = dto.code,
+                            categoryName = dto.categoryName,
+                            unitName = dto.unitName,
+                            currentStock = dto.stock
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(isLoading = false, error = error.message) }
+                }
+        }
+    }
+
+    fun adjustStock(productId: Long, quantity: Double, reason: String?) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            // 目前 API 没有直接的库存调整接口，这里先更新商品库存
+            repository.getProduct(productId)
+                .onSuccess { dto ->
+                    val newStock = dto.stock + quantity
+                    val request = com.zhihuiji.core.model.v2.product.ProductWriteV2Request(
+                        name = dto.name,
+                        code = dto.code,
+                        categoryId = dto.categoryId ?: 0,
+                        unitId = dto.unitId ?: 0,
+                        salePrice = dto.salePrice,
+                        purchasePrice = dto.purchasePrice,
+                        stock = newStock,
+                        safeStock = dto.safeStock,
+                        status = dto.status,
+                    )
+                    repository.updateProduct(productId, request)
+                        .onSuccess {
+                            _uiState.update { it.copy(isLoading = false, isSaved = true) }
+                        }
+                        .onFailure { error ->
+                            _uiState.update { it.copy(isLoading = false, error = error.message) }
+                        }
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(isLoading = false, error = error.message) }
+                }
+        }
+    }
+}

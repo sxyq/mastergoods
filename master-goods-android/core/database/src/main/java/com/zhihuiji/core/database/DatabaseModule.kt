@@ -41,11 +41,42 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `agent_audit_records` (
+                    `id` TEXT NOT NULL,
+                    `runId` TEXT,
+                    `conversationId` INTEGER,
+                    `userMessage` TEXT NOT NULL,
+                    `safetyPassed` INTEGER,
+                    `safetyReason` TEXT,
+                    `toolsCalledJson` TEXT,
+                    `draftId` INTEGER,
+                    `draftType` TEXT,
+                    `draftTitle` TEXT,
+                    `userConfirmed` INTEGER,
+                    `contextCompacted` INTEGER NOT NULL DEFAULT 0,
+                    `finalAnswerSummary` TEXT,
+                    `errorCode` TEXT,
+                    `errorMessage` TEXT,
+                    `timestamp` INTEGER NOT NULL,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_agent_audit_records_timestamp` ON `agent_audit_records` (`timestamp`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_agent_audit_records_conversationId` ON `agent_audit_records` (`conversationId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_agent_audit_records_runId` ON `agent_audit_records` (`runId`)")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): ZhihuijiDatabase {
         return Room.databaseBuilder(context, ZhihuijiDatabase::class.java, "zhihuiji.db")
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
     }
 
@@ -75,4 +106,7 @@ object DatabaseModule {
 
     @Provides
     fun provideSyncCursorDao(db: ZhihuijiDatabase) = db.syncCursorDao()
+
+    @Provides
+    fun provideAgentAuditDao(db: ZhihuijiDatabase) = db.agentAuditDao()
 }

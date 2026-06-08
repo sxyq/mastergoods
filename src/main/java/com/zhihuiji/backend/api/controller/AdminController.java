@@ -4,9 +4,12 @@ import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.application.service.AdminService;
 import com.zhihuiji.backend.application.service.DemoDataService;
+import com.zhihuiji.backend.application.service.LegacySQLiteImportService;
 import java.util.List;
 import jakarta.validation.Valid;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,9 +24,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/v1/admin")
 public class AdminController {
     private final AdminService adminService;
+    private final LegacySQLiteImportService legacySQLiteImportService;
 
-    public AdminController(AdminService adminService) {
+    public AdminController(
+        AdminService adminService,
+        LegacySQLiteImportService legacySQLiteImportService
+    ) {
         this.adminService = adminService;
+        this.legacySQLiteImportService = legacySQLiteImportService;
     }
 
     @GetMapping("/summary")
@@ -61,7 +69,17 @@ public class AdminController {
     }
 
     @PostMapping("/agent/smoke")
-    public ApiResponse<AdminService.AgentSmokeResult> runAgentSmoke() {
-        return ApiResponse.success(adminService.runAgentSmoke());
+    public ResponseEntity<ApiResponse<AdminService.AgentSmokeResult>> runAgentSmoke() {
+        AdminService.AgentSmokeResult result = adminService.runAgentSmoke();
+        return ResponseEntity
+            .status(HttpStatus.GONE)
+            .body(ApiResponse.failure(HttpStatus.GONE.value(), result.taskSummary()));
+    }
+
+    @PostMapping("/migration/import-legacy")
+    public ApiResponse<LegacySQLiteImportService.ImportResult> importLegacy(
+        @Valid @RequestBody LegacySQLiteImportService.ImportRequest request
+    ) {
+        return ApiResponse.success(legacySQLiteImportService.importIntoFirstAccount(request));
     }
 }

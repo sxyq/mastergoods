@@ -25,7 +25,7 @@
 
 ## UI 设计规范
 
-- 对照设计图 `04.png` 的供应商列表页和供应商详情页实现（来源见 `docs/design-mockups`）。
+- 历史视觉参考曾对照旧设计图 `04.png`，当前请优先对照 Stitch 导出与 `docs/spec/42-android-liquid-glass-ui-refactor-plan.md`； 的供应商列表页和供应商详情页实现。
 - 供应商列表结构与客户列表保持一致，标题 Tab 为“供应商/联系人”。
 - 供应商卡片展示供应商名称、编码、联系人、脱敏手机号、应付余额和状态。
 - 应付余额使用红色，停用状态使用灰蓝标签，正常状态使用绿色标签。
@@ -39,4 +39,4 @@
 - 页面结构优先落入既有模式：列表页、详情页、编辑页、报表页、AI 页、设置页。
 - 视觉基线固定为：浅蓝渐变背景、玻璃卡片、蓝色主按钮、白色次按钮、统一状态标签、五栏主壳。
 - 如需新增 UI 组件，先沉淀到 `core/designsystem`，再由本模块复用；不允许长期保留 feature 私有样式组件。
-- 验收时同时对照：`docs/design-mockups/01.png ~ 08.png`、`master-goods-android/UI-DESIGN-SPEC.md`、`docs/technical-analysis/android/core/designsystem/README.md`。
+- 验收时当前优先对照：`docs/spec/42-android-liquid-glass-ui-refactor-plan.md`、Stitch 导出清单、`master-goods-android/UI-DESIGN-SPEC.md`、`docs/technical-analysis/android/core/designsystem/README.md`；`docs/design-mockups/` 仅作历史参考。

@@ -113,7 +113,11 @@ public class V2PurchaseReceiptService {
 
     public List<V2PurchaseReceiptDtos.PurchaseReceiptResponse> list(String keyword, Integer status) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return purchaseReceiptRepository.search(ownerUserId, keyword, status).stream()
+        String normalizedKeyword = normalizeKeyword(keyword);
+        List<PurchaseReceiptEntity> receipts = normalizedKeyword == null
+            ? listWithoutKeyword(ownerUserId, status)
+            : purchaseReceiptRepository.search(ownerUserId, normalizedKeyword, status);
+        return receipts.stream()
             .map(r -> toResponse(r, purchaseReceiptItemRepository.findByOwnerUserIdAndReceiptIdOrderByCreatedAtAsc(ownerUserId, r.getId())))
             .toList();
     }
@@ -264,6 +268,21 @@ public class V2PurchaseReceiptService {
             entity.getCreatedAt(),
             entity.getUpdatedAt()
         );
+    }
+
+    private List<PurchaseReceiptEntity> listWithoutKeyword(Long ownerUserId, Integer status) {
+        if (status == null) {
+            return purchaseReceiptRepository.findByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
+        }
+        return purchaseReceiptRepository.findByOwnerUserIdAndStatusOrderByCreatedAtDesc(ownerUserId, status);
+    }
+
+    private static String normalizeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private V2PurchaseReceiptDtos.PurchaseReceiptItemResponse toItemResponse(PurchaseReceiptItemEntity item) {

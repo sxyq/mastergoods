@@ -66,4 +66,4 @@
 - `backdrop` 直接服务页面视觉底层，但只负责渐变、玻璃、模糊、折射等渲染能力，不负责业务语义。
 - 后续新增业务不能因为页面变复杂就另起一套背景、阴影或玻璃技术方案；仍应通过 `core/designsystem` 复用当前视觉底层。
 - 真机验收时，`backdrop` 的目标是让新页面继续保持与设计图一致的冷色渐变、轻玻璃和层次感，而不是单独追求炫技效果。
-- Android 视觉真源固定为 `docs/design-mockups/01.png ~ 08.png` 与 `master-goods-android/UI-DESIGN-SPEC.md`。
+- Android 当前视觉真源以 Stitch 导出、`docs/spec/42-android-liquid-glass-ui-refactor-plan.md` 与 `master-goods-android/UI-DESIGN-SPEC.md` 为准；`docs/design-mockups/` 仅作历史参考。

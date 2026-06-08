@@ -1,9 +1,15 @@
 package com.zhihuiji.core.network
 
 import com.zhihuiji.core.model.ApiResponse
+import com.zhihuiji.core.model.v2.agent.AgentChatRequest
+import com.zhihuiji.core.model.v2.agent.AgentChatResponse
 import com.zhihuiji.core.model.v2.agent.AgentConversationDto
 import com.zhihuiji.core.model.v2.agent.AgentDraftDto
 import com.zhihuiji.core.model.v2.agent.AgentMessageDto
+import com.zhihuiji.core.model.v2.agent.AgentNotificationDto
+import com.zhihuiji.core.model.v2.agent.AgentRunCancelDto
+import com.zhihuiji.core.model.v2.agent.AgentTaskDto
+import com.zhihuiji.core.model.v2.agent.AgentWorkbenchV2Dto
 import com.zhihuiji.core.model.v2.agent.CreateAgentConversationRequest
 import com.zhihuiji.core.model.v2.agent.CreateAgentDraftRequest
 import com.zhihuiji.core.model.v2.agent.CreateAgentMessageRequest
@@ -327,6 +333,12 @@ interface ZhihuijiV2Api {
     @POST("v2/purchase-orders")
     suspend fun createPurchaseOrderV2(@Body body: CreatePurchaseOrderV2Request): ApiResponse<PurchaseOrderV2Dto>
 
+    @PUT("v2/purchase-orders/{id}")
+    suspend fun updatePurchaseOrderV2(@Path("id") id: Long, @Body body: CreatePurchaseOrderV2Request): ApiResponse<PurchaseOrderV2Dto>
+
+    @DELETE("v2/purchase-orders/{id}")
+    suspend fun deletePurchaseOrderV2(@Path("id") id: Long): ApiResponse<Unit>
+
     @GET("v2/purchase-receipts")
     suspend fun purchaseReceiptsV2(
         @Query("keyword") keyword: String? = null,
@@ -508,6 +520,30 @@ interface ZhihuijiV2Api {
 
     @DELETE("v2/agent/drafts/{id}")
     suspend fun deleteAgentDraftV2(@Path("id") id: Long): ApiResponse<Unit>
+
+    // ========== Agent V2 Chat / Workbench ==========
+
+    @GET("v2/agent/workbench")
+    suspend fun agentWorkbenchV2(): ApiResponse<AgentWorkbenchV2Dto>
+
+    @GET("v2/agent/tasks")
+    suspend fun agentTasksV2(): ApiResponse<List<AgentTaskDto>>
+
+    @GET("v2/agent/notifications")
+    suspend fun agentNotificationsV2(
+        @Query("unread_only") unreadOnly: Boolean? = null,
+    ): ApiResponse<List<AgentNotificationDto>>
+
+    @POST("v2/agent/notifications/{id}/read")
+    suspend fun markAgentNotificationReadV2(@Path("id") id: Long): ApiResponse<AgentNotificationDto>
+
+    @POST("v2/agent/chat")
+    suspend fun agentChatV2(
+        @Body body: AgentChatRequest,
+    ): ApiResponse<AgentChatResponse>
+
+    @POST("v2/agent/runs/{runId}/cancel")
+    suspend fun cancelAgentRunV2(@Path("runId") runId: String): ApiResponse<AgentRunCancelDto>
 
     @GET("v2/media/assets")
     suspend fun mediaAssetsV2(): ApiResponse<List<MediaAssetDto>>

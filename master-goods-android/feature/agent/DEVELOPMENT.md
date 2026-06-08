@@ -1,54 +1,41 @@
 # feature/agent 模块开发说明
 
-- 当前状态：AI 工作台、AI 问答、操作草稿、任务与通知首版页面已完成，已接入主导航子路由；本轮继续把工作台/任务/通知/草稿页的假数据占位收口为明确的待联调空态，避免把缺失端点误看成已接入能力。当前真实接通的是 conversation/message/draft 流程，workbench/task/notification 聚合端点仍未完成。
+- 当前状态：新版 Agent 页面、V2 Repository、真实 SSE 聊天链路、任务/通知接口和草稿归档链路已接入；P0 真实性、审计、性能与端到端证据仍以 `docs/spec/43-ai-assistant-requirements.md` 为准继续验收，P1 草稿真实执行闭环待继续完善。
 - 实际源码目录：`feature/agent/src/main/java/com/zhihuiji/feature/agent`
-- 目标：实现 AI 工作台、问答、操作草稿、任务、通知。
+- 目标：从头重建新版 AI 助手模块，包括工作台、聊天、草稿、任务通知。
 
-## 需要创建的类
+## 文件清单与状态
 
-- `AgentWorkbenchScreen`
-- `AgentChatScreen`
-- `OperationDraftScreen`
-- `AgentTaskScreen`
-- `NotificationScreen`
-- `AgentViewModel`
+| 文件 | 状态 | 说明 |
+|---|---|---|
+| `AgentWorkbenchScreen.kt` | 已收敛为干净入口 | 仅保留 AI 问候、真实对话入口、远端同步状态和任务 / 通知入口；不展示 KPI、今日摘要、风险提醒、默认排行或报表型图表 |
+| `AgentChatScreen.kt` | 已完成 | 消息列表（用户靠右/助手靠左）+ 输入栏 + 停止生成 + 空态 |
+| `AgentChatViewModel.kt` | 已接入 V2 SSE | 构造 `AgentChatRequest(stream = true)`，收集 `AgentV2Repository.chatStream()` 的真实后端事件，RunTrace 展开状态已生效 |
+| `AgentWorkbenchViewModel.kt` | 已收敛为入口状态 | 只管理问候语、同步状态和错误状态；不消费 workbench 中的报表型字段 |
+| `DraftListScreen.kt` | 已保留 | 已迁移到 V2 Repository，UI 明确“仅归档 AI 草稿，不执行业务写入” |
+| `DraftListViewModel.kt` | 已保留 | 已迁移到 `AgentV2Repository`，接入真实草稿列表 API；当前 archive 只写 `status = "archived"` |
+| `TaskNotificationScreen.kt` | 已保留 | 任务与通知中心接入真实任务/通知接口，网络失败展示错误或真实空态 |
+| `TaskNotificationViewModel.kt` | 已保留 | 已移除旧 V1 依赖，调用后端任务/通知列表并回写通知已读状态 |
 
-## 需要实现的关键函数
+## 已删除文件
 
-- `AgentViewModel.loadWorkbench()`
-- `AgentViewModel.ask(question: String)`
-- `AgentViewModel.createOperationDraft(input: String)`
-- `AgentViewModel.submitDraft()`
-- `AgentViewModel.loadTasks()`
-- `AgentViewModel.loadTaskDetail(taskId: Long)`
-- `AgentViewModel.loadNotifications(unreadOnly: Boolean = false)`
-- `AgentViewModel.markRead(notificationId: Long)`
-- `AgentViewModel.markDelivered(notificationId: Long)`
-- `AgentViewModel.connectSseIfNeeded()`
+- `AgentViewModel.kt`（旧 V1，mock 数据）
+- 旧 V1 `AgentWorkbenchScreen.kt` 实现已被当前同名 V2 工作台重建替换，不再作为 mock 工作台保留。
+
+## 新版关键组件（P1-P4）
+
+- `AgentWorkbenchScreen` + `AgentWorkbenchViewModel`（干净入口，不做报表页副本）
+- `AgentChatScreen` + `AgentChatViewModel`
+- 富结果组件：`KpiGridCard`、`TableCard`、`RankListCard`、`RiskCard`、`ChartCard`、`DraftCard`
+- 过程轨迹组件：`RunTracePanel`、`ToolCallItem`、`SafetyBlockCard`、`ContextCompactedCard`
 
 ## 验收标准
 
-- 已完成：
-  - AI 工作台首页
-  - 非流式 AI 问答页
-  - 操作草稿页（生成草稿 / 提交草稿）
-  - 任务与通知中心页
-- 待完善：
-  - 工作台聚合总览的真实后端数据
-  - 任务详情页 / 通知详情页
-  - 任务与通知列表的真实后端数据
-  - SSE 实时更新
-
-## UI 设计规范
-
-- 对照设计图 `01.png` 和 `08.png` 的 AI 工作台、AI 问答、操作草稿、任务与通知实现（来源见 `docs/design-mockups`）。
-- AI 工作台顶部使用机器人头像、问候语和 KPI 四宫格，下面是经营洞察、快捷操作和大家都在问。
-- AI 问答页使用聊天气泡布局，用户消息靠右，助手消息靠左；助手回答中可嵌入报表卡片、趋势图和建议行动。
-- 操作草稿页使用分类 Tab、仅看我创建复选框、排序入口和草稿卡片；卡片底部有“编辑/提交”。
-- 任务与通知页使用“任务/通知”Tab 和状态筛选 Chip，任务卡片展示进度条、状态、时间和结果。
-- 助手入口在底部导航激活态使用蓝色圆形强调。
-- 当 `/v2/agent` 缺少 workbench/task/notification 聚合端点时，页面必须回落为诚实的空态或待联调态，不再伪造 KPI、任务进度、通知结果或示例草稿编号。
-- 问答与草稿页允许展示真实 conversation/message/draft 返回值，但结构化结果只按已返回字段渲染，不追加假图表或假业务结论。
+- P0：旧 V1 全部物理删除，项目可编译。
+- P1：工作台干净入口 + 聊天壳可运行，导航正常。
+- P2：真实 SSE 事件 + 过程轨迹 + 富结果展示落地。
+- P3：草稿生成与归档语义落地；真实确认执行闭环待 P1 后续实现。
+- P4：安全拦截 + 上下文压缩 + 审计记录落地。
 
 ## UI 统一约束
 
@@ -56,4 +43,4 @@
 - 页面结构优先落入既有模式：列表页、详情页、编辑页、报表页、AI 页、设置页。
 - 视觉基线固定为：浅蓝渐变背景、玻璃卡片、蓝色主按钮、白色次按钮、统一状态标签、五栏主壳。
 - 如需新增 UI 组件，先沉淀到 `core/designsystem`，再由本模块复用；不允许长期保留 feature 私有样式组件。
-- 验收时同时对照：`docs/design-mockups/01.png ~ 08.png`、`master-goods-android/UI-DESIGN-SPEC.md`、`docs/technical-analysis/android/core/designsystem/README.md`。
+- 验收时当前优先对照：`docs/spec/42-android-liquid-glass-ui-refactor-plan.md`、Stitch 导出清单、`master-goods-android/UI-DESIGN-SPEC.md`、`docs/technical-analysis/android/core/designsystem/README.md`；`docs/design-mockups/` 仅作历史参考。

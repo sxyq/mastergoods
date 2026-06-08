@@ -1,60 +1,123 @@
 package com.zhihuiji.core.designsystem
 
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * 玻璃质感顶部栏
+ *
+ * 性能优化：
+ * 1. 顶部栏不使用 glass 效果，使用纯色/渐变背景避免性能问题
+ * 2. 使用静态渐变 Brush 缓存，避免每次重组时重新创建
+ * 3. 减少不必要的 Column 嵌套
+ *
+ * @param modifier 修饰符
+ * @param title 标题
+ * @param subtitle 副标题
+ * @param largeTitle 是否使用大标题模式
+ * @param navigationIcon 导航图标
+ * @param actions 右侧操作区
+ * @param onNavigationClick 导航点击回调
+ */
 @Composable
 fun GlassTopBar(
-    title: String,
     modifier: Modifier = Modifier,
-    navigationIcon: ImageVector? = null,
-    onNavigationClick: (() -> Unit)? = null,
-    actions: @Composable () -> Unit = {},
+    title: String,
+    subtitle: String? = null,
+    largeTitle: Boolean = false,
+    navigationIcon: @Composable (() -> Unit)? = null,
+    actions: @Composable (() -> Unit)? = null,
+    onNavigationClick: (() -> Unit)? = null
 ) {
     LiquidGlassSurface(
         modifier = modifier.fillMaxWidth(),
-        cornerRadius = 24.dp,
-        blurRadius = 16.dp,
-        surfaceAlpha = 0.12f,
+        blurRadius = 24.dp,
+        shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
+        surfaceColor = GlassSurfaceMedium
     ) {
-        TopAppBar(
-            title = {
-                Text(
-                    text = title,
-                    style = ZhihuijiTypography.titleLarge,
-                    color = ZhihuijiColors.TextPrimary,
-                )
-            },
-            modifier = Modifier.height(56.dp),
-            navigationIcon = {
-                if (navigationIcon != null && onNavigationClick != null) {
-                    IconButton(onClick = onNavigationClick) {
-                        Icon(
-                            imageVector = navigationIcon,
-                            contentDescription = "返回",
-                            tint = ZhihuijiColors.TextPrimary,
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 0.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (largeTitle) 72.dp else 56.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (navigationIcon != null) {
+                        navigationIcon()
+                    } else if (onNavigationClick != null) {
+                        IconButton(onClick = onNavigationClick) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "返回",
+                                tint = TextPrimary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                    Column(
+                        modifier = Modifier.padding(start = if (onNavigationClick != null || navigationIcon != null) 0.dp else 16.dp)
+                    ) {
+                        Text(
+                            text = title,
+                            style = if (largeTitle) MaterialTheme.typography.displayMedium else MaterialTheme.typography.headlineLarge,
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+                        if (subtitle != null) {
+                            Text(
+                                text = subtitle,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
-            },
-            actions = {
-                actions()
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent,
-            ),
-        )
+                if (actions != null) {
+                    Box(modifier = Modifier.padding(end = 8.dp)) {
+                        actions()
+                    }
+                }
+            }
+        }
     }
+}
+
+private val topBarGradientBrush by lazy {
+    Brush.verticalGradient(
+        colors = listOf(
+            BackgroundGradientStart.copy(alpha = 0.95f),
+            BackgroundGradientEnd.copy(alpha = 0.85f)
+        )
+    )
 }

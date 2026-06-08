@@ -12,4 +12,6 @@ public interface PurchaseOrderItemRepository extends JpaRepository<PurchaseOrder
     List<PurchaseOrderItemEntity> findByOwnerUserIdAndOrderId(Long ownerUserId, Long orderId);
 
     void deleteByOwnerUserIdAndOrderId(Long ownerUserId, Long orderId);
+
+    void deleteAllByOrderId(Long orderId);
 }

@@ -94,14 +94,22 @@ public class ReportService {
     public ReportDto.ProfitSummaryReportDto profitSummary(Long startAt, Long endAt) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         TimeRange range = normalizeRange(startAt, endAt);
-        Object[] summary = saleOrderItemRepository.summarizeProfit(
-            ownerUserId,
-            range.startAt(),
-            range.endAt(),
-            OrderStatus.CANCELLED.code()
-        );
-        double totalSales = safeDouble(summary[0]);
-        double estimatedCost = safeDouble(summary[1]);
+        List<SaleOrderEntity> orders = saleOrderRepository.findByOwnerUserIdAndCreatedAtBetween(ownerUserId, range.startAt(), range.endAt())
+            .stream()
+            .filter(this::isNonCancelledOrder)
+            .toList();
+        List<SaleOrderItemEntity> items = collectOrderItems(ownerUserId, orders);
+        Map<Long, Double> purchasePriceByProductId = productRepository.findAllByOwnerUserId(ownerUserId).stream()
+            .filter(product -> safeLong(product.getId()) > 0L)
+            .collect(Collectors.toMap(
+                product -> safeLong(product.getId()),
+                product -> safeDouble(product.getPurchasePrice()),
+                (left, ignored) -> left
+            ));
+        double totalSales = items.stream().mapToDouble(item -> safeDouble(item.getAmount())).sum();
+        double estimatedCost = items.stream()
+            .mapToDouble(item -> safeDouble(item.getQuantity()) * purchasePriceByProductId.getOrDefault(safeLong(item.getProductId()), 0.0))
+            .sum();
         double estimatedProfit = totalSales - estimatedCost;
         double estimatedProfitRate = totalSales <= 0.0 ? 0.0 : (estimatedProfit / totalSales) * 100.0;
         return new ReportDto.ProfitSummaryReportDto(

@@ -2,6 +2,8 @@ package com.zhihuiji.backend.api.controller.v2;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.dto.v2.sync.V2ImportJobDtos;
+import com.zhihuiji.backend.application.service.CurrentOwnerService;
+import com.zhihuiji.backend.application.service.LegacySQLiteImportService;
 import com.zhihuiji.backend.application.service.v2.V2ImportJobService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -17,9 +19,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/v2/import-jobs")
 public class V2ImportJobController {
     private final V2ImportJobService v2ImportJobService;
+    private final LegacySQLiteImportService legacySQLiteImportService;
+    private final CurrentOwnerService currentOwnerService;
 
-    public V2ImportJobController(V2ImportJobService v2ImportJobService) {
+    public V2ImportJobController(
+        V2ImportJobService v2ImportJobService,
+        LegacySQLiteImportService legacySQLiteImportService,
+        CurrentOwnerService currentOwnerService
+    ) {
         this.v2ImportJobService = v2ImportJobService;
+        this.legacySQLiteImportService = legacySQLiteImportService;
+        this.currentOwnerService = currentOwnerService;
     }
 
     @GetMapping
@@ -52,5 +62,20 @@ public class V2ImportJobController {
     @PostMapping("/{id}/cancel")
     public ApiResponse<V2ImportJobDtos.ImportJobResponse> cancel(@PathVariable Long id) {
         return ApiResponse.success(v2ImportJobService.cancel(id));
+    }
+
+    @PostMapping("/legacy-sqlite")
+    public ApiResponse<LegacySQLiteImportService.ImportResult> importLegacySqlite(
+        @Valid @RequestBody V2ImportJobDtos.LegacySQLiteImportRequest request
+    ) {
+        return ApiResponse.success(
+            legacySQLiteImportService.importIntoExistingOwner(
+                currentOwnerService.requireCurrentOwnerUserId(),
+                new LegacySQLiteImportService.ExistingOwnerImportRequest(
+                    request.legacyDbPath(),
+                    request.resetOwnedData()
+                )
+            )
+        );
     }
 }

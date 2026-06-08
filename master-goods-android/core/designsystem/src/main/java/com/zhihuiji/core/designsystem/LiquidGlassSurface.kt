@@ -1,83 +1,178 @@
 package com.zhihuiji.core.designsystem
 
-import androidx.compose.foundation.clickable
+import android.os.Build
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 
+/**
+ * Boundary for the glass scene.
+ *
+ * The real AndroidLiquidGlass backdrop renderer is intentionally not attached in production yet:
+ * device verification on Android 16 crashed during the first Compose measure pass with
+ * "LayoutNode should be attached to an owner". Keep the boundary so screens can share one API,
+ * but render the stable static glass fallback until the renderer is proven in isolation.
+ */
+@Composable
+fun GlassBackdropLayer(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Box(modifier = modifier) {
+        content()
+    }
+}
+
+/**
+ * 液态玻璃表面容器
+ *
+ * 生产路径使用稳定的半透明渐变、柔和阴影与白色描边模拟玻璃质感。
+ * 业务页面优先复用本容器，避免各页面自行模拟玻璃效果导致视觉漂移。
+ * 若显式传入 `backdrop`，则仅在该局部区域启用真实 backdrop blur。
+ *
+ * @param modifier 修饰符
+ * @param blurRadius 模糊半径
+ * @param shape 圆角形状，默认 16dp
+ * @param enableVibrancy 是否启用色彩增强
+ * @param content 内容
+ */
 @Composable
 fun LiquidGlassSurface(
     modifier: Modifier = Modifier,
-    cornerRadius: Dp = 22.dp,
     blurRadius: Dp = 20.dp,
-    surfaceAlpha: Float = 0.16f,
-    lensProgress: Float = 0f,
-    highlightAlpha: Float = 0.92f,
-    contentPadding: PaddingValues = PaddingValues(0.dp),
-    onClick: (() -> Unit)? = null,
-    content: @Composable BoxScope.() -> Unit,
+    shape: RoundedCornerShape = RoundedCornerShape(16.dp),
+    enableVibrancy: Boolean = true,
+    surfaceColor: Color = GlassSurfaceMedium,
+    backdrop: Backdrop? = null,
+    content: @Composable () -> Unit
 ) {
-    val backdrop = rememberLayerBackdrop()
-    val shape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
-    val lensRefractionHeight = remember(lensProgress) { (12f + 10f * lensProgress).dp }
-    val lensRefractionAmount = remember(lensProgress) { (10f + 10f * lensProgress).dp }
-    val shadowColor = remember(lensProgress) {
-        ZhihuijiColors.Primary.copy(alpha = 0.10f + 0.06f * lensProgress)
-    }
-    val innerShadow = remember(lensProgress) {
-        InnerShadow(radius = 7.dp + (3.dp * lensProgress), alpha = 0.28f + 0.10f * lensProgress)
-    }
-    val surfaceColor = remember(surfaceAlpha, lensProgress) {
-        Color.White.copy(alpha = surfaceAlpha + 0.04f * lensProgress)
-    }
-    val highlight = remember(highlightAlpha) { Highlight.Default.copy(alpha = highlightAlpha) }
-    val shadow = remember(shadowColor) { Shadow.Default.copy(color = shadowColor) }
-
     Box(
-        modifier = modifier
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .clip(shape)
-            .drawBackdrop(
+        modifier = if (backdrop != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            modifier.dynamicLiquidGlass(
                 backdrop = backdrop,
-                shape = { shape },
-                effects = {
-                    blur(blurRadius.toPx())
-                    vibrancy()
-                    if (lensProgress > 0.001f) {
-                        lens(
-                            refractionHeight = lensRefractionHeight.toPx(),
-                            refractionAmount = lensRefractionAmount.toPx(),
-                            depthEffect = true,
-                            chromaticAberration = lensProgress > 0.35f,
-                        )
-                    }
-                },
-                highlight = { highlight },
-                shadow = { shadow },
-                innerShadow = { innerShadow },
-                onDrawSurface = {
-                    drawRect(surfaceColor)
-                },
+                blurRadius = blurRadius,
+                shape = shape,
+                enableVibrancy = enableVibrancy,
+                surfaceColor = surfaceColor
             )
-            .padding(contentPadding),
+        } else {
+            modifier.staticLiquidGlass(
+                shape = shape,
+                surfaceColor = surfaceColor
+            )
+        }
     ) {
         content()
     }
 }
+
+private fun Modifier.staticLiquidGlass(
+    shape: RoundedCornerShape,
+    surfaceColor: Color
+): Modifier =
+    this
+        .shadow(
+            elevation = 10.dp,
+            shape = shape,
+            clip = false,
+            ambientColor = GlassShadow,
+            spotColor = GlassShadow
+        )
+        .clip(shape)
+        .background(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    surfaceColor.copy(alpha = (surfaceColor.alpha + 0.14f).coerceAtMost(0.82f)),
+                    surfaceColor
+                )
+            ),
+            shape = shape
+        )
+        .border(width = 0.5.dp, color = GlassBorder, shape = shape)
+
+private fun Modifier.dynamicLiquidGlass(
+    backdrop: Backdrop,
+    blurRadius: Dp,
+    shape: RoundedCornerShape,
+    enableVibrancy: Boolean,
+    surfaceColor: Color
+): Modifier =
+    this
+        .shadow(
+            elevation = 14.dp,
+            shape = shape,
+            clip = false,
+            ambientColor = GlassShadow.copy(alpha = 0.20f),
+            spotColor = GlassShadow.copy(alpha = 0.24f)
+        )
+        .clip(shape)
+        .drawBackdrop(
+            backdrop = backdrop,
+            shape = { shape },
+            effects = {
+                blur(blurRadius.toPx())
+                if (enableVibrancy) {
+                    vibrancy()
+                }
+            },
+            highlight = {
+                Highlight.Default.copy(alpha = 0.98f)
+            },
+            shadow = {
+                Shadow.Default.copy(
+                    color = GlassShadow.copy(alpha = 0.20f),
+                    alpha = 0.9f
+                )
+            },
+            innerShadow = {
+                InnerShadow(
+                    radius = 12.dp,
+                    alpha = 0.20f,
+                    color = Color.White.copy(alpha = 0.18f)
+                )
+            },
+            onDrawSurface = {
+                val topAlpha = (surfaceColor.alpha + 0.20f).coerceAtMost(0.96f)
+                val bottomAlpha = (surfaceColor.alpha + 0.32f).coerceAtMost(0.99f)
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            surfaceColor.copy(alpha = topAlpha),
+                            surfaceColor.copy(alpha = bottomAlpha)
+                        ),
+                        startY = 0f,
+                        endY = size.height
+                    )
+                )
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.32f),
+                            Color.Transparent
+                        ),
+                        center = Offset(size.width * 0.18f, size.height * 0.08f),
+                        radius = size.width * 0.72f
+                    ),
+                    radius = size.width * 0.72f,
+                    center = Offset(size.width * 0.18f, size.height * 0.08f)
+                )
+            }
+        )
+        .border(width = 0.5.dp, color = GlassBorder, shape = shape)

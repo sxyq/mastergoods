@@ -96,6 +96,8 @@ public class PurchaseOrderService {
         order.setSupplierId(command.supplierId());
         order.setSupplierName(command.supplierName());
         order.setTotalAmount(total);
+        order.setPaidAmount(0.0);
+        order.setReceivedAmount(orderStatus == PurchaseOrderStatus.RECEIVED.code() ? total : 0.0);
         order.setNotes(command.notes());
         order.setStatus(orderStatus);
         order.setSyncStatus(0);
@@ -149,6 +151,74 @@ public class PurchaseOrderService {
         String notes,
         Integer status
     ) {}
+
+    @Transactional
+    public PurchaseDetail update(Long orderId, CreatePurchaseOrderCommand command) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        PurchaseOrderEntity order = purchaseOrderRepository.findByIdAndOwnerUserId(orderId, ownerUserId)
+            .orElseThrow(() -> new IllegalArgumentException("采购单不存在"));
+
+        if (order.getStatus() != PurchaseOrderStatus.DRAFT.code()) {
+            throw new IllegalArgumentException("只有草稿状态的采购单可以编辑");
+        }
+
+        long now = System.currentTimeMillis();
+        double total = 0.0;
+
+        purchaseOrderItemRepository.deleteAllByOrderId(orderId);
+
+        List<PurchaseOrderItemEntity> itemEntities = new ArrayList<>();
+        for (PurchaseItemDraft item : command.items()) {
+            ProductEntity product = resolveProduct(ownerUserId, item);
+            double quantity = item.quantity() == null ? 0.0 : item.quantity();
+            double unitCost = item.unitCost() == null ? 0.0 : item.unitCost();
+            if (quantity <= 0.0 || unitCost < 0.0) {
+                throw new IllegalArgumentException("采购数量或单价不合法");
+            }
+            double amount = quantity * unitCost;
+            total += amount;
+
+            PurchaseOrderItemEntity entity = new PurchaseOrderItemEntity();
+            entity.setId(IdGenerator.nextId());
+            entity.setOwnerUserId(ownerUserId);
+            entity.setOrderId(orderId);
+            entity.setProductId(product.getId());
+            entity.setProductCode(product.getCode());
+            entity.setProductName(
+                item.productName() == null || item.productName().isBlank()
+                    ? product.getName()
+                    : item.productName()
+            );
+            entity.setQuantity(quantity);
+            entity.setUnitCost(unitCost);
+            entity.setAmount(amount);
+            entity.setCreatedAt(now);
+            itemEntities.add(entity);
+        }
+
+        order.setSupplierId(command.supplierId());
+        order.setSupplierName(command.supplierName());
+        order.setTotalAmount(total);
+        order.setNotes(command.notes());
+        order.setUpdatedAt(now);
+        order.setSyncStatus(0);
+        order.setSyncVersion(order.getSyncVersion() + 1);
+        purchaseOrderRepository.save(order);
+        purchaseOrderItemRepository.saveAll(itemEntities);
+        return new PurchaseDetail(order, itemEntities);
+    }
+
+    @Transactional
+    public void delete(Long orderId) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        PurchaseOrderEntity order = purchaseOrderRepository.findByIdAndOwnerUserId(orderId, ownerUserId)
+            .orElseThrow(() -> new IllegalArgumentException("采购单不存在"));
+        if (order.getStatus() != PurchaseOrderStatus.DRAFT.code()) {
+            throw new IllegalArgumentException("只有草稿状态的采购单可以删除");
+        }
+        purchaseOrderItemRepository.deleteAllByOrderId(orderId);
+        purchaseOrderRepository.delete(order);
+    }
 
     public record PurchaseDetail(
         PurchaseOrderEntity order,

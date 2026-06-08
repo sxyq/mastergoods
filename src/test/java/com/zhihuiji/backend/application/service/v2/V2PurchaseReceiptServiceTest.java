@@ -96,6 +96,32 @@ class V2PurchaseReceiptServiceTest {
         assertEquals(8.0, response.totalAmount());
     }
 
+    @Test
+    void listWithoutKeywordAvoidsSearchQuery() {
+        PurchaseReceiptEntity receipt = receipt(5L, 0);
+        when(purchaseReceiptRepository.findByOwnerUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(receipt));
+        when(purchaseReceiptItemRepository.findByOwnerUserIdAndReceiptIdOrderByCreatedAtAsc(1L, 5L)).thenReturn(List.of());
+
+        List<V2PurchaseReceiptDtos.PurchaseReceiptResponse> responses = service.list(null, null);
+
+        assertEquals(1, responses.size());
+        assertEquals("RC-5", responses.get(0).receiptNo());
+        verify(purchaseReceiptRepository, never()).search(any(), any(), any());
+    }
+
+    @Test
+    void listWithBlankKeywordAndStatusAvoidsSearchQuery() {
+        PurchaseReceiptEntity receipt = receipt(6L, 1);
+        when(purchaseReceiptRepository.findByOwnerUserIdAndStatusOrderByCreatedAtDesc(1L, 1)).thenReturn(List.of(receipt));
+        when(purchaseReceiptItemRepository.findByOwnerUserIdAndReceiptIdOrderByCreatedAtAsc(1L, 6L)).thenReturn(List.of());
+
+        List<V2PurchaseReceiptDtos.PurchaseReceiptResponse> responses = service.list("   ", 1);
+
+        assertEquals(1, responses.size());
+        assertEquals(1, responses.get(0).status());
+        verify(purchaseReceiptRepository, never()).search(any(), any(), any());
+    }
+
     private static V2PurchaseReceiptDtos.CreateRequest createRequest(Long supplierId, Long purchaseOrderId) {
         return new V2PurchaseReceiptDtos.CreateRequest(
             purchaseOrderId,
@@ -104,6 +130,20 @@ class V2PurchaseReceiptServiceTest {
             List.of(new V2PurchaseReceiptDtos.CreateItemRequest(11L, null, "矿泉水", 2.0, 4.0)),
             "收货备注"
         );
+    }
+
+    private static PurchaseReceiptEntity receipt(Long id, Integer status) {
+        PurchaseReceiptEntity entity = new PurchaseReceiptEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setReceiptNo("RC-" + id);
+        entity.setSupplierId(4L);
+        entity.setSupplierName("供应商B");
+        entity.setTotalAmount(8.0);
+        entity.setStatus(status);
+        entity.setCreatedAt(1000L);
+        entity.setUpdatedAt(2000L);
+        return entity;
     }
 
     private static ProductEntity product(Long id, String code, String name) {

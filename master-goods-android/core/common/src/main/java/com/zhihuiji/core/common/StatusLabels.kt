@@ -1,7 +1,5 @@
 package com.zhihuiji.core.common
 
-import com.zhihuiji.core.model.AgentTaskStatus
-
 object StatusLabels {
     object Codes {
         const val SALE_DRAFT = 0
@@ -111,13 +109,6 @@ object StatusLabels {
         Codes.INVENTORY_OUT -> "出库"
         Codes.INVENTORY_IN -> "入库"
         else -> "未知"
-    }
-
-    fun agentTaskStatus(status: AgentTaskStatus): String = when (status) {
-        AgentTaskStatus.QUEUED -> "排队中"
-        AgentTaskStatus.RUNNING -> "运行中"
-        AgentTaskStatus.COMPLETED -> "已完成"
-        AgentTaskStatus.FAILED -> "失败"
     }
 
     fun stockStatus(stock: Double, safeStock: Double): String = when {

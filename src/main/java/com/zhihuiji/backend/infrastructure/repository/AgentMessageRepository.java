@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface AgentMessageRepository extends JpaRepository<AgentMessageEntity, Long> {
     List<AgentMessageEntity> findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(Long ownerUserId, Long conversationId);
 
+    long countByOwnerUserIdAndConversationId(Long ownerUserId, Long conversationId);
+
     Optional<AgentMessageEntity> findByIdAndOwnerUserId(Long id, Long ownerUserId);
 
     void deleteAllByOwnerUserIdAndConversationId(Long ownerUserId, Long conversationId);

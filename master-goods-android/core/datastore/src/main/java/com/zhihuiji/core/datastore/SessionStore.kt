@@ -112,6 +112,8 @@ class SessionStore @Inject constructor(
 
     fun peekRefreshToken(): String? = cachedRefreshToken
 
+    fun peekUserId(): Long? = cachedUserId
+
     fun isTokenExpired(): Boolean = cachedExpiresAt > 0L && System.currentTimeMillis() >= cachedExpiresAt
 
     private suspend fun persistSession(token: String, refreshToken: String, userId: Long, expiresIn: Int) {

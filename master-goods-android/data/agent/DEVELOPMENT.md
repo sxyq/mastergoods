@@ -1,42 +1,32 @@
 # data/agent 模块开发说明
 
-- 当前状态：脚手架已创建，仓储未开始。
+- 当前状态：P0 已完成（旧 V1 已删除），P1 进行中；workbench/chat/tasks/notifications/drafts 已改走 V2 数据层，测试 fake 仅用于单元隔离。
 - 实际源码目录：`data/agent/src/main/java/com/zhihuiji/data/agent`
-- 目标：封装 AI 工作台、问答、操作草稿、任务、通知。
+- 目标：封装新版 AI 助手的数据访问层，包括会话、消息、草稿、流式聊天。
 
-## 需要创建的类
+## 现有类
 
-- `AgentRepository`
-- `NotificationStreamRepository`
+- `AgentV2Repository`（保留并扩展）：对接 V2 API，负责 conversation / message / draft CRUD。
 
-## 需要实现的关键函数
+## 已删除类
 
-- `getWorkbench(windowDays: Int, limit: Int, agingDays: Int): AgentWorkbenchDto`
-- `query(question: String, conversationId: String?): AgentAnswerDto`
-- `generateOperationDraft(input: String): OperationDraftDto`
-- `submitOperationDraft(draftId: String?, payload: OperationSubmitRequest): OperationSubmitResultDto`
-- `createTask(request: CreateAgentTaskRequest): AgentTaskSummaryDto`
-- `listTasks(): List<AgentTaskSummaryDto>`
-- `getTask(taskId: Long): AgentTaskDetailDto`
-- `listNotifications(unreadOnly: Boolean, undeliveredOnly: Boolean): List<AgentNotificationDto>`
-- `markNotificationRead(id: Long): AgentNotificationDto`
-- `markNotificationDelivered(id: Long): AgentNotificationDto`
-- `connectNotificationStream()`
-  - 第二阶段接入 SSE。
+- `AgentRepository`（旧 V1，已物理删除）。
+
+## 需要实现的关键函数（新版）
+
+- `AgentV2Repository.chatStream(request: AgentChatRequest): Flow<AgentStreamEvent>` — 流式 SSE 聊天，始终按 `stream=true` 发送。
+- `AgentV2Repository.getWorkbench(): Result<AgentWorkbenchV2Dto>` — 工作台聚合数据。
+- `AgentV2Repository.listDrafts(conversationId: Long? = null): Result<List<AgentDraftDto>>` — 草稿列表。
+- `AgentV2Repository.deleteDraft(id: Long): Result<Unit>` — 删除草稿。
 
 ## 验收标准
 
-- 第一阶段至少要让工作台、问答、草稿、任务、通知列表跑通。
-
-## UI 设计规范支撑
-
-- 工作台需要返回 KPI、经营洞察、回款提醒、库存预警和快捷操作所需数据。
-- 问答结果需要保留结构化分析块，支撑聊天页中的报表卡片和建议行动卡。
-- 任务需要提供进度、状态、开始时间、完成时间和错误信息。
+- 旧 V1 相关引用全部清理完毕，项目可编译。
+- `AgentV2Repository` 能独立支撑新版 Agent 所有数据需求。
 
 ## UI 联动约束
 
 - 本模块虽然不直接负责页面绘制，但其输出的数据结构、状态枚举、错误语义和交互支撑能力必须服务于统一的 Android UI 基线。
 - 后续新增业务不能倒逼页面切换成另一套视觉风格；应优先通过补充 `core/designsystem` 通用组件或扩展既有页面母版来承接。
 - 需要映射到 UI 的状态、金额、风险、同步结果等，应继续服从统一的颜色语义、状态标签和信息层级。
-- Android 视觉真源固定为 `docs/design-mockups/01.png ~ 08.png` 与 `master-goods-android/UI-DESIGN-SPEC.md`。
+- Android 当前视觉真源以 Stitch 导出、`docs/spec/42-android-liquid-glass-ui-refactor-plan.md` 与 `master-goods-android/UI-DESIGN-SPEC.md` 为准；`docs/design-mockups/` 仅作历史参考。

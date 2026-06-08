@@ -45,7 +45,9 @@ agent:
     enabled: ${AGENT_LLM_ENABLED:false}
     base-url: ${AGENT_LLM_BASE_URL:}
     api-key: ${AGENT_LLM_API_KEY:}
-    model: ${AGENT_LLM_MODEL:LongCat-Flash-Thinking-2601}
+    model: ${AGENT_LLM_MODEL:deepseek-v4-flash}
+    wire-api: ${AGENT_LLM_WIRE_API:chat_completions}
+    requires-openai-auth: ${AGENT_LLM_REQUIRES_OPENAI_AUTH:true}
     anthropic-version: ${AGENT_LLM_ANTHROPIC_VERSION:2023-06-01}
     max-tokens: ${AGENT_LLM_MAX_TOKENS:4096}
     temperature: ${AGENT_LLM_TEMPERATURE:0.2}

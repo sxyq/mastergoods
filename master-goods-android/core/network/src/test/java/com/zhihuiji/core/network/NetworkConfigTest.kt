@@ -7,8 +7,8 @@ import org.junit.Test
 
 class NetworkConfigTest {
     @Test
-    fun defaultBaseUrl_targetsHostedApiWithV1Prefix() {
-        assertEquals("https://api.zhihuiji.com/v1/", NetworkConfig.defaultBaseUrl)
+    fun defaultBaseUrl_targetsEditableDebugHost() {
+        assertEquals("http://117.72.79.106/zhihuiji/", NetworkConfig.defaultBaseUrl)
     }
 
     @Test
@@ -20,9 +20,9 @@ class NetworkConfigTest {
     }
 
     @Test
-    fun normalizeBaseUrl_mapsLegacyHostsToHostedApi() {
+    fun normalizeBaseUrl_mapsLegacyHostsToDefaultBaseUrl() {
         assertEquals(
-            "https://api.zhihuiji.com/v1/",
+            NetworkConfig.defaultBaseUrl,
             NetworkConfig.normalizeBaseUrl("http://124.222.153.108/zhihuiji/v1/"),
         )
     }
@@ -37,8 +37,8 @@ class NetworkConfigTest {
     @Test
     fun rewriteUrlForBaseUrl_preservesConfiguredPathPrefix() {
         val rewritten = NetworkModule.rewriteUrlForBaseUrl(
-            originalUrl = "https://api.zhihuiji.com/v1/auth/login".toHttpUrl(),
-            newBaseUrl = "http://117.72.79.106/zhihuiji/v1/".toHttpUrl(),
+            originalUrl = "http://117.72.79.106/zhihuiji/v1/auth/login".toHttpUrl(),
+            newBaseUrl = "http://117.72.79.106/zhihuiji/".toHttpUrl(),
         )
 
         assertEquals(
@@ -50,8 +50,8 @@ class NetworkConfigTest {
     @Test
     fun rewriteUrlForBaseUrl_keepsQueryParameters() {
         val rewritten = NetworkModule.rewriteUrlForBaseUrl(
-            originalUrl = "https://api.zhihuiji.com/v1/products?page=2&keyword=abc".toHttpUrl(),
-            newBaseUrl = "http://117.72.79.106/zhihuiji/v1/".toHttpUrl(),
+            originalUrl = "http://117.72.79.106/zhihuiji/v1/products?page=2&keyword=abc".toHttpUrl(),
+            newBaseUrl = "http://117.72.79.106/zhihuiji/".toHttpUrl(),
         )
 
         assertEquals(

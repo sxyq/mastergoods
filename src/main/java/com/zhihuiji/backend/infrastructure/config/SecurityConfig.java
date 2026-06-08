@@ -1,9 +1,11 @@
 package com.zhihuiji.backend.infrastructure.config;
 
+import jakarta.servlet.DispatcherType;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -20,23 +22,31 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     private final TokenAuthenticationFilter tokenAuthenticationFilter;
+    private final Environment environment;
 
     @Value("${cors.origin-patterns:localhost:*}")
     private String corsOriginPatterns;
 
-    public SecurityConfig(TokenAuthenticationFilter tokenAuthenticationFilter) {
+    public SecurityConfig(TokenAuthenticationFilter tokenAuthenticationFilter, Environment environment) {
         this.tokenAuthenticationFilter = tokenAuthenticationFilter;
+        this.environment = environment;
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        boolean localProfile = environment.matchesProfiles("local");
         http
             .csrf(csrf -> csrf.disable())
             .cors(cors -> {})
             .authorizeHttpRequests(auth -> auth
+                .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR, DispatcherType.FORWARD).permitAll()
                 .requestMatchers("/v1/auth/login", "/v1/auth/register", "/v1/auth/refresh", "/v1/auth/verify-code").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/v1/admin/**").authenticated()
+                .requestMatchers("/v1/admin/**").access((authentication, context) ->
+                    new org.springframework.security.authorization.AuthorizationDecision(
+                        localProfile || (authentication.get() != null && authentication.get().isAuthenticated())
+                    )
+                )
                 .anyRequest().authenticated()
             )
             .addFilterBefore(tokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

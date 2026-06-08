@@ -2,6 +2,7 @@ package com.zhihuiji.feature.sales
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.model.v2.order.SaleOrderV2Dto
 import com.zhihuiji.core.model.v2.order.SaleOrderV2Filter
 import com.zhihuiji.data.order.SaleOrderV2Repository
@@ -9,39 +10,123 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
+fun SaleOrderV2Dto.toSaleOrderItem(): SaleOrderItem = SaleOrderItem(
+    id = id,
+    orderNo = orderNo,
+    customerName = customerName ?: "",
+    amount = MoneyFormatter.format(totalAmount),
+    status = when (status) {
+        0 -> "草稿"
+        1 -> "已完成"
+        2 -> "已取消"
+        else -> "未知"
+    },
+    paymentStatus = paymentStatusLabel(),
+    timeLabel = createdAt.toDisplayTimeLabel()
+)
+
 data class SaleOrderListUiState(
-    val orders: List<SaleOrderV2Dto> = emptyList(),
-    val filter: SaleOrderV2Filter = SaleOrderV2Filter(),
     val isLoading: Boolean = false,
+    val error: String? = null,
+    val orders: List<SaleOrderItem> = emptyList(),
+    val keyword: String = "",
+    val selectedTab: Int = 0
+)
+
+data class SaleOrderItem(
+    val id: Long,
+    val orderNo: String,
+    val customerName: String,
+    val amount: String,
+    val status: String,
+    val paymentStatus: String,
+    val timeLabel: String
 )
 
 @HiltViewModel
 class SaleOrderListViewModel @Inject constructor(
-    private val saleOrderV2Repository: SaleOrderV2Repository,
+    private val repository: SaleOrderV2Repository,
 ) : ViewModel() {
+
     private val _uiState = MutableStateFlow(SaleOrderListUiState())
     val uiState: StateFlow<SaleOrderListUiState> = _uiState.asStateFlow()
 
-    init { loadOrders() }
+    init {
+        loadOrders()
+    }
 
-    fun loadOrders(filter: SaleOrderV2Filter = _uiState.value.filter) {
+    fun loadOrders() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, filter = filter)
-            saleOrderV2Repository.listSaleOrders(filter).onSuccess { list ->
-                _uiState.value = _uiState.value.copy(orders = list, isLoading = false)
-            }.onFailure {
-                _uiState.value = _uiState.value.copy(isLoading = false)
-            }
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            val filter = SaleOrderV2Filter(
+                keyword = _uiState.value.keyword.takeIf { it.isNotBlank() },
+                status = _uiState.value.selectedTab.takeIf { it > 0 }?.let {
+                    when (it) {
+                        1 -> 0 // 草稿
+                        2 -> 1 // 已完成
+                        3 -> 2 // 已取消
+                        else -> null
+                    }
+                }
+            )
+            repository.listSaleOrders(filter)
+                .onSuccess { orders ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            orders = orders.map { dto -> dto.toSaleOrderItem() }
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(isLoading = false, error = error.message) }
+                }
         }
     }
 
-    fun updateFilter(
-        keyword: String? = _uiState.value.filter.keyword,
-        status: Int? = _uiState.value.filter.status,
-    ) {
-        loadOrders(_uiState.value.filter.copy(keyword = keyword, status = status))
+    fun search(keyword: String) {
+        _uiState.update { it.copy(keyword = keyword) }
+        loadOrders()
+    }
+
+    fun selectTab(index: Int) {
+        _uiState.update { it.copy(selectedTab = index) }
+        loadOrders()
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
     }
 }
+
+private fun SaleOrderV2Dto.paymentStatusLabel(): String = when {
+    status == 2 -> "已取消"
+    status == 0 -> "草稿"
+    totalAmount <= 0.0 -> "待收款"
+    paidAmount + 0.0001 >= totalAmount -> "已收款"
+    else -> "待收款"
+}
+
+private fun Long.toDisplayTimeLabel(): String {
+    if (this <= 0L) return "-"
+    val zoneId = ZoneId.systemDefault()
+    val dateTime = Instant.ofEpochMilli(this).atZone(zoneId).toLocalDateTime()
+    val today = LocalDate.now(zoneId)
+    val date = dateTime.toLocalDate()
+    return when (date) {
+        today -> "今天 ${TIME_FORMATTER.format(dateTime)}"
+        today.minusDays(1) -> "昨天 ${TIME_FORMATTER.format(dateTime)}"
+        else -> DATE_FORMATTER.format(dateTime)
+    }
+}
+
+private val TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm")
+private val DATE_FORMATTER = DateTimeFormatter.ofPattern("MM月dd日")

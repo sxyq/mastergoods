@@ -106,6 +106,24 @@ function Stop-StartedBackend {
     }
 }
 
+function Assert-LegacyAgentSmokeGone {
+    $smokeUrl = "$BaseUrl/v1/admin/agent/smoke"
+    try {
+        Invoke-Api -Method Post -Url $smokeUrl -TimeoutSec 60 | Out-Null
+    } catch {
+        $message = $_.Exception.Message
+        if ($message.Contains("HTTP 410") -and $message.Contains("Legacy admin smoke is disabled")) {
+            return [ordered]@{
+                endpoint = $smokeUrl
+                status = 410
+                message = "Legacy admin smoke is disabled and no static agent answer is generated."
+            }
+        }
+        throw
+    }
+    throw "Legacy admin smoke unexpectedly returned success."
+}
+
 try {
     if (-not (Wait-BackendHealthy -MaxSeconds 5)) {
         $startedProcess = Start-Backend
@@ -254,51 +272,17 @@ try {
         throw "keepSessions=true did not preserve existing session."
     }
 
-    $smoke = Invoke-Api -Method Post -Url "$BaseUrl/v1/admin/agent/smoke" -TimeoutSec 180
-    if ([string]::IsNullOrWhiteSpace($smoke.workbench_narrative) -or [string]::IsNullOrWhiteSpace($smoke.answer_summary)) {
-        throw "Agent smoke response did not include readable narrative fields."
-    }
-    if ($smoke.task_status -notin @("queued", "running", "completed", "failed")) {
-        throw "Agent smoke task ended in unexpected status: $($smoke.task_status)"
-    }
-
-    $tasks = Invoke-Api -Method Get -Url "$BaseUrl/v1/agent/tasks"
-    $latestTask = $tasks | Sort-Object createdAt -Descending | Select-Object -First 1
-    if ($null -eq $latestTask) {
-        throw "No agent task found after smoke."
-    }
-
-    $taskDetail = $null
-    for ($attempt = 0; $attempt -lt 40; $attempt++) {
-        $taskDetail = Invoke-Api -Method Get -Url "$BaseUrl/v1/agent/tasks/$($latestTask.id)"
-        if ($taskDetail.task.status -in @("completed", "failed")) {
-            break
-        }
-        Start-Sleep -Seconds 2
-    }
-    if ($null -eq $taskDetail -or $taskDetail.task.status -notin @("completed", "failed")) {
-        throw "Latest agent task did not reach a final status."
-    }
-
-    $notificationsUrl = '{0}/v1/agent/notifications?undelivered_only=false&unread_only=false' -f $BaseUrl
-    $notifications = Invoke-Api -Method Get -Url $notificationsUrl
-    $taskNotification = $notifications | Where-Object { $_.taskId -eq $latestTask.id } | Sort-Object createdAt -Descending | Select-Object -First 1
-    if ($null -eq $taskNotification) {
-        throw "No notification was written for the latest agent task."
-    }
+    $legacyAgentSmoke = Assert-LegacyAgentSmokeGone
     $replacementChar = [string][char]0xfffd
-    if ($taskNotification.title.Contains($replacementChar) -or $taskNotification.body.Contains($replacementChar)) {
-        throw "Notification text contains unreadable characters."
-    }
 
     $indexHtml = Invoke-WebRequest -Uri "$BaseUrl/admin-console/index.html" -UseBasicParsing -TimeoutSec 30
     $stylesCss = Invoke-WebRequest -Uri "$BaseUrl/admin-console/styles.css" -UseBasicParsing -TimeoutSec 30
     $appJs = Invoke-WebRequest -Uri "$BaseUrl/admin-console/app.js" -UseBasicParsing -TimeoutSec 30
 
     foreach ($payload in @(
-        @{ Name = "index"; Response = $indexHtml; Anchor = "Warehouse Admin" },
-        @{ Name = "styles"; Response = $stylesCss; Anchor = ".summary-card" },
-        @{ Name = "app"; Response = $appJs; Anchor = "async function runAgentSmoke()" }
+        @{ Name = "index"; Response = $indexHtml; Anchor = "真实 Agent 接入说明" },
+        @{ Name = "styles"; Response = $stylesCss; Anchor = ".agent-result" },
+        @{ Name = "app"; Response = $appJs; Anchor = "const agentResult" }
     )) {
         if ($payload.Response.StatusCode -ne 200) {
             throw "$($payload.Name) resource did not return 200."
@@ -336,9 +320,7 @@ try {
         summaryAfter = $summaryAfter
         createdUser = $createUser
         updatedUser = $updatedUser
-        agentSmoke = $smoke
-        latestTask = $taskDetail
-        latestNotification = $taskNotification
+        legacyAgentSmoke = $legacyAgentSmoke
         browserReport = $browserReport
     }
     $report | ConvertTo-Json -Depth 12 | Set-Content -Encoding utf8 $reportPath

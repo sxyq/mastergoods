@@ -37,6 +37,7 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     implementation(libs.retrofit)
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.core)

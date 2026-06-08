@@ -1,99 +1,173 @@
 package com.zhihuiji.feature.purchases
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.zhihuiji.core.common.MoneyFormatter
-import com.zhihuiji.core.common.StatusLabels
-import com.zhihuiji.core.common.TimeFormatter
-import com.zhihuiji.core.designsystem.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import com.zhihuiji.core.designsystem.DocumentListCard
+import com.zhihuiji.core.designsystem.DocumentListBottomContentPadding
+import com.zhihuiji.core.designsystem.DocumentListFabBottomPadding
+import com.zhihuiji.core.designsystem.DocumentStatusTone
+import com.zhihuiji.core.designsystem.GlassBorderSoft
+import com.zhihuiji.core.designsystem.GlassSurfaceLow
+import com.zhihuiji.core.designsystem.LiquidGlassCard
+import com.zhihuiji.core.designsystem.TextSecondary
+import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 
 @Composable
 fun PurchaseOrderListScreen(
-    onNavigateBack: () -> Unit,
-    showTopBar: Boolean = true,
-    scrollToTopSignal: Int = 0,
-    onNavigateToEditor: () -> Unit = {},
+    modifier: Modifier = Modifier,
     onNavigateToDetail: (Long) -> Unit = {},
-    viewModel: PurchaseOrderViewModel = hiltViewModel(),
+    onNavigateToCreate: () -> Unit = {},
+    viewModel: PurchaseOrderListViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val listState = rememberLazyListState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    BottomBarScrollVisibilityEffect(listState)
-    BottomBarScrollToTopEffect(scrollToTopSignal, listState)
-
-    GlassScaffold(
-        selectedDestination = "",
-        destinations = emptyList(),
-        onNavigate = {},
-        showBottomBar = false,
-    ) { _ ->
-        Column(modifier = Modifier.fillMaxSize()) {
-            if (showTopBar) {
-                GlassTopBar(title = "采购单", navigationIcon = Icons.AutoMirrored.Filled.ArrowBack, onNavigationClick = onNavigateBack)
-            }
-            SearchFilterBar(query = uiState.filter.keyword ?: "", onQueryChange = { viewModel.loadOrders(uiState.filter.copy(keyword = it.ifBlank { null })) }, placeholder = "搜索单号/供应商/商品", filterIcon = Icons.Default.Tune, onFilterClick = {})
-            SegmentedTabs(tabs = listOf("全部", "草稿", "已收货"), selectedIndex = when(uiState.filter.status) { 0 -> 1; 1 -> 2; else -> 0 }, onTabSelected = { viewModel.loadOrders(uiState.filter.copy(status = if(it == 0) null else it - 1)) })
-            if (uiState.orders.isEmpty()) {
+    Box(modifier = modifier.fillMaxSize()) {
+        when {
+            uiState.isLoading -> {
                 Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    EmptyState(icon = Icons.Default.ShoppingCart, title = "暂无采购单", modifier = Modifier.fillMaxWidth())
+                    CircularProgressIndicator(color = ZhihuijiPrimary)
                 }
-            } else {
-                LazyColumn(
-                    state = listState,
+            }
+
+            uiState.error != null -> {
+                PurchaseOrderStateMessage(
+                    title = "采购单加载失败",
+                    message = uiState.error ?: "请稍后重试",
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(top = 6.dp, bottom = 88.dp),
+                        .align(Alignment.TopCenter)
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
+                )
+            }
+
+            uiState.orders.isEmpty() -> {
+                PurchaseOrderStateMessage(
+                    title = "暂无采购订单",
+                    message = "当前账号没有可展示的真实采购单",
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        start = 20.dp,
+                        top = 12.dp,
+                        end = 20.dp,
+                        bottom = DocumentListBottomContentPadding
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(uiState.orders) { order ->
-                        GlassCard(modifier = Modifier.fillMaxWidth(), onClick = { onNavigateToDetail(order.id) }) {
-                            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                    Text(order.orderNo, style = ZhihuijiTypography.titleMedium, color = ZhihuijiColors.TextPrimary)
-                                    StatusPill(text = StatusLabels.purchaseOrderStatus(order.status), tone = if(order.status == 1) PillTone.SUCCESS else PillTone.WARNING)
-                                }
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("供应商：${order.supplierName ?: ""}", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
-                                    Text("金额：${MoneyFormatter.format(order.totalAmount)}", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
-                                }
-                                Text("日期：${TimeFormatter.formatDateTime(order.createdAt)}", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextTertiary)
-                            }
-                        }
+                    items(
+                        items = uiState.orders,
+                        key = { it.id }
+                    ) { order ->
+                        PurchaseOrderListItem(
+                            order = order,
+                            onClick = { onNavigateToDetail(order.id) }
+                        )
                     }
                 }
             }
         }
-        if (showTopBar) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                FloatingPrimaryActionButton(
-                    text = "采购开单",
-                    icon = Icons.Default.Add,
-                    onClick = onNavigateToEditor,
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-                )
-            }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = DocumentListFabBottomPadding)
+                .size(56.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(ZhihuijiPrimary)
+                .border(0.5.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+                .clickable(onClick = onNavigateToCreate)
+                .padding(14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "新增采购单",
+                tint = Color.White,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+            )
         }
+    }
+}
+
+@Composable
+private fun PurchaseOrderListItem(
+    order: PurchaseOrderItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    DocumentListCard(
+        modifier = modifier,
+        title = order.orderNo,
+        subtitle = order.supplier.ifBlank { "未命名供应商" },
+        meta = order.date,
+        amount = order.amount,
+        statusLabel = order.status,
+        statusTone = when (order.status) {
+            "草稿" -> DocumentStatusTone.NEUTRAL
+            "已收货" -> DocumentStatusTone.SUCCESS
+            else -> DocumentStatusTone.PRIMARY
+        },
+        amountColor = if (order.status == "已收货") ZhihuijiPrimary else Color(0xFF181C20),
+        onClick = onClick
+    )
+}
+
+@Composable
+private fun PurchaseOrderStateMessage(
+    title: String,
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    LiquidGlassCard(
+        modifier = modifier,
+        surfaceColor = GlassSurfaceLow,
+        contentPadding = 16.dp
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = Color(0xFF181C20)
+        )
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary,
+            modifier = Modifier.padding(top = 4.dp)
+        )
     }
 }

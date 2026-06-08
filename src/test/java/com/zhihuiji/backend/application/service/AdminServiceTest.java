@@ -49,10 +49,6 @@ class AdminServiceTest {
     private PasswordEncoder passwordEncoder;
     @Mock
     private DemoDataService demoDataService;
-    @Mock
-    private LlmDrivenAgentService llmDrivenAgentService;
-    @Mock
-    private AgentTaskService agentTaskService;
 
     private AdminService adminService;
 
@@ -70,9 +66,7 @@ class AdminServiceTest {
             agentTaskRepository,
             agentNotificationRepository,
             passwordEncoder,
-            demoDataService,
-            llmDrivenAgentService,
-            agentTaskService
+            demoDataService
         );
     }
 

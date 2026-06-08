@@ -1,0 +1,345 @@
+package com.zhihuiji.backend.application.service.v2;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
+import com.zhihuiji.backend.application.service.CurrentOwnerService;
+import com.zhihuiji.backend.domain.entity.AgentConversationEntity;
+import com.zhihuiji.backend.domain.entity.AgentMessageEntity;
+import com.zhihuiji.backend.domain.entity.SupplierEntity;
+import com.zhihuiji.backend.infrastructure.ai.LongCatAnthropicClient;
+import com.zhihuiji.backend.infrastructure.repository.AgentConversationRepository;
+import com.zhihuiji.backend.infrastructure.repository.AgentDraftRepository;
+import com.zhihuiji.backend.infrastructure.repository.AgentMessageRepository;
+import com.zhihuiji.backend.infrastructure.repository.AgentNotificationRepository;
+import com.zhihuiji.backend.infrastructure.repository.AgentTaskRepository;
+import com.zhihuiji.backend.infrastructure.repository.CustomerRepository;
+import com.zhihuiji.backend.infrastructure.repository.FinanceRecordRepository;
+import com.zhihuiji.backend.infrastructure.repository.PayOrderRepository;
+import com.zhihuiji.backend.infrastructure.repository.PaymentRepository;
+import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
+import com.zhihuiji.backend.infrastructure.repository.PurchaseOrderRepository;
+import com.zhihuiji.backend.infrastructure.repository.SaleOrderRepository;
+import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
+import java.lang.reflect.Field;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+class V2AgentAiServiceTest {
+    @Mock private CurrentOwnerService currentOwnerService;
+    @Mock private AgentConversationRepository agentConversationRepository;
+    @Mock private AgentMessageRepository agentMessageRepository;
+    @Mock private AgentDraftRepository agentDraftRepository;
+    @Mock private AgentTaskRepository agentTaskRepository;
+    @Mock private AgentNotificationRepository agentNotificationRepository;
+    @Mock private ProductRepository productRepository;
+    @Mock private CustomerRepository customerRepository;
+    @Mock private SupplierRepository supplierRepository;
+    @Mock private SaleOrderRepository saleOrderRepository;
+    @Mock private PurchaseOrderRepository purchaseOrderRepository;
+    @Mock private PayOrderRepository payOrderRepository;
+    @Mock private FinanceRecordRepository financeRecordRepository;
+    @Mock private PaymentRepository paymentRepository;
+    @Mock private LongCatAnthropicClient longCatAnthropicClient;
+
+    private V2AgentAiService service;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        service = new V2AgentAiService(
+            currentOwnerService,
+            agentConversationRepository,
+            agentMessageRepository,
+            agentDraftRepository,
+            agentTaskRepository,
+            agentNotificationRepository,
+            productRepository,
+            customerRepository,
+            supplierRepository,
+            saleOrderRepository,
+            purchaseOrderRepository,
+            payOrderRepository,
+            financeRecordRepository,
+            paymentRepository,
+            new ObjectMapper(),
+            longCatAnthropicClient
+        );
+        when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        when(agentConversationRepository.save(any(AgentConversationEntity.class))).thenAnswer(invocation -> {
+            AgentConversationEntity entity = invocation.getArgument(0);
+            if (entity.getId() == null) {
+                setId(entity, 101L);
+            }
+            return entity;
+        });
+        when(agentMessageRepository.save(any(AgentMessageEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    @Test
+    void emptyReceivableResultDoesNotEmitInvalidBarChart() {
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of());
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "客户应收情况", false)
+        );
+
+        assertTrue(hasBlock(response, "kpi_grid"));
+        assertTrue(hasBlock(response, "rank_list"));
+        assertFalse(hasBlock(response, "bar_chart"));
+        assertEquals("tool_query_rule_summary", response.mode());
+        assertEquals("disabled", response.llmStatus());
+        assertTrue(response.answer().contains("规则摘要"), response.answer());
+        assertTrue(response.answer().contains("当前未使用模型生成"), response.answer());
+    }
+
+    @Test
+    void emptySupplierPayableResultDoesNotEmitInvalidBarChart() {
+        when(supplierRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of());
+        when(purchaseOrderRepository.search(1L, null, null)).thenReturn(List.of());
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "供应商应付情况", false)
+        );
+
+        assertTrue(hasBlock(response, "kpi_grid"));
+        assertTrue(hasBlock(response, "rank_list"));
+        assertFalse(hasBlock(response, "bar_chart"));
+        verify(supplierRepository).findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(
+            1L,
+            0.0,
+            PageRequest.of(0, 10)
+        );
+    }
+
+    @Test
+    void workbenchDoesNotExposeReportDashboardDefaults() {
+        when(agentConversationRepository.findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(1L, PageRequest.of(0, 5)))
+            .thenReturn(List.of());
+        when(agentDraftRepository.findAllByOwnerUserIdAndStatusIgnoreCaseOrderByUpdatedAtDescIdDesc(1L, "active", PageRequest.of(0, 5)))
+            .thenReturn(List.of());
+
+        V2AgentDtos.AgentWorkbenchResponse response = service.getWorkbench();
+
+        assertTrue(response.kpiCards().isEmpty());
+        assertTrue(response.riskAlerts().isEmpty());
+        assertTrue(response.todaySummary() == null || response.todaySummary().isBlank());
+        assertTrue(response.quickQuestions().isEmpty());
+        assertTrue(response.quickQuestions().stream().noneMatch(V2AgentAiServiceTest::isReportLikeQuestion));
+        assertEquals("你好，我是智慧记 AI 助手", response.greeting());
+        assertFalse(isReportLikeQuestion(response.greeting()));
+    }
+
+    private static boolean isReportLikeQuestion(String question) {
+        return question.contains("今日")
+            || question.contains("今天")
+            || question.contains("销售额")
+            || question.contains("报表")
+            || question.contains("KPI")
+            || question.contains("kpi")
+            || question.contains("图表")
+            || question.contains("统计图")
+            || question.contains("看板")
+            || question.contains("摘要")
+            || question.contains("排行")
+            || question.contains("风险")
+            || question.contains("补货");
+    }
+
+    @Test
+    void streamFallbackAnswerCompletesRuleSummaryWithoutFakeDeltas() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of());
+        CapturingEmitter emitter = new CapturingEmitter();
+        AgentConversationEntity conversation = conversation(101L);
+
+        service.runChatStream(1L, conversation, "客户应收情况", "run-test", emitter);
+
+        long deltaCount = emitter.payloads.stream()
+            .filter(payload -> payload.contains("\"event_type\":\"answer_delta\""))
+            .count();
+        assertEquals(0, deltaCount, String.join("\n", emitter.payloads));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_rule_summary\"")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"stream_failed_or_empty\"")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")), String.join("\n", emitter.payloads));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"event_type\":\"answer_completed\"")));
+        assertTrue(emitter.completed);
+    }
+
+    @Test
+    void streamDisabledModelAnswerCompletesRuleSummaryWithoutFakeDeltas() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of());
+        CapturingEmitter emitter = new CapturingEmitter();
+        AgentConversationEntity conversation = conversation(102L);
+
+        service.runChatStream(1L, conversation, "客户应收情况", "run-disabled", emitter);
+
+        long deltaCount = emitter.payloads.stream()
+            .filter(payload -> payload.contains("\"event_type\":\"answer_delta\""))
+            .count();
+        assertEquals(0, deltaCount, String.join("\n", emitter.payloads));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_rule_summary\"")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"disabled\"")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")), String.join("\n", emitter.payloads));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"event_type\":\"answer_completed\"")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"audit_id\":\"run-disabled:audit\"")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"trace_id\":\"run-disabled:trace\"")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"log_ref\":\"agent-run:run-disabled\"")));
+        assertTrue(emitter.completed);
+    }
+
+    @Test
+    void streamToolCompletedIncludesAuditMetadata() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(customer(1L, "客户A", 100.0), customer(2L, "客户B", 80.0)));
+        CapturingEmitter emitter = new CapturingEmitter();
+        AgentConversationEntity conversation = conversation(103L);
+
+        service.runChatStream(1L, conversation, "客户应收情况", "run-audit", emitter);
+
+        String completedPayload = emitter.payloads.stream()
+            .filter(payload -> payload.contains("\"event_type\":\"tool_completed\""))
+            .findFirst()
+            .orElse("");
+        assertTrue(completedPayload.contains("\"tool_name\":\"customer_receivable_lookup\""), completedPayload);
+        assertTrue(completedPayload.contains("\"tool_call_id\":\"run-audit:customer_receivable_lookup\""), completedPayload);
+        assertTrue(completedPayload.contains("\"audit_id\":\"run-audit:audit\""), completedPayload);
+        assertTrue(completedPayload.contains("\"trace_id\":\"run-audit:trace\""), completedPayload);
+        assertTrue(completedPayload.contains("\"returned_count\":2"), completedPayload);
+        assertTrue(completedPayload.contains("\"limit\":10"), completedPayload);
+        assertTrue(completedPayload.contains("\"is_truncated\":false"), completedPayload);
+        assertTrue(completedPayload.contains("\"duration_ms\""), completedPayload);
+    }
+
+    @Test
+    void nonStreamingChatIncludesAuditableAgentRunContract() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(customer(1L, "客户A", 100.0), customer(2L, "客户B", 80.0)));
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "客户应收情况", false)
+        );
+
+        assertEquals("keyword", response.planSource());
+        assertTrue(response.planSummary().contains("customer_receivable_lookup"), response.planSummary());
+        assertFalse(response.toolCalls().isEmpty());
+        V2AgentDtos.AgentToolCallDto toolCall = response.toolCalls().get(0);
+        assertEquals("customer_receivable_lookup", toolCall.toolName());
+        assertEquals("completed", toolCall.status());
+        assertEquals(2, toolCall.returnedCount());
+        assertEquals(10, toolCall.limit());
+        assertEquals(false, toolCall.isTruncated());
+        assertTrue(toolCall.durationMs() != null && toolCall.durationMs() >= 0);
+        assertFalse(response.evidenceRefs().isEmpty());
+        assertEquals(toolCall.toolCallId(), response.evidenceRefs().get(0).toolCallId());
+        assertTrue(hasBlock(response, "evidence_card"));
+        assertEquals(response.blocks().size(), response.resultBlocks().size());
+        assertTrue(response.performanceSummary().durationMs() >= 0);
+        assertTrue(response.performanceSummary().toolDurationMs() >= 0);
+        assertTrue(response.performanceSummary().modelDurationMs() >= 0);
+        assertTrue(response.auditId().endsWith(":audit"));
+        assertTrue(response.traceId().endsWith(":trace"));
+        assertNotNull(response.observability());
+        assertEquals(response.runId(), response.observability().requestId());
+        assertEquals(response.runId(), response.observability().correlationId());
+        assertEquals(response.auditId(), response.observability().auditId());
+        assertEquals(response.traceId(), response.observability().traceId());
+        assertEquals("agent-run:" + response.runId(), response.observability().logRef());
+    }
+
+    private static boolean hasBlock(V2AgentDtos.AgentChatResponse response, String blockType) {
+        return response.blocks().stream().anyMatch(block -> blockType.equals(block.blockType()));
+    }
+
+    private static AgentConversationEntity conversation(Long id) {
+        AgentConversationEntity entity = new AgentConversationEntity();
+        setId(entity, id);
+        entity.setOwnerUserId(1L);
+        entity.setTitle("测试会话");
+        entity.setStatus("active");
+        entity.setCreatedAt(1L);
+        entity.setUpdatedAt(1L);
+        return entity;
+    }
+
+    private static SupplierEntity supplier(Long id, String name, double balance) {
+        SupplierEntity entity = new SupplierEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setName(name);
+        entity.setPhone("13900000000");
+        entity.setBalance(balance);
+        entity.setStatus(1);
+        entity.setSyncStatus(0);
+        entity.setSyncVersion(1L);
+        entity.setCreatedAt(1L);
+        entity.setUpdatedAt(1L);
+        return entity;
+    }
+
+    private static com.zhihuiji.backend.domain.entity.CustomerEntity customer(Long id, String name, double balance) {
+        com.zhihuiji.backend.domain.entity.CustomerEntity entity = new com.zhihuiji.backend.domain.entity.CustomerEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setName(name);
+        entity.setPhone("13800000000");
+        entity.setBalance(balance);
+        entity.setLevel(1);
+        entity.setStatus(1);
+        entity.setSyncStatus(0);
+        entity.setSyncVersion(1L);
+        entity.setCreatedAt(1L);
+        entity.setUpdatedAt(1L);
+        return entity;
+    }
+
+    private static void setId(Object target, Long id) {
+        try {
+            Field field = target.getClass().getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(target, id);
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException("Unable to set test entity id", ex);
+        }
+    }
+
+    private static final class CapturingEmitter extends SseEmitter {
+        private final List<String> payloads = new ArrayList<>();
+        private boolean completed;
+
+        @Override
+        public synchronized void send(SseEventBuilder builder) throws IOException {
+            for (ResponseBodyEmitter.DataWithMediaType item : builder.build()) {
+                payloads.add(String.valueOf(item.getData()));
+            }
+        }
+
+        @Override
+        public void complete() {
+            completed = true;
+        }
+    }
+}

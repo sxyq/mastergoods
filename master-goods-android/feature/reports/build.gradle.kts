@@ -37,6 +37,9 @@ dependencies {
     implementation(project(":data:finance"))
     implementation(project(":data:order"))
     implementation(project(":data:product"))
+    implementation(project(":data:customer"))
+    implementation(project(":data:supplier"))
+    implementation(project(":data:report"))
     implementation(project(":data:sync"))
 
     implementation(libs.androidx.core.ktx)

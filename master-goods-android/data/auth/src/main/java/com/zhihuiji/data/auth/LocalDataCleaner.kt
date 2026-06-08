@@ -11,6 +11,7 @@ import com.zhihuiji.core.database.dao.SupplierDao
 import com.zhihuiji.core.database.dao.SyncCursorDao
 import com.zhihuiji.core.datastore.SessionStore
 import com.zhihuiji.core.datastore.SyncPreferenceStore
+import com.zhihuiji.core.network.MemoryCache
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.coroutineScope
@@ -42,5 +43,6 @@ class LocalDataCleaner @Inject constructor(
         launch { financeRecordDao.clear() }
         launch { agentNotificationDao.clear() }
         launch { syncCursorDao.clear() }
+        launch { MemoryCache.clearAllRegistered() }
     }
 }

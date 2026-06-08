@@ -1,186 +1,288 @@
 package com.zhihuiji.feature.sales
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.zhihuiji.core.common.MoneyFormatter
-import com.zhihuiji.core.common.StatusLabels
-import com.zhihuiji.core.common.TimeFormatter
-import com.zhihuiji.core.designsystem.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.designsystem.BottomActionBar
+import com.zhihuiji.core.designsystem.GlassScaffold
+import com.zhihuiji.core.designsystem.GlassTopBar
+import com.zhihuiji.core.designsystem.LiquidGlassCard
+import com.zhihuiji.core.designsystem.StatusPill
+import com.zhihuiji.core.designsystem.StatusType
+import com.zhihuiji.core.designsystem.TextSecondary
+import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 
 @Composable
 fun SaleOrderDetailScreen(
-    orderId: Long,
-    onNavigateBack: () -> Unit,
-    onNavigateToEdit: () -> Unit = {},
+    onBackClick: () -> Unit,
+    onEditClick: (Long) -> Unit,
+    onPaymentClick: (Long) -> Unit,
+    modifier: Modifier = Modifier,
     viewModel: SaleOrderDetailViewModel = hiltViewModel(),
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    var showPaymentSheet by remember { mutableStateOf(false) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(orderId) { viewModel.loadDetail(orderId) }
-
-    val order = uiState.order
     GlassScaffold(
-        selectedDestination = "",
-        destinations = emptyList(),
-        onNavigate = {},
-        showBottomBar = false,
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-        ) {
+        modifier = modifier.fillMaxSize(),
+        topBar = {
             GlassTopBar(
                 title = "销售单详情",
-                navigationIcon = Icons.AutoMirrored.Filled.ArrowBack,
-                onNavigationClick = onNavigateBack,
+                subtitle = uiState.order?.orderNo ?: "订单明细与收款",
+                onNavigationClick = onBackClick
             )
-            if (order != null) {
-                Column(
-                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    GlassCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                Text(order.orderNo, style = ZhihuijiTypography.headlineMedium)
-                                StatusPill(text = if (order.paidAmount < order.totalAmount) "待收款" else StatusLabels.saleOrderStatus(order.status), tone = if (order.paidAmount < order.totalAmount) PillTone.INFO else when(order.status) { 1 -> PillTone.SUCCESS; 2 -> PillTone.NEUTRAL; else -> PillTone.WARNING })
-                            }
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("客户：${order.customerName ?: "散客"}", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
-                                Text(
-                                    text = if (!order.notes.isNullOrBlank()) "备注已填写" else "暂无业务员字段",
-                                    style = ZhihuijiTypography.bodySmall,
-                                    color = ZhihuijiColors.TextSecondary,
-                                )
-                            }
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("日期：${TimeFormatter.formatDateTime(order.createdAt)}", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextTertiary)
-                                Text("来源待联调", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextTertiary)
-                            }
-                        }
-                    }
-                    GlassCard(modifier = Modifier.fillMaxWidth()) {
-                        Row(modifier = Modifier.padding(vertical = 12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            AmountColumn("订单金额", order.totalAmount, ZhihuijiColors.TextPrimary)
-                            AmountColumn("已收金额", order.paidAmount, ZhihuijiColors.TextPrimary)
-                            AmountColumn("待收金额", order.totalAmount - order.paidAmount, ZhihuijiColors.Danger)
-                        }
-                    }
-                    GlassCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("商品明细", style = ZhihuijiTypography.titleMedium)
-                            order.items.forEach { item ->
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(item.productName ?: "", style = ZhihuijiTypography.bodyMedium)
-                                        Text("¥${MoneyFormatter.formatWithoutSymbol(item.unitPrice)} × ${MoneyFormatter.formatWithoutSymbol(item.quantity)}", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextSecondary)
-                                    }
-                                    Text(MoneyFormatter.formatWithoutSymbol(item.amount), style = ZhihuijiTypography.bodyMedium, color = ZhihuijiColors.TextPrimary)
-                                }
-                                HorizontalDivider(color = ZhihuijiColors.BorderLight, thickness = 0.5.dp)
-                            }
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("合计金额", style = ZhihuijiTypography.titleMedium)
-                                Text(MoneyFormatter.format(order.totalAmount), style = ZhihuijiTypography.headlineLarge, color = ZhihuijiColors.Primary)
-                            }
-                        }
-                    }
-                    val notes = order.notes
-                    if (!notes.isNullOrBlank()) {
-                        GlassCard(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text("备注", style = ZhihuijiTypography.titleMedium)
-                                Text(notes, style = ZhihuijiTypography.bodyMedium, color = ZhihuijiColors.TextSecondary)
-                            }
-                        }
-                    }
-                    GlassCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("处理轨迹", style = ZhihuijiTypography.titleMedium)
-                            Text("当前仅展示订单时间、金额和收款结果。审批流、打印记录、来源渠道等轨迹字段待联调后补齐。", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
-                        }
-                    }
-                    if (uiState.payments.isNotEmpty()) {
-                        GlassCard(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("收款记录", style = ZhihuijiTypography.titleMedium)
-                                uiState.payments.forEach { payment ->
-                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Text(MoneyFormatter.format(payment.amount), style = ZhihuijiTypography.bodyMedium)
-                                        Text(StatusLabels.paymentMethod(payment.method), style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextSecondary)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if (uiState.payments.isEmpty()) {
-                        GlassCard(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("收款记录", style = ZhihuijiTypography.titleMedium)
-                                EmptyState(
-                                    icon = Icons.Default.CheckCircle,
-                                    title = "暂无收款记录",
-                                    subtitle = "订单完成收款后，记录会展示在这里",
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                )
-                            }
-                        }
-                    }
-                    if (uiState.error != null) {
-                        Text(uiState.error!!.text, style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.Danger)
-                    }
-                }
+        },
+        bottomBar = {
+            uiState.order?.let { order ->
                 BottomActionBar(
-                    primaryAction = {
-                        if (order.paidAmount < order.totalAmount) {
-                            PrimaryButton(
-                                text = "收款",
-                                onClick = { showPaymentSheet = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                icon = Icons.Default.CheckCircle,
-                            )
-                        } else {
-                            PrimaryButton(text = "完成订单", onClick = { viewModel.completeOrder() }, modifier = Modifier.fillMaxWidth())
-                        }
-                    },
-                    secondaryActions = buildList {
-                        if (order.status != 2) {
-                            add { DangerOutlineButton(text = "作废", onClick = { viewModel.cancelOrder() }) }
-                            add { SecondaryOutlineButton(text = "修改", onClick = onNavigateToEdit) }
-                        }
-                    },
+                    primaryText = "收款",
+                    onPrimaryClick = { onPaymentClick(order.id) },
+                    secondaryText = if (order.status == 0) "编辑单据" else null,
+                    onSecondaryClick = { onEditClick(order.id) },
+                    totalLabel = "待收金额",
+                    totalAmount = "¥%.2f".format(order.totalAmount - order.paidAmount)
                 )
             }
         }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            when {
+                uiState.isLoading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = ZhihuijiPrimary)
+                    }
+                }
+
+                uiState.error != null -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = uiState.error ?: "出错了",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            IconButton(onClick = { viewModel.loadOrder() }) {
+                                Text("重试", color = ZhihuijiPrimary)
+                            }
+                        }
+                    }
+                }
+
+                uiState.order != null -> {
+                    SaleOrderDetailContent(order = uiState.order!!)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SaleOrderDetailContent(
+    order: com.zhihuiji.core.model.v2.order.SaleOrderV2Dto,
+    modifier: Modifier = Modifier,
+) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            OrderInfoCard(order = order)
+        }
+
+        item {
+            Text(
+                text = "商品明细",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        items(order.items) { item ->
+            OrderItemCard(item = item)
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            TotalAmountRow(totalAmount = order.totalAmount)
+        }
+    }
+}
+
+@Composable
+private fun OrderInfoCard(
+    order: com.zhihuiji.core.model.v2.order.SaleOrderV2Dto,
+    modifier: Modifier = Modifier,
+) {
+    val statusType = when (order.status) {
+        0 -> StatusType.PENDING
+        1 -> StatusType.COMPLETED
+        2 -> StatusType.CANCELLED
+        else -> StatusType.NORMAL
     }
 
-    if (showPaymentSheet) {
-        SalePaymentSheet(
-            maxAmount = (order?.totalAmount ?: 0.0) - (order?.paidAmount ?: 0.0),
-            onConfirm = { amount, method, ref -> viewModel.addPayment(amount, method, ref); showPaymentSheet = false },
-            onDismiss = { showPaymentSheet = false },
+    LiquidGlassCard(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = 0.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = order.orderNo,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                StatusPill(
+                    text = order.statusText(),
+                    status = statusType
+                )
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+            InfoRow(label = "客户名称", value = order.customerName ?: "-")
+            InfoRow(label = "订单金额", value = "¥%.2f".format(order.totalAmount))
+            InfoRow(label = "已付金额", value = "¥%.2f".format(order.paidAmount))
+            InfoRow(label = "折扣金额", value = "¥%.2f".format(order.discountAmount))
+            InfoRow(label = "创建时间", value = order.createdAtText())
+            val notes = order.notes
+            if (!notes.isNullOrBlank()) {
+                InfoRow(label = "备注", value = notes)
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoRow(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium
         )
     }
 }
 
 @Composable
-private fun AmountColumn(label: String, value: Double, color: androidx.compose.ui.graphics.Color) {
-    Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(label, style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextSecondary)
-        Text(MoneyFormatter.format(value), style = ZhihuijiTypography.titleMedium, color = color)
+private fun OrderItemCard(
+    item: com.zhihuiji.core.model.v2.order.SaleOrderItemV2Dto,
+    modifier: Modifier = Modifier,
+) {
+    LiquidGlassCard(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = 0.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = item.productName ?: "未知商品",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "数量: %.2f".format(item.quantity),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+                Text(
+                    text = "单价: ¥%.2f".format(item.unitPrice),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text(
+                    text = "小计: ${item.subtotalText()}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ZhihuijiPrimary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TotalAmountRow(
+    totalAmount: Double,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "订单总金额: ",
+            style = MaterialTheme.typography.titleMedium
+        )
+        Text(
+            text = "¥%.2f".format(totalAmount),
+            style = MaterialTheme.typography.titleLarge,
+            color = ZhihuijiPrimary
+        )
     }
 }

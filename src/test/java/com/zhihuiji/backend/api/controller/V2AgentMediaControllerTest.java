@@ -15,6 +15,7 @@ import com.zhihuiji.backend.api.controller.v2.V2MediaController;
 import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
 import com.zhihuiji.backend.api.dto.v2.media.V2MediaDtos;
 import com.zhihuiji.backend.application.service.SessionAccessService;
+import com.zhihuiji.backend.application.service.v2.V2AgentAiService;
 import com.zhihuiji.backend.application.service.v2.V2AgentConversationService;
 import com.zhihuiji.backend.application.service.v2.V2MediaService;
 import java.util.List;
@@ -37,6 +38,8 @@ class V2AgentMediaControllerTest {
 
     @MockBean
     private V2AgentConversationService v2AgentConversationService;
+    @MockBean
+    private V2AgentAiService v2AgentAiService;
     @MockBean
     private V2MediaService v2MediaService;
     @MockBean

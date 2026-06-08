@@ -2,6 +2,7 @@ package com.zhihuiji.backend.api.controller.v2;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
+import com.zhihuiji.backend.application.service.v2.V2AgentAiService;
 import com.zhihuiji.backend.application.service.v2.V2AgentConversationService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -14,14 +15,20 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequestMapping("/v2/agent")
 public class V2AgentController {
     private final V2AgentConversationService v2AgentConversationService;
+    private final V2AgentAiService v2AgentAiService;
 
-    public V2AgentController(V2AgentConversationService v2AgentConversationService) {
+    public V2AgentController(
+        V2AgentConversationService v2AgentConversationService,
+        V2AgentAiService v2AgentAiService
+    ) {
         this.v2AgentConversationService = v2AgentConversationService;
+        this.v2AgentAiService = v2AgentAiService;
     }
 
     @GetMapping("/conversations")
@@ -92,5 +99,42 @@ public class V2AgentController {
     public ApiResponse<Void> deleteDraft(@PathVariable Long id) {
         v2AgentConversationService.deleteDraft(id);
         return ApiResponse.success(null);
+    }
+
+    @GetMapping("/workbench")
+    public ApiResponse<V2AgentDtos.AgentWorkbenchResponse> getWorkbench() {
+        return ApiResponse.success(v2AgentAiService.getWorkbench());
+    }
+
+    @GetMapping("/tasks")
+    public ApiResponse<List<V2AgentDtos.AgentTaskResponse>> listTasks() {
+        return ApiResponse.success(v2AgentAiService.listTasks());
+    }
+
+    @GetMapping("/notifications")
+    public ApiResponse<List<V2AgentDtos.AgentNotificationResponse>> listNotifications(
+        @RequestParam(value = "unread_only", required = false) Boolean unreadOnly
+    ) {
+        return ApiResponse.success(v2AgentAiService.listNotifications(Boolean.TRUE.equals(unreadOnly)));
+    }
+
+    @PostMapping("/notifications/{id}/read")
+    public ApiResponse<V2AgentDtos.AgentNotificationResponse> markNotificationRead(@PathVariable Long id) {
+        return ApiResponse.success(v2AgentAiService.markNotificationRead(id));
+    }
+
+    @PostMapping("/chat")
+    public ApiResponse<V2AgentDtos.AgentChatResponse> chat(@Valid @RequestBody V2AgentDtos.AgentChatRequest request) {
+        return ApiResponse.success(v2AgentAiService.chat(request));
+    }
+
+    @PostMapping(value = "/chat/stream", produces = "text/event-stream")
+    public SseEmitter chatStream(@Valid @RequestBody V2AgentDtos.AgentChatRequest request) {
+        return v2AgentAiService.chatStream(request);
+    }
+
+    @PostMapping("/runs/{runId}/cancel")
+    public ApiResponse<V2AgentDtos.AgentRunCancelResponse> cancelRun(@PathVariable String runId) {
+        return ApiResponse.success(v2AgentAiService.cancelRun(runId));
     }
 }

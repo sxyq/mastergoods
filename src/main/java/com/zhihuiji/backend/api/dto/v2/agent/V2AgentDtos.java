@@ -1,5 +1,6 @@
 package com.zhihuiji.backend.api.dto.v2.agent;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import jakarta.validation.constraints.NotBlank;
@@ -80,4 +81,163 @@ public final class V2AgentDtos {
         String status
     ) {}
 
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AgentWorkbenchResponse(
+        String greeting,
+        List<KpiCardItem> kpiCards,
+        List<String> quickQuestions,
+        List<RecentConversationItem> recentConversations,
+        List<PendingDraftItem> pendingDrafts,
+        List<RiskAlertItem> riskAlerts,
+        String todaySummary
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record KpiCardItem(
+        String label,
+        String value,
+        String trendDirection,
+        String trendValue,
+        String route
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record RecentConversationItem(
+        Long id,
+        String title,
+        Long lastMessageAt,
+        Integer messageCount
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record PendingDraftItem(
+        Long id,
+        String draftType,
+        String title,
+        Long createdAt
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record RiskAlertItem(
+        String level,
+        String title,
+        String description
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AgentChatRequest(
+        Long conversationId,
+        @NotBlank String message,
+        Boolean stream
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AgentRunCancelResponse(
+        String runId,
+        String status,
+        Boolean cancelled
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record ResultBlockDto(
+        String blockType,
+        String title,
+        JsonNode data
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AgentChatResponse(
+        String runId,
+        Long conversationId,
+        String answer,
+        List<ResultBlockDto> blocks,
+        Long draftId,
+        Boolean safetyPassed,
+        String safetyReason,
+        String mode,
+        String llmStatus,
+        String planSource,
+        String planSummary,
+        List<AgentToolCallDto> toolCalls,
+        List<AgentEvidenceRefDto> evidenceRefs,
+        List<ResultBlockDto> resultBlocks,
+        AgentPerformanceSummaryDto performanceSummary,
+        String auditId,
+        String traceId,
+        AgentObservabilityDto observability
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AgentToolCallDto(
+        String toolCallId,
+        String toolName,
+        String status,
+        String inputSummary,
+        JsonNode queryWindow,
+        Integer returnedCount,
+        Integer totalCount,
+        Integer limit,
+        Boolean isTruncated,
+        Long durationMs,
+        String resultSummary,
+        String errorCode,
+        String errorMessage
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AgentEvidenceRefDto(
+        String evidenceId,
+        String toolCallId,
+        String toolName,
+        String label,
+        String value,
+        JsonNode queryWindow,
+        Boolean isTruncated
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AgentPerformanceSummaryDto(
+        Long startedAt,
+        Long completedAt,
+        Long durationMs,
+        Long toolDurationMs,
+        Long modelDurationMs
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AgentObservabilityDto(
+        String requestId,
+        String correlationId,
+        String traceId,
+        String auditId,
+        String logRef
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AgentTaskResponse(
+        Long id,
+        String taskType,
+        String title,
+        String triggerSource,
+        String status,
+        String statusLabel,
+        Integer progress,
+        String inputText,
+        String resultJson,
+        Long createdAt,
+        Long updatedAt,
+        Long completedAt
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AgentNotificationResponse(
+        Long id,
+        Long taskId,
+        String title,
+        String body,
+        String level,
+        Boolean isRead,
+        Boolean isDelivered,
+        Long createdAt
+    ) {}
 }

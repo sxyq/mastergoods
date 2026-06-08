@@ -123,7 +123,7 @@ button {
 .hero-panel,
 .table-panel,
 .form-panel,
-.smoke-panel {
+.agent-panel {
   padding: 24px;
 }
 
@@ -532,7 +532,7 @@ tbody tr:hover {
   margin-top: 4px;
 }
 
-.smoke-result {
+.agent-result {
   min-height: 220px;
   padding: 18px;
   border-radius: 20px;
@@ -543,7 +543,7 @@ tbody tr:hover {
   color: #e8f1ff;
 }
 
-.smoke-result.empty {
+.agent-result.empty {
   color: rgba(255, 255, 255, 0.46);
 }
 

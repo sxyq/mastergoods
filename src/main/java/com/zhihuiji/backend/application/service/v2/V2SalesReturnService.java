@@ -119,7 +119,11 @@ public class V2SalesReturnService {
 
     public List<V2SalesReturnDtos.SalesReturnResponse> list(String keyword, Integer status) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return salesReturnRepository.search(ownerUserId, keyword, status).stream()
+        String normalizedKeyword = normalizeKeyword(keyword);
+        List<SalesReturnEntity> returns = normalizedKeyword == null
+            ? listWithoutKeyword(ownerUserId, status)
+            : salesReturnRepository.search(ownerUserId, normalizedKeyword, status);
+        return returns.stream()
             .map(r -> toResponse(r, salesReturnItemRepository.findByOwnerUserIdAndReturnIdOrderByCreatedAtAsc(ownerUserId, r.getId())))
             .toList();
     }
@@ -295,6 +299,21 @@ public class V2SalesReturnService {
             entity.getCreatedAt(),
             entity.getUpdatedAt()
         );
+    }
+
+    private List<SalesReturnEntity> listWithoutKeyword(Long ownerUserId, Integer status) {
+        if (status == null) {
+            return salesReturnRepository.findByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
+        }
+        return salesReturnRepository.findByOwnerUserIdAndStatusOrderByCreatedAtDesc(ownerUserId, status);
+    }
+
+    private static String normalizeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private V2SalesReturnDtos.SalesReturnItemResponse toItemResponse(SalesReturnItemEntity item) {

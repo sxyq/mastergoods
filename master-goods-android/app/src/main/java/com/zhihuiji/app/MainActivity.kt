@@ -1,6 +1,8 @@
 package com.zhihuiji.app
 
+import android.os.Build
 import android.os.Bundle
+import android.view.Display
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -29,10 +31,31 @@ class MainActivity : ComponentActivity() {
                 return
             }
         }
+        preferHighRefreshRateDisplayMode()
         enableEdgeToEdge()
         setContent {
             ZhihuijiTheme {
                 AppNavGraph()
+            }
+        }
+    }
+
+    private fun preferHighRefreshRateDisplayMode() {
+        @Suppress("DEPRECATION")
+        val currentDisplay = windowManager.defaultDisplay
+        val preferredMode = currentDisplay.supportedModes
+            .filter { it.refreshRate >= 90f }
+            .maxWithOrNull(
+                compareBy<Display.Mode> { it.refreshRate }
+                    .thenBy { it.physicalWidth * it.physicalHeight }
+            ) ?: return
+
+        window.attributes = window.attributes.apply {
+            preferredDisplayModeId = preferredMode.modeId
+            preferredRefreshRate = preferredMode.refreshRate
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                setFrameRateBoostOnTouchEnabled(true)
+                setFrameRatePowerSavingsBalanced(false)
             }
         }
     }

@@ -2,73 +2,137 @@ package com.zhihuiji.feature.finance
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.zhihuiji.core.common.UiMessage
-import com.zhihuiji.core.model.v2.finance.AccountCreateV2Request
-import com.zhihuiji.core.model.v2.finance.AccountTransferV2Dto
-import com.zhihuiji.core.model.v2.finance.AccountV2Dto
-import com.zhihuiji.data.finance.FinanceV2Repository
+import com.zhihuiji.core.common.StatusLabels
+import com.zhihuiji.core.common.TimeFormatter
+import com.zhihuiji.core.model.FinanceFilter
+import com.zhihuiji.core.model.FinanceRecordDto
+import com.zhihuiji.data.finance.FinanceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// TODO(B09): finance_records 写入路径已废弃，后续由 account-based 流程替代
 data class FinanceListUiState(
-    val accounts: List<AccountV2Dto> = emptyList(),
-    val transfers: List<AccountTransferV2Dto> = emptyList(),
     val isLoading: Boolean = false,
-    val createSuccess: Boolean = false,
-    val error: UiMessage? = null,
-) {
-    val totalBalance: Double get() = accounts.sumOf { it.balance }
-}
+    val error: String? = null,
+    val records: List<FinanceItem> = emptyList(),
+    val keyword: String = "",
+    val selectedTabIndex: Int = 0
+)
+
+data class FinanceItem(
+    val id: Long,
+    val recordNo: String,
+    val title: String,
+    val category: String,
+    val account: String,
+    val amount: String,
+    val amountValue: Double,
+    val type: String,
+    val date: String,
+    val updatedDate: String,
+    val partnerName: String?,
+    val notes: String?
+)
 
 @HiltViewModel
 class FinanceViewModel @Inject constructor(
-    private val financeV2Repository: FinanceV2Repository,
+    private val repository: FinanceRepository,
 ) : ViewModel() {
+
     private val _uiState = MutableStateFlow(FinanceListUiState())
     val uiState: StateFlow<FinanceListUiState> = _uiState.asStateFlow()
+    private var observeJob: Job? = null
 
-    init { loadData() }
+    init {
+        loadRecords()
+    }
 
-    fun loadData() {
+    fun loadRecords() {
+        observeJob?.cancel()
+        observeJob = viewModelScope.launch {
+            repository.observeFinanceRecords(currentFilter())
+                .catch { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = error.message ?: "财务记录加载失败"
+                        )
+                    }
+                }
+                .collect { records ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            records = records.map(FinanceRecordDto::toFinanceItem)
+                        )
+                    }
+                }
+        }
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            financeV2Repository.listAccounts().onSuccess { accounts ->
-                _uiState.value = _uiState.value.copy(accounts = accounts)
-            }.onFailure {
-                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                repository.refreshFinanceRecords(currentFilter())
+            } catch (error: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = error.message ?: "财务记录刷新失败"
+                    )
+                }
             }
-            financeV2Repository.listTransfers().onSuccess { transfers ->
-                _uiState.value = _uiState.value.copy(transfers = transfers)
-            }.onFailure {
-                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
-            }
-            _uiState.value = _uiState.value.copy(isLoading = false)
         }
     }
 
-    fun createAccount(code: String, name: String, type: Int, balance: Double?, notes: String?) {
-        viewModelScope.launch {
-            val request = AccountCreateV2Request(
-                code = code,
-                name = name,
-                type = type,
-                balance = balance,
-                notes = notes,
-            )
-            financeV2Repository.createAccount(request).onSuccess {
-                _uiState.value = _uiState.value.copy(createSuccess = true)
-                loadData()
-            }.onFailure {
-                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
+    private fun currentFilter(): FinanceFilter =
+        FinanceFilter(
+            keyword = _uiState.value.keyword.takeIf { it.isNotBlank() },
+            type = when (_uiState.value.selectedTabIndex) {
+                1 -> StatusLabels.Codes.FINANCE_INCOME
+                2 -> StatusLabels.Codes.FINANCE_EXPENSE
+                else -> null
             }
-        }
+        )
+
+    fun search(keyword: String) {
+        _uiState.update { it.copy(keyword = keyword) }
+        loadRecords()
     }
 
-    fun clearCreateSuccess() { _uiState.value = _uiState.value.copy(createSuccess = false) }
-    fun clearError() { _uiState.value = _uiState.value.copy(error = null) }
+    fun selectTab(index: Int) {
+        _uiState.update { it.copy(selectedTabIndex = index) }
+        loadRecords()
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
+    }
+}
+
+private fun FinanceRecordDto.toFinanceItem(): FinanceItem {
+    val typeLabel = StatusLabels.financeType(type)
+    val methodLabel = StatusLabels.paymentMethod(method)
+    val titleText = listOf(category, partnerName)
+        .filter { !it.isNullOrBlank() }
+        .joinToString("-")
+        .ifBlank { recordNo }
+    return FinanceItem(
+        id = id,
+        recordNo = recordNo,
+        title = titleText,
+        category = category,
+        account = methodLabel,
+        amount = "¥%.2f".format(amount),
+        amountValue = amount,
+        type = typeLabel,
+        date = TimeFormatter.formatDate(createdAt),
+        updatedDate = TimeFormatter.formatDate(updatedAt),
+        partnerName = partnerName,
+        notes = notes
+    )
 }

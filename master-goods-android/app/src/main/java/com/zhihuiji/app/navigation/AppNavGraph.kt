@@ -1,5 +1,6 @@
 package com.zhihuiji.app.navigation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -9,12 +10,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.graphics.Brush
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.zhihuiji.core.designsystem.ZhihuijiColors
-import com.zhihuiji.core.designsystem.glassBackground
+import androidx.compose.material3.MaterialTheme
+import com.zhihuiji.core.designsystem.BackgroundGradientStart
+import com.zhihuiji.core.designsystem.BackgroundGradientEnd
 import com.zhihuiji.feature.auth.AuthViewModel
 import com.zhihuiji.feature.auth.LoginScreen
 import com.zhihuiji.feature.auth.RegisterScreen
@@ -40,10 +43,14 @@ fun AppNavGraph() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .glassBackground(),
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(BackgroundGradientStart, BackgroundGradientEnd)
+                    )
+                ),
             contentAlignment = Alignment.Center,
         ) {
-            CircularProgressIndicator(color = ZhihuijiColors.Primary)
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         }
         return
     }
@@ -83,12 +90,6 @@ fun AppNavGraph() {
                 composable(MainRoutes.SETTINGS) {
                     SettingsScreen(
                         onNavigateBack = { navController.popBackStack() },
-                        onLogout = {
-                            authViewModel.logout()
-                            navController.navigate(AuthRoutes.LOGIN) {
-                                popUpTo(0) { inclusive = true }
-                            }
-                        },
                     )
                 }
             }

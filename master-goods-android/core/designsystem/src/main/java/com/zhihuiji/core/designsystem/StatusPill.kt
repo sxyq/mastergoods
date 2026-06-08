@@ -1,36 +1,66 @@
 package com.zhihuiji.core.designsystem
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-enum class PillTone {
-    SUCCESS, WARNING, DANGER, INFO, NEUTRAL
+/**
+ * 状态标签类型
+ */
+enum class StatusType {
+    NORMAL,      // 正常 - 绿色
+    LOW_STOCK,   // 低库存 - 橙色
+    OUT_OF_STOCK,// 缺货 - 红色
+    PENDING,     // 待收款 - 蓝色
+    COMPLETED,   // 已完成 - 灰色
+    ARCHIVED,    // 已归档 - 中性蓝灰
+    CANCELLED    // 作废 - 灰色
 }
 
+/**
+ * 状态标签组件
+ *
+ * @param modifier 修饰符
+ * @param text 标签文字
+ * @param status 状态类型
+ */
 @Composable
 fun StatusPill(
-    text: String,
-    tone: PillTone,
     modifier: Modifier = Modifier,
+    text: String,
+    status: StatusType = StatusType.NORMAL
 ) {
-    val (bgColor, textColor) = when (tone) {
-        PillTone.SUCCESS -> ZhihuijiColors.Success.copy(alpha = 0.14f) to ZhihuijiColors.Success
-        PillTone.WARNING -> ZhihuijiColors.Warning.copy(alpha = 0.14f) to ZhihuijiColors.Warning
-        PillTone.DANGER -> ZhihuijiColors.Danger.copy(alpha = 0.14f) to ZhihuijiColors.Danger
-        PillTone.INFO -> ZhihuijiColors.InfoBlue.copy(alpha = 0.14f) to ZhihuijiColors.InfoBlue
-        PillTone.NEUTRAL -> ZhihuijiColors.SurfaceVariant to ZhihuijiColors.TextSecondary
+    val (backgroundColor, textColor) = when (status) {
+        StatusType.NORMAL -> SuccessGreen.copy(alpha = 0.12f) to SuccessGreen
+        StatusType.LOW_STOCK -> WarningOrange.copy(alpha = 0.12f) to WarningOrange
+        StatusType.OUT_OF_STOCK -> DangerRed.copy(alpha = 0.12f) to DangerRed
+        StatusType.PENDING -> ZhihuijiPrimary.copy(alpha = 0.12f) to ZhihuijiPrimary
+        StatusType.COMPLETED -> TextQuaternary.copy(alpha = 0.15f) to TextTertiary
+        StatusType.ARCHIVED -> ZhihuijiPrimary.copy(alpha = 0.08f) to TextSecondary
+        StatusType.CANCELLED -> TextQuaternary.copy(alpha = 0.15f) to TextQuaternary
     }
-    Text(
-        text = text,
-        style = ZhihuijiTypography.labelSmall,
-        color = textColor,
+
+    Box(
         modifier = modifier
-            .background(bgColor, RoundedCornerShape(999.dp))
-            .padding(horizontal = 8.dp, vertical = 3.dp),
-    )
+            .clip(RoundedCornerShape(100.dp))
+            .background(backgroundColor)
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = textColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
 }

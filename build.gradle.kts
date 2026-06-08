@@ -27,6 +27,7 @@ dependencies {
     implementation("org.flywaydb:flyway-core:10.17.2")
     implementation("org.flywaydb:flyway-database-postgresql:10.17.2")
     implementation("org.postgresql:postgresql:42.7.4")
+    implementation("org.xerial:sqlite-jdbc:3.46.1.3")
     runtimeOnly("com.h2database:h2:2.2.224")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")

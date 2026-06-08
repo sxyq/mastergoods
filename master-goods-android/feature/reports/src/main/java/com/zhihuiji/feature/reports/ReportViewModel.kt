@@ -2,139 +2,212 @@ package com.zhihuiji.feature.reports
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.zhihuiji.core.common.UiMessage
-import com.zhihuiji.core.model.v2.finance.AccountV2Dto
-import com.zhihuiji.core.model.v2.inventory.InventoryMonthlyStatsV2Dto
-import com.zhihuiji.core.model.v2.order.SaleOrderV2Dto
-import com.zhihuiji.core.model.v2.product.ProductV2Dto
-import com.zhihuiji.data.finance.FinanceV2Repository
-import com.zhihuiji.data.order.SaleOrderV2Repository
-import com.zhihuiji.data.product.ProductV2Repository
-import com.zhihuiji.data.sync.SyncV2Repository
+import com.zhihuiji.core.model.TopSellingProductReportDto
+import com.zhihuiji.data.customer.CustomerV2Repository
+import com.zhihuiji.data.report.ReportRepository
+import com.zhihuiji.data.supplier.SupplierV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.Calendar
-import java.util.concurrent.TimeUnit
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 
-// 待验证：客户端聚合，非服务端聚合，数据准确性待验证
+enum class ReportPeriod(
+    val tabLabel: String,
+    val periodLabel: String,
+) {
+    TODAY("今日", "今日"),
+    THIS_WEEK("本周", "本周"),
+    THIS_MONTH("本月", "本月")
+}
+
+fun TopSellingProductReportDto.toTopProductItem(): TopProductItem = TopProductItem(
+    id = productId,
+    name = productName,
+    salesAmount = "¥%.0f".format(totalAmount),
+    salesCount = totalQuantity.toInt()
+)
+
+data class TopProductItem(
+    val id: Long,
+    val name: String,
+    val salesAmount: String,
+    val salesCount: Int
+)
+
 data class ReportUiState(
     val isLoading: Boolean = false,
-    val selectedPeriod: Int = 0,
-    val saleOrders: List<SaleOrderV2Dto> = emptyList(),
-    val accounts: List<AccountV2Dto> = emptyList(),
-    val lowStockProducts: List<ProductV2Dto> = emptyList(),
-    val inventoryStats: List<InventoryMonthlyStatsV2Dto> = emptyList(),
-    val error: UiMessage? = null,
+    val error: String? = null,
+    val failedReportSections: List<String> = emptyList(),
+    val selectedPeriodIndex: Int = 0,
+    val salesAmount: String = "0.00",
+    val profitAmount: String = "0.00",
+    val profitRate: String = "0.00",
+    val orderCount: Int = 0,
+    val receivableAmount: String = "0.00",
+    val payableAmount: String = "0.00",
+    val topProducts: List<TopProductItem> = emptyList()
 ) {
-    val totalSalesAmount: Double get() = saleOrders.sumOf { it.totalAmount }
-    val totalPaidAmount: Double get() = saleOrders.sumOf { it.paidAmount }
-    val totalUnpaidAmount: Double get() = totalSalesAmount - totalPaidAmount
-    val totalAccountBalance: Double get() = accounts.sumOf { it.balance }
-    val totalCostIn: Double get() = inventoryStats.sumOf { it.totalCostIn }
-    val totalCostOut: Double get() = inventoryStats.sumOf { it.totalCostOut }
-    val estimatedProfit: Double get() = totalSalesAmount - totalCostOut
+    val selectedPeriod: ReportPeriod
+        get() = ReportPeriod.values()[selectedPeriodIndex.coerceIn(0, ReportPeriod.values().lastIndex)]
+
+    val selectedPeriodLabel: String
+        get() = selectedPeriod.periodLabel
 }
+
+private data class PartnerBalanceSummary(
+    val receivableAmount: Double,
+    val payableAmount: Double,
+)
+
+private data class ReportDateRange(
+    val startAt: Long,
+    val endAt: Long,
+)
 
 @HiltViewModel
 class ReportViewModel @Inject constructor(
-    private val saleOrderV2Repository: SaleOrderV2Repository,
-    private val financeV2Repository: FinanceV2Repository,
-    private val productV2Repository: ProductV2Repository,
-    private val syncV2Repository: SyncV2Repository,
+    private val reportRepository: ReportRepository,
+    private val customerRepository: CustomerV2Repository,
+    private val supplierRepository: SupplierV2Repository,
 ) : ViewModel() {
+
     private val _uiState = MutableStateFlow(ReportUiState())
     val uiState: StateFlow<ReportUiState> = _uiState.asStateFlow()
 
-    init { loadReports() }
+    private var loadSequence = 0
+    private var cachedPartnerBalances: PartnerBalanceSummary? = null
 
-    fun loadReports(period: Int = _uiState.value.selectedPeriod) {
+    init {
+        loadReports()
+    }
+
+    fun loadReports(forcePartnerRefresh: Boolean = false) {
+        val requestSequence = ++loadSequence
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, selectedPeriod = period)
-            try {
-                coroutineScope {
-                    val deferreds = listOf(
-                        async {
-                            saleOrderV2Repository.listSaleOrders().onSuccess { orders ->
-                                _uiState.value = _uiState.value.copy(saleOrders = filterOrdersByPeriod(orders, period))
-                            }.onFailure {
-                                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
-                            }
-                        },
-                        async {
-                            financeV2Repository.listAccounts().onSuccess { accounts ->
-                                _uiState.value = _uiState.value.copy(accounts = accounts)
-                            }.onFailure {
-                                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
-                            }
-                        },
-                        async {
-                            productV2Repository.listLowStockProducts().onSuccess { products ->
-                                _uiState.value = _uiState.value.copy(lowStockProducts = products)
-                            }.onFailure {
-                                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
-                            }
-                        },
-                        async {
-                            val cal = Calendar.getInstance()
-                            syncV2Repository.listInventoryMonthlyStats(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1).onSuccess { stats ->
-                                _uiState.value = _uiState.value.copy(inventoryStats = stats)
-                            }.onFailure {
-                                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
-                            }
-                        },
-                    )
-                    deferreds.awaitAll()
-                }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(e))
+            _uiState.update { it.copy(isLoading = true, error = null, failedReportSections = emptyList()) }
+
+            val dateRange = getPeriodMillis(_uiState.value.selectedPeriod)
+
+            val salesSummaryDeferred = async { reportRepository.salesSummary(dateRange.startAt, dateRange.endAt) }
+            val profitSummaryDeferred = async { reportRepository.profitSummary(dateRange.startAt, dateRange.endAt) }
+            val topProductsDeferred = async { reportRepository.topProducts(dateRange.startAt, dateRange.endAt, limit = 5) }
+            val partnerBalancesDeferred = if (forcePartnerRefresh || cachedPartnerBalances == null) {
+                async { fetchPartnerBalances() }
+            } else {
+                null
             }
-            _uiState.value = _uiState.value.copy(isLoading = false)
+
+            val salesSummary = salesSummaryDeferred.await()
+            val profitSummary = profitSummaryDeferred.await()
+            val topProducts = topProductsDeferred.await()
+            val partnerBalancesResult = partnerBalancesDeferred?.await()
+
+            if (requestSequence != loadSequence) return@launch
+
+            val salesAmount = salesSummary.getOrNull()?.totalSalesAmount ?: 0.0
+            val orderCount = salesSummary.getOrNull()?.totalOrderCount ?: 0
+            val profitAmount = profitSummary.getOrNull()?.estimatedProfitAmount ?: 0.0
+            val profitRate = profitSummary.getOrNull()?.estimatedProfitRate ?: 0.0
+            partnerBalancesResult?.getOrNull()?.let { cachedPartnerBalances = it }
+
+            val partnerBalances = cachedPartnerBalances ?: PartnerBalanceSummary(
+                receivableAmount = 0.0,
+                payableAmount = 0.0,
+            )
+
+            val topProductItems = topProducts.getOrNull()?.map { it.toTopProductItem() } ?: emptyList()
+
+            val partnerBalancesFailed = partnerBalancesResult?.isFailure == true
+            val failedSections = listOfNotNull(
+                "销售汇总".takeIf { salesSummary.isFailure },
+                "利润预估".takeIf { profitSummary.isFailure },
+                "商品排行".takeIf { topProducts.isFailure },
+                "往来余额".takeIf { partnerBalancesFailed }
+            )
+            val errorMsg = listOfNotNull(
+                salesSummary.takeIf { it.isFailure },
+                profitSummary.takeIf { it.isFailure },
+                topProducts.takeIf { it.isFailure },
+                partnerBalancesResult?.takeIf { it.isFailure }
+            ).mapNotNull {
+                runCatching { it.getOrThrow() }.exceptionOrNull()?.message
+            }.firstOrNull()
+
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    salesAmount = "%.2f".format(salesAmount),
+                    profitAmount = "%.2f".format(profitAmount),
+                    profitRate = "%.2f".format(profitRate),
+                    orderCount = orderCount,
+                    receivableAmount = "%.2f".format(partnerBalances.receivableAmount),
+                    payableAmount = "%.2f".format(partnerBalances.payableAmount),
+                    topProducts = topProductItems,
+                    error = if (failedSections.isNotEmpty()) errorMsg else null,
+                    failedReportSections = failedSections
+                )
+            }
         }
     }
 
-    fun setPeriod(period: Int) {
-        if (period == _uiState.value.selectedPeriod) return
-        loadReports(period)
+    fun setPeriod(index: Int) {
+        val nextIndex = index.coerceIn(0, ReportPeriod.values().lastIndex)
+        if (nextIndex == _uiState.value.selectedPeriodIndex) return
+        _uiState.update { it.copy(selectedPeriodIndex = nextIndex) }
+        loadReports()
     }
 
-    private fun filterOrdersByPeriod(orders: List<SaleOrderV2Dto>, period: Int): List<SaleOrderV2Dto> {
-        val now = System.currentTimeMillis()
-        val startAt = when (period) {
-            0 -> startOfToday(now)
-            1 -> now - TimeUnit.DAYS.toMillis(7)
-            2 -> now - TimeUnit.DAYS.toMillis(30)
-            else -> startOfMonth(now)
-        }
-        return orders.filter { it.createdAt >= startAt }
+    fun clearError() {
+        _uiState.update { it.copy(error = null, failedReportSections = emptyList()) }
     }
 
-    private fun startOfToday(now: Long): Long {
-        val cal = Calendar.getInstance().apply {
-            timeInMillis = now
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
+    private suspend fun fetchPartnerBalances(): Result<PartnerBalanceSummary> = coroutineScope {
+        val customersDeferred = async { customerRepository.listCustomers() }
+        val suppliersDeferred = async { supplierRepository.listSuppliers() }
+
+        val customers = customersDeferred.await()
+        val suppliers = suppliersDeferred.await()
+        val results = listOf(customers, suppliers)
+        val error = results.filter { it.isFailure }.mapNotNull {
+            runCatching { it.getOrThrow() }.exceptionOrNull()
+        }.firstOrNull()
+
+        if (error != null) {
+            Result.failure(error)
+        } else {
+            Result.success(
+                PartnerBalanceSummary(
+                    receivableAmount = customers.getOrNull().orEmpty().sumOf { it.balance },
+                    payableAmount = suppliers.getOrNull().orEmpty().sumOf { it.balance },
+                )
+            )
         }
-        return cal.timeInMillis
     }
 
-    private fun startOfMonth(now: Long): Long {
-        val cal = Calendar.getInstance().apply {
-            timeInMillis = now
-            set(Calendar.DAY_OF_MONTH, 1)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
+    private fun getPeriodMillis(period: ReportPeriod): ReportDateRange {
+        val now = LocalDateTime.now()
+        val today = now.toLocalDate()
+        val startDate = when (period) {
+            ReportPeriod.TODAY -> today
+            ReportPeriod.THIS_WEEK -> today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            ReportPeriod.THIS_MONTH -> today.withDayOfMonth(1)
         }
-        return cal.timeInMillis
+        return ReportDateRange(
+            startAt = startDate.startOfDayMillis(),
+            endAt = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+        )
     }
 }
+
+private fun LocalDate.startOfDayMillis(): Long =
+    atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()

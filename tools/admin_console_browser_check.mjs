@@ -42,7 +42,7 @@ async function runViewportCheck(name, contextOptions) {
 
   await page.waitForSelector("text=仓管 Pro 管理后台");
   await page.waitForSelector("text=用户列表");
-  await page.waitForSelector("text=Smoke 结果");
+  await page.waitForSelector("text=真实 Agent 接入说明");
   await page.waitForSelector("text=默认登录身份");
 
   const rawText = await page.locator("body").innerText();
@@ -61,12 +61,12 @@ async function runViewportCheck(name, contextOptions) {
   }
 
   const formBox = await page.locator(".form-panel").boundingBox();
-  const smokeBox = await page.locator(".smoke-panel").boundingBox();
+  const agentBox = await page.locator(".agent-panel").boundingBox();
   const tableBox = await page.locator(".table-panel").boundingBox();
-  if (!formBox || !smokeBox || !tableBox) {
+  if (!formBox || !agentBox || !tableBox) {
     throw new Error(`${name}: one or more key panels were not rendered`);
   }
-  if (formBox.height < 200 || smokeBox.height < 160 || tableBox.width < 320) {
+  if (formBox.height < 200 || agentBox.height < 160 || tableBox.width < 320) {
     throw new Error(`${name}: key panels rendered with unexpected dimensions`);
   }
 
@@ -79,7 +79,7 @@ async function runViewportCheck(name, contextOptions) {
     summaryCards,
     screenshotPath,
     formBox,
-    smokeBox,
+    agentBox,
     tableBox,
   });
 

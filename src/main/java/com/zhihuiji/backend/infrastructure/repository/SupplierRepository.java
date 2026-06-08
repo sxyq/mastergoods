@@ -28,6 +28,8 @@ public interface SupplierRepository extends JpaRepository<SupplierEntity, Long> 
 
     List<SupplierEntity> findAllByOwnerUserIdOrderByNameAsc(Long ownerUserId, Pageable pageable);
 
+    List<SupplierEntity> findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(Long ownerUserId, Double balance, Pageable pageable);
+
     List<SupplierEntity> findAllByOwnerUserId(Long ownerUserId);
 
     List<SupplierEntity> findAllByOwnerUserIdAndIdIn(Long ownerUserId, Collection<Long> ids);

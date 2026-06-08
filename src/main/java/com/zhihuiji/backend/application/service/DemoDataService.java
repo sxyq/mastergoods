@@ -3,8 +3,6 @@ package com.zhihuiji.backend.application.service;
 import com.zhihuiji.backend.api.common.PayOrderStatus;
 import com.zhihuiji.backend.api.common.PaymentType;
 import com.zhihuiji.backend.api.common.PurchaseOrderStatus;
-import com.zhihuiji.backend.domain.entity.AgentNotificationEntity;
-import com.zhihuiji.backend.domain.entity.AgentTaskEntity;
 import com.zhihuiji.backend.domain.entity.CustomerEntity;
 import com.zhihuiji.backend.domain.entity.PayOrderEntity;
 import com.zhihuiji.backend.domain.entity.PaymentEntity;
@@ -128,7 +126,6 @@ public class DemoDataService {
         createSaleOrders(ownerUserId, customers, products);
         createPayOrders(ownerUserId, suppliers);
         patchInventoryForAnomalies(ownerUserId, products, now);
-        createWarmAgentArtifacts(ownerUserId);
         return snapshot(true);
     }
 
@@ -432,33 +429,6 @@ public class DemoDataService {
 
     private ProductEntity reloadProduct(Long ownerUserId, Long productId) {
         return productRepository.findByIdAndOwnerUserId(productId, ownerUserId).orElseThrow();
-    }
-
-    private void createWarmAgentArtifacts(Long ownerUserId) {
-        AgentTaskEntity task = new AgentTaskEntity();
-        task.setOwnerUserId(ownerUserId);
-        task.setTaskType("anomaly_watch");
-        task.setTitle("历史异常巡检");
-        task.setTriggerSource("scheduler");
-        task.setStatus("completed");
-        task.setProgress(100);
-        task.setInputText("demo seed anomaly watch");
-        task.setResultJson("{\"title\":\"历史异常巡检\",\"subtitle\":\"demo\",\"summary\":\"seeded\"}");
-        task.setCreatedAt(nowMinusDays(1));
-        task.setUpdatedAt(nowMinusDays(1));
-        task.setCompletedAt(nowMinusDays(1));
-        task = agentTaskRepository.save(task);
-
-        AgentNotificationEntity notification = new AgentNotificationEntity();
-        notification.setOwnerUserId(ownerUserId);
-        notification.setTaskId(task.getId());
-        notification.setTitle("历史异常巡检已完成");
-        notification.setBody("这是用于演示通知链路的种子数据。");
-        notification.setLevel("info");
-        notification.setIsRead(false);
-        notification.setIsDelivered(false);
-        notification.setCreatedAt(nowMinusDays(1));
-        agentNotificationRepository.save(notification);
     }
 
     private void backdateSaleOrder(Long ownerUserId, Long orderId, long createdAt, long updatedAt) {

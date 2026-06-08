@@ -74,3 +74,10 @@ data class UpdateAgentDraftRequest(
     @SerialName("content_json") val contentJson: String,
     val status: String? = null,
 )
+
+@Serializable
+data class AgentRunCancelDto(
+    @SerialName("run_id") val runId: String,
+    val status: String,
+    val cancelled: Boolean = false,
+)

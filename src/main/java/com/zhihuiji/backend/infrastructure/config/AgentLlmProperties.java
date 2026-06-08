@@ -7,9 +7,11 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "agent.llm")
 public class AgentLlmProperties {
     private boolean enabled;
-    private String baseUrl = "https://api.longcat.chat/anthropic";
-    private String apiKey = "";
-    private String model = "LongCat-Flash-Thinking-2601";
+    private String baseUrl;
+    private String apiKey;
+    private String model;
+    private String wireApi = "anthropic";
+    private boolean requiresOpenaiAuth = true;
     private String anthropicVersion = "2023-06-01";
     private int maxTokens = 4096;
     private double temperature = 0.2;
@@ -46,6 +48,22 @@ public class AgentLlmProperties {
 
     public void setModel(String model) {
         this.model = model;
+    }
+
+    public String getWireApi() {
+        return wireApi;
+    }
+
+    public void setWireApi(String wireApi) {
+        this.wireApi = wireApi;
+    }
+
+    public boolean isRequiresOpenaiAuth() {
+        return requiresOpenaiAuth;
+    }
+
+    public void setRequiresOpenaiAuth(boolean requiresOpenaiAuth) {
+        this.requiresOpenaiAuth = requiresOpenaiAuth;
     }
 
     public String getAnthropicVersion() {

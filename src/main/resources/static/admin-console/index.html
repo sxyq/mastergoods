@@ -26,7 +26,6 @@
           <p class="section-kicker">控制入口</p>
           <button id="seed-reset-button" class="action-button action-button-primary">重建演示数据</button>
           <button id="seed-button" class="action-button">补齐演示数据</button>
-          <button id="agent-smoke-button" class="action-button">运行 Agent Smoke</button>
         </nav>
 
         <section class="account-card glass-panel">
@@ -160,15 +159,15 @@
               </form>
             </section>
 
-            <section class="glass-panel smoke-panel">
+            <section class="glass-panel agent-panel">
               <div class="panel-heading">
                 <div>
-                  <p class="section-kicker">Agent Validation</p>
-                  <h3>Smoke 结果</h3>
-                  <p>验证 workbench、问答、草稿生成和后台深度分析任务。</p>
+                  <p class="section-kicker">Agent Integration</p>
+                  <h3>真实 Agent 接入说明</h3>
+                  <p>旧静态验证链路已停用；AI 助手必须通过 `/v2/agent/chat` 或 `/v2/agent/chat/stream` 查询真实数据。</p>
                 </div>
               </div>
-              <div id="smoke-result" class="smoke-result empty">尚未运行 smoke。</div>
+              <div id="agent-result" class="agent-result empty">演示数据操作结果会显示在这里。Agent 验收请使用真实问题触发 `/v2/agent` 链路，不再提供静态回答。</div>
             </section>
           </section>
         </section>

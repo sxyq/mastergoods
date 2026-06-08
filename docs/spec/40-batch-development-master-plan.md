@@ -27,7 +27,7 @@
 
 ## 已审阅范围
 
-本轮已按目录逐个核对 `docs/` 下的文本类文档，当前审阅基线为 **73 个文本文档**。
+本轮已按目录逐个核对 `docs/` 下的文本类文档，当前审阅基线为 **72 个文本文档**。
 
 ### 已逐个审阅的文本文档
 
@@ -35,7 +35,7 @@
 2. `docs/android-kingdee-data-migration.md`
 3. `docs/android-security-hardening-audit.md`
 4. `docs/design-mockups/README.md`
-5. `docs/legacy/README.md`
+5. `docs/spec/42-android-liquid-glass-ui-refactor-plan.md`
 6. `docs/spec/00-product-overview.md`
 7. `docs/spec/01-status-taxonomy.md`
 8. `docs/spec/02-domain-model-overview.md`
@@ -103,15 +103,23 @@
 70. `docs/technical-analysis/server/service/README.md`
 71. `docs/spec/40-batch-development-master-plan.md`
 72. `docs/technical-analysis/android/data/media/README.md`
-73. `docs/spec/41-b11-acceptance-matrix.md`
+72. `docs/spec/41-b11-acceptance-matrix.md`
 
-### 设计稿目录说明
+### UI 真源目录说明
 
-`docs/design-mockups/` 当前作为 UI 目标输入目录：
+当前 Android UI 设计输入分为两层：
 
-- 已核对目录说明文档：`docs/design-mockups/README.md`
-- 已核对资源清单：`01.png ~ 08.png`
-- 本批次不把 PNG 逐张视觉比对结果写入此文档；实际 UI 逐页贴合将在 `B10` 批次执行
+- 当前正式真源：
+  - `docs/spec/42-android-liquid-glass-ui-refactor-plan.md`
+  - `stitch_exports/visual-design_system_framework_14840154594131085259/manifest.tsv`
+- 历史参考：
+  - `docs/design-mockups/README.md`
+
+说明：
+
+- `docs/design-mockups/` 已降级为历史参考，不再单独作为当前 Android UI 的唯一视觉真源。
+- 旧的 `01.png ~ 08.png` 已从工作树移除，避免继续作为当前 UI 输入。
+- 本批次不把 Stitch PNG 逐张视觉比对结果写入此文档；实际 UI 逐页贴合按 `B10` 与专项 UI 计划执行。
 
 ## 当前基线
 

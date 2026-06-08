@@ -40,13 +40,14 @@
 
 Android 端的 UI 统一口径固定为三层：
 
-1. 视觉参考真源
-   - [README.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/design-mockups/README.md)
-   - `01.png ~ 08.png`
-2. 页面与组件规范真源
+1. 当前视觉真源
+   - [42-android-liquid-glass-ui-refactor-plan.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/spec/42-android-liquid-glass-ui-refactor-plan.md)
+   - [manifest.tsv](/Users/sunyiyang/Desktop/Project/master-goods/stitch_exports/visual-design_system_framework_14840154594131085259/manifest.tsv)
    - [UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/UI-DESIGN-SPEC.md)
-3. 实现落点真源
+2. 实现落点真源
    - [README.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/technical-analysis/android/core/designsystem/README.md)
+3. 历史参考
+   - [README.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/design-mockups/README.md)
 
 这意味着：
 
@@ -58,7 +59,7 @@ Android 端的 UI 统一口径固定为三层：
 
 本目录后续所有 Android 文档都要共同维护下面这套约束：
 
-- `docs/design-mockups/01.png ~ 08.png` 负责定义产品最终观感与页面气质。
+- 当前产品最终观感与页面气质以 Stitch 导出和 `docs/spec/42-android-liquid-glass-ui-refactor-plan.md` 为准；`docs/design-mockups/` 仅作历史参考。
 - `master-goods-android/UI-DESIGN-SPEC.md` 负责定义页面母版、信息层级、组件组合方式。
 - `docs/technical-analysis/android/core/designsystem/README.md` 负责定义真正可复用的实现落点。
 - `app / backdrop / core / data / feature` 五层都必须服务于同一套 UI 语言，不能因为业务扩域各自长出新风格。

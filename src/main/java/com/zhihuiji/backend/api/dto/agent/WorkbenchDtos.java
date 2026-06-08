@@ -14,8 +14,8 @@ public final class WorkbenchDtos {
         AlertDtos.AlertDashboardDto alerts,
         List<String> suggestedQuestions,
         List<String> suggestedInstructions,
-        List<AgentTaskDtos.AgentRenderBlockDto> overviewBlocks,
-        List<AgentTaskDtos.AgentRenderBlockDto> instantBlocks,
+        List<String> overviewBlocks,
+        List<String> instantBlocks,
         List<AnswerDtos.AgentAnswerDto> proactiveAnswers,
         List<OperationDraftDtos.OperationDraftDto> proactiveDrafts
     ) {

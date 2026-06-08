@@ -1,118 +1,258 @@
 package com.zhihuiji.feature.customers
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.zhihuiji.core.common.MoneyFormatter
-import com.zhihuiji.core.common.StatusLabels
-import com.zhihuiji.core.designsystem.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.designsystem.BottomActionBar
+import com.zhihuiji.core.designsystem.DangerRed
+import com.zhihuiji.core.designsystem.GlassScaffold
+import com.zhihuiji.core.designsystem.GlassTopBar
+import com.zhihuiji.core.designsystem.LiquidGlassCard
+import com.zhihuiji.core.designsystem.StatusPill
+import com.zhihuiji.core.designsystem.StatusType
+import com.zhihuiji.core.designsystem.TextPrimary
+import com.zhihuiji.core.designsystem.TextSecondary
+import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 
 @Composable
 fun CustomerDetailScreen(
     customerId: Long,
     onNavigateBack: () -> Unit,
-    onNavigateToEditor: (Long) -> Unit = {},
+    onNavigateToEdit: (Long) -> Unit,
+    modifier: Modifier = Modifier,
     viewModel: CustomerDetailViewModel = hiltViewModel(),
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(customerId) { viewModel.loadCustomer(customerId) }
+    LaunchedEffect(customerId) {
+        viewModel.loadCustomer(customerId)
+    }
 
+    LaunchedEffect(uiState.isDeleted) {
+        if (uiState.isDeleted) {
+            onNavigateBack()
+        }
+    }
+
+    CustomerDetailScreenContent(
+        uiState = uiState,
+        onNavigateBack = onNavigateBack,
+        onNavigateToEdit = { onNavigateToEdit(customerId) },
+        onDelete = { viewModel.deleteCustomer(customerId) },
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun CustomerDetailScreenContent(
+    uiState: CustomerDetailUiState,
+    onNavigateBack: () -> Unit,
+    onNavigateToEdit: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     GlassScaffold(
-        selectedDestination = "",
-        destinations = emptyList(),
-        onNavigate = {},
-        showBottomBar = false,
-    ) { _ ->
-        Column(modifier = Modifier.fillMaxSize()) {
-            GlassTopBar(title = "客户详情", navigationIcon = Icons.AutoMirrored.Filled.ArrowBack, onNavigationClick = onNavigateBack)
-            val customer = uiState.customer
-            if (customer != null) {
-                Column(
-                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    GlassCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(customer.name, style = ZhihuijiTypography.headlineMedium)
-                            Text("手机: ${customer.phone}", style = ZhihuijiTypography.bodyMedium, color = ZhihuijiColors.TextSecondary)
-                            if (!customer.address.isNullOrBlank()) Text("地址: ${customer.address}", style = ZhihuijiTypography.bodyMedium, color = ZhihuijiColors.TextSecondary)
-                            StatusPill(
-                                text = StatusLabels.customerListStatus(customer.status, customer.balance),
-                                tone = when {
-                                    customer.status == StatusLabels.Codes.CUSTOMER_STATUS_DISABLED -> PillTone.NEUTRAL
-                                    customer.balance > 0.0 -> PillTone.DANGER
-                                    else -> PillTone.SUCCESS
-                                },
-                            )
-                        }
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        KpiCard(title = "应收余额", value = MoneyFormatter.formatWithoutSymbol(customer.balance), tone = if (customer.balance > 0) KpiTone.DANGER else KpiTone.SUCCESS, modifier = Modifier.weight(1f))
-                        KpiCard(title = "等级", value = StatusLabels.customerLevel(customer.level), tone = KpiTone.PRIMARY, modifier = Modifier.weight(1f))
-                    }
-                    GlassCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("档案信息", style = ZhihuijiTypography.titleMedium)
-                            Text("联系人：${customer.primaryContactName ?: customer.name}", style = ZhihuijiTypography.bodyMedium, color = ZhihuijiColors.TextPrimary)
-                            Text("联系电话：${customer.primaryContactPhone ?: customer.phone}", style = ZhihuijiTypography.bodyMedium, color = ZhihuijiColors.TextSecondary)
-                            Text(
-                                "档案扩展信息会在可用后继续补充，这里先展示当前已返回的基础资料。",
-                                style = ZhihuijiTypography.bodySmall,
-                                color = ZhihuijiColors.TextSecondary,
-                            )
-                        }
-                    }
-                    val notes = customer.notes
-                    if (!notes.isNullOrBlank()) {
-                        GlassCard(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text("备注", style = ZhihuijiTypography.titleMedium)
-                                Text(notes, style = ZhihuijiTypography.bodyMedium, color = ZhihuijiColors.TextSecondary)
-                            }
-                        }
-                    }
-                    GlassCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("跟进记录", style = ZhihuijiTypography.titleMedium)
-                            EmptyState(
-                                icon = Icons.Default.People,
-                                title = "暂无可展示记录",
-                                subtitle = "拜访、沟通、回款等记录会在可用后展示，这里先不补造历史事件。",
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp),
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            GlassTopBar(
+                title = "客户详情",
+                subtitle = uiState.customer?.phone ?: "联系资料与应收余额",
+                onNavigationClick = onNavigateBack,
+                actions = {
+                    uiState.customer?.let {
+                        IconButton(onClick = onDelete) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "删除",
+                                tint = DangerRed
                             )
                         }
                     }
                 }
-                BottomActionBar(primaryAction = {
-                    PrimaryButton(text = "编辑", onClick = { onNavigateToEditor(customer.id) }, modifier = Modifier.fillMaxWidth())
-                })
-            } else {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    EmptyState(
-                        icon = Icons.Default.People,
-                        title = "暂无客户详情",
-                        subtitle = "客户数据返回后将在这里展示",
-                    )
+            )
+        },
+        bottomBar = {
+            uiState.customer?.let { customer ->
+                BottomActionBar(
+                    primaryText = "编辑资料",
+                    onPrimaryClick = onNavigateToEdit,
+                    totalLabel = "应收余额",
+                    totalAmount = "¥%.2f".format(customer.balance),
+                    totalAmountColor = if (customer.balance > 0.0) DangerRed else ZhihuijiPrimary
+                )
+            }
+        }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            when {
+                uiState.isLoading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = ZhihuijiPrimary)
+                    }
+                }
+
+                uiState.error != null -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = uiState.error ?: "加载失败",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+
+                uiState.customer != null -> {
+                    val customer = uiState.customer!!
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // 基本信息卡片
+                        LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = customer.name,
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        color = TextPrimary
+                                    )
+                                    val (statusText, statusType) = when (customer.status) {
+                                        1 -> "正常" to StatusType.NORMAL
+                                        0 -> "已停用" to StatusType.CANCELLED
+                                        else -> "未知" to StatusType.PENDING
+                                    }
+                                    StatusPill(
+                                        text = statusText,
+                                        status = statusType
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "手机号: ${customer.phone}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextSecondary
+                                )
+                            }
+                        }
+
+                        // 联系信息卡片
+                        LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "联系信息",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = TextPrimary
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                InfoRow(label = "手机号", value = customer.phone)
+                                InfoRow(label = "地址", value = customer.address ?: "-")
+                            }
+                        }
+
+                        // 财务信息卡片
+                        LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "财务信息",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = TextPrimary
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                InfoRow(
+                                    label = "余额（应收款）",
+                                    value = "¥%.2f".format(customer.balance)
+                                )
+                            }
+                        }
+
+                        // 备注卡片
+                        if (!customer.remark.isNullOrBlank()) {
+                            LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(
+                                        text = "备注",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = TextPrimary
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = customer.remark,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(128.dp))
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun InfoRow(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextPrimary
+        )
     }
 }

@@ -52,5 +52,5 @@
 - 本模块虽然不直接负责页面绘制，但其输出的数据结构、状态枚举、错误语义和交互支撑能力必须服务于统一的 Android UI 基线。
 - 后续新增业务不能倒逼页面切换成另一套视觉风格；应优先通过补充 `core/designsystem` 通用组件或扩展既有页面母版来承接。
 - 需要映射到 UI 的状态、金额、风险、同步结果等，应继续服从统一的颜色语义、状态标签和信息层级。
-- Android 视觉真源固定为 `docs/design-mockups/01.png ~ 08.png` 与 `master-goods-android/UI-DESIGN-SPEC.md`。
-- 当前仍未完成的项要如实保留：Agent workbench/tasks/notifications 占位链路、dashboard/reports 设计稿级贴合、真机截图验收都不能仅凭本地编译成功升级状态。
+- Android 当前视觉真源以 Stitch 导出、`docs/spec/42-android-liquid-glass-ui-refactor-plan.md` 与 `master-goods-android/UI-DESIGN-SPEC.md` 为准；`docs/design-mockups/` 仅作历史参考。
+- 当前仍未完成的项要如实保留：Agent workbench/chat 已接真实 V2/SSE，tasks/notifications 当前只承接列表、入口与已读状态；草稿仅归档，不执行业务写入；服务端 run cancel 尚未实现；dashboard/reports 设计稿级贴合和真机截图验收都不能仅凭本地编译成功升级状态。

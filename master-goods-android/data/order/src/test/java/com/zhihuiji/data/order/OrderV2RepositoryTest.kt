@@ -4,7 +4,9 @@ import com.zhihuiji.core.model.ApiResponse
 import com.zhihuiji.core.model.StatusRequest
 import com.zhihuiji.core.model.v2.order.PayOrderV2Filter
 import com.zhihuiji.core.model.v2.order.PurchaseOrderV2Filter
+import com.zhihuiji.core.model.v2.order.SaleOrderV2Dto
 import com.zhihuiji.core.model.v2.order.SaleOrderV2Filter
+import com.zhihuiji.core.network.CacheScopeProvider
 import com.zhihuiji.core.network.ZhihuijiV2Api
 import java.lang.reflect.Proxy
 import kotlinx.coroutines.runBlocking
@@ -24,7 +26,7 @@ class OrderV2RepositoryTest {
             ApiResponse(code = 0, message = "ok", data = emptyList<com.zhihuiji.core.model.v2.order.SaleOrderV2Dto>())
         }
 
-        val repository = SaleOrderV2Repository(api)
+        val repository = SaleOrderV2Repository(api, fixedCacheScopeProvider())
         val result = repository.listSaleOrders(
             SaleOrderV2Filter(
                 keyword = "SO",
@@ -47,6 +49,40 @@ class OrderV2RepositoryTest {
     }
 
     @Test
+    fun listSaleOrdersDoesNotReuseCacheAcrossCacheScopes() = runBlocking {
+        var scope = "base=http://a/|user=1"
+        var invocationCount = 0
+        val api = fakeApi { methodName, _ ->
+            if (methodName == "saleOrdersV2") {
+                invocationCount += 1
+                ApiResponse(
+                    code = 0,
+                    message = "ok",
+                    data = listOf(SaleOrderV2Dto(id = invocationCount.toLong(), orderNo = "SO-$invocationCount")),
+                )
+            } else {
+                error("Unexpected method $methodName")
+            }
+        }
+        val repository = SaleOrderV2Repository(
+            api = api,
+            cacheScopeProvider = object : CacheScopeProvider {
+                override fun scopeKey(): String = scope
+            },
+        )
+
+        val first = repository.listSaleOrders().getOrThrow()
+        val secondSameScope = repository.listSaleOrders().getOrThrow()
+        scope = "base=http://a/|user=2"
+        val thirdDifferentScope = repository.listSaleOrders().getOrThrow()
+
+        assertEquals(1, first.single().id)
+        assertEquals(1, secondSameScope.single().id)
+        assertEquals(2, thirdDifferentScope.single().id)
+        assertEquals(2, invocationCount)
+    }
+
+    @Test
     fun updateSaleOrderStatusDelegatesToUpdateSaleOrderStatusV2() = runBlocking {
         var invokedMethod: String? = null
         var invokedId: Long? = null
@@ -58,7 +94,7 @@ class OrderV2RepositoryTest {
             ApiResponse<Unit>(code = 0, message = "ok", data = null)
         }
 
-        val repository = SaleOrderV2Repository(api)
+        val repository = SaleOrderV2Repository(api, fixedCacheScopeProvider())
         val result = repository.updateStatus(6L, 2)
 
         assertTrue(result.isSuccess)
@@ -148,4 +184,9 @@ class OrderV2RepositoryTest {
             }
         } as ZhihuijiV2Api
     }
+
+    private fun fixedCacheScopeProvider(): CacheScopeProvider =
+        object : CacheScopeProvider {
+            override fun scopeKey(): String = "test"
+        }
 }

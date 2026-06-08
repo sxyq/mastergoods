@@ -1,6 +1,7 @@
 package com.zhihuiji.core.network
 
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
+import com.zhihuiji.core.datastore.SessionStore
 import com.zhihuiji.core.datastore.SettingsStore
 import dagger.Module
 import dagger.Provides
@@ -11,9 +12,12 @@ import okhttp3.CertificatePinner
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Cache
+import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import java.io.File
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -44,6 +48,7 @@ object NetworkModule {
         coerceInputValues = true
         isLenient = true
         encodeDefaults = true
+        classDiscriminator = "event_type"
     }
 
     @Provides
@@ -107,6 +112,18 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideCacheScopeProvider(
+        settingsStore: SettingsStore,
+        sessionStore: SessionStore,
+    ): CacheScopeProvider = object : CacheScopeProvider {
+        override fun scopeKey(): String {
+            val userId = sessionStore.peekUserId()?.toString() ?: "anonymous"
+            return "base=${settingsStore.peekBaseUrl()}|user=$userId"
+        }
+    }
+
+    @Provides
+    @Singleton
     fun provideOkHttpClient(
         authInterceptor: AuthInterceptor,
         tokenAuthenticator: TokenAuthenticator,
@@ -120,6 +137,7 @@ object NetworkModule {
         connectTimeout(NetworkConfig.CONNECT_TIMEOUT, TimeUnit.SECONDS)
         readTimeout(NetworkConfig.READ_TIMEOUT, TimeUnit.SECONDS)
         writeTimeout(NetworkConfig.WRITE_TIMEOUT, TimeUnit.SECONDS)
+        connectionPool(ConnectionPool(5, 5, TimeUnit.MINUTES))
         buildCertificatePinner()?.let { certificatePinner(it) }
     }.build()
 
@@ -140,4 +158,16 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideZhihuijiV2Api(retrofit: Retrofit): ZhihuijiV2Api = retrofit.create(ZhihuijiV2Api::class.java)
+
+    @Provides
+    @Singleton
+    fun provideAgentSseClient(
+        okHttpClient: OkHttpClient,
+        json: Json,
+        settingsStore: SettingsStore,
+    ): AgentSseClient = AgentSseClient(
+        okHttpClient = okHttpClient,
+        json = json,
+        baseUrlProvider = { settingsStore.peekBaseUrl() },
+    )
 }

@@ -35,8 +35,6 @@ public class AdminService {
     private final AgentNotificationRepository agentNotificationRepository;
     private final PasswordEncoder passwordEncoder;
     private final DemoDataService demoDataService;
-    private final LlmDrivenAgentService llmDrivenAgentService;
-    private final AgentTaskService agentTaskService;
 
     public AdminService(
         UserRepository userRepository,
@@ -49,9 +47,7 @@ public class AdminService {
         AgentTaskRepository agentTaskRepository,
         AgentNotificationRepository agentNotificationRepository,
         PasswordEncoder passwordEncoder,
-        DemoDataService demoDataService,
-        LlmDrivenAgentService llmDrivenAgentService,
-        AgentTaskService agentTaskService
+        DemoDataService demoDataService
     ) {
         this.userRepository = userRepository;
         this.sessionRepository = sessionRepository;
@@ -64,8 +60,6 @@ public class AdminService {
         this.agentNotificationRepository = agentNotificationRepository;
         this.passwordEncoder = passwordEncoder;
         this.demoDataService = demoDataService;
-        this.llmDrivenAgentService = llmDrivenAgentService;
-        this.agentTaskService = agentTaskService;
     }
 
     public AdminSummary summary() {
@@ -133,42 +127,14 @@ public class AdminService {
     }
 
     public AgentSmokeResult runAgentSmoke() {
-        WorkbenchDtos.AgentWorkbenchDto workbench = llmDrivenAgentService.getWorkbench(7, 6, 15);
-        AnswerDtos.AgentAnswerDto answer = llmDrivenAgentService.answerQuestion("按紧急程度告诉我现在该先补哪些货，并说下原因。");
-        OperationDraftDtos.OperationDraftDto draft = llmDrivenAgentService.draftOperation("帮我给 supplier-a 入库 20 个 sensor S7，单价 35。");
-        AgentTaskDtos.AgentTaskSummaryDto task = agentTaskService.submitTask(
-            "sales_report_deep_dive",
-            "后台报表复盘 smoke",
-            "请复盘近 7 天销售趋势、客户贡献、利润驱动和补货机会。"
-        );
-        AgentTaskDtos.AgentTaskDetailDto detail = waitForTask(task.id(), 5);
-        String taskSummary = detail.result() == null
-            ? "任务已提交，结果将在后台继续生成。"
-            : detail.result().summary();
         return new AgentSmokeResult(
-            workbench.reportInsight().narrative(),
-            answer.answer(),
-            draft.summary(),
-            draft.canSubmit(),
-            detail.task().status(),
-            taskSummary
+            "Legacy admin smoke is disabled.",
+            "No static answer is generated from this endpoint.",
+            "No draft is generated from this endpoint.",
+            false,
+            "disabled",
+            "Use authenticated /v2/agent/chat or /v2/agent/chat/stream with real owner-scoped data."
         );
-    }
-
-    private AgentTaskDtos.AgentTaskDetailDto waitForTask(Long taskId, int maxAttempts) {
-        for (int i = 0; i < maxAttempts; i++) {
-            AgentTaskDtos.AgentTaskDetailDto detail = agentTaskService.getTask(taskId);
-            if ("completed".equals(detail.task().status()) || "failed".equals(detail.task().status())) {
-                return detail;
-            }
-            try {
-                Thread.sleep(1000L);
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-        }
-        return agentTaskService.getTask(taskId);
     }
 
     private void validateCreateRequest(CreateUserRequest request) {

@@ -32,7 +32,7 @@
 
 ## UI 设计规范
 
-- 对照设计图 `07.png` 的报表总览、库存流水报表、对账汇总实现。
+- 对照 Stitch 设计稿 `经营报表 - 多维数据可视化版` 与 `经营报表 (亮色极光玻璃版)` 的报表总览、图表卡、排行卡实现。
 - 报表页顶部保持“智慧记 + 报表标题 + 搜索/筛选图标”的结构。
 - 报表总览使用日期范围胶囊、2 列 KPI 卡、趋势折线图和经营情况列表。
 - 当前实现使用时间分段、KPI 双行布局、环形结构图、低库存缺口图、重点回款客户与风险洞察区块。
@@ -46,7 +46,7 @@
 
 ## 下一步
 
-- 真机核对报表首屏 KPI 密度、图表比例和空态层级，继续贴近 `07.png`。
+- 真机核对报表首屏 KPI 密度、图表比例和空态层级，继续贴近 Stitch 报表设计稿。
 - 如果后端补齐趋势或更细的报表接口，再把现有静态占位图和估算口径替换为真实联动实现。
 
 ## UI 统一约束
@@ -55,4 +55,4 @@
 - 页面结构优先落入既有模式：列表页、详情页、编辑页、报表页、AI 页、设置页。
 - 视觉基线固定为：浅蓝渐变背景、玻璃卡片、蓝色主按钮、白色次按钮、统一状态标签、五栏主壳。
 - 如需新增 UI 组件，先沉淀到 `core/designsystem`，再由本模块复用；不允许长期保留 feature 私有样式组件。
-- 验收时同时对照：`docs/design-mockups/01.png ~ 08.png`、`master-goods-android/UI-DESIGN-SPEC.md`、`docs/technical-analysis/android/core/designsystem/README.md`。
+- 验收时当前优先对照：`docs/spec/42-android-liquid-glass-ui-refactor-plan.md`、Stitch 导出清单、`master-goods-android/UI-DESIGN-SPEC.md`、`docs/technical-analysis/android/core/designsystem/README.md`；`docs/design-mockups/` 仅作历史参考。

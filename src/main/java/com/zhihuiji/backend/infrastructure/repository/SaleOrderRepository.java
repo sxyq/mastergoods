@@ -50,6 +50,38 @@ public interface SaleOrderRepository extends JpaRepository<SaleOrderEntity, Long
         @Param("paymentStatus") Integer paymentStatus
     );
 
+    @Query("SELECT o FROM SaleOrderEntity o WHERE " +
+        "o.ownerUserId = :ownerUserId AND " +
+        "(:status IS NULL OR o.status = :status) AND " +
+        "(:keyword IS NULL OR :keyword = '' OR LOWER(o.orderNo) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(o.customerName) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
+        "(:minTotal IS NULL OR o.totalAmount >= :minTotal - 0.000001) AND " +
+        "(:maxTotal IS NULL OR o.totalAmount <= :maxTotal + 0.000001) AND " +
+        "(:createdAfter IS NULL OR o.createdAt >= :createdAfter) AND " +
+        "(:createdBefore IS NULL OR o.createdAt <= :createdBefore) AND " +
+        "(:paymentStatus IS NULL OR " +
+        "  (:paymentStatus = 0 AND o.paidAmount + 0.000001 < o.totalAmount) OR " +
+        "  (:paymentStatus = 1 AND o.paidAmount + 0.000001 >= o.totalAmount)) AND " +
+        "(:productKeyword IS NULL OR :productKeyword = '' OR EXISTS (" +
+        "  SELECT 1 FROM SaleOrderItemEntity item " +
+        "  WHERE item.orderId = o.id AND (" +
+        "    LOWER(item.productCode) LIKE LOWER(CONCAT('%', :productKeyword, '%')) OR " +
+        "    LOWER(item.productName) LIKE LOWER(CONCAT('%', :productKeyword, '%'))" +
+        "  )" +
+        ")) " +
+        "ORDER BY o.createdAt DESC")
+    List<SaleOrderEntity> search(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("keyword") String keyword,
+        @Param("status") Integer status,
+        @Param("minTotal") Double minTotal,
+        @Param("maxTotal") Double maxTotal,
+        @Param("createdAfter") Long createdAfter,
+        @Param("createdBefore") Long createdBefore,
+        @Param("productKeyword") String productKeyword,
+        @Param("paymentStatus") Integer paymentStatus,
+        Pageable pageable
+    );
+
     @Query("SELECT SUM(o.totalAmount) FROM SaleOrderEntity o WHERE o.ownerUserId = :ownerUserId AND o.createdAt BETWEEN :startAt AND :endAt AND o.status <> 2")
     Double sumTotalAmountBetween(@Param("ownerUserId") Long ownerUserId, @Param("startAt") Long startAt, @Param("endAt") Long endAt);
 

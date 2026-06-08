@@ -24,7 +24,11 @@ class SettingsStore @Inject constructor(
     companion object {
         private val KEY_BASE_URL = stringPreferencesKey("base_url")
         private val KEY_CLIENT_ID = stringPreferencesKey("client_id")
-        const val DEFAULT_BASE_URL = "https://api.zhihuiji.com/v1/"
+        val DEFAULT_BASE_URL = if (BuildConfig.BASE_URL_EDITABLE) {
+            "http://117.72.79.106/zhihuiji/"
+        } else {
+            "https://api.zhihuiji.com/v1/"
+        }
         private const val PRODUCTION_HOST = "api.zhihuiji.com"
         private const val SERVER_124_HOST = "124.222.153.108"
         private const val DEBUG_SERVER_117_HOST = "117.72.79.106"

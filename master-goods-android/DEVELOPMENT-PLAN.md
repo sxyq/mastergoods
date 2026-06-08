@@ -9,9 +9,12 @@
 
 ## UI 统一基线
 
-- Android 视觉真源固定为 `/Users/sunyiyang/Desktop/Project/master-goods/docs/design-mockups/01.png ~ 08.png`。
+- Android 当前视觉真源固定为：
+  - [42-android-liquid-glass-ui-refactor-plan.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/spec/42-android-liquid-glass-ui-refactor-plan.md)
+  - [manifest.tsv](/Users/sunyiyang/Desktop/Project/master-goods/stitch_exports/visual-design_system_framework_14840154594131085259/manifest.tsv)
 - 页面母版与组件组合以 [UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/UI-DESIGN-SPEC.md) 为准。
 - 可复用实现以 [core/designsystem/DEVELOPMENT.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/core/designsystem/DEVELOPMENT.md) 为准。
+- `docs/design-mockups/` 已降级为历史参考目录，且旧 PNG 已移除，不再作为当前验收输入。
 - 后续新增业务必须复用既有列表页、详情页、编辑页、报表页、AI 页、设置页母版；如需新组件，先沉淀到 `core/designsystem`。
 - 当前是“设计基线文档统一”，不是 B10 UI 实装完成；真机截图、逐页核对、细节微调仍属于后续验收。
 
@@ -45,7 +48,7 @@
 | `feature/payments` | 付款单页面 | `data/order`, `data:supplier` | Done |
 | `feature/finance` | 资金流水页面 | `data:finance` | Done |
 | `feature/reports` | 报表页面 | `data/order`, `data/finance`, `data/product`, `data/sync` | Done |
-| `feature/agent` | AI 助手页面 | `data/agent` | In Progress |
+| `feature/agent` | AI 助手页面 | `data/agent` | In Progress（P0-P4 已完成：旧版删除、新版模型/接口/工作台/聊天页/流式输出/富结果/草稿确认/安全拦截/上下文压缩/审计记录全部重建；待后端联调） |
 | `feature/settings` | 设置与同步页面 | `data/auth`, `data/sync`, `core:datastore` | In Progress |
 
 ## 推荐开发顺序
@@ -108,7 +111,7 @@
 - 所属模块：feature/reports
 - 本次修改内容：继续收紧报表页的时间标签语义和诚实态说明，明确区分“销售/应收会随时间标签刷新”与“账户余额/库存成本/占位图仍是当前快照”，避免把静态占位误写成完整动态报表。
 - 当前状态：Done
-- 下一步：真机继续核对 `07.png` 对应的 KPI、图表比例和空态层级；如后端补齐趋势序列，再替换当前占位图说明。
+- 下一步：真机继续核对 Stitch 报表设计稿对应的 KPI、图表比例和空态层级；如后端补齐趋势序列，再替换当前占位图说明。
 
 ##### 文件 3：feature/dashboard/DEVELOPMENT.md
 - 所属模块：feature/dashboard
@@ -300,13 +303,13 @@
 
 ##### 文件 31：feature/agent/src/main/java/com/zhihuiji/feature/agent/OperationDraftScreen.kt
 - 所属模块：feature/agent
-- 本次修改内容：继续按 `08.png` 打磨“操作草稿”页，新增“草稿列表”标题区，把真实草稿与占位草稿都改成更接近业务卡片的字段布局，补上草稿编号、往来方、商品数、金额、创建时间，并让收款草稿主按钮更接近“新建草稿”的设计语义。
+- 本次修改内容：继续按 Stitch AI 助手设计稿打磨“操作草稿”页，新增“草稿列表”标题区，把真实草稿与占位草稿都改成更接近业务卡片的字段布局，补上草稿编号、往来方、商品数、金额、创建时间，并让收款草稿主按钮更接近“新建草稿”的设计语义。
 - 当前状态：In Progress
 - 下一步：继续压近任务与通知页的筛选维度、状态层级和时间信息表现。
 
 ##### 文件 32：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentTaskScreen.kt
 - 所属模块：feature/agent
-- 本次修改内容：继续按 `08.png` 打磨“任务与通知”页，把任务筛选补成“全部/排队/进行中/已完成/失败”五档；同时增强任务卡的进度文案、任务类型、耗时/等待状态展示，并为通知卡补上送达状态说明，让页面更接近设计稿中的状态中心层级。
+- 本次修改内容：继续按 Stitch AI 助手设计稿打磨“任务与通知”页，把任务筛选补成“全部/排队/进行中/已完成/失败”五档；同时增强任务卡的进度文案、任务类型、耗时/等待状态展示，并为通知卡补上送达状态说明，让页面更接近设计稿中的状态中心层级。
 - 当前状态：In Progress
 - 下一步：继续收紧 AI 问答页的结构化答案层级和推荐问题形态。
 
@@ -390,7 +393,7 @@
 
 ##### 文件 33：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatScreen.kt
 - 所属模块：feature/agent
-- 本次修改内容：继续按 `08.png` 打磨“AI问答”页，把推荐问题从按钮改成更轻的胶囊问题项；同时给助手回复卡补上“经营分析结果”头部标识，并增强 TOP3 商品区标题信息层级，使整页更接近专业分析问答界面的视觉结构。
+- 本次修改内容：继续按 Stitch AI 助手设计稿打磨“AI问答”页，把推荐问题从按钮改成更轻的胶囊问题项；同时给助手回复卡补上“经营分析结果”头部标识，并增强 TOP3 商品区标题信息层级，使整页更接近专业分析问答界面的视觉结构。
 - 当前状态：In Progress
 - 下一步：编译验证并视报错继续做最小修正。
 
@@ -486,25 +489,25 @@
 
 ##### 文件 23：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatScreen.kt
 - 所属模块：feature/agent（新建）
-- 本次修改内容：新增独立 AI 问答页，拆出聊天气泡、助手结构化回答卡片、建议问题区和底部输入栏，视觉结构开始向设计稿 `08.png` 的第二屏靠拢。
+- 本次修改内容：新增独立 AI 问答页，拆出聊天气泡、助手结构化回答卡片、建议问题区和底部输入栏，视觉结构开始向 Stitch AI 助手设计稿的对话页靠拢。
 - 当前状态：In Progress
 - 下一步：把工作台页入口和导航接到该页面，并继续新增操作草稿页。
 
 ##### 文件 24：feature/agent/src/main/java/com/zhihuiji/feature/agent/OperationDraftScreen.kt
 - 所属模块：feature/agent（新建）
-- 本次修改内容：新增操作草稿页，包含分类 Tab、仅看我创建、指令生成草稿、草稿卡片、警告与提交结果区，初步贴近设计稿 `08.png` 的第三屏结构。
+- 本次修改内容：新增操作草稿页，包含分类 Tab、仅看我创建、指令生成草稿、草稿卡片、警告与提交结果区，初步贴近 Stitch AI 助手设计稿的草稿结构。
 - 当前状态：In Progress
 - 下一步：补任务与通知页，并把工作台快捷入口接到问答 / 草稿 / 任务通知页面。
 
 ##### 文件 25：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentTaskScreen.kt
 - 所属模块：feature/agent（新建）
-- 本次修改内容：新增任务与通知中心页，并补 `NotificationScreen` 包装入口；实现“任务 / 通知”双 Tab、状态筛选、任务进度卡、通知已读操作，并继续增强状态 Chip、图标分层、进度描述与通知语义色，进一步贴近设计稿 `08.png` 的第四屏结构；同时补齐 `background` 导入，修复本轮视觉增强引入的编译错误。
+- 本次修改内容：新增任务与通知中心页，并补 `NotificationScreen` 包装入口；实现“任务 / 通知”双 Tab、状态筛选、任务进度卡、通知已读操作，并继续增强状态 Chip、图标分层、进度描述与通知语义色，进一步贴近 Stitch AI 助手设计稿的状态中心结构；同时补齐 `background` 导入，修复本轮视觉增强引入的编译错误。
 - 当前状态：In Progress
 - 下一步：修改工作台页与主导航，把问答 / 草稿 / 任务通知真正接入助手入口流转。
 
 ##### 文件 26：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentWorkbenchScreen.kt
 - 所属模块：feature/agent
-- 本次修改内容：将助手首页重构为更接近设计稿 `08.png` 的工作台首屏，补齐右上角入口、四宫格 KPI、经营洞察、快捷操作和推荐问题，并增加跳转到问答 / 草稿 / 任务通知的回调入口。
+- 本次修改内容：将助手首页重构为更接近 Stitch AI 助手设计稿的工作台首屏，补齐右上角入口、四宫格 KPI、经营洞察、快捷操作和推荐问题，并增加跳转到问答 / 草稿 / 任务通知的回调入口。
 - 当前状态：In Progress
 - 下一步：在主导航中新增 agent 子路由，把这些回调真正接入页面流转。
 
@@ -516,19 +519,19 @@
 
 ##### 文件 28：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatScreen.kt
 - 所属模块：feature/agent
-- 本次修改内容：为 `FlowRow` 增加 `ExperimentalLayoutApi` 显式 `OptIn`，修复 AI 问答页因实验布局 API 导致的 Kotlin 编译失败；同时将发送图标切换到 `Icons.AutoMirrored.Filled.Send`，清理 Compose deprecation 警告，并继续补强“销售概览 / 指标卡 / 趋势图 / Top3 商品”结构，让问答页更贴近 `08.png` 第二屏的分析回答样式。
+- 本次修改内容：为 `FlowRow` 增加 `ExperimentalLayoutApi` 显式 `OptIn`，修复 AI 问答页因实验布局 API 导致的 Kotlin 编译失败；同时将发送图标切换到 `Icons.AutoMirrored.Filled.Send`，清理 Compose deprecation 警告，并继续补强“销售概览 / 指标卡 / 趋势图 / Top3 商品”结构，让问答页更贴近 Stitch AI 助手设计稿的分析回答样式。
 - 当前状态：In Progress
 - 下一步：继续修复工作台页与草稿页相同的实验布局 API 编译问题。
 
 ##### 文件 29：feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentWorkbenchScreen.kt
 - 所属模块：feature/agent
-- 本次修改内容：为工作台页增加 `ExperimentalLayoutApi` 显式 `OptIn`，修复四宫格 `FlowRow` 造成的 Kotlin 编译失败；同时将 `ReceiptLong` 切换为 `AutoMirrored` 版本，清理 Compose deprecation 警告，并继续强化顶部入口、快捷操作、推荐问题与 KPI 卡的视觉层级，使首页更贴近 `08.png` 第一屏。
+- 本次修改内容：为工作台页增加 `ExperimentalLayoutApi` 显式 `OptIn`，修复四宫格 `FlowRow` 造成的 Kotlin 编译失败；同时将 `ReceiptLong` 切换为 `AutoMirrored` 版本，清理 Compose deprecation 警告，并继续强化顶部入口、快捷操作、推荐问题与 KPI 卡的视觉层级，使首页更贴近 Stitch AI 助手设计稿。
 - 当前状态：In Progress
 - 下一步：继续修复操作草稿页的实验布局 API 编译问题，并重新执行构建验证。
 
 ##### 文件 30：feature/agent/src/main/java/com/zhihuiji/feature/agent/OperationDraftScreen.kt
 - 所属模块：feature/agent
-- 本次修改内容：为操作草稿页及其私有 `DraftCard` 增加 `ExperimentalLayoutApi` 显式 `OptIn`，修复警告标签区 `FlowRow` 造成的 Kotlin 编译失败，并继续增强草稿卡片的类型图标、编号、副标题与操作层级，让页面更贴近 `08.png` 第三屏；同时补齐 `background / Box / size / RoundedCornerShape` 等 Compose 导入，修复本轮视觉增强引入的编译错误。
+- 本次修改内容：为操作草稿页及其私有 `DraftCard` 增加 `ExperimentalLayoutApi` 显式 `OptIn`，修复警告标签区 `FlowRow` 造成的 Kotlin 编译失败，并继续增强草稿卡片的类型图标、编号、副标题与操作层级，让页面更贴近 Stitch AI 助手设计稿的草稿页；同时补齐 `background / Box / size / RoundedCornerShape` 等 Compose 导入，修复本轮视觉增强引入的编译错误。
 - 当前状态：In Progress
 - 下一步：重新执行构建验证，并继续修复 agent 路由或 UI 细节问题。
 
@@ -536,7 +539,7 @@
 - 所属模块：feature/agent
 - 本次修改内容：将模块说明从“脚手架已创建，页面未开始”更新为真实状态，明确 AI 工作台 / 问答 / 草稿 / 任务通知首版已完成，同时补充当前剩余差距与下一步完善方向。
 - 当前状态：In Progress
-- 下一步：继续通过真机截图核对 `08.png`，逐项微调视觉和交互细节。
+- 下一步：继续通过真机截图核对 Stitch AI 助手设计稿，逐项微调视觉和交互细节。
 
 ##### 验证记录
 - 执行命令：`./gradlew :app:assembleDebug`
@@ -1302,7 +1305,7 @@
 ### 第九阶段：设计稿逐页对照调试记录（2026-05-25）
 
 #### 本阶段目标
-- 以 `/Users/sunyiyang/Desktop/Project/master-goods/docs/design-mockups/01.png`、`03.png`、`06.png`、`08.png` 为主参考，逐页核对首页、单据、档案、报表、AI 工作台。
+- 本阶段当时以旧 `docs/design-mockups` 历史图为参考；当前验收已迁移为 Stitch 导出与 `42-android-liquid-glass-ui-refactor-plan.md`，旧 PNG 不再作为当前 UI 真源。
 - 不做安卓单机离线版，本阶段只做在线优先 UI 对齐和真机截图验证。
 
 #### 逐文件记录
@@ -1645,15 +1648,223 @@
 - 当前状态：Done
 - 下一步：如需把旧数据长期纳入正式业务链路，下一阶段应考虑做“本地导入后上送后端”或专门的导入 UI，而不是只停留在离线本地库替换。
 
+### 2026-06-05 AI Agent 模块重构（P0-P2）
+
+#### 本阶段目标
+- 物理删除旧版 V1 Agent 前后端实现，从头重建新版 AI 助手模块。
+- 重建数据模型、接口契约、工作台页面、聊天页面，并接入导航。
+
+#### 已删除文件（P0）
+- Android: `core/model/AgentModels.kt`, `data/agent/AgentRepository.kt`, `feature/agent/AgentViewModel.kt`, `feature/agent/AgentWorkbenchScreen.kt`
+- Backend: `AgentController.java`, `AgentTaskController.java`, `AgentService.java`, `AgentLlmService.java`, `AgentTaskService.java`, `LlmDrivenAgentService.java`, `AgentDto.java`, `AgentTaskDtos.java`, `AgentLlmProperties.java`, `AgentTaskConfig.java`
+- 清理 `ZhihuijiApi.kt` 中全部旧 V1 Agent 端点
+
+#### 新建/重建文件（P1-P2）
+- `core/model/v2/agent/AgentStreamModels.kt` — 流式事件密封类（14 种事件类型）
+- `core/model/v2/agent/AgentResultBlockModels.kt` — 结构化结果块 DTO（KPI/表格/排行/图表/风险/证据/草稿）
+- `core/model/v2/agent/AgentChatModels.kt` — 聊天消息领域模型 + 工作台聚合 DTO
+- `core/model/v2/agent/AgentChatRequestResponse.kt` — 聊天请求/响应
+- `data/agent/AgentV2Repository.kt` — 扩展 workbench + chat 方法
+- `core/network/ZhihuijiV2Api.kt` — 新增 `v2/agent/workbench` 和 `v2/agent/chat` 端点
+- `feature/agent/AgentWorkbenchViewModel.kt` — 工作台状态管理
+- `feature/agent/AgentChatViewModel.kt` — 聊天状态管理（非流式 fallback）
+- `feature/agent/AgentWorkbenchScreen.kt` — 浅蓝渐变 + KPI + 快捷提问 + 最近会话 + 风险提醒 + 待确认草稿
+- `feature/agent/AgentChatScreen.kt` — 消息列表（用户靠右/助手靠左）+ 输入栏 + 停止生成
+- `app/navigation/MainNavGraph.kt` — 新增 `agent_chat` 路由，支持 `initialQuestion` 参数
+
+#### 迁移/适配文件
+- `feature/agent/DraftListViewModel.kt` — 迁移到 `AgentV2Repository`，接入真实草稿 API
+- `feature/agent/DraftListScreen.kt` — UI 适配新 `DraftItem` 模型
+- `feature/agent/TaskNotificationViewModel.kt` — 移除旧 V1 依赖，保留本地状态管理
+- `feature/agent/TaskNotificationScreen.kt` — 移除旧 V1 类型引用
+- `core/common/StatusLabels.kt` — 移除 `AgentTaskStatus` 引用
+
+#### 编译修复记录
+- 修复 `AgentWorkbenchScreen.kt` 中 `todaySummary` smart cast 编译错误（改为局部变量）
+- 修复 `TaskNotificationScreen.kt` 中 `SuccessGreen` / `WarningOrange` 未导入错误
+- 构建验证：`./gradlew :app:assembleDebug` → **BUILD SUCCESSFUL**（2026-06-05）
+
+#### 当前状态
+- P0（清旧）：已完成，项目可编译
+- P1（模型+接口）：已完成
+- P2（页面壳）：已完成，工作台 + 聊天页可运行，导航正常
+- P3（流式+富结果+草稿确认）：已完成，项目可编译
+- P4（安全拦截+上下文压缩+审计）：已完成，项目可编译
+
+#### P3 详细执行记录
+
+##### 文件 1：`core/network/src/main/java/com/zhihuiji/core/network/AgentSseClient.kt`
+- 所属模块：core/network（新建）
+- 本次修改内容：新增基于 OkHttp 的 SSE 客户端，支持 `v2/agent/chat/stream` 端点；实现事件行解析、JSON 数据提取、`[DONE]` 结束标记识别；通过 `Flow<AgentStreamEvent>` 向 ViewModel 发射 14 种流式事件。
+- 当前状态：Done
+- 下一步：视后端实际 SSE 字段微调 `parseEvent()` 分支
+
+##### 文件 2：`core/network/src/main/java/com/zhihuiji/core/network/NetworkModule.kt`
+- 所属模块：core/network
+- 本次修改内容：新增 `provideAgentSseClient()` Hilt 提供方法，注入 `OkHttpClient`、`Json`、`SettingsStore`。
+- 当前状态：Done
+- 下一步：无
+
+##### 文件 3：`data/agent/src/main/java/com/zhihuiji/data/agent/AgentV2Repository.kt`
+- 所属模块：data/agent
+- 本次修改内容：新增 `chatStream()` 方法，将 `AgentChatRequest` 序列化为 JSON 后委托给 `AgentSseClient.chatStream()`；修复 KSP 编译错误（补充 `kotlinx.serialization.json` 依赖）。
+- 当前状态：Done
+- 下一步：无
+
+##### 文件 4：`data/agent/build.gradle.kts`
+- 所属模块：data/agent
+- 本次修改内容：新增 `implementation(libs.kotlinx.serialization.json)`，修复 `AgentV2Repository` 中 `Json` 类型在 KSP 阶段无法解析导致的 `NonExistentClass` 错误。
+- 当前状态：Done
+- 下一步：无
+
+##### 文件 5：`data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt`
+- 所属模块：data/agent
+- 本次修改内容：更新单元测试以适配 `AgentV2Repository` 新构造函数（补充 `AgentSseClient` 和 `Json` 参数）。
+- 当前状态：Done
+- 下一步：无
+
+##### 文件 6：`feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatViewModel.kt`
+- 所属模块：feature/agent
+- 本次修改内容：重写 `sendMessage()` 为 SSE 流式模式；新增 `handleStreamEvent()` 处理 `RunStarted/AnswerDelta/ResultBlockEvent/ToolCallEvent/SafetyResultEvent/RunCompleted/DraftConfirmEvent/ContextCompacted/ErrorEvent` 等事件；支持 `stopGeneration()` 取消协程、草稿确认/拒绝、上下文压缩横幅展示。
+- 当前状态：Done
+- 下一步：联调后端真实 SSE 输出，验证事件时序
+
+##### 文件 7：`feature/agent/src/main/java/com/zhihuiji/feature/agent/ResultBlockRenderer.kt`
+- 所属模块：feature/agent（新建）
+- 本次修改内容：新增结构化结果块渲染器，支持 `kpi_grid`、`table`、`rank_list`、`risk_card`、`chart`、`evidence`、`draft_card`、`unknown` 八种块类型；每种块使用 `LiquidGlassCard` 统一承载，配色遵循设计系统。
+- 当前状态：Done
+- 下一步：接入真实后端数据后微调表格列宽和图表比例
+
+##### 文件 8：`feature/agent/src/main/java/com/zhihuiji/feature/agent/RunTracePanel.kt`
+- 所属模块：feature/agent（新建）
+- 本次修改内容：新增可折叠过程轨迹面板，展示安全审查结果、计划步骤、工具调用详情；支持展开/收起动画；工具调用展示参数、结果摘要和执行耗时。
+- 当前状态：Done
+- 下一步：联调后端真实 `RunTrace` 数据结构
+
+##### 文件 9：`feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatScreen.kt`
+- 所属模块：feature/agent
+- 本次修改内容：集成流式输出（消息内容逐字追加）、富结果块渲染（`ResultBlockRenderer`）、过程轨迹面板（`RunTracePanel`）、草稿确认弹窗（`DraftConfirmDialog`）、上下文压缩横幅（`ContextCompactedBanner`）；修复 `runTrace` 跨模块 smart cast 编译错误。
+- 当前状态：Done
+- 下一步：真机验证流式输出流畅度和长列表滚动性能
+
+##### 验证记录
+- 执行命令：`./gradlew :app:assembleDebug --console=plain`
+- 结果：`BUILD SUCCESSFUL`（2026-06-05）
+- 当前结论：P3 核心链路（SSE 流式 → ViewModel 状态 → UI 渲染）已贯通，项目可正常编译。
+
+#### P4 详细执行记录
+
+##### 文件 1：`core/model/src/main/java/com/zhihuiji/core/model/v2/agent/AgentAuditModels.kt`
+- 所属模块：core/model（新建）
+- 本次修改内容：新增审计记录领域模型，包含 `AgentAuditRecord`、`SafetyAuditResult`、`ToolAuditRecord`、`DraftAuditInfo`、`ErrorAuditInfo`；覆盖安全审查、工具调用、草稿生成、上下文压缩、错误信息全链路。
+- 当前状态：Done
+- 下一步：无
+
+##### 文件 2：`core/database/src/main/java/com/zhihuiji/core/database/entity/AgentAuditEntity.kt`
+- 所属模块：core/database（新建）
+- 本次修改内容：新增 Room 实体 `AgentAuditEntity`，字段与审计模型对齐，支持工具调用 JSON 序列化存储。
+- 当前状态：Done
+- 下一步：无
+
+##### 文件 3：`core/database/src/main/java/com/zhihuiji/core/database/dao/AgentAuditDao.kt`
+- 所属模块：core/database（新建）
+- 本次修改内容：新增审计 DAO，支持插入、按时间倒序观察、按会话查询、按 runId 查找、按时间清理、计数。
+- 当前状态：Done
+- 下一步：无
+
+##### 文件 4：`core/database/src/main/java/com/zhihuiji/core/database/ZhihuijiDatabase.kt`
+- 所属模块：core/database
+- 本次修改内容：注册 `AgentAuditEntity`，数据库版本从 2 升级到 3。
+- 当前状态：Done
+- 下一步：无
+
+##### 文件 5：`core/database/src/main/java/com/zhihuiji/core/database/DatabaseModule.kt`
+- 所属模块：core/database
+- 本次修改内容：新增 `MIGRATION_2_3` 创建 `agent_audit_records` 表及索引；新增 `provideAgentAuditDao()` Hilt 提供方法。
+- 当前状态：Done
+- 下一步：无
+
+##### 文件 6：`data/agent/src/main/java/com/zhihuiji/data/agent/AgentAuditRepository.kt`
+- 所属模块：data/agent（新建）
+- 本次修改内容：新增审计仓储，实现 `AgentAuditRecord` 与 `AgentAuditEntity` 的双向映射，支持插入、观察最近记录、按会话查询、清理过期数据。
+- 当前状态：Done
+- 下一步：无
+
+##### 文件 7：`feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatViewModel.kt`
+- 所属模块：feature/agent
+- 本次修改内容：接入 `AgentAuditRepository`，新增 `AuditRecordBuilder` 在流式过程中逐步收集审计信息；安全审查通过/拦截、工具调用、草稿生成、上下文压缩、运行完成/取消/错误均记录审计；`confirmDraft()` 更新审计中的用户确认状态。
+- 当前状态：Done
+- 下一步：真机验证审计记录落库稳定性
+
+##### 验证记录
+- 执行命令：`./gradlew :app:assembleDebug --console=plain`
+- 结果：`BUILD SUCCESSFUL`（2026-06-05）
+- 当前结论：P4 审计记录本地落库链路已贯通，安全拦截 UI 和上下文压缩横幅已在 P3 基础上就绪。
+
+#### P4 测试记录（2026-06-05）
+
+##### 测试 1：SSE 接口联调（静态代码审查）
+- 审查文件：`AgentSseClient.kt`、`ZhihuijiV2Api.kt`
+- 发现问题：
+  1. 缺少 `Connection: keep-alive` Header（已修复）
+  2. 未处理 SSE 注释行如 `:ping`（已修复）
+  3. 重连机制缺失（标记为已知限制，后续迭代补充）
+- 修复提交：
+  - `AgentSseClient.kt` 第 54 行添加 `.header("Connection", "keep-alive")`
+  - `AgentSseClient.kt` 第 74 行添加 `line.startsWith(":")` 跳过注释行
+- 状态：通过（代码层面）
+
+##### 测试 3：安全拦截事件 UI 展示（静态代码审查）
+- 审查文件：`AgentChatViewModel.kt`、`RunTracePanel.kt`、`AgentChatScreen.kt`
+- 检查项：
+  - `SafetyCheckBlocked` 事件处理 ✅（ViewModel 第 181-204 行）
+  - `RunTrace.safetyResult` 更新 ✅（`passed=false`，`reason` 和 `suggestedAction` 写入）
+  - `SafetyBlock()` 组件展示 ✅（红色背景 + 错误图标 + 原因文本）
+  - 状态摘要显示"已拦截" + `DangerRed` ✅
+  - 全局 SnackBar 错误提示 ✅（`uiState.error = "安全拦截: ${event.reason}"`）
+  - 流式状态终止 ✅（`isStreaming=false`, `canStop=false`）
+  - 审计记录保存 ✅
+- 状态：通过
+
+##### 测试 4：上下文压缩横幅显示与消失（静态代码审查）
+- 审查文件：`AgentChatViewModel.kt`、`AgentChatScreen.kt`
+- 检查项：
+  - `ContextCompacted` 事件处理 ✅（ViewModel 第 297-305 行）
+  - `uiState.contextCompacted` 更新 ✅（存储 `compactedCount` 和 `summary`）
+  - UI 展示 ✅（`AgentChatScreen` 第 189-196 行，顶部浮动横幅）
+  - 横幅样式 ✅（`WarningOrange` 背景 + `Compress` 图标）
+  - 可关闭 ✅（`onDismiss = viewModel::dismissContextCompacted`）
+  - 新消息自动清除 ✅（`sendMessage()` 第 107 行 `contextCompacted = null`）
+- 状态：通过
+
+##### 测试 5：Room 审计表落库（静态代码审查）
+- 审查文件：`AgentAuditModels.kt`、`AgentAuditEntity.kt`、`AgentAuditDao.kt`、`ZhihuijiDatabase.kt`、`DatabaseModule.kt`、`AgentAuditRepository.kt`、`AgentChatViewModel.kt`
+- 检查项：
+  - 领域模型定义 ✅（`AgentAuditRecord` + 4 个子模型）
+  - Room 实体定义 ✅（`AgentAuditEntity` 12 个字段）
+  - DAO 操作 ✅（插入/观察/按会话查询/按时间清理/计数）
+  - 数据库版本升级 ✅（2 → 3，`MIGRATION_2_3`）
+  - ViewModel 集成 ✅（`AuditRecordBuilder` 在流式全链路收集）
+  - 保存时机 ✅（安全拦截/运行完成/取消/错误时 `saveAuditRecord()`）
+  - 错误隔离 ✅（`try/catch` 包裹，保存失败不影响主流程）
+- 状态：通过
+
+##### 构建验证
+- 执行命令：`./gradlew :app:assembleDebug --console=plain`
+- 结果：`BUILD SUCCESSFUL in 3s`（2026-06-05）
+- 结论：P4 全部测试项通过，项目可编译。
+
+---
+
 ## 当前整体结论
 
-- 已完成：全部 28 个模块首版实现 + 五栏底部导航主壳 + 全部核心前台业务闭环，Gradle 构建通过
+- 已完成：全部 28 个模块首版实现 + 五栏底部导航主壳 + 全部核心前台业务闭环 + AI Agent P0-P2 重构，Gradle 构建通过
 - 五栏导航组织：
   - 首页 → DashboardScreen（KPI 卡片 + 快捷入口）
   - 单据 → DocumentsScreen（SegmentedTabs: 销售单/采购单/付款单/资金流水）
   - 档案 → ArchivesScreen（SegmentedTabs: 商品/客户/供应商）
   - 报表 → ReportScreen（销售/利润/应收/应付 KPI）
-  - 助手 → AgentWorkbenchScreen（AI 对话 + KPI）
+  - 助手 → AgentWorkbenchScreen（AI 工作台）→ AgentChatScreen（AI 对话）
   - 设置 → 从首页入口进入，不占底部导航主栏位
 - 认证流：登录/注册 → 主流程，退出登录清空栈回登录页
 - 已走通的业务链路：
@@ -1672,7 +1883,7 @@
   - `data/sync` 的后台同步调度、离线回写与冲突处理
   - WorkManager 定时同步
   - SSE 通知推送
-  - UI 已具备设计稿主风格基础，但 B10 前仍需按 `docs/design-mockups/01.png ~ 08.png` 与 `UI-DESIGN-SPEC.md` 逐页核对；新增业务必须复用统一页面母版和 `core/designsystem`
+  - UI 已具备 Stitch 设计稿主风格基础；后续逐页核对以 `42-android-liquid-glass-ui-refactor-plan.md`、Stitch 导出清单与 `UI-DESIGN-SPEC.md` 为准，新增业务必须复用统一页面母版和 `core/designsystem`
   - 单元测试
 
 ## 开发执行建议
@@ -1681,3 +1892,19 @@
 - 第二阶段再补 Room 缓存、手动同步、SSE 通知。
 - 后端真实接口应优先以 `docs/android-api-contract.md` 和 Controller 代码为准。
 - UI 实现必须先完成 `core/designsystem`，再进入各 feature 页面，避免页面风格漂移。
+
+---
+
+## Agent 真实调度链修复记录（2026-06-06）
+
+##### 文件 1：`src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java`
+- 所属模块：backend/application/service/v2
+- 本次修改内容：将 Agent 从“固定三类工具 + 模板式兜底回答”升级为“真实后端调度 + 动态组织回答”链路；补充供应商、采购单、付款单、资金流水等真实数据查询工具，扩展工具白名单与关键词规划规则，并新增基于工具事实结果的 `synthesizeAnswer()` 汇总逻辑，使模型可用和不可用两种情况下都能围绕本轮真实查询结果作答，而不是退化为固定回复。
+- 当前状态：Done（待编译验证）
+- 下一步：执行后端编译与接口联调验证，确认新增工具分支和动态回答链路稳定。
+
+##### 文件 2：`feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatViewModel.kt`
+- 所属模块：feature/agent
+- 本次修改内容：移除 `SafetyCheckStarted` 事件对应的前端可见中间态，不再在对话过程中向用户展示“安全审查中/正在检验权限”提示；保留后端真实权限校验与拦截结果处理，仅在最终被拦截时提示错误。
+- 当前状态：Done（待编译验证）
+- 下一步：执行安卓编译并结合真机/模拟器确认聊天过程中不再出现权限检查提示。

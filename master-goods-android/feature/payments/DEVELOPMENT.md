@@ -26,7 +26,7 @@
 
 ## UI 设计规范
 
-- 对照设计图 `06.png` 的付款单列表实现（来源见 `docs/design-mockups`）。
+- 历史视觉参考曾对照旧设计图 `06.png`，当前请优先对照 Stitch 导出与 `docs/spec/42-android-liquid-glass-ui-refactor-plan.md`； 的付款单列表实现。
 - 顶部标题由主壳承载“付款单”，状态 Tab 使用当前 `/v2` 真实状态：全部、待付款、已付款、已取消；右下角使用蓝色浮动按钮“新建付款单”。
 - 搜索框支持单号、供应商、备注，右侧保留筛选按钮。
 - 付款单卡片展示付款单号、供应商、关联单号、应付金额、已付金额、日期和状态。
@@ -39,4 +39,4 @@
 - 页面结构优先落入既有模式：列表页、详情页、编辑页、报表页、AI 页、设置页。
 - 视觉基线固定为：浅蓝渐变背景、玻璃卡片、蓝色主按钮、白色次按钮、统一状态标签、五栏主壳。
 - 如需新增 UI 组件，先沉淀到 `core/designsystem`，再由本模块复用；不允许长期保留 feature 私有样式组件。
-- 验收时同时对照：`docs/design-mockups/01.png ~ 08.png`、`master-goods-android/UI-DESIGN-SPEC.md`、`docs/technical-analysis/android/core/designsystem/README.md`。
+- 验收时当前优先对照：`docs/spec/42-android-liquid-glass-ui-refactor-plan.md`、Stitch 导出清单、`master-goods-android/UI-DESIGN-SPEC.md`、`docs/technical-analysis/android/core/designsystem/README.md`；`docs/design-mockups/` 仅作历史参考。

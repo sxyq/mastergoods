@@ -25,22 +25,30 @@ data class ProfitSummaryReportDto(
 
 @Serializable
 data class RefundRecordReportDto(
-    val id: Long,
+    @SerialName("payment_id") val paymentId: Long,
+    @SerialName("order_id") val orderId: Long,
     @SerialName("order_no") val orderNo: String,
     @SerialName("customer_name") val customerName: String,
-    val amount: Double,
-    val reason: String? = null,
+    @SerialName("refund_amount") val refundAmount: Double,
+    val method: Int = 0,
+    @SerialName("reference_no") val referenceNo: String? = null,
     @SerialName("created_at") val createdAt: Long,
 )
 
 @Serializable
 data class StockOutRecordReportDto(
+    @SerialName("order_id") val orderId: Long,
+    @SerialName("order_no") val orderNo: String,
+    @SerialName("customer_id") val customerId: Long? = null,
+    @SerialName("customer_name") val customerName: String? = null,
     @SerialName("product_id") val productId: Long,
     @SerialName("product_code") val productCode: String,
     @SerialName("product_name") val productName: String,
     val quantity: Double,
-    @SerialName("sale_amount") val saleAmount: Double,
-    @SerialName("created_at") val createdAt: Long,
+    @SerialName("unit_price") val unitPrice: Double = 0.0,
+    val amount: Double,
+    @SerialName("item_created_at") val itemCreatedAt: Long,
+    @SerialName("order_created_at") val orderCreatedAt: Long,
 )
 
 @Serializable
@@ -57,39 +65,45 @@ data class ProfitByProductReportDto(
     @SerialName("product_id") val productId: Long,
     @SerialName("product_code") val productCode: String,
     @SerialName("product_name") val productName: String,
-    @SerialName("total_revenue") val totalRevenue: Double,
-    @SerialName("total_cost") val totalCost: Double,
-    @SerialName("total_profit") val totalProfit: Double,
+    @SerialName("total_sales_amount") val totalSalesAmount: Double,
+    @SerialName("total_cost_amount") val totalCostAmount: Double,
+    @SerialName("total_profit_amount") val totalProfitAmount: Double,
+    @SerialName("profit_rate") val profitRate: Double = 0.0,
 )
 
 @Serializable
 data class ProfitByCustomerReportDto(
-    @SerialName("customer_id") val customerId: Long,
+    @SerialName("customer_id") val customerId: Long? = null,
     @SerialName("customer_name") val customerName: String,
-    @SerialName("total_revenue") val totalRevenue: Double,
-    @SerialName("total_cost") val totalCost: Double,
-    @SerialName("total_profit") val totalProfit: Double,
+    @SerialName("total_sales_amount") val totalSalesAmount: Double,
+    @SerialName("total_cost_amount") val totalCostAmount: Double,
+    @SerialName("total_profit_amount") val totalProfitAmount: Double,
+    @SerialName("profit_rate") val profitRate: Double = 0.0,
 )
 
 @Serializable
 data class InventoryFlowRecordDto(
-    val id: Long,
+    @SerialName("order_id") val orderId: Long,
+    @SerialName("order_no") val orderNo: String,
     @SerialName("product_id") val productId: Long,
     @SerialName("product_code") val productCode: String,
     @SerialName("product_name") val productName: String,
-    @SerialName("flow_type") val flowType: Int,
     val quantity: Double,
+    @SerialName("flow_type") val flowType: Int,
+    @SerialName("flow_time") val flowTime: Long,
+    @SerialName("customer_name") val customerName: String? = null,
     @SerialName("source_type") val sourceType: Int,
-    @SerialName("source_id") val sourceId: Long? = null,
-    @SerialName("created_at") val createdAt: Long,
+    @SerialName("source_label") val sourceLabel: String? = null,
+    @SerialName("adjust_reason") val adjustReason: String? = null,
+    @SerialName("operator_name") val operatorName: String? = null,
 )
 
 @Serializable
 data class CustomerSalesReportDto(
-    @SerialName("customer_id") val customerId: Long,
+    @SerialName("customer_id") val customerId: Long? = null,
     @SerialName("customer_name") val customerName: String,
+    @SerialName("total_orders") val totalOrders: Int,
     @SerialName("total_amount") val totalAmount: Double,
-    @SerialName("order_count") val orderCount: Int,
 )
 
 @Serializable

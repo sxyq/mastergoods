@@ -2,85 +2,348 @@ package com.zhihuiji.feature.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.zhihuiji.core.common.UiMessage
-import com.zhihuiji.core.model.v2.finance.AccountV2Dto
+import com.zhihuiji.core.common.StatusLabels
+import com.zhihuiji.core.model.FinanceFilter
+import com.zhihuiji.core.model.FinanceRecordDto
 import com.zhihuiji.core.model.v2.order.SaleOrderV2Dto
-import com.zhihuiji.core.model.v2.product.ProductV2Dto
-import com.zhihuiji.data.finance.FinanceV2Repository
+import com.zhihuiji.core.model.v2.order.SaleOrderV2Filter
+import com.zhihuiji.data.customer.CustomerV2Repository
+import com.zhihuiji.data.finance.FinanceRepository
 import com.zhihuiji.data.order.SaleOrderV2Repository
 import com.zhihuiji.data.product.ProductV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import javax.inject.Inject
 
-// 待验证：客户端聚合，非服务端聚合，数据准确性待验证
-data class DashboardUiState(
-    val isLoading: Boolean = false,
-    val saleOrders: List<SaleOrderV2Dto> = emptyList(),
-    val accounts: List<AccountV2Dto> = emptyList(),
-    val lowStockProducts: List<ProductV2Dto> = emptyList(),
-    val error: UiMessage? = null,
+private val CHART_DATE_FORMATTER = DateTimeFormatter.ofPattern("MM-dd", Locale.getDefault())
+private val DAY_PERIOD_FORMATTER = DateTimeFormatter.ofPattern("MM月dd日", Locale.getDefault())
+private val DAY_CHIP_FORMATTER = DateTimeFormatter.ofPattern("MM-dd", Locale.getDefault())
+private val FULL_DAY_FORMATTER = DateTimeFormatter.ofPattern("yyyy年MM月dd日", Locale.getDefault())
+private val SINGLE_DAY_CHART_SLOTS = listOf(
+    0 to "00-06",
+    1 to "06-12",
+    2 to "12-18",
+    3 to "18-24"
+)
+
+data class SalesTrendPoint(
+    val label: String,
+    val value: Double
+)
+
+data class LowStockProductItem(
+    val id: Long,
+    val name: String,
+    val stock: Double,
+    val safeStock: Double
+)
+
+enum class DashboardSalesRange(
+    val days: Int,
+    val buttonLabel: String,
+    val periodLabel: String
 ) {
-    val totalSalesAmount: Double get() = saleOrders.sumOf { it.totalAmount }
-    val totalPaidAmount: Double get() = saleOrders.sumOf { it.paidAmount }
-    val totalUnpaidAmount: Double get() = totalSalesAmount - totalPaidAmount
-    val totalAccountBalance: Double get() = accounts.sumOf { it.balance }
-    val lowStockCount: Int get() = lowStockProducts.size
+    LAST_7(7, "7天", "近7天"),
+    LAST_30(30, "30天", "近30天"),
+    LAST_90(90, "90天", "近90天"),
+    LAST_365(365, "1年", "近1年")
+}
+
+sealed interface DashboardSalesScope {
+    val periodLabel: String
+
+    data class Range(val range: DashboardSalesRange) : DashboardSalesScope {
+        override val periodLabel: String = range.periodLabel
+    }
+
+    data class SingleDay(val date: LocalDate) : DashboardSalesScope {
+        override val periodLabel: String = DAY_PERIOD_FORMATTER.format(date)
+    }
 }
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    private val saleOrderV2Repository: SaleOrderV2Repository,
-    private val financeV2Repository: FinanceV2Repository,
-    private val productV2Repository: ProductV2Repository,
+    private val saleOrderRepository: SaleOrderV2Repository,
+    private val productRepository: ProductV2Repository,
+    private val customerRepository: CustomerV2Repository,
+    private val financeRepository: FinanceRepository,
 ) : ViewModel() {
+
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
 
-    init { loadDashboard() }
+    private var loadSequence = 0
+
+    init {
+        loadDashboard()
+    }
 
     fun loadDashboard() {
+        val requestSequence = ++loadSequence
+        val selectedScope = _uiState.value.selectedSalesScope
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            try {
-                coroutineScope {
-                    val deferreds = listOf(
-                        async {
-                            saleOrderV2Repository.listSaleOrders().onSuccess { orders ->
-                                _uiState.value = _uiState.value.copy(saleOrders = orders)
-                            }.onFailure {
-                                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
-                            }
-                        },
-                        async {
-                            financeV2Repository.listAccounts().onSuccess { accounts ->
-                                _uiState.value = _uiState.value.copy(accounts = accounts)
-                            }.onFailure {
-                                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
-                            }
-                        },
-                        async {
-                            productV2Repository.listLowStockProducts().onSuccess { products ->
-                                _uiState.value = _uiState.value.copy(lowStockProducts = products)
-                            }.onFailure {
-                                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(it))
-                            }
-                        },
-                    )
-                    deferreds.awaitAll()
+            _uiState.update { it.copy(isLoading = true, error = null) }
+
+            val dateRange = selectedScope.toDateRange()
+            val salesFilter = SaleOrderV2Filter(
+                createdAfter = dateRange.startMillis.toString(),
+                createdBefore = dateRange.endMillis.toString()
+            )
+            val financeFilter = FinanceFilter(
+                createdAfter = dateRange.startMillis.toString(),
+                createdBefore = dateRange.endMillis.toString(),
+            )
+
+            val saleOrdersDeferred = async { saleOrderRepository.listSaleOrders(salesFilter) }
+            val lowStockDeferred = async { productRepository.listLowStockProducts(size = 10) }
+            val customersDeferred = async { customerRepository.listCustomers() }
+            val financeRecordsDeferred = async { fetchFinanceRecords(financeFilter) }
+
+            val saleOrdersResult = saleOrdersDeferred.await()
+            val lowStockResult = lowStockDeferred.await()
+            val customersResult = customersDeferred.await()
+            val financeRecordsResult = financeRecordsDeferred.await()
+
+            if (requestSequence != loadSequence) return@launch
+
+            val activeSaleOrders = saleOrdersResult.getOrNull()
+                .orEmpty()
+                .filter { it.status != StatusLabels.Codes.SALE_CANCELLED }
+            val salesAmount = activeSaleOrders.sumOf { it.totalAmount }
+            val salesOrderCount = activeSaleOrders.size
+            val salesTrend = buildSalesTrend(
+                orders = activeSaleOrders,
+                dateRange = dateRange
+            )
+            val lowStockCount = lowStockResult.getOrNull()?.size ?: 0
+            val customers = customersResult.getOrNull().orEmpty()
+            val receivableAmount = customers.sumOf { it.balance }
+            val receivableCustomerCount = customers.count { it.balance > 0.0 }
+            val netCashFlow = financeRecordsResult.getOrNull()
+                ?.sumOf { record ->
+                    when (record.type) {
+                        StatusLabels.Codes.FINANCE_INCOME -> record.amount
+                        StatusLabels.Codes.FINANCE_EXPENSE -> -record.amount
+                        else -> 0.0
+                    }
                 }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = UiMessage.fromThrowable(e))
+                ?: 0.0
+
+            val lowStockItems = lowStockResult.getOrNull()?.map { product ->
+                LowStockProductItem(
+                    id = product.id,
+                    name = product.name,
+                    stock = product.stock,
+                    safeStock = product.safeStock
+                )
+            } ?: emptyList()
+
+            val reminders = buildPendingReminders(lowStockItems, receivableAmount)
+
+            val results = listOf(saleOrdersResult, lowStockResult, customersResult, financeRecordsResult)
+            val hasError = results.any { it.isFailure }
+            val errorMsg = results.filter { it.isFailure }.mapNotNull {
+                runCatching { it.getOrThrow() }.exceptionOrNull()?.message
+            }.firstOrNull()
+
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    salesAmount = "%.2f".format(salesAmount),
+                    receivableAmount = "%.2f".format(receivableAmount),
+                    lowStockCount = lowStockCount,
+                    salesOrderCount = salesOrderCount,
+                    netCashFlow = "%.2f".format(netCashFlow),
+                    receivableCustomerCount = receivableCustomerCount,
+                    salesTrend = salesTrend,
+                    lowStockProducts = lowStockItems,
+                    pendingReminders = reminders,
+                    error = if (hasError) errorMsg else null
+                )
             }
-            _uiState.value = _uiState.value.copy(isLoading = false)
         }
     }
 
-    fun refresh() = loadDashboard()
+    private fun buildSalesTrend(
+        orders: List<SaleOrderV2Dto>,
+        dateRange: DashboardDateRange
+    ): List<SalesTrendPoint> {
+        if (dateRange.days == 1) {
+            return buildSingleDaySalesTrend(orders)
+        }
+
+        val amountByDate = orders
+            .groupBy { order -> order.createdAt.toLocalDate() }
+            .mapValues { (_, dayOrders) -> dayOrders.sumOf { it.totalAmount } }
+
+        return (0 until dateRange.days).map { offset ->
+            val date = dateRange.startDate.plusDays(offset.toLong())
+            SalesTrendPoint(
+                label = CHART_DATE_FORMATTER.format(date),
+                value = amountByDate[date] ?: 0.0
+            )
+        }
+    }
+
+    private fun buildSingleDaySalesTrend(orders: List<SaleOrderV2Dto>): List<SalesTrendPoint> {
+        val amountBySlot = orders
+            .groupBy { order -> (order.createdAt.toLocalHour() / 6).coerceIn(0, 3) }
+            .mapValues { (_, slotOrders) -> slotOrders.sumOf { it.totalAmount } }
+
+        return SINGLE_DAY_CHART_SLOTS.map { (slot, label) ->
+            SalesTrendPoint(
+                label = label,
+                value = amountBySlot[slot] ?: 0.0
+            )
+        }
+    }
+
+    private suspend fun fetchFinanceRecords(filter: FinanceFilter): Result<List<FinanceRecordDto>> =
+        runCatching {
+            financeRepository.refreshFinanceRecords(filter)
+            financeRepository.observeFinanceRecords(filter).first()
+        }
+
+    private fun buildPendingReminders(
+        lowStockItems: List<LowStockProductItem>,
+        receivableAmount: Double
+    ): List<String> {
+        val reminders = mutableListOf<String>()
+        if (lowStockItems.isNotEmpty()) {
+            reminders.add("${lowStockItems.size} 个商品库存低于安全线")
+        }
+        if (receivableAmount > 0) {
+            reminders.add("待收款金额 ¥%.2f".format(receivableAmount))
+        }
+        return reminders
+    }
+
+    fun refresh() {
+        loadDashboard()
+    }
+
+    fun selectSalesRange(range: DashboardSalesRange) {
+        val nextScope = DashboardSalesScope.Range(range)
+        if (_uiState.value.selectedSalesScope == nextScope) return
+        _uiState.update { it.copy(selectedSalesScope = nextScope) }
+        loadDashboard()
+    }
+
+    fun selectSingleSalesDate(date: LocalDate) {
+        val nextScope = DashboardSalesScope.SingleDay(date.coerceNotFuture())
+        if (_uiState.value.selectedSalesScope == nextScope) return
+        _uiState.update { it.copy(selectedSalesScope = nextScope) }
+        loadDashboard()
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
+    }
+
+    private fun DashboardSalesScope.toDateRange(): DashboardDateRange {
+        return when (this) {
+            is DashboardSalesScope.Range -> {
+                val today = LocalDate.now()
+                val startDate = today.minusDays((range.days - 1).toLong())
+                DashboardDateRange(
+                    startDate = startDate,
+                    startMillis = startDate.startOfDayMillis(),
+                    endMillis = today.endOfDayMillis(),
+                    days = range.days
+                )
+            }
+
+            is DashboardSalesScope.SingleDay -> {
+                val selectedDate = date.coerceNotFuture()
+                DashboardDateRange(
+                    startDate = selectedDate,
+                    startMillis = selectedDate.startOfDayMillis(),
+                    endMillis = selectedDate.endOfDayMillis(),
+                    days = 1
+                )
+            }
+        }
+    }
+
 }
+
+data class DashboardUiState(
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val selectedSalesScope: DashboardSalesScope = DashboardSalesScope.Range(DashboardSalesRange.LAST_365),
+    val salesAmount: String = "0.00",
+    val receivableAmount: String = "0.00",
+    val lowStockCount: Int = 0,
+    val salesOrderCount: Int = 0,
+    val netCashFlow: String = "0.00",
+    val receivableCustomerCount: Int = 0,
+    val salesTrend: List<SalesTrendPoint> = emptyList(),
+    val lowStockProducts: List<LowStockProductItem> = emptyList(),
+    val pendingReminders: List<String> = emptyList()
+) {
+    val selectedSalesRange: DashboardSalesRange?
+        get() = (selectedSalesScope as? DashboardSalesScope.Range)?.range
+
+    val selectedSalesDate: LocalDate?
+        get() = (selectedSalesScope as? DashboardSalesScope.SingleDay)?.date
+
+    val salesPeriodLabel: String
+        get() = selectedSalesScope.periodLabel
+
+    val salesOverviewTitle: String
+        get() = "${salesPeriodLabel}经营概览"
+
+    val salesTrendTitle: String
+        get() = when (selectedSalesScope) {
+            is DashboardSalesScope.Range -> "${salesPeriodLabel}销售趋势"
+            is DashboardSalesScope.SingleDay -> "${salesPeriodLabel}销售分时"
+        }
+
+    val calendarChipLabel: String
+        get() = selectedSalesDate?.let { "${DAY_CHIP_FORMATTER.format(it)} 单日" } ?: "查单日"
+
+    val salesScopeHint: String
+        get() = when (val scope = selectedSalesScope) {
+            is DashboardSalesScope.Range -> "区间查看：销售额、订单数和趋势按${scope.periodLabel}同步统计"
+            is DashboardSalesScope.SingleDay -> "单日查看：${FULL_DAY_FORMATTER.format(scope.date)}，图表按 6 小时时段统计"
+        }
+}
+
+private data class DashboardDateRange(
+    val startDate: LocalDate,
+    val startMillis: Long,
+    val endMillis: Long,
+    val days: Int
+)
+
+private fun LocalDate.startOfDayMillis(): Long =
+    atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+private fun LocalDate.endOfDayMillis(): Long =
+    plusDays(1).startOfDayMillis() - 1L
+
+private fun LocalDate.coerceNotFuture(): LocalDate {
+    val today = LocalDate.now()
+    return if (isAfter(today)) today else this
+}
+
+private fun Long.toLocalDate(): LocalDate =
+    Instant.ofEpochMilli(this)
+        .atZone(ZoneId.systemDefault())
+        .toLocalDate()
+
+private fun Long.toLocalHour(): Int =
+    Instant.ofEpochMilli(this)
+        .atZone(ZoneId.systemDefault())
+        .hour

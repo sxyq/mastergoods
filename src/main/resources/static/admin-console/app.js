@@ -9,7 +9,7 @@ const userTableBody = document.getElementById("user-table-body");
 const accountList = document.getElementById("account-list");
 const searchInput = document.getElementById("search-input");
 const statusText = document.getElementById("status-text");
-const smokeResult = document.getElementById("smoke-result");
+const agentResult = document.getElementById("agent-result");
 
 const form = document.getElementById("user-form");
 const formTitle = document.getElementById("form-title");
@@ -67,20 +67,8 @@ async function seedDemo(reset) {
   state.demoAccounts = result.demoAccounts || [];
   renderAccounts();
   await Promise.all([loadSummary(), loadUsers(searchInput.value.trim())]);
-  smokeResult.textContent = `${reset ? "已重建" : "已补齐"}演示数据：用户 ${result.userCount}，商品 ${result.productCount}，客户 ${result.customerCount}，供应商 ${result.supplierCount}。`;
-  smokeResult.classList.remove("empty");
-}
-
-async function runAgentSmoke() {
-  smokeResult.textContent = "正在运行 Agent smoke，请稍候...";
-  smokeResult.classList.remove("empty");
-  const result = await request("/v1/admin/agent/smoke", { method: "POST" });
-  smokeResult.textContent =
-    `Workbench：${result.workbenchNarrative}\n\n` +
-    `问答：${result.answerSummary}\n\n` +
-    `草稿：${result.draftSummary}（可提交：${result.draftCanSubmit ? "是" : "否"}）\n\n` +
-    `后台任务状态：${result.taskStatus}\n` +
-    `后台任务摘要：${result.taskSummary || "任务仍在后台继续运行"}`;
+  agentResult.textContent = `${reset ? "已重建" : "已补齐"}演示数据：用户 ${result.userCount}，商品 ${result.productCount}，客户 ${result.customerCount}，供应商 ${result.supplierCount}。`;
+  agentResult.classList.remove("empty");
 }
 
 function renderSummary(summary) {
@@ -320,7 +308,6 @@ function initBackground() {
 
 document.getElementById("seed-reset-button").addEventListener("click", () => seedDemo(true).catch(handleError));
 document.getElementById("seed-button").addEventListener("click", () => seedDemo(false).catch(handleError));
-document.getElementById("agent-smoke-button").addEventListener("click", () => runAgentSmoke().catch(handleError));
 document.getElementById("search-button").addEventListener("click", () => loadUsers(searchInput.value.trim()).catch(handleError));
 document.getElementById("refresh-button").addEventListener("click", () => bootstrap().catch(handleError));
 document.getElementById("new-user-button").addEventListener("click", resetForm);
@@ -329,8 +316,8 @@ form.addEventListener("submit", (event) => handleFormSubmit(event).catch(handleE
 
 function handleError(error) {
   console.error(error);
-  smokeResult.textContent = `操作失败：${error.message}`;
-  smokeResult.classList.remove("empty");
+  agentResult.textContent = `操作失败：${error.message}`;
+  agentResult.classList.remove("empty");
 }
 
 bootstrap().catch(handleError);

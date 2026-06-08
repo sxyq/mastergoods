@@ -1,503 +1,1284 @@
 package com.zhihuiji.feature.dashboard
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.Groups2
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.NotificationsNone
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Sell
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Inventory
+import androidx.compose.material.icons.outlined.Payments
+import androidx.compose.material.icons.outlined.People
+import androidx.compose.material.icons.outlined.SmartToy
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.zhihuiji.core.common.MoneyFormatter
-import com.zhihuiji.core.common.StatusLabels
-import com.zhihuiji.core.designsystem.*
-import com.zhihuiji.core.model.v2.order.SaleOrderV2Dto
-import com.zhihuiji.core.model.v2.product.ProductV2Dto
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.designsystem.DangerRed
+import com.zhihuiji.core.designsystem.DataTextPrimary
+import com.zhihuiji.core.designsystem.GlassSurfaceLow
+import com.zhihuiji.core.designsystem.GlassSurfaceMedium
+import com.zhihuiji.core.designsystem.GlassSurfaceHigh
+import com.zhihuiji.core.designsystem.LiquidGlassCard
+import com.zhihuiji.core.designsystem.LiquidGlassSurface
+import com.zhihuiji.core.designsystem.MainBottomBarHeight
+import com.zhihuiji.core.designsystem.SuccessGreen
+import com.zhihuiji.core.designsystem.TextPrimary
+import com.zhihuiji.core.designsystem.TextSecondary
+import com.zhihuiji.core.designsystem.TextTertiary
+import com.zhihuiji.core.designsystem.WarningOrange
+import com.zhihuiji.core.designsystem.ZhihuijiPrimary
+import com.zhihuiji.core.designsystem.ZhihuijiPrimaryBright
+import java.text.DecimalFormat
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.abs
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+
+private val DashboardHorizontalPadding = 16.dp
+private val DashboardTopContentPadding = 76.dp
+private val DashboardBottomContentExtraPadding = 88.dp
+private val DashboardBottomBarTouchClearance = 32.dp
+private val DashboardBottomEndCardHeight = 56.dp
+private val DashboardSectionGap = 20.dp
+private val DashboardInnerSectionGap = 12.dp
+private val DashboardCardCorner = RoundedCornerShape(16.dp)
+private val DashboardKpiCardHeight = 96.dp
+private val DashboardTrendCardHeight = 228.dp
+private val DashboardReminderRowHeight = 68.dp
+private val DashboardDialogDayFormatter = DateTimeFormatter.ofPattern("MM月dd日", Locale.getDefault())
+private val DashboardDialogFullDayFormatter = DateTimeFormatter.ofPattern("yyyy年MM月dd日", Locale.getDefault())
 
 @Composable
 fun DashboardScreen(
-    onNavigateToSettings: () -> Unit,
-    onNavigateToSales: () -> Unit,
-    onNavigateToProducts: () -> Unit,
-    onNavigateToCustomers: () -> Unit,
-    onNavigateToAgent: () -> Unit,
-    showTopBar: Boolean = true,
-    reselectSignal: Int = 0,
+    modifier: Modifier = Modifier,
     viewModel: DashboardViewModel = hiltViewModel(),
+    bottomBarScrollEvents: Flow<Float> = emptyFlow(),
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToSales: () -> Unit = {},
+    onNavigateToProducts: () -> Unit = {},
+    onNavigateToCustomers: () -> Unit = {},
+    onNavigateToAgent: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showSalesDatePicker by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
-    var query by rememberSaveable { mutableStateOf("") }
-    var selectedFocus by rememberSaveable { mutableIntStateOf(0) }
-    val salesAmount = uiState.totalSalesAmount
-    val unpaidAmount = uiState.totalUnpaidAmount
-    val accountBalance = uiState.totalAccountBalance
-    val lowStockCount = uiState.lowStockCount
-    val error = uiState.error
-    val reminderItems = remember(uiState.saleOrders, uiState.lowStockProducts, unpaidAmount) {
-        listOf(
-            DashboardReminder(
-                title = "销售单概览",
-                subtitle = "${uiState.saleOrders.size} 张销售单已进入当前快照",
-                statusText = if (uiState.saleOrders.isEmpty()) "暂无单据" else "本地聚合",
-                tone = if (uiState.saleOrders.isEmpty()) PillTone.NEUTRAL else PillTone.INFO,
-                icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                iconTint = ZhihuijiColors.InfoBlue,
-            ),
-            DashboardReminder(
-                title = "待收款客户",
-                subtitle = "待收金额 ${MoneyFormatter.format(unpaidAmount)}",
-                statusText = if (unpaidAmount > 0.0) "跟进中" else "已清",
-                tone = if (unpaidAmount > 0.0) PillTone.DANGER else PillTone.SUCCESS,
-                icon = Icons.Default.AccountBalanceWallet,
-                iconTint = ZhihuijiColors.Warning,
-            ),
-            DashboardReminder(
-                title = "低库存商品",
-                subtitle = "${uiState.lowStockProducts.size} 个商品低于安全库存",
-                statusText = if (uiState.lowStockProducts.isEmpty()) "正常" else "预警",
-                tone = if (uiState.lowStockProducts.isEmpty()) PillTone.SUCCESS else PillTone.WARNING,
-                icon = Icons.Default.WarningAmber,
-                iconTint = ZhihuijiColors.Warning,
-            ),
+    val density = LocalDensity.current
+    val navigationBarPadding = with(density) {
+        WindowInsets.navigationBars.getBottom(this).toDp()
+    }
+    val bottomBarContentInset = MainBottomBarHeight + navigationBarPadding
+
+    LaunchedEffect(bottomBarScrollEvents) {
+        bottomBarScrollEvents.collect { scrollDeltaPx ->
+            if (scrollDeltaPx != 0f) {
+                listState.scrollBy(scrollDeltaPx)
+            }
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(
+                    start = DashboardHorizontalPadding,
+                    end = DashboardHorizontalPadding
+                ),
+            verticalArrangement = Arrangement.spacedBy(DashboardSectionGap),
+            contentPadding = PaddingValues(
+                top = DashboardTopContentPadding,
+                bottom = bottomBarContentInset +
+                    DashboardBottomContentExtraPadding +
+                    DashboardBottomBarTouchClearance
+            )
+        ) {
+            item(key = "business_overview") {
+                BusinessOverviewSection(
+                    uiState = uiState,
+                    onSalesRangeSelected = viewModel::selectSalesRange,
+                    onSalesDateClick = { showSalesDatePicker = true }
+                )
+            }
+
+            item(key = "sales_trend") {
+                SalesTrendSection(
+                    trend = uiState.salesTrend,
+                    title = uiState.salesTrendTitle
+                )
+            }
+
+            item(key = "pending_tasks") {
+                PendingTasksSection(
+                    uiState = uiState,
+                    onSalesClick = onNavigateToSales,
+                    onProductsClick = onNavigateToProducts,
+                    onCustomersClick = onNavigateToCustomers,
+                    onAgentClick = onNavigateToAgent
+                )
+            }
+
+            if (!uiState.error.isNullOrBlank()) {
+                item(key = "dashboard_contract_notice") {
+                    DashboardContractNotice(message = uiState.error ?: "")
+                }
+            }
+
+            item(key = "dashboard_scroll_end") {
+                DashboardScrollEndCard()
+            }
+        }
+
+        Box(modifier = Modifier.align(Alignment.TopCenter)) {
+            DashboardTopBar(
+                hasPending = uiState.pendingReminders.isNotEmpty(),
+                onNavigateToSettings = onNavigateToSettings,
+                onNavigateToNotifications = onNavigateToNotifications
+            )
+        }
+    }
+
+    if (showSalesDatePicker) {
+        SalesDatePickerDialog(
+            selectedDate = uiState.selectedSalesDate,
+            onDismiss = { showSalesDatePicker = false },
+            onDateSelected = viewModel::selectSingleSalesDate
         )
     }
-    val receivableOrders = remember(uiState.saleOrders, query) {
-        uiState.saleOrders
-            .asSequence()
-            .filter { it.totalAmount - it.paidAmount > 0.009 }
-            .filter { matchesQuery(query, it.orderNo, it.customerName) }
-            .sortedByDescending { it.totalAmount - it.paidAmount }
-            .take(4)
-            .toList()
-    }
-    val filteredLowStockProducts = remember(uiState.lowStockProducts, query) {
-        uiState.lowStockProducts.filter { matchesQuery(query, it.code, it.name, it.categoryName, it.unitName) }
-    }
-    val focusChips = remember { listOf("总览", "待办提醒", "库存预警", "回款重点") }
-    val visibleReminders = remember(reminderItems, query) {
-        reminderItems.filter { matchesQuery(query, it.title, it.subtitle, it.statusText) }
-    }
+}
 
-    BottomBarScrollVisibilityEffect(listState)
-    BottomBarScrollToTopEffect(reselectSignal, listState)
-
-    LazyColumn(
-        state = listState,
-        modifier = Modifier
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(0.dp),
+@Composable
+private fun DashboardTopBar(
+    hasPending: Boolean,
+    onNavigateToSettings: () -> Unit,
+    onNavigateToNotifications: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LiquidGlassSurface(
+        modifier = modifier.fillMaxWidth(),
+        blurRadius = 20.dp,
+        shape = RoundedCornerShape(0.dp),
+        surfaceColor = GlassSurfaceMedium
     ) {
-        item(key = "top_bar") {
-            if (showTopBar) {
-                GlassTopBar(
-                    title = "智慧记",
-                    actions = {
-                        IconButton(onClick = { viewModel.refresh() }) {
-                            Icon(Icons.Default.Refresh, contentDescription = "刷新", tint = ZhihuijiColors.TextPrimary)
-                        }
-                        IconButton(onClick = onNavigateToSettings) {
-                            Icon(Icons.Default.Settings, contentDescription = "设置", tint = ZhihuijiColors.TextPrimary)
-                        }
-                    },
-                )
-            } else {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column {
-                        Text("智慧记", style = ZhihuijiTypography.titleLarge, color = ZhihuijiColors.TextPrimary)
-                        Text("当前经营概览", style = ZhihuijiTypography.labelSmall, color = ZhihuijiColors.TextSecondary)
-                    }
-                    Row {
-                        IconButton(onClick = { viewModel.refresh() }) {
-                            Icon(Icons.Default.Refresh, contentDescription = "刷新", tint = ZhihuijiColors.TextSecondary)
-                        }
-                        IconButton(onClick = onNavigateToSettings) {
-                            Icon(Icons.Default.Settings, contentDescription = "设置", tint = ZhihuijiColors.TextSecondary)
-                        }
-                    }
-                }
-            }
-        }
-        item(key = "top_spacing") { Spacer(modifier = Modifier.height(10.dp)) }
-
-        item(key = "overview") {
-            DashboardOverviewCard(
-                salesAmount = salesAmount,
-                unpaidAmount = unpaidAmount,
-                lowStockCount = lowStockCount,
-                accountBalance = accountBalance,
-                isLoading = uiState.isLoading,
-            )
-        }
-        item(key = "overview_spacing") { Spacer(modifier = Modifier.height(10.dp)) }
-
-        item(key = "filters") {
-            SearchFilterBar(
-                query = query,
-                onQueryChange = { query = it },
-                placeholder = "搜索提醒、客户或商品",
-                filterIcon = Icons.Default.Tune,
-                onFilterClick = { selectedFocus = (selectedFocus + 1) % focusChips.size },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            FilterChipRow(
-                chips = focusChips,
-                selectedIndex = selectedFocus,
-                onChipSelected = { selectedFocus = it },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                text = "切换当前看板关注视角；当前仅汇总销售单、账户余额和低库存商品三类已接入数据。",
-                style = ZhihuijiTypography.labelSmall,
-                color = ZhihuijiColors.TextSecondary,
-            )
-        }
-        item(key = "filters_spacing") { Spacer(modifier = Modifier.height(8.dp)) }
-
-        if (error != null) {
-            item(key = "error") {
-                DashboardMessageCard(
-                    icon = Icons.Default.WarningAmber,
-                    title = "数据加载存在缺口",
-                    message = error.text,
-                    tone = PillTone.DANGER,
-                )
-            }
-            item(key = "error_spacing") { Spacer(modifier = Modifier.height(10.dp)) }
-        }
-
-        item(key = "kpis_top") {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                KpiCard(
-                    title = "销售快照",
-                    value = MoneyFormatter.format(salesAmount),
-                    subtitle = "当前数据快照",
-                    icon = Icons.Default.Sell,
-                    tone = KpiTone.PRIMARY,
-                    modifier = Modifier.weight(1f),
-                )
-                KpiCard(
-                    title = "待收款",
-                    value = MoneyFormatter.format(unpaidAmount),
-                    subtitle = "优先跟进老客户",
-                    icon = Icons.Default.AccountBalanceWallet,
-                    tone = KpiTone.WARNING,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-        item(key = "kpis_top_spacing") { Spacer(modifier = Modifier.height(10.dp)) }
-        item(key = "kpis_bottom") {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                KpiCard(
-                    title = "低库存",
-                    value = "$lowStockCount",
-                    subtitle = "需及时补货",
-                    icon = Icons.Default.WarningAmber,
-                    tone = KpiTone.WARNING,
-                    modifier = Modifier.weight(1f),
-                )
-                KpiCard(
-                    title = "账户余额",
-                    value = MoneyFormatter.format(accountBalance),
-                    subtitle = "按账户余额汇总",
-                    icon = Icons.Default.AccountBalanceWallet,
-                    tone = KpiTone.SUCCESS,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-        item(key = "kpis_bottom_spacing") { Spacer(modifier = Modifier.height(12.dp)) }
-
-        if (selectedFocus == 0 || selectedFocus == 1) {
-            item(key = "reminders_header") {
-                DashboardSectionHeader(
-                    title = "待处理提醒",
-                    actionText = "${reminderItems.count { it.tone != PillTone.SUCCESS }} 项需关注",
-                )
-            }
-            item(key = "reminders_spacing") { Spacer(modifier = Modifier.height(8.dp)) }
-            if (visibleReminders.isEmpty()) {
-                item(key = "reminders_empty") {
-                    GlassCard(modifier = Modifier.fillMaxWidth()) {
-                        EmptyState(
-                            icon = Icons.Default.NotificationsNone,
-                            title = "没有匹配的待办",
-                            subtitle = "可以换个关键词或直接查看总览",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 24.dp),
-                        )
-                    }
-                }
-            } else {
-                items(
-                    items = visibleReminders,
-                    key = { reminder -> reminder.title },
-                ) { reminder ->
-                    BusinessListItem(
-                        title = reminder.title,
-                        subtitle = reminder.subtitle,
-                        statusText = reminder.statusText,
-                        statusTone = reminder.tone,
-                        icon = reminder.icon,
-                        iconTint = reminder.iconTint,
-                    )
-                }
-            }
-            item(key = "reminders_footer_spacing") { Spacer(modifier = Modifier.height(12.dp)) }
-        }
-
-        if (selectedFocus == 0 || selectedFocus == 3) {
-            item(key = "receivables_header") {
-                DashboardSectionHeader(
-                    title = "资金与回款",
-                    actionText = if (receivableOrders.isEmpty()) "暂无欠款" else "${receivableOrders.size} 个重点客户",
-                )
-            }
-            item(key = "receivables_spacing") { Spacer(modifier = Modifier.height(8.dp)) }
-            if (receivableOrders.isEmpty()) {
-                item(key = "receivables_empty") {
-                    GlassCard(modifier = Modifier.fillMaxWidth()) {
-                        EmptyState(
-                            icon = Icons.Default.AccountBalanceWallet,
-                            title = "当前没有待收款订单",
-                            subtitle = "收款完成后这里会自动回落为空态",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 24.dp),
-                        )
-                    }
-                }
-            } else {
-                items(
-                    items = receivableOrders,
-                    key = { order -> order.id },
-                ) { order ->
-                    val receivableAmount = order.totalAmount - order.paidAmount
-                    BusinessListItem(
-                        title = order.customerName?.takeIf { it.isNotBlank() } ?: order.orderNo,
-                        subtitle = "订单 ${order.orderNo}",
-                        meta = "已收 ${MoneyFormatter.format(order.paidAmount)} / 应收 ${MoneyFormatter.format(order.totalAmount)}",
-                        amount = MoneyFormatter.format(receivableAmount),
-                        amountColor = ZhihuijiColors.Danger,
-                        statusText = if (receivableAmount > order.totalAmount * 0.5) "优先跟进" else "待回款",
-                        statusTone = if (receivableAmount > order.totalAmount * 0.5) PillTone.DANGER else PillTone.WARNING,
-                        icon = Icons.Default.Groups2,
-                        iconTint = ZhihuijiColors.Primary,
-                    )
-                }
-            }
-            item(key = "receivables_footer_spacing") { Spacer(modifier = Modifier.height(12.dp)) }
-        }
-
-        item(key = "quick_actions_header") {
-            DashboardSectionHeader(title = "快捷开单", actionText = "常用入口")
-        }
-        item(key = "quick_actions_spacing") { Spacer(modifier = Modifier.height(8.dp)) }
-        item(key = "quick_actions_card") {
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        PrimaryButton(text = "销售开单", onClick = onNavigateToSales, modifier = Modifier.weight(1f), icon = Icons.Default.Sell)
-                        SecondaryOutlineButton(text = "商品档案", onClick = onNavigateToProducts, modifier = Modifier.weight(1f))
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SecondaryOutlineButton(text = "客户跟进", onClick = onNavigateToCustomers, modifier = Modifier.weight(1f))
-                        SecondaryOutlineButton(text = "AI 助手", onClick = onNavigateToAgent, modifier = Modifier.weight(1f))
-                    }
-                }
-            }
-        }
-        item(key = "quick_actions_footer_spacing") { Spacer(modifier = Modifier.height(12.dp)) }
-
-        if (selectedFocus == 0 || selectedFocus == 2) {
-            item(key = "low_stock_header") {
-                DashboardSectionHeader(
-                    title = "低库存预警",
-                    actionText = if (filteredLowStockProducts.isEmpty()) "库存平稳" else "共 ${filteredLowStockProducts.size} 个商品",
-                )
-            }
-            item(key = "low_stock_spacing") { Spacer(modifier = Modifier.height(8.dp)) }
-            if (filteredLowStockProducts.isEmpty()) {
-                item(key = "low_stock_empty") {
-                    GlassCard(modifier = Modifier.fillMaxWidth()) {
-                        EmptyState(
-                            icon = Icons.Default.Inventory2,
-                            title = if (uiState.lowStockProducts.isEmpty()) "暂无低库存预警" else "未找到匹配商品",
-                            subtitle = if (uiState.lowStockProducts.isEmpty()) "当前商品库存都高于安全线" else "换个关键词试试，或回到总览查看全部预警",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 24.dp),
-                        )
-                    }
-                }
-            } else {
-                items(
-                    items = filteredLowStockProducts.take(6),
-                    key = { item -> item.id },
-                ) { item ->
-                    LowStockListItem(item)
-                }
-            }
-            item(key = "low_stock_footer_spacing") { Spacer(modifier = Modifier.height(12.dp)) }
-        }
-
-        item(key = "summary_footer") {
-            SummaryFooter(
-                leftText = "看板数据基于客户端本地汇总快照",
-                rightText = if (uiState.isLoading) "刷新中" else "趋势与通知待联调",
-            )
-        }
-        item(key = "bottom_spacing") { Spacer(modifier = Modifier.height(88.dp)) }
-    }
-}
-
-@Composable
-private fun DashboardOverviewCard(
-    salesAmount: Double,
-    unpaidAmount: Double,
-    lowStockCount: Int,
-    accountBalance: Double,
-    isLoading: Boolean,
-) {
-    GlassCard(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("经营看板", style = ZhihuijiTypography.titleMedium, color = ZhihuijiColors.TextPrimary)
-                    Text("聚焦销售、库存与回款重点，方便快速扫读当前已接入的经营数据", style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
-                }
-                StatusPill(
-                    text = if (isLoading) "刷新中" else "本地快照",
-                    tone = if (isLoading) PillTone.INFO else PillTone.SUCCESS,
-                )
-            }
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatusPill(text = "${lowStockCount} 个库存预警", tone = if (lowStockCount > 0) PillTone.WARNING else PillTone.SUCCESS)
-                StatusPill(text = if (unpaidAmount > 0) "待收款跟进" else "回款平稳", tone = if (unpaidAmount > 0) PillTone.DANGER else PillTone.SUCCESS)
-            }
-            FieldRow(label = "销售额", value = MoneyFormatter.format(salesAmount), valueColor = ZhihuijiColors.Primary)
-            FieldRow(label = "账户余额", value = MoneyFormatter.format(accountBalance), valueColor = ZhihuijiColors.Success)
-            FieldRow(
-                label = "数据说明",
-                value = "当前页仅汇总销售单、账户余额与低库存接口；趋势、通知与更多联动能力仍待后续接入。",
-                valueColor = ZhihuijiColors.TextSecondary,
-            )
-        }
-    }
-}
-
-@Composable
-private fun DashboardSectionHeader(
-    title: String,
-    actionText: String,
-) {
-    SectionHeader(title = title, actionText = actionText)
-}
-
-@Composable
-private fun DashboardMessageCard(
-    icon: ImageVector,
-    title: String,
-    message: String,
-    tone: PillTone,
-) {
-    GlassCard(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                .height(60.dp)
+                .padding(start = 16.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = toneColor(tone))
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(title, style = ZhihuijiTypography.titleSmall, color = ZhihuijiColors.TextPrimary)
-                Text(message, style = ZhihuijiTypography.bodySmall, color = ZhihuijiColors.TextSecondary)
+            Text(
+                text = "智慧记",
+                fontSize = 24.sp,
+                lineHeight = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = ZhihuijiPrimary,
+                maxLines = 1
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box {
+                    DashboardTopIconButton(
+                        icon = Icons.Default.Notifications,
+                        contentDescription = "待处理提醒",
+                        onClick = onNavigateToNotifications
+                    )
+                    if (hasPending) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 8.dp, end = 8.dp)
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(DangerRed)
+                                .border(2.dp, Color.White, CircleShape)
+                        )
+                    }
+                }
+                DashboardTopIconButton(
+                    icon = Icons.Default.Settings,
+                    contentDescription = "设置",
+                    onClick = onNavigateToSettings
+                )
             }
-            StatusPill(text = "需复查", tone = tone)
         }
     }
 }
 
 @Composable
-private fun LowStockListItem(item: ProductV2Dto) {
-    val shortage = (item.safeStock - item.stock).coerceAtLeast(0.0)
-    BusinessListItem(
-        title = item.name,
-        subtitle = item.code,
-        meta = "库存 ${MoneyFormatter.formatWithoutSymbol(item.stock)} / 安全库存 ${MoneyFormatter.formatWithoutSymbol(item.safeStock)}",
-        amount = "缺口 ${MoneyFormatter.formatWithoutSymbol(shortage)}",
-        amountColor = ZhihuijiColors.Warning,
-        statusText = StatusLabels.stockStatus(item.stock, item.safeStock),
-        statusTone = when {
-            item.stock <= 0.000001 -> PillTone.DANGER
-            item.stock < item.safeStock -> PillTone.WARNING
-            else -> PillTone.SUCCESS
-        },
-        icon = Icons.Default.Inventory2,
-        iconTint = ZhihuijiColors.Warning,
+private fun DashboardTopIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = TextSecondary,
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+@Composable
+private fun BusinessOverviewSection(
+    uiState: DashboardUiState,
+    onSalesRangeSelected: (DashboardSalesRange) -> Unit,
+    onSalesDateClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(DashboardInnerSectionGap)
+    ) {
+        SalesRangeHeader(
+            title = uiState.salesOverviewTitle,
+            scopeHint = uiState.salesScopeHint,
+            isLoading = uiState.isLoading,
+            selectedRange = uiState.selectedSalesRange,
+            calendarChipLabel = uiState.calendarChipLabel,
+            isDateSelected = uiState.selectedSalesDate != null,
+            onRangeSelected = onSalesRangeSelected,
+            onDateClick = onSalesDateClick
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            DashboardKpiCard(
+                modifier = Modifier.weight(1f),
+                title = "销售额 (元)",
+                value = formatCurrencyText(uiState.salesAmount),
+                caption = "${uiState.salesPeriodLabel} ${uiState.salesOrderCount} 张真实订单",
+                icon = Icons.Outlined.Payments,
+                accent = ZhihuijiPrimary,
+                valueColor = DataTextPrimary,
+                glow = ZhihuijiPrimary.copy(alpha = 0.07f),
+                captionColor = SuccessGreen
+            )
+            DashboardKpiCard(
+                modifier = Modifier.weight(1f),
+                title = "待收款",
+                value = formatCurrencyText(uiState.receivableAmount),
+                caption = "${uiState.receivableCustomerCount} 位客户待跟进",
+                icon = Icons.Outlined.AccountBalanceWallet,
+                accent = WarningOrange,
+                valueColor = WarningOrange,
+                glow = WarningOrange.copy(alpha = 0.08f),
+                captionDotColor = WarningOrange
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            DashboardKpiCard(
+                modifier = Modifier.weight(1f),
+                title = "低库存预警",
+                value = "${uiState.lowStockCount}",
+                caption = "需立即补货",
+                icon = Icons.Outlined.Inventory,
+                accent = DangerRed,
+                unit = "件",
+                valueColor = DangerRed,
+                glow = DangerRed.copy(alpha = 0.08f),
+                captionDotColor = DangerRed
+            )
+            DashboardKpiCard(
+                modifier = Modifier.weight(1f),
+                title = "净现金流",
+                value = signedCurrency(uiState.netCashFlow),
+                caption = "${uiState.salesPeriodLabel}资金流水净额",
+                icon = Icons.Outlined.AccountBalance,
+                accent = if (uiState.netCashFlow.startsWith("-")) DangerRed else SuccessGreen,
+                valueColor = if (uiState.netCashFlow.startsWith("-")) DangerRed else SuccessGreen,
+                glow = SuccessGreen.copy(alpha = 0.07f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun DashboardKpiCard(
+    title: String,
+    value: String,
+    caption: String,
+    icon: ImageVector,
+    accent: Color,
+    valueColor: Color,
+    glow: Color,
+    modifier: Modifier = Modifier,
+    unit: String? = null,
+    captionColor: Color = TextTertiary,
+    captionDotColor: Color? = null,
+) {
+    LiquidGlassCard(
+        modifier = modifier.height(DashboardKpiCardHeight),
+        shape = DashboardCardCorner,
+        surfaceColor = GlassSurfaceLow,
+        contentPadding = 0.dp
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 24.dp, y = (-24).dp)
+                    .size(96.dp)
+                    .blur(24.dp)
+                    .background(glow, CircleShape)
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = accent.copy(alpha = 0.78f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = title,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = value,
+                        fontSize = 22.sp,
+                        lineHeight = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = valueColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (unit != null) {
+                        Text(
+                            text = unit,
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(start = 3.dp, bottom = 1.dp)
+                        )
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (captionDotColor != null) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(captionDotColor)
+                        )
+                    }
+                    Text(
+                        text = caption,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = captionColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SalesTrendSection(
+    trend: List<SalesTrendPoint>,
+    title: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(DashboardInnerSectionGap)
+    ) {
+        Text(
+            text = title,
+            fontSize = 20.sp,
+            lineHeight = 28.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary
+        )
+        LiquidGlassCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(DashboardTrendCardHeight),
+            shape = DashboardCardCorner,
+            surfaceColor = GlassSurfaceLow,
+            contentPadding = 20.dp
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "总计  ${formatCurrency(trend.sumOf { it.value })}",
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextSecondary
+                )
+                Text(
+                    text = "•••",
+                    fontSize = 18.sp,
+                    lineHeight = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextTertiary
+                )
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(104.dp)
+            ) {
+                SalesLineChart(
+                    trend = trend,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 2.dp, vertical = 8.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            TrendAxisLabels(
+                trend = trend,
+                modifier = Modifier.height(22.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SalesLineChart(
+    trend: List<SalesTrendPoint>,
+    modifier: Modifier = Modifier
+) {
+    if (trend.isEmpty()) {
+        Box(
+            modifier = modifier,
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "暂无趋势数据",
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                color = TextSecondary
+            )
+        }
+        return
+    }
+
+    Canvas(modifier = modifier) {
+        val maxValue = trend.maxOfOrNull { it.value } ?: 0.0
+        val hasPositiveValue = maxValue > 0.0
+
+        if (trend.size == 1) {
+            val centerX = size.width / 2f
+            val centerY = if (hasPositiveValue) size.height * 0.24f else size.height * 0.58f
+            val baselineY = size.height * 0.72f
+            drawLine(
+                color = ZhihuijiPrimaryBright.copy(alpha = 0.16f),
+                start = Offset(0f, baselineY),
+                end = Offset(size.width, baselineY),
+                strokeWidth = 1.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+            drawCircle(
+                color = ZhihuijiPrimaryBright.copy(alpha = 0.14f),
+                radius = 28.dp.toPx(),
+                center = Offset(centerX, centerY)
+            )
+            drawCircle(
+                color = Color.White,
+                radius = 8.dp.toPx(),
+                center = Offset(centerX, centerY)
+            )
+            drawCircle(
+                color = ZhihuijiPrimary,
+                radius = 5.dp.toPx(),
+                center = Offset(centerX, centerY)
+            )
+            return@Canvas
+        }
+
+        val horizontalStep = if (trend.size > 1) size.width / (trend.size - 1) else size.width
+        val topPadding = size.height * 0.12f
+        val bottomPadding = size.height * 0.76f
+        val quietBaseline = size.height * 0.58f
+        val points = trend.mapIndexed { index, point ->
+            val x = horizontalStep * index
+            val y = if (hasPositiveValue) {
+                val normalized = (point.value / maxValue).toFloat().coerceIn(0f, 1f)
+                bottomPadding - ((bottomPadding - topPadding) * normalized)
+            } else {
+                quietBaseline
+            }
+            Offset(x, y)
+        }
+
+        fun Path.drawSmooth(points: List<Offset>) {
+            moveTo(points.first().x, points.first().y)
+            points.zipWithNext().forEach { (start, end) ->
+                val controlX = (start.x + end.x) / 2f
+                cubicTo(controlX, start.y, controlX, end.y, end.x, end.y)
+            }
+        }
+
+        val linePath = Path().apply {
+            drawSmooth(points)
+        }
+        val fillPath = Path().apply {
+            drawSmooth(points)
+            lineTo(points.last().x, size.height)
+            lineTo(points.first().x, size.height)
+            close()
+        }
+
+        drawPath(
+            path = fillPath,
+            color = ZhihuijiPrimaryBright.copy(alpha = 0.10f)
+        )
+        drawPath(
+            path = linePath,
+            color = ZhihuijiPrimary,
+            style = Stroke(
+                width = 2.dp.toPx(),
+                cap = StrokeCap.Round,
+                join = StrokeJoin.Round
+            )
+        )
+        points.forEachIndexed { index, offset ->
+            val shouldEmphasize = index == points.lastIndex || index == points.size / 2
+            if (!shouldEmphasize) return@forEachIndexed
+            val radius = if (index == points.lastIndex) 4.dp.toPx() else 3.dp.toPx()
+            drawCircle(
+                color = Color.White,
+                radius = radius + 2.dp.toPx(),
+                center = offset
+            )
+            drawCircle(
+                color = ZhihuijiPrimary,
+                radius = radius,
+                center = offset
+            )
+        }
+    }
+}
+
+@Composable
+private fun TrendAxisLabels(
+    trend: List<SalesTrendPoint>,
+    modifier: Modifier = Modifier
+) {
+    if (trend.size <= 1) {
+        Box(
+            modifier = modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = trend.firstOrNull()?.label ?: "-",
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextSecondary
+            )
+        }
+        return
+    }
+
+    if (trend.size <= 4) {
+        Row(
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            trend.forEach { point ->
+                Text(
+                    text = point.label,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextSecondary,
+                    maxLines = 1
+                )
+            }
+        }
+        return
+    }
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = trend.firstOrNull()?.label ?: "-",
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextSecondary,
+            maxLines = 1
+        )
+        Text(
+            text = trend.getOrNull(trend.size / 2)?.label ?: "-",
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextSecondary,
+            maxLines = 1
+        )
+        Text(
+            text = trend.lastOrNull()?.label ?: "今日",
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextSecondary,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun PendingTasksSection(
+    uiState: DashboardUiState,
+    onSalesClick: () -> Unit,
+    onProductsClick: () -> Unit,
+    onCustomersClick: () -> Unit,
+    onAgentClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val reminders = buildDashboardReminderItems(uiState, onProductsClick, onCustomersClick, onAgentClick)
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(DashboardInnerSectionGap)
+    ) {
+        Text(
+            text = "待处理提醒",
+            fontSize = 20.sp,
+            lineHeight = 28.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary
+        )
+        if (reminders.isEmpty()) {
+            DashboardReminderRow(
+                item = DashboardReminderItem(
+                    title = "暂无待处理提醒",
+                    subtitle = "当前真实数据没有低库存或待收款提醒",
+                    count = null,
+                    icon = Icons.Outlined.SmartToy,
+                    tint = ZhihuijiPrimary,
+                    onClick = onAgentClick
+                )
+            )
+        } else {
+            reminders.forEach { item ->
+                DashboardReminderRow(item = item)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardReminderRow(
+    item: DashboardReminderItem,
+    modifier: Modifier = Modifier
+) {
+    LiquidGlassCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(DashboardReminderRowHeight),
+        onClick = item.onClick,
+        shape = DashboardCardCorner,
+        surfaceColor = GlassSurfaceHigh,
+        contentPadding = 0.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(DashboardReminderRowHeight)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(item.tint.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = null,
+                    tint = item.tint,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.title,
+                    fontSize = 16.sp,
+                    lineHeight = 24.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = item.subtitle,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    color = TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            if (item.count != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(DangerRed)
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = item.count.toString(),
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+            Text(
+                text = "›",
+                fontSize = 22.sp,
+                lineHeight = 24.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextTertiary
+            )
+        }
+    }
+}
+
+@Composable
+private fun DashboardScrollEndCard(
+    modifier: Modifier = Modifier
+) {
+    LiquidGlassCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(DashboardBottomEndCardHeight),
+        shape = RoundedCornerShape(18.dp),
+        surfaceColor = GlassSurfaceLow,
+        contentPadding = 0.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "已显示全部经营提醒",
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextTertiary
+            )
+        }
+    }
+}
+
+@Composable
+private fun SalesRangeHeader(
+    title: String,
+    scopeHint: String,
+    isLoading: Boolean,
+    selectedRange: DashboardSalesRange?,
+    calendarChipLabel: String,
+    isDateSelected: Boolean,
+    onRangeSelected: (DashboardSalesRange) -> Unit,
+    onDateClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                fontSize = 20.sp,
+                lineHeight = 28.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            if (isLoading) {
+                Text(
+                    text = "同步中",
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = ZhihuijiPrimary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(100.dp))
+                        .background(ZhihuijiPrimary.copy(alpha = 0.10f))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            DashboardSalesRange.values().forEach { range ->
+                SalesRangeChip(
+                    range = range,
+                    selected = range == selectedRange,
+                    isLoading = isLoading && range == selectedRange,
+                    onClick = { onRangeSelected(range) }
+                )
+            }
+            SalesFilterChip(
+                label = calendarChipLabel,
+                selected = isDateSelected,
+                isLoading = isLoading && isDateSelected,
+                leadingIcon = Icons.Outlined.CalendarMonth,
+                onClick = onDateClick
+            )
+        }
+        Text(
+            text = scopeHint,
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (isDateSelected) ZhihuijiPrimary else TextTertiary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun SalesRangeChip(
+    range: DashboardSalesRange,
+    selected: Boolean,
+    isLoading: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    SalesFilterChip(
+        label = range.buttonLabel,
+        selected = selected,
+        isLoading = isLoading,
+        onClick = onClick,
+        modifier = modifier
     )
 }
 
-private data class DashboardReminder(
+@Composable
+private fun SalesFilterChip(
+    label: String,
+    selected: Boolean,
+    isLoading: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    leadingIcon: ImageVector? = null
+) {
+    LiquidGlassCard(
+        modifier = modifier,
+        onClick = onClick,
+        surfaceColor = if (selected) GlassSurfaceHigh else GlassSurfaceLow,
+        shape = RoundedCornerShape(100.dp),
+        contentPadding = 0.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .background(
+                    color = if (selected) ZhihuijiPrimary.copy(alpha = 0.12f) else Color.Transparent,
+                    shape = RoundedCornerShape(100.dp)
+                )
+                .padding(horizontal = 9.dp, vertical = 5.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (leadingIcon != null && !isLoading) {
+                    Icon(
+                        imageVector = leadingIcon,
+                        contentDescription = null,
+                        tint = if (selected) ZhihuijiPrimary else TextSecondary,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+                Text(
+                    text = if (isLoading) "同步" else label,
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (selected) ZhihuijiPrimary else TextSecondary
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SalesDatePickerDialog(
+    selectedDate: LocalDate?,
+    onDismiss: () -> Unit,
+    onDateSelected: (LocalDate) -> Unit
+) {
+    val today = remember { LocalDate.now() }
+    val initialDate = remember(selectedDate, today) {
+        when {
+            selectedDate == null -> today
+            selectedDate.isAfter(today) -> today
+            else -> selectedDate
+        }
+    }
+    val todayMillis = remember(today) { today.toDatePickerMillis() }
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = initialDate.toDatePickerMillis(),
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis <= todayMillis
+
+            override fun isSelectableYear(year: Int): Boolean = year <= today.year
+        }
+    )
+    val pickedDate = datePickerState.selectedDateMillis
+        ?.toDatePickerLocalDate()
+        ?.let { if (it.isAfter(today)) today else it }
+        ?: initialDate
+
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onDateSelected(pickedDate)
+                    onDismiss()
+                }
+            ) {
+                Text(text = "查看这一天")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "取消")
+            }
+        }
+    ) {
+        DatePicker(
+            state = datePickerState,
+            title = {
+                Text(
+                    text = "选择统计日期",
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 18.dp)
+                )
+            },
+            headline = {
+                Column(
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "按某一天查看真实销售"
+                    )
+                    Text(
+                        text = "将查看 ${DashboardDialogFullDayFormatter.format(pickedDate)}，未来日期不可选。",
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                        color = TextSecondary
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SalesDateShortcutChip(
+                            label = "今天",
+                            date = today,
+                            selected = pickedDate == today,
+                            onClick = {
+                                onDateSelected(today)
+                                onDismiss()
+                            }
+                        )
+                        SalesDateShortcutChip(
+                            label = "昨天",
+                            date = today.minusDays(1),
+                            selected = pickedDate == today.minusDays(1),
+                            onClick = {
+                                onDateSelected(today.minusDays(1))
+                                onDismiss()
+                            }
+                        )
+                    }
+                    Text(
+                        text = "从日历点选日期后，首页销售额、订单数和分时图会一起刷新。",
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                        color = TextTertiary
+                    )
+                }
+            },
+            showModeToggle = false
+        )
+    }
+}
+
+@Composable
+private fun SalesDateShortcutChip(
+    label: String,
+    date: LocalDate,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LiquidGlassCard(
+        modifier = modifier,
+        onClick = onClick,
+        surfaceColor = if (selected) GlassSurfaceHigh else GlassSurfaceLow,
+        shape = RoundedCornerShape(100.dp),
+        contentPadding = 0.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .background(
+                    color = if (selected) ZhihuijiPrimary.copy(alpha = 0.12f) else Color.Transparent,
+                    shape = RoundedCornerShape(100.dp)
+                )
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (selected) ZhihuijiPrimary else TextSecondary
+            )
+            Text(
+                text = DashboardDialogDayFormatter.format(date),
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                color = if (selected) ZhihuijiPrimary else TextTertiary
+            )
+        }
+    }
+}
+
+@Composable
+private fun DashboardContractNotice(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    LiquidGlassCard(
+        modifier = modifier.fillMaxWidth(),
+        surfaceColor = GlassSurfaceMedium,
+        contentPadding = 14.dp
+    ) {
+        Text(
+            text = "部分首页数据刷新失败",
+            fontSize = 16.sp,
+            lineHeight = 22.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = WarningOrange
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = message,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+            color = TextSecondary
+        )
+    }
+}
+
+private data class DashboardReminderItem(
     val title: String,
     val subtitle: String,
-    val statusText: String,
-    val tone: PillTone,
+    val count: Int?,
     val icon: ImageVector,
-    val iconTint: Color,
+    val tint: Color,
+    val onClick: () -> Unit,
 )
 
-private fun matchesQuery(query: String, vararg values: String?): Boolean {
-    if (query.isBlank()) return true
-    val keyword = query.trim()
-    return values.any { value -> value?.contains(keyword, ignoreCase = true) == true }
+private fun buildDashboardReminderItems(
+    uiState: DashboardUiState,
+    onProductsClick: () -> Unit,
+    onCustomersClick: () -> Unit,
+    onAgentClick: () -> Unit,
+): List<DashboardReminderItem> = buildList {
+    if (uiState.lowStockCount > 0) {
+        add(
+            DashboardReminderItem(
+                title = "低库存商品",
+                subtitle = uiState.lowStockProducts.firstOrNull()?.let { "${it.name} 等商品需补货" }
+                    ?: "${uiState.lowStockCount} 个商品库存低于安全线",
+                count = uiState.lowStockCount,
+                icon = Icons.Outlined.Inventory,
+                tint = DangerRed,
+                onClick = onProductsClick
+            )
+        )
+    }
+    if (uiState.receivableCustomerCount > 0) {
+        add(
+            DashboardReminderItem(
+                title = "待收款客户",
+                subtitle = "${uiState.receivableCustomerCount} 位客户账款需要跟进",
+                count = uiState.receivableCustomerCount,
+                icon = Icons.Outlined.People,
+                tint = ZhihuijiPrimary,
+                onClick = onCustomersClick
+            )
+        )
+    }
+    if (isEmpty() && uiState.pendingReminders.isNotEmpty()) {
+        add(
+            DashboardReminderItem(
+                title = "AI 经营提醒",
+                subtitle = uiState.pendingReminders.first(),
+                count = uiState.pendingReminders.size,
+                icon = Icons.Outlined.SmartToy,
+                tint = WarningOrange,
+                onClick = onAgentClick
+            )
+        )
+    }
 }
 
-private fun toneColor(tone: PillTone): Color = when (tone) {
-    PillTone.SUCCESS -> ZhihuijiColors.Success
-    PillTone.WARNING -> ZhihuijiColors.Warning
-    PillTone.DANGER -> ZhihuijiColors.Danger
-    PillTone.INFO -> ZhihuijiColors.InfoBlue
-    PillTone.NEUTRAL -> ZhihuijiColors.TextTertiary
+private fun signedCurrency(value: String): String {
+    val normalized = value.toDoubleOrNull() ?: return "¥$value"
+    val prefix = when {
+        normalized > 0.0 -> "+¥"
+        normalized < 0.0 -> "-¥"
+        else -> "¥"
+    }
+    return prefix + formatNumber(abs(normalized))
 }
+
+private fun formatCurrency(value: Double): String = "¥${formatNumber(value)}"
+
+private fun formatCurrencyText(value: String): String {
+    val normalized = value.toDoubleOrNull() ?: return "¥$value"
+    return formatCurrency(normalized)
+}
+
+private fun formatNumber(value: Double): String = DecimalFormat("#,##0").format(value)
+
+private fun LocalDate.toDatePickerMillis(): Long =
+    atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+
+private fun Long.toDatePickerLocalDate(): LocalDate =
+    Instant.ofEpochMilli(this)
+        .atZone(ZoneOffset.UTC)
+        .toLocalDate()

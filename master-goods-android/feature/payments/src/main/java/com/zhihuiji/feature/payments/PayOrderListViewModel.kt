@@ -1,0 +1,105 @@
+package com.zhihuiji.feature.payments
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.StatusLabels
+import com.zhihuiji.core.common.TimeFormatter
+import com.zhihuiji.core.model.v2.order.PayOrderV2Dto
+import com.zhihuiji.core.model.v2.order.PayOrderV2Filter
+import com.zhihuiji.data.order.PayOrderV2Repository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+data class PayOrderListUiState(
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val orders: List<PayOrderItem> = emptyList(),
+    val keyword: String = "",
+    val selectedTabIndex: Int = 0
+)
+
+data class PayOrderItem(
+    val id: Long,
+    val orderNo: String,
+    val payee: String,
+    val amount: String,
+    val status: String,
+    val method: String,
+    val referenceNo: String?,
+    val date: String
+)
+
+fun PayOrderV2Dto.toPayOrderItem(): PayOrderItem = PayOrderItem(
+    id = id,
+    orderNo = orderNo,
+    payee = supplierName ?: "",
+    amount = "¥%.2f".format(amount),
+    status = StatusLabels.payOrderStatus(status),
+    method = StatusLabels.paymentMethod(method),
+    referenceNo = referenceNo,
+    date = TimeFormatter.formatDate(createdAt)
+)
+
+@HiltViewModel
+class PayOrderListViewModel @Inject constructor(
+    private val repository: PayOrderV2Repository,
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(PayOrderListUiState())
+    val uiState: StateFlow<PayOrderListUiState> = _uiState.asStateFlow()
+
+    init {
+        loadOrders()
+    }
+
+    fun loadOrders() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            val filter = PayOrderV2Filter(
+                keyword = _uiState.value.keyword.takeIf { it.isNotBlank() },
+                status = when (_uiState.value.selectedTabIndex) {
+                    1 -> StatusLabels.Codes.PAY_PENDING
+                    2 -> StatusLabels.Codes.PAY_PAID
+                    3 -> StatusLabels.Codes.PAY_CANCELLED
+                    else -> null
+                }
+            )
+            repository.listPayOrders(filter)
+                .onSuccess { orders ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            orders = orders.map { dto -> dto.toPayOrderItem() }
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = error.message ?: "付款订单加载失败"
+                        )
+                    }
+                }
+        }
+    }
+
+    fun search(keyword: String) {
+        _uiState.update { it.copy(keyword = keyword) }
+        loadOrders()
+    }
+
+    fun selectTab(index: Int) {
+        _uiState.update { it.copy(selectedTabIndex = index) }
+        loadOrders()
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
+    }
+}
