@@ -1,7 +1,6 @@
 package com.zhihuiji.backend.api.controller.v2;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
-import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.api.common.ParseUtils;
 import com.zhihuiji.backend.api.dto.v2.sales.V2SaleOrderDtos;
 import com.zhihuiji.backend.application.service.v2.V2SaleOrderService;
@@ -43,7 +42,7 @@ public class V2SaleOrderController {
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "size", required = false) Integer size
     ) {
-        return ApiResponse.success(PaginationUtils.slice(
+        return ApiResponse.success(
             v2SaleOrderService.list(
                 keyword,
                 status,
@@ -52,11 +51,11 @@ public class V2SaleOrderController {
                 ParseUtils.parseLong(createdAfter),
                 ParseUtils.parseLong(createdBefore),
                 productKeyword,
-                ParseUtils.parseInteger(paymentStatus)
-            ),
-            page,
-            size
-        ));
+                ParseUtils.parseInteger(paymentStatus),
+                page,
+                size
+            )
+        );
     }
 
     @GetMapping("/{id}")

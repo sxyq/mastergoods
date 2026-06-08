@@ -1,0 +1,97 @@
+{
+  "captured_at": "2026-06-08T18:43:19Z",
+  "base_url": "http://localhost:18080",
+  "window": {
+    "start_at": 1778352198956,
+    "end_at": 1780944198956,
+    "window_days": 30
+  },
+  "request_config": {
+    "samples": 5,
+    "warmup": 1,
+    "limit": 20,
+    "page": 0,
+    "size": 20,
+    "sale_order_status": 1,
+    "timeout_seconds": 10.0
+  },
+  "endpoints": [
+    {
+      "name": "dashboard_cashflow_summary",
+      "method": "GET",
+      "path": "/v1/reports/cashflow-summary",
+      "query": {
+        "start_at": "{start_at}",
+        "end_at": "{end_at}"
+      },
+      "require_json_code_zero": true
+    },
+    {
+      "name": "finance_records_page_for_cashflow_reconcile",
+      "method": "GET",
+      "path": "/v1/finance-records",
+      "query": {
+        "created_after": "{start_at}",
+        "created_before": "{end_at}",
+        "page": "{page}",
+        "size": "{size}"
+      },
+      "require_json_code_zero": true
+    },
+    {
+      "name": "report_profit_summary",
+      "method": "GET",
+      "path": "/v1/reports/profit-summary",
+      "query": {
+        "start_at": "{start_at}",
+        "end_at": "{end_at}"
+      },
+      "require_json_code_zero": true
+    },
+    {
+      "name": "report_stock_out_records",
+      "method": "GET",
+      "path": "/v1/reports/stock-out-records",
+      "query": {
+        "start_at": "{start_at}",
+        "end_at": "{end_at}",
+        "limit": "{limit}"
+      },
+      "require_json_code_zero": true
+    },
+    {
+      "name": "report_inventory_flow",
+      "method": "GET",
+      "path": "/v1/reports/inventory-flow",
+      "query": {
+        "start_at": "{start_at}",
+        "end_at": "{end_at}",
+        "limit": "{limit}"
+      },
+      "require_json_code_zero": true
+    },
+    {
+      "name": "v2_sale_orders_page",
+      "method": "GET",
+      "path": "/v2/sale-orders",
+      "query": {
+        "page": "{page}",
+        "size": "{size}"
+      },
+      "require_json_code_zero": true
+    },
+    {
+      "name": "v2_sale_orders_filtered_page",
+      "method": "GET",
+      "path": "/v2/sale-orders",
+      "query": {
+        "status": "{sale_order_status}",
+        "created_after": "{start_at}",
+        "created_before": "{end_at}",
+        "page": "{page}",
+        "size": "{size}"
+      },
+      "require_json_code_zero": true
+    }
+  ]
+}

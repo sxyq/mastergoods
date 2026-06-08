@@ -978,9 +978,27 @@ P0 验收必须在同一环境、同一账号、同一后端 profile 下记录�
 |---|---|---|---|
 | Dashboard 净现金流聚合仍需真实性能证据 | 已新增 owner-scoped `cashflow-summary` 聚合并保持资金流水 `type=收入 - 支出` 口径；Dashboard 不再刷新 / 读取资金流水列表求和 | 用真实账号对比新接口聚合值与旧列表求和值，并记录首页刷新耗时和接口耗时 | 不能把单元测试通过当成真实大数据量性能通过 |
 | 报表利润汇总聚合仍需真实性能证据 | 已新增 `SaleOrderItemRepository.profitSummary()` LEFT JOIN / COALESCE scalar 聚合；`ReportService.profitSummary()` 不再拉订单、明细和商品实体后本地聚合 | 用真实账号对比新 SQL 聚合值与旧本地聚合值，并记录报表接口耗时 | 缺商品价格时成本按 0 处理，真实对账必须覆盖缺商品 / 异常商品 id |
-| 库存出库 / 库存流水报表仍先拉大范围实体再排序截断 | `ReportService.stockOutRecords()`、`inventoryFlow()` 仍有区间全量查询后内存排序 limit 的形态 | 增加 repository 级按时间倒序分页查询；库存流水可先用多个小分页集合并，而不是全范围合并 | 库存流水混合销售出库、取消入库、调整单，时间字段语义必须明确 |
-| V2 销售单列表仍存在服务端全量 list 后分页和明细 N+1 风险 | `V2SaleOrderController` 接收 page / size，但服务端仍可能全量 list 后切片；service 对每个订单再查 items | 改用 repository `Pageable` 查询订单，批量按 orderId 查询明细并组装 | 当前响应为 `List`，如果 UI 需要 total / hasMore 需扩展合同 |
+| 库存出库 / 库存流水报表仍需真实性能证据 | 已新增 repository 级按时间倒序分页查询；`stockOutRecords()` 不再拉整段订单 / 明细后排序，`inventoryFlow()` 改为销售出库、取消入库、库存调整三路各取前 N 后合并截断 | 用真实账号对比新旧响应顺序和值，并记录库存报表接口耗时 | 库存流水混合销售出库、取消入库、调整单，真实对账必须覆盖三类来源 |
+| V2 销售单列表仍需真实性能证据 | `V2SaleOrderController` 已将 page / size 下传 service；`V2SaleOrderService.list()` 使用 repository `Pageable` 查询订单，并按当前页 orderId 批量查询明细 | 用真实账号对比分页结果、过滤条件和接口耗时；如果 UI 需要 total / hasMore 再扩展合同 | 当前响应仍为 `List`，不能从响应直接判断总数或下一页 |
 | AI evidence 与 Top N 截断仍需端到端证据 | 后端已补字段级 `evidence_refs` 和查询边界提示；部分工具默认 limit=10，刚好返回 10 条时会提示不能视为全量结论 | 生成真实超限数据证据包，证明 HTTP、SSE、RunTrace 和最终回答都一致展示字段来源与查询边界 | 不能把单测通过当成 P0 端到端通过 |
+
+后端接口性能证据包模板：
+
+```bash
+TOKEN="<redacted>" \
+BASE_URL="http://localhost:8080" \
+ACCOUNT_LABEL="local-owner-5" \
+BACKEND_PROFILE="local-h2" \
+python3 tools/report_performance_evidence.py \
+  --samples 5 \
+  --warmup 1 \
+  --window-days 30 \
+  --limit 20 \
+  --sale-order-status 1 \
+  --size 20
+```
+
+`tools/report_performance_evidence.py` 会采集 `cashflow-summary`、对应 `finance-records` 分页对账锚点、`profit-summary`、`stock-out-records`、`inventory-flow`、`/v2/sale-orders?page=&size=` 和带 `status/created_after/created_before` 的销售单过滤分页路径的 HTTP 状态、业务 `code`、p50 / p95 / max / mean 耗时，输出到 `docs/acceptance-evidence/performance/{yyyyMMdd-HHmmss}-backend-report-performance/`。该包只证明后端接口侧，结论必须保持 `partial`，不能替代 Android 首次可见耗时、截图、UI tree 或 frame timing。
 
 可观测性验收包必须包含：
 
@@ -1085,6 +1103,8 @@ P0 验收必须在同一环境、同一账号、同一后端 profile 下记录�
 | `V2AgentAiService.buildFinalAnswer()` 与 `buildFinalAnswerForStream()` 已统一调用查询边界提示：工具带 `limit`、`is_truncated` 或 `window_days` 时，最终回答会说明最多查询 / 仅返回前 N 条 / 不能视为全量结论 / 窗口为近 N 天。`toEvidenceRefs()` 已从各工具 facts 拆出字段级证据，例如 `customer_count`、`top10_receivable_total`、`sales_amount`、`recent_total_amount` 等。`V2AgentAiServiceTest.nonStreamingChatExplainsLimitedQueryBoundaryAndFieldLevelEvidence()` 固定 10 条应收客户场景必须提示边界，并要求 evidence refs 包含具体字段和值。 | AI 回复从“工具摘要”推进到“结论 + 查询边界 + 字段级依据”，降低 Top N / 最近 N 条被误解为全量结论的风险；LLM 合成路径和规则摘要路径都受同一事实初稿约束。仍需真实超限数据、真实模型流式回答、RunTrace 截图和 HTTP/SSE 证据包证明端到端一致。 | 部分支撑 AGT-P0-004、AGT-P0-006、AGT-P0-011、AGT-P0-012；运行验收仍未完成。 |
 | `ReportService.cashflowSummary()` 与 `/v1/reports/cashflow-summary` 已按 `finance_records` 的 `TYPE_INCOME - TYPE_EXPENSE` 聚合收入、支出、净现金流和记录数；Android `CashflowSummaryReportDto` / `ZhihuijiApi.cashflowSummary()` / `ReportRepository.cashflowSummary()` 已接入，`DashboardViewModel` 改为消费该聚合结果，并移除 `data:finance` 依赖。`ReportServiceTest.cashflowSummaryUsesFinanceRecordAggregatesWithoutChangingPaymentLedgerSemantics()`、`SerializationContractTest.cashflowSummary_usesSnakeCaseForFinanceRecordAggregateContract()`、`ZhihuijiApiContractTest` 固定口径、snake_case 和接口路径。 | 首页净现金流从“刷新资金流水列表 + Room 本地求和”推进到后端 owner-scoped 聚合，且没有把 `reconciliationSummary.netCashFlow` 的回款 / 付款单口径误用于 Dashboard。仍需真实账号值对账、接口耗时和首页刷新耗时证据。 | 部分支撑全链路性能目标；运行验收仍未完成。 |
 | `ReportService.profitSummary()` 已改为调用 `SaleOrderItemRepository.profitSummary()`，由数据库按 owner、订单创建时间、非取消状态聚合销售额和估算成本；SQL 使用 LEFT JOIN 商品和 `COALESCE(p.purchasePrice, 0)`，保持“缺商品不丢销售额、成本按 0”的旧口径。`ReportServiceTest.profitSummaryIgnoresInvalidProductIdsInsteadOfFailingReport()` 固定 service 不再调用销售单列表、明细批量拉取和商品全量拉取；`SaleOrderItemRepositoryTest.profitSummaryAggregatesSalesAndTreatsMissingProductCostAsZero()` 固定取消单排除、owner 隔离、缺商品成本为 0 和商品成本命中。 | 利润汇总从三类实体列表本地聚合推进到数据库 scalar 聚合，降低大区间报表内存和查询压力，同时不改变响应 DTO / UI 合同。仍需真实账号与旧口径对账、接口耗时和大数据量回归证据。 | 部分支撑全链路性能目标；运行验收仍未完成。 |
+| `ReportService.stockOutRecords()` 已改为调用 `SaleOrderItemRepository.recentStockOutRows()`，在 repository 层按 owner、订单创建时间窗口、非取消状态过滤，并按明细 `createdAt DESC` 分页；`ReportService.inventoryFlow()` 已改为三路分页：`recentSaleInventoryFlowRows()` 取销售出库、`recentCancelledSaleInventoryFlowRows()` 取取消入库、`InventoryAdjustmentRepository.findByOwnerUserIdAndCreatedAtBetweenOrderByCreatedAtDesc()` 取库存调整，再在 service 层合并为原 `InventoryFlowRecordDto` 合同并按 `flowTime DESC` 截断。`ReportServiceTest.stockOutRecordsUsesPagedItemJoinInsteadOfLoadingFullOrderRange()` 和 `inventoryFlowLoadsOnlyPagedSourcesThenMergesByFlowTime()` 固定 service 不再调用旧全量订单 / 明细回填路径；`SaleOrderItemRepositoryTest` 与 `InventoryAdjustmentRepositoryTest` 固定 owner、状态、时间、排序和 limit。 | 库存报表从“整段实体扫描 + 内存排序 limit”推进到 repository 分页候选集，响应 DTO 和 Android UI 合同不变。三路各取 N 后合并能覆盖全局 Top N 候选，但仍需真实数据对账和接口耗时证据。 | 部分支撑全链路性能目标；运行验收仍未完成。 |
+| `V2SaleOrderController.list()` 已移除 controller 级 `PaginationUtils.slice(v2SaleOrderService.list(...))` 全量切片，改为将 `page` / `size` 传入 `V2SaleOrderService.list(...)`；`V2SaleOrderService` 使用 `saleOrderRepository.search(..., PageRequest)` 只取当前页订单，并通过 `saleOrderItemRepository.findByOwnerUserIdAndOrderIdIn()` 批量组装明细，避免每个订单再 `listItems()`。`V2SaleOrderServiceTest.listUsesRepositoryPaginationAndBatchLoadsItems()` 固定分页查询与批量明细路径，`V2BillDomainControllerTest.saleOrderListPassesPaginationToServiceInsteadOfControllerSlice()` 固定 controller 不再吞掉分页参数。 | V2 销售单列表从服务端全量列表 + controller 截断 + 明细 N+1 推进到 repository 分页 + 一次批量明细查询；响应仍保持原 `List<SaleOrderResponse>` 合同，不改 Android UI。仍需真实分页数据对账和接口耗时证据。 | 部分支撑全链路性能目标；运行验收仍未完成。 |
 | `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentWorkbenchViewModel.kt` 已记录 `isRemoteSynced`，远端工作台失败时错误文案改为“工作台状态同步失败，仍可打开对话入口”；`AgentWorkbenchScreen.kt` 仅在远端同步成功时承诺真实查询状态，失败时显示“远端工作台未同步，仅保留对话入口”。`DraftListViewModel.kt` 对缺失业务号、往来方和金额显示“后端未返回...”而不是合成 `草稿 #id` 或默认金额。 | AI 入口和草稿列表的静态兜底更加诚实，降低用户把本地占位理解为真实后端数据的风险；仍需真机截图覆盖远端失败和缺字段草稿。 | 支撑 AI 首页诚实态和草稿禁止假字段门禁。 |
 | `TaskNotificationViewModel.kt` 已拆分 `tasksError` / `notificationsError`，任务和通知接口分别失败时不再用 `emptyList()` 冒充真实空态；`TaskNotificationScreen.kt` 在对应 tab 显示“同步失败，本页不会把失败伪装成暂无任务 / 通知”，成功同步但为空时才显示“当前账号没有真实任务 / 通知”。 | 任务 / 通知入口从“单一 error 或空列表”推进到按 tab 诚实显示局部失败；仍需断网 / 单接口失败真机截图和 UI tree 验收。 | 支撑 AGT-P0-001、AGT-P0-009、AGT-P0-018 的诚实空态要求。 |
 | `AgentWorkbenchViewModel.kt:59-87` 默认 quick questions 偏审查说明，不展示经营 KPI，并新增报表型关键词过滤；`AgentWorkbenchScreen.kt:237-240` 明确“Markdown、图表和依据会在对话里按问题生成”；`AgentWorkbenchScreen.kt:292-312` 显示工作台同步状态。 | 当前文案方向是入口型而非默认报表型；如果后端未来误回“今天、风险、补货、图表”等默认看板式内容，Android 会回退到干净入口问题。 | AGT-P0-018 代码边界已改善；后续以首屏截图、UI tree 和 `/v2/agent/workbench` 响应验收。 |

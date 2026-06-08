@@ -15,12 +15,21 @@ import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
 import com.zhihuiji.backend.infrastructure.repository.SaleOrderItemRepository;
 import com.zhihuiji.backend.infrastructure.repository.SaleOrderRepository;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class V2SaleOrderService {
+    private static final int DEFAULT_PAGE = 0;
+    private static final int DEFAULT_SIZE = 50;
+    private static final int MAX_SIZE = 200;
+
     private final SaleOrderService saleOrderService;
     private final SaleOrderRepository saleOrderRepository;
     private final SaleOrderItemRepository saleOrderItemRepository;
@@ -69,17 +78,48 @@ public class V2SaleOrderService {
         String productKeyword,
         Integer paymentStatus
     ) {
-        return saleOrderService.list(
-                keyword,
-                status,
-                minTotalAmount,
-                maxTotalAmount,
-                createdAfter,
-                createdBefore,
-                productKeyword,
-                paymentStatus
-            ).stream()
-            .map(order -> toResponse(order, saleOrderService.listItems(order.getId())))
+        return list(
+            keyword,
+            status,
+            minTotalAmount,
+            maxTotalAmount,
+            createdAfter,
+            createdBefore,
+            productKeyword,
+            paymentStatus,
+            null,
+            null
+        );
+    }
+
+    public List<V2SaleOrderDtos.SaleOrderResponse> list(
+        String keyword,
+        Integer status,
+        Double minTotalAmount,
+        Double maxTotalAmount,
+        Long createdAfter,
+        Long createdBefore,
+        String productKeyword,
+        Integer paymentStatus,
+        Integer page,
+        Integer size
+    ) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        List<SaleOrderEntity> orders = saleOrderRepository.search(
+            ownerUserId,
+            keyword,
+            status,
+            minTotalAmount,
+            maxTotalAmount,
+            createdAfter,
+            createdBefore,
+            productKeyword,
+            paymentStatus,
+            PageRequest.of(normalizePage(page), normalizeSize(size))
+        );
+        Map<Long, List<SaleOrderItemEntity>> itemsByOrderId = findItemsByOrderId(ownerUserId, orders);
+        return orders.stream()
+            .map(order -> toResponse(order, itemsByOrderId.getOrDefault(order.getId(), List.of())))
             .toList();
     }
 
@@ -258,5 +298,28 @@ public class V2SaleOrderService {
             payment.getType(),
             payment.getCreatedAt()
         );
+    }
+
+    private Map<Long, List<SaleOrderItemEntity>> findItemsByOrderId(Long ownerUserId, List<SaleOrderEntity> orders) {
+        if (orders.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Set<Long> orderIds = orders.stream()
+            .map(SaleOrderEntity::getId)
+            .filter(id -> id != null && id > 0L)
+            .collect(Collectors.toSet());
+        if (orderIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return saleOrderItemRepository.findByOwnerUserIdAndOrderIdIn(ownerUserId, orderIds).stream()
+            .collect(Collectors.groupingBy(SaleOrderItemEntity::getOrderId));
+    }
+
+    private int normalizePage(Integer page) {
+        return page == null || page < 0 ? DEFAULT_PAGE : page;
+    }
+
+    private int normalizeSize(Integer size) {
+        return size == null || size <= 0 ? DEFAULT_SIZE : Math.min(size, MAX_SIZE);
     }
 }

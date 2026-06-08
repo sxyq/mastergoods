@@ -200,35 +200,14 @@ public class ReportService {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         TimeRange range = normalizeRange(startAt, endAt);
         int safeLimit = normalizeLimit(limit);
-        List<SaleOrderEntity> orders = saleOrderRepository.findByOwnerUserIdAndCreatedAtBetween(ownerUserId, range.startAt(), range.endAt()).stream()
-            .filter(this::isNonCancelledOrder)
-            .toList();
-        Map<Long, List<SaleOrderItemEntity>> itemsByOrderId = groupItemsByOrderId(collectOrderItems(ownerUserId, orders));
-
-        List<ReportDto.StockOutRecordReportDto> rows = new ArrayList<>();
-        for (SaleOrderEntity order : orders) {
-            for (SaleOrderItemEntity item : itemsByOrderId.getOrDefault(safeLong(order.getId()), List.of())) {
-                Long customerId = order.getCustomerId() != null ? order.getCustomerId() : item.getCustomerId();
-                String customerName = order.getCustomerName() != null ? order.getCustomerName() : item.getCustomerName();
-                rows.add(new ReportDto.StockOutRecordReportDto(
-                    safeLong(order.getId()),
-                    safeString(order.getOrderNo(), "-"),
-                    customerId,
-                    customerName,
-                    safeLong(item.getProductId()),
-                    safeString(item.getProductCode(), ""),
-                    safeString(item.getProductName(), ""),
-                    safeDouble(item.getQuantity()),
-                    safeDouble(item.getUnitPrice()),
-                    safeDouble(item.getAmount()),
-                    safeLong(item.getCreatedAt()),
-                    safeLong(order.getCreatedAt())
-                ));
-            }
-        }
-        return rows.stream()
-            .sorted(Comparator.comparingLong(ReportDto.StockOutRecordReportDto::itemCreatedAt).reversed())
-            .limit(safeLimit)
+        return saleOrderItemRepository.recentStockOutRows(
+                ownerUserId,
+                range.startAt(),
+                range.endAt(),
+                OrderStatus.CANCELLED.code(),
+                PageRequest.of(0, safeLimit)
+            ).stream()
+            .map(this::toStockOutRecord)
             .toList();
     }
 
@@ -319,81 +298,101 @@ public class ReportService {
         int safeLimit = normalizeLimit(limit);
         List<ReportDto.InventoryFlowRecordDto> rows = new ArrayList<>();
 
-        List<SaleOrderEntity> createdOrders = saleOrderRepository.findByOwnerUserIdAndCreatedAtBetween(ownerUserId, range.startAt(), range.endAt());
-        Map<Long, List<SaleOrderItemEntity>> createdItemsByOrderId = groupItemsByOrderId(collectOrderItems(ownerUserId, createdOrders));
-        for (SaleOrderEntity order : createdOrders) {
-            for (SaleOrderItemEntity item : createdItemsByOrderId.getOrDefault(safeLong(order.getId()), List.of())) {
-                rows.add(new ReportDto.InventoryFlowRecordDto(
-                    safeLong(order.getId()),
-                    safeString(order.getOrderNo(), "-"),
-                    safeLong(item.getProductId()),
-                    safeString(item.getProductCode(), ""),
-                    safeString(item.getProductName(), ""),
-                    safeDouble(item.getQuantity()),
-                    INVENTORY_FLOW_OUT,
-                    safeLong(order.getCreatedAt()),
-                    order.getCustomerName(),
-                    INVENTORY_SOURCE_SALE,
-                    "销售",
-                    null,
-                    null
-                ));
-            }
-        }
-
-        List<SaleOrderEntity> cancelledOrders = saleOrderRepository.findByOwnerUserIdAndStatusAndUpdatedAtBetween(
-            ownerUserId,
-            OrderStatus.CANCELLED.code(),
-            range.startAt(),
-            range.endAt()
-        );
-        Map<Long, List<SaleOrderItemEntity>> cancelledItemsByOrderId = groupItemsByOrderId(collectOrderItems(ownerUserId, cancelledOrders));
-        for (SaleOrderEntity order : cancelledOrders) {
-            for (SaleOrderItemEntity item : cancelledItemsByOrderId.getOrDefault(safeLong(order.getId()), List.of())) {
-                rows.add(new ReportDto.InventoryFlowRecordDto(
-                    safeLong(order.getId()),
-                    safeString(order.getOrderNo(), "-"),
-                    safeLong(item.getProductId()),
-                    safeString(item.getProductCode(), ""),
-                    safeString(item.getProductName(), ""),
-                    safeDouble(item.getQuantity()),
-                    INVENTORY_FLOW_IN,
-                    safeLong(order.getUpdatedAt()),
-                    order.getCustomerName(),
-                    INVENTORY_SOURCE_SALE,
-                    "销售",
-                    null,
-                    null
-                ));
-            }
-        }
-
-        for (InventoryAdjustmentEntity adjustment : inventoryAdjustmentRepository.findByOwnerUserIdAndCreatedAtBetween(ownerUserId, range.startAt(), range.endAt())) {
-            long adjustmentId = safeLong(adjustment.getId());
-            if (adjustmentId <= 0L) {
-                adjustmentId = Math.max(1L, safeLong(adjustment.getCreatedAt()));
-            }
-            rows.add(new ReportDto.InventoryFlowRecordDto(
-                -adjustmentId,
-                "ADJ-" + adjustmentId,
-                safeLong(adjustment.getProductId()),
-                safeString(adjustment.getProductCode(), ""),
-                safeString(adjustment.getProductName(), ""),
-                safeDouble(adjustment.getQuantity()),
-                adjustment.getFlowType() == null ? INVENTORY_FLOW_OUT : adjustment.getFlowType(),
-                safeLong(adjustment.getCreatedAt()),
-                null,
-                INVENTORY_SOURCE_ADJUSTMENT,
-                "库存调整",
-                adjustment.getReason(),
-                adjustment.getOperatorName()
-            ));
-        }
+        PageRequest page = PageRequest.of(0, safeLimit);
+        saleOrderItemRepository.recentSaleInventoryFlowRows(
+                ownerUserId,
+                range.startAt(),
+                range.endAt(),
+                OrderStatus.CANCELLED.code(),
+                page
+            ).stream()
+            .map(row -> toSaleInventoryFlowRecord(row, INVENTORY_FLOW_OUT, false))
+            .forEach(rows::add);
+        saleOrderItemRepository.recentCancelledSaleInventoryFlowRows(
+                ownerUserId,
+                range.startAt(),
+                range.endAt(),
+                OrderStatus.CANCELLED.code(),
+                page
+            ).stream()
+            .map(row -> toSaleInventoryFlowRecord(row, INVENTORY_FLOW_IN, true))
+            .forEach(rows::add);
+        inventoryAdjustmentRepository.findByOwnerUserIdAndCreatedAtBetweenOrderByCreatedAtDesc(
+                ownerUserId,
+                range.startAt(),
+                range.endAt(),
+                page
+            ).stream()
+            .map(this::toAdjustmentInventoryFlowRecord)
+            .forEach(rows::add);
 
         return rows.stream()
             .sorted(Comparator.comparingLong(ReportDto.InventoryFlowRecordDto::flowTime).reversed())
             .limit(safeLimit)
             .toList();
+    }
+
+    private ReportDto.StockOutRecordReportDto toStockOutRecord(Object[] row) {
+        SaleOrderItemEntity item = (SaleOrderItemEntity) row[0];
+        SaleOrderEntity order = (SaleOrderEntity) row[1];
+        Long customerId = order.getCustomerId() != null ? order.getCustomerId() : item.getCustomerId();
+        String customerName = order.getCustomerName() != null ? order.getCustomerName() : item.getCustomerName();
+        return new ReportDto.StockOutRecordReportDto(
+            safeLong(order.getId()),
+            safeString(order.getOrderNo(), "-"),
+            customerId,
+            customerName,
+            safeLong(item.getProductId()),
+            safeString(item.getProductCode(), ""),
+            safeString(item.getProductName(), ""),
+            safeDouble(item.getQuantity()),
+            safeDouble(item.getUnitPrice()),
+            safeDouble(item.getAmount()),
+            safeLong(item.getCreatedAt()),
+            safeLong(order.getCreatedAt())
+        );
+    }
+
+    private ReportDto.InventoryFlowRecordDto toSaleInventoryFlowRecord(Object[] row, int flowType, boolean useUpdatedAt) {
+        SaleOrderItemEntity item = (SaleOrderItemEntity) row[0];
+        SaleOrderEntity order = (SaleOrderEntity) row[1];
+        return new ReportDto.InventoryFlowRecordDto(
+            safeLong(order.getId()),
+            safeString(order.getOrderNo(), "-"),
+            safeLong(item.getProductId()),
+            safeString(item.getProductCode(), ""),
+            safeString(item.getProductName(), ""),
+            safeDouble(item.getQuantity()),
+            flowType,
+            useUpdatedAt ? safeLong(order.getUpdatedAt()) : safeLong(order.getCreatedAt()),
+            order.getCustomerName(),
+            INVENTORY_SOURCE_SALE,
+            "销售",
+            null,
+            null
+        );
+    }
+
+    private ReportDto.InventoryFlowRecordDto toAdjustmentInventoryFlowRecord(InventoryAdjustmentEntity adjustment) {
+        long adjustmentId = safeLong(adjustment.getId());
+        if (adjustmentId <= 0L) {
+            adjustmentId = Math.max(1L, safeLong(adjustment.getCreatedAt()));
+        }
+        return new ReportDto.InventoryFlowRecordDto(
+            -adjustmentId,
+            "ADJ-" + adjustmentId,
+            safeLong(adjustment.getProductId()),
+            safeString(adjustment.getProductCode(), ""),
+            safeString(adjustment.getProductName(), ""),
+            safeDouble(adjustment.getQuantity()),
+            adjustment.getFlowType() == null ? INVENTORY_FLOW_OUT : adjustment.getFlowType(),
+            safeLong(adjustment.getCreatedAt()),
+            null,
+            INVENTORY_SOURCE_ADJUSTMENT,
+            "库存调整",
+            adjustment.getReason(),
+            adjustment.getOperatorName()
+        );
     }
 
     public List<ReportDto.CustomerSalesReportDto> customerSales(Long startAt, Long endAt, int limit) {

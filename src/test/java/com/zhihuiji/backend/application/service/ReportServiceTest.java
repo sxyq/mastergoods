@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.application.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -9,6 +10,9 @@ import com.zhihuiji.backend.api.common.OrderStatus;
 import com.zhihuiji.backend.api.common.PayOrderStatus;
 import com.zhihuiji.backend.api.common.PaymentType;
 import com.zhihuiji.backend.api.dto.report.ReportDto;
+import com.zhihuiji.backend.domain.entity.InventoryAdjustmentEntity;
+import com.zhihuiji.backend.domain.entity.SaleOrderEntity;
+import com.zhihuiji.backend.domain.entity.SaleOrderItemEntity;
 import com.zhihuiji.backend.infrastructure.repository.CustomerRepository;
 import com.zhihuiji.backend.infrastructure.repository.FinanceRecordRepository;
 import com.zhihuiji.backend.infrastructure.repository.InventoryAdjustmentRepository;
@@ -24,6 +28,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.data.domain.PageRequest;
 
 class ReportServiceTest {
     @Mock
@@ -128,6 +133,80 @@ class ReportServiceTest {
     }
 
     @Test
+    void stockOutRecordsUsesPagedItemJoinInsteadOfLoadingFullOrderRange() {
+        SaleOrderEntity order = saleOrder(10L, 1_000L, 1_100L, OrderStatus.COMPLETED.code());
+        SaleOrderItemEntity item = saleOrderItem(1L, 10L, 20L, 2.0, 100.0, 1_200L);
+        when(saleOrderItemRepository.recentStockOutRows(
+            1L,
+            0L,
+            2_000L,
+            OrderStatus.CANCELLED.code(),
+            PageRequest.of(0, 5)
+        )).thenReturn(List.<Object[]>of(new Object[] {item, order}));
+
+        List<ReportDto.StockOutRecordReportDto> result = reportService.stockOutRecords(0L, 2_000L, 5);
+
+        assertEquals(1, result.size());
+        assertEquals(10L, result.getFirst().orderId());
+        assertEquals(20L, result.getFirst().productId());
+        assertEquals(1_200L, result.getFirst().itemCreatedAt());
+        verify(saleOrderItemRepository).recentStockOutRows(
+            1L,
+            0L,
+            2_000L,
+            OrderStatus.CANCELLED.code(),
+            PageRequest.of(0, 5)
+        );
+        verify(saleOrderRepository, never()).findByOwnerUserIdAndCreatedAtBetween(1L, 0L, 2_000L);
+        verify(saleOrderItemRepository, never()).findByOwnerUserIdAndOrderIdIn(1L, Set.of(10L));
+    }
+
+    @Test
+    void inventoryFlowLoadsOnlyPagedSourcesThenMergesByFlowTime() {
+        SaleOrderEntity saleOrder = saleOrder(10L, 1_000L, 1_800L, OrderStatus.COMPLETED.code());
+        SaleOrderItemEntity saleItem = saleOrderItem(1L, 10L, 20L, 2.0, 100.0, 1_000L);
+        SaleOrderEntity cancelledOrder = saleOrder(11L, 1_100L, 1_900L, OrderStatus.CANCELLED.code());
+        SaleOrderItemEntity cancelledItem = saleOrderItem(2L, 11L, 21L, 1.0, 50.0, 1_100L);
+        InventoryAdjustmentEntity adjustment = inventoryAdjustment(30L, 22L, 3.0, 1, 1_500L);
+        when(saleOrderItemRepository.recentSaleInventoryFlowRows(
+            1L,
+            0L,
+            2_000L,
+            OrderStatus.CANCELLED.code(),
+            PageRequest.of(0, 2)
+        )).thenReturn(List.<Object[]>of(new Object[] {saleItem, saleOrder}));
+        when(saleOrderItemRepository.recentCancelledSaleInventoryFlowRows(
+            1L,
+            0L,
+            2_000L,
+            OrderStatus.CANCELLED.code(),
+            PageRequest.of(0, 2)
+        )).thenReturn(List.<Object[]>of(new Object[] {cancelledItem, cancelledOrder}));
+        when(inventoryAdjustmentRepository.findByOwnerUserIdAndCreatedAtBetweenOrderByCreatedAtDesc(
+            1L,
+            0L,
+            2_000L,
+            PageRequest.of(0, 2)
+        )).thenReturn(List.of(adjustment));
+
+        List<ReportDto.InventoryFlowRecordDto> result = reportService.inventoryFlow(0L, 2_000L, 2);
+
+        assertEquals(2, result.size());
+        assertEquals(1_900L, result.get(0).flowTime());
+        assertEquals(1, result.get(0).flowType());
+        assertEquals(1_500L, result.get(1).flowTime());
+        assertEquals(1, result.get(1).sourceType());
+        verify(saleOrderRepository, never()).findByOwnerUserIdAndCreatedAtBetween(1L, 0L, 2_000L);
+        verify(saleOrderRepository, never()).findByOwnerUserIdAndStatusAndUpdatedAtBetween(
+            1L,
+            OrderStatus.CANCELLED.code(),
+            0L,
+            2_000L
+        );
+        verify(saleOrderItemRepository, never()).findByOwnerUserIdAndOrderIdIn(any(), any());
+    }
+
+    @Test
     void salesTrendReturnsFilledSixHourBucketsFromDatabaseAggregates() {
         when(saleOrderRepository.salesTrendBuckets(
             1L,
@@ -176,5 +255,69 @@ class ReportServiceTest {
             86_400_000L,
             OrderStatus.CANCELLED.code()
         );
+    }
+
+    private static SaleOrderEntity saleOrder(Long id, Long createdAt, Long updatedAt, Integer status) {
+        SaleOrderEntity entity = new SaleOrderEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setOrderNo("SO-" + id);
+        entity.setCustomerId(100L);
+        entity.setCustomerName("客户" + id);
+        entity.setSubtotalAmount(100.0);
+        entity.setDiscountAmount(0.0);
+        entity.setTotalAmount(100.0);
+        entity.setPaidAmount(100.0);
+        entity.setStatus(status);
+        entity.setSyncStatus(0);
+        entity.setSyncVersion(1L);
+        entity.setCreatedAt(createdAt);
+        entity.setUpdatedAt(updatedAt);
+        return entity;
+    }
+
+    private static SaleOrderItemEntity saleOrderItem(
+        Long id,
+        Long orderId,
+        Long productId,
+        Double quantity,
+        Double amount,
+        Long createdAt
+    ) {
+        SaleOrderItemEntity entity = new SaleOrderItemEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setOrderId(orderId);
+        entity.setProductId(productId);
+        entity.setProductCode("P-" + productId);
+        entity.setProductName("商品" + productId);
+        entity.setCustomerId(100L);
+        entity.setCustomerName("客户");
+        entity.setQuantity(quantity);
+        entity.setUnitPrice(amount / quantity);
+        entity.setAmount(amount);
+        entity.setCreatedAt(createdAt);
+        return entity;
+    }
+
+    private static InventoryAdjustmentEntity inventoryAdjustment(
+        Long id,
+        Long productId,
+        Double quantity,
+        Integer flowType,
+        Long createdAt
+    ) {
+        InventoryAdjustmentEntity entity = new InventoryAdjustmentEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setProductId(productId);
+        entity.setProductCode("P-" + productId);
+        entity.setProductName("商品" + productId);
+        entity.setQuantity(quantity);
+        entity.setFlowType(flowType);
+        entity.setReason("盘点");
+        entity.setOperatorName("老板");
+        entity.setCreatedAt(createdAt);
+        return entity;
     }
 }

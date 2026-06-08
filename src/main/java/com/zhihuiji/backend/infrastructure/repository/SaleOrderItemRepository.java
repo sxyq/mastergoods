@@ -22,6 +22,63 @@ public interface SaleOrderItemRepository extends JpaRepository<SaleOrderItemEnti
     void deleteByOwnerUserIdAndOrderId(Long ownerUserId, Long orderId);
 
     @Query("""
+        SELECT item, orderEntity
+        FROM SaleOrderItemEntity item
+        JOIN SaleOrderEntity orderEntity
+          ON item.orderId = orderEntity.id
+         AND orderEntity.ownerUserId = :ownerUserId
+        WHERE item.ownerUserId = :ownerUserId
+          AND orderEntity.createdAt BETWEEN :startAt AND :endAt
+          AND (orderEntity.status IS NULL OR orderEntity.status <> :cancelledStatus)
+        ORDER BY item.createdAt DESC
+    """)
+    List<Object[]> recentStockOutRows(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("startAt") Long startAt,
+        @Param("endAt") Long endAt,
+        @Param("cancelledStatus") Integer cancelledStatus,
+        Pageable pageable
+    );
+
+    @Query("""
+        SELECT item, orderEntity
+        FROM SaleOrderItemEntity item
+        JOIN SaleOrderEntity orderEntity
+          ON item.orderId = orderEntity.id
+         AND orderEntity.ownerUserId = :ownerUserId
+        WHERE item.ownerUserId = :ownerUserId
+          AND orderEntity.createdAt BETWEEN :startAt AND :endAt
+          AND (orderEntity.status IS NULL OR orderEntity.status <> :cancelledStatus)
+        ORDER BY orderEntity.createdAt DESC
+    """)
+    List<Object[]> recentSaleInventoryFlowRows(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("startAt") Long startAt,
+        @Param("endAt") Long endAt,
+        @Param("cancelledStatus") Integer cancelledStatus,
+        Pageable pageable
+    );
+
+    @Query("""
+        SELECT item, orderEntity
+        FROM SaleOrderItemEntity item
+        JOIN SaleOrderEntity orderEntity
+          ON item.orderId = orderEntity.id
+         AND orderEntity.ownerUserId = :ownerUserId
+        WHERE item.ownerUserId = :ownerUserId
+          AND orderEntity.status = :cancelledStatus
+          AND orderEntity.updatedAt BETWEEN :startAt AND :endAt
+        ORDER BY orderEntity.updatedAt DESC
+    """)
+    List<Object[]> recentCancelledSaleInventoryFlowRows(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("startAt") Long startAt,
+        @Param("endAt") Long endAt,
+        @Param("cancelledStatus") Integer cancelledStatus,
+        Pageable pageable
+    );
+
+    @Query("""
         SELECT COALESCE(SUM(item.amount), 0),
                COALESCE(SUM(item.quantity * COALESCE(p.purchasePrice, 0)), 0)
         FROM SaleOrderItemEntity item

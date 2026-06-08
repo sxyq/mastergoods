@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.api.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -77,6 +78,65 @@ class V2BillDomainControllerTest {
             .andExpect(jsonPath("$.data.order_no").value("SO-001"))
             .andExpect(jsonPath("$.data.discount_amount").value(5.0))
             .andExpect(jsonPath("$.data.updated_at").value(2000));
+    }
+
+    @Test
+    void saleOrderListPassesPaginationToServiceInsteadOfControllerSlice() throws Exception {
+        when(v2SaleOrderService.list(
+            "SO",
+            3,
+            10.0,
+            200.0,
+            1000L,
+            2000L,
+            "苹果",
+            1,
+            2,
+            20
+        )).thenReturn(List.of(
+            new V2SaleOrderDtos.SaleOrderResponse(
+                9L,
+                "SO-009",
+                2L,
+                "客户A",
+                List.of(),
+                100.0,
+                0.0,
+                100.0,
+                50.0,
+                "分页",
+                3,
+                1000L,
+                2000L
+            )
+        ));
+
+        mockMvc.perform(get("/v2/sale-orders")
+                .param("keyword", "SO")
+                .param("status", "3")
+                .param("min_total_amount", "10")
+                .param("max_total_amount", "200")
+                .param("created_after", "1000")
+                .param("created_before", "2000")
+                .param("product_keyword", "苹果")
+                .param("payment_status", "1")
+                .param("page", "2")
+                .param("size", "20"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data[0].order_no").value("SO-009"));
+
+        verify(v2SaleOrderService).list(
+            "SO",
+            3,
+            10.0,
+            200.0,
+            1000L,
+            2000L,
+            "苹果",
+            1,
+            2,
+            20
+        );
     }
 
     @Test
