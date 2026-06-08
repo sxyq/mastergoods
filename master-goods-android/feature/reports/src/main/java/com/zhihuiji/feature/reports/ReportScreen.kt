@@ -865,8 +865,8 @@ private fun ReportDataStatusStrip(
     val statusTitle = failedSectionText?.let { "已显示可用数据，$it 暂未同步" } ?: "已显示可用数据"
     val statusMessage = message
         ?.takeIf { it.isNotBlank() }
-        ?.let { "本页不会补模拟报表，当前只展示接口成功返回的真实数据。可点刷新重新同步。" }
-        ?: "本页不会补模拟报表，当前只展示接口成功返回的真实数据。可点刷新重新同步。"
+        ?.let { "部分数据源同步失败，可先查看已更新内容，或点击刷新重试。" }
+        ?: "部分数据源暂未同步，可先查看已更新内容，或点击刷新重试。"
     Row(
         modifier = modifier
             .fillMaxWidth()
