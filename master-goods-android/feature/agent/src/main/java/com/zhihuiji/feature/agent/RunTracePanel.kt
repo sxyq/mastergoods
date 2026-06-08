@@ -153,6 +153,7 @@ private fun RunTraceStatusSummary(runTrace: RunTrace) {
     val failedToolCount = runTrace.toolCalls.count { it.status == ToolCallStatus.FAILED }
     val allToolsDone = runTrace.toolCalls.all { it.status == ToolCallStatus.COMPLETED }
     val isModelStream = runTrace.answerDeltaSource == "model_stream"
+    val isStreamInterrupted = runTrace.isStreamInterrupted()
     val isRuleSummary = runTrace.answerDeltaSource == "rule_summary" ||
         runTrace.mode == "tool_query_rule_summary"
 
@@ -160,6 +161,7 @@ private fun RunTraceStatusSummary(runTrace: RunTrace) {
         hasSafety && !runTrace.safetyResult!!.passed -> "已拦截"
         hasTools && failedToolCount == runTrace.toolCalls.size -> "查询失败"
         failedToolCount > 0 -> "部分失败"
+        isStreamInterrupted -> "流式中断"
         isModelStream -> "模型流"
         isRuleSummary -> "规则摘要"
         hasTools && allToolsDone -> "查询已完成"
@@ -173,6 +175,7 @@ private fun RunTraceStatusSummary(runTrace: RunTrace) {
         hasSafety && !runTrace.safetyResult!!.passed -> DangerRed
         hasTools && failedToolCount == runTrace.toolCalls.size -> DangerRed
         failedToolCount > 0 -> WarningOrange
+        isStreamInterrupted -> WarningOrange
         isModelStream -> ZhihuijiPrimary
         isRuleSummary -> WarningOrange
         hasTools && allToolsDone -> SuccessGreen
@@ -243,7 +246,7 @@ private fun ModelStatusBlock(runTrace: RunTrace) {
     ) ||
         runTrace.mode == "tool_query_rule_summary" ||
         runTrace.answerDeltaSource == "rule_summary"
-    val color = if (isRuleSummary) WarningOrange else ZhihuijiPrimary
+    val color = if (isRuleSummary || runTrace.isStreamInterrupted()) WarningOrange else ZhihuijiPrimary
 
     Row(
         modifier = Modifier
@@ -340,6 +343,9 @@ private fun String.answerDeltaSourceLabel(): String =
         "rule_summary" -> "服务端规则摘要"
         else -> this
     }
+
+internal fun RunTrace.isStreamInterrupted(): Boolean =
+    mode == "tool_query_llm_stream_interrupted" || llmStatus == "stream_interrupted"
 
 @Composable
 private fun PlanStepsBlock(steps: List<com.zhihuiji.core.model.v2.agent.PlanStep>) {

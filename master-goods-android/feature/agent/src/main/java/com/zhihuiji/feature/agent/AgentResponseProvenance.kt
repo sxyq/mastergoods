@@ -17,6 +17,7 @@ internal fun assistantHeaderStatusLabel(
     llmStatus: String? = null,
 ): String = when {
     isStreaming -> "正在分析并生成回答"
+    isStreamInterruptedMode(mode = mode, llmStatus = llmStatus) -> "模型流式中断"
     isRuleSummaryMode(mode = mode, llmStatus = llmStatus) -> "数据查询 / 规则摘要模式"
     hasServerAnswerDelta -> answerDeltaSource.headerStatusLabel(isStreaming)
     hasAuditTrace || hasToolEvidence -> "已基于真实查询回答"
@@ -58,7 +59,7 @@ internal fun ChatMessage.shouldShowInlineStreamingStatus(): Boolean =
     isStreaming && (hasServerAnswerDelta || content.isBlank())
 
 internal fun ChatMessage.shouldShowAssistantHeader(): Boolean =
-    isStreaming || isRuleSummaryMode(
+    isStreaming || runTrace?.isStreamInterrupted() == true || isRuleSummaryMode(
         mode = runTrace?.mode,
         llmStatus = runTrace?.llmStatus,
     )
@@ -98,3 +99,6 @@ internal fun isRuleSummaryMode(mode: String?, llmStatus: String?): Boolean =
         "failed_or_empty",
         "stream_failed_or_empty",
     )
+
+internal fun isStreamInterruptedMode(mode: String?, llmStatus: String?): Boolean =
+    mode == "tool_query_llm_stream_interrupted" || llmStatus == "stream_interrupted"

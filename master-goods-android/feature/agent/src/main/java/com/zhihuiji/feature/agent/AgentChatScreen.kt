@@ -468,6 +468,7 @@ private fun AssistantMessageHeader(
         llmStatus = llmStatus,
     )
     val statusColor = when {
+        isStreamInterruptedMode(mode = mode, llmStatus = llmStatus) -> WarningOrange
         answerDeltaSource == DeltaSourceModelStream -> AgentAssistantAccent
         answerDeltaSource == DeltaSourceRuleSummary -> WarningOrange
         isStreaming -> WarningOrange

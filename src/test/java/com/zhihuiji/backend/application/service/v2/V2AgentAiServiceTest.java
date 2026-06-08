@@ -327,6 +327,46 @@ class V2AgentAiServiceTest {
     }
 
     @Test
+    void streamInterruptedAfterVisibleModelDeltaKeepsPartialAnswerAndBlocksAfterText() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(customer(1L, "客户A", 100.0)));
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+            .thenAnswer(invocation -> {
+                @SuppressWarnings("unchecked")
+                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                onDelta.accept("客户A应收");
+                return Optional.empty();
+            });
+        CapturingEmitter emitter = new CapturingEmitter();
+
+        service.runChatStream(1L, conversation(111L), "客户应收情况", "run-stream-interrupted", emitter);
+
+        String answerDelta = firstPayload(emitter, "\"event_type\":\"answer_delta\"");
+        assertTrue(answerDelta.contains("\"delta_source\":\"model_stream\""), answerDelta);
+        assertTrue(answerDelta.contains("客户A应收"), answerDelta);
+        assertTrue(
+            firstPayloadIndex(emitter, "\"event_type\":\"answer_delta\"")
+                < firstPayloadIndex(emitter, "\"event_type\":\"result_block\""),
+            String.join("\n", emitter.payloads)
+        );
+        assertTrue(
+            firstPayloadIndex(emitter, "\"event_type\":\"result_block\"")
+                < firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""),
+            String.join("\n", emitter.payloads)
+        );
+        String completed = firstPayload(emitter, "\"event_type\":\"answer_completed\"");
+        assertTrue(completed.contains("\"mode\":\"tool_query_llm_stream_interrupted\""), completed);
+        assertTrue(completed.contains("\"llm_status\":\"stream_interrupted\""), completed);
+        assertTrue(completed.contains("客户A应收"), completed);
+        assertFalse(completed.contains("当前未使用模型生成"), completed);
+        assertTrue(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())
+            && event.getPayloadJson().contains("\"delta_source\":\"model_stream\"")));
+        assertTrue(emitter.completed);
+    }
+
+    @Test
     void streamModelAnswerEmitsServerNoticeTailBeforeCompletionWhenBackendAppendsBoundaries() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);

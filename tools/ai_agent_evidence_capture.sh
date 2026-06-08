@@ -388,12 +388,24 @@ write_run_summary_file() {
     ($audit[0] // {}) as $auditDoc |
     ($auditDoc.data // {}) as $data |
     ($toolResults[0] // {}) as $toolDoc |
-    {
-      run_id: ($data.run_id // $data.runId // null),
-      status: ($data.status // null),
-      mode: ($data.mode // null),
-      llm_status: ($data.llm_status // $data.llmStatus // null),
-      plan_source: ($data.plan_source // $data.planSource // null),
+      ([$data.events[]? | select((.event_type // .eventType // "") == "answer_completed")][0] // {}) as $answerCompletedEvent |
+      ($answerCompletedEvent.payload // {}) as $answerCompletedPayload |
+      ($answerCompletedPayload.mode // $answerCompletedPayload.data.mode // null) as $answerCompletedMode |
+      ($answerCompletedPayload.llm_status // $answerCompletedPayload.llmStatus // $answerCompletedPayload.data.llm_status // $answerCompletedPayload.data.llmStatus // null) as $answerCompletedLlmStatus |
+      {
+        run_id: ($data.run_id // $data.runId // null),
+        status: ($data.status // null),
+        mode: ($data.mode // null),
+        llm_status: ($data.llm_status // $data.llmStatus // null),
+        answer_completed_mode: $answerCompletedMode,
+        answer_completed_llm_status: $answerCompletedLlmStatus,
+        status_consistency: {
+          mode_matches_answer_completed:
+            ($answerCompletedMode == null or ($data.mode // null) == null or ($data.mode // null) == $answerCompletedMode),
+          llm_status_matches_answer_completed:
+            ($answerCompletedLlmStatus == null or ($data.llm_status // $data.llmStatus // null) == null or ($data.llm_status // $data.llmStatus // null) == $answerCompletedLlmStatus)
+        },
+        plan_source: ($data.plan_source // $data.planSource // null),
       tool_count: ($data.tool_count // $data.toolCount // null),
       event_count: ($data.event_count // $data.eventCount // null),
       performance: {
@@ -663,7 +675,7 @@ data: "delta":"\n查询边界：仅返回前 10 条。",
 data: "delta_source":"server_notice"}
 
 event: answer_completed
-data: {"event_type":"answer_completed","run_id":"run-self-test","seq":6,"event_id":"evt-answer-6","answer":"真实模型流\n查询边界：仅返回前 10 条。"}
+data: {"event_type":"answer_completed","run_id":"run-self-test","seq":6,"event_id":"evt-answer-6","answer":"真实模型流\n查询边界：仅返回前 10 条。","mode":"tool_query_llm_stream_interrupted","llm_status":"stream_interrupted"}
 EOF
 
   run_id="$(extract_run_id_from_sse "${sse_file}")"
@@ -679,8 +691,8 @@ EOF
     "audit_id": "audit-self-test",
     "trace_id": "trace-self-test",
     "status": "completed",
-    "mode": "tool_query_rule_summary",
-    "llm_status": "disabled",
+    "mode": "tool_query_llm_stream_interrupted",
+    "llm_status": "stream_interrupted",
     "tool_count": 1,
     "event_count": 6,
     "events": [
@@ -759,7 +771,9 @@ EOF
         "payload": {
           "event_id": "evt-answer-6",
           "run_id": "run-self-test",
-          "answer": "真实模型流\n查询边界：仅返回前 10 条。"
+          "answer": "真实模型流\n查询边界：仅返回前 10 条。",
+          "mode": "tool_query_llm_stream_interrupted",
+          "llm_status": "stream_interrupted"
         }
       }
     ]
@@ -792,7 +806,16 @@ EOF
   cp "${audit_file}" "${tmp_dir}/03-run-audit.json"
   write_reconciliation_file "${tmp_dir}"
   write_run_summary_file "${tmp_dir}"
-  jq -e '.event_count == 6 and .tools[0].is_truncated == false' "${tmp_dir}/14-agent-run-summary.json" >/dev/null
+  jq -e '
+    .event_count == 6
+    and .tools[0].is_truncated == false
+    and .mode == "tool_query_llm_stream_interrupted"
+    and .answer_completed_mode == "tool_query_llm_stream_interrupted"
+    and .llm_status == "stream_interrupted"
+    and .answer_completed_llm_status == "stream_interrupted"
+    and .status_consistency.mode_matches_answer_completed == true
+    and .status_consistency.llm_status_matches_answer_completed == true
+  ' "${tmp_dir}/14-agent-run-summary.json" >/dev/null
   grep -q 'Status: pass-for-interface' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
   grep -q '`answer_delta`' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
   grep -q '`model_stream`' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
@@ -825,6 +848,14 @@ EOF
 EOF
   write_reconciliation_file "${bad_dir}"
   grep -q 'Status: fail' "${bad_dir}/13-sse-audit-ui-reconciliation.md"
+
+  local bad_status_dir="${tmp_dir}/bad-status-consistency"
+  mkdir -p "${bad_status_dir}"
+  cp "${audit_file}" "${bad_status_dir}/03-run-audit.json"
+  jq '.data.mode = "tool_query_rule_summary"' "${bad_status_dir}/03-run-audit.json" > "${bad_status_dir}/audit.bad-status.json"
+  mv "${bad_status_dir}/audit.bad-status.json" "${bad_status_dir}/03-run-audit.json"
+  write_run_summary_file "${bad_status_dir}"
+  jq -e '.status_consistency.mode_matches_answer_completed == false' "${bad_status_dir}/14-agent-run-summary.json" >/dev/null
 
   cat > "${tmp_dir}/16-workbench-response.json" <<'EOF'
 {
@@ -860,15 +891,18 @@ EOF
   write_conclusion_file "${tmp_dir}" "run-self-test"
   grep -q 'Status: partial' "${tmp_dir}/12-conclusion.md"
   grep -q 'Non-substitutable evidence' "${tmp_dir}/12-conclusion.md"
+  grep -q 'answer_completed_status_consistency: pass' "${tmp_dir}/12-conclusion.md"
   grep -q 'cannot prove Android rendering' "${tmp_dir}/12-conclusion.md"
   grep -q 'Android first-visible timing' "${tmp_dir}/12-conclusion.md"
   grep -q '`first_event_latency_ms`' "${tmp_dir}/11-latency.md"
   grep -q '`first_result_block_latency_ms`' "${tmp_dir}/11-latency.md"
   grep -q '`first_model_stream_delta_latency_ms`' "${tmp_dir}/11-latency.md"
   grep -q '`server_notice_delta_count`' "${tmp_dir}/11-latency.md"
+  grep -q '`stream_interrupted_count`' "${tmp_dir}/11-latency.md"
   grep -q '`tool_duration_sum_ms`' "${tmp_dir}/11-latency.md"
   grep -q 'Provider-backed `model_stream` timing is present' "${tmp_dir}/11-latency.md"
   grep -q 'Result blocks followed the first provider-backed `model_stream` delta' "${tmp_dir}/11-latency.md"
+  grep -q 'Model streaming was interrupted after at least one completion event' "${tmp_dir}/11-latency.md"
 
   echo "ai_agent_evidence_capture self-test passed"
 }
@@ -934,6 +968,7 @@ write_latency_file() {
       nums($events | map(select(event_type == "answer_delta" and ((payload.delta_source // payload.deltaSource // payload.data.delta_source // payload.data.deltaSource // "") == "model_stream")) | created_at)) as $modelDeltaTimes |
       nums($events | map(select(event_type == "answer_delta" and ((payload.delta_source // payload.deltaSource // payload.data.delta_source // payload.data.deltaSource // "") == "server_notice")) | created_at)) as $serverNoticeTimes |
       nums($events | map(select(event_type == "answer_completed") | created_at)) as $answerCompletedTimes |
+      ($events | map(select(event_type == "answer_completed" and ((payload.llm_status // payload.llmStatus // payload.data.llm_status // payload.data.llmStatus // "") == "stream_interrupted")))) as $streamInterruptedCompletions |
       nums($events | map(select(event_type == "run_completed") | created_at)) as $runCompletedTimes |
       nums($events | map(select(event_type == "tool_completed") | (pnum("duration_ms") // pnum("durationMs")))) as $toolDurations |
       {
@@ -998,6 +1033,7 @@ write_latency_file() {
         model_stream_delta_count: ($modelDeltaTimes | length),
         server_notice_delta_count: ($serverNoticeTimes | length),
         answer_completed_count: ($events | map(select(event_type == "answer_completed")) | length),
+        stream_interrupted_count: ($streamInterruptedCompletions | length),
         run_completed_count: ($events | map(select(event_type == "run_completed")) | length)
       }
     ' "${audit_file}" > "${summary_file}"
@@ -1051,6 +1087,7 @@ EOF
           ["model_stream_delta_count", .model_stream_delta_count],
           ["server_notice_delta_count", .server_notice_delta_count],
           ["answer_completed_count", .answer_completed_count],
+          ["stream_interrupted_count", .stream_interrupted_count],
           ["run_completed_count", .run_completed_count]
         ][]
         | "| `\(.[0])` | `\(show(.[1]))` |"
@@ -1079,6 +1116,11 @@ EOF
           "- Tool failures were observed; verify the answer and UI show partial/failed state rather than a confident full conclusion."
         else
           "- No tool_failed event was observed in this run."
+        end,
+        if (.stream_interrupted_count // 0) > 0 then
+          "- Model streaming was interrupted after at least one completion event; verify the UI labels the answer as interrupted and preserves only real provider text."
+        else
+          "- No stream_interrupted completion was observed in this run."
         end
       ' "${summary_file}"
     fi
@@ -1100,11 +1142,20 @@ write_conclusion_file() {
   local audit_status="missing"
   local mode_status="missing"
   local llm_status="missing"
+  local status_consistency="missing"
   local workbench_status="missing"
   if [[ -s "${dir}/03-run-audit.json" ]] && jq -e '.data' "${dir}/03-run-audit.json" >/dev/null 2>&1; then
     audit_status="$(jq -r '.data.status // "missing"' "${dir}/03-run-audit.json")"
     mode_status="$(jq -r '.data.mode // "missing"' "${dir}/03-run-audit.json")"
     llm_status="$(jq -r '.data.llm_status // "missing"' "${dir}/03-run-audit.json")"
+  fi
+  if [[ -s "${dir}/14-agent-run-summary.json" ]] && jq -e '.status_consistency' "${dir}/14-agent-run-summary.json" >/dev/null 2>&1; then
+    status_consistency="$(jq -r '
+      if (.status_consistency.mode_matches_answer_completed == true and .status_consistency.llm_status_matches_answer_completed == true)
+      then "pass"
+      else "fail"
+      end
+    ' "${dir}/14-agent-run-summary.json")"
   fi
   if [[ -s "${dir}/16-workbench-response.json" ]]; then
     workbench_status="$(jq -r '.status // "missing"' "${dir}/16-workbench-response.json" 2>/dev/null || echo "invalid")"
@@ -1120,6 +1171,7 @@ Status: partial
 - audit_status: ${audit_status}
 - mode: ${mode_status}
 - llm_status: ${llm_status}
+- answer_completed_status_consistency: ${status_consistency}
 - HTTP/SSE evidence: captured according to MODE=${MODE}
 - Server run audit: $(if [[ -s "${dir}/03-run-audit.json" ]] && jq -e '.data.run_id or .data.runId' "${dir}/03-run-audit.json" >/dev/null 2>&1; then echo "captured"; else echo "missing or invalid"; fi)
 - Forbidden scan: captured in 10-forbidden-scan.txt

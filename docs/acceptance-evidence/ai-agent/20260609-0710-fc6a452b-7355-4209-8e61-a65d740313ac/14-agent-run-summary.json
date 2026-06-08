@@ -1,0 +1,132 @@
+{
+  "run_id": "fc6a452b-7355-4209-8e61-a65d740313ac",
+  "status": "completed",
+  "mode": "tool_query_rule_summary",
+  "llm_status": "disabled",
+  "answer_completed_mode": "tool_query_rule_summary",
+  "answer_completed_llm_status": "disabled",
+  "status_consistency": {
+    "mode_matches_answer_completed": true,
+    "llm_status_matches_answer_completed": true
+  },
+  "plan_source": "keyword_fallback",
+  "tool_count": 2,
+  "event_count": 16,
+  "performance": {
+    "started_at": 1780960216362,
+    "completed_at": 1780960216421,
+    "duration_ms": 59
+  },
+  "tools": [
+    {
+      "tool_name": "inventory_low_stock_lookup",
+      "returned_count": 2,
+      "limit": 10,
+      "is_truncated": false,
+      "duration_ms": 4,
+      "result_summary": "命中 2 个低库存商品",
+      "evidence": {
+        "source": "tool:inventory_low_stock_lookup",
+        "scope": "current_owner",
+        "returned_count": 2,
+        "is_truncated": false
+      }
+    },
+    {
+      "tool_name": "customer_receivable_lookup",
+      "returned_count": 3,
+      "limit": 10,
+      "is_truncated": false,
+      "duration_ms": 3,
+      "result_summary": "命中 3 个欠款客户",
+      "evidence": {
+        "source": "tool:customer_receivable_lookup",
+        "scope": "current_owner",
+        "returned_count": 3,
+        "is_truncated": false
+      }
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "event_id": "fc6a452b-7355-4209-8e61-a65d740313ac:1",
+      "event_type": "run_started"
+    },
+    {
+      "seq": 2,
+      "event_id": "fc6a452b-7355-4209-8e61-a65d740313ac:2",
+      "event_type": "safety_check_started"
+    },
+    {
+      "seq": 3,
+      "event_id": "fc6a452b-7355-4209-8e61-a65d740313ac:3",
+      "event_type": "safety_check_passed"
+    },
+    {
+      "seq": 4,
+      "event_id": "fc6a452b-7355-4209-8e61-a65d740313ac:4",
+      "event_type": "plan_delta"
+    },
+    {
+      "seq": 5,
+      "event_id": "fc6a452b-7355-4209-8e61-a65d740313ac:5",
+      "event_type": "tool_started"
+    },
+    {
+      "seq": 6,
+      "event_id": "fc6a452b-7355-4209-8e61-a65d740313ac:6",
+      "event_type": "tool_completed"
+    },
+    {
+      "seq": 7,
+      "event_id": "fc6a452b-7355-4209-8e61-a65d740313ac:7",
+      "event_type": "tool_started"
+    },
+    {
+      "seq": 8,
+      "event_id": "fc6a452b-7355-4209-8e61-a65d740313ac:8",
+      "event_type": "tool_completed"
+    },
+    {
+      "seq": 9,
+      "event_id": "fc6a452b-7355-4209-8e61-a65d740313ac:9",
+      "event_type": "answer_completed"
+    },
+    {
+      "seq": 10,
+      "event_id": "fc6a452b-7355-4209-8e61-a65d740313ac:10",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 11,
+      "event_id": "fc6a452b-7355-4209-8e61-a65d740313ac:11",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 12,
+      "event_id": "fc6a452b-7355-4209-8e61-a65d740313ac:12",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 13,
+      "event_id": "fc6a452b-7355-4209-8e61-a65d740313ac:13",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 14,
+      "event_id": "fc6a452b-7355-4209-8e61-a65d740313ac:14",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 15,
+      "event_id": "fc6a452b-7355-4209-8e61-a65d740313ac:15",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 16,
+      "event_id": "fc6a452b-7355-4209-8e61-a65d740313ac:16",
+      "event_type": "run_completed"
+    }
+  ]
+}

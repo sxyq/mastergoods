@@ -190,6 +190,63 @@ class AgentResponseProvenanceTest {
     }
 
     @Test
+    fun streamInterruptedAnswerKeepsHonestHeaderAfterCompletion() {
+        val interrupted = ChatMessage(
+            id = "assistant-interrupted",
+            conversationId = 1L,
+            role = MessageRole.ASSISTANT,
+            content = "客户A应收",
+            isStreaming = false,
+            hasServerAnswerDelta = true,
+            answerDeltaSource = DeltaSourceModelStream,
+            runTrace = RunTrace(
+                runId = "run-interrupted",
+                mode = "tool_query_llm_stream_interrupted",
+                llmStatus = "stream_interrupted",
+            ),
+        )
+
+        assertTrue(interrupted.shouldShowAssistantHeader())
+        assertEquals(
+            "模型流式中断",
+            assistantHeaderStatusLabel(
+                isStreaming = false,
+                hasServerAnswerDelta = true,
+                answerDeltaSource = DeltaSourceModelStream,
+                hasToolEvidence = true,
+                hasAuditTrace = true,
+                mode = "tool_query_llm_stream_interrupted",
+                llmStatus = "stream_interrupted",
+            )
+        )
+    }
+
+    @Test
+    fun runTraceRecognizesStreamInterruptedFromModeOrLlmStatus() {
+        assertTrue(
+            RunTrace(
+                runId = "run-interrupted-mode",
+                mode = "tool_query_llm_stream_interrupted",
+                llmStatus = "streaming",
+            ).isStreamInterrupted()
+        )
+        assertTrue(
+            RunTrace(
+                runId = "run-interrupted-status",
+                mode = "tool_query_llm_streamed",
+                llmStatus = "stream_interrupted",
+            ).isStreamInterrupted()
+        )
+        assertFalse(
+            RunTrace(
+                runId = "run-streaming",
+                mode = "tool_query_llm_streamed",
+                llmStatus = "streaming",
+            ).isStreamInterrupted()
+        )
+    }
+
+    @Test
     fun runTracePanelHidesForCompletedSuccessUnlessAttentionIsNeeded() {
         val completedSuccess = ChatMessage(
             id = "assistant-4",
