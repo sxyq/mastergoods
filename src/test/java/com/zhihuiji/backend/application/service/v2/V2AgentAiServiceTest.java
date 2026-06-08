@@ -19,6 +19,7 @@ import com.zhihuiji.backend.domain.entity.AgentConversationEntity;
 import com.zhihuiji.backend.domain.entity.AgentMessageEntity;
 import com.zhihuiji.backend.domain.entity.AgentRunAuditEventEntity;
 import com.zhihuiji.backend.domain.entity.AgentRunAuditEntity;
+import com.zhihuiji.backend.domain.entity.ProductEntity;
 import com.zhihuiji.backend.domain.entity.SupplierEntity;
 import com.zhihuiji.backend.infrastructure.ai.LongCatAnthropicClient;
 import com.zhihuiji.backend.infrastructure.repository.AgentConversationRepository;
@@ -303,13 +304,18 @@ class V2AgentAiServiceTest {
         String answerCompleted = firstPayload(emitter, "\"event_type\":\"answer_completed\"");
         assertTrue(answerCompleted.contains("\"plan_source\":\"keyword_fallback\""), answerCompleted);
         assertTrue(
-            firstPayloadIndex(emitter, "\"event_type\":\"answer_delta\"")
+            firstPayloadIndex(emitter, "\"event_type\":\"tool_completed\"")
                 < firstPayloadIndex(emitter, "\"event_type\":\"result_block\""),
             String.join("\n", emitter.payloads)
         );
         assertTrue(
-            firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\"")
-                < firstPayloadIndex(emitter, "\"event_type\":\"result_block\""),
+            firstPayloadIndex(emitter, "\"event_type\":\"result_block\"")
+                < firstPayloadIndex(emitter, "\"event_type\":\"answer_delta\""),
+            String.join("\n", emitter.payloads)
+        );
+        assertTrue(
+            firstPayloadIndex(emitter, "\"event_type\":\"answer_delta\"")
+                < firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""),
             String.join("\n", emitter.payloads)
         );
         assertTrue(emitter.completed);
@@ -343,6 +349,37 @@ class V2AgentAiServiceTest {
         assertTrue(completedPayload.contains("\"completed_at\""), completedPayload);
         assertTrue(completedPayload.contains("\"next_cursor\":null"), completedPayload);
         assertTrue(completedPayload.contains("\"evidence\":{\"source\":\"tool:customer_receivable_lookup\""), completedPayload);
+    }
+
+    @Test
+    void streamEmitsEachToolResultBlockBeforeNextToolCompletes() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        when(productRepository.findLowStockProducts(1L, PageRequest.of(0, 10)))
+            .thenReturn(List.of(product(1L, "SKU-1", "纸巾", 2.0, 10.0, 12.5)));
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(customer(1L, "客户A", 100.0)));
+        CapturingEmitter emitter = new CapturingEmitter();
+
+        service.runChatStream(1L, conversation(109L), "库存和客户应收情况", "run-multi-blocks", emitter);
+
+        int inventoryCompleted = firstPayloadIndexContaining(
+            emitter,
+            "\"event_type\":\"tool_completed\"",
+            "\"tool_name\":\"inventory_low_stock_lookup\""
+        );
+        int firstResultBlock = firstPayloadIndex(emitter, "\"event_type\":\"result_block\"");
+        int receivableCompleted = firstPayloadIndexContaining(
+            emitter,
+            "\"event_type\":\"tool_completed\"",
+            "\"tool_name\":\"customer_receivable_lookup\""
+        );
+        int answerCompleted = firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\"");
+
+        assertTrue(inventoryCompleted < firstResultBlock, String.join("\n", emitter.payloads));
+        assertTrue(firstResultBlock < receivableCompleted, String.join("\n", emitter.payloads));
+        assertTrue(firstPayloadIndex(emitter, "\"title\":\"库存风险\"") < receivableCompleted, String.join("\n", emitter.payloads));
+        assertTrue(firstPayloadIndex(emitter, "\"title\":\"应收概览\"") > receivableCompleted, String.join("\n", emitter.payloads));
+        assertTrue(firstPayloadIndex(emitter, "\"title\":\"本次回答依据\"") < answerCompleted, String.join("\n", emitter.payloads));
     }
 
     @Test
@@ -571,8 +608,8 @@ class V2AgentAiServiceTest {
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"stream_not_supported\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")), String.join("\n", emitter.payloads));
         assertTrue(
-            firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\"")
-                < firstPayloadIndex(emitter, "\"event_type\":\"result_block\""),
+            firstPayloadIndex(emitter, "\"event_type\":\"result_block\"")
+                < firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""),
             String.join("\n", emitter.payloads)
         );
         assertFalse(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())));
@@ -675,6 +712,18 @@ class V2AgentAiServiceTest {
         throw new AssertionError("Missing payload: " + marker + "\n" + String.join("\n", emitter.payloads));
     }
 
+    private static int firstPayloadIndexContaining(CapturingEmitter emitter, String firstMarker, String secondMarker) {
+        for (int index = 0; index < emitter.payloads.size(); index++) {
+            String payload = emitter.payloads.get(index);
+            if (payload.contains(firstMarker) && payload.contains(secondMarker)) {
+                return index;
+            }
+        }
+        throw new AssertionError(
+            "Missing payload containing: " + firstMarker + " and " + secondMarker + "\n" + String.join("\n", emitter.payloads)
+        );
+    }
+
     private static List<String> answerDeltaPayloads(CapturingEmitter emitter) {
         return emitter.payloads.stream()
             .filter(payload -> payload.contains("\"event_type\":\"answer_delta\""))
@@ -687,6 +736,26 @@ class V2AgentAiServiceTest {
         entity.setOwnerUserId(1L);
         entity.setTitle("测试会话");
         entity.setStatus("active");
+        entity.setCreatedAt(1L);
+        entity.setUpdatedAt(1L);
+        return entity;
+    }
+
+    private static ProductEntity product(Long id, String code, String name, double stock, double safeStock, double salePrice) {
+        ProductEntity entity = new ProductEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setCode(code);
+        entity.setName(name);
+        entity.setCategory("默认分类");
+        entity.setUnit("件");
+        entity.setStock(stock);
+        entity.setSafeStock(safeStock);
+        entity.setSalePrice(salePrice);
+        entity.setPurchasePrice(salePrice * 0.7);
+        entity.setStatus(1);
+        entity.setSyncStatus(0);
+        entity.setSyncVersion(1L);
         entity.setCreatedAt(1L);
         entity.setUpdatedAt(1L);
         return entity;

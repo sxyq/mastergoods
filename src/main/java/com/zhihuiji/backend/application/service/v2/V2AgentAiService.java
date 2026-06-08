@@ -518,7 +518,6 @@ public class V2AgentAiService {
                 finalAnswer.llmStatus(),
                 payload.planSource()
             );
-            emitBlocks(emitter, runId, payload.blocks());
             persistAssistantResponse(ownerUserId, conversation, finalAnswer.answer(), payload.blocks(), System.currentTimeMillis());
             sendEvent(emitter, eventMap("run_completed", mapOf(
                 "run_id", runId,
@@ -572,6 +571,8 @@ public class V2AgentAiService {
                 if (payload != null) {
                     answers.add(payload.answer());
                     blocks.addAll(payload.blocks());
+                    emitBlocks(emitter, runId, payload.blocks());
+                    ensureRunActive(runId);
                     toolResults.addAll(payload.toolResults());
                 }
             } catch (AgentRunCancelledException ex) {
@@ -601,6 +602,8 @@ public class V2AgentAiService {
             ensureRunActive(runId);
             V2AgentDtos.ResultBlockDto evidenceBlock = buildEvidenceBlock(runId, toolResults);
             blocks.add(evidenceBlock);
+            emitBlocks(emitter, runId, List.of(evidenceBlock));
+            ensureRunActive(runId);
         }
 
         if (answers.isEmpty()) {

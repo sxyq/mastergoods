@@ -1,6 +1,7 @@
 package com.zhihuiji.feature.agent
 
 import com.zhihuiji.core.model.v2.agent.ChatMessage
+import com.zhihuiji.core.model.v2.agent.ChatMessagePart
 
 internal const val DeltaSourceModelStream = "model_stream"
 internal const val DeltaSourceRuleSummary = "rule_summary"
@@ -61,13 +62,19 @@ internal fun ChatMessage.shouldShowAssistantHeader(): Boolean =
 internal fun ChatMessage.shouldShowAssistantHeaderBadges(): Boolean = isStreaming
 
 internal fun ChatMessage.shouldShowRunTracePanel(): Boolean =
-    isStreaming ||
-        isError ||
+    isError ||
         runTrace?.isExpanded == true ||
-        isRuleSummaryMode(
-            mode = runTrace?.mode,
-            llmStatus = runTrace?.llmStatus,
-        )
+        (isStreaming && !hasVisibleAssistantTimeline())
+
+internal fun ChatMessage.hasVisibleAssistantTimeline(): Boolean =
+    content.isNotBlank() ||
+        blocks.isNotEmpty() ||
+        parts.any { part ->
+            when (part) {
+                is ChatMessagePart.Text -> part.markdown.isNotBlank()
+                is ChatMessagePart.ResultBlock -> true
+            }
+        }
 
 internal fun assistantReviewBadgeLabel(
     isStreaming: Boolean,

@@ -63,12 +63,11 @@ class AgentChatViewModelAnswerMergeTest {
     }
 
     @Test
-    fun authoritativeTextUpdatesFirstTextPartWithoutMovingResultBlocks() {
+    fun authoritativeTextUpdatesOnlyTextPartWithoutMovingResultBlocks() {
         val block = ResultBlockDto(blockType = "line_chart", title = "趋势")
         val parts = listOf(
             ChatMessagePart.Text("销售"),
             ChatMessagePart.ResultBlock(block),
-            ChatMessagePart.Text("后续说明"),
         )
 
         val updated = parts.withAuthoritativeText("销售趋势")
@@ -77,7 +76,6 @@ class AgentChatViewModelAnswerMergeTest {
             listOf(
                 ChatMessagePart.Text("销售趋势"),
                 ChatMessagePart.ResultBlock(block),
-                ChatMessagePart.Text("后续说明"),
             ),
             updated
         )
@@ -109,6 +107,41 @@ class AgentChatViewModelAnswerMergeTest {
             listOf(
                 ChatMessagePart.Text("模型已输出的真实片段"),
                 ChatMessagePart.Text("最终答案与片段不完全一致"),
+            ),
+            updated
+        )
+    }
+
+    @Test
+    fun authoritativeTextDoesNotMoveTimelineTextAroundResultBlock() {
+        val block = ResultBlockDto(blockType = "line_chart", title = "销售趋势")
+        val parts = listOf(
+            ChatMessagePart.Text("先看销售趋势："),
+            ChatMessagePart.ResultBlock(block),
+            ChatMessagePart.Text("结论是本周持续增长。"),
+        )
+
+        val updated = parts.withAuthoritativeText("先看销售趋势：结论是本周持续增长。")
+
+        assertEquals(parts, updated)
+    }
+
+    @Test
+    fun authoritativeTextAppendsMissingTailToLastTimelineText() {
+        val block = ResultBlockDto(blockType = "table", title = "销售明细")
+        val parts = listOf(
+            ChatMessagePart.Text("先看明细："),
+            ChatMessagePart.ResultBlock(block),
+            ChatMessagePart.Text("目前最高的是 A 商品"),
+        )
+
+        val updated = parts.withAuthoritativeText("先看明细：目前最高的是 A 商品，需要继续关注库存。")
+
+        assertEquals(
+            listOf(
+                ChatMessagePart.Text("先看明细："),
+                ChatMessagePart.ResultBlock(block),
+                ChatMessagePart.Text("目前最高的是 A 商品，需要继续关注库存。"),
             ),
             updated
         )

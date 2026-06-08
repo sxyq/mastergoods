@@ -75,6 +75,24 @@ class ResultBlockRendererContractTest {
     }
 
     @Test
+    fun barChartScaleKeepsNegativeValuesInsteadOfDroppingThem() {
+        val scale = barChartScale(listOf(-8.0, 12.0, 0.0))
+
+        assertEquals(-8.0, scale.minValue, 0.000001)
+        assertEquals(12.0, scale.maxValue, 0.000001)
+        assertEquals(20.0, scale.range, 0.000001)
+    }
+
+    @Test
+    fun barChartScaleSupportsAllNegativeSeriesAgainstZeroBaseline() {
+        val scale = barChartScale(listOf(-8.0, -2.0))
+
+        assertEquals(-8.0, scale.minValue, 0.000001)
+        assertEquals(0.0, scale.maxValue, 0.000001)
+        assertEquals(8.0, scale.range, 0.000001)
+    }
+
+    @Test
     fun dataPreviewKeepsUnknownBlockRawSummaryAndTruncatesIt() {
         val block = ResultBlockDto(
             blockType = "future_chart",

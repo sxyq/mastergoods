@@ -3,6 +3,7 @@ package com.zhihuiji.feature.agent
 import com.zhihuiji.core.model.v2.agent.ToolCallRecord
 import com.zhihuiji.core.model.v2.agent.ToolCallStatus
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class AgentChatScreenToolStatusTest {
@@ -18,13 +19,13 @@ class AgentChatScreenToolStatusTest {
     }
 
     @Test
-    fun latestVisibleToolFallsBackToCompletedToolWhenNoTransientToolExists() {
+    fun latestVisibleToolDoesNotKeepCompletedToolAsPersistentPill() {
         val calls = listOf(
             tool("cashflow_summary", ToolCallStatus.COMPLETED),
             tool("inventory_flow", ToolCallStatus.COMPLETED),
         )
 
-        assertEquals("inventory_flow", calls.latestVisibleToolCall()?.toolName)
+        assertNull(calls.latestVisibleToolCall())
     }
 
     @Test

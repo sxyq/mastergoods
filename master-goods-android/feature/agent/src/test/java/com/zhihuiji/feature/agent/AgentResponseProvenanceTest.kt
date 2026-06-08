@@ -1,7 +1,9 @@
 package com.zhihuiji.feature.agent
 
 import com.zhihuiji.core.model.v2.agent.ChatMessage
+import com.zhihuiji.core.model.v2.agent.ChatMessagePart
 import com.zhihuiji.core.model.v2.agent.MessageRole
+import com.zhihuiji.core.model.v2.agent.ResultBlockDto
 import com.zhihuiji.core.model.v2.agent.RunTrace
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -166,7 +168,10 @@ class AgentResponseProvenanceTest {
                 isExpanded = false,
             ),
         )
-        val streaming = completedSuccess.copy(isStreaming = true)
+        val streamingBeforeVisibleTimeline = completedSuccess.copy(
+            content = "",
+            isStreaming = true,
+        )
         val error = completedSuccess.copy(isError = true)
         val expanded = completedSuccess.copy(runTrace = completedSuccess.runTrace?.copy(isExpanded = true))
         val ruleSummary = completedSuccess.copy(
@@ -179,9 +184,31 @@ class AgentResponseProvenanceTest {
         )
 
         assertFalse(completedSuccess.shouldShowRunTracePanel())
-        assertTrue(streaming.shouldShowRunTracePanel())
+        assertTrue(streamingBeforeVisibleTimeline.shouldShowRunTracePanel())
         assertTrue(error.shouldShowRunTracePanel())
         assertTrue(expanded.shouldShowRunTracePanel())
-        assertTrue(ruleSummary.shouldShowRunTracePanel())
+        assertFalse(ruleSummary.shouldShowRunTracePanel())
+    }
+
+    @Test
+    fun streamingRunTracePanelCollapsesAfterVisibleTimelineArrives() {
+        val waitingForFirstVisibleEvent = ChatMessage(
+            id = "assistant-5",
+            conversationId = 1L,
+            role = MessageRole.ASSISTANT,
+            content = "",
+            isStreaming = true,
+            runTrace = RunTrace(runId = "run-1"),
+        )
+        val resultBlockVisible = waitingForFirstVisibleEvent.copy(
+            parts = listOf(ChatMessagePart.ResultBlock(ResultBlockDto(blockType = "kpi_grid", title = "指标")))
+        )
+        val textVisible = waitingForFirstVisibleEvent.copy(
+            parts = listOf(ChatMessagePart.Text("已经开始回答"))
+        )
+
+        assertTrue(waitingForFirstVisibleEvent.shouldShowRunTracePanel())
+        assertFalse(resultBlockVisible.shouldShowRunTracePanel())
+        assertFalse(textVisible.shouldShowRunTracePanel())
     }
 }

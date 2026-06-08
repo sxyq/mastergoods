@@ -704,7 +704,7 @@ internal fun List<ToolCallRecord>.latestVisibleToolCall(): ToolCallRecord? =
         call.status == ToolCallStatus.RUNNING ||
             call.status == ToolCallStatus.PENDING ||
             call.status == ToolCallStatus.FAILED
-    } ?: asReversed().firstOrNull { it.status == ToolCallStatus.COMPLETED }
+    }
 
 internal fun String.readableToolName(): String =
     when (this) {

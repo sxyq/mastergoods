@@ -684,8 +684,8 @@ private fun BarChartCanvas(
     modifier: Modifier = Modifier,
 ) {
     val chartValues = series.flatMap { it.values.take(labels.size) }
-        .filter { it.isUsableChartValue() && it > 0.0 }
-    val maxValue = chartValues.maxOrNull()?.takeIf { it > 0.0 } ?: 1.0
+        .filter { it.isUsableChartValue() }
+    val chartScale = barChartScale(chartValues)
 
     Canvas(
         modifier = modifier
@@ -719,20 +719,32 @@ private fun BarChartCanvas(
         val candidateBarWidth = groupWidth / (series.size.coerceAtLeast(1) + 1.2f)
         val barWidth = candidateBarWidth.coerceAtLeast(4.dp.toPx()).coerceAtMost(maxBarWidth)
         val groupBarsWidth = barWidth * series.size + barGap * (series.size - 1).coerceAtLeast(0)
+        val zeroY = top + ((chartScale.maxValue - 0.0) / chartScale.range).toFloat().coerceIn(0f, 1f) * graphHeight
+        drawLine(
+            color = TextTertiary.copy(alpha = 0.22f),
+            start = Offset(left, zeroY),
+            end = Offset(left + graphWidth, zeroY),
+            strokeWidth = 1.2.dp.toPx(),
+        )
 
         repeat(groupCount) { labelIndex ->
             val groupStart = left + groupWidth * labelIndex + (groupWidth - groupBarsWidth) / 2f
             series.forEachIndexed { seriesIndex, item ->
-                val value = item.values[labelIndex].coerceAtLeast(0.0)
-                val ratio = (value / maxValue).toFloat().coerceIn(0f, 1f)
-                val barHeight = (graphHeight * ratio).coerceAtLeast(if (value > 0.0) 3.dp.toPx() else 0f)
+                val value = item.values[labelIndex]
+                val valueY = top + ((chartScale.maxValue - value) / chartScale.range).toFloat().coerceIn(0f, 1f) * graphHeight
+                val rawBarHeight = kotlin.math.abs(valueY - zeroY)
+                val barHeight = rawBarHeight.coerceAtLeast(if (value != 0.0) 3.dp.toPx() else 0f)
                 val x = groupStart + seriesIndex * (barWidth + barGap)
-                val y = bottom - barHeight
+                val y = if (value >= 0.0) {
+                    zeroY - barHeight
+                } else {
+                    zeroY
+                }
                 drawRoundRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(item.color.copy(alpha = 0.88f), item.color.copy(alpha = 0.48f)),
                         startY = y,
-                        endY = bottom,
+                        endY = y + barHeight,
                     ),
                     topLeft = Offset(x, y),
                     size = Size(barWidth, barHeight),
@@ -741,6 +753,24 @@ private fun BarChartCanvas(
             }
         }
     }
+}
+
+internal data class BarChartScale(
+    val minValue: Double,
+    val maxValue: Double,
+    val range: Double,
+)
+
+internal fun barChartScale(values: List<Double>): BarChartScale {
+    val usableValues = values.filter { it.isUsableChartValue() }
+    val minValue = minOf(0.0, usableValues.minOrNull() ?: 0.0)
+    val maxValue = maxOf(0.0, usableValues.maxOrNull() ?: 1.0)
+    val range = (maxValue - minValue).takeIf { it > 0.0 } ?: 1.0
+    return BarChartScale(
+        minValue = minValue,
+        maxValue = maxValue,
+        range = range,
+    )
 }
 
 @Composable

@@ -16,8 +16,9 @@
 | 非流式 `/v2/agent/chat` Android 模型兼容 agent 审计字段 | `master-goods-android/core/model/src/main/java/com/zhihuiji/core/model/v2/agent/AgentChatRequestResponse.kt` 已包含 `plan_summary`、`tool_calls`、`evidence_refs`、`result_blocks`、`performance_summary`；`AgentChatResponseSerializationTest.decodesNonStreamingAgentRunContract` 已通过 | 只能证明 Android 模型可解析这些字段，不证明真实接口端到端已返回完整字段 |
 | 非流式后端服务响应具备可审计字段 | `V2AgentAiServiceTest.nonStreamingChatIncludesAuditableAgentRunContract` 强制重跑通过，断言 `planSummary`、`toolCalls`、`evidenceRefs`、`evidence_card`、`performanceSummary` | 证明服务单测路径具备合同雏形；仍需真实 HTTP 响应和 owner 数据证据 |
 | SSE `answer_delta` 不再承载规则摘要假流式 | `V2AgentAiServiceTest.streamFallbackAnswerCompletesRuleSummaryWithoutFakeDeltas`、`streamDisabledModelAnswerCompletesRuleSummaryWithoutFakeDeltas` 通过，断言规则摘要路径 `answer_delta` 数量为 0，降级内容只在 `answer_completed` 返回 `mode`、`llm_status` 和规则摘要说明 | 证明降级摘要不会通过分块制造“吐字”体验；仍需真实抓包和 UI 展示截图 |
-| Android 对话时间线按服务端事件顺序渲染 | `ChatMessage.parts` 增加 `Text` / `ResultBlock` 顺序片段；`AgentChatViewModelAnswerMergeTest` 覆盖 answer delta、result block、final answer 的合并顺序；`AgentChatScreen` 以 `AssistantMessageTimeline` 渲染片段 | 证明 Android 不再把所有结构化结果固定堆到回答下方；仍需真实模型流式 SSE 和真机截图证明端到端体验 |
-| Android 工具提示只展示真实工具状态 | `AgentChatScreenToolStatusTest` 覆盖最新 running / pending / failed / completed 工具选择；`AgentResponseProvenanceTest` 区分 `model_stream`、`rule_summary` 和完成态标签 | 证明 UI 文案不会把规则摘要伪装成模型流；仍需真实工具事件抓包和真机截图 |
+| SSE 结构化结果块可随工具完成提前出现 | `V2AgentAiService.buildResponse()` 在每个工具返回后立即 `emitBlocks(...)`，最后单独发送 `evidence_card`；`V2AgentAiServiceTest.streamEmitsEachToolResultBlockBeforeNextToolCompletes` 断言第一个工具的 `result_block` 早于第二个工具完成，且证据卡早于 `answer_completed` | 证明服务端不再等最终回答完成后才统一发送全部图表 / 表格；仍需真实 SSE 抓包和真机截图证明端到端节奏 |
+| Android 对话时间线按服务端事件顺序渲染 | `ChatMessage.parts` 增加 `Text` / `ResultBlock` 顺序片段；`AgentChatViewModelAnswerMergeTest` 覆盖 answer delta、result block、final answer 的合并顺序，且最终答案不会重排已有 `Text -> ResultBlock -> Text` 时间线；`AgentChatScreen` 以 `AssistantMessageTimeline` 渲染片段 | 证明 Android 不再把所有结构化结果固定堆到回答下方，也不会在完成态把流式时间线重新搬动；仍需真实模型流式 SSE 和真机截图证明端到端体验 |
+| Android 工具提示只展示真实短状态并自动收敛 | `AgentChatScreenToolStatusTest.latestVisibleToolDoesNotKeepCompletedToolAsPersistentPill` 证明已完成工具不会作为 inline pill 常驻；`AgentResponseProvenanceTest.streamingRunTracePanelCollapsesAfterVisibleTimelineArrives` 证明文本或 result block 到达后默认收起 RunTrace；`AgentResponseProvenanceTest.runTracePanelHidesForCompletedSuccessUnlessAttentionIsNeeded` 证明完成成功 / 规则摘要完成态不再默认展开过程面板 | 证明 UI 不再把完成工具或完整 RunTrace 长期贴在回答下方；错误、手动展开、首个可见事件前仍保留审计入口；仍需真实工具事件抓包和真机截图 |
 | Android SSE 客户端支持标准多行 SSE | `AgentSseClientCancellationTest.chatStream_buffersStandardMultiLineSseDataUntilBlankLine` 和 `chatStream_flushesLastBufferedSseEventWhenStreamEndsWithoutBlankLine` 覆盖多行 `data:` 缓冲与 EOF flush | 证明客户端可正确接收标准 SSE 事件；仍需真实后端流和供应商模型流抓包 |
 | AI workbench 是显式干净入口合同 | `V2AgentAiService.getWorkbench()` 返回 `status=clean_entry_ready`、`data_policy`、`capabilities` 和 `warnings`，并保持 KPI、风险、今日摘要、快捷报表问题为空；`V2AgentAiServiceTest.workbenchDoesNotExposeReportDashboardDefaults` 和 `AgentChatResponseSerializationTest.decodesCleanWorkbenchStatusContract` 覆盖服务端与 Android 模型；`tools/ai_agent_evidence_capture.sh self-test` 会拒绝缺少该状态合同的 workbench 证据 | 证明 workbench 不再只是空数组 placeholder，而是明确说明真实数据只在用户发起 chat run 后查询；仍需真机首页截图和 UI tree |
 | Android result block 图表渲染有坏数据门禁 | `ResultBlockRenderer` 对 `line_chart`、`bar_chart`、`donut_chart` 做 labels / series / 数值校验，并显示错误或空态文案 | 证明 UI 层不会主动补模拟图表数据；仍需真实后端 block 和真机截图 |
@@ -48,7 +49,7 @@
 
 截至 `ed4d630`，非流式 `AgentChatResponse` 已在后端 DTO 和 Android 模型中包含 `tool_calls`、`evidence_refs`、`performance_summary`、`result_blocks` 等审计字段；任何仍声称“同步响应尚未提供这些顶层字段”的旧结论必须视为过期。
 
-截至 2026-06-09 当前待提交工作树，Android 已增加按事件顺序渲染的 `ChatMessage.parts` 时间线、真实工具状态短提示、规则摘要 / 模型流标签区分，以及标准多行 SSE 缓冲解析；后端 workbench 已增加 `clean_entry_ready`、`data_policy`、`capabilities` 和 `warnings` 以替代空壳式入口响应；这些只能证明代码和单测层面契约，不得替代真实端到端验收证据。
+截至 2026-06-09 当前待提交工作树，Android 已增加按事件顺序渲染的 `ChatMessage.parts` 时间线、真实工具状态短提示、规则摘要 / 模型流标签区分、完成态提示收敛，以及标准多行 SSE 缓冲解析；后端 workbench 已增加 `clean_entry_ready`、`data_policy`、`capabilities` 和 `warnings` 以替代空壳式入口响应；后端流式接口已改为每个工具完成后即时发送该工具的 `result_block`，并在最终回答前发送 `evidence_card`。这些只能证明代码和单测层面契约，不得替代真实端到端验收证据。
 
 ## 1. 背景和原则
 

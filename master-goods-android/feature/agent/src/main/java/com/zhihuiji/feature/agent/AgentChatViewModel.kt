@@ -33,6 +33,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.util.UUID
 import javax.inject.Inject
 
@@ -892,11 +894,15 @@ private fun parseStoredResultBlocks(rawJson: String?): List<ResultBlockDto> {
             ListSerializer(ResultBlockDto.serializer()),
             rawJson
         )
-    }.getOrElse {
+    }.getOrElse { error ->
         listOf(
             ResultBlockDto(
                 blockType = "parse_error",
                 title = "历史结构化结果解析失败",
+                data = buildJsonObject {
+                    put("error", error.message ?: "无法解析历史结构化结果")
+                    put("raw", rawJson.take(600))
+                },
             )
         )
     }
@@ -924,16 +930,47 @@ internal fun List<ChatMessagePart>.appendStreamingText(delta: String): List<Chat
 
 internal fun List<ChatMessagePart>.withAuthoritativeText(content: String): List<ChatMessagePart> {
     if (content.isBlank()) return this
-    val firstTextIndex = indexOfFirst { it is ChatMessagePart.Text }
-    if (firstTextIndex == -1) {
+    val textIndexes = mapIndexedNotNull { index, part ->
+        if (part is ChatMessagePart.Text) index else null
+    }
+    if (textIndexes.isEmpty()) {
         return this + ChatMessagePart.Text(content)
     }
+    if (textIndexes.size > 1) {
+        return mergeAuthoritativeTextAcrossTimeline(content, textIndexes)
+    }
+    val firstTextIndex = textIndexes.first()
     val currentText = this[firstTextIndex] as ChatMessagePart.Text
     return when {
         currentText.markdown == content -> this
         content.startsWith(currentText.markdown) -> {
             toMutableList().also { parts ->
                 parts[firstTextIndex] = currentText.copy(markdown = content)
+            }
+        }
+        else -> this + ChatMessagePart.Text(content)
+    }
+}
+
+private fun List<ChatMessagePart>.mergeAuthoritativeTextAcrossTimeline(
+    content: String,
+    textIndexes: List<Int>,
+): List<ChatMessagePart> {
+    val visibleText = textIndexes.joinToString(separator = "") { index ->
+        (this[index] as ChatMessagePart.Text).markdown
+    }
+    return when {
+        visibleText == content || visibleText.startsWith(content) -> this
+        content.startsWith(visibleText) -> {
+            val missingTail = content.removePrefix(visibleText)
+            if (missingTail.isBlank()) {
+                this
+            } else {
+                val lastTextIndex = textIndexes.last()
+                val lastText = this[lastTextIndex] as ChatMessagePart.Text
+                toMutableList().also { parts ->
+                    parts[lastTextIndex] = lastText.copy(markdown = lastText.markdown + missingTail)
+                }
             }
         }
         else -> this + ChatMessagePart.Text(content)
