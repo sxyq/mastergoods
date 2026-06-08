@@ -1,5 +1,7 @@
 package com.zhihuiji.feature.agent
 
+import com.zhihuiji.core.model.v2.agent.ChatMessage
+
 internal const val DeltaSourceModelStream = "model_stream"
 internal const val DeltaSourceRuleSummary = "rule_summary"
 
@@ -43,3 +45,6 @@ internal fun String?.inlineStreamingLabel(): String =
         null -> "正在接收服务端增量"
         else -> "正在接收服务端增量"
     }
+
+internal fun ChatMessage.shouldShowInlineStreamingStatus(): Boolean =
+    isStreaming && (hasServerAnswerDelta || content.isBlank())

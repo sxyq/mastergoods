@@ -1,6 +1,10 @@
 package com.zhihuiji.feature.agent
 
+import com.zhihuiji.core.model.v2.agent.ChatMessage
+import com.zhihuiji.core.model.v2.agent.MessageRole
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AgentResponseProvenanceTest {
@@ -51,5 +55,29 @@ class AgentResponseProvenanceTest {
                 answerDeltaSource = DeltaSourceRuleSummary,
             )
         )
+    }
+
+    @Test
+    fun inlineStreamingStatusOnlyShowsWhileAssistantIsStreaming() {
+        val completedModelAnswer = ChatMessage(
+            id = "assistant-1",
+            conversationId = 1L,
+            role = MessageRole.ASSISTANT,
+            content = "已经完成回答",
+            isStreaming = false,
+            hasServerAnswerDelta = true,
+            answerDeltaSource = DeltaSourceModelStream,
+        )
+        val streamingModelAnswer = completedModelAnswer.copy(isStreaming = true)
+        val waitingForServerEvent = completedModelAnswer.copy(
+            content = "",
+            isStreaming = true,
+            hasServerAnswerDelta = false,
+            answerDeltaSource = null,
+        )
+
+        assertFalse(completedModelAnswer.shouldShowInlineStreamingStatus())
+        assertTrue(streamingModelAnswer.shouldShowInlineStreamingStatus())
+        assertTrue(waitingForServerEvent.shouldShowInlineStreamingStatus())
     }
 }

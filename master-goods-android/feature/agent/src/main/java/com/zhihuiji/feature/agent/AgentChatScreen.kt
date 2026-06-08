@@ -568,11 +568,11 @@ private fun AssistantMessageTimeline(
                         }
                     }
                 }
-                when {
-                    message.hasServerAnswerDelta -> {
-                        InlineStreamingStatus(message.answerDeltaSource.inlineStreamingLabel())
-                    }
-                    message.isStreaming -> InlineStreamingStatus("正在等待服务端工具或模型事件")
+                if (message.shouldShowInlineStreamingStatus()) {
+                    InlineStreamingStatus(
+                        message.answerDeltaSource?.inlineStreamingLabel()
+                            ?: "正在等待服务端工具或模型事件"
+                    )
                 }
             }
         }
