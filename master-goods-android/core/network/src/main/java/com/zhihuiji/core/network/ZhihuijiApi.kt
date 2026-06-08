@@ -183,6 +183,9 @@ interface ZhihuijiApi {
     @GET("v1/reports/reconciliation-summary")
     suspend fun reconciliationSummary(@Query("start_at") startAt: Long, @Query("end_at") endAt: Long): ApiResponse<ReconciliationSummaryReportDto>
 
+    @GET("v1/reports/cashflow-summary")
+    suspend fun cashflowSummary(@Query("start_at") startAt: Long, @Query("end_at") endAt: Long): ApiResponse<CashflowSummaryReportDto>
+
     @GET("v1/sync/health")
     suspend fun syncHealth(): ApiResponse<SyncHealthResult>
 

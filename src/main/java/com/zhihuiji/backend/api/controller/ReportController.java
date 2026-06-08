@@ -127,4 +127,12 @@ public class ReportController {
     ) {
         return ApiResponse.success(reportService.reconciliationSummary(startAt, endAt));
     }
+
+    @GetMapping("/cashflow-summary")
+    public ApiResponse<ReportDto.CashflowSummaryReportDto> cashflowSummary(
+        @RequestParam("start_at") Long startAt,
+        @RequestParam("end_at") Long endAt
+    ) {
+        return ApiResponse.success(reportService.cashflowSummary(startAt, endAt));
+    }
 }

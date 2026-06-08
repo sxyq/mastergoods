@@ -64,6 +64,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Service
 public class V2AgentAiService {
     private static final int CANCELLED_SALE_ORDER_STATUS = 2;
+    private static final long DAY_BUCKET_MILLIS = 24L * 60 * 60 * 1000;
     private static final long SEVEN_DAYS_MS = 7L * 24 * 60 * 60 * 1000;
     private static final long STREAM_TIMEOUT_MS = 60_000L;
     private static final ZoneId CHART_ZONE = ZoneId.of("Asia/Shanghai");
@@ -1399,7 +1400,10 @@ public class V2AgentAiService {
             return new FinalAnswer(payload.answer(), "unsupported_intent", "not_requested", false);
         }
         String synthesized = synthesizeAnswer(userMessage, payload.toolResults(), payload.answer());
-        String synthesizedWithFailures = appendFailureNotice(synthesized, payload.toolFailures());
+        String synthesizedWithFailures = appendQueryBoundaryNotice(
+            appendFailureNotice(synthesized, payload.toolFailures()),
+            payload.toolResults()
+        );
         if (!longCatAnthropicClient.isConfigured()) {
             return new FinalAnswer(
                 withRuleSummaryNotice(synthesizedWithFailures),
@@ -1427,6 +1431,7 @@ public class V2AgentAiService {
             .filter(StringUtils::hasText)
             .map(String::trim)
             .map(answer -> appendFailureNotice(answer, payload.toolFailures()))
+            .map(answer -> appendQueryBoundaryNotice(answer, payload.toolResults()))
             .map(answer -> new FinalAnswer(answer, "tool_query_llm_synthesized", "available", true))
             .orElseGet(() -> new FinalAnswer(
                 withRuleSummaryNotice(synthesizedWithFailures),
@@ -1451,7 +1456,10 @@ public class V2AgentAiService {
             return new FinalAnswer(payload.answer(), "unsupported_intent", "not_requested", false);
         }
         String synthesized = synthesizeAnswer(userMessage, payload.toolResults(), payload.answer());
-        String synthesizedWithFailures = appendFailureNotice(synthesized, payload.toolFailures());
+        String synthesizedWithFailures = appendQueryBoundaryNotice(
+            appendFailureNotice(synthesized, payload.toolFailures()),
+            payload.toolResults()
+        );
         if (!longCatAnthropicClient.isConfigured()) {
             String ruleSummaryAnswer = withRuleSummaryNotice(synthesizedWithFailures);
             return new FinalAnswer(
@@ -1482,6 +1490,7 @@ public class V2AgentAiService {
             .filter(StringUtils::hasText)
             .map(String::trim)
             .map(answer -> appendFailureNotice(answer, payload.toolFailures()))
+            .map(answer -> appendQueryBoundaryNotice(answer, payload.toolResults()))
             .map(answer -> new FinalAnswer(answer, "tool_query_llm_streamed", "streaming", true))
             .orElseGet(() -> streamFallbackFinalAnswer(emitter, runId, streamedAnswer, synthesizedWithFailures, payload));
     }
@@ -1632,17 +1641,106 @@ public class V2AgentAiService {
         int index = 1;
         for (ToolExecutionResult result : payload.toolResults()) {
             Map<String, Object> audit = result.queryAudit();
-            refs.add(new V2AgentDtos.AgentEvidenceRefDto(
-                "evidence-" + index++,
-                toolCallId(runId, result.toolName()),
-                result.toolName(),
-                result.toolName(),
-                result.summary(),
-                toJsonNode(audit),
-                asBoolean(audit.get("is_truncated"))
-            ));
+            List<Map<String, String>> evidenceItems = evidenceItemsFor(result);
+            if (evidenceItems.isEmpty()) {
+                refs.add(new V2AgentDtos.AgentEvidenceRefDto(
+                    "evidence-" + index++,
+                    toolCallId(runId, result.toolName()),
+                    result.toolName(),
+                    result.toolName(),
+                    result.summary(),
+                    toJsonNode(audit),
+                    asBoolean(audit.get("is_truncated"))
+                ));
+                continue;
+            }
+            for (Map<String, String> item : evidenceItems) {
+                refs.add(new V2AgentDtos.AgentEvidenceRefDto(
+                    "evidence-" + index++,
+                    toolCallId(runId, result.toolName()),
+                    result.toolName(),
+                    item.get("label"),
+                    item.get("value"),
+                    toJsonNode(audit),
+                    asBoolean(audit.get("is_truncated"))
+                ));
+            }
         }
         return refs;
+    }
+
+    private List<Map<String, String>> evidenceItemsFor(ToolExecutionResult result) {
+        if (result == null || result.facts() == null || result.facts().isMissingNode()) {
+            return List.of();
+        }
+        List<Map<String, String>> items = new ArrayList<>();
+        switch (result.toolName()) {
+            case "inventory_low_stock_lookup" -> addEvidenceItem(items, result, "低库存商品数", "low_stock_count", "个");
+            case "product_catalog_lookup" -> {
+                addEvidenceItem(items, result, "商品数", "product_count", "个");
+                addEvidenceItem(items, result, "查询库存合计", "queried_stock_total", null);
+                addEvidenceItem(items, result, "低库存商品数", "low_stock_count", "个");
+            }
+            case "customer_receivable_lookup" -> {
+                addEvidenceItem(items, result, "欠款客户数", "customer_count", "个");
+                addEvidenceItem(items, result, "Top10 应收合计", "top10_receivable_total", null);
+            }
+            case "supplier_payable_lookup" -> {
+                addEvidenceItem(items, result, "应付供应商数", "supplier_count", "个");
+                addEvidenceItem(items, result, "Top10 应付合计", "top10_payable_total", null);
+            }
+            case "sales_overview_lookup" -> {
+                addEvidenceItem(items, result, "近7天销售额", "sales_amount", null);
+                addEvidenceItem(items, result, "近7天回款", "paid_amount", null);
+                addEvidenceItem(items, result, "销售单数", "sales_count", "笔");
+                addEvidenceItem(items, result, "当前应收", "current_receivable", null);
+            }
+            case "sale_order_lookup" -> {
+                addEvidenceItem(items, result, "销售单数", "order_count", "条");
+                addEvidenceItem(items, result, "查询销售额", "recent_total_amount", null);
+                addEvidenceItem(items, result, "未收清单数", "unpaid_count", "条");
+            }
+            case "purchase_order_lookup" -> {
+                addEvidenceItem(items, result, "采购单数", "order_count", "条");
+                addEvidenceItem(items, result, "查询采购额", "recent_total_amount", null);
+                addEvidenceItem(items, result, "查询已到货金额", "recent_received_amount", null);
+            }
+            case "pay_order_lookup" -> {
+                addEvidenceItem(items, result, "付款单数", "pay_order_count", "条");
+                addEvidenceItem(items, result, "查询付款额", "recent_total_amount", null);
+                addEvidenceItem(items, result, "待付款单数", "pending_count", "条");
+            }
+            case "finance_record_lookup" -> {
+                addEvidenceItem(items, result, "资金流水条数", "record_count", "条");
+                addEvidenceItem(items, result, "查询收入", "recent_income", null);
+                addEvidenceItem(items, result, "查询支出", "recent_expense", null);
+            }
+            default -> {
+                // Unknown tools fall back to the coarse summary evidence above.
+            }
+        }
+        return items;
+    }
+
+    private void addEvidenceItem(
+        List<Map<String, String>> items,
+        ToolExecutionResult result,
+        String label,
+        String fieldName,
+        String suffix
+    ) {
+        JsonNode value = result.facts().path(fieldName);
+        if (value.isMissingNode() || value.isNull()) {
+            return;
+        }
+        String text = value.isTextual() ? value.asText() : value.asText("");
+        if (!StringUtils.hasText(text)) {
+            return;
+        }
+        items.add(Map.of(
+            "label", label + " (" + fieldName + ")",
+            "value", suffix == null ? text : text + suffix
+        ));
     }
 
     private String compactJson(Object value) {
@@ -1662,6 +1760,10 @@ public class V2AgentAiService {
             return number.intValue();
         }
         return null;
+    }
+
+    private int safeInt(Integer value) {
+        return value == null ? 0 : Math.max(0, value);
     }
 
     private Long asLong(Object value) {
@@ -1723,6 +1825,67 @@ public class V2AgentAiService {
         }
         builder.append("。失败部分未使用模拟数据替代。");
         return builder.toString();
+    }
+
+    private String appendQueryBoundaryNotice(String answer, List<ToolExecutionResult> toolResults) {
+        if (toolResults == null || toolResults.isEmpty()) {
+            return answer;
+        }
+        String normalized = StringUtils.hasText(answer) ? answer.trim() : "";
+        if (normalized.contains("查询边界：")) {
+            return normalized;
+        }
+        List<String> notices = new ArrayList<>();
+        for (ToolExecutionResult result : toolResults) {
+            for (String notice : queryBoundaryNotices(result)) {
+                if (!notices.contains(notice)) {
+                    notices.add(notice);
+                }
+            }
+        }
+        if (notices.isEmpty()) {
+            return normalized;
+        }
+        return normalized + "\n查询边界：" + String.join("；", notices) + "。";
+    }
+
+    private List<String> queryBoundaryNotices(ToolExecutionResult result) {
+        if (result == null) {
+            return List.of();
+        }
+        List<String> notices = new ArrayList<>();
+        Map<String, Object> audit = result.queryAudit();
+        Integer limit = asInteger(audit.get("limit"));
+        Integer returnedCount = asInteger(audit.get("returned_count"));
+        Integer totalCount = asInteger(audit.get("total_count"));
+        Boolean truncated = asBoolean(audit.get("is_truncated"));
+        String label = toolDisplayName(result.toolName());
+        if (Boolean.TRUE.equals(truncated)) {
+            String totalText = totalCount == null ? "" : " / 已知 " + totalCount + " 条";
+            notices.add(label + "仅返回前 " + safeInt(returnedCount) + totalText + " 条，不能视为全量结论");
+        } else if (limit != null && returnedCount != null) {
+            notices.add(label + "最多查询 " + limit + " 条，实际返回 " + returnedCount + " 条");
+        }
+        long windowDays = result.facts() == null ? 0L : result.facts().path("window_days").asLong(0L);
+        if (windowDays > 0L) {
+            notices.add(label + "窗口为近 " + windowDays + " 天");
+        }
+        return notices;
+    }
+
+    private String toolDisplayName(String toolName) {
+        return switch (safeText(toolName, "")) {
+            case "inventory_low_stock_lookup" -> "低库存查询";
+            case "product_catalog_lookup" -> "商品查询";
+            case "customer_receivable_lookup" -> "客户应收查询";
+            case "supplier_payable_lookup" -> "供应商应付查询";
+            case "sales_overview_lookup" -> "经营概览查询";
+            case "sale_order_lookup" -> "销售单查询";
+            case "purchase_order_lookup" -> "采购单查询";
+            case "pay_order_lookup" -> "付款单查询";
+            case "finance_record_lookup" -> "资金流水查询";
+            default -> safeText(toolName, "工具查询");
+        };
     }
 
     private String synthesizeAnswer(String userMessage, List<ToolExecutionResult> toolResults, String fallbackAnswer) {
@@ -2357,35 +2520,31 @@ public class V2AgentAiService {
     }
 
     private V2AgentDtos.ResultBlockDto buildSalesTrendBlock(Long ownerUserId, long startAt, long endAt) {
-        List<SaleOrderEntity> orders = saleOrderRepository.findByOwnerUserIdAndCreatedAtBetween(ownerUserId, startAt, endAt);
         LocalDate endDate = Instant.ofEpochMilli(endAt).atZone(CHART_ZONE).toLocalDate();
-        List<LocalDate> dates = new ArrayList<>();
+        long chartStartAt = endDate.minusDays(6).atStartOfDay(CHART_ZONE).toInstant().toEpochMilli();
+        List<Object[]> trendRows = saleOrderRepository.salesTrendBuckets(
+            ownerUserId,
+            chartStartAt,
+            endAt,
+            DAY_BUCKET_MILLIS,
+            CANCELLED_SALE_ORDER_STATUS
+        );
+        Map<Long, Object[]> rowsByBucket = new LinkedHashMap<>();
+        for (Object[] row : trendRows) {
+            rowsByBucket.put(safeLong(row[0]), row);
+        }
+
         List<String> labels = new ArrayList<>();
-        Map<LocalDate, Double> salesByDate = new LinkedHashMap<>();
-        Map<LocalDate, Double> paidByDate = new LinkedHashMap<>();
+        List<Double> salesData = new ArrayList<>();
+        List<Double> paidData = new ArrayList<>();
 
         for (int offset = 6; offset >= 0; offset--) {
             LocalDate date = endDate.minusDays(offset);
-            dates.add(date);
             labels.add(date.format(MONTH_DAY_FORMATTER));
-            salesByDate.put(date, 0D);
-            paidByDate.put(date, 0D);
+            Object[] row = rowsByBucket.get((long) (6 - offset));
+            salesData.add(row == null ? 0D : safeDouble(row[1]));
+            paidData.add(row == null ? 0D : safeDouble(row[3]));
         }
-
-        for (SaleOrderEntity order : orders) {
-            if (Integer.valueOf(CANCELLED_SALE_ORDER_STATUS).equals(order.getStatus()) || order.getCreatedAt() == null) {
-                continue;
-            }
-            LocalDate date = Instant.ofEpochMilli(order.getCreatedAt()).atZone(CHART_ZONE).toLocalDate();
-            if (!salesByDate.containsKey(date)) {
-                continue;
-            }
-            salesByDate.merge(date, safeDouble(order.getTotalAmount()), Double::sum);
-            paidByDate.merge(date, safeDouble(order.getPaidAmount()), Double::sum);
-        }
-
-        List<Double> salesData = dates.stream().map(date -> salesByDate.getOrDefault(date, 0D)).toList();
-        List<Double> paidData = dates.stream().map(date -> paidByDate.getOrDefault(date, 0D)).toList();
 
         return new V2AgentDtos.ResultBlockDto(
             "line_chart",
@@ -2501,6 +2660,14 @@ public class V2AgentAiService {
 
     private long safeLong(Long value) {
         return value == null ? 0L : value;
+    }
+
+    private double safeDouble(Object value) {
+        return value instanceof Number number ? number.doubleValue() : 0D;
+    }
+
+    private long safeLong(Object value) {
+        return value instanceof Number number ? number.longValue() : 0L;
     }
 
     private int countMessages(Long ownerUserId, Long conversationId) {

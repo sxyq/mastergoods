@@ -11,6 +11,7 @@ import com.zhihuiji.backend.domain.entity.ProductEntity;
 import com.zhihuiji.backend.domain.entity.SaleOrderEntity;
 import com.zhihuiji.backend.domain.entity.SaleOrderItemEntity;
 import com.zhihuiji.backend.infrastructure.repository.CustomerRepository;
+import com.zhihuiji.backend.infrastructure.repository.FinanceRecordRepository;
 import com.zhihuiji.backend.infrastructure.repository.InventoryAdjustmentRepository;
 import com.zhihuiji.backend.infrastructure.repository.PayOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.PaymentRepository;
@@ -42,6 +43,7 @@ public class ReportService {
     private final SaleOrderItemRepository saleOrderItemRepository;
     private final PaymentRepository paymentRepository;
     private final PayOrderRepository payOrderRepository;
+    private final FinanceRecordRepository financeRecordRepository;
     private final CustomerRepository customerRepository;
     private final SupplierRepository supplierRepository;
     private final ProductRepository productRepository;
@@ -53,6 +55,7 @@ public class ReportService {
         SaleOrderItemRepository saleOrderItemRepository,
         PaymentRepository paymentRepository,
         PayOrderRepository payOrderRepository,
+        FinanceRecordRepository financeRecordRepository,
         CustomerRepository customerRepository,
         SupplierRepository supplierRepository,
         ProductRepository productRepository,
@@ -63,6 +66,7 @@ public class ReportService {
         this.saleOrderItemRepository = saleOrderItemRepository;
         this.paymentRepository = paymentRepository;
         this.payOrderRepository = payOrderRepository;
+        this.financeRecordRepository = financeRecordRepository;
         this.customerRepository = customerRepository;
         this.supplierRepository = supplierRepository;
         this.productRepository = productRepository;
@@ -130,22 +134,14 @@ public class ReportService {
     public ReportDto.ProfitSummaryReportDto profitSummary(Long startAt, Long endAt) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         TimeRange range = normalizeRange(startAt, endAt);
-        List<SaleOrderEntity> orders = saleOrderRepository.findByOwnerUserIdAndCreatedAtBetween(ownerUserId, range.startAt(), range.endAt())
-            .stream()
-            .filter(this::isNonCancelledOrder)
-            .toList();
-        List<SaleOrderItemEntity> items = collectOrderItems(ownerUserId, orders);
-        Map<Long, Double> purchasePriceByProductId = productRepository.findAllByOwnerUserId(ownerUserId).stream()
-            .filter(product -> safeLong(product.getId()) > 0L)
-            .collect(Collectors.toMap(
-                product -> safeLong(product.getId()),
-                product -> safeDouble(product.getPurchasePrice()),
-                (left, ignored) -> left
-            ));
-        double totalSales = items.stream().mapToDouble(item -> safeDouble(item.getAmount())).sum();
-        double estimatedCost = items.stream()
-            .mapToDouble(item -> safeDouble(item.getQuantity()) * purchasePriceByProductId.getOrDefault(safeLong(item.getProductId()), 0.0))
-            .sum();
+        Object[] row = normalizeAggregateRow(saleOrderItemRepository.profitSummary(
+            ownerUserId,
+            range.startAt(),
+            range.endAt(),
+            OrderStatus.CANCELLED.code()
+        ));
+        double totalSales = safeDouble(row[0]);
+        double estimatedCost = safeDouble(row[1]);
         double estimatedProfit = totalSales - estimatedCost;
         double estimatedProfitRate = totalSales <= 0.0 ? 0.0 : (estimatedProfit / totalSales) * 100.0;
         return new ReportDto.ProfitSummaryReportDto(
@@ -481,6 +477,29 @@ public class ReportService {
         );
     }
 
+    public ReportDto.CashflowSummaryReportDto cashflowSummary(Long startAt, Long endAt) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        TimeRange range = normalizeRange(startAt, endAt);
+        Object[] row = normalizeAggregateRow(financeRecordRepository.cashflowSummary(
+            ownerUserId,
+            range.startAt(),
+            range.endAt(),
+            FinanceRecordService.TYPE_INCOME,
+            FinanceRecordService.TYPE_EXPENSE
+        ));
+        double totalIncome = safeDouble(row[0]);
+        double totalExpense = safeDouble(row[1]);
+        long totalRecordCount = safeLong(row[2]);
+        return new ReportDto.CashflowSummaryReportDto(
+            range.startAt(),
+            range.endAt(),
+            totalIncome,
+            totalExpense,
+            totalIncome - totalExpense,
+            totalRecordCount
+        );
+    }
+
     private List<SaleOrderItemEntity> collectOrderItems(Long ownerUserId, List<SaleOrderEntity> orders) {
         if (orders.isEmpty()) {
             return List.of();
@@ -541,6 +560,16 @@ public class ReportService {
             return new TimeRange(safeStart, safeEnd);
         }
         return new TimeRange(safeEnd, safeStart);
+    }
+
+    private Object[] normalizeAggregateRow(Object raw) {
+        if (raw instanceof Object[] row && row.length == 1 && row[0] instanceof Object[] nested) {
+            return nested;
+        }
+        if (raw instanceof Object[] row) {
+            return row;
+        }
+        return new Object[] {0.0, 0.0, 0L};
     }
 
     private long normalizeSalesTrendBucket(String bucket) {

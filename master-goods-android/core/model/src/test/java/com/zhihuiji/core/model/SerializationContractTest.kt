@@ -77,6 +77,25 @@ class SerializationContractTest {
     }
 
     @Test
+    fun cashflowSummary_usesSnakeCaseForFinanceRecordAggregateContract() {
+        val encoded = json.encodeToString(
+            CashflowSummaryReportDto(
+                startAt = 1L,
+                endAt = 2L,
+                totalIncomeAmount = 200.0,
+                totalExpenseAmount = 75.0,
+                netCashFlow = 125.0,
+                totalRecordCount = 3L,
+            ),
+        )
+
+        assertTrue(encoded.contains("\"total_income_amount\":200.0"))
+        assertTrue(encoded.contains("\"total_expense_amount\":75.0"))
+        assertTrue(encoded.contains("\"net_cash_flow\":125.0"))
+        assertTrue(encoded.contains("\"total_record_count\":3"))
+    }
+
+    @Test
     fun reconciliationSummary_decodesOldResponsesWithoutPartnerCounts() {
         val decoded = json.decodeFromString<ReconciliationSummaryReportDto>(
             """

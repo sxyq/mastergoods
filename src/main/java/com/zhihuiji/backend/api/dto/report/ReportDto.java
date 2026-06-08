@@ -146,4 +146,14 @@ public final class ReportDto {
         double totalPaidAmount,
         double netCashFlow
     ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record CashflowSummaryReportDto(
+        long startAt,
+        long endAt,
+        double totalIncomeAmount,
+        double totalExpenseAmount,
+        double netCashFlow,
+        long totalRecordCount
+    ) {}
 }

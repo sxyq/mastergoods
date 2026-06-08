@@ -34,7 +34,6 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:model"))
     implementation(project(":core:designsystem"))
-    implementation(project(":data:finance"))
     implementation(project(":data:product"))
     implementation(project(":data:customer"))
     implementation(project(":data:agent"))

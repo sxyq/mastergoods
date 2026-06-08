@@ -24,4 +24,5 @@ class ReportRepository @Inject constructor(
     suspend fun topReceivableCustomers(limit: Int = 10) = safeApiCall { api.topReceivableCustomers(limit) }
     suspend fun lowStockProducts(limit: Int = 10) = safeApiCall { api.lowStockProducts(limit) }
     suspend fun reconciliationSummary(startAt: Long, endAt: Long) = safeApiCall { api.reconciliationSummary(startAt, endAt) }
+    suspend fun cashflowSummary(startAt: Long, endAt: Long) = safeApiCall { api.cashflowSummary(startAt, endAt) }
 }

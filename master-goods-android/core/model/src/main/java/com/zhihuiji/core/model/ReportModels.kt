@@ -143,3 +143,13 @@ data class ReconciliationSummaryReportDto(
     @SerialName("total_paid_amount") val totalPaidAmount: Double = 0.0,
     @SerialName("net_cash_flow") val netCashFlow: Double = 0.0,
 )
+
+@Serializable
+data class CashflowSummaryReportDto(
+    @SerialName("start_at") val startAt: Long,
+    @SerialName("end_at") val endAt: Long,
+    @SerialName("total_income_amount") val totalIncomeAmount: Double = 0.0,
+    @SerialName("total_expense_amount") val totalExpenseAmount: Double = 0.0,
+    @SerialName("net_cash_flow") val netCashFlow: Double = 0.0,
+    @SerialName("total_record_count") val totalRecordCount: Long = 0L,
+)

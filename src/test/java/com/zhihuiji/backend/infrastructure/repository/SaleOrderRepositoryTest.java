@@ -33,9 +33,11 @@ class SaleOrderRepositoryTest {
         assertEquals(0L, ((Number) rows.get(0)[0]).longValue());
         assertEquals(100.0, ((Number) rows.get(0)[1]).doubleValue());
         assertEquals(1L, ((Number) rows.get(0)[2]).longValue());
+        assertEquals(100.0, ((Number) rows.get(0)[3]).doubleValue());
         assertEquals(1L, ((Number) rows.get(1)[0]).longValue());
         assertEquals(50.0, ((Number) rows.get(1)[1]).doubleValue());
         assertEquals(1L, ((Number) rows.get(1)[2]).longValue());
+        assertEquals(50.0, ((Number) rows.get(1)[3]).doubleValue());
     }
 
     private static SaleOrderEntity saleOrder(Long id, Long ownerUserId, Long createdAt, Double totalAmount, Integer status) {

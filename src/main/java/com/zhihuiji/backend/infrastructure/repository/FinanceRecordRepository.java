@@ -42,4 +42,20 @@ public interface FinanceRecordRepository extends JpaRepository<FinanceRecordEnti
         @Param("createdBefore") Long createdBefore,
         Pageable pageable
     );
+
+    @Query("""
+        SELECT COALESCE(SUM(CASE WHEN r.type = :incomeType THEN r.amount ELSE 0 END), 0),
+               COALESCE(SUM(CASE WHEN r.type = :expenseType THEN r.amount ELSE 0 END), 0),
+               COUNT(r)
+        FROM FinanceRecordEntity r
+        WHERE r.ownerUserId = :ownerUserId
+          AND r.createdAt BETWEEN :startAt AND :endAt
+    """)
+    Object[] cashflowSummary(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("startAt") Long startAt,
+        @Param("endAt") Long endAt,
+        @Param("incomeType") Integer incomeType,
+        @Param("expenseType") Integer expenseType
+    );
 }

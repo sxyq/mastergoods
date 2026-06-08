@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -485,6 +486,32 @@ class V2AgentAiServiceTest {
     }
 
     @Test
+    void nonStreamingChatExplainsLimitedQueryBoundaryAndFieldLevelEvidence() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        List<com.zhihuiji.backend.domain.entity.CustomerEntity> customers = new ArrayList<>();
+        for (int i = 1; i <= 10; i++) {
+            customers.add(customer((long) i, "客户" + i, 100.0 + i));
+        }
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(customers);
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "客户应收情况", false)
+        );
+
+        assertTrue(response.answer().contains("查询边界："), response.answer());
+        assertTrue(response.answer().contains("客户应收查询仅返回前 10 条"), response.answer());
+        assertTrue(response.answer().contains("不能视为全量结论"), response.answer());
+        assertEquals(true, response.toolCalls().get(0).isTruncated());
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("customer_count") && "10个".equals(ref.value())
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("top10_receivable_total") && ref.value().contains("¥")
+        ));
+    }
+
+    @Test
     void nonStreamingRuleSummaryDistinguishesNotConfiguredModelStatus() {
         when(longCatAnthropicClient.isConfigured()).thenReturn(false);
         when(longCatAnthropicClient.configurationStatus()).thenReturn("not_configured");
@@ -532,7 +559,9 @@ class V2AgentAiServiceTest {
         when(productRepository.findLowStockProducts(1L, PageRequest.of(0, 5))).thenReturn(List.of());
         when(customerRepository.sumPositiveBalance(1L)).thenReturn(0.0);
         when(saleOrderRepository.customerSales(any(), any(), any(), any(), any())).thenReturn(List.of());
-        when(saleOrderRepository.findByOwnerUserIdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of());
+        when(saleOrderRepository.salesTrendBuckets(any(), any(), any(), any(), any())).thenReturn(List.<Object[]>of(
+            new Object[] {0L, 120.0, 2L, 80.0}
+        ));
 
         V2AgentDtos.AgentChatResponse response = service.chat(
             new V2AgentDtos.AgentChatRequest(null, "recent sales purchase finance business overview", false)
@@ -548,6 +577,11 @@ class V2AgentAiServiceTest {
         assertTrue(response.toolCalls().stream().anyMatch(tool -> "purchase_order_lookup".equals(tool.toolName())));
         assertTrue(response.toolCalls().stream().anyMatch(tool -> "finance_record_lookup".equals(tool.toolName())));
         assertTrue(response.toolCalls().stream().anyMatch(tool -> "sales_overview_lookup".equals(tool.toolName())));
+        assertTrue(response.resultBlocks().stream().anyMatch(block ->
+            "line_chart".equals(block.blockType()) && block.data().toString().contains("\"回款\"")
+        ));
+        verify(saleOrderRepository).salesTrendBuckets(any(), any(), any(), any(), any());
+        verify(saleOrderRepository, never()).findByOwnerUserIdAndCreatedAtBetween(any(), any(), any());
     }
 
     @Test

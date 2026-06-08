@@ -94,7 +94,8 @@ public interface SaleOrderRepository extends JpaRepository<SaleOrderEntity, Long
     @Query(value = """
         SELECT FLOOR((created_at - :startAt) / :bucketMillis) AS bucket_index,
                COALESCE(SUM(total_amount), 0) AS total_sales_amount,
-               COUNT(*) AS total_order_count
+               COUNT(*) AS total_order_count,
+               COALESCE(SUM(paid_amount), 0) AS total_paid_amount
         FROM sale_orders
         WHERE owner_user_id = :ownerUserId
           AND created_at BETWEEN :startAt AND :endAt

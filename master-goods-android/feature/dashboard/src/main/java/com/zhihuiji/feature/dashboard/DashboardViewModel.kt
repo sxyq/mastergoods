@@ -2,13 +2,9 @@ package com.zhihuiji.feature.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.zhihuiji.core.common.StatusLabels
-import com.zhihuiji.core.model.FinanceFilter
-import com.zhihuiji.core.model.FinanceRecordDto
 import com.zhihuiji.core.model.ReconciliationSummaryReportDto
 import com.zhihuiji.core.model.SalesTrendPointReportDto
 import com.zhihuiji.data.customer.CustomerV2Repository
-import com.zhihuiji.data.finance.FinanceRepository
 import com.zhihuiji.data.product.ProductV2Repository
 import com.zhihuiji.data.report.ReportRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,7 +12,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -76,7 +71,6 @@ sealed interface DashboardSalesScope {
 class DashboardViewModel @Inject constructor(
     private val productRepository: ProductV2Repository,
     private val customerRepository: CustomerV2Repository,
-    private val financeRepository: FinanceRepository,
     private val reportRepository: ReportRepository,
 ) : ViewModel() {
 
@@ -96,10 +90,6 @@ class DashboardViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
 
             val dateRange = selectedScope.toDateRange()
-            val financeFilter = FinanceFilter(
-                createdAfter = dateRange.startMillis.toString(),
-                createdBefore = dateRange.endMillis.toString(),
-            )
             val salesSummaryDeferred = async { reportRepository.salesSummary(dateRange.startMillis, dateRange.endMillis) }
             val salesTrendDeferred = async {
                 reportRepository.salesTrend(
@@ -112,13 +102,15 @@ class DashboardViewModel @Inject constructor(
             val reconciliationSummaryDeferred = async {
                 reportRepository.reconciliationSummary(dateRange.startMillis, dateRange.endMillis)
             }
-            val financeRecordsDeferred = async { fetchFinanceRecords(financeFilter) }
+            val cashflowSummaryDeferred = async {
+                reportRepository.cashflowSummary(dateRange.startMillis, dateRange.endMillis)
+            }
 
             val salesSummaryResult = salesSummaryDeferred.await()
             val salesTrendResult = salesTrendDeferred.await()
             val lowStockResult = lowStockDeferred.await()
             val reconciliationSummaryResult = reconciliationSummaryDeferred.await()
-            val financeRecordsResult = financeRecordsDeferred.await()
+            val cashflowSummaryResult = cashflowSummaryDeferred.await()
             val reconciliationSummary = reconciliationSummaryResult.getOrNull()
             val customerFallbackResult = if (reconciliationSummary.needsReceivableCustomerFallback()) {
                 customerRepository.listCustomers()
@@ -148,15 +140,7 @@ class DashboardViewModel @Inject constructor(
                 reconciliationSummary.totalReceivableAmount == 0.0 -> 0
                 else -> customers.count { it.balance > 0.0 }
             }
-            val netCashFlow = financeRecordsResult.getOrNull()
-                ?.sumOf { record ->
-                    when (record.type) {
-                        StatusLabels.Codes.FINANCE_INCOME -> record.amount
-                        StatusLabels.Codes.FINANCE_EXPENSE -> -record.amount
-                        else -> 0.0
-                    }
-                }
-                ?: 0.0
+            val netCashFlow = cashflowSummaryResult.getOrNull()?.netCashFlow ?: 0.0
 
             val lowStockItems = lowStockResult.getOrNull()?.map { product ->
                 LowStockProductItem(
@@ -174,7 +158,7 @@ class DashboardViewModel @Inject constructor(
                 salesTrendResult,
                 lowStockResult,
                 reconciliationSummaryResult,
-                financeRecordsResult,
+                cashflowSummaryResult,
                 customerFallbackResult,
             ).filterNotNull()
             val hasError = results.any { it.isFailure }
@@ -233,12 +217,6 @@ class DashboardViewModel @Inject constructor(
             )
         }
     }
-
-    private suspend fun fetchFinanceRecords(filter: FinanceFilter): Result<List<FinanceRecordDto>> =
-        runCatching {
-            financeRepository.refreshFinanceRecords(filter)
-            financeRepository.observeFinanceRecords(filter).first()
-        }
 
     private fun buildPendingReminders(
         lowStockItems: List<LowStockProductItem>,
