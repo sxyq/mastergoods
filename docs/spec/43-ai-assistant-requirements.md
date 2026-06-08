@@ -27,11 +27,22 @@
 | 一比一 UI 还原 | 本文档仅定义 AI 助手验收基线，不证明所有页面已按设计稿还原 | 每个界面与设计稿逐屏对照截图、差异清单、真机截图和可交互验证 |
 | 真实端到端 agentic run | 当前测试主要是单元测试和模型解析，尚未归档真实 `/v2/agent/chat` 或 `/chat/stream` 证据包 | 按第 17.1 节生成每个真实问题的 HTTP、SSE、工具结果、审计、截图、耗时证据 |
 | 真模型流式输出 | 当前已证明 `rule_summary` 诚实降级，不等于证明供应商 `model_stream` 真流式 | 抓包证明 `delta_source=model_stream` 与模型供应商 streaming、`mode`、`llm_status`、审计一致 |
-| AI 首页干净入口 | 文档规定不得展示报表型数据，但仍需真机 UI tree / 截图确认当前实现 | `04-ui-home.png` 和 `08-ui-tree.xml`，证明无销售额、KPI、报表图、风险列表默认展示 |
+| AI 首页干净入口 | 文档规定不得展示报表型数据，但仍需真机 UI tree / 截图确认当前实现 | `05-ui-home.png` 和 `09-ui-tree.xml`，证明无销售额、KPI、报表图、风险列表默认展示 |
 | RunTrace 展开与 UI 区分度 | 文档规定用户 / AI / 工具 / 结果 / 错误分层，但仍需视觉证据 | 真实对话截图，含展开 RunTrace、Markdown、result block、错误或降级态 |
 | 草稿真实执行 | 当前 P0 允许不执行写操作；不能把 `archived` 当执行成功 | P1 前确认按钮禁用或诚实归档；P1 后需业务单据真实创建 / 更新证据 |
 | 全链路性能优化 | 当前已做局部优化：SSE worker 使用专用 executor；Android answer_delta 48ms 批量刷新；流式中先轻量文本渲染，完成后再 Markdown；部分工具查询改为 DB 分页。仍不等于完整性能验收 | 性能基线、优化前后对比、首事件 / 工具 / 模型 / Android 首次可见耗时表 |
 | 底部 tap 栏 BiliPay 参考对齐 | 当前仅对齐了玻璃态、横向扫动、底栏区域上滑转发首页滚动，以及跨 tab 距离感动画；尚未重构为 BiliPay 的 `HorizontalPager + MainBottomPagerState + indicatorProgress` 主架构 | 后续若要求完全一比一，需用真实 pager 承载顶级页面，提供切换录屏、帧率 / jank 证据和与 `/Users/sunyiyang/Desktop/Project/Bilipay UI` 的文件级对照表 |
+
+### 0.3 证据快照一致性规则
+
+后续每次更新本文档的“已证明 / 当前代码证据快照”时，必须同步记录：
+
+- 当前提交：`git rev-parse --short HEAD`。
+- 证明用测试名或验收包路径。
+- 直接源码路径和关键行号。
+- 若第 0 节与第 22 节结论冲突，以当前源码和最新测试为准，并在同一提交内修正文档旧结论。
+
+截至 `ed4d630`，非流式 `AgentChatResponse` 已在后端 DTO 和 Android 模型中包含 `tool_calls`、`evidence_refs`、`performance_summary`、`result_blocks` 等审计字段；任何仍声称“同步响应尚未提供这些顶层字段”的旧结论必须视为过期。
 
 ## 1. 背景和原则
 
@@ -69,7 +80,7 @@ P0 目标：
 P1 目标：
 
 - 支持 AI 生成真实落库草稿，并由用户确认后执行真实业务写入。
-- 支持服务端取消 run、长任务状态、任务 / 通知闭环、失败重试和更完整审计查询。
+- 增强 run cancel 的持久化状态、跨进程恢复、长任务中断、任务 / 通知闭环、失败重试和更完整审计查询。
 - 支持多工具计划、分页结果、截断续查和部分成功回答。
 
 P2 目标：
@@ -571,7 +582,7 @@ Android 本地审计可以作为离线排查补充，但不得替代服务端审
 | 无数据 | 返回真实空态 result block | 显示空态，不填假数据 |
 | 安全拦截 | 返回 `blocked`，记录拒绝原因 | 显示拒绝原因和可改写建议 |
 | SSE 断开 | 标记 run 未知或失败，保留已收到事件 | 提供重试或查看非流式结果 |
-| 用户取消 | P0 停止客户端接收；P1 调服务端 cancel | 明确是否服务端已取消 |
+| 用户取消 | P0 优先调用服务端 cancel；失败或接口不可用时只能诚实显示本机停止接收 | 明确是否服务端已取消 |
 | 草稿确认失败 | 草稿保留 `failed` 或 `active`，返回可恢复错误 | 展示失败原因，不移除草稿 |
 
 错误消息要求：
@@ -668,18 +679,22 @@ docs/acceptance-evidence/ai-agent/{yyyyMMdd-HHmm}-{run_id}/
 命令模板：
 
 ```bash
-RUN_ID_DIR="docs/acceptance-evidence/ai-agent/$(date +%Y%m%d-%H%M)-manual"
-mkdir -p "$RUN_ID_DIR"
-curl -N -H "Authorization: Bearer <redacted>" \
-  -H "Content-Type: application/json" \
-  -d '{"message":"哪些商品库存不足，风险最高？","stream":true}' \
-  http://localhost:8080/v2/agent/chat/stream | tee "$RUN_ID_DIR/02-raw-sse.log"
-rg -n "mock|sample|demo|fake|placeholder|模拟|演示|假数据|delay|timer|substring|chunkSize" \
-  master-goods-android/feature/agent src/main/java/com/zhihuiji/backend/application/service/v2 \
-  > "$RUN_ID_DIR/09-forbidden-scan.txt"
+RUN_ID_DIR="$(
+  TOKEN="<redacted>" \
+  BASE_URL="http://localhost:8080" \
+  MESSAGE="哪些商品库存不足，风险最高？" \
+  MODE="stream" \
+  ./tools/ai_agent_evidence_capture.sh |
+  awk -F': ' '/AI agent evidence package written to/ {print $2}'
+)"
+
 adb -s <serial> exec-out screencap -p > "$RUN_ID_DIR/05-ui-chat.png"
-adb -s <serial> exec-out uiautomator dump /dev/tty > "$RUN_ID_DIR/08-ui-tree.xml"
+adb -s <serial> exec-out uiautomator dump /dev/tty > "$RUN_ID_DIR/09-ui-tree.xml"
 ```
+
+`tools/ai_agent_evidence_capture.sh` 会自动生成 `00-env.md`、`00-request.json`、`01-http-response.json`、`02-raw-sse.log`、`03-run-audit.json`、`04-tool-results.json`、`10-forbidden-scan.txt`、`11-latency.md` 和 `12-conclusion.md`。脚本默认结论为 `partial`，因为它只采集接口 / SSE / 审计证据，不会伪造真机截图或 UI tree。截图、UI tree 和 Android 首次可见耗时必须从真实设备补充。
+
+如果没有现成 `TOKEN`，可以改用 `LOGIN_PHONE` / `LOGIN_PASSWORD` 让脚本先调用 `/v1/auth/login` 获取临时 token。脚本不得把密码、token 或模型密钥写入证据包；`00-env.md` 只能记录 token 来源和脱敏手机号尾号。
 
 | 字段 | 必填 | 取证要求 | 不通过示例 |
 |---|---|---|---|
@@ -705,22 +720,39 @@ adb -s <serial> exec-out uiautomator dump /dev/tty > "$RUN_ID_DIR/08-ui-tree.xml
 
 Android 只能渲染后端 `ResultBlockDto` 和工具结果，不得为美观补示例序列、默认排行、默认 segment 或假图表。后端生成每个 block 时必须写入来源工具、聚合窗口和截断信息；Android 渲染失败时必须显示失败卡。
 
+#### 17.2.1 ResultBlock canonical schema
+
+当前 canonical schema 必须以 Android `AgentResultBlockModels.kt` 可直接解析的字段为准：
+
+- `line_chart` / `bar_chart`：`data.labels: string[]`、`data.series[].name: string`、`data.series[].data: number[]`、可选 `data.series[].color`。
+- `donut_chart` / `pie_chart`：`data.segments[].name: string`、`data.segments[].value: number`、可选 `data.segments[].color`。
+- `kpi_grid`：`data.kpis[].label`、`data.kpis[].value`、可选 `unit`、`trend_direction`、`trend_value`。
+- `table`：当前 Android canonical 字段为 `headers: string[]`、`rows: string[][]`、可选 `row_count`；若后端返回 `columns/rows object` 形态，必须先补兼容解析和测试。
+- `rank_list`：当前 Android canonical 字段为 `items[].rank`、`items[].name`、`items[].value`、可选 `change_direction`。
+- `evidence_card`：当前 Android canonical 字段为 `items[].label`、`items[].value`、可选 `source`。
+
+兼容别名规则：
+
+- 文档历史样例中的 `series[].values`、`segments[].label` 只能作为兼容别名；没有 Android / 后端双侧测试证明前，不得作为 P0 通过证据。
+- 后端若采用更丰富 schema，如 `columns[key,label,type]`、`source_tools`、`query_window`、`is_truncated`，Android 必须显示或至少保留可定位摘要；字段被丢弃时不能标记为完整通过。
+- 所有 result block 验收必须保存原始 JSON，不能只看 Android 渲染截图。
+
 | Block type | Backend tool / source | Required fields | Aggregation window | Truncation fields | Android renderer | Empty-state copy |
 |---|---|---|---|---|---|---|
 | `text` | Orchestrator 基于真实 tool summary 或安全拒绝生成 | `title`、`content`、`source_tools`、`warnings` | 继承所用工具窗口 | `is_truncated`、`source_tools` | Markdown / safe text renderer | “暂无可总结的真实数据” |
-| `kpi_grid` | `sales_overview_lookup`、`customer_receivable_lookup`、`supplier_payable_lookup`、`finance_record_lookup` | `items[label,value,unit,trend?,source_field]` | 必填，如 `last_7_days`、`last_30_days`、`single_day` | `is_truncated=false` 或逐项说明 | `ResultBlockRenderer` KPI 分支 | “暂无可展示指标” |
-| `table` | 任意列表型工具，如 `sale_order_lookup`、`purchase_order_lookup`、`finance_record_lookup` | `columns[key,label,type]`、`rows`、`row_id`、`source_tools` | 查询过滤条件和时间范围 | `total_count`、`returned_count`、`limit`、`next_cursor`、`is_truncated` | table 分支，支持横向滚动 | “暂无符合条件的记录” |
-| `rank_list` | `inventory_low_stock_lookup`、`customer_receivable_lookup`、`supplier_payable_lookup`、`product_catalog_lookup` | `items[id,title,subtitle,value,rank,reason,source_fields]` | 查询窗口或库存快照时间 | `total_count`、`returned_count`、`limit`、`is_truncated` | rank list 分支 | “暂无可排序的真实记录” |
-| `line_chart` | `sales_overview_lookup`、`finance_record_lookup` 的时间序列聚合 | `labels`、`series[name,values]`、`y_unit`、`source_fields` | 必填且与 labels 对齐 | `bucket_count`、`is_truncated`、`window_start`、`window_end` | line chart 分支 | “暂无可绘制趋势数据” |
-| `bar_chart` | 销售 / 采购 / 商品 / 客户分组聚合工具 | `labels`、`series[name,values]`、`y_unit`、`group_by` | 必填 | `total_groups`、`returned_groups`、`limit`、`is_truncated` | bar chart 分支 | “暂无可绘制柱状数据” |
-| `donut_chart` / `pie_chart` | 分类占比聚合，如收款状态、费用类型、库存风险等级 | `segments[label,value,color?]`、`value_unit`、`source_fields` | 必填 | `total_segments`、`returned_segments`、`other_merged`、`is_truncated` | donut / pie chart 分支 | “暂无可绘制占比数据” |
-| `risk_card` | Orchestrator 基于工具证据和固定阈值生成 | `risk_level`、`title`、`evidence_items`、`threshold`、`suggested_action` | 继承证据工具窗口 | `evidence_truncated`、`source_tools` | risk card 分支 | “当前没有可确认风险” |
-| `evidence_card` | Tool Registry / Audit | `source_tools`、`query_window`、`filters`、`counts`、`warnings` | 必填 | `total_count`、`returned_count`、`is_truncated` | evidence card 分支 | “暂无可展示证据” |
-| `draft_card` | Draft service | `draft_id`、`draft_type`、`status`、`summary`、`requires_confirmation`、`execution_available` | 不适用 | 不适用 | draft card 分支 | “暂无待确认草稿” |
+| `kpi_grid` | `sales_overview_lookup`、`customer_receivable_lookup`、`supplier_payable_lookup`、`finance_record_lookup` | canonical: `kpis[label,value,unit?,trend_direction?,trend_value?]`；来源扩展可带 `source_field` | 必填，如 `last_7_days`、`last_30_days`、`single_day` | `is_truncated=false` 或逐项说明 | `ResultBlockRenderer` KPI 分支 | “暂无可展示指标” |
+| `table` | 任意列表型工具，如 `sale_order_lookup`、`purchase_order_lookup`、`finance_record_lookup` | canonical: `headers`、`rows`、`row_count?`；`columns[key,label,type]` 需兼容测试后才可作为 P0 | 查询过滤条件和时间范围 | `total_count`、`returned_count`、`limit`、`next_cursor`、`is_truncated` | table 分支，支持横向滚动 | “暂无符合条件的记录” |
+| `rank_list` | `inventory_low_stock_lookup`、`customer_receivable_lookup`、`supplier_payable_lookup`、`product_catalog_lookup` | canonical: `items[rank,name,value,change_direction?]`；来源扩展可带 `id`、`reason`、`source_fields` | 查询窗口或库存快照时间 | `total_count`、`returned_count`、`limit`、`is_truncated` | rank list 分支 | “暂无可排序的真实记录” |
+| `line_chart` | `sales_overview_lookup`、`finance_record_lookup` 的时间序列聚合 | canonical: `labels`、`series[name,data,color?]`；来源扩展可带 `y_unit`、`source_fields` | 必填且与 labels 对齐 | `bucket_count`、`is_truncated`、`window_start`、`window_end` | line chart 分支 | “暂无可绘制趋势数据” |
+| `bar_chart` | 销售 / 采购 / 商品 / 客户分组聚合工具 | canonical: `labels`、`series[name,data,color?]`；来源扩展可带 `y_unit`、`group_by` | 必填 | `total_groups`、`returned_groups`、`limit`、`is_truncated` | bar chart 分支 | “暂无可绘制柱状数据” |
+| `donut_chart` / `pie_chart` | 分类占比聚合，如收款状态、费用类型、库存风险等级 | canonical: `segments[name,value,color?]`；来源扩展可带 `value_unit`、`source_fields` | 必填 | `total_segments`、`returned_segments`、`other_merged`、`is_truncated` | donut / pie chart 分支 | “暂无可绘制占比数据” |
+| `risk_card` | Orchestrator 基于工具证据和固定阈值生成 | canonical: `level`、`title`、`description`、`affected_items?`、`suggested_action?`；来源扩展可带 `threshold`、`evidence_items` | 继承证据工具窗口 | `evidence_truncated`、`source_tools` | risk card 分支 | “当前没有可确认风险” |
+| `evidence_card` | Tool Registry / Audit | canonical: `items[label,value,source?]`；来源扩展可带 `query_window`、`filters`、`counts`、`warnings` | 必填 | `total_count`、`returned_count`、`is_truncated` | evidence card 分支 | “暂无可展示证据” |
+| `draft_card` | Draft service | canonical: `draft_id`、`draft_type`、`title`、`summary`；可选 `item_count`、`total_amount`、`partner_name`、`warnings` | 不适用 | 不适用 | draft card 分支 | “暂无待确认草稿” |
 
 图表字段门禁：
 
-- `labels.size` 必须与每个 `series.values.size` 一致；不一致时 Android 显示“结果结构不完整”，不得自行裁剪补齐。
+- `labels.size` 必须与每个 `series.data.size` 一致；不一致时 Android 显示“结果结构不完整”，不得自行裁剪补齐。
 - `NaN`、`Infinity`、负数 donut / pie segment、空 label、空 series 必须视为坏数据并展示失败 / 空态。
 - `0` 值可以展示，但必须来自真实工具结果；不得用一组 0 值替代缺失数据。
 - 任何未知 block type 必须显示“暂不支持的结构化结果：{type}”，并保留标题和来源摘要。
@@ -755,7 +787,7 @@ Android 只能渲染后端 `ResultBlockDto` 和工具结果，不得为美观补
   "data": {
     "labels": ["06-02", "06-03", "06-04"],
     "series": [
-      {"name": "销售额", "values": [1200.0, 800.0, 1560.0]}
+      {"name": "销售额", "data": [1200.0, 800.0, 1560.0]}
     ],
     "y_unit": "元"
   }
@@ -771,7 +803,7 @@ Android 只能渲染后端 `ResultBlockDto` 和工具结果，不得为美观补
   "data": {
     "labels": ["客户A", "客户B"],
     "series": [
-      {"name": "应收款", "values": [3200.0, 1800.0]}
+      {"name": "应收款", "data": [3200.0, 1800.0]}
     ],
     "y_unit": "元",
     "group_by": "customer"
@@ -787,8 +819,8 @@ Android 只能渲染后端 `ResultBlockDto` 和工具结果，不得为美观补
   "title": "费用类型占比",
   "data": {
     "segments": [
-      {"label": "物流", "value": 600.0},
-      {"label": "人工", "value": 400.0}
+      {"name": "物流", "value": 600.0},
+      {"name": "人工", "value": 400.0}
     ],
     "value_unit": "元"
   }
@@ -799,9 +831,9 @@ Android 只能渲染后端 `ResultBlockDto` 和工具结果，不得为美观补
 
 ```json
 [
-  {"block_type": "line_chart", "title": "空标签", "data": {"labels": [], "series": [{"name": "销售额", "values": [1.0]}]}},
-  {"block_type": "bar_chart", "title": "长度不一致", "data": {"labels": ["A", "B"], "series": [{"name": "金额", "values": [1.0]}]}},
-  {"block_type": "donut_chart", "title": "非正数 segment", "data": {"segments": [{"label": "坏值", "value": -1.0}]}},
+  {"block_type": "line_chart", "title": "空标签", "data": {"labels": [], "series": [{"name": "销售额", "data": [1.0]}]}},
+  {"block_type": "bar_chart", "title": "长度不一致", "data": {"labels": ["A", "B"], "series": [{"name": "金额", "data": [1.0]}]}},
+  {"block_type": "donut_chart", "title": "非正数 segment", "data": {"segments": [{"name": "坏值", "value": -1.0}]}},
   {"block_type": "unknown_chart", "title": "未知类型", "data": {"raw": true}},
   {"block_type": "table", "title": "字段缺失", "data": {"headers": ["名称"]}}
 ]
@@ -838,6 +870,60 @@ P0 通过前必须提供以下证据：
 - 审计记录样本。
 - 性能和可观测性证据：耗时表、日志关联 ID、错误 / warning 统计、审计写入状态。
 
+### 17.6 Markdown fixture 验收包
+
+每次 Markdown 渲染审查至少要保存一轮包含以下内容的真实或测试回答截图，不能只看 parser 单测：
+
+- 标题层级：`#`、`##`。
+- 无序列表和有序列表，至少包含一层缩进。
+- 表格：包含转义 `\|`、行内代码 `` `a|b` `` 和长单元格。
+- 引用块：至少 2 行连续引用。
+- 代码块：带语言标识、长行、尾部空白、复制入口。
+- 链接：链接文本旁必须可见 URL，或 UI tree 能证明 URL 未丢失。
+- 流式半成品：未闭合代码块、未完成表格行、列表半项都不得崩溃、闪烁清空或丢正文。
+
+Markdown 验收结论必须同时列出：解析测试名、截图路径、UI tree 路径、失败兜底文案。没有截图只能标 `partial`。
+
+### 17.7 SSE / 审计 / UI 三方对账表
+
+每个真实 run 必须补一张对账表，证明同一 `run_id` 下事件没有串台：
+
+| seq | event_id | raw SSE event_type | audit event_type | Android RunTrace 行 | 结论 |
+|---|---|---|---|---|---|
+| 1 | evt_xxx | `run_started` | `run_started` | 运行开始 | pass / fail |
+| 2 | evt_xxx | `tool_started` | `tool_started` | 工具开始 | pass / fail |
+| 3 | evt_xxx | `tool_completed` | `tool_completed` | 工具完成 + 耗时 / 截断 | pass / fail |
+| n | evt_xxx | `answer_completed` / `run_completed` | 同名事件 | 最终回答 / 完成态 | pass / fail |
+
+对账规则：
+
+- raw SSE、`03-run-audit.json`、Android RunTrace 必须使用同一 `run_id`。
+- `seq` 必须单调递增；缺号、重复、event_id 不一致都必须标 `fail` 或解释为兼容旧事件。
+- UI 没有展示的审计事件不能静默忽略；必须说明是不需要展示、未实现展示，还是解析失败。
+- `delta_source=model_stream` 的每个 `answer_delta` 必须能关联到同一 run 的模型调用审计或 trace。
+
+### 17.8 AI Workbench 兼容字段清洁验收
+
+`AgentWorkbenchResponse` 为兼容旧合同仍可能包含 `kpi_cards`、`risk_alerts`、`today_summary` 等报表型字段，但 AI 首页 P0 清洁验收规则如下：
+
+- 后端 `/v2/agent/workbench` 初始响应必须返回 `kpi_cards=[]`、`risk_alerts=[]`、`today_summary=null` 或等价空值。
+- Android 初始屏不得消费这些字段展示 KPI、风险、今日摘要、图表或排行。
+- 如果未来某业务入口需要使用这些字段，必须放在用户主动提问后的对话 / result block 或报表页，不得回到 AI 首页默认看板。
+- 验收包必须保存 `/v2/agent/workbench` 响应、AI 首屏截图和 UI tree；只看 DTO 是否有字段不能判定失败。
+
+### 17.9 必跑测试和脚本矩阵
+
+AI 助手 P0 修改后的最小验证矩阵：
+
+| 范围 | 命令 / 证据 | 目的 |
+|---|---|---|
+| 后端 agent 单测 | `JAVA_HOME=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home ./master-goods-android/gradlew -p /Users/sunyiyang/Desktop/Project/master-goods test --tests 'com.zhihuiji.backend.application.service.v2.V2AgentAiServiceTest' --tests 'com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest' --console=plain -Dorg.gradle.java.home=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home` | 固定 run 审计、SSE 合同、非流式合同和 audit API |
+| Android agent 合同 | `JAVA_HOME=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home ./gradlew :core:model:testDebugUnitTest :feature:agent:compileDebugKotlin --console=plain -Dorg.gradle.java.home=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home` | 固定模型解析、Markdown / stream 合同和 agent UI 编译 |
+| 证据脚本离线自测 | `./tools/ai_agent_evidence_capture.sh self-test` | 无需后端或 token，验证 SSE run_id 提取和 audit tool result 展开逻辑 |
+| 真实接口证据 | `TOKEN=<redacted> ./tools/ai_agent_evidence_capture.sh` 或 `LOGIN_PHONE=<phone> LOGIN_PASSWORD=<password> ./tools/ai_agent_evidence_capture.sh` | 生成 HTTP / SSE / run audit / 禁止项扫描 / latency 初稿；不得保存密码或 token |
+| 真机证据 | ADB 截图、UI tree、logcat 或录屏 | 证明 AI 首页、聊天、RunTrace、Markdown、图表真实渲染 |
+| 禁止项扫描 | `10-forbidden-scan.txt` + 人工逐项解释 | 防止 mock、fake、demo、假流式、占位数据回流 |
+
 P0 不通过条件：
 
 - 任意生产回答依赖 mock / demo / fake / sample 数据。
@@ -860,9 +946,18 @@ P0 验收必须在同一环境、同一账号、同一后端 profile 下记录�
 | SSE 首事件 | 1 秒内收到 `run_started` 或错误事件 | 抓包 / 日志中的 `first_event_latency_ms` |
 | 单工具耗时 | 常规查询 3 秒内完成；超过时返回 slow warning | `tool_started` / `tool_completed` 时间差 |
 | 多工具总耗时 | P0 三类真实问题 15 秒内完成或部分成功返回 | run `duration_ms`、工具耗时表 |
-| 取消生效 | P1 服务端 cancel 请求后 2 秒内进入 `cancelled` 或明确不可取消原因 | cancel 接口、SSE、审计 |
+| 取消生效 | P0 服务端 cancel 请求后 2 秒内进入 `cancelled`、返回已完成不可取消状态，或明确不可取消原因 | cancel 接口、SSE、审计 |
 | 审计写入 | 成功问答必须有审计；审计失败必须有 warning | audit 记录或 `audit_write_failed` |
 | 错误可定位 | 用户可见错误有安全文案，服务端有错误码和 trace | UI / 响应 / 日志 |
+
+性能采样方法：
+
+- 每个场景至少重复 3 次，分别记录原始证据；汇总时给出 P50、P95 或在样本不足时明确写 `n=3, max/min/median`。
+- 同一轮对比必须固定账号、数据规模、后端 profile、网络环境、模型 provider 状态、设备型号和 app build。
+- 分组记录 `AGENT_LLM_ENABLED=false`、模型 enabled 且配置完整、工具失败、无数据、取消、SSE 断开。
+- 冷启动和热路径要分开：冷启动记录首次请求，热路径记录同一进程后续请求。
+- Android 首次可见耗时必须来自真实设备证据，如录屏时间轴、logcat 埋点或 frame timing；接口耗时不能替代 UI 可见耗时。
+- 如果 provider 或网络异常导致不能采样，必须在 `12-conclusion.md` 标 `partial/fail` 并写明不可测原因。
 
 可观测性验收包必须包含：
 
@@ -887,7 +982,7 @@ P0 验收必须在同一环境、同一账号、同一后端 profile 下记录�
 8. 改造 Android RunTrace：展开 / 折叠有效，只显示真实事件；没有事件显示真实缺失态。
 9. 改造 LLM 降级：后端响应 `mode` 和 `llm_status`，Android 展示诚实文案。
 10. 改造 draft：确认按钮先禁用或标注；P1 新增确认执行接口和状态机。
-11. 新增服务端 cancel run，并让 Android stop 调用该接口。
+11. 验证 P0 服务端 cancel run 可调用并让 Android stop 调用该接口；P1 再补持久化、跨进程恢复和长任务中断。
 12. 补齐 owner 隔离、LLM disabled、工具失败、SSE 断开、草稿失败、任务通知真实来源的测试。
 13. 形成验收证据包，包含接口响应、SSE 日志、Android 截图、审计记录和禁止项扫描结果。
 14. 补齐性能和可观测性验收包，记录 `run_id`、`trace_id`、首事件耗时、工具耗时、模型耗时、总耗时、warning 和错误码。
@@ -937,7 +1032,8 @@ P0 验收必须在同一环境、同一账号、同一后端 profile 下记录�
 | AGT-P0-016 | Markdown 渲染不得丢内容，链接 URL、表格、代码块和行内强调必须可读 | P0 | `AgentMarkdownText` 解析与渲染分支、失败兜底 | 用真实回答覆盖标题、列表、表格、引用、代码块、链接并截图 |
 | AGT-P0-017 | 已知 result block 类型解析失败不得静默消失，图表不得用示例数据补位 | P0 | `ResultBlockRenderer` 每个已知类型都有分支或失败卡；无 Android 示例图数据 | 构造缺字段 block 和空数据 block，确认 UI 显示真实空态 / 错误态 |
 | AGT-P0-018 | AI 初始屏文案不得把报表页能力伪装成默认看板 | P0 | quick questions、hero、notice 文案扫描 | 首屏截图 / UI tree 无默认“今日报表、风险看板、统计图看板” |
-| AGT-P1-001 | 服务端支持 run cancel，并推送 `run_cancelled` | P1 | `/v2/agent/runs/{run_id}/cancel` 路由和状态机 | 取消后服务端 run 终止，Android 显示已取消 |
+| AGT-P0-019 | 服务端 cancel 已存在时必须可调用、owner-aware，并通过 `run_cancelled` 或明确不可取消状态与审计对齐 | P0 | `/v2/agent/runs/{run_id}/cancel` 路由、owner 校验和状态机 | 取消后服务端 run 终止或返回已终态 / 不可取消原因，Android 显示已取消或取消未确认 |
+| AGT-P1-001 | run cancel 支持持久化状态、跨进程恢复、长任务中断和失败重试 | P1 | run 状态持久化、恢复任务和中断点 | 重启 / 长任务场景下仍能查询取消终态 |
 | AGT-P1-002 | 草稿确认执行必须真实事务写入并落审计 | P1 | confirm / reject / execution 接口和状态机 | 确认后业务对象真实创建 / 更新，审计有执行结果 |
 
 ## 22. 当前代码证据快照
@@ -955,7 +1051,7 @@ P0 验收必须在同一环境、同一账号、同一后端 profile 下记录�
 | `V2AgentAiService.java:1361-1390` 已发送 `tool_started` / `tool_completed`；`V2AgentAiService.java:1393-1409` 已发送 `tool_failed`，且 `V2AgentAiService.java:370-380` 会在工具异常时进入失败事件路径。 | 工具失败事件路径已存在；started / completed / failed payload 已补 `input_summary`、`query_window`、`started_at`、`completed_at`、`duration_ms`、`returned_count`、`total_count`、`limit`、`is_truncated`、`next_cursor`、`evidence` 和 `trace_id`；Android `ToolCompleted` / `ToolCallRecord` / `ToolAuditRecord` 已接收并在 RunTrace 工具卡显示范围、依据、耗时和追踪摘要。 | 部分通过 AGT-P0-004、AGT-P0-006；下一步要补真实 SSE 抓包、超限数据验收和事件级审计。 |
 | `V2AgentAiService.java` 仅在模型 streaming 回调内发送 `answer_delta(delta_source=model_stream)`；LLM disabled 或 stream failed / empty 时不再发送规则摘要分块，而是通过 `answer_completed` 返回 `tool_query_rule_summary` 和对应 `llm_status`。`answer_delta` 已补 `audit_id`、`trace_id` 和 `observability`，Android `AgentStreamEvent.AnswerDelta` 可接收这些字段。`V2AgentAiServiceTest.streamFallbackAnswerCompletesRuleSummaryWithoutFakeDeltas`、`streamDisabledModelAnswerCompletesRuleSummaryWithoutFakeDeltas` 覆盖 fallback / disabled 的 `answer_delta` 数量为 0、`answer_completed` 含规则摘要和降级状态；`streamModelAnswerEmitsOnlyModelStreamDeltasAndStreamedCompletion` 覆盖模型流式成功时只发送 `delta_source=model_stream`、每个 delta 带 `audit_id` / `trace_id` / `log_ref`、最终 `mode=tool_query_llm_streamed` / `llm_status=streaming`，且不带规则摘要提示。 | 后端“固定切完整答案 / 规则摘要冒充流式”的代码边界已收口；成功流式、禁用降级和空流失败三条路径都有单元门禁，且模型 delta 能被抓包归因到同一 run / trace。当前仍不能把它视为端到端通过，因为还缺真实模型 `model_stream` 抓包和真机 UI 证据。 | AGT-P0-005 后端和 Android 展示边界已改善；部分支撑 AGT-P0-012 可观测性；仍需 SSE 抓包、真机 UI、真实模型 delta 和 rule_summary 完成态截图验收。 |
 | `V2AgentAiService.java:405-430` 优先尝试 LLM 工具规划，`V2AgentAiService.java:1126-1159` 基于工具结果做 LLM / 规则最终回答；不可用时返回 `tool_query_rule_summary` / `disabled`。 | 比单纯关键词模板更接近真实 agent，但仍缺可持久化 plan、工具 reason、plan_source 审计和更多运行验收。 | 部分支撑 AGT-P0-003、AGT-P0-007、AGT-P0-011。 |
-| `src/main/java/com/zhihuiji/backend/api/dto/v2/agent/V2AgentDtos.java` 和 `master-goods-android/core/model/src/main/java/com/zhihuiji/core/model/v2/agent/AgentChatRequestResponse.kt` 当前同步响应字段仍以 `blocks` 为主；流式工具事件会在 Android UI 层转换成 `RunTrace.toolCalls`，但非流式 `AgentChatResponse` 尚未提供顶层 `tool_calls`、`evidence_refs`、`performance_summary` 或 `result_blocks` 兼容别名。 | 后端已经不是静态 echo，但同步接口合同还不能独立证明完整 agentic 过程；后续必须补非流式 run contract，避免“只有 stream 才可审查”。 | 部分支撑 AGT-P0-002 / AGT-P0-011；AGT-P0-003、AGT-P0-012 的同步合同仍未通过。 |
+| `src/main/java/com/zhihuiji/backend/api/dto/v2/agent/V2AgentDtos.java` 和 `master-goods-android/core/model/src/main/java/com/zhihuiji/core/model/v2/agent/AgentChatRequestResponse.kt` 当前非流式 `AgentChatResponse` 已包含 `tool_calls`、`evidence_refs`、`performance_summary`、`result_blocks`、`audit_id`、`trace_id` 和 `observability`。`AgentChatResponseSerializationTest.decodesNonStreamingAgentRunContract`、`V2AgentAiServiceTest.nonStreamingChatIncludesAuditableAgentRunContract` 已覆盖模型解析和服务单测合同。 | 同步接口合同已经具备独立审查 plan / tool / evidence / performance 的字段基础；仍不能替代真实 HTTP 响应、owner 数据、审计对账和真机 UI 证据。 | 部分支撑 AGT-P0-002、AGT-P0-003、AGT-P0-011、AGT-P0-012；运行验收仍需 `/v2/agent/chat` 真实响应包。 |
 | `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatViewModel.kt:163-230` 将服务端安全和 plan 事件写入 `RunTrace`；`AgentChatViewModel.kt:497-501` 的 `toggleRunTrace()` 已真实切换展开状态。 | Android 不再是 no-op 展开；仍需真机验证真实 SSE 事件能完整显示。 | 支撑 AGT-P0-006；运行验收仍需截图 / UI tree / SSE 日志。 |
 | `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatViewModel.kt:543-568` 和 `DraftListViewModel.kt:70-99` 仍通过 `status = "archived"` 处理当前草稿动作；`DraftListScreen.kt:51-54`、`DraftListScreen.kt:197-200` 明确写成“仅归档”，`DraftListScreen.kt:234-239` 将 archived 映射为 `StatusType.ARCHIVED`，`DraftListViewModel.kt:152-156` 将 archived 展示为“已归档（未执行）”。 | P0 代码文案边界已收口为“不执行业务写入 / 仅归档”，不再把 archived 显示为业务执行成功；P1 仍必须新增 confirm / reject / execution 接口和真实状态机。 | AGT-P0-008 代码边界已改善，仍需真机运行复核；AGT-P1-002 未通过。 |
 | `master-goods-android/core/network/src/main/java/com/zhihuiji/core/network/AgentSseClient.kt` 只连接 `/v2/agent/chat/stream` 并解析服务端 SSE / ndjson；当前已用 cancellable execute 将 Flow 取消传递到 OkHttp `Call.cancel()`，并由 `AgentSseClientCancellationTest` 覆盖“停止接收会取消底层网络调用”。`AgentStreamModels.kt` 定义工具、失败、answer_completed / answer_delta 等事件模型，其中 `AnswerDelta` 已接收服务端 `audit_id`、`trace_id`、`observability`、`event_id`、`seq` 和 `conversation_id`。 | Android 网络层方向正确，不主动生成事件；P0 停止接收不再只改 UI 状态，也会释放本地长连接资源。事件模型已跟进模型 delta 的可观测字段和兼容 envelope；服务端 run cancel 仍是 P1，更多事件类型仍需逐步暴露 envelope 字段到 UI 审计面板。 | 支撑 AGT-P0-005、AGT-P0-006 和 P0 取消诚实态；部分支撑 AGT-P0-012；依赖后续真机和真实 SSE 抓包验收。 |
@@ -998,7 +1094,7 @@ P0 验收必须在同一环境、同一账号、同一后端 profile 下记录�
 - [ ] Agentic 过程：验证每个 run 有 `run_started`、安全检查、plan、tool、answer、completed / failed 事件；无事件不得由 Android 补造。
 - [ ] 工具合同：检查每个工具有输入摘要、权限校验、查询窗口、分页 / 截断、耗时、状态、错误码和 evidence。
 - [ ] 审计合同：用同一 `run_id` 或 `trace_id` 定位 HTTP、SSE、工具、模型、草稿、取消、错误和审计记录。
-- [ ] 取消机制：P0 明确“仅停止接收”；P1 验证服务端 cancel 状态机、SSE `run_cancelled` 和审计。
+- [ ] 取消机制：P0 验证服务端 cancel 可调用、owner-aware、SSE `run_cancelled` 或明确不可取消状态和审计一致；若当前环境调用失败，Android 必须显示“本机已停止接收但服务端取消未确认”。
 - [ ] 确认机制：P0 不把 `archived` 当执行成功；P1 验证 confirm / reject / execution 接口真实事务写入。
 - [ ] 降级机制：验证 `AGENT_LLM_ENABLED=false`、模型错误、工具失败、无数据、SSE 断开都有诚实 UI / 响应。
 - [ ] 性能验收：记录 3 个真实问题的首事件耗时、工具耗时、模型耗时、端到端耗时、slow warning 和错误率。

@@ -1,0 +1,30 @@
+# Forbidden item scan
+
+Raw production-path matches. Each hit must be reviewed; legitimate
+negative copy such as 'do not use simulated data' is allowed only when
+it does not generate mock data, fake streaming, or placeholder results.
+
+/Users/sunyiyang/Desktop/Project/master-goods/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentConversationService.java:270:        return normalized.substring(0, 120);
+/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatViewModel.kt:26:import kotlinx.coroutines.delay
+/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatViewModel.kt:602:            delay(48)
+/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentMarkdownText.kt:482:    return substring(start, end)
+/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentMarkdownText.kt:504:                        val label = text.substring(index + 1, labelEnd).ifBlank {
+/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentMarkdownText.kt:505:                            text.substring(labelEnd + 2, urlEnd).trim()
+/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentMarkdownText.kt:507:                        val url = normalizeMarkdownUrl(text.substring(labelEnd + 2, urlEnd))
+/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentMarkdownText.kt:536:                        append(text.substring(index + 2, end))
+/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentMarkdownText.kt:549:                        append(text.substring(index + 1, end))
+/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentMarkdownText.kt:568:                        append(" ${text.substring(index + 1, end)} ")
+/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/ResultBlockRenderer.kt:1013:        return "图表数据缺少横轴标签，已停止绘制以避免生成模拟标签"
+/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/ResultBlockRenderer.kt:1016:        return "图表横轴标签存在空值，已停止绘制以避免生成模拟标签"
+/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatScreen.kt:706:                placeholder = "输入经营问题，服务端会选择可用工具...",
+/Users/sunyiyang/Desktop/Project/master-goods/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java:690:            return rawText.substring(start, end + 1);
+/Users/sunyiyang/Desktop/Project/master-goods/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java:1427:            4. 如果有工具查询失败，必须明确说明哪些查询失败，且不要用模拟数据替代。
+/Users/sunyiyang/Desktop/Project/master-goods/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java:1510:            4. 如果有工具查询失败，必须明确说明哪些查询失败，且不要用模拟数据替代。
+/Users/sunyiyang/Desktop/Project/master-goods/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java:1529:            + "我没有使用模拟数据替代，因此不能给出确定结论。"
+/Users/sunyiyang/Desktop/Project/master-goods/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java:1645:            return raw.length() <= 180 ? raw : raw.substring(0, 180) + "...";
+/Users/sunyiyang/Desktop/Project/master-goods/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java:1715:        builder.append("。失败部分未使用模拟数据替代。");
+/Users/sunyiyang/Desktop/Project/master-goods/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java:2225:        return value.substring(0, Math.max(0, maxLength));
+/Users/sunyiyang/Desktop/Project/master-goods/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java:2287:            message = message.substring(0, 160) + "...";
+/Users/sunyiyang/Desktop/Project/master-goods/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java:2394:        return text.length() <= 8 ? text : text.substring(0, 8) + "...";
+/Users/sunyiyang/Desktop/Project/master-goods/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java:2457:        return normalized.substring(0, 24);
+/Users/sunyiyang/Desktop/Project/master-goods/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java:2472:        return normalized.length() <= 120 ? normalized : normalized.substring(0, 120);
