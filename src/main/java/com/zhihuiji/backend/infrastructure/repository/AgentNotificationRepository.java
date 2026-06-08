@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.infrastructure.repository;
 
 import com.zhihuiji.backend.domain.entity.AgentNotificationEntity;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,6 +18,8 @@ public interface AgentNotificationRepository extends JpaRepository<AgentNotifica
     long countByOwnerUserIdAndIsReadFalse(Long ownerUserId);
 
     void deleteAllByOwnerUserIdAndIsReadTrue(Long ownerUserId);
+
+    void deleteAllByOwnerUserIdIn(Collection<Long> ownerUserIds);
 
     Optional<AgentNotificationEntity> findByIdAndOwnerUserId(Long id, Long ownerUserId);
 }

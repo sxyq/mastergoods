@@ -55,10 +55,30 @@ public class LongCatAnthropicClient {
     }
 
     public boolean isConfigured() {
-        return properties.isEnabled()
-            && StringUtils.hasText(properties.getApiKey())
-            && StringUtils.hasText(properties.getModel())
-            && StringUtils.hasText(properties.getBaseUrl());
+        return "configured".equals(configurationStatus());
+    }
+
+    public String configurationStatus() {
+        if (!properties.isEnabled()) {
+            return "disabled";
+        }
+        if (!StringUtils.hasText(properties.getApiKey())
+            || !StringUtils.hasText(properties.getModel())
+            || !StringUtils.hasText(properties.getBaseUrl())) {
+            return "not_configured";
+        }
+        return "configured";
+    }
+
+    public boolean supportsStreaming() {
+        return isConfigured() && "chat_completions".equalsIgnoreCase(properties.getWireApi());
+    }
+
+    public String streamingUnavailableStatus() {
+        if (!isConfigured()) {
+            return configurationStatus();
+        }
+        return supportsStreaming() ? "configured" : "stream_not_supported";
     }
 
     private boolean usesOpenAiAuth() {
@@ -208,7 +228,7 @@ public class LongCatAnthropicClient {
         String userPrompt,
         Consumer<String> onDelta
     ) {
-        if (!isConfigured() || !"chat_completions".equalsIgnoreCase(properties.getWireApi())) {
+        if (!supportsStreaming()) {
             return Optional.empty();
         }
         try {

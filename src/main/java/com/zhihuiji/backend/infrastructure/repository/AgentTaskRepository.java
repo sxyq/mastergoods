@@ -12,4 +12,6 @@ public interface AgentTaskRepository extends JpaRepository<AgentTaskEntity, Long
     Optional<AgentTaskEntity> findFirstByOwnerUserIdAndTaskTypeAndStatusInOrderByCreatedAtDesc(Long ownerUserId, String taskType, Collection<String> statuses);
 
     Optional<AgentTaskEntity> findByIdAndOwnerUserId(Long id, Long ownerUserId);
+
+    void deleteAllByOwnerUserIdIn(Collection<Long> ownerUserIds);
 }

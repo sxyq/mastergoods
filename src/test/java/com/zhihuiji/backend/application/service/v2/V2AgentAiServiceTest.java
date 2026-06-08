@@ -104,6 +104,9 @@ class V2AgentAiServiceTest {
         );
         when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
         when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        when(longCatAnthropicClient.configurationStatus()).thenReturn("disabled");
+        when(longCatAnthropicClient.streamingUnavailableStatus()).thenReturn("disabled");
+        when(longCatAnthropicClient.supportsStreaming()).thenReturn(false);
         when(agentConversationRepository.save(any(AgentConversationEntity.class))).thenAnswer(invocation -> {
             AgentConversationEntity entity = invocation.getArgument(0);
             if (entity.getId() == null) {
@@ -213,6 +216,7 @@ class V2AgentAiServiceTest {
     @Test
     void streamFallbackAnswerCompletesRuleSummaryWithoutFakeDeltas() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of());
         CapturingEmitter emitter = new CapturingEmitter();
@@ -258,6 +262,7 @@ class V2AgentAiServiceTest {
     @Test
     void streamModelAnswerEmitsOnlyModelStreamDeltasAndStreamedCompletion() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
@@ -322,6 +327,7 @@ class V2AgentAiServiceTest {
     @Test
     void streamEventsIncludeCompatibleEnvelopeMetadata() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
@@ -378,6 +384,7 @@ class V2AgentAiServiceTest {
     @Test
     void cancelRunMarksActiveStreamCancelledAndEmitsRunCancelledEvent() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         CountDownLatch modelStreamEntered = new CountDownLatch(1);
@@ -454,7 +461,7 @@ class V2AgentAiServiceTest {
         assertEquals(response.blocks().size(), response.resultBlocks().size());
         assertTrue(response.performanceSummary().durationMs() >= 0);
         assertTrue(response.performanceSummary().toolDurationMs() >= 0);
-        assertTrue(response.performanceSummary().modelDurationMs() >= 0);
+        assertEquals(0L, response.performanceSummary().modelDurationMs());
         assertTrue(response.auditId().endsWith(":audit"));
         assertTrue(response.traceId().endsWith(":trace"));
         assertNotNull(response.observability());
@@ -475,6 +482,41 @@ class V2AgentAiServiceTest {
         assertEquals(response.auditId(), audit.getAuditId());
         assertEquals(response.traceId(), audit.getTraceId());
         assertNotNull(audit.getCompletedAt());
+    }
+
+    @Test
+    void nonStreamingRuleSummaryDistinguishesNotConfiguredModelStatus() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        when(longCatAnthropicClient.configurationStatus()).thenReturn("not_configured");
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(customer(1L, "客户A", 100.0)));
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "客户应收情况", false)
+        );
+
+        assertEquals("tool_query_rule_summary", response.mode());
+        assertEquals("not_configured", response.llmStatus());
+        assertEquals(0L, response.performanceSummary().modelDurationMs());
+        assertTrue(response.answer().contains("当前未使用模型生成"), response.answer());
+    }
+
+    @Test
+    void streamRuleSummaryDistinguishesNonStreamingProviderFromDisabledModel() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.supportsStreaming()).thenReturn(false);
+        when(longCatAnthropicClient.streamingUnavailableStatus()).thenReturn("stream_not_supported");
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(customer(1L, "客户A", 100.0)));
+        CapturingEmitter emitter = new CapturingEmitter();
+
+        service.runChatStream(1L, conversation(108L), "客户应收情况", "run-no-stream-provider", emitter);
+
+        assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"event_type\":\"answer_delta\"")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_rule_summary\"")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"stream_not_supported\"")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")), String.join("\n", emitter.payloads));
+        assertTrue(emitter.completed);
     }
 
     @Test
@@ -511,6 +553,7 @@ class V2AgentAiServiceTest {
     @Test
     void getRunAuditReturnsOwnerScopedSummaryAndEvents() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))

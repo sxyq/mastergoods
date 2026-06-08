@@ -34,6 +34,9 @@ public class ReportService {
     private static final int INVENTORY_FLOW_IN = 1;
     private static final int INVENTORY_SOURCE_SALE = 0;
     private static final int INVENTORY_SOURCE_ADJUSTMENT = 1;
+    private static final long DAY_BUCKET_MILLIS = 86_400_000L;
+    private static final long SIX_HOUR_BUCKET_MILLIS = 21_600_000L;
+    private static final int MAX_TREND_BUCKETS = 370;
 
     private final SaleOrderRepository saleOrderRepository;
     private final SaleOrderItemRepository saleOrderItemRepository;
@@ -89,6 +92,39 @@ public class ReportService {
             totalUnpaid,
             (int) orderCount
         );
+    }
+
+    public List<ReportDto.SalesTrendPointReportDto> salesTrend(Long startAt, Long endAt, String bucket) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        TimeRange range = normalizeRange(startAt, endAt);
+        long bucketMillis = normalizeSalesTrendBucket(bucket);
+        int bucketCount = trendBucketCount(range, bucketMillis);
+        Map<Long, Object[]> rowsByBucket = saleOrderRepository.salesTrendBuckets(
+                ownerUserId,
+                range.startAt(),
+                range.endAt(),
+                bucketMillis,
+                OrderStatus.CANCELLED.code()
+            ).stream()
+            .collect(Collectors.toMap(
+                row -> safeLong(row[0]),
+                row -> row,
+                (left, ignored) -> left
+            ));
+
+        List<ReportDto.SalesTrendPointReportDto> points = new ArrayList<>();
+        for (int index = 0; index < bucketCount; index++) {
+            long pointStart = range.startAt() + (bucketMillis * index);
+            long pointEnd = Math.min(range.endAt(), pointStart + bucketMillis - 1L);
+            Object[] row = rowsByBucket.get((long) index);
+            points.add(new ReportDto.SalesTrendPointReportDto(
+                pointStart,
+                pointEnd,
+                row == null ? 0.0 : safeDouble(row[1]),
+                row == null ? 0 : safeInt(row[2])
+            ));
+        }
+        return points;
     }
 
     public ReportDto.ProfitSummaryReportDto profitSummary(Long startAt, Long endAt) {
@@ -505,6 +541,19 @@ public class ReportService {
             return new TimeRange(safeStart, safeEnd);
         }
         return new TimeRange(safeEnd, safeStart);
+    }
+
+    private long normalizeSalesTrendBucket(String bucket) {
+        if ("hour6".equalsIgnoreCase(bucket) || "6h".equalsIgnoreCase(bucket)) {
+            return SIX_HOUR_BUCKET_MILLIS;
+        }
+        return DAY_BUCKET_MILLIS;
+    }
+
+    private int trendBucketCount(TimeRange range, long bucketMillis) {
+        long duration = Math.max(0L, range.endAt() - range.startAt());
+        long count = (duration / bucketMillis) + 1L;
+        return (int) Math.max(1L, Math.min(count, MAX_TREND_BUCKETS));
     }
 
     private boolean between(long value, long startAt, long endAt) {

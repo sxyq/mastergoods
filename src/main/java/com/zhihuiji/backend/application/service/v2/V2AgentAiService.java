@@ -251,6 +251,9 @@ public class V2AgentAiService {
         long modelStartedAt = System.currentTimeMillis();
         FinalAnswer finalAnswer = buildFinalAnswer(message, payload);
         long completedAt = System.currentTimeMillis();
+        long modelDurationMs = finalAnswer.modelAttempted()
+            ? Math.max(0L, completedAt - modelStartedAt)
+            : 0L;
         persistAssistantResponse(ownerUserId, conversation, finalAnswer.answer(), payload.blocks(), System.currentTimeMillis());
         finishRunAudit(
             ownerUserId,
@@ -285,7 +288,7 @@ public class V2AgentAiService {
                 completedAt,
                 Math.max(0L, completedAt - runStartedAt),
                 payload.toolDurationMs(),
-                Math.max(0L, completedAt - modelStartedAt)
+                modelDurationMs
             ),
             auditId,
             traceId,
@@ -1390,15 +1393,20 @@ public class V2AgentAiService {
     private FinalAnswer buildFinalAnswer(String userMessage, ResponsePayload payload) {
         if (payload.toolFailures() != null && !payload.toolFailures().isEmpty()
             && (payload.toolResults() == null || payload.toolResults().isEmpty())) {
-            return new FinalAnswer(appendFailureNotice(payload.answer(), payload.toolFailures()), "tool_query_failed", "not_requested");
+            return new FinalAnswer(appendFailureNotice(payload.answer(), payload.toolFailures()), "tool_query_failed", "not_requested", false);
         }
         if (payload.toolResults() == null || payload.toolResults().isEmpty()) {
-            return new FinalAnswer(payload.answer(), "unsupported_intent", "not_requested");
+            return new FinalAnswer(payload.answer(), "unsupported_intent", "not_requested", false);
         }
         String synthesized = synthesizeAnswer(userMessage, payload.toolResults(), payload.answer());
         String synthesizedWithFailures = appendFailureNotice(synthesized, payload.toolFailures());
         if (!longCatAnthropicClient.isConfigured()) {
-            return new FinalAnswer(withRuleSummaryNotice(synthesizedWithFailures), "tool_query_rule_summary", "disabled");
+            return new FinalAnswer(
+                withRuleSummaryNotice(synthesizedWithFailures),
+                "tool_query_rule_summary",
+                longCatAnthropicClient.configurationStatus(),
+                false
+            );
         }
         String systemPrompt = """
             你是智慧记的 agentic AI 助手。你不能编造数据，只能基于服务端白名单工具返回的事实回答。
@@ -1419,8 +1427,13 @@ public class V2AgentAiService {
             .filter(StringUtils::hasText)
             .map(String::trim)
             .map(answer -> appendFailureNotice(answer, payload.toolFailures()))
-            .map(answer -> new FinalAnswer(answer, "tool_query_llm_synthesized", "available"))
-            .orElseGet(() -> new FinalAnswer(withRuleSummaryNotice(synthesizedWithFailures), "tool_query_rule_summary", "failed_or_empty"));
+            .map(answer -> new FinalAnswer(answer, "tool_query_llm_synthesized", "available", true))
+            .orElseGet(() -> new FinalAnswer(
+                withRuleSummaryNotice(synthesizedWithFailures),
+                "tool_query_rule_summary",
+                "failed_or_empty",
+                true
+            ));
     }
 
     private FinalAnswer buildFinalAnswerForStream(
@@ -1432,16 +1445,30 @@ public class V2AgentAiService {
         if (payload.toolFailures() != null && !payload.toolFailures().isEmpty()
             && (payload.toolResults() == null || payload.toolResults().isEmpty())) {
             String failedAnswer = appendFailureNotice(payload.answer(), payload.toolFailures());
-            return new FinalAnswer(failedAnswer, "tool_query_failed", "not_requested");
+            return new FinalAnswer(failedAnswer, "tool_query_failed", "not_requested", false);
         }
         if (payload.toolResults() == null || payload.toolResults().isEmpty()) {
-            return new FinalAnswer(payload.answer(), "unsupported_intent", "not_requested");
+            return new FinalAnswer(payload.answer(), "unsupported_intent", "not_requested", false);
         }
         String synthesized = synthesizeAnswer(userMessage, payload.toolResults(), payload.answer());
         String synthesizedWithFailures = appendFailureNotice(synthesized, payload.toolFailures());
         if (!longCatAnthropicClient.isConfigured()) {
             String ruleSummaryAnswer = withRuleSummaryNotice(synthesizedWithFailures);
-            return new FinalAnswer(ruleSummaryAnswer, "tool_query_rule_summary", "disabled");
+            return new FinalAnswer(
+                ruleSummaryAnswer,
+                "tool_query_rule_summary",
+                longCatAnthropicClient.configurationStatus(),
+                false
+            );
+        }
+        if (!longCatAnthropicClient.supportsStreaming()) {
+            String ruleSummaryAnswer = withRuleSummaryNotice(synthesizedWithFailures);
+            return new FinalAnswer(
+                ruleSummaryAnswer,
+                "tool_query_rule_summary",
+                longCatAnthropicClient.streamingUnavailableStatus(),
+                false
+            );
         }
         String systemPrompt = finalAnswerSystemPrompt();
         String prompt = finalAnswerUserPrompt(userMessage, payload, synthesizedWithFailures);
@@ -1455,7 +1482,7 @@ public class V2AgentAiService {
             .filter(StringUtils::hasText)
             .map(String::trim)
             .map(answer -> appendFailureNotice(answer, payload.toolFailures()))
-            .map(answer -> new FinalAnswer(answer, "tool_query_llm_streamed", "streaming"))
+            .map(answer -> new FinalAnswer(answer, "tool_query_llm_streamed", "streaming", true))
             .orElseGet(() -> streamFallbackFinalAnswer(emitter, runId, streamedAnswer, synthesizedWithFailures, payload));
     }
 
@@ -1468,10 +1495,10 @@ public class V2AgentAiService {
     ) {
         if (streamedAnswer != null && StringUtils.hasText(streamedAnswer.toString())) {
             String partialAnswer = appendFailureNotice(streamedAnswer.toString().trim(), payload.toolFailures());
-            return new FinalAnswer(partialAnswer, "tool_query_llm_stream_interrupted", "stream_interrupted");
+            return new FinalAnswer(partialAnswer, "tool_query_llm_stream_interrupted", "stream_interrupted", true);
         }
         String ruleSummaryAnswer = withRuleSummaryNotice(synthesizedWithFailures);
-        return new FinalAnswer(ruleSummaryAnswer, "tool_query_rule_summary", "stream_failed_or_empty");
+        return new FinalAnswer(ruleSummaryAnswer, "tool_query_rule_summary", "stream_failed_or_empty", true);
     }
 
     private String withRuleSummaryNotice(String answer) {
@@ -2626,7 +2653,7 @@ public class V2AgentAiService {
         }
     }
 
-    private record FinalAnswer(String answer, String mode, String llmStatus) {}
+    private record FinalAnswer(String answer, String mode, String llmStatus, boolean modelAttempted) {}
 
     private record ToolExecutionResult(String toolName, String summary, JsonNode facts) {
         private String toolCallId() {

@@ -30,6 +30,7 @@ import com.zhihuiji.backend.infrastructure.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +44,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Profile("local")
 public class DemoDataService {
     private static final String DEMO_OWNER_PHONE = "13800138111";
+    private static final List<String> DEMO_USER_PHONES = List.of(
+        "13800138111",
+        "13800138112",
+        "13800138113",
+        "13800138114"
+    );
 
     private final UserRepository userRepository;
     private final SessionRepository sessionRepository;
@@ -148,8 +155,11 @@ public class DemoDataService {
     }
 
     private void clearAll() {
-        agentNotificationRepository.deleteAll();
-        agentTaskRepository.deleteAll();
+        List<Long> demoUserIds = demoOwnerUserIds();
+        if (!demoUserIds.isEmpty()) {
+            agentNotificationRepository.deleteAllByOwnerUserIdIn(demoUserIds);
+            agentTaskRepository.deleteAllByOwnerUserIdIn(demoUserIds);
+        }
         inventoryAdjustmentRepository.deleteAll();
         paymentRepository.deleteAll();
         saleOrderItemRepository.deleteAll();
@@ -164,6 +174,16 @@ public class DemoDataService {
         userRepository.deleteAll();
         entityManager.flush();
         entityManager.clear();
+    }
+
+    private List<Long> demoOwnerUserIds() {
+        List<Long> ids = new ArrayList<>();
+        for (String phone : DEMO_USER_PHONES) {
+            userRepository.findByPhone(phone)
+                .map(UserEntity::getId)
+                .ifPresent(ids::add);
+        }
+        return ids;
     }
 
     private void createUsers(long now) {

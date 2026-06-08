@@ -6,11 +6,9 @@ import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.model.FinanceFilter
 import com.zhihuiji.core.model.FinanceRecordDto
 import com.zhihuiji.core.model.ReconciliationSummaryReportDto
-import com.zhihuiji.core.model.v2.order.SaleOrderV2Dto
-import com.zhihuiji.core.model.v2.order.SaleOrderV2Filter
+import com.zhihuiji.core.model.SalesTrendPointReportDto
 import com.zhihuiji.data.customer.CustomerV2Repository
 import com.zhihuiji.data.finance.FinanceRepository
-import com.zhihuiji.data.order.SaleOrderV2Repository
 import com.zhihuiji.data.product.ProductV2Repository
 import com.zhihuiji.data.report.ReportRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -76,7 +74,6 @@ sealed interface DashboardSalesScope {
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    private val saleOrderRepository: SaleOrderV2Repository,
     private val productRepository: ProductV2Repository,
     private val customerRepository: CustomerV2Repository,
     private val financeRepository: FinanceRepository,
@@ -99,22 +96,26 @@ class DashboardViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
 
             val dateRange = selectedScope.toDateRange()
-            val salesFilter = SaleOrderV2Filter(
-                createdAfter = dateRange.startMillis.toString(),
-                createdBefore = dateRange.endMillis.toString()
-            )
             val financeFilter = FinanceFilter(
                 createdAfter = dateRange.startMillis.toString(),
                 createdBefore = dateRange.endMillis.toString(),
             )
-            val saleOrdersDeferred = async { saleOrderRepository.listSaleOrders(salesFilter) }
+            val salesSummaryDeferred = async { reportRepository.salesSummary(dateRange.startMillis, dateRange.endMillis) }
+            val salesTrendDeferred = async {
+                reportRepository.salesTrend(
+                    startAt = dateRange.startMillis,
+                    endAt = dateRange.endMillis,
+                    bucket = dateRange.salesTrendBucket
+                )
+            }
             val lowStockDeferred = async { productRepository.listLowStockProducts(size = 10) }
             val reconciliationSummaryDeferred = async {
                 reportRepository.reconciliationSummary(dateRange.startMillis, dateRange.endMillis)
             }
             val financeRecordsDeferred = async { fetchFinanceRecords(financeFilter) }
 
-            val saleOrdersResult = saleOrdersDeferred.await()
+            val salesSummaryResult = salesSummaryDeferred.await()
+            val salesTrendResult = salesTrendDeferred.await()
             val lowStockResult = lowStockDeferred.await()
             val reconciliationSummaryResult = reconciliationSummaryDeferred.await()
             val financeRecordsResult = financeRecordsDeferred.await()
@@ -127,13 +128,12 @@ class DashboardViewModel @Inject constructor(
 
             if (requestSequence != loadSequence) return@launch
 
-            val activeSaleOrders = saleOrdersResult.getOrNull()
-                .orEmpty()
-                .filter { it.status != StatusLabels.Codes.SALE_CANCELLED }
-            val salesAmount = activeSaleOrders.sumOf { it.totalAmount }
-            val salesOrderCount = activeSaleOrders.size
+            val salesSummary = salesSummaryResult.getOrNull()
+            val trendPoints = salesTrendResult.getOrNull().orEmpty()
+            val salesAmount = salesSummary?.totalSalesAmount ?: trendPoints.sumOf { it.totalSalesAmount }
+            val salesOrderCount = salesSummary?.totalOrderCount ?: trendPoints.sumOf { it.totalOrderCount }
             val salesTrend = buildSalesTrend(
-                orders = activeSaleOrders,
+                trendPoints = trendPoints,
                 dateRange = dateRange
             )
             val lowStockCount = lowStockResult.getOrNull()?.size ?: 0
@@ -170,7 +170,8 @@ class DashboardViewModel @Inject constructor(
             val reminders = buildPendingReminders(lowStockItems, receivableAmount)
 
             val results = listOf(
-                saleOrdersResult,
+                salesSummaryResult,
+                salesTrendResult,
                 lowStockResult,
                 reconciliationSummaryResult,
                 financeRecordsResult,
@@ -200,16 +201,16 @@ class DashboardViewModel @Inject constructor(
     }
 
     private fun buildSalesTrend(
-        orders: List<SaleOrderV2Dto>,
+        trendPoints: List<SalesTrendPointReportDto>,
         dateRange: DashboardDateRange
     ): List<SalesTrendPoint> {
         if (dateRange.days == 1) {
-            return buildSingleDaySalesTrend(orders)
+            return buildSingleDaySalesTrend(trendPoints)
         }
 
-        val amountByDate = orders
-            .groupBy { order -> order.createdAt.toLocalDate() }
-            .mapValues { (_, dayOrders) -> dayOrders.sumOf { it.totalAmount } }
+        val amountByDate = trendPoints
+            .groupBy { point -> point.startAt.toLocalDate() }
+            .mapValues { (_, dayPoints) -> dayPoints.sumOf { it.totalSalesAmount } }
 
         return (0 until dateRange.days).map { offset ->
             val date = dateRange.startDate.plusDays(offset.toLong())
@@ -220,10 +221,10 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    private fun buildSingleDaySalesTrend(orders: List<SaleOrderV2Dto>): List<SalesTrendPoint> {
-        val amountBySlot = orders
-            .groupBy { order -> (order.createdAt.toLocalHour() / 6).coerceIn(0, 3) }
-            .mapValues { (_, slotOrders) -> slotOrders.sumOf { it.totalAmount } }
+    private fun buildSingleDaySalesTrend(trendPoints: List<SalesTrendPointReportDto>): List<SalesTrendPoint> {
+        val amountBySlot = trendPoints
+            .groupBy { point -> (point.startAt.toLocalHour() / 6).coerceIn(0, 3) }
+            .mapValues { (_, slotPoints) -> slotPoints.sumOf { it.totalSalesAmount } }
 
         return SINGLE_DAY_CHART_SLOTS.map { (slot, label) ->
             SalesTrendPoint(
@@ -349,7 +350,10 @@ private data class DashboardDateRange(
     val startMillis: Long,
     val endMillis: Long,
     val days: Int
-)
+) {
+    val salesTrendBucket: String
+        get() = if (days == 1) "hour6" else "day"
+}
 
 private fun ReconciliationSummaryReportDto?.needsReceivableCustomerFallback(): Boolean =
     this == null || (totalReceivableAmount > 0.0 && totalReceivableCustomerCount == 0L)

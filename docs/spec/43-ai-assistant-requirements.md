@@ -160,7 +160,7 @@ P0 非目标：
 - `run_id`
 - `conversation_id`
 - `mode`：`llm`、`rules_only`、`tool_only`、`blocked`、`partial`
-- `llm_status`：`enabled`、`disabled`、`not_configured`、`timeout`、`error`
+- `llm_status`：`available`、`streaming`、`disabled`、`not_configured`、`stream_not_supported`、`stream_failed_or_empty`、`stream_interrupted`、`failed_or_empty`、`not_requested`、`timeout`、`error`
 - `answer`
 - `blocks`
 - `tool_results_summary`
@@ -773,7 +773,7 @@ Android 只能渲染后端 `ResultBlockDto` 和工具结果，不得为美观补
 | 样例 | 后端证据要求 | Android 展示要求 | 验收结论 |
 |---|---|---|---|
 | `model_stream` 成功 | SSE 存在真实 `answer_delta(delta_source=model_stream)`；`mode` 表示模型流式成功；`llm_status=enabled`；审计记录模型 streaming 开始和结束 | 可以展示“模型生成中”；RunTrace 标记“模型流式回复”；最终气泡不显示降级 | 通过真流式验收 |
-| `rule_summary` 降级 | 工具真实完成后，SSE 不发送 `answer_delta`；`answer_completed` 返回 `mode=tool_query_rule_summary` 或等价；`llm_status=disabled/not_configured/stream_failed_or_empty` | 必须显示“数据查询 / 规则摘要模式”；不得显示“模型正在思考”“模型流式成功”或吐字动画 | 只通过诚实降级，不通过真模型流式 |
+| `rule_summary` 降级 | 工具真实完成后，SSE 不发送 `answer_delta`；`answer_completed` 返回 `mode=tool_query_rule_summary` 或等价；`llm_status=disabled/not_configured/stream_not_supported/stream_failed_or_empty/failed_or_empty` | 必须显示“数据查询 / 规则摘要模式”；不得显示“模型正在思考”“模型流式成功”或吐字动画 | 只通过诚实降级，不通过真模型流式 |
 | `stream failed` 部分模型 delta 后失败 | 原始 SSE 有部分 `model_stream` delta，随后 `run_failed` 或 `answer_completed(warnings includes stream_interrupted)`；审计记录供应商错误摘要 | 保留已收到内容，显示“模型流式中断”；如有规则补充，必须分段标明来源 | 通过部分成功或失败，不能标为完全成功 |
 | `LLM disabled` | HTTP / SSE 返回 `llm_status=disabled`，无 `model_stream` delta；工具仍可真实执行 | UI 显示模型不可用，当前基于真实数据查询和规则摘要 | 通过降级；若显示 AI 智能推理则失败 |
 | `SSE disconnect` | Android 记录连接断开时间、最后 `seq`；后端 run 最终状态可通过 audit / retry 查询 | UI 显示“连接中断，可重试或查看非流式结果”；不得把不完整回答当最终成功 | 需二次查询 run 终态；缺终态证据为 partial |
@@ -1053,7 +1053,7 @@ P0 验收必须在同一环境、同一账号、同一后端 profile 下记录�
 
 | 证据 | 当前状态 | 需求影响 |
 |---|---|---|
-| `src/main/java/com/zhihuiji/backend/application/service/DemoDataService.java:109-129` 只 seed 用户、供应商、客户、商品、采购、销售、付款和库存异常；`src/main/java/com/zhihuiji/backend/infrastructure/config/LocalDemoDataInitializer.java:9-20` 限定在 `local` profile 自动 seed。 | warm AI artifact seed 已不在当前 seed 流程中；`clearAll()` 仍会清理历史 agent task / notification，见 `DemoDataService.java:150-152`。 | 支撑 AGT-P0-001、AGT-P0-009；后续仍需用生产 profile 启动证据证明 demo seed 不污染生产任务 / 通知。 |
+| `src/main/java/com/zhihuiji/backend/application/service/DemoDataService.java:109-129` 只 seed 用户、供应商、客户、商品、采购、销售、付款和库存异常；`src/main/java/com/zhihuiji/backend/infrastructure/config/LocalDemoDataInitializer.java:9-20` 限定在 `local` profile 自动 seed。 | warm AI artifact seed 已不在当前 seed 流程中；`clearAll()` 的 agent task / notification 清理已改为 demo owner 范围，不再全表删除非 demo owner 的真实 AI 历史。`AdminControllerTest.seedResetDoesNotDeleteNonDemoOwnerAgentArtifacts()` 覆盖 reset 后真实 owner task / notification 保留。 | 支撑 AGT-P0-001、AGT-P0-009；后续仍需用生产 profile 启动证据证明 demo seed 不污染生产任务 / 通知。 |
 | `src/main/java/com/zhihuiji/backend/api/controller/v2/V2AgentController.java:126-134` 暴露 `/v2/agent/chat` 和 `/v2/agent/chat/stream`，均进入 `V2AgentAiService`。 | 这是 AI 助手真实验收入口；后续验收不得用 legacy admin smoke 代替。 | 支撑 AGT-P0-002、AGT-P0-011。 |
 | `src/main/java/com/zhihuiji/backend/infrastructure/ai/LongCatAnthropicClient.java:55-59` 要求 enabled、apiKey、model、baseUrl 全部存在才调用模型；`LongCatAnthropicClient.java:206-277` 使用 `stream=true` 请求 OpenAI-compatible `chat/completions` 并逐行解析 SSE delta。 | 模型调用和 streaming 都在服务端；Android 不得持有密钥或 provider 配置。 | 支撑 AGT-P0-005、AGT-P0-007 和安全门禁。 |
 | `src/main/resources/application.yml:39-45`、`src/main/resources/application-prod.yml:43-48` 默认 `AGENT_LLM_ENABLED=false`；`src/main/resources/application-local.yml:17-22` local 默认 enabled 但 api-key 仍来自环境变量。 | P0 验收必须分别覆盖 disabled 降级和模型配置齐全后的真实 LLM 路径；不能把 local 默认 enabled 当作模型已可用证据。 | 支撑 AGT-P0-007、AGT-P0-013。 |

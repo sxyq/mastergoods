@@ -37,7 +37,7 @@
 - 统一改为更接近设计稿的浅蓝毛玻璃首页信息结构，补充了总览卡、搜索/筛选、待办/资金/库存分组。
 - 复用 `GlassTopBar`、`GlassCard`、`KpiCard`、`BusinessListItem`、`SearchFilterBar`、`FilterChipRow`、`StatusPill`、`EmptyState` 等现有组件，避免私有样式漂移。
 - 明确补入“当前仅汇总销售单、账户余额、低库存接口”的诚实态文案，不把本地 UI 调整描述成完整经营总览已经联调完成。
-- 不改 UI 的性能补强：`receivableAmount` 和 `receivableCustomerCount` 优先使用 `ReportRepository.reconciliationSummary()` 的服务端 SUM / COUNT 字段，只有汇总失败或旧后端缺 count 时才兜底拉客户列表；`netCashFlow` 仍保留资金流水收入 / 支出的原有口径，避免用回款 / 付款单口径替代。
+- 不改 UI 的性能补强：`receivableAmount` 和 `receivableCustomerCount` 优先使用 `ReportRepository.reconciliationSummary()` 的服务端 SUM / COUNT 字段，只有汇总失败或旧后端缺 count 时才兜底拉客户列表；销售额、订单数和趋势图改走 `ReportRepository.salesSummary()` / `salesTrend()` 服务端聚合，不再为首页拉全量销售订单；`netCashFlow` 仍保留资金流水收入 / 支出的原有口径，避免用回款 / 付款单口径替代。
 
 ## 验收标准
 

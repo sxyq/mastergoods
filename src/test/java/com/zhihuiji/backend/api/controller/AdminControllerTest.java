@@ -1,5 +1,6 @@
 package com.zhihuiji.backend.api.controller;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -8,13 +9,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhihuiji.backend.application.service.DemoDataService;
+import com.zhihuiji.backend.domain.entity.AgentNotificationEntity;
+import com.zhihuiji.backend.domain.entity.AgentTaskEntity;
+import com.zhihuiji.backend.domain.entity.UserEntity;
+import com.zhihuiji.backend.infrastructure.repository.AgentNotificationRepository;
+import com.zhihuiji.backend.infrastructure.repository.AgentTaskRepository;
+import com.zhihuiji.backend.infrastructure.repository.UserRepository;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,9 +35,17 @@ class AdminControllerTest {
     private ObjectMapper objectMapper;
     @Autowired
     private DemoDataService demoDataService;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private AgentTaskRepository agentTaskRepository;
+    @Autowired
+    private AgentNotificationRepository agentNotificationRepository;
 
     @BeforeEach
     void setUp() {
+        agentNotificationRepository.deleteAll();
+        agentTaskRepository.deleteAll();
         demoDataService.seed(true);
     }
 
@@ -59,6 +73,33 @@ class AdminControllerTest {
             .andExpect(jsonPath("$.data.userCount").value(4))
             .andExpect(jsonPath("$.data.productCount").value(5))
             .andExpect(jsonPath("$.data.demoAccounts[0].phone").value("13800138111"));
+    }
+
+    @Test
+    void seedResetDoesNotDeleteNonDemoOwnerAgentArtifacts() throws Exception {
+        UserEntity realOwner = new UserEntity();
+        realOwner.setPhone("13800138999");
+        realOwner.setPasswordHash("hash");
+        realOwner.setNickname("真实经营账号");
+        realOwner.setStatus(1);
+        realOwner.setCreatedAt(System.currentTimeMillis());
+        realOwner.setUpdatedAt(System.currentTimeMillis());
+        realOwner = userRepository.save(realOwner);
+        AgentTaskEntity task = agentTask(realOwner.getId());
+        task = agentTaskRepository.save(task);
+        AgentNotificationEntity notification = agentNotification(realOwner.getId(), task.getId());
+        notification = agentNotificationRepository.save(notification);
+
+        mockMvc.perform(post("/v1/admin/demo/seed").param("reset", "true"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(0));
+
+        mockMvc.perform(get("/v1/admin/summary"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.agentTaskCount").value(1))
+            .andExpect(jsonPath("$.data.unreadNotificationCount").value(1));
+        assertTrue(agentTaskRepository.findById(task.getId()).isPresent());
+        assertTrue(agentNotificationRepository.findById(notification.getId()).isPresent());
     }
 
     @Test
@@ -165,5 +206,34 @@ class AdminControllerTest {
             .andExpect(status().isGone())
             .andExpect(jsonPath("$.code").value(410))
             .andExpect(jsonPath("$.message").value("Use authenticated /v2/agent/chat or /v2/agent/chat/stream with real owner-scoped data."));
+    }
+
+    private static AgentTaskEntity agentTask(Long ownerUserId) {
+        AgentTaskEntity entity = new AgentTaskEntity();
+        entity.setOwnerUserId(ownerUserId);
+        entity.setTaskType("real_run");
+        entity.setTitle("真实 run 任务");
+        entity.setTriggerSource("agent_run");
+        entity.setStatus("completed");
+        entity.setProgress(100);
+        entity.setInputText("真实查询");
+        entity.setResultJson("{}");
+        entity.setCreatedAt(System.currentTimeMillis());
+        entity.setUpdatedAt(System.currentTimeMillis());
+        entity.setCompletedAt(System.currentTimeMillis());
+        return entity;
+    }
+
+    private static AgentNotificationEntity agentNotification(Long ownerUserId, Long taskId) {
+        AgentNotificationEntity entity = new AgentNotificationEntity();
+        entity.setOwnerUserId(ownerUserId);
+        entity.setTaskId(taskId);
+        entity.setTitle("真实通知");
+        entity.setBody("真实 run 完成");
+        entity.setLevel("info");
+        entity.setIsRead(false);
+        entity.setIsDelivered(false);
+        entity.setCreatedAt(System.currentTimeMillis());
+        return entity;
     }
 }

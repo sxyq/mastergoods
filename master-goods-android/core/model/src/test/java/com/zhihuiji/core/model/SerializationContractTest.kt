@@ -60,6 +60,23 @@ class SerializationContractTest {
     }
 
     @Test
+    fun salesTrendPoint_usesSnakeCaseForDashboardAggregateContract() {
+        val encoded = json.encodeToString(
+            SalesTrendPointReportDto(
+                startAt = 1L,
+                endAt = 2L,
+                totalSalesAmount = 88.5,
+                totalOrderCount = 3,
+            ),
+        )
+
+        assertTrue(encoded.contains("\"start_at\":1"))
+        assertTrue(encoded.contains("\"end_at\":2"))
+        assertTrue(encoded.contains("\"total_sales_amount\":88.5"))
+        assertTrue(encoded.contains("\"total_order_count\":3"))
+    }
+
+    @Test
     fun reconciliationSummary_decodesOldResponsesWithoutPartnerCounts() {
         val decoded = json.decodeFromString<ReconciliationSummaryReportDto>(
             """

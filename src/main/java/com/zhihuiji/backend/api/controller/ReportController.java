@@ -26,6 +26,15 @@ public class ReportController {
         return ApiResponse.success(reportService.salesSummary(startAt, endAt));
     }
 
+    @GetMapping("/sales-trend")
+    public ApiResponse<List<ReportDto.SalesTrendPointReportDto>> salesTrend(
+        @RequestParam("start_at") Long startAt,
+        @RequestParam("end_at") Long endAt,
+        @RequestParam(value = "bucket", defaultValue = "day") String bucket
+    ) {
+        return ApiResponse.success(reportService.salesTrend(startAt, endAt, bucket));
+    }
+
     @GetMapping("/profit-summary")
     public ApiResponse<ReportDto.ProfitSummaryReportDto> profitSummary(
         @RequestParam("start_at") Long startAt,

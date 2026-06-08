@@ -18,6 +18,14 @@ public final class ReportDto {
     ) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record SalesTrendPointReportDto(
+        long startAt,
+        long endAt,
+        double totalSalesAmount,
+        int totalOrderCount
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record ProfitSummaryReportDto(
         long startAt,
         long endAt,

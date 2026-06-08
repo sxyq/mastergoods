@@ -16,6 +16,7 @@ class ZhihuijiApiContractTest {
         assertEquals("v1/pay-orders", getPath("payOrders"))
         assertEquals("v1/finance-records", getPath("financeRecords"))
         assertEquals("v1/reports/sales-summary", getPath("salesSummary"))
+        assertEquals("v1/reports/sales-trend", getPath("salesTrend"))
         assertEquals("v1/sync/health", getPath("syncHealth"))
         assertEquals("v2/agent/workbench", getPath("agentWorkbenchV2", ZhihuijiV2Api::class.java))
     }

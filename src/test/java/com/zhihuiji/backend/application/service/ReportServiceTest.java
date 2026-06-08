@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.application.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.zhihuiji.backend.api.common.OrderStatus;
@@ -103,6 +104,57 @@ class ReportServiceTest {
         assertEquals(4L, result.totalReceivableCustomerCount());
         assertEquals(2L, result.totalPayableSupplierCount());
         assertEquals(50.0, result.netCashFlow());
+    }
+
+    @Test
+    void salesTrendReturnsFilledSixHourBucketsFromDatabaseAggregates() {
+        when(saleOrderRepository.salesTrendBuckets(
+            1L,
+            0L,
+            86_399_999L,
+            21_600_000L,
+            OrderStatus.CANCELLED.code()
+        )).thenReturn(List.of(
+            new Object[] {0L, 120.0, 2L},
+            new Object[] {2L, 80.0, 1L}
+        ));
+
+        List<ReportDto.SalesTrendPointReportDto> result = reportService.salesTrend(0L, 86_399_999L, "hour6");
+
+        assertEquals(4, result.size());
+        assertEquals(0L, result.get(0).startAt());
+        assertEquals(21_599_999L, result.get(0).endAt());
+        assertEquals(120.0, result.get(0).totalSalesAmount());
+        assertEquals(2, result.get(0).totalOrderCount());
+        assertEquals(0.0, result.get(1).totalSalesAmount());
+        assertEquals(43_200_000L, result.get(2).startAt());
+        assertEquals(80.0, result.get(2).totalSalesAmount());
+        assertEquals(64_800_000L, result.get(3).startAt());
+    }
+
+    @Test
+    void salesTrendNormalizesRangeAndUsesCancelledStatusInAggregateQuery() {
+        when(saleOrderRepository.salesTrendBuckets(
+            1L,
+            1_000L,
+            3_000L,
+            86_400_000L,
+            OrderStatus.CANCELLED.code()
+        )).thenReturn(List.<Object[]>of(new Object[] {0L, 55.0, 1L}));
+
+        List<ReportDto.SalesTrendPointReportDto> result = reportService.salesTrend(3_000L, 1_000L, "day");
+
+        assertEquals(1, result.size());
+        assertEquals(1_000L, result.get(0).startAt());
+        assertEquals(3_000L, result.get(0).endAt());
+        assertEquals(55.0, result.get(0).totalSalesAmount());
+        verify(saleOrderRepository).salesTrendBuckets(
+            1L,
+            1_000L,
+            3_000L,
+            86_400_000L,
+            OrderStatus.CANCELLED.code()
+        );
     }
 
     private static SaleOrderEntity saleOrder(Long id, Long createdAt) {

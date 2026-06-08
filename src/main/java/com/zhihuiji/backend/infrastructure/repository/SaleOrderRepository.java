@@ -91,6 +91,25 @@ public interface SaleOrderRepository extends JpaRepository<SaleOrderEntity, Long
     @Query("SELECT COUNT(o) FROM SaleOrderEntity o WHERE o.ownerUserId = :ownerUserId AND o.createdAt BETWEEN :startAt AND :endAt AND o.status <> 2")
     Long countNonCancelledBetween(@Param("ownerUserId") Long ownerUserId, @Param("startAt") Long startAt, @Param("endAt") Long endAt);
 
+    @Query(value = """
+        SELECT FLOOR((created_at - :startAt) / :bucketMillis) AS bucket_index,
+               COALESCE(SUM(total_amount), 0) AS total_sales_amount,
+               COUNT(*) AS total_order_count
+        FROM sale_orders
+        WHERE owner_user_id = :ownerUserId
+          AND created_at BETWEEN :startAt AND :endAt
+          AND status <> :cancelledStatus
+        GROUP BY FLOOR((created_at - :startAt) / :bucketMillis)
+        ORDER BY bucket_index
+    """, nativeQuery = true)
+    List<Object[]> salesTrendBuckets(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("startAt") Long startAt,
+        @Param("endAt") Long endAt,
+        @Param("bucketMillis") Long bucketMillis,
+        @Param("cancelledStatus") Integer cancelledStatus
+    );
+
     @Query("""
         SELECT o.customerId, o.customerName, COUNT(o), COALESCE(SUM(o.totalAmount), 0)
         FROM SaleOrderEntity o

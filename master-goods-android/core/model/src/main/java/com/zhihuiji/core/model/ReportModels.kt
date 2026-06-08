@@ -15,6 +15,14 @@ data class SalesSummaryReportDto(
 )
 
 @Serializable
+data class SalesTrendPointReportDto(
+    @SerialName("start_at") val startAt: Long,
+    @SerialName("end_at") val endAt: Long,
+    @SerialName("total_sales_amount") val totalSalesAmount: Double = 0.0,
+    @SerialName("total_order_count") val totalOrderCount: Int = 0,
+)
+
+@Serializable
 data class ProfitSummaryReportDto(
     @SerialName("start_at") val startAt: Long,
     @SerialName("end_at") val endAt: Long,

@@ -234,7 +234,13 @@ private fun ModelStatusBlock(runTrace: RunTrace) {
         runTrace.planSource?.let { "规划: ${it.planSourceLabel()}" },
         runTrace.answerDeltaSource?.let { "输出: ${it.answerDeltaSourceLabel()}" },
     ).joinToString(" · ")
-    val isRuleSummary = runTrace.llmStatus == "disabled" ||
+    val isRuleSummary = runTrace.llmStatus in setOf(
+        "disabled",
+        "not_configured",
+        "stream_not_supported",
+        "failed_or_empty",
+        "stream_failed_or_empty",
+    ) ||
         runTrace.mode == "tool_query_rule_summary" ||
         runTrace.answerDeltaSource == "rule_summary"
     val color = if (isRuleSummary) WarningOrange else ZhihuijiPrimary
@@ -310,7 +316,9 @@ private fun String.llmStatusLabel(): String =
         "streaming" -> "流式生成中"
         "stream_interrupted" -> "流式中断"
         "stream_failed_or_empty" -> "流式失败或空响应"
-        "disabled" -> "未配置"
+        "disabled" -> "已关闭"
+        "not_configured" -> "未配置"
+        "stream_not_supported" -> "当前模型接口不支持流式"
         "failed_or_empty" -> "返回为空"
         "not_requested" -> "未调用"
         else -> this

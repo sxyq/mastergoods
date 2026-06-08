@@ -11,6 +11,8 @@ class ReportRepository @Inject constructor(
     private val api: ZhihuijiApi,
 ) {
     suspend fun salesSummary(startAt: Long, endAt: Long) = safeApiCall { api.salesSummary(startAt, endAt) }
+    suspend fun salesTrend(startAt: Long, endAt: Long, bucket: String = "day") =
+        safeApiCall { api.salesTrend(startAt, endAt, bucket) }
     suspend fun profitSummary(startAt: Long, endAt: Long) = safeApiCall { api.profitSummary(startAt, endAt) }
     suspend fun refundRecords(startAt: Long, endAt: Long, limit: Int = 10) = safeApiCall { api.refundRecords(startAt, endAt, limit) }
     suspend fun stockOutRecords(startAt: Long, endAt: Long, limit: Int = 10) = safeApiCall { api.stockOutRecords(startAt, endAt, limit) }

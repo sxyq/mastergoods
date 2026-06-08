@@ -143,6 +143,13 @@ interface ZhihuijiApi {
     @GET("v1/reports/sales-summary")
     suspend fun salesSummary(@Query("start_at") startAt: Long, @Query("end_at") endAt: Long): ApiResponse<SalesSummaryReportDto>
 
+    @GET("v1/reports/sales-trend")
+    suspend fun salesTrend(
+        @Query("start_at") startAt: Long,
+        @Query("end_at") endAt: Long,
+        @Query("bucket") bucket: String = "day",
+    ): ApiResponse<List<SalesTrendPointReportDto>>
+
     @GET("v1/reports/profit-summary")
     suspend fun profitSummary(@Query("start_at") startAt: Long, @Query("end_at") endAt: Long): ApiResponse<ProfitSummaryReportDto>
 
