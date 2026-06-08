@@ -767,6 +767,11 @@ EOF
 EOF
   write_workbench_cleanliness_file "${tmp_dir}"
   grep -q 'Status: pass-for-interface' "${tmp_dir}/17-workbench-cleanliness.md"
+  write_conclusion_file "${tmp_dir}" "run-self-test"
+  grep -q 'Status: partial' "${tmp_dir}/12-conclusion.md"
+  grep -q 'Non-substitutable evidence' "${tmp_dir}/12-conclusion.md"
+  grep -q 'cannot prove Android rendering' "${tmp_dir}/12-conclusion.md"
+  grep -q 'Android first-visible timing' "${tmp_dir}/12-conclusion.md"
 
   echo "ai_agent_evidence_capture self-test passed"
 }
@@ -872,10 +877,18 @@ Status: partial
 
 - Add real Android screenshots for AI home, chat answer, expanded RunTrace, and result blocks.
 - Add real UI tree dump from the same device/session.
+- Add Android first-visible timing or screen recording evidence for the same run.
+- Add raw UI evidence that Markdown, charts, empty states, and RunTrace render the same \`run_id\`.
 - Capture \`/v2/agent/workbench\` with a valid owner token; current status is ${workbench_status}.
 - Forbidden scan review draft is in 15-forbidden-scan-review.md; resolve any \`needs evidence\` row before pass.
 - Confirm answer numbers, rankings, risks, and charts map to tool evidence.
 - Confirm mode, llm_status, delta_source, RunTrace UI, and audit records agree.
+
+## Non-substitutable evidence
+
+- \`13-sse-audit-ui-reconciliation.md\` can only prove interface/audit alignment; it cannot prove Android rendering.
+- \`17-workbench-cleanliness.md\` can only prove backend workbench response cleanliness; it cannot prove the AI home screen.
+- Unit tests and this script cannot replace device screenshots, UI tree, or performance evidence.
 
 This script defaults to partial because interface evidence alone cannot prove
 the full P0 Android UI and rendered Markdown/chart experience.
@@ -941,6 +954,10 @@ review_forbidden_hit() {
     *V2AgentAiService.java*"不要用模拟数据替代"*|*V2AgentAiService.java*"没有使用模拟数据替代"*|*V2AgentAiService.java*"未使用模拟数据替代"*)
       verdict="pass"
       reason="负向安全/诚实文案，要求工具失败时不得用模拟数据替代真实查询。"
+      ;;
+    *V2AgentAiService.java*"避免"*"模拟数据"*)
+      verdict="pass"
+      reason="负向入口说明，明确 AI 工作台不返回默认报表或模拟数据；不生成任务、通知、草稿或流式内容。"
       ;;
     *V2AgentAiService.java*substring*)
       verdict="pass"

@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
 import com.zhihuiji.backend.domain.entity.AgentConversationEntity;
@@ -38,6 +39,8 @@ import com.zhihuiji.backend.infrastructure.repository.PurchaseOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.SaleOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
 import java.lang.reflect.Field;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -655,6 +658,52 @@ class V2AgentAiServiceTest {
     }
 
     @Test
+    void ruleSummaryDoesNotInventZeroSalesOverviewFieldsWhenFactsAreMissing() throws Exception {
+        Object toolResult = toolExecutionResult(
+            "sales_overview_lookup",
+            "销售概览缺少聚合字段",
+            new ObjectMapper().createObjectNode()
+        );
+
+        String answer = synthesizeAnswer("查看销售额", List.of(toolResult), "兜底回答");
+
+        assertTrue(answer.contains("后端未返回销售笔数"), answer);
+        assertTrue(answer.contains("后端未返回销售额"), answer);
+        assertTrue(answer.contains("后端未返回回款金额"), answer);
+        assertFalse(answer.contains("¥0.00"), answer);
+        assertFalse(answer.contains("销售 0 笔"), answer);
+    }
+
+    @Test
+    void ruleSummaryDoesNotInventZeroAmountsForMissingToolFacts() throws Exception {
+        List<Object> toolResults = List.of(
+            toolExecutionResult("inventory_low_stock_lookup", "库存缺字段", new ObjectMapper().createObjectNode()),
+            toolExecutionResult("product_catalog_lookup", "商品缺字段", new ObjectMapper().createObjectNode()),
+            toolExecutionResult("customer_receivable_lookup", "应收缺字段", new ObjectMapper().createObjectNode()),
+            toolExecutionResult("supplier_payable_lookup", "应付缺字段", new ObjectMapper().createObjectNode()),
+            toolExecutionResult("sale_order_lookup", "销售单缺字段", new ObjectMapper().createObjectNode()),
+            toolExecutionResult("purchase_order_lookup", "采购单缺字段", new ObjectMapper().createObjectNode()),
+            toolExecutionResult("pay_order_lookup", "付款单缺字段", new ObjectMapper().createObjectNode()),
+            toolExecutionResult("finance_record_lookup", "流水缺字段", new ObjectMapper().createObjectNode())
+        );
+
+        String answer = synthesizeAnswer("汇总经营情况", toolResults, "兜底回答");
+
+        assertTrue(answer.contains("后端未返回低库存商品数量"), answer);
+        assertTrue(answer.contains("后端未返回库存合计"), answer);
+        assertTrue(answer.contains("后端未返回Top10 应收合计"), answer);
+        assertTrue(answer.contains("后端未返回Top10 应付合计"), answer);
+        assertTrue(answer.contains("后端未返回销售额"), answer);
+        assertTrue(answer.contains("后端未返回采购额"), answer);
+        assertTrue(answer.contains("后端未返回付款额"), answer);
+        assertTrue(answer.contains("后端未返回收入"), answer);
+        assertFalse(answer.contains("¥0.00"), answer);
+        assertFalse(answer.contains("查询 0 条"), answer);
+        assertFalse(answer.contains("发现 0 个"), answer);
+        assertFalse(answer.contains("查询到 0 个"), answer);
+    }
+
+    @Test
     void getRunAuditReturnsOwnerScopedSummaryAndEvents() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
@@ -694,6 +743,21 @@ class V2AgentAiServiceTest {
 
     private static boolean hasBlock(V2AgentDtos.AgentChatResponse response, String blockType) {
         return response.blocks().stream().anyMatch(block -> blockType.equals(block.blockType()));
+    }
+
+    private String synthesizeAnswer(String userMessage, List<?> toolResults, String fallbackAnswer) throws Exception {
+        Method method = V2AgentAiService.class.getDeclaredMethod("synthesizeAnswer", String.class, List.class, String.class);
+        method.setAccessible(true);
+        return (String) method.invoke(service, userMessage, toolResults, fallbackAnswer);
+    }
+
+    private static Object toolExecutionResult(String toolName, String summary, JsonNode facts) throws Exception {
+        Class<?> toolResultClass = Class.forName(
+            "com.zhihuiji.backend.application.service.v2.V2AgentAiService$ToolExecutionResult"
+        );
+        Constructor<?> constructor = toolResultClass.getDeclaredConstructor(String.class, String.class, JsonNode.class);
+        constructor.setAccessible(true);
+        return constructor.newInstance(toolName, summary, facts);
     }
 
     private static String firstPayload(CapturingEmitter emitter, String marker) {

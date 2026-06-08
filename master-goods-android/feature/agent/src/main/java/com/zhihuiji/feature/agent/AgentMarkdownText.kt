@@ -509,7 +509,7 @@ private fun String.isEscaped(index: Int): Boolean {
     return slashCount % 2 == 1
 }
 
-private fun inlineMarkdown(text: String, contentColor: Color): AnnotatedString =
+internal fun inlineMarkdown(text: String, contentColor: Color): AnnotatedString =
     buildAnnotatedString {
         var index = 0
         while (index < text.length) {

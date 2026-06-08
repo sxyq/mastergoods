@@ -135,7 +135,7 @@ private inline fun <reified T> ResultBlockDto.renderParsedBlock(
     }
 }
 
-private inline fun <reified T> ResultBlockDto.parseData(): T? {
+internal inline fun <reified T> ResultBlockDto.parseData(): T? {
     return try {
         data?.let { ResultBlockJson.decodeFromJsonElement<T>(it) }
     } catch (e: Exception) {
@@ -289,8 +289,9 @@ private fun TableBlock(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            if (data.headers.isEmpty() || data.rows.isEmpty()) {
-                EmptyStructuredMessage("本轮查询没有返回可展示的表格字段或行数据")
+            val contractError = validateTableContract(data.headers, data.rows)
+            if (contractError != null) {
+                ChartContractErrorMessage(contractError)
             } else {
                 Column(
                     modifier = Modifier
@@ -301,6 +302,9 @@ private fun TableBlock(
                     // Header
                     Row {
                         data.headers.forEach { header ->
+                            val inlineText = remember(header) {
+                                inlineMarkdown(header, TextSecondary)
+                            }
                             Box(
                                 modifier = Modifier
                                     .width(100.dp)
@@ -308,7 +312,7 @@ private fun TableBlock(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = header,
+                                    text = inlineText,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = TextSecondary,
                                     fontWeight = FontWeight.SemiBold,
@@ -325,6 +329,9 @@ private fun TableBlock(
                             )
                         ) {
                             row.forEach { cell ->
+                                val inlineText = remember(cell) {
+                                    inlineMarkdown(cell, TextPrimary)
+                                }
                                 Box(
                                     modifier = Modifier
                                         .width(100.dp)
@@ -332,7 +339,7 @@ private fun TableBlock(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = cell,
+                                        text = inlineText,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = TextPrimary,
                                     )
@@ -530,15 +537,8 @@ private fun DonutChartBlock(
     title: String?,
     modifier: Modifier = Modifier,
 ) {
-    val segments = data.segments
-        .filter { it.value.isUsableChartValue() && it.value > 0.0 }
-        .mapIndexed { index, segment ->
-            ChartSegmentUi(
-                name = segment.name,
-                value = segment.value,
-                color = chartColor(segment.color, index),
-            )
-        }
+    val segmentResult = donutChartSegments(data.segments)
+    val segments = segmentResult.segments
 
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
@@ -567,6 +567,10 @@ private fun DonutChartBlock(
                         total = total,
                         modifier = Modifier.weight(1f)
                     )
+                }
+                if (segmentResult.ignoredCount > 0) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    ChartContractNotice("已忽略 ${segmentResult.ignoredCount} 个无效或非正数占比分段")
                 }
             }
         }
@@ -773,6 +777,31 @@ internal fun barChartScale(values: List<Double>): BarChartScale {
     )
 }
 
+internal data class DonutSegmentFilterResult(
+    val segments: List<ChartSegmentUi>,
+    val ignoredCount: Int,
+)
+
+internal fun donutChartSegments(rawSegments: List<DonutChartBlockData.Segment>): DonutSegmentFilterResult {
+    var ignoredCount = 0
+    val segments = rawSegments.mapIndexedNotNull { index, segment ->
+        if (!segment.value.isUsableChartValue() || segment.value <= 0.0) {
+            ignoredCount++
+            null
+        } else {
+            ChartSegmentUi(
+                name = segment.name,
+                value = segment.value,
+                color = chartColor(segment.color, index),
+            )
+        }
+    }
+    return DonutSegmentFilterResult(
+        segments = segments,
+        ignoredCount = ignoredCount,
+    )
+}
+
 @Composable
 private fun DonutChartCanvas(
     segments: List<ChartSegmentUi>,
@@ -940,6 +969,25 @@ private fun ChartContractErrorMessage(message: String) {
 }
 
 @Composable
+private fun ChartContractNotice(message: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(WarningOrange.copy(alpha = 0.08f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.labelSmall,
+            color = WarningOrange,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
 private fun EmptyChartMessage(message: String) {
     Box(
         modifier = Modifier
@@ -1005,7 +1053,7 @@ private data class ChartSeriesUi(
     val color: Color,
 )
 
-private data class ChartSegmentUi(
+internal data class ChartSegmentUi(
     val name: String,
     val value: Double,
     val color: Color,
@@ -1069,6 +1117,23 @@ private fun validateChartContract(labels: List<String>, series: List<ChartSeries
     val invalidSeries = series.firstOrNull { item -> item.values.any { !it.isUsableChartValue() } }
     if (invalidSeries != null) {
         return "图表序列「${invalidSeries.name}」包含无效数值，已停止绘制"
+    }
+    return null
+}
+
+internal fun validateTableContract(headers: List<String>, rows: List<List<String>>): String? {
+    if (headers.isEmpty()) {
+        return "表格数据缺少真实列名，无法渲染"
+    }
+    if (headers.any { it.isBlank() }) {
+        return "表格列名存在空值，已停止渲染以避免误读"
+    }
+    if (rows.isEmpty()) {
+        return "本轮查询没有返回可展示的表格行数据"
+    }
+    val mismatchedRowIndex = rows.indexOfFirst { row -> row.size != headers.size }
+    if (mismatchedRowIndex >= 0) {
+        return "表格第 ${mismatchedRowIndex + 1} 行的数据量与列名数量不一致，已停止渲染"
     }
     return null
 }

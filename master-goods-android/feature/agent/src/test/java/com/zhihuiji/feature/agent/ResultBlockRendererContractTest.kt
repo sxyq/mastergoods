@@ -1,5 +1,8 @@
 package com.zhihuiji.feature.agent
 
+import androidx.compose.ui.graphics.Color
+import com.zhihuiji.core.model.v2.agent.DonutChartBlockData
+import com.zhihuiji.core.model.v2.agent.LineChartBlockData
 import com.zhihuiji.core.model.v2.agent.ResultBlockDto
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -75,6 +78,38 @@ class ResultBlockRendererContractTest {
     }
 
     @Test
+    fun structuredTableCellsCanReuseInlineMarkdownForLinksAndCode() {
+        val rendered = inlineMarkdown("查看[客户档案](www.example.com/customer) 与 `VIP` 标记", Color.Black)
+
+        assertEquals("查看客户档案 (https://www.example.com/customer) 与  VIP  标记", rendered.text)
+    }
+
+    @Test
+    fun tableContractRejectsRowColumnMismatchInsteadOfRenderingMisalignedData() {
+        val shortRow = validateTableContract(
+            headers = listOf("客户", "金额"),
+            rows = listOf(listOf("张三"))
+        )
+        val longRow = validateTableContract(
+            headers = listOf("客户", "金额"),
+            rows = listOf(listOf("张三", "100", "多余字段"))
+        )
+
+        assertEquals("表格第 1 行的数据量与列名数量不一致，已停止渲染", shortRow)
+        assertEquals("表格第 1 行的数据量与列名数量不一致，已停止渲染", longRow)
+    }
+
+    @Test
+    fun tableContractAllowsAlignedRealRows() {
+        val error = validateTableContract(
+            headers = listOf("客户", "金额"),
+            rows = listOf(listOf("张三", "100"))
+        )
+
+        assertNull(error)
+    }
+
+    @Test
     fun barChartScaleKeepsNegativeValuesInsteadOfDroppingThem() {
         val scale = barChartScale(listOf(-8.0, 12.0, 0.0))
 
@@ -90,6 +125,53 @@ class ResultBlockRendererContractTest {
         assertEquals(-8.0, scale.minValue, 0.000001)
         assertEquals(0.0, scale.maxValue, 0.000001)
         assertEquals(8.0, scale.range, 0.000001)
+    }
+
+    @Test
+    fun donutChartSegmentsKeepValidPositiveValuesAndCountIgnoredSegments() {
+        val result = donutChartSegments(
+            listOf(
+                donutSegment("有效A", 12.0),
+                donutSegment("零值", 0.0),
+                donutSegment("负值", -3.0),
+                donutSegment("无效", Double.NaN),
+                donutSegment("有效B", 8.0),
+                donutSegment("无限", Double.POSITIVE_INFINITY),
+            )
+        )
+
+        assertEquals(listOf("有效A", "有效B"), result.segments.map { it.name })
+        assertEquals(listOf(12.0, 8.0), result.segments.map { it.value })
+        assertEquals(4, result.ignoredCount)
+    }
+
+    @Test
+    fun donutChartSegmentsReportAllInvalidSegmentsWithoutCreatingMockData() {
+        val result = donutChartSegments(
+            listOf(
+                donutSegment("零值", 0.0),
+                donutSegment("负值", -1.0),
+                donutSegment("无效", Double.NaN),
+            )
+        )
+
+        assertTrue(result.segments.isEmpty())
+        assertEquals(3, result.ignoredCount)
+    }
+
+    @Test
+    fun knownChartBlockMissingRequiredFieldsFailsParsingInsteadOfCreatingEmptyChart() {
+        val block = ResultBlockDto(
+            blockType = "line_chart",
+            title = "缺字段趋势图",
+            data = buildJsonObject {
+                put("title", "销售趋势")
+                put("labels", "06/09")
+            }
+        )
+
+        assertNull(block.parseData<LineChartBlockData>())
+        assertTrue(block.dataPreview()!!.contains("\"labels\":\"06/09\""))
     }
 
     @Test
@@ -109,4 +191,10 @@ class ResultBlockRendererContractTest {
         assertTrue(preview.contains("tool:sales_overview_lookup"))
         assertTrue(preview.length <= "原始数据: ".length + 240)
     }
+
+    private fun donutSegment(name: String, value: Double): DonutChartBlockData.Segment =
+        DonutChartBlockData.Segment(
+            name = name,
+            value = value,
+        )
 }

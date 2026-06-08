@@ -1910,66 +1910,69 @@ public class V2AgentAiService {
         for (ToolExecutionResult toolResult : toolResults) {
             switch (toolResult.toolName()) {
                 case "inventory_low_stock_lookup" -> {
-                    int count = toolResult.facts().path("low_stock_count").asInt(0);
-                    findings.add(count == 0
+                    Integer count = factInt(toolResult, "low_stock_count");
+                    String countText = factText(toolResult, "low_stock_count", "低库存商品数量");
+                    findings.add(count != null && count == 0
                         ? "库存侧暂时没有发现低于安全库存的商品。"
-                        : "库存侧共发现 " + count + " 个低库存商品，需要优先补货。");
-                    if (count > 0) {
+                        : "库存侧共发现 " + countText + " 个低库存商品，需要优先补货。");
+                    if (count != null && count > 0) {
                         actions.add("优先处理前 3 个低库存商品，避免影响接单和销售。");
                     }
                 }
                 case "product_catalog_lookup" -> {
-                    int count = toolResult.facts().path("product_count").asInt(0);
-                    String stockTotal = toolResult.facts().path("queried_stock_total").asText("0");
+                    String count = factText(toolResult, "product_count", "商品数量");
+                    String stockTotal = factText(toolResult, "queried_stock_total", "库存合计");
                     findings.add("商品侧查询到 " + count + " 个，库存合计 " + stockTotal + "。");
                 }
                 case "customer_receivable_lookup" -> {
-                    int count = toolResult.facts().path("customer_count").asInt(0);
-                    String total = toolResult.facts().path("top10_receivable_total").asText(money(0));
-                    findings.add(count == 0
+                    Integer count = factInt(toolResult, "customer_count");
+                    String countText = factText(toolResult, "customer_count", "客户数量");
+                    String total = factText(toolResult, "top10_receivable_total", "Top10 应收合计");
+                    findings.add(count != null && count == 0
                         ? "客户侧没有明显应收欠款压力。"
-                        : "客户侧重点欠款客户 " + count + " 个，Top10 应收合计 " + total + "。");
-                    if (count > 0) {
+                        : "客户侧重点欠款客户 " + countText + " 个，Top10 应收合计 " + total + "。");
+                    if (count != null && count > 0) {
                         actions.add("先跟进欠款最高的 2 到 3 位客户，缩短回款周期。");
                     }
                 }
                 case "supplier_payable_lookup" -> {
-                    int count = toolResult.facts().path("supplier_count").asInt(0);
-                    String total = toolResult.facts().path("top10_payable_total").asText(money(0));
-                    findings.add(count == 0
+                    Integer count = factInt(toolResult, "supplier_count");
+                    String countText = factText(toolResult, "supplier_count", "供应商数量");
+                    String total = factText(toolResult, "top10_payable_total", "Top10 应付合计");
+                    findings.add(count != null && count == 0
                         ? "供应商侧暂时没有突出的应付压力。"
-                        : "供应商侧重点应付 " + count + " 个，Top10 应付合计 " + total + "。");
-                    if (count > 0) {
+                        : "供应商侧重点应付 " + countText + " 个，Top10 应付合计 " + total + "。");
+                    if (count != null && count > 0) {
                         actions.add("结合回款节奏安排供应商付款，避免现金流过度前置。");
                     }
                 }
                 case "sales_overview_lookup" -> {
-                    String salesAmount = toolResult.facts().path("sales_amount").asText(money(0));
-                    String paidAmount = toolResult.facts().path("paid_amount").asText(money(0));
-                    long salesCount = toolResult.facts().path("sales_count").asLong(0);
+                    String salesAmount = factText(toolResult, "sales_amount", "销售额");
+                    String paidAmount = factText(toolResult, "paid_amount", "回款金额");
+                    String salesCount = factText(toolResult, "sales_count", "销售笔数");
                     findings.add("近 7 天销售 " + salesCount + " 笔，销售额 " + salesAmount + "，回款 " + paidAmount + "。");
                 }
                 case "sale_order_lookup" -> {
-                    int count = toolResult.facts().path("order_count").asInt(0);
-                    int unpaidCount = toolResult.facts().path("unpaid_count").asInt(0);
-                    String total = toolResult.facts().path("recent_total_amount").asText(money(0));
+                    String count = factText(toolResult, "order_count", "销售单数量");
+                    String unpaidCount = factText(toolResult, "unpaid_count", "未收清数量");
+                    String total = factText(toolResult, "recent_total_amount", "销售额");
                     findings.add("销售单侧最近查询 " + count + " 条，销售额 " + total + "，未收清 " + unpaidCount + " 条。");
                 }
                 case "purchase_order_lookup" -> {
-                    int count = toolResult.facts().path("order_count").asInt(0);
-                    String total = toolResult.facts().path("recent_total_amount").asText(money(0));
+                    String count = factText(toolResult, "order_count", "采购单数量");
+                    String total = factText(toolResult, "recent_total_amount", "采购额");
                     findings.add("采购单侧最近查询 " + count + " 条，采购额 " + total + "。");
                 }
                 case "pay_order_lookup" -> {
-                    int count = toolResult.facts().path("pay_order_count").asInt(0);
-                    int pendingCount = toolResult.facts().path("pending_count").asInt(0);
-                    String total = toolResult.facts().path("recent_total_amount").asText(money(0));
+                    String count = factText(toolResult, "pay_order_count", "付款单数量");
+                    String pendingCount = factText(toolResult, "pending_count", "待付款数量");
+                    String total = factText(toolResult, "recent_total_amount", "付款额");
                     findings.add("付款单侧最近查询 " + count + " 条，付款额 " + total + "，待付款 " + pendingCount + " 条。");
                 }
                 case "finance_record_lookup" -> {
-                    String income = toolResult.facts().path("recent_income").asText(money(0));
-                    String expense = toolResult.facts().path("recent_expense").asText(money(0));
-                    int count = toolResult.facts().path("record_count").asInt(0);
+                    String income = factText(toolResult, "recent_income", "收入");
+                    String expense = factText(toolResult, "recent_expense", "支出");
+                    String count = factText(toolResult, "record_count", "资金流水数量");
                     findings.add("资金流水侧最近查询 " + count + " 条，收入 " + income + "，支出 " + expense + "。");
                 }
                 default -> findings.add(toolResult.summary());
@@ -2006,6 +2009,21 @@ public class V2AgentAiService {
             }
         }
         return builder.toString();
+    }
+
+    private String factText(ToolExecutionResult toolResult, String fieldName, String displayName) {
+        if (toolResult == null || toolResult.facts() == null || !toolResult.facts().has(fieldName) || toolResult.facts().path(fieldName).isNull()) {
+            return "后端未返回" + displayName;
+        }
+        String value = toolResult.facts().path(fieldName).asText();
+        return StringUtils.hasText(value) ? value : "后端未返回" + displayName;
+    }
+
+    private Integer factInt(ToolExecutionResult toolResult, String fieldName) {
+        if (toolResult == null || toolResult.facts() == null || !toolResult.facts().has(fieldName) || !toolResult.facts().path(fieldName).canConvertToInt()) {
+            return null;
+        }
+        return Math.max(0, toolResult.facts().path(fieldName).asInt());
     }
 
     private AgentConversationEntity resolveConversation(Long conversationId, Long ownerUserId, String message, long now) {
