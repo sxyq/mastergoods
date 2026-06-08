@@ -17,3 +17,7 @@
 | 13 | `9151d633-3557-43a0-b92a-0523f850e182:13` | `result_block` | `result_block` | RunTrace process row | pass |
 | 14 | `9151d633-3557-43a0-b92a-0523f850e182:14` | `answer_completed` | `answer_completed` | Chat answer / completion state | pass |
 | 15 | `9151d633-3557-43a0-b92a-0523f850e182:15` | `run_completed` | `run_completed` | Run lifecycle row | pass |
+
+Status: pass-for-interface
+
+SSE and server audit events match by seq, event_id, and event_type. Android UI evidence is still required before full P0 pass.

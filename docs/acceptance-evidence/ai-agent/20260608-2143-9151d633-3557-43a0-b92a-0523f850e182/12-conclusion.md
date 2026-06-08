@@ -16,7 +16,7 @@ Status: partial
 
 - Add real Android screenshots for AI home, chat answer, expanded RunTrace, and result blocks.
 - Add real UI tree dump from the same device/session.
-- Forbidden scan review is captured in `15-forbidden-scan-review.md`; resolve any `needs evidence` row before pass.
+- Forbidden scan review draft is in 15-forbidden-scan-review.md; resolve any `needs evidence` row before pass.
 - Confirm answer numbers, rankings, risks, and charts map to tool evidence.
 - Confirm mode, llm_status, delta_source, RunTrace UI, and audit records agree.
 

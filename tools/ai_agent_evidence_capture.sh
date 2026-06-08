@@ -20,6 +20,7 @@ usage() {
 Usage:
   TOKEN="<bearer-token>" ./tools/ai_agent_evidence_capture.sh
   ./tools/ai_agent_evidence_capture.sh self-test
+  ./tools/ai_agent_evidence_capture.sh refresh-existing <evidence-dir>
 
 Environment:
   BASE_URL          Backend base URL. Default: http://localhost:8080
@@ -191,6 +192,208 @@ tool_results_filter() {
   '
 }
 
+extract_sse_events_filter() {
+  jq -R '
+    select(startswith("data:")) |
+    ltrimstr("data:") |
+    fromjson? |
+    {
+      seq: (.seq // null),
+      event_id: (.event_id // .eventId // null),
+      event_type: (.event_type // .eventType // null),
+      run_id: (.run_id // .runId // null),
+      tool_name: (.tool_name // .toolName // null)
+    }
+  '
+}
+
+write_reconciliation_file() {
+  local dir="$1"
+  local sse_events_file="${dir}/.sse-events.jsonl"
+  local audit_events_file="${dir}/.audit-events.jsonl"
+  local sse_events_json="${dir}/.sse-events.json"
+  local audit_events_json="${dir}/.audit-events.json"
+  local reconciliation_json="${dir}/.reconciliation.json"
+  local output_file="${dir}/13-sse-audit-ui-reconciliation.md"
+
+  if [[ ! -s "${dir}/02-raw-sse.log" || ! -s "${dir}/03-run-audit.json" ]] || ! jq -e '.data.events' "${dir}/03-run-audit.json" >/dev/null 2>&1; then
+    cat > "${output_file}" <<'EOF'
+# SSE / Audit / UI Reconciliation
+
+Status: partial
+
+Raw SSE or audit events are missing, so this package cannot prove event-level
+SSE/audit alignment. Add a valid `02-raw-sse.log` and `03-run-audit.json`.
+EOF
+    return 0
+  fi
+
+  extract_sse_events_filter < "${dir}/02-raw-sse.log" > "${sse_events_file}" || true
+  jq -c '
+    .data.events[]? |
+    {
+      seq: (.seq // null),
+      event_id: (.event_id // .eventId // null),
+      event_type: (.event_type // .eventType // null),
+      run_id: (.payload.run_id // .payload.runId // .data.run_id // .data.runId // null),
+      tool_name: (.payload.tool_name // .payload.toolName // null)
+    }
+  ' "${dir}/03-run-audit.json" > "${audit_events_file}"
+  jq -s '.' "${sse_events_file}" > "${sse_events_json}"
+  jq -s '.' "${audit_events_file}" > "${audit_events_json}"
+
+  jq -n \
+    --slurpfile sseEvents "${sse_events_json}" \
+    --slurpfile auditEvents "${audit_events_json}" '
+    def key($event): (($event.seq // -1) | tostring);
+    ($sseEvents[0] // []) as $sseEvents |
+    ($auditEvents[0] // []) as $auditEvents |
+    ($auditEvents | map({key: key(.), value: .}) | from_entries) as $auditBySeq |
+    [
+      $sseEvents[] |
+      . as $sse |
+      ($auditBySeq[key($sse)] // {}) as $audit |
+      {
+        seq: $sse.seq,
+        event_id: $sse.event_id,
+        raw_sse_event_type: $sse.event_type,
+        audit_event_type: ($audit.event_type // null),
+        android_runtrace_row:
+          (if ($sse.event_type // "") | startswith("tool_") then
+            "RunTrace tool card" + (if $sse.tool_name then ": " + $sse.tool_name else "" end)
+          elif ($sse.event_type // "") == "answer_completed" then
+            "Chat answer / completion state"
+          elif ($sse.event_type // "") == "run_started" or ($sse.event_type // "") == "run_completed" or ($sse.event_type // "") == "run_cancelled" or ($sse.event_type // "") == "run_failed" then
+            "Run lifecycle row"
+          else
+            "RunTrace process row"
+          end),
+        conclusion:
+          (if ($audit | length) == 0 then "fail"
+          elif $sse.event_id != ($audit.event_id // null) then "fail"
+          elif $sse.event_type != ($audit.event_type // null) then "fail"
+          else "pass"
+          end)
+      }
+    ]
+  ' > "${reconciliation_json}"
+
+  {
+    echo "# SSE / Audit / UI Reconciliation"
+    echo
+    echo "| seq | event_id | raw SSE event_type | audit event_type | Android RunTrace row | conclusion |"
+    echo "|---|---|---|---|---|---|"
+    jq -r '
+      .[] |
+      "| \(.seq // "missing") | `\(.event_id // "missing")` | `\(.raw_sse_event_type // "missing")` | `\(.audit_event_type // "missing")` | \(.android_runtrace_row) | \(.conclusion) |"
+    ' "${reconciliation_json}"
+    if jq -e 'any(.conclusion == "fail")' "${reconciliation_json}" >/dev/null; then
+      echo
+      echo "Status: fail"
+      echo
+      echo "At least one SSE event did not match the persisted audit event with the same seq."
+    else
+      echo
+      echo "Status: pass-for-interface"
+      echo
+      echo "SSE and server audit events match by seq, event_id, and event_type. Android UI evidence is still required before full P0 pass."
+    fi
+  } > "${output_file}"
+
+  rm -f "${sse_events_file}" "${audit_events_file}" "${sse_events_json}" "${audit_events_json}" "${reconciliation_json}"
+}
+
+write_run_summary_file() {
+  local dir="$1"
+  local output_file="${dir}/14-agent-run-summary.json"
+  local tool_results_json="${dir}/04-tool-results.json"
+  local generated_tool_results_json=""
+  if [[ ! -s "${dir}/03-run-audit.json" ]] || ! jq -e '.data' "${dir}/03-run-audit.json" >/dev/null 2>&1; then
+    echo '{"error":"run audit missing or invalid; cannot write run summary"}' > "${output_file}"
+    return 0
+  fi
+  if [[ ! -s "${tool_results_json}" ]] || ! jq -e '.tools' "${tool_results_json}" >/dev/null 2>&1; then
+    generated_tool_results_json="${dir}/.tool-results-for-summary.json"
+    tool_results_filter < "${dir}/03-run-audit.json" > "${generated_tool_results_json}"
+    tool_results_json="${generated_tool_results_json}"
+  fi
+
+  jq -n \
+    --slurpfile audit "${dir}/03-run-audit.json" \
+    --slurpfile toolResults "${tool_results_json}" '
+    ($audit[0] // {}) as $auditDoc |
+    ($auditDoc.data // {}) as $data |
+    ($toolResults[0] // {}) as $toolDoc |
+    {
+      run_id: ($data.run_id // $data.runId // null),
+      status: ($data.status // null),
+      mode: ($data.mode // null),
+      llm_status: ($data.llm_status // $data.llmStatus // null),
+      plan_source: ($data.plan_source // $data.planSource // null),
+      tool_count: ($data.tool_count // $data.toolCount // null),
+      event_count: ($data.event_count // $data.eventCount // null),
+      performance: {
+        started_at: ($data.started_at // $data.startedAt // null),
+        completed_at: ($data.completed_at // $data.completedAt // null),
+        duration_ms:
+          (if (($data.started_at // $data.startedAt // null) | type) == "number"
+              and (($data.completed_at // $data.completedAt // null) | type) == "number"
+           then (($data.completed_at // $data.completedAt) - ($data.started_at // $data.startedAt))
+           else null end)
+      },
+      tools: [
+        ($toolDoc.tools // [])[] |
+        select((.event_type // .eventType // "") == "tool_completed") |
+        {
+          tool_name,
+          returned_count,
+          limit,
+          is_truncated,
+          duration_ms,
+          result_summary,
+          evidence
+        }
+      ],
+      events: [
+        ($data.events // [])[] |
+        {
+          seq: (.seq // null),
+          event_id: (.event_id // .eventId // null),
+          event_type: (.event_type // .eventType // null)
+        }
+      ]
+    }
+  ' > "${output_file}"
+  if [[ -n "${generated_tool_results_json}" ]]; then
+    rm -f "${generated_tool_results_json}"
+  fi
+}
+
+refresh_existing_evidence() {
+  local dir="$1"
+  local run_id
+  if [[ -z "${dir}" || ! -d "${dir}" ]]; then
+    echo "refresh-existing requires an existing evidence directory." >&2
+    exit 2
+  fi
+  require_cmd jq
+  require_cmd rg
+  run_id="$(extract_run_id_from_json "${dir}/03-run-audit.json")"
+  if [[ -z "${run_id}" && -s "${dir}/02-raw-sse.log" ]]; then
+    run_id="$(extract_run_id_from_sse "${dir}/02-raw-sse.log")"
+  fi
+  if [[ -s "${dir}/03-run-audit.json" ]] && jq -e '.data' "${dir}/03-run-audit.json" >/dev/null 2>&1; then
+    tool_results_filter < "${dir}/03-run-audit.json" > "${dir}/04-tool-results.json"
+  fi
+  write_reconciliation_file "${dir}"
+  write_run_summary_file "${dir}"
+  capture_forbidden_scan "${dir}"
+  write_forbidden_scan_review "${dir}"
+  write_latency_file "${dir}"
+  write_conclusion_file "${dir}" "${run_id:-}"
+  echo "AI agent existing evidence package refreshed: ${dir}"
+}
+
 run_self_test() {
   require_cmd jq
   local tmp_dir sse_file audit_file tool_file run_id
@@ -202,10 +405,10 @@ run_self_test() {
 
   cat > "${sse_file}" <<'EOF'
 event: run_started
-data:{"event_type":"run_started","run_id":"run-self-test","seq":1}
+data:{"event_type":"run_started","run_id":"run-self-test","seq":1,"event_id":"evt-run-1"}
 
 event: tool_completed
-data: {"event_type":"tool_completed","runId":"run-self-test","seq":2}
+data: {"event_type":"tool_completed","runId":"run-self-test","seq":2,"event_id":"evt-tool-2","tool_name":"inventory_low_stock_lookup"}
 EOF
 
   run_id="$(extract_run_id_from_sse "${sse_file}")"
@@ -224,13 +427,24 @@ EOF
     "mode": "tool_query_rule_summary",
     "llm_status": "disabled",
     "tool_count": 1,
+    "event_count": 2,
     "events": [
       {
+        "seq": 1,
+        "event_id": "evt-run-1",
+        "event_type": "run_started",
+        "payload": {
+          "run_id": "run-self-test"
+        }
+      },
+      {
         "seq": 2,
-        "event_id": "evt-tool-2",
+        "event_id": null,
         "event_type": "tool_completed",
         "created_at": 1710000000000,
         "payload": {
+          "event_id": "evt-tool-2",
+          "run_id": "run-self-test",
           "tool_name": "inventory_low_stock_lookup",
           "status": "completed",
           "input_summary": "库存风险",
@@ -248,6 +462,12 @@ EOF
   }
 }
 EOF
+  jq '
+    .data.events[0].event_id = "evt-run-1"
+    | .data.events[0].payload.event_id = "evt-run-1"
+    | .data.events[1].event_id = "evt-tool-2"
+  ' "${audit_file}" > "${tmp_dir}/audit.fixed.json"
+  mv "${tmp_dir}/audit.fixed.json" "${audit_file}"
 
   tool_results_filter < "${audit_file}" > "${tool_file}"
   jq -e '
@@ -259,6 +479,13 @@ EOF
     and .tools[0].duration_ms == 42
     and .tools[0].evidence[0].label == "低库存"
   ' "${tool_file}" >/dev/null
+
+  cp "${sse_file}" "${tmp_dir}/02-raw-sse.log"
+  cp "${audit_file}" "${tmp_dir}/03-run-audit.json"
+  write_reconciliation_file "${tmp_dir}"
+  write_run_summary_file "${tmp_dir}"
+  jq -e '.event_count == 2 and .tools[0].is_truncated == false' "${tmp_dir}/14-agent-run-summary.json" >/dev/null
+  grep -q 'Status: pass-for-interface' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
 
   echo "ai_agent_evidence_capture self-test passed"
 }
@@ -359,7 +586,7 @@ Status: partial
 
 - Add real Android screenshots for AI home, chat answer, expanded RunTrace, and result blocks.
 - Add real UI tree dump from the same device/session.
-- Forbidden scan review draft is in 15-forbidden-scan-review.md; resolve any `needs evidence` row before pass.
+- Forbidden scan review draft is in 15-forbidden-scan-review.md; resolve any \`needs evidence\` row before pass.
 - Confirm answer numbers, rankings, risks, and charts map to tool evidence.
 - Confirm mode, llm_status, delta_source, RunTrace UI, and audit records agree.
 
@@ -385,7 +612,7 @@ capture_forbidden_scan() {
       "${ROOT_DIR}/master-goods-android/core/model/src/main/java/com/zhihuiji/core/model/v2/agent" \
       "${ROOT_DIR}/src/main/java/com/zhihuiji/backend/application/service/v2" \
       "${ROOT_DIR}/src/main/java/com/zhihuiji/backend/api/controller/v2" \
-      "${ROOT_DIR}/src/main/java/com/zhihuiji/backend/api/dto/v2/agent" || true
+      "${ROOT_DIR}/src/main/java/com/zhihuiji/backend/api/dto/v2/agent" | sort || true
   } > "${dir}/10-forbidden-scan.txt"
 }
 
@@ -525,6 +752,10 @@ main() {
     run_self_test
     exit 0
   fi
+  if [[ "${1:-}" == "refresh-existing" ]]; then
+    refresh_existing_evidence "${2:-}"
+    exit 0
+  fi
   if [[ "${1:-}" == "-h" || "${1:-}" == "--help" || "${1:-}" == "help" ]]; then
     usage
     exit 0
@@ -618,6 +849,8 @@ main() {
   fi
 
   capture_audit_and_tools "${dir}" "${run_id:-}"
+  write_reconciliation_file "${dir}"
+  write_run_summary_file "${dir}"
   capture_forbidden_scan "${dir}"
   write_forbidden_scan_review "${dir}"
   write_latency_file "${dir}"
