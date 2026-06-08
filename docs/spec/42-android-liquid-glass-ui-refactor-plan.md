@@ -317,17 +317,17 @@
 | 14 | 采购开单 - 底部视觉优化版 | 已接入 | `purchase_order_edit/{orderId}` / `purchase_order_create -> PurchaseOrderEditScreen.kt` | 待设备复核 |
 | 15 | 首页 - 经营总览 (底部优化版) | 已接入 | `home -> DashboardScreen.kt` | 待设备复核 |
 | 16 | 资金流水详情 (亮色玻璃版) | 已接入 | `finance_record_detail/{recordId} -> FinanceRecordDetailScreen.kt` | 待设备复核 |
-| 17 | 供应商对账 (亮色玻璃版) | UI 缺口 | `SupplierDetailScreen.kt` 可承接入口，但缺少独立对账 screen/route | 未完成 |
+| 17 | 供应商对账 (亮色玻璃版) | 已接入 | `supplier_statement/{supplierId} -> SupplierStatementScreen.kt`，从供应商详情 `查看对账` 进入；按现有真实 `/v2/suppliers`、`/v2/purchase-orders`、`/v2/pay-orders` 汇总，PDF 导出和发起付款因后端无合同保持禁用 | 待设备复核 |
 | 18 | 采购入库 (亮色玻璃版) | 已接入 | `purchase_receipts -> PurchaseReceiptScreen.kt`，由 `PurchaseReceiptV2Repository.listPurchaseReceipts()/confirm()` 读取并确认真实入库单；部分收货与仓库字段仍需后端补合同 | 已设备复核 |
 | 19 | 商品库存流水 (亮色玻璃版) | 已接入 | `inventory_ledger/{productId} -> InventoryLedgerScreen.kt`，由 `SyncV2Repository.listInventoryLedger()` 读取真实库存流水 | 待设备复核 |
 | 20 | 销售单详情 (亮色玻璃版) | 已接入 | `sale_order_detail/{orderId} -> SaleOrderDetailScreen.kt` | 待设备复核 |
 | 21 | 销售单详情 (极光玻璃版) | 已接入 | `sale_order_detail/{orderId} -> SaleOrderDetailScreen.kt` | 待设备复核 |
 | 22 | 资金流水详情 (极光玻璃版) | 已接入 | `finance_record_detail/{recordId} -> FinanceRecordDetailScreen.kt` | 待设备复核 |
-| 23 | 供应商对账 (极光玻璃版) | UI 缺口 | 缺少独立对账 screen/route | 未完成 |
+| 23 | 供应商对账 (极光玻璃版) | 已接入 | `supplier_statement/{supplierId} -> SupplierStatementScreen.kt`，复用供应商真实往来汇总页与玻璃态底部操作边界 | 待设备复核 |
 | 24 | 商品库存流水 (极光玻璃版) | 已接入 | `inventory_ledger/{productId} -> InventoryLedgerScreen.kt`，从商品详情进入 | 待设备复核 |
-| 25 | 采购退货 (亮色玻璃版) | UI 缺口 | 当前未发现采购退货 feature screen/route | 未完成 |
-| 26 | 供应商往来详情 (亮色玻璃版) | UI 缺口 | `SupplierDetailScreen.kt` 只有供应商详情语义；缺少往来详情 screen/route | 未完成 |
-| 27 | 采购退货 (动态交互版) | UI 缺口 | 当前未发现采购退货动态交互 screen/route | 未完成 |
+| 25 | 采购退货 (亮色玻璃版) | 已接入 | `purchase_returns -> PurchaseReturnScreen.kt`，从单据中心采购页进入；读取真实采购单作为退货来源预览，因后端尚无采购退货提交合同，提交动作保持禁用且不伪造退货数据 | 待设备复核 |
+| 26 | 供应商往来详情 (亮色玻璃版) | 已接入 | 当前由 `supplier_statement/{supplierId} -> SupplierStatementScreen.kt` 承接供应商往来详情语义，展示真实采购/付款往来与合同边界 | 待设备复核 |
+| 27 | 采购退货 (动态交互版) | 已接入 | `purchase_returns -> PurchaseReturnScreen.kt` 已承接来源单切换、商品预览、退款边界与禁用提交态；完整可退数量/提交闭环等待后端合同 | 待设备复核 |
 | 28 | 经营报表 (亮色极光玻璃版) | 已接入 | `reports -> ReportScreen.kt` | 待设备复核 |
 | 29 | 日常支出 (亮色玻璃版) | 已接入 | `documents -> 资金流水 -> 记录支出 -> daily_expense`，由 `DailyExpenseScreen.kt` + `DailyExpenseViewModel.kt` 调用 `FinanceRepository.createFinanceRecord(CreateFinanceRecordRequest(type=FINANCE_EXPENSE))` 写入真实 `/v1/finance-records`；当前后端合同不含账户余额扣减、附件或自定义发生日期字段，页面显式不伪造这些数据 | 已设备复核 |
 | 30 | 首页 - 经营总览 (亮色极光玻璃版) | 已接入 | `home -> DashboardScreen.kt` | 待设备复核 |
@@ -336,9 +336,9 @@
 
 当前覆盖结论：
 
-- Stitch 32 屏中，已有明确 UI route/screen 的为 25 屏。
+- Stitch 32 屏中，已有明确 UI route/screen 或当前语义承接页的为 32 屏。
 - 合同层已有但 feature UI 缺失的为 0 屏。
-- 其余扩展经营页仍需补独立 UI 并继续核对合同层：供应商对账、采购退货、供应商往来详情。
+- 其余扩展经营页已补可达 UI 与真实能力边界；仍需继续核对合同层：供应商对账的独立对账单/PDF/发起付款合同、采购退货的可退数量/提交闭环、供应商往来详情的独立后端汇总接口。
 - 上述统计只代表代码路径覆盖，不代表像素级验收；所有 `已接入` 页面仍需设备截图对照 Stitch 图。
 
 ## 4.5 本地所有 UI 文件的逐文件改造责任
@@ -1195,5 +1195,5 @@ JAVA_HOME=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home ./master-goods-a
 ### 11.6 后续复核建议
 
 - 设备或模拟器逐屏截图复核：重点看浮动底栏、详情页底部操作、编辑页键盘弹出、AI 输入栏。
-- 按 `4.4.1 Stitch 32 屏覆盖审计表` 补齐缺失 route/screen，尤其是采购退货、供应商对账、供应商往来详情。
+- 按 `4.4.1 Stitch 32 屏覆盖审计表` 做设备或模拟器逐屏截图复核；采购退货、供应商对账、供应商往来详情当前已有可达 UI，但后端合同边界仍需单独验收。
 - AI 结果图表块接入正式图表库时，只替换 `ResultBlockRenderer` 的可视化层，不允许回退到 mock/sample/demo 数据。

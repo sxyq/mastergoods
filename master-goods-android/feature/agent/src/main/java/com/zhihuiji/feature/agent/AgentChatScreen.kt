@@ -435,25 +435,24 @@ private fun AssistantMessageHeader(
     hasCompletedTool: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val statusLabel = when {
-        hasServerAnswerDelta -> answerDeltaSource.headerStatusLabel()
-        isStreaming -> "正在等待服务端事件"
-        hasAuditTrace || hasToolEvidence -> "服务端回复结果"
-        else -> "助手回复"
-    }
+    val statusLabel = assistantHeaderStatusLabel(
+        isStreaming = isStreaming,
+        hasServerAnswerDelta = hasServerAnswerDelta,
+        answerDeltaSource = answerDeltaSource,
+        hasToolEvidence = hasToolEvidence,
+        hasAuditTrace = hasAuditTrace,
+    )
     val statusColor = when {
-        answerDeltaSource == "model_stream" -> AgentAssistantAccent
-        answerDeltaSource == "rule_summary" -> WarningOrange
+        answerDeltaSource == DeltaSourceModelStream -> AgentAssistantAccent
+        answerDeltaSource == DeltaSourceRuleSummary -> WarningOrange
         isStreaming -> WarningOrange
         else -> AgentAssistantAccent
     }
-    val provenanceLabel = when {
-        hasCompletedTool -> "工具完成"
-        hasToolEvidence -> "工具执行"
-        answerDeltaSource == "model_stream" -> "模型流"
-        answerDeltaSource == "rule_summary" -> "服务端摘要"
-        else -> "服务端文本"
-    }
+    val provenanceLabel = assistantProvenanceLabel(
+        hasCompletedTool = hasCompletedTool,
+        hasToolEvidence = hasToolEvidence,
+        answerDeltaSource = answerDeltaSource,
+    )
     val reviewLabel = when {
         hasAuditTrace -> "有运行标识"
         hasToolEvidence -> "有工具记录"
@@ -511,22 +510,6 @@ private fun AssistantHeaderBadge(
             .padding(horizontal = 7.dp, vertical = 3.dp),
     )
 }
-
-private fun String?.headerStatusLabel(): String =
-    when (this) {
-        "model_stream" -> "模型正在流式生成"
-        "rule_summary" -> "服务端返回规则摘要"
-        null -> "正在接收服务端回答"
-        else -> "正在接收服务端回答"
-    }
-
-private fun String?.inlineStreamingLabel(): String =
-    when (this) {
-        "model_stream" -> "模型实时输出中"
-        "rule_summary" -> "正在展示服务端规则摘要"
-        null -> "正在接收服务端增量"
-        else -> "正在接收服务端增量"
-    }
 
 @Composable
 private fun StreamingPlainAnswerText(

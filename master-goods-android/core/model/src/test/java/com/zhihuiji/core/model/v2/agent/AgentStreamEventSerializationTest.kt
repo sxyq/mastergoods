@@ -50,7 +50,10 @@ class AgentStreamEventSerializationTest {
             """
             {
               "event_type": "tool_completed",
+              "event_id": "run-1:4",
+              "seq": 4,
               "run_id": "run-1",
+              "conversation_id": 42,
               "tool_call_id": "run-1:inventory_low_stock_lookup",
               "tool_name": "inventory_low_stock_lookup",
               "result_summary": "命中 3 个低库存商品",
@@ -68,6 +71,9 @@ class AgentStreamEventSerializationTest {
 
         assertTrue(event is AgentStreamEvent.ToolCompleted)
         val completed = event as AgentStreamEvent.ToolCompleted
+        assertEquals("run-1:4", completed.eventId)
+        assertEquals(4, completed.seq)
+        assertEquals(42L, completed.conversationId)
         assertEquals("run-1:inventory_low_stock_lookup", completed.toolCallId)
         assertEquals("inventory_low_stock_lookup", completed.toolName)
         assertEquals("命中 3 个低库存商品", completed.resultSummary)
@@ -81,15 +87,27 @@ class AgentStreamEventSerializationTest {
     }
 
     @Test
-    fun decodesAnswerDeltaSource() {
+    fun decodesAnswerDeltaSourceAndObservability() {
         val event = json.decodeFromString(
             AgentStreamEvent.serializer(),
             """
             {
               "event_type": "answer_delta",
+              "event_id": "run-1:6",
+              "seq": 6,
               "run_id": "run-1",
+              "conversation_id": 42,
               "delta": "正在基于真实查询结果生成回答",
               "delta_source": "model_stream",
+              "audit_id": "run-1:audit",
+              "trace_id": "run-1:trace",
+              "observability": {
+                "request_id": "run-1",
+                "correlation_id": "run-1",
+                "trace_id": "run-1:trace",
+                "audit_id": "run-1:audit",
+                "log_ref": "agent-run:run-1"
+              },
               "timestamp": 1002
             }
             """.trimIndent()
@@ -97,8 +115,14 @@ class AgentStreamEventSerializationTest {
 
         assertTrue(event is AgentStreamEvent.AnswerDelta)
         val delta = event as AgentStreamEvent.AnswerDelta
+        assertEquals("run-1:6", delta.eventId)
+        assertEquals(6, delta.seq)
+        assertEquals(42L, delta.conversationId)
         assertEquals("正在基于真实查询结果生成回答", delta.delta)
         assertEquals("model_stream", delta.deltaSource)
+        assertEquals("run-1:audit", delta.auditId)
+        assertEquals("run-1:trace", delta.traceId)
+        assertEquals("agent-run:run-1", delta.observability?.logRef)
     }
 
     @Test

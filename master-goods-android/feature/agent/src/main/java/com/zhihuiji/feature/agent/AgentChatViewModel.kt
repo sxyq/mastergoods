@@ -554,6 +554,7 @@ class AgentChatViewModel @Inject constructor(
         pendingAnswerDeltaSource = deltaSource ?: pendingAnswerDeltaSource
         if (answerDeltaFlushJob?.isActive == true) return
         answerDeltaFlushJob = viewModelScope.launch {
+            // UI 合帧节流：只合并服务端 answer_delta，不拆分完整回答伪造 token。
             delay(48)
             flushPendingAnswerDelta()
         }

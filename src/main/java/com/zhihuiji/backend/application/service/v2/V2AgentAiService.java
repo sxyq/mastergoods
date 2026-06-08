@@ -285,7 +285,7 @@ public class V2AgentAiService {
         String runId = UUID.randomUUID().toString();
 
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
-        ActiveAgentRun activeRun = new ActiveAgentRun(ownerUserId, runId, emitter);
+        ActiveAgentRun activeRun = new ActiveAgentRun(ownerUserId, runId, conversation.getId(), emitter);
         activeRuns.put(runId, activeRun);
         emitter.onCompletion(() -> activeRuns.remove(runId));
         emitter.onTimeout(() -> activeRuns.remove(runId));
@@ -299,8 +299,10 @@ public class V2AgentAiService {
             } catch (Exception ex) {
                 try {
                     sendEvent(emitter, eventMap("error", Map.of(
+                        "run_id", runId,
                         "code", "STREAM_ERROR",
-                        "message", ex.getMessage() != null ? ex.getMessage() : "stream failed"
+                        "message", ex.getMessage() != null ? ex.getMessage() : "stream failed",
+                        "timestamp", System.currentTimeMillis()
                     )));
                 } catch (IOException ignored) {
                     // ignore
@@ -340,73 +342,83 @@ public class V2AgentAiService {
         String runId,
         SseEmitter emitter
     ) throws IOException {
-        String auditId = auditIdFor(runId);
-        String traceId = traceIdFor(runId);
-        sendEvent(emitter, eventMap("run_started", Map.of(
-            "run_id", runId,
-            "conversation_id", conversation.getId(),
-            "audit_id", auditId,
-            "trace_id", traceId,
-            "observability", observabilityFor(runId, auditId, traceId),
-            "timestamp", System.currentTimeMillis()
-        )));
-        ensureRunActive(runId);
-
-        sendEvent(emitter, eventMap("safety_check_started", Map.of(
-            "run_id", runId,
-            "timestamp", System.currentTimeMillis()
-        )));
-        ensureRunActive(runId);
-
-        SafetyDecision safetyDecision = evaluateSafety(message);
-        if (!safetyDecision.passed()) {
-            sendEvent(emitter, eventMap("safety_check_blocked", mapOf(
+        boolean registeredForDirectRun = activeRuns.putIfAbsent(
+            runId,
+            new ActiveAgentRun(ownerUserId, runId, conversation.getId(), emitter)
+        ) == null;
+        try {
+            String auditId = auditIdFor(runId);
+            String traceId = traceIdFor(runId);
+            sendEvent(emitter, eventMap("run_started", Map.of(
                 "run_id", runId,
-                "reason", safetyDecision.reason(),
-                "suggested_action", "改成仅查询当前登录账号可见的数据",
+                "conversation_id", conversation.getId(),
+                "audit_id", auditId,
+                "trace_id", traceId,
+                "observability", observabilityFor(runId, auditId, traceId),
                 "timestamp", System.currentTimeMillis()
             )));
-            String blockedAnswer = "这个请求涉及越权或高风险操作，我不能直接执行。";
-            emitAnswerCompleted(emitter, runId, blockedAnswer, "blocked", "not_requested");
-            persistAssistantResponse(ownerUserId, conversation, blockedAnswer, List.of(), System.currentTimeMillis());
+            ensureRunActive(runId);
+
+            sendEvent(emitter, eventMap("safety_check_started", Map.of(
+                "run_id", runId,
+                "timestamp", System.currentTimeMillis()
+            )));
+            ensureRunActive(runId);
+
+            SafetyDecision safetyDecision = evaluateSafety(message);
+            if (!safetyDecision.passed()) {
+                sendEvent(emitter, eventMap("safety_check_blocked", mapOf(
+                    "run_id", runId,
+                    "reason", safetyDecision.reason(),
+                    "suggested_action", "改成仅查询当前登录账号可见的数据",
+                    "timestamp", System.currentTimeMillis()
+                )));
+                String blockedAnswer = "这个请求涉及越权或高风险操作，我不能直接执行。";
+                emitAnswerCompleted(emitter, runId, blockedAnswer, "blocked", "not_requested");
+                persistAssistantResponse(ownerUserId, conversation, blockedAnswer, List.of(), System.currentTimeMillis());
+                sendEvent(emitter, eventMap("run_completed", mapOf(
+                    "run_id", runId,
+                    "final_answer", blockedAnswer,
+                    "mode", "blocked",
+                    "llm_status", "not_requested",
+                    "plan_source", "safety",
+                    "audit_id", auditId,
+                    "trace_id", traceId,
+                    "observability", observabilityFor(runId, auditId, traceId),
+                    "timestamp", System.currentTimeMillis()
+                )));
+                emitter.complete();
+                return;
+            }
+
+            sendEvent(emitter, eventMap("safety_check_passed", Map.of(
+                "run_id", runId,
+                "timestamp", System.currentTimeMillis()
+            )));
+            ensureRunActive(runId);
+            ResponsePayload payload = buildResponse(ownerUserId, message, emitter, runId);
+            ensureRunActive(runId);
+            FinalAnswer finalAnswer = buildFinalAnswerForStream(message, payload, emitter, runId);
+            ensureRunActive(runId);
+            emitAnswerCompleted(emitter, runId, finalAnswer.answer(), finalAnswer.mode(), finalAnswer.llmStatus());
+            persistAssistantResponse(ownerUserId, conversation, finalAnswer.answer(), payload.blocks(), System.currentTimeMillis());
             sendEvent(emitter, eventMap("run_completed", mapOf(
                 "run_id", runId,
-                "final_answer", blockedAnswer,
-                "mode", "blocked",
-                "llm_status", "not_requested",
-                "plan_source", "safety",
+                "final_answer", finalAnswer.answer(),
+                "mode", finalAnswer.mode(),
+                "llm_status", finalAnswer.llmStatus(),
+                "plan_source", payload.planSource(),
                 "audit_id", auditId,
                 "trace_id", traceId,
                 "observability", observabilityFor(runId, auditId, traceId),
                 "timestamp", System.currentTimeMillis()
             )));
             emitter.complete();
-            return;
+        } finally {
+            if (registeredForDirectRun) {
+                activeRuns.remove(runId);
+            }
         }
-
-        sendEvent(emitter, eventMap("safety_check_passed", Map.of(
-            "run_id", runId,
-            "timestamp", System.currentTimeMillis()
-        )));
-        ensureRunActive(runId);
-        ResponsePayload payload = buildResponse(ownerUserId, message, emitter, runId);
-        ensureRunActive(runId);
-        FinalAnswer finalAnswer = buildFinalAnswerForStream(message, payload, emitter, runId);
-        ensureRunActive(runId);
-        emitAnswerCompleted(emitter, runId, finalAnswer.answer(), finalAnswer.mode(), finalAnswer.llmStatus());
-        persistAssistantResponse(ownerUserId, conversation, finalAnswer.answer(), payload.blocks(), System.currentTimeMillis());
-        sendEvent(emitter, eventMap("run_completed", mapOf(
-            "run_id", runId,
-            "final_answer", finalAnswer.answer(),
-            "mode", finalAnswer.mode(),
-            "llm_status", finalAnswer.llmStatus(),
-            "plan_source", payload.planSource(),
-            "audit_id", auditId,
-            "trace_id", traceId,
-            "observability", observabilityFor(runId, auditId, traceId),
-            "timestamp", System.currentTimeMillis()
-        )));
-        emitter.complete();
     }
 
     private ResponsePayload buildResponse(Long ownerUserId, String message) {
@@ -1890,10 +1902,15 @@ public class V2AgentAiService {
             return;
         }
         try {
+            String auditId = auditIdFor(runId);
+            String traceId = traceIdFor(runId);
             sendEvent(emitter, eventMap("answer_delta", mapOf(
                 "run_id", runId,
                 "delta", delta,
                 "delta_source", deltaSource,
+                "audit_id", auditId,
+                "trace_id", traceId,
+                "observability", observabilityFor(runId, auditId, traceId),
                 "timestamp", System.currentTimeMillis()
             )));
         } catch (IOException ex) {
@@ -1905,7 +1922,14 @@ public class V2AgentAiService {
         Object runId = payload.get("run_id");
         if (runId instanceof String runIdText) {
             ensureRunActive(runIdText);
+            ActiveAgentRun activeRun = activeRuns.get(runIdText);
+            if (activeRun != null) {
+                payload.putIfAbsent("conversation_id", activeRun.conversationId());
+                payload.putIfAbsent("seq", activeRun.nextSeq());
+                payload.putIfAbsent("event_id", runIdText + ":" + payload.get("seq"));
+            }
         }
+        payload.putIfAbsent("timestamp", System.currentTimeMillis());
         emitter.send(SseEmitter.event().data(objectMapper.writeValueAsString(payload)));
     }
 
@@ -1923,14 +1947,14 @@ public class V2AgentAiService {
         try {
             String auditId = auditIdFor(runId);
             String traceId = traceIdFor(runId);
-            emitter.send(SseEmitter.event().data(objectMapper.writeValueAsString(eventMap("run_cancelled", mapOf(
+            sendEvent(emitter, eventMap("run_cancelled", mapOf(
                 "run_id", runId,
                 "reason", reason,
                 "audit_id", auditId,
                 "trace_id", traceId,
                 "observability", observabilityFor(runId, auditId, traceId),
                 "timestamp", System.currentTimeMillis()
-            )))));
+            )));
         } catch (Exception ignored) {
             // 客户端可能已经断开；取消状态仍以 API 返回为准。
         }
@@ -2364,13 +2388,16 @@ public class V2AgentAiService {
     private static final class ActiveAgentRun {
         private final Long ownerUserId;
         private final String runId;
+        private final Long conversationId;
         private final SseEmitter emitter;
+        private final AtomicInteger eventSequence = new AtomicInteger(1);
         private volatile boolean cancelled;
         private volatile CompletableFuture<?> future;
 
-        private ActiveAgentRun(Long ownerUserId, String runId, SseEmitter emitter) {
+        private ActiveAgentRun(Long ownerUserId, String runId, Long conversationId, SseEmitter emitter) {
             this.ownerUserId = ownerUserId;
             this.runId = runId;
+            this.conversationId = conversationId;
             this.emitter = emitter;
         }
 
@@ -2380,6 +2407,14 @@ public class V2AgentAiService {
 
         private SseEmitter emitter() {
             return emitter;
+        }
+
+        private Long conversationId() {
+            return conversationId;
+        }
+
+        private int nextSeq() {
+            return eventSequence.getAndIncrement();
         }
 
         private boolean cancelled() {

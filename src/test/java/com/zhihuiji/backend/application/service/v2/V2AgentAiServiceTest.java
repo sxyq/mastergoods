@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,6 +33,8 @@ import java.lang.reflect.Field;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -210,6 +213,40 @@ class V2AgentAiServiceTest {
     }
 
     @Test
+    void streamModelAnswerEmitsOnlyModelStreamDeltasAndStreamedCompletion() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(customer(1L, "客户A", 100.0)));
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+            .thenAnswer(invocation -> {
+                @SuppressWarnings("unchecked")
+                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                onDelta.accept("客户A");
+                onDelta.accept("应收100元");
+                return Optional.of("客户A应收100元");
+            });
+        CapturingEmitter emitter = new CapturingEmitter();
+        AgentConversationEntity conversation = conversation(104L);
+
+        service.runChatStream(1L, conversation, "客户应收情况", "run-model-stream", emitter);
+
+        List<String> deltaPayloads = emitter.payloads.stream()
+            .filter(payload -> payload.contains("\"event_type\":\"answer_delta\""))
+            .toList();
+        assertEquals(2, deltaPayloads.size(), String.join("\n", emitter.payloads));
+        assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"delta_source\":\"model_stream\"")));
+        assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"audit_id\":\"run-model-stream:audit\"")));
+        assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"trace_id\":\"run-model-stream:trace\"")));
+        assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"log_ref\":\"agent-run:run-model-stream\"")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_llm_streamed\"")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"streaming\"")));
+        assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"delta_source\":\"rule_summary\"")));
+        assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"event_type\":\"answer_completed\"")));
+        assertTrue(emitter.completed);
+    }
+
+    @Test
     void streamToolCompletedIncludesAuditMetadata() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(false);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
@@ -231,6 +268,42 @@ class V2AgentAiServiceTest {
         assertTrue(completedPayload.contains("\"limit\":10"), completedPayload);
         assertTrue(completedPayload.contains("\"is_truncated\":false"), completedPayload);
         assertTrue(completedPayload.contains("\"duration_ms\""), completedPayload);
+    }
+
+    @Test
+    void streamEventsIncludeCompatibleEnvelopeMetadata() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(customer(1L, "客户A", 100.0)));
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+            .thenAnswer(invocation -> {
+                @SuppressWarnings("unchecked")
+                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                onDelta.accept("客户A");
+                return Optional.of("客户A应收100元");
+            });
+        CapturingEmitter emitter = new CapturingEmitter();
+        AgentConversationEntity conversation = conversation(105L);
+
+        service.runChatStream(1L, conversation, "客户应收情况", "run-envelope", emitter);
+
+        String runStarted = firstPayload(emitter, "\"event_type\":\"run_started\"");
+        assertTrue(runStarted.contains("\"event_id\":\"run-envelope:1\""), runStarted);
+        assertTrue(runStarted.contains("\"seq\":1"), runStarted);
+        assertTrue(runStarted.contains("\"conversation_id\":105"), runStarted);
+
+        String toolCompleted = firstPayload(emitter, "\"event_type\":\"tool_completed\"");
+        assertTrue(toolCompleted.contains("\"event_id\""), toolCompleted);
+        assertTrue(toolCompleted.contains("\"seq\""), toolCompleted);
+        assertTrue(toolCompleted.contains("\"conversation_id\":105"), toolCompleted);
+        assertTrue(toolCompleted.contains("\"trace_id\":\"run-envelope:trace\""), toolCompleted);
+
+        String answerDelta = firstPayload(emitter, "\"event_type\":\"answer_delta\"");
+        assertTrue(answerDelta.contains("\"event_id\""), answerDelta);
+        assertTrue(answerDelta.contains("\"seq\""), answerDelta);
+        assertTrue(answerDelta.contains("\"conversation_id\":105"), answerDelta);
+        assertTrue(answerDelta.contains("\"audit_id\":\"run-envelope:audit\""), answerDelta);
+        assertTrue(answerDelta.contains("\"trace_id\":\"run-envelope:trace\""), answerDelta);
     }
 
     @Test
@@ -272,6 +345,13 @@ class V2AgentAiServiceTest {
 
     private static boolean hasBlock(V2AgentDtos.AgentChatResponse response, String blockType) {
         return response.blocks().stream().anyMatch(block -> blockType.equals(block.blockType()));
+    }
+
+    private static String firstPayload(CapturingEmitter emitter, String marker) {
+        return emitter.payloads.stream()
+            .filter(payload -> payload.contains(marker))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("Missing payload: " + marker + "\n" + String.join("\n", emitter.payloads)));
     }
 
     private static AgentConversationEntity conversation(Long id) {

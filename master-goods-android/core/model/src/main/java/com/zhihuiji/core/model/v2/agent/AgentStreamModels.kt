@@ -89,7 +89,10 @@ sealed class AgentStreamEvent {
     @Serializable
     @SerialName("tool_completed")
     data class ToolCompleted(
+        @SerialName("event_id") val eventId: String? = null,
+        val seq: Int? = null,
         @SerialName("run_id") val runId: String,
+        @SerialName("conversation_id") val conversationId: Long? = null,
         @SerialName("tool_call_id") val toolCallId: String? = null,
         @SerialName("tool_name") val toolName: String,
         @SerialName("result_summary") val resultSummary: String? = null,
@@ -123,9 +126,15 @@ sealed class AgentStreamEvent {
     @Serializable
     @SerialName("answer_delta")
     data class AnswerDelta(
+        @SerialName("event_id") val eventId: String? = null,
+        val seq: Int? = null,
         @SerialName("run_id") val runId: String,
+        @SerialName("conversation_id") val conversationId: Long? = null,
         val delta: String,
         @SerialName("delta_source") val deltaSource: String? = null,
+        @SerialName("audit_id") val auditId: String? = null,
+        @SerialName("trace_id") val traceId: String? = null,
+        val observability: AgentObservabilityDto? = null,
         val timestamp: Long = System.currentTimeMillis(),
     ) : AgentStreamEvent()
 

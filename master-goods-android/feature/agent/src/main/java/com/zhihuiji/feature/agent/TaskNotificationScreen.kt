@@ -109,16 +109,32 @@ fun TaskNotificationScreen(
                     }
                 }
 
-                uiState.error != null -> {
-                    EmptyState(message = "加载失败：${uiState.error}")
+                uiState.selectedTab == 0 && uiState.tasksError != null -> {
+                    EmptyState(
+                        title = "任务同步失败",
+                        message = "服务端任务接口暂未返回，本页不会把失败伪装成暂无任务。\n${uiState.tasksError}",
+                    )
+                }
+
+                uiState.selectedTab == 1 && uiState.notificationsError != null -> {
+                    EmptyState(
+                        title = "通知同步失败",
+                        message = "服务端通知接口暂未返回，本页不会把失败伪装成暂无通知。\n${uiState.notificationsError}",
+                    )
                 }
 
                 uiState.selectedTab == 0 && uiState.tasks.isEmpty() -> {
-                    EmptyState(message = "暂无任务")
+                    EmptyState(
+                        title = "暂无任务",
+                        message = "已成功同步服务端任务列表，当前账号没有真实任务。",
+                    )
                 }
 
                 uiState.selectedTab == 1 && uiState.notifications.isEmpty() -> {
-                    EmptyState(message = "暂无通知")
+                    EmptyState(
+                        title = "暂无通知",
+                        message = "已成功同步服务端通知列表，当前账号没有真实通知。",
+                    )
                 }
 
                 else -> {
@@ -162,18 +178,29 @@ fun TaskNotificationScreen(
 
 @Composable
 private fun EmptyState(
+    title: String,
     message: String,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyLarge,
-            color = TextSecondary
-        )
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        LiquidGlassCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextPrimary,
+                )
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                )
+            }
+        }
     }
 }
 

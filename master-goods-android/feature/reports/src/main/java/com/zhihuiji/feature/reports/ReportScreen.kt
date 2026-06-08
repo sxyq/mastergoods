@@ -862,11 +862,11 @@ private fun ReportDataStatusStrip(
     modifier: Modifier = Modifier
 ) {
     val failedSectionText = failedSections.takeIf { it.isNotEmpty() }?.joinToString("、")
-    val statusTitle = failedSectionText?.let { "部分模块未刷新：$it" } ?: "部分模块未刷新"
+    val statusTitle = failedSectionText?.let { "已显示可用数据，$it 暂未同步" } ?: "已显示可用数据"
     val statusMessage = message
         ?.takeIf { it.isNotBlank() }
-        ?.let { "其他报表仍使用本次已返回的真实数据；可点刷新重新同步。" }
-        ?: "其他报表仍使用本次已返回的真实数据；可点刷新重新同步。"
+        ?.let { "本页不会补模拟报表，当前只展示接口成功返回的真实数据。可点刷新重新同步。" }
+        ?: "本页不会补模拟报表，当前只展示接口成功返回的真实数据。可点刷新重新同步。"
     Row(
         modifier = modifier
             .fillMaxWidth()

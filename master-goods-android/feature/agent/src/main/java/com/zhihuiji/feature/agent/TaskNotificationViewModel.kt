@@ -37,6 +37,8 @@ data class NotificationItem(
 data class TaskNotificationUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
+    val tasksError: String? = null,
+    val notificationsError: String? = null,
     val tasks: List<TaskItem> = emptyList(),
     val notifications: List<NotificationItem> = emptyList(),
     val selectedTab: Int = 0,
@@ -56,17 +58,28 @@ class TaskNotificationViewModel @Inject constructor(
 
     fun loadData() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    error = null,
+                    tasksError = null,
+                    notificationsError = null,
+                )
+            }
             val tasksDeferred = async { repository.listTasks() }
             val notificationsDeferred = async { repository.listNotifications() }
             val tasksResult = tasksDeferred.await()
             val notificationsResult = notificationsDeferred.await()
+            val tasksError = tasksResult.exceptionOrNull()?.message
+            val notificationsError = notificationsResult.exceptionOrNull()?.message
             _uiState.update {
                 it.copy(
                     isLoading = false,
                     tasks = tasksResult.getOrDefault(emptyList()).map { dto -> dto.toTaskItem() },
                     notifications = notificationsResult.getOrDefault(emptyList()).map { dto -> dto.toNotificationItem() },
-                    error = tasksResult.exceptionOrNull()?.message ?: notificationsResult.exceptionOrNull()?.message,
+                    tasksError = tasksError,
+                    notificationsError = notificationsError,
+                    error = tasksError ?: notificationsError,
                 )
             }
         }
