@@ -57,11 +57,17 @@ class AgentStreamEventSerializationTest {
               "tool_call_id": "run-1:inventory_low_stock_lookup",
               "tool_name": "inventory_low_stock_lookup",
               "result_summary": "命中 3 个低库存商品",
+              "input_summary": "查询当前账号低库存商品，参数 {limit=3}",
+              "query_window": {"owner_scope": "current_owner", "limit": 3},
+              "started_at": 900,
+              "completed_at": 1001,
               "duration_ms": 18,
               "returned_count": 3,
               "total_count": 9,
               "limit": 3,
               "is_truncated": true,
+              "evidence": {"source": "tool:inventory_low_stock_lookup", "scope": "current_owner", "returned_count": 3, "is_truncated": true},
+              "next_cursor": "offset:3:limit:3",
               "audit_id": "run-1:audit",
               "trace_id": "run-1:trace",
               "timestamp": 1001
@@ -77,11 +83,15 @@ class AgentStreamEventSerializationTest {
         assertEquals("run-1:inventory_low_stock_lookup", completed.toolCallId)
         assertEquals("inventory_low_stock_lookup", completed.toolName)
         assertEquals("命中 3 个低库存商品", completed.resultSummary)
+        assertEquals("查询当前账号低库存商品，参数 {limit=3}", completed.inputSummary)
+        assertEquals(900L, completed.startedAt)
+        assertEquals(1001L, completed.completedAt)
         assertEquals(18L, completed.durationMs)
         assertEquals(3, completed.returnedCount)
         assertEquals(9, completed.totalCount)
         assertEquals(3, completed.limit)
         assertEquals(true, completed.isTruncated)
+        assertEquals("offset:3:limit:3", completed.nextCursor)
         assertEquals("run-1:audit", completed.auditId)
         assertEquals("run-1:trace", completed.traceId)
     }

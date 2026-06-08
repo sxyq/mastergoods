@@ -137,4 +137,9 @@ public class V2AgentController {
     public ApiResponse<V2AgentDtos.AgentRunCancelResponse> cancelRun(@PathVariable String runId) {
         return ApiResponse.success(v2AgentAiService.cancelRun(runId));
     }
+
+    @GetMapping("/runs/{runId}/audit")
+    public ApiResponse<V2AgentDtos.AgentRunAuditResponse> getRunAudit(@PathVariable String runId) {
+        return ApiResponse.success(v2AgentAiService.getRunAudit(runId));
+    }
 }

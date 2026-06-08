@@ -139,6 +139,36 @@ public final class V2AgentDtos {
     ) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AgentRunAuditResponse(
+        String runId,
+        Long ownerUserId,
+        Long conversationId,
+        String status,
+        String mode,
+        String llmStatus,
+        String planSource,
+        Integer toolCount,
+        Integer eventCount,
+        String auditId,
+        String traceId,
+        String errorCode,
+        String errorMessage,
+        Long startedAt,
+        Long completedAt,
+        Long updatedAt,
+        List<AgentRunAuditEventResponse> events
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AgentRunAuditEventResponse(
+        String eventId,
+        Integer seq,
+        String eventType,
+        JsonNode payload,
+        Long createdAt
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record ResultBlockDto(
         String blockType,
         String title,

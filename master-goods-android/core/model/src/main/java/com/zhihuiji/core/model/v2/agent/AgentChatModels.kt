@@ -2,6 +2,7 @@ package com.zhihuiji.core.model.v2.agent
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 /**
  * 聊天消息领域模型，用于 UI 层展示。
@@ -54,17 +55,25 @@ data class PlanStep(
 
 data class ToolCallRecord(
     val toolName: String,
+    val eventId: String? = null,
+    val seq: Int? = null,
+    val conversationId: Long? = null,
     val toolCallId: String? = null,
     val auditId: String? = null,
     val traceId: String? = null,
     val status: ToolCallStatus,
     val inputSummary: String? = null,
+    val queryWindow: JsonElement? = null,
     val resultSummary: String? = null,
+    val startedAt: Long? = null,
+    val completedAt: Long? = null,
     val durationMs: Long? = null,
     val returnedCount: Int? = null,
     val totalCount: Int? = null,
     val limit: Int? = null,
     val isTruncated: Boolean? = null,
+    val evidence: JsonElement? = null,
+    val nextCursor: String? = null,
     val timestamp: Long,
 )
 

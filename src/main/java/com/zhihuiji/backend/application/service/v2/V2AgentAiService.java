@@ -9,6 +9,8 @@ import com.zhihuiji.backend.domain.entity.AgentConversationEntity;
 import com.zhihuiji.backend.domain.entity.AgentDraftEntity;
 import com.zhihuiji.backend.domain.entity.AgentMessageEntity;
 import com.zhihuiji.backend.domain.entity.AgentNotificationEntity;
+import com.zhihuiji.backend.domain.entity.AgentRunAuditEventEntity;
+import com.zhihuiji.backend.domain.entity.AgentRunAuditEntity;
 import com.zhihuiji.backend.domain.entity.AgentTaskEntity;
 import com.zhihuiji.backend.domain.entity.CustomerEntity;
 import com.zhihuiji.backend.domain.entity.FinanceRecordEntity;
@@ -22,6 +24,8 @@ import com.zhihuiji.backend.infrastructure.repository.AgentConversationRepositor
 import com.zhihuiji.backend.infrastructure.repository.AgentDraftRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentMessageRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentNotificationRepository;
+import com.zhihuiji.backend.infrastructure.repository.AgentRunAuditEventRepository;
+import com.zhihuiji.backend.infrastructure.repository.AgentRunAuditRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentTaskRepository;
 import com.zhihuiji.backend.infrastructure.repository.CustomerRepository;
 import com.zhihuiji.backend.infrastructure.repository.FinanceRecordRepository;
@@ -75,6 +79,8 @@ public class V2AgentAiService {
     private final AgentDraftRepository agentDraftRepository;
     private final AgentTaskRepository agentTaskRepository;
     private final AgentNotificationRepository agentNotificationRepository;
+    private final AgentRunAuditRepository agentRunAuditRepository;
+    private final AgentRunAuditEventRepository agentRunAuditEventRepository;
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
     private final SupplierRepository supplierRepository;
@@ -95,6 +101,8 @@ public class V2AgentAiService {
         AgentDraftRepository agentDraftRepository,
         AgentTaskRepository agentTaskRepository,
         AgentNotificationRepository agentNotificationRepository,
+        AgentRunAuditRepository agentRunAuditRepository,
+        AgentRunAuditEventRepository agentRunAuditEventRepository,
         ProductRepository productRepository,
         CustomerRepository customerRepository,
         SupplierRepository supplierRepository,
@@ -112,6 +120,8 @@ public class V2AgentAiService {
         this.agentDraftRepository = agentDraftRepository;
         this.agentTaskRepository = agentTaskRepository;
         this.agentNotificationRepository = agentNotificationRepository;
+        this.agentRunAuditRepository = agentRunAuditRepository;
+        this.agentRunAuditEventRepository = agentRunAuditEventRepository;
         this.productRepository = productRepository;
         this.customerRepository = customerRepository;
         this.supplierRepository = supplierRepository;
@@ -207,6 +217,7 @@ public class V2AgentAiService {
         saveMessage(ownerUserId, conversation.getId(), "user", "text", message, null, now);
 
         String runId = UUID.randomUUID().toString();
+        createRunAudit(ownerUserId, conversation.getId(), runId, runStartedAt);
         SafetyDecision safetyDecision = evaluateSafety(message);
         String auditId = auditIdFor(runId);
         String traceId = traceIdFor(runId);
@@ -214,6 +225,18 @@ public class V2AgentAiService {
             String blockedAnswer = "这个请求涉及越权或高风险操作，我不能直接执行。你可以改成只查询当前账号下的合规数据范围。";
             persistAssistantResponse(ownerUserId, conversation, blockedAnswer, List.of(), now);
             long blockedCompletedAt = System.currentTimeMillis();
+            finishRunAudit(
+                ownerUserId,
+                runId,
+                "blocked",
+                "blocked",
+                "not_requested",
+                "safety",
+                0,
+                null,
+                null,
+                blockedCompletedAt
+            );
             return new V2AgentDtos.AgentChatResponse(
                 runId,
                 conversation.getId(),
@@ -247,6 +270,18 @@ public class V2AgentAiService {
         FinalAnswer finalAnswer = buildFinalAnswer(message, payload);
         long completedAt = System.currentTimeMillis();
         persistAssistantResponse(ownerUserId, conversation, finalAnswer.answer(), payload.blocks(), System.currentTimeMillis());
+        finishRunAudit(
+            ownerUserId,
+            runId,
+            "completed",
+            finalAnswer.mode(),
+            finalAnswer.llmStatus(),
+            payload.planSource(),
+            payload.toolResults().size(),
+            null,
+            null,
+            completedAt
+        );
 
         return new V2AgentDtos.AgentChatResponse(
             runId,
@@ -283,6 +318,7 @@ public class V2AgentAiService {
         AgentConversationEntity conversation = resolveConversation(request.conversationId(), ownerUserId, message, now);
         saveMessage(ownerUserId, conversation.getId(), "user", "text", message, null, now);
         String runId = UUID.randomUUID().toString();
+        createRunAudit(ownerUserId, conversation.getId(), runId, now);
 
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
         ActiveAgentRun activeRun = new ActiveAgentRun(ownerUserId, runId, conversation.getId(), emitter);
@@ -297,6 +333,18 @@ public class V2AgentAiService {
                 // cancelRun 已向客户端发送 run_cancelled；worker 负责收尾关闭 emitter。
                 activeRun.complete();
             } catch (Exception ex) {
+                finishRunAudit(
+                    ownerUserId,
+                    runId,
+                    "failed",
+                    null,
+                    null,
+                    null,
+                    null,
+                    "STREAM_ERROR",
+                    ex.getMessage() != null ? ex.getMessage() : "stream failed",
+                    System.currentTimeMillis()
+                );
                 try {
                     sendEvent(emitter, eventMap("error", Map.of(
                         "run_id", runId,
@@ -328,11 +376,54 @@ public class V2AgentAiService {
         }
         activeRun.cancel();
         emitRunCancelled(activeRun.emitter(), normalizedRunId, "用户已停止生成");
+        finishRunAudit(
+            ownerUserId,
+            normalizedRunId,
+            "cancelled",
+            "cancelled",
+            "cancelled",
+            null,
+            null,
+            null,
+            "用户已停止生成",
+            System.currentTimeMillis()
+        );
         if (activeRun.cancelFutureIfNotStarted()) {
             activeRun.complete();
             activeRuns.remove(normalizedRunId);
         }
         return new V2AgentDtos.AgentRunCancelResponse(normalizedRunId, "cancelled", true);
+    }
+
+    public V2AgentDtos.AgentRunAuditResponse getRunAudit(String runId) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        String normalizedRunId = normalizeRequired(runId, "run_id 不能为空");
+        AgentRunAuditEntity audit = agentRunAuditRepository.findByRunIdAndOwnerUserId(normalizedRunId, ownerUserId)
+            .orElseThrow(() -> new IllegalArgumentException("run audit not found"));
+        List<V2AgentDtos.AgentRunAuditEventResponse> events = agentRunAuditEventRepository
+            .findAllByRunIdOrderBySeqAsc(normalizedRunId)
+            .stream()
+            .map(this::toRunAuditEventResponse)
+            .toList();
+        return new V2AgentDtos.AgentRunAuditResponse(
+            audit.getRunId(),
+            audit.getOwnerUserId(),
+            audit.getConversationId(),
+            audit.getStatus(),
+            audit.getMode(),
+            audit.getLlmStatus(),
+            audit.getPlanSource(),
+            audit.getToolCount(),
+            audit.getEventCount(),
+            audit.getAuditId(),
+            audit.getTraceId(),
+            audit.getErrorCode(),
+            audit.getErrorMessage(),
+            audit.getStartedAt(),
+            audit.getCompletedAt(),
+            audit.getUpdatedAt(),
+            events
+        );
     }
 
     protected void runChatStream(
@@ -346,6 +437,7 @@ public class V2AgentAiService {
             runId,
             new ActiveAgentRun(ownerUserId, runId, conversation.getId(), emitter)
         ) == null;
+        ensureRunAuditStarted(ownerUserId, conversation.getId(), runId, System.currentTimeMillis());
         try {
             String auditId = auditIdFor(runId);
             String traceId = traceIdFor(runId);
@@ -387,6 +479,18 @@ public class V2AgentAiService {
                     "observability", observabilityFor(runId, auditId, traceId),
                     "timestamp", System.currentTimeMillis()
                 )));
+                finishRunAudit(
+                    ownerUserId,
+                    runId,
+                    "blocked",
+                    "blocked",
+                    "not_requested",
+                    "safety",
+                    0,
+                    null,
+                    null,
+                    System.currentTimeMillis()
+                );
                 emitter.complete();
                 return;
             }
@@ -413,6 +517,18 @@ public class V2AgentAiService {
                 "observability", observabilityFor(runId, auditId, traceId),
                 "timestamp", System.currentTimeMillis()
             )));
+            finishRunAudit(
+                ownerUserId,
+                runId,
+                "completed",
+                finalAnswer.mode(),
+                finalAnswer.llmStatus(),
+                payload.planSource(),
+                payload.toolResults().size(),
+                null,
+                null,
+                System.currentTimeMillis()
+            );
             emitter.complete();
         } finally {
             if (registeredForDirectRun) {
@@ -455,7 +571,15 @@ public class V2AgentAiService {
                 }
                 String errorSummary = safeToolErrorSummary(ex);
                 toolFailures.add(new ToolFailureResult(tool, errorSummary));
-                emitToolFailed(emitter, runId, tool, errorSummary, System.currentTimeMillis() - startedAt);
+                emitToolFailed(
+                    emitter,
+                    runId,
+                    tool,
+                    errorSummary,
+                    System.currentTimeMillis() - startedAt,
+                    startedAt,
+                    toolInputFor(tool)
+                );
             }
         }
 
@@ -485,6 +609,20 @@ public class V2AgentAiService {
             case "finance_record_lookup" -> buildFinanceRecordResponse(ownerUserId, emitter, runId);
             case "sales_overview_lookup" -> buildOverviewResponse(ownerUserId, emitter, runId);
             default -> null;
+        };
+    }
+
+    private Map<String, Object> toolInputFor(String toolName) {
+        return switch (toolName) {
+            case "inventory_low_stock_lookup", "product_catalog_lookup", "customer_receivable_lookup",
+                "supplier_payable_lookup", "sale_order_lookup", "purchase_order_lookup",
+                "pay_order_lookup", "finance_record_lookup" -> Map.of("limit", DEFAULT_TOOL_LIMIT);
+            case "sales_overview_lookup" -> Map.of(
+                "window_days", 7,
+                "rank_limit", OVERVIEW_SIGNAL_LIMIT,
+                "low_stock_limit", OVERVIEW_SIGNAL_LIMIT
+            );
+            default -> Map.of();
         };
     }
 
@@ -1792,7 +1930,10 @@ public class V2AgentAiService {
                 "run_id", runId,
                 "tool_call_id", toolCallId(runId, toolName),
                 "tool_name", toolName,
+                "input_summary", toolInputSummary(toolName, toolInput),
+                "query_window", queryWindowFor(toolInput),
                 "tool_input", toolInput,
+                "started_at", System.currentTimeMillis(),
                 "audit_id", auditIdFor(runId),
                 "trace_id", traceIdFor(runId),
                 "timestamp", System.currentTimeMillis()
@@ -1847,25 +1988,71 @@ public class V2AgentAiService {
     }
 
     private void emitToolFailed(SseEmitter emitter, String runId, String toolName, String safeMessage, long durationMs) {
+        emitToolFailed(emitter, runId, toolName, safeMessage, durationMs, System.currentTimeMillis(), Map.of());
+    }
+
+    private void emitToolFailed(
+        SseEmitter emitter,
+        String runId,
+        String toolName,
+        String safeMessage,
+        long durationMs,
+        long startedAt,
+        Map<String, Object> toolInput
+    ) {
         if (emitter == null || runId == null) {
             return;
         }
+        long completedAt = System.currentTimeMillis();
         try {
             sendEvent(emitter, eventMap("tool_failed", mapOf(
                 "run_id", runId,
                 "tool_call_id", toolCallId(runId, toolName),
                 "tool_name", toolName,
+                "input_summary", toolInputSummary(toolName, toolInput),
+                "query_window", queryWindowFor(toolInput),
                 "error_code", "TOOL_QUERY_FAILED",
                 "safe_message", safeMessage,
                 "error_summary", safeMessage,
                 "duration_ms", Math.max(0L, durationMs),
+                "started_at", startedAt,
+                "completed_at", completedAt,
                 "audit_id", auditIdFor(runId),
                 "trace_id", traceIdFor(runId),
-                "timestamp", System.currentTimeMillis()
+                "timestamp", completedAt
             )));
         } catch (IOException ex) {
             throw new IllegalStateException("发送 tool_failed 失败", ex);
         }
+    }
+
+    private static String toolInputSummary(String toolName, Map<String, Object> toolInput) {
+        String label = switch (toolName) {
+            case "inventory_low_stock_lookup" -> "查询当前账号低库存商品";
+            case "product_catalog_lookup" -> "查询当前账号商品目录";
+            case "customer_receivable_lookup" -> "查询当前账号客户应收余额";
+            case "supplier_payable_lookup" -> "查询当前账号供应商应付余额";
+            case "sales_overview_lookup" -> "汇总当前账号近 7 天经营信号";
+            case "sale_order_lookup" -> "查询当前账号最近销售单";
+            case "purchase_order_lookup" -> "查询当前账号最近采购单";
+            case "pay_order_lookup" -> "查询当前账号最近付款单";
+            case "finance_record_lookup" -> "查询当前账号最近资金流水";
+            default -> "执行当前账号只读查询";
+        };
+        Map<String, Object> safeInput = toolInput == null ? Map.of() : toolInput;
+        if (safeInput.isEmpty()) {
+            return label;
+        }
+        return label + "，参数 " + safeInput;
+    }
+
+    private static Map<String, Object> queryWindowFor(Map<String, Object> toolInput) {
+        Map<String, Object> window = new LinkedHashMap<>();
+        window.put("owner_scope", "current_owner");
+        if (toolInput != null) {
+            window.putAll(toolInput);
+        }
+        return window;
     }
 
     private void emitAnswerCompleted(
@@ -1930,7 +2117,112 @@ public class V2AgentAiService {
             }
         }
         payload.putIfAbsent("timestamp", System.currentTimeMillis());
-        emitter.send(SseEmitter.event().data(objectMapper.writeValueAsString(payload)));
+        String payloadJson = objectMapper.writeValueAsString(payload);
+        emitter.send(SseEmitter.event().data(payloadJson));
+        if (runId instanceof String runIdText) {
+            persistRunAuditEvent(runIdText, payload, payloadJson);
+            incrementRunAuditEventCount(runIdText);
+        }
+    }
+
+    private void createRunAudit(Long ownerUserId, Long conversationId, String runId, long startedAt) {
+        AgentRunAuditEntity entity = new AgentRunAuditEntity();
+        entity.setOwnerUserId(ownerUserId);
+        entity.setConversationId(conversationId);
+        entity.setRunId(runId);
+        entity.setAuditId(auditIdFor(runId));
+        entity.setTraceId(traceIdFor(runId));
+        entity.setStatus("running");
+        entity.setStartedAt(startedAt);
+        entity.setUpdatedAt(startedAt);
+        entity.setEventCount(0);
+        agentRunAuditRepository.save(entity);
+    }
+
+    private void ensureRunAuditStarted(Long ownerUserId, Long conversationId, String runId, long startedAt) {
+        if (agentRunAuditRepository.findByRunId(runId).isEmpty()) {
+            createRunAudit(ownerUserId, conversationId, runId, startedAt);
+        }
+    }
+
+    private void finishRunAudit(
+        Long ownerUserId,
+        String runId,
+        String status,
+        String mode,
+        String llmStatus,
+        String planSource,
+        Integer toolCount,
+        String errorCode,
+        String errorMessage,
+        long completedAt
+    ) {
+        agentRunAuditRepository.findByRunIdAndOwnerUserId(runId, ownerUserId).ifPresent(entity -> {
+            entity.setStatus(status);
+            entity.setMode(mode);
+            entity.setLlmStatus(llmStatus);
+            entity.setPlanSource(planSource);
+            entity.setToolCount(toolCount);
+            entity.setErrorCode(errorCode);
+            entity.setErrorMessage(truncate(errorMessage, 1000));
+            entity.setCompletedAt(completedAt);
+            entity.setUpdatedAt(completedAt);
+            agentRunAuditRepository.save(entity);
+        });
+    }
+
+    private void incrementRunAuditEventCount(String runId) {
+        agentRunAuditRepository.findByRunId(runId)
+            .ifPresent(entity -> {
+                entity.setEventCount(Math.max(0, entity.getEventCount() == null ? 0 : entity.getEventCount()) + 1);
+                entity.setUpdatedAt(System.currentTimeMillis());
+                agentRunAuditRepository.save(entity);
+            });
+    }
+
+    private void persistRunAuditEvent(String runId, Map<String, Object> payload, String payloadJson) {
+        Object eventId = payload.get("event_id");
+        Object seq = payload.get("seq");
+        Object eventType = payload.get("event_type");
+        if (!(eventId instanceof String eventIdText) || !(seq instanceof Number seqNumber) || !(eventType instanceof String eventTypeText)) {
+            return;
+        }
+        AgentRunAuditEventEntity entity = new AgentRunAuditEventEntity();
+        entity.setRunId(runId);
+        entity.setEventId(eventIdText);
+        entity.setSeq(seqNumber.intValue());
+        entity.setEventType(eventTypeText);
+        entity.setPayloadJson(payloadJson);
+        entity.setCreatedAt(System.currentTimeMillis());
+        agentRunAuditEventRepository.save(entity);
+    }
+
+    private V2AgentDtos.AgentRunAuditEventResponse toRunAuditEventResponse(AgentRunAuditEventEntity entity) {
+        return new V2AgentDtos.AgentRunAuditEventResponse(
+            entity.getEventId(),
+            entity.getSeq(),
+            entity.getEventType(),
+            parseAuditPayload(entity.getPayloadJson()),
+            entity.getCreatedAt()
+        );
+    }
+
+    private JsonNode parseAuditPayload(String payloadJson) {
+        try {
+            return objectMapper.readTree(payloadJson);
+        } catch (JsonProcessingException ex) {
+            return toJsonNode(mapOf(
+                "parse_error", true,
+                "raw", truncate(payloadJson, 1000)
+            ));
+        }
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, Math.max(0, maxLength));
     }
 
     private void ensureRunActive(String runId) {
@@ -2493,7 +2785,12 @@ public class V2AgentAiService {
 
         private Map<String, Object> eventFields() {
             Map<String, Object> fields = new LinkedHashMap<>();
-            fields.put("duration_ms", Math.max(0L, System.currentTimeMillis() - startedAt));
+            long completedAt = System.currentTimeMillis();
+            fields.put("input_summary", toolInputSummary(toolName, toolInput));
+            fields.put("query_window", queryWindowFor(toolInput));
+            fields.put("started_at", startedAt);
+            fields.put("completed_at", completedAt);
+            fields.put("duration_ms", Math.max(0L, completedAt - startedAt));
             if (returnedCount != null) {
                 fields.put("returned_count", returnedCount);
             }
@@ -2504,6 +2801,8 @@ public class V2AgentAiService {
                 fields.put("limit", limit);
             }
             fields.put("is_truncated", truncated);
+            fields.put("next_cursor", nextCursor());
+            fields.put("evidence", evidenceSummary());
             return fields;
         }
 
@@ -2512,6 +2811,27 @@ public class V2AgentAiService {
             fields.put("tool_name", toolName);
             fields.put("tool_input", toolInput);
             return fields;
+        }
+
+        private String nextCursor() {
+            if (!truncated || limit == null || returnedCount == null) {
+                return null;
+            }
+            return "offset:" + returnedCount + ":limit:" + limit;
+        }
+
+        private Map<String, Object> evidenceSummary() {
+            Map<String, Object> evidence = new LinkedHashMap<>();
+            evidence.put("source", "tool:" + toolName);
+            evidence.put("scope", "current_owner");
+            if (returnedCount != null) {
+                evidence.put("returned_count", returnedCount);
+            }
+            if (totalCount != null) {
+                evidence.put("total_count", totalCount);
+            }
+            evidence.put("is_truncated", truncated);
+            return evidence;
         }
     }
 }

@@ -14,12 +14,16 @@ import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
 import com.zhihuiji.backend.domain.entity.AgentConversationEntity;
 import com.zhihuiji.backend.domain.entity.AgentMessageEntity;
+import com.zhihuiji.backend.domain.entity.AgentRunAuditEventEntity;
+import com.zhihuiji.backend.domain.entity.AgentRunAuditEntity;
 import com.zhihuiji.backend.domain.entity.SupplierEntity;
 import com.zhihuiji.backend.infrastructure.ai.LongCatAnthropicClient;
 import com.zhihuiji.backend.infrastructure.repository.AgentConversationRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentDraftRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentMessageRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentNotificationRepository;
+import com.zhihuiji.backend.infrastructure.repository.AgentRunAuditEventRepository;
+import com.zhihuiji.backend.infrastructure.repository.AgentRunAuditRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentTaskRepository;
 import com.zhihuiji.backend.infrastructure.repository.CustomerRepository;
 import com.zhihuiji.backend.infrastructure.repository.FinanceRecordRepository;
@@ -32,7 +36,9 @@ import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
 import java.lang.reflect.Field;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,6 +56,8 @@ class V2AgentAiServiceTest {
     @Mock private AgentDraftRepository agentDraftRepository;
     @Mock private AgentTaskRepository agentTaskRepository;
     @Mock private AgentNotificationRepository agentNotificationRepository;
+    @Mock private AgentRunAuditRepository agentRunAuditRepository;
+    @Mock private AgentRunAuditEventRepository agentRunAuditEventRepository;
     @Mock private ProductRepository productRepository;
     @Mock private CustomerRepository customerRepository;
     @Mock private SupplierRepository supplierRepository;
@@ -61,10 +69,14 @@ class V2AgentAiServiceTest {
     @Mock private LongCatAnthropicClient longCatAnthropicClient;
 
     private V2AgentAiService service;
+    private Map<String, AgentRunAuditEntity> runAudits;
+    private List<AgentRunAuditEventEntity> runAuditEvents;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        runAudits = new HashMap<>();
+        runAuditEvents = new ArrayList<>();
         service = new V2AgentAiService(
             currentOwnerService,
             agentConversationRepository,
@@ -72,6 +84,8 @@ class V2AgentAiServiceTest {
             agentDraftRepository,
             agentTaskRepository,
             agentNotificationRepository,
+            agentRunAuditRepository,
+            agentRunAuditEventRepository,
             productRepository,
             customerRepository,
             supplierRepository,
@@ -93,6 +107,31 @@ class V2AgentAiServiceTest {
             return entity;
         });
         when(agentMessageRepository.save(any(AgentMessageEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(agentRunAuditRepository.save(any(AgentRunAuditEntity.class))).thenAnswer(invocation -> {
+            AgentRunAuditEntity entity = invocation.getArgument(0);
+            runAudits.put(entity.getRunId(), entity);
+            return entity;
+        });
+        when(agentRunAuditRepository.findByRunId(anyString())).thenAnswer(invocation ->
+            Optional.ofNullable(runAudits.get(invocation.getArgument(0, String.class)))
+        );
+        when(agentRunAuditRepository.findByRunIdAndOwnerUserId(anyString(), any())).thenAnswer(invocation -> {
+            AgentRunAuditEntity entity = runAudits.get(invocation.getArgument(0, String.class));
+            Long ownerUserId = invocation.getArgument(1, Long.class);
+            return entity != null && entity.getOwnerUserId().equals(ownerUserId) ? Optional.of(entity) : Optional.empty();
+        });
+        when(agentRunAuditEventRepository.save(any(AgentRunAuditEventEntity.class))).thenAnswer(invocation -> {
+            AgentRunAuditEventEntity entity = invocation.getArgument(0);
+            runAuditEvents.add(entity);
+            return entity;
+        });
+        when(agentRunAuditEventRepository.findAllByRunIdOrderBySeqAsc(anyString())).thenAnswer(invocation -> {
+            String runId = invocation.getArgument(0, String.class);
+            return runAuditEvents.stream()
+                .filter(event -> runId.equals(event.getRunId()))
+                .sorted((left, right) -> Integer.compare(left.getSeq(), right.getSeq()))
+                .toList();
+        });
     }
 
     @Test
@@ -268,6 +307,12 @@ class V2AgentAiServiceTest {
         assertTrue(completedPayload.contains("\"limit\":10"), completedPayload);
         assertTrue(completedPayload.contains("\"is_truncated\":false"), completedPayload);
         assertTrue(completedPayload.contains("\"duration_ms\""), completedPayload);
+        assertTrue(completedPayload.contains("\"input_summary\":\"查询当前账号客户应收余额"), completedPayload);
+        assertTrue(completedPayload.contains("\"query_window\":{\"owner_scope\":\"current_owner\",\"limit\":10}"), completedPayload);
+        assertTrue(completedPayload.contains("\"started_at\""), completedPayload);
+        assertTrue(completedPayload.contains("\"completed_at\""), completedPayload);
+        assertTrue(completedPayload.contains("\"next_cursor\":null"), completedPayload);
+        assertTrue(completedPayload.contains("\"evidence\":{\"source\":\"tool:customer_receivable_lookup\""), completedPayload);
     }
 
     @Test
@@ -304,6 +349,26 @@ class V2AgentAiServiceTest {
         assertTrue(answerDelta.contains("\"conversation_id\":105"), answerDelta);
         assertTrue(answerDelta.contains("\"audit_id\":\"run-envelope:audit\""), answerDelta);
         assertTrue(answerDelta.contains("\"trace_id\":\"run-envelope:trace\""), answerDelta);
+
+        AgentRunAuditEntity audit = runAudits.get("run-envelope");
+        assertNotNull(audit);
+        assertEquals(1L, audit.getOwnerUserId());
+        assertEquals(105L, audit.getConversationId());
+        assertEquals("completed", audit.getStatus());
+        assertEquals("tool_query_llm_streamed", audit.getMode());
+        assertEquals("streaming", audit.getLlmStatus());
+        assertEquals("keyword", audit.getPlanSource());
+        assertEquals(1, audit.getToolCount());
+        assertTrue(audit.getEventCount() > 0);
+        List<AgentRunAuditEventEntity> events = runAuditEvents.stream()
+            .filter(event -> "run-envelope".equals(event.getRunId()))
+            .toList();
+        assertEquals(audit.getEventCount(), events.size());
+        assertTrue(events.stream().anyMatch(event -> "run_started".equals(event.getEventType())));
+        assertTrue(events.stream().anyMatch(event -> "tool_completed".equals(event.getEventType())
+            && event.getPayloadJson().contains("\"tool_name\":\"customer_receivable_lookup\"")));
+        assertTrue(events.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())
+            && event.getPayloadJson().contains("\"delta_source\":\"model_stream\"")));
     }
 
     @Test
@@ -341,6 +406,55 @@ class V2AgentAiServiceTest {
         assertEquals(response.auditId(), response.observability().auditId());
         assertEquals(response.traceId(), response.observability().traceId());
         assertEquals("agent-run:" + response.runId(), response.observability().logRef());
+        AgentRunAuditEntity audit = runAudits.get(response.runId());
+        assertNotNull(audit);
+        assertEquals(1L, audit.getOwnerUserId());
+        assertEquals(response.conversationId(), audit.getConversationId());
+        assertEquals("completed", audit.getStatus());
+        assertEquals(response.mode(), audit.getMode());
+        assertEquals(response.llmStatus(), audit.getLlmStatus());
+        assertEquals(response.planSource(), audit.getPlanSource());
+        assertEquals(1, audit.getToolCount());
+        assertEquals(response.auditId(), audit.getAuditId());
+        assertEquals(response.traceId(), audit.getTraceId());
+        assertNotNull(audit.getCompletedAt());
+    }
+
+    @Test
+    void getRunAuditReturnsOwnerScopedSummaryAndEvents() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(customer(1L, "客户A", 100.0)));
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+            .thenAnswer(invocation -> {
+                @SuppressWarnings("unchecked")
+                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                onDelta.accept("客户A");
+                return Optional.of("客户A应收100元");
+            });
+        CapturingEmitter emitter = new CapturingEmitter();
+
+        service.runChatStream(1L, conversation(106L), "客户应收情况", "run-audit-read", emitter);
+
+        V2AgentDtos.AgentRunAuditResponse response = service.getRunAudit("run-audit-read");
+
+        assertEquals("run-audit-read", response.runId());
+        assertEquals(1L, response.ownerUserId());
+        assertEquals(106L, response.conversationId());
+        assertEquals("completed", response.status());
+        assertEquals("tool_query_llm_streamed", response.mode());
+        assertEquals("streaming", response.llmStatus());
+        assertEquals("keyword", response.planSource());
+        assertEquals("run-audit-read:audit", response.auditId());
+        assertEquals("run-audit-read:trace", response.traceId());
+        assertTrue(response.eventCount() > 0);
+        assertEquals(response.eventCount(), response.events().size());
+        assertEquals("run_started", response.events().get(0).eventType());
+        assertEquals("run-audit-read", response.events().get(0).payload().path("run_id").asText());
+        assertTrue(response.events().stream().anyMatch(event ->
+            "tool_completed".equals(event.eventType())
+                && "customer_receivable_lookup".equals(event.payload().path("tool_name").asText())
+        ));
     }
 
     private static boolean hasBlock(V2AgentDtos.AgentChatResponse response, String blockType) {

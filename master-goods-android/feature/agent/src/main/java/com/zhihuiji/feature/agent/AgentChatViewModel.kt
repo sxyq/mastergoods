@@ -263,19 +263,28 @@ class AgentChatViewModel @Inject constructor(
                     trace.copy(
                         toolCalls = trace.toolCalls + ToolCallRecord(
                             toolName = event.toolName,
+                            eventId = event.eventId,
+                            seq = event.seq,
+                            conversationId = event.conversationId,
                             toolCallId = event.toolCallId,
                             auditId = event.auditId,
                             traceId = event.traceId,
                             status = ToolCallStatus.RUNNING,
-                            inputSummary = event.toolInput?.toString()?.take(160),
+                            inputSummary = event.inputSummary ?: event.toolInput?.toString()?.take(160),
+                            queryWindow = event.queryWindow,
+                            startedAt = event.startedAt ?: event.timestamp,
                             timestamp = event.timestamp,
                         )
                     )
                 }
                 currentAuditBuilder?.addToolCall(
                     ToolAuditRecord(
+                        toolCallId = event.toolCallId,
                         toolName = event.toolName,
                         status = "running",
+                        inputSummary = event.inputSummary ?: event.toolInput?.toString()?.take(160),
+                        queryWindow = event.queryWindow,
+                        startedAt = event.startedAt ?: event.timestamp,
                         timestamp = event.timestamp,
                     )
                 )
@@ -287,6 +296,9 @@ class AgentChatViewModel @Inject constructor(
                         toolCalls = trace.toolCalls.updateToolCall(
                             toolName = event.toolName,
                             toolCallId = null,
+                            eventId = null,
+                            seq = null,
+                            conversationId = null,
                             auditId = null,
                             traceId = null,
                             status = ToolCallStatus.RUNNING,
@@ -309,15 +321,24 @@ class AgentChatViewModel @Inject constructor(
                         toolCalls = trace.toolCalls.updateToolCall(
                             toolName = event.toolName,
                             toolCallId = event.toolCallId,
+                            eventId = event.eventId,
+                            seq = event.seq,
+                            conversationId = event.conversationId,
                             auditId = event.auditId,
                             traceId = event.traceId,
                             status = ToolCallStatus.COMPLETED,
+                            inputSummary = event.inputSummary,
+                            queryWindow = event.queryWindow,
                             resultSummary = event.resultSummary,
+                            startedAt = event.startedAt,
+                            completedAt = event.completedAt ?: event.timestamp,
                             durationMs = event.durationMs,
                             returnedCount = event.returnedCount,
                             totalCount = event.totalCount,
                             limit = event.limit,
                             isTruncated = event.isTruncated,
+                            evidence = event.evidence,
+                            nextCursor = event.nextCursor,
                             timestamp = event.timestamp,
                         )
                     )
@@ -325,12 +346,19 @@ class AgentChatViewModel @Inject constructor(
                 currentAuditBuilder?.updateToolCall(
                     toolName = event.toolName,
                     status = "completed",
+                    toolCallId = event.toolCallId,
+                    inputSummary = event.inputSummary,
+                    queryWindow = event.queryWindow,
                     resultSummary = event.resultSummary,
+                    startedAt = event.startedAt,
+                    completedAt = event.completedAt ?: event.timestamp,
                     durationMs = event.durationMs,
                     returnedCount = event.returnedCount,
                     totalCount = event.totalCount,
                     limit = event.limit,
                     isTruncated = event.isTruncated,
+                    evidence = event.evidence,
+                    nextCursor = event.nextCursor,
                     timestamp = event.timestamp,
                 )
             }
@@ -342,11 +370,20 @@ class AgentChatViewModel @Inject constructor(
                         toolCalls = trace.toolCalls.updateToolCall(
                             toolName = event.toolName,
                             toolCallId = event.toolCallId,
+                            eventId = event.eventId,
+                            seq = event.seq,
+                            conversationId = event.conversationId,
                             auditId = event.auditId,
                             traceId = event.traceId,
                             status = ToolCallStatus.FAILED,
+                            inputSummary = event.inputSummary,
+                            queryWindow = event.queryWindow,
                             resultSummary = errorSummary,
+                            startedAt = event.startedAt,
+                            completedAt = event.completedAt ?: event.timestamp,
                             durationMs = event.durationMs,
+                            evidence = event.evidence,
+                            nextCursor = event.nextCursor,
                             timestamp = event.timestamp,
                         )
                     )
@@ -354,8 +391,15 @@ class AgentChatViewModel @Inject constructor(
                 currentAuditBuilder?.updateToolCall(
                     toolName = event.toolName,
                     status = "failed",
+                    toolCallId = event.toolCallId,
+                    inputSummary = event.inputSummary,
+                    queryWindow = event.queryWindow,
                     resultSummary = errorSummary,
+                    startedAt = event.startedAt,
+                    completedAt = event.completedAt ?: event.timestamp,
                     durationMs = event.durationMs,
+                    evidence = event.evidence,
+                    nextCursor = event.nextCursor,
                     timestamp = event.timestamp,
                 )
             }
@@ -718,15 +762,24 @@ class AgentChatViewModel @Inject constructor(
 private fun List<ToolCallRecord>.updateToolCall(
     toolName: String,
     toolCallId: String?,
+    eventId: String?,
+    seq: Int?,
+    conversationId: Long?,
     auditId: String?,
     traceId: String?,
     status: ToolCallStatus,
+    inputSummary: String? = null,
+    queryWindow: kotlinx.serialization.json.JsonElement? = null,
     resultSummary: String?,
+    startedAt: Long? = null,
+    completedAt: Long? = null,
     durationMs: Long? = null,
     returnedCount: Int? = null,
     totalCount: Int? = null,
     limit: Int? = null,
     isTruncated: Boolean? = null,
+    evidence: kotlinx.serialization.json.JsonElement? = null,
+    nextCursor: String? = null,
     timestamp: Long,
 ): List<ToolCallRecord> {
     val index = if (!toolCallId.isNullOrBlank()) {
@@ -737,31 +790,49 @@ private fun List<ToolCallRecord>.updateToolCall(
     if (index == -1) {
         return this + ToolCallRecord(
             toolName = toolName,
+            eventId = eventId,
+            seq = seq,
+            conversationId = conversationId,
             toolCallId = toolCallId,
             auditId = auditId,
             traceId = traceId,
             status = status,
+            inputSummary = inputSummary,
+            queryWindow = queryWindow,
             resultSummary = resultSummary,
+            startedAt = startedAt,
+            completedAt = completedAt,
             durationMs = durationMs,
             returnedCount = returnedCount,
             totalCount = totalCount,
             limit = limit,
             isTruncated = isTruncated,
+            evidence = evidence,
+            nextCursor = nextCursor,
             timestamp = timestamp,
         )
     }
     val updated = toMutableList()
     updated[index] = updated[index].copy(
         status = status,
+        eventId = eventId ?: updated[index].eventId,
+        seq = seq ?: updated[index].seq,
+        conversationId = conversationId ?: updated[index].conversationId,
         toolCallId = toolCallId ?: updated[index].toolCallId,
         auditId = auditId ?: updated[index].auditId,
         traceId = traceId ?: updated[index].traceId,
+        inputSummary = inputSummary ?: updated[index].inputSummary,
+        queryWindow = queryWindow ?: updated[index].queryWindow,
         resultSummary = resultSummary,
+        startedAt = startedAt ?: updated[index].startedAt,
+        completedAt = completedAt ?: updated[index].completedAt,
         durationMs = durationMs ?: updated[index].durationMs,
         returnedCount = returnedCount ?: updated[index].returnedCount,
         totalCount = totalCount ?: updated[index].totalCount,
         limit = limit ?: updated[index].limit,
         isTruncated = isTruncated ?: updated[index].isTruncated,
+        evidence = evidence ?: updated[index].evidence,
+        nextCursor = nextCursor ?: updated[index].nextCursor,
         timestamp = timestamp,
     )
     return updated
@@ -835,37 +906,58 @@ private class AuditRecordBuilder(
     fun updateToolCall(
         toolName: String,
         status: String,
+        toolCallId: String? = null,
+        inputSummary: String? = null,
+        queryWindow: kotlinx.serialization.json.JsonElement? = null,
         resultSummary: String?,
         timestamp: Long,
+        startedAt: Long? = null,
+        completedAt: Long? = null,
         durationMs: Long? = null,
         returnedCount: Int? = null,
         totalCount: Int? = null,
         limit: Int? = null,
         isTruncated: Boolean? = null,
+        evidence: kotlinx.serialization.json.JsonElement? = null,
+        nextCursor: String? = null,
     ) {
         val index = toolsCalled.indexOfLast { it.toolName == toolName }
         if (index != -1) {
             toolsCalled[index] = toolsCalled[index].copy(
                 status = status,
+                toolCallId = toolCallId ?: toolsCalled[index].toolCallId,
+                inputSummary = inputSummary ?: toolsCalled[index].inputSummary,
+                queryWindow = queryWindow ?: toolsCalled[index].queryWindow,
                 resultSummary = resultSummary,
+                startedAt = startedAt ?: toolsCalled[index].startedAt,
+                completedAt = completedAt ?: toolsCalled[index].completedAt,
                 durationMs = durationMs ?: toolsCalled[index].durationMs,
                 returnedCount = returnedCount ?: toolsCalled[index].returnedCount,
                 totalCount = totalCount ?: toolsCalled[index].totalCount,
                 limit = limit ?: toolsCalled[index].limit,
                 isTruncated = isTruncated ?: toolsCalled[index].isTruncated,
+                evidence = evidence ?: toolsCalled[index].evidence,
+                nextCursor = nextCursor ?: toolsCalled[index].nextCursor,
                 timestamp = timestamp,
             )
         } else {
             toolsCalled.add(
                 ToolAuditRecord(
+                    toolCallId = toolCallId,
                     toolName = toolName,
                     status = status,
+                    inputSummary = inputSummary,
+                    queryWindow = queryWindow,
                     resultSummary = resultSummary,
+                    startedAt = startedAt,
+                    completedAt = completedAt,
                     durationMs = durationMs,
                     returnedCount = returnedCount,
                     totalCount = totalCount,
                     limit = limit,
                     isTruncated = isTruncated,
+                    evidence = evidence,
+                    nextCursor = nextCursor,
                     timestamp = timestamp,
                 )
             )

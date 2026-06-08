@@ -18,6 +18,7 @@ import com.zhihuiji.backend.application.service.SessionAccessService;
 import com.zhihuiji.backend.application.service.v2.V2AgentAiService;
 import com.zhihuiji.backend.application.service.v2.V2AgentConversationService;
 import com.zhihuiji.backend.application.service.v2.V2MediaService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +45,8 @@ class V2AgentMediaControllerTest {
     private V2MediaService v2MediaService;
     @MockBean
     private SessionAccessService sessionAccessService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // --- Agent Conversation tests ---
 
@@ -213,6 +216,49 @@ class V2AgentMediaControllerTest {
         mockMvc.perform(delete("/v2/agent/drafts/5"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(0));
+    }
+
+    @Test
+    void getRunAuditReturnsSnakeCaseFieldsAndEvents() throws Exception {
+        when(v2AgentAiService.getRunAudit("run-1")).thenReturn(
+            new V2AgentDtos.AgentRunAuditResponse(
+                "run-1",
+                1L,
+                7L,
+                "completed",
+                "tool_query_llm_streamed",
+                "streaming",
+                "keyword",
+                1,
+                2,
+                "run-1:audit",
+                "run-1:trace",
+                null,
+                null,
+                100L,
+                180L,
+                180L,
+                List.of(
+                    new V2AgentDtos.AgentRunAuditEventResponse(
+                        "run-1:1",
+                        1,
+                        "run_started",
+                        objectMapper.readTree("{\"run_id\":\"run-1\",\"event_type\":\"run_started\"}"),
+                        101L
+                    )
+                )
+            )
+        );
+
+        mockMvc.perform(get("/v2/agent/runs/run-1/audit"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.run_id").value("run-1"))
+            .andExpect(jsonPath("$.data.conversation_id").value(7))
+            .andExpect(jsonPath("$.data.llm_status").value("streaming"))
+            .andExpect(jsonPath("$.data.event_count").value(2))
+            .andExpect(jsonPath("$.data.events[0].event_id").value("run-1:1"))
+            .andExpect(jsonPath("$.data.events[0].event_type").value("run_started"))
+            .andExpect(jsonPath("$.data.events[0].payload.run_id").value("run-1"));
     }
 
     // --- Media Asset tests ---

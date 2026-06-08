@@ -2,6 +2,7 @@ package com.zhihuiji.core.model.v2.agent
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 /**
  * AI 助手审计记录模型。
@@ -31,14 +32,21 @@ data class SafetyAuditResult(
 
 @Serializable
 data class ToolAuditRecord(
+    @SerialName("tool_call_id") val toolCallId: String? = null,
     @SerialName("tool_name") val toolName: String,
     val status: String, // running / completed / failed
+    @SerialName("input_summary") val inputSummary: String? = null,
+    @SerialName("query_window") val queryWindow: JsonElement? = null,
     @SerialName("result_summary") val resultSummary: String? = null,
+    @SerialName("started_at") val startedAt: Long? = null,
+    @SerialName("completed_at") val completedAt: Long? = null,
     @SerialName("duration_ms") val durationMs: Long? = null,
     @SerialName("returned_count") val returnedCount: Int? = null,
     @SerialName("total_count") val totalCount: Int? = null,
     val limit: Int? = null,
     @SerialName("is_truncated") val isTruncated: Boolean? = null,
+    val evidence: JsonElement? = null,
+    @SerialName("next_cursor") val nextCursor: String? = null,
     val timestamp: Long,
 )
 

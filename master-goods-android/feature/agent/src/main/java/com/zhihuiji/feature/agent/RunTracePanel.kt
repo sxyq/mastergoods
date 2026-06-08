@@ -43,6 +43,17 @@ import com.zhihuiji.core.designsystem.WarningOrange
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 import com.zhihuiji.core.model.v2.agent.RunTrace
 import com.zhihuiji.core.model.v2.agent.ToolCallStatus
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * 可折叠的过程轨迹面板。
@@ -409,6 +420,14 @@ private fun ToolCallItem(call: com.zhihuiji.core.model.v2.agent.ToolCallRecord) 
                 color = TextTertiary,
             )
         }
+        call.queryWindow?.toQueryWindowSummary()?.let { scope ->
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "范围: $scope",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextTertiary,
+            )
+        }
         call.toolCallId?.let { toolCallId ->
             Spacer(modifier = Modifier.height(2.dp))
             Text(
@@ -425,6 +444,14 @@ private fun ToolCallItem(call: com.zhihuiji.core.model.v2.agent.ToolCallRecord) 
                 color = if (call.status == ToolCallStatus.FAILED) DangerRed else TextSecondary,
             )
         }
+        call.evidence?.toEvidenceSummary()?.let { evidence ->
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "依据: $evidence",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary,
+            )
+        }
         call.auditSummary()?.let { audit ->
             Spacer(modifier = Modifier.height(2.dp))
             Text(
@@ -438,14 +465,67 @@ private fun ToolCallItem(call: com.zhihuiji.core.model.v2.agent.ToolCallRecord) 
 
 private fun com.zhihuiji.core.model.v2.agent.ToolCallRecord.auditSummary(): String? {
     val parts = listOfNotNull(
-        auditId?.let { "运行标识 $it" },
-        traceId?.let { "轨迹标识 $it" },
+        seq?.let { "事件 #$it" },
+        conversationId?.let { "会话 $it" },
+        eventId?.let { "事件 ${it.compactMiddle()}" },
+        auditId?.let { "运行 ${it.compactMiddle()}" },
+        traceId?.let { "轨迹 ${it.compactMiddle()}" },
+        startedAt?.let { "开始 ${it.formatClockTime()}" },
+        completedAt?.let { "完成 ${it.formatClockTime()}" },
         durationMs?.let { "耗时 ${it}ms" },
         returnedCount?.let { returned ->
             totalCount?.let { total -> "返回 $returned/$total 条" } ?: "返回 $returned 条"
         },
         limit?.let { "上限 $it" },
         isTruncated?.takeIf { it }?.let { "结果已截断" },
+        nextCursor?.takeIf { it.isNotBlank() }?.let { "可继续加载" },
     )
     return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
 }
+
+private fun JsonElement.toQueryWindowSummary(): String? {
+    val obj = (this as? JsonObject) ?: return compactJsonText()
+    val parts = listOfNotNull(
+        obj.stringValue("owner_scope")?.let { if (it == "current_owner") "当前账号" else it },
+        obj.intValue("window_days")?.let { "近 ${it} 天" },
+        obj.intValue("limit")?.let { "上限 $it 条" },
+        obj.intValue("rank_limit")?.let { "排行 $it 条" },
+        obj.intValue("low_stock_limit")?.let { "低库存 $it 条" },
+    )
+    return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ") ?: compactJsonText()
+}
+
+private fun JsonElement.toEvidenceSummary(): String? {
+    val obj = (this as? JsonObject) ?: return compactJsonText()
+    val parts = listOfNotNull(
+        obj.stringValue("source")?.let { it.removePrefix("tool:") },
+        obj.stringValue("scope")?.let { if (it == "current_owner") "当前账号" else it },
+        obj.intValue("returned_count")?.let { "返回 $it 条" },
+        obj.intValue("total_count")?.let { "共 $it 条" },
+        obj.booleanValue("is_truncated")?.takeIf { it }?.let { "已截断" },
+    )
+    return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ") ?: compactJsonText()
+}
+
+private fun JsonObject.stringValue(key: String): String? =
+    this[key]?.jsonPrimitiveOrNull()?.contentOrNull
+
+private fun JsonObject.intValue(key: String): Int? =
+    this[key]?.jsonPrimitiveOrNull()?.intOrNull
+
+private fun JsonObject.booleanValue(key: String): Boolean? =
+    this[key]?.jsonPrimitiveOrNull()?.booleanOrNull
+
+private fun JsonElement.jsonPrimitiveOrNull(): JsonPrimitive? =
+    runCatching { jsonPrimitive }.getOrNull()
+
+private fun JsonElement.compactJsonText(maxLength: Int = 90): String? =
+    toString().takeIf { it.isNotBlank() }?.let { raw ->
+        if (raw.length <= maxLength) raw else raw.take(maxLength) + "..."
+    }
+
+private fun String.compactMiddle(maxLength: Int = 28): String =
+    if (length <= maxLength) this else take(14) + "..." + takeLast(8)
+
+private fun Long.formatClockTime(): String =
+    SimpleDateFormat("HH:mm:ss", Locale.CHINA).format(Date(this))
