@@ -1,0 +1,98 @@
+{
+  "run_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7",
+  "status": "completed",
+  "mode": "tool_query_rule_summary",
+  "llm_status": "disabled",
+  "answer_completed_mode": "tool_query_rule_summary",
+  "answer_completed_llm_status": "disabled",
+  "status_consistency": {
+    "mode_matches_answer_completed": true,
+    "llm_status_matches_answer_completed": true
+  },
+  "plan_source": "keyword_fallback",
+  "tool_count": 1,
+  "event_count": 12,
+  "performance": {
+    "started_at": 1780962026063,
+    "completed_at": 1780962026111,
+    "duration_ms": 48
+  },
+  "tools": [
+    {
+      "tool_name": "customer_receivable_lookup",
+      "returned_count": 3,
+      "limit": 10,
+      "is_truncated": false,
+      "duration_ms": 4,
+      "result_summary": "命中 3 个欠款客户",
+      "evidence": {
+        "source": "tool:customer_receivable_lookup",
+        "scope": "current_owner",
+        "returned_count": 3,
+        "is_truncated": false
+      }
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "event_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:1",
+      "event_type": "run_started"
+    },
+    {
+      "seq": 2,
+      "event_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:2",
+      "event_type": "safety_check_started"
+    },
+    {
+      "seq": 3,
+      "event_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:3",
+      "event_type": "safety_check_passed"
+    },
+    {
+      "seq": 4,
+      "event_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:4",
+      "event_type": "plan_delta"
+    },
+    {
+      "seq": 5,
+      "event_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:5",
+      "event_type": "tool_started"
+    },
+    {
+      "seq": 6,
+      "event_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:6",
+      "event_type": "tool_completed"
+    },
+    {
+      "seq": 7,
+      "event_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:7",
+      "event_type": "answer_completed"
+    },
+    {
+      "seq": 8,
+      "event_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:8",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 9,
+      "event_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:9",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 10,
+      "event_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:10",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 11,
+      "event_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:11",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 12,
+      "event_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:12",
+      "event_type": "run_completed"
+    }
+  ]
+}

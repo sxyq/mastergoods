@@ -1,0 +1,114 @@
+{
+  "run_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7",
+  "audit_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:audit",
+  "trace_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:trace",
+  "status": "completed",
+  "mode": "tool_query_rule_summary",
+  "llm_status": "disabled",
+  "tool_count": 1,
+  "tools": [
+    {
+      "seq": 5,
+      "event_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:5",
+      "event_type": "tool_started",
+      "created_at": 1780962026089,
+      "tool_call_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:customer_receivable_lookup",
+      "tool_name": "customer_receivable_lookup",
+      "status": null,
+      "input_summary": "查询当前账号客户应收余额，参数 {limit=10}",
+      "query_window": {
+        "owner_scope": "current_owner",
+        "limit": 10
+      },
+      "returned_count": null,
+      "total_count": null,
+      "limit": null,
+      "is_truncated": null,
+      "next_cursor": null,
+      "duration_ms": null,
+      "error_code": null,
+      "evidence": null,
+      "result_summary": null,
+      "raw_payload": {
+        "event_type": "tool_started",
+        "run_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7",
+        "tool_call_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:customer_receivable_lookup",
+        "tool_name": "customer_receivable_lookup",
+        "input_summary": "查询当前账号客户应收余额，参数 {limit=10}",
+        "query_window": {
+          "owner_scope": "current_owner",
+          "limit": 10
+        },
+        "tool_input": {
+          "limit": 10
+        },
+        "started_at": 1780962026089,
+        "audit_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:audit",
+        "trace_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:trace",
+        "timestamp": 1780962026089,
+        "conversation_id": 14,
+        "seq": 5,
+        "event_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:5"
+      }
+    },
+    {
+      "seq": 6,
+      "event_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:6",
+      "event_type": "tool_completed",
+      "created_at": 1780962026093,
+      "tool_call_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:customer_receivable_lookup",
+      "tool_name": "customer_receivable_lookup",
+      "status": null,
+      "input_summary": "查询当前账号客户应收余额，参数 {limit=10}",
+      "query_window": {
+        "owner_scope": "current_owner",
+        "limit": 10
+      },
+      "returned_count": 3,
+      "total_count": null,
+      "limit": 10,
+      "is_truncated": false,
+      "next_cursor": null,
+      "duration_ms": 4,
+      "error_code": null,
+      "evidence": {
+        "source": "tool:customer_receivable_lookup",
+        "scope": "current_owner",
+        "returned_count": 3,
+        "is_truncated": false
+      },
+      "result_summary": "命中 3 个欠款客户",
+      "raw_payload": {
+        "event_type": "tool_completed",
+        "run_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7",
+        "tool_call_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:customer_receivable_lookup",
+        "tool_name": "customer_receivable_lookup",
+        "result_summary": "命中 3 个欠款客户",
+        "audit_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:audit",
+        "trace_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:trace",
+        "timestamp": 1780962026093,
+        "input_summary": "查询当前账号客户应收余额，参数 {limit=10}",
+        "query_window": {
+          "owner_scope": "current_owner",
+          "limit": 10
+        },
+        "started_at": 1780962026089,
+        "completed_at": 1780962026093,
+        "duration_ms": 4,
+        "returned_count": 3,
+        "limit": 10,
+        "is_truncated": false,
+        "next_cursor": null,
+        "evidence": {
+          "source": "tool:customer_receivable_lookup",
+          "scope": "current_owner",
+          "returned_count": 3,
+          "is_truncated": false
+        },
+        "conversation_id": 14,
+        "seq": 6,
+        "event_id": "4a6bc46e-7e10-4b9c-b680-97f2cbee51b7:6"
+      }
+    }
+  ]
+}

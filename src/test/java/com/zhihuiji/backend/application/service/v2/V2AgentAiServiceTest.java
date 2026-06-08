@@ -694,6 +694,12 @@ class V2AgentAiServiceTest {
         assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
             ref.label().contains("top10_receivable_total") && ref.value().contains("¥")
         ));
+        assertTrue(response.blocks().stream().anyMatch(block ->
+            "evidence_card".equals(block.blockType())
+                && block.data().toString().contains("customer_count")
+                && block.data().toString().contains("top10_receivable_total")
+                && block.data().toString().contains("tool:customer_receivable_lookup")
+        ));
     }
 
     @Test

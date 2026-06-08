@@ -63,7 +63,14 @@ import com.zhihuiji.core.model.v2.agent.RiskCardBlockData
 import com.zhihuiji.core.model.v2.agent.TableBlockData
 import com.zhihuiji.core.model.v2.agent.TextBlockData
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * 富结果块统一分发渲染器。
@@ -1259,6 +1266,13 @@ private fun EvidenceCardBlock(data: EvidenceCardBlockData, modifier: Modifier = 
                                     color = TextTertiary,
                                 )
                             }
+                            item.auditSummary()?.let { audit ->
+                                Text(
+                                    text = audit,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (item.isTruncated == true) WarningOrange else TextTertiary,
+                                )
+                            }
                         }
                     }
                 }
@@ -1266,6 +1280,40 @@ private fun EvidenceCardBlock(data: EvidenceCardBlockData, modifier: Modifier = 
         }
     }
 }
+
+internal fun EvidenceCardBlockData.EvidenceItem.auditSummary(): String? {
+    val parts = listOfNotNull(
+        toolCallId?.takeIf { it.isNotBlank() }?.let { "调用 ${it.compactMiddle()}" },
+        queryWindow?.evidenceQueryWindowSummary()?.let { "范围 $it" },
+        isTruncated?.takeIf { it }?.let { "结果已截断" },
+    )
+    return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
+}
+
+private fun JsonElement.evidenceQueryWindowSummary(): String? {
+    val obj = this as? JsonObject ?: return compactJsonText()
+    val parts = listOfNotNull(
+        obj.stringValue("owner_scope")?.let { if (it == "current_owner") "当前账号" else it },
+        obj.intValue("window_days")?.let { "近 ${it} 天" },
+        obj.intValue("limit")?.let { "上限 $it 条" },
+        obj.intValue("rank_limit")?.let { "排行 $it 条" },
+        obj.intValue("low_stock_limit")?.let { "低库存 $it 条" },
+        obj.booleanValue("is_truncated")?.takeIf { it }?.let { "已截断" },
+    )
+    return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ") ?: compactJsonText()
+}
+
+private fun JsonObject.stringValue(key: String): String? =
+    this[key]?.jsonPrimitiveOrNull()?.contentOrNull
+
+private fun JsonObject.intValue(key: String): Int? =
+    this[key]?.jsonPrimitiveOrNull()?.intOrNull
+
+private fun JsonObject.booleanValue(key: String): Boolean? =
+    this[key]?.jsonPrimitiveOrNull()?.booleanOrNull
+
+private fun JsonElement.jsonPrimitiveOrNull(): JsonPrimitive? =
+    runCatching { jsonPrimitive }.getOrNull()
 
 // ---------- Draft Card ----------
 
@@ -1424,3 +1472,11 @@ internal fun ResultBlockDto.dataPreview(): String? {
     val raw = data?.toString()?.takeIf { it.isNotBlank() } ?: return null
     return "原始数据: " + raw.take(240)
 }
+
+private fun JsonElement.compactJsonText(maxLength: Int = 90): String? =
+    toString().takeIf { it.isNotBlank() }?.let { raw ->
+        if (raw.length <= maxLength) raw else raw.take(maxLength) + "..."
+    }
+
+private fun String.compactMiddle(maxLength: Int = 28): String =
+    if (length <= maxLength) this else take(14) + "..." + takeLast(8)

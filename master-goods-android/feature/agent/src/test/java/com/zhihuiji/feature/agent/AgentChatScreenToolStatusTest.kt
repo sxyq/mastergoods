@@ -20,6 +20,27 @@ class AgentChatScreenToolStatusTest {
     }
 
     @Test
+    fun latestVisibleToolPrefersRunningToolEvenWhenCompletedEventArrivesLater() {
+        val now = 10_000L
+        val calls = listOf(
+            tool("sales_trend", ToolCallStatus.RUNNING),
+            tool("inventory_flow", ToolCallStatus.COMPLETED, completedAt = 9_900L),
+        )
+
+        assertEquals("sales_trend", calls.latestVisibleToolCall(now)?.toolName)
+    }
+
+    @Test
+    fun latestVisibleToolUsesNewestActiveToolWhenMultipleAreRunning() {
+        val calls = listOf(
+            tool("sales_trend", ToolCallStatus.RUNNING),
+            tool("inventory_flow", ToolCallStatus.PENDING),
+        )
+
+        assertEquals("inventory_flow", calls.latestVisibleToolCall()?.toolName)
+    }
+
+    @Test
     fun latestVisibleToolDoesNotKeepCompletedToolAsPersistentPill() {
         val now = 10_000L
         val calls = listOf(

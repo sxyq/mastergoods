@@ -612,6 +612,84 @@ EOF
   rm -f "${summary_file}"
 }
 
+write_result_block_evidence_file() {
+  local dir="$1"
+  local audit_file="${dir}/03-run-audit.json"
+  local output_file="${dir}/18-result-block-evidence.md"
+  local summary_file="${dir}/.result-block-evidence.json"
+
+  if [[ ! -s "${audit_file}" ]] || ! jq -e '.data' "${audit_file}" >/dev/null 2>&1; then
+    cat > "${output_file}" <<'EOF'
+# Result Block Evidence Review
+
+Status: partial
+
+`03-run-audit.json` is missing or invalid. Capture the server run audit before
+claiming result blocks can be traced to real tool evidence.
+EOF
+    return 0
+  fi
+
+  jq '
+    def payload: (.payload // {});
+    def event_type: (.event_type // .eventType // "");
+    def block: (payload.block // payload.data.block // {});
+    def block_type: (block.block_type // block.blockType // "");
+    def arr(v): if v == null then [] elif (v | type) == "array" then v else [v] end;
+    def text(v): if v == null then "" else (v | tostring) end;
+    (.data.events // []) as $events |
+    [ $events[]? | select(event_type == "result_block") | block ] as $blocks |
+    [ $blocks[]? | select((.block_type // .blockType // "") == "evidence_card") ] as $evidenceBlocks |
+    [ $evidenceBlocks[]? | arr(.data.items // .items)[]? ] as $items |
+    [ $items[]? | select((text(.source) | startswith("tool:"))) ] as $toolSourceItems |
+    [ $items[]? | select(has("query_window") or has("queryWindow")) ] as $queryWindowItems |
+    [ $items[]? | select(has("is_truncated") or has("isTruncated")) ] as $truncationItems |
+    [ $items[]? | select((text(.label) | test("_")) and (text(.value) | length > 0)) ] as $fieldItems |
+    {
+      result_block_count: ($blocks | length),
+      evidence_card_count: ($evidenceBlocks | length),
+      evidence_item_count: ($items | length),
+      tool_source_item_count: ($toolSourceItems | length),
+      query_window_item_count: ($queryWindowItems | length),
+      truncation_item_count: ($truncationItems | length),
+      field_level_item_count: ($fieldItems | length),
+      field_level_labels: ($fieldItems | map(text(.label)) | unique),
+      verdict:
+        (if ($evidenceBlocks | length) == 0 then "fail"
+         elif ($fieldItems | length) > 0
+          and ($toolSourceItems | length) > 0
+          and ($queryWindowItems | length) > 0
+          and ($truncationItems | length) > 0
+         then "pass-for-interface"
+         else "partial"
+         end)
+    }
+  ' "${audit_file}" > "${summary_file}"
+
+  {
+    echo "# Result Block Evidence Review"
+    echo
+    echo "| Check | Result |"
+    echo "|---|---|"
+    jq -r '
+      "| result_block count | `\(.result_block_count)` |",
+      "| evidence_card count | `\(.evidence_card_count)` |",
+      "| evidence items | `\(.evidence_item_count)` |",
+      "| tool source items | `\(.tool_source_item_count)` |",
+      "| query window items | `\(.query_window_item_count)` |",
+      "| truncation marker items | `\(.truncation_item_count)` |",
+      "| field-level evidence items | `\(.field_level_item_count)` |",
+      "| field-level labels | `\((.field_level_labels // []) | join(" ; "))` |"
+    ' "${summary_file}"
+    echo
+    jq -r '"Status: \(.verdict)"' "${summary_file}"
+    echo
+    echo "Status: pass-for-interface only proves the backend audit contains renderable evidence_card blocks with field-level tool evidence. Android screenshots, UI tree, and answer-to-evidence reconciliation are still required before full P0 pass."
+  } > "${output_file}"
+
+  rm -f "${summary_file}"
+}
+
 refresh_existing_evidence() {
   local dir="$1"
   local run_id
@@ -632,6 +710,7 @@ refresh_existing_evidence() {
   write_reconciliation_file "${dir}"
   write_run_summary_file "${dir}"
   write_workbench_cleanliness_file "${dir}"
+  write_result_block_evidence_file "${dir}"
   capture_forbidden_scan "${dir}"
   write_forbidden_scan_review "${dir}"
   write_latency_file "${dir}"
@@ -746,8 +825,19 @@ EOF
           "event_id": "evt-block-4",
           "run_id": "run-self-test",
           "block": {
-            "block_type": "table",
-            "title": "真实结果"
+            "block_type": "evidence_card",
+            "title": "本次回答依据",
+            "data": {
+              "items": [
+                {
+                  "label": "低库存商品数 (low_stock_count)",
+                  "value": "3个",
+                  "source": "tool:inventory_low_stock_lookup",
+                  "query_window": {"scope": "current_owner"},
+                  "is_truncated": false
+                }
+              ]
+            }
           }
         }
       },
@@ -806,6 +896,7 @@ EOF
   cp "${audit_file}" "${tmp_dir}/03-run-audit.json"
   write_reconciliation_file "${tmp_dir}"
   write_run_summary_file "${tmp_dir}"
+  write_result_block_evidence_file "${tmp_dir}"
   jq -e '
     .event_count == 6
     and .tools[0].is_truncated == false
@@ -820,6 +911,8 @@ EOF
   grep -q '`answer_delta`' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
   grep -q '`model_stream`' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
   grep -q '`server_notice`' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
+  grep -q 'Status: pass-for-interface' "${tmp_dir}/18-result-block-evidence.md"
+  grep -q 'low_stock_count' "${tmp_dir}/18-result-block-evidence.md"
 
   local bad_dir="${tmp_dir}/bad-server-notice"
   mkdir -p "${bad_dir}"
@@ -1185,6 +1278,7 @@ Status: partial
 - Add raw UI evidence that Markdown, charts, empty states, and RunTrace render the same \`run_id\`.
 - Capture \`/v2/agent/workbench\` with a valid owner token; current status is ${workbench_status}.
 - Forbidden scan review draft is in 15-forbidden-scan-review.md; resolve any \`needs evidence\` row before pass.
+- Result block evidence review is in 18-result-block-evidence.md; confirm evidence_card fields map to answer numbers.
 - Confirm answer numbers, rankings, risks, and charts map to tool evidence.
 - Confirm mode, llm_status, delta_source, RunTrace UI, and audit records agree.
 
@@ -1192,6 +1286,7 @@ Status: partial
 
 - \`13-sse-audit-ui-reconciliation.md\` can only prove interface/audit alignment; it cannot prove Android rendering.
 - \`17-workbench-cleanliness.md\` can only prove backend workbench response cleanliness; it cannot prove the AI home screen.
+- \`18-result-block-evidence.md\` can only prove backend result_block evidence shape; it cannot prove visible Android rendering or answer-number reconciliation.
 - Unit tests and this script cannot replace device screenshots, UI tree, or performance evidence.
 
 This script defaults to partial because interface evidence alone cannot prove
@@ -1478,6 +1573,7 @@ main() {
   write_reconciliation_file "${dir}"
   write_run_summary_file "${dir}"
   write_workbench_cleanliness_file "${dir}"
+  write_result_block_evidence_file "${dir}"
   capture_forbidden_scan "${dir}"
   write_forbidden_scan_review "${dir}"
   write_latency_file "${dir}"

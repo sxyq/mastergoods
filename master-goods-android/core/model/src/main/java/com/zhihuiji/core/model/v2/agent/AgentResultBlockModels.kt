@@ -123,6 +123,9 @@ data class EvidenceCardBlockData(
         val label: String,
         val value: String,
         val source: String? = null,
+        @SerialName("tool_call_id") val toolCallId: String? = null,
+        @SerialName("query_window") val queryWindow: JsonElement? = null,
+        @SerialName("is_truncated") val isTruncated: Boolean? = null,
     )
 }
 

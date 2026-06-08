@@ -2,6 +2,7 @@ package com.zhihuiji.feature.agent
 
 import androidx.compose.ui.graphics.Color
 import com.zhihuiji.core.model.v2.agent.DonutChartBlockData
+import com.zhihuiji.core.model.v2.agent.EvidenceCardBlockData
 import com.zhihuiji.core.model.v2.agent.LineChartBlockData
 import com.zhihuiji.core.model.v2.agent.ResultBlockDto
 import kotlinx.serialization.json.buildJsonObject
@@ -82,6 +83,28 @@ class ResultBlockRendererContractTest {
         val rendered = inlineMarkdown("查看[客户档案](www.example.com/customer) 与 `VIP` 标记", Color.Black)
 
         assertEquals("查看客户档案 (https://www.example.com/customer) 与  VIP  标记", rendered.text)
+    }
+
+    @Test
+    fun evidenceCardItemKeepsAuditSummaryForFieldLevelEvidence() {
+        val item = EvidenceCardBlockData.EvidenceItem(
+            label = "欠款客户数 (customer_count)",
+            value = "2个",
+            source = "tool:customer_receivable_lookup",
+            toolCallId = "run-contract-1:customer_receivable_lookup:0",
+            queryWindow = buildJsonObject {
+                put("owner_scope", "current_owner")
+                put("limit", 10)
+            },
+            isTruncated = true,
+        )
+
+        val summary = item.auditSummary()
+
+        assertTrue(summary!!.contains("调用 run-contract"))
+        assertTrue(summary.contains("当前账号"))
+        assertTrue(summary.contains("上限 10 条"))
+        assertTrue(summary.contains("结果已截断"))
     }
 
     @Test

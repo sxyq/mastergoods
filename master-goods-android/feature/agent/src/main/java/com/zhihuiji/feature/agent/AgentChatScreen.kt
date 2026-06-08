@@ -720,13 +720,18 @@ private fun InlineToolActivityPill(
     }
 }
 
-internal fun List<ToolCallRecord>.latestVisibleToolCall(nowMs: Long = System.currentTimeMillis()): ToolCallRecord? =
-    asReversed().firstOrNull { call ->
-        call.status == ToolCallStatus.RUNNING ||
-            call.status == ToolCallStatus.PENDING ||
-            (call.status == ToolCallStatus.FAILED && call.isRecentlyFinished(nowMs)) ||
+internal fun List<ToolCallRecord>.latestVisibleToolCall(nowMs: Long = System.currentTimeMillis()): ToolCallRecord? {
+    val activeCall = asReversed().firstOrNull { call ->
+        call.status == ToolCallStatus.RUNNING || call.status == ToolCallStatus.PENDING
+    }
+    if (activeCall != null) {
+        return activeCall
+    }
+    return asReversed().firstOrNull { call ->
+        (call.status == ToolCallStatus.FAILED && call.isRecentlyFinished(nowMs)) ||
             (call.status == ToolCallStatus.COMPLETED && call.isRecentlyFinished(nowMs))
     }
+}
 
 private fun ToolCallRecord.isRecentlyFinished(nowMs: Long): Boolean {
     val completedAt = completedAt ?: timestamp

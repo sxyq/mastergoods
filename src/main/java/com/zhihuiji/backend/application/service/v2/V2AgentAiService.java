@@ -1618,14 +1618,25 @@ public class V2AgentAiService {
         if (toolResults != null) {
             for (ToolExecutionResult result : toolResults) {
                 Map<String, Object> audit = result.queryAudit();
+                String toolCallId = toolCallId(runId, result.toolName());
                 items.add(mapOf(
                     "label", result.toolName(),
                     "value", result.summary(),
                     "source", "tool:" + result.toolName(),
-                    "tool_call_id", toolCallId(runId, result.toolName()),
+                    "tool_call_id", toolCallId,
                     "query_window", audit,
                     "is_truncated", Boolean.TRUE.equals(audit.get("is_truncated"))
                 ));
+                for (Map<String, String> evidenceItem : evidenceItemsFor(result)) {
+                    items.add(mapOf(
+                        "label", evidenceItem.get("label"),
+                        "value", evidenceItem.get("value"),
+                        "source", "tool:" + result.toolName(),
+                        "tool_call_id", toolCallId,
+                        "query_window", audit,
+                        "is_truncated", Boolean.TRUE.equals(audit.get("is_truncated"))
+                    ));
+                }
             }
         }
         return new V2AgentDtos.ResultBlockDto(

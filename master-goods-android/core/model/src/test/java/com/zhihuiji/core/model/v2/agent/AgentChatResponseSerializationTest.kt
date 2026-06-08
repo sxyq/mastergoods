@@ -1,6 +1,7 @@
 package com.zhihuiji.core.model.v2.agent
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -105,7 +106,14 @@ class AgentChatResponseSerializationTest {
                   "title": "查询依据",
                   "data": {
                     "items": [
-                      {"label": "客户A", "value": "100.00", "source": "customer_receivable_lookup"}
+                      {
+                        "label": "欠款客户数 (customer_count)",
+                        "value": "2个",
+                        "source": "tool:customer_receivable_lookup",
+                        "tool_call_id": "run-contract-1:customer_receivable_lookup:0",
+                        "query_window": {"owner_scope": "current_owner", "limit": 10},
+                        "is_truncated": false
+                      }
                     ]
                   }
                 }
@@ -139,6 +147,14 @@ class AgentChatResponseSerializationTest {
         assertEquals("kpi_grid", response.blocks.first().blockType)
         assertEquals(1, response.resultBlocks.size)
         assertEquals("evidence_card", response.resultBlocks.first().blockType)
+        val evidenceBlock = Json.decodeFromJsonElement<EvidenceCardBlockData>(response.resultBlocks.first().data!!)
+        val evidenceItem = evidenceBlock.items.single()
+        assertEquals("欠款客户数 (customer_count)", evidenceItem.label)
+        assertEquals("2个", evidenceItem.value)
+        assertEquals("tool:customer_receivable_lookup", evidenceItem.source)
+        assertEquals("run-contract-1:customer_receivable_lookup:0", evidenceItem.toolCallId)
+        assertEquals(false, evidenceItem.isTruncated)
+        assertNotNull(evidenceItem.queryWindow)
 
         val toolCall = response.toolCalls.single()
         assertEquals("run-contract-1:customer_receivable_lookup:0", toolCall.toolCallId)
