@@ -239,7 +239,8 @@ class V2AgentAiServiceTest {
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_rule_summary\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"stream_failed_or_empty\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")), String.join("\n", emitter.payloads));
-        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"event_type\":\"answer_completed\"")));
+        String answerCompleted = firstPayload(emitter, "\"event_type\":\"answer_completed\"");
+        assertTrue(answerCompleted.contains("\"plan_source\":\"keyword_fallback\""), answerCompleted);
         assertFalse(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())));
         assertTrue(emitter.completed);
     }
@@ -259,10 +260,11 @@ class V2AgentAiServiceTest {
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_rule_summary\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"disabled\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")), String.join("\n", emitter.payloads));
-        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"event_type\":\"answer_completed\"")));
-        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"audit_id\":\"run-disabled:audit\"")));
-        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"trace_id\":\"run-disabled:trace\"")));
-        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"log_ref\":\"agent-run:run-disabled\"")));
+        String answerCompleted = firstPayload(emitter, "\"event_type\":\"answer_completed\"");
+        assertTrue(answerCompleted.contains("\"plan_source\":\"keyword_fallback\""), answerCompleted);
+        assertTrue(answerCompleted.contains("\"audit_id\":\"run-disabled:audit\""), answerCompleted);
+        assertTrue(answerCompleted.contains("\"trace_id\":\"run-disabled:trace\""), answerCompleted);
+        assertTrue(answerCompleted.contains("\"log_ref\":\"agent-run:run-disabled\""), answerCompleted);
         assertFalse(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())));
         assertTrue(emitter.completed);
     }
@@ -298,7 +300,8 @@ class V2AgentAiServiceTest {
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"streaming\"")));
         assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"delta_source\":\"rule_summary\"")));
         assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")));
-        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"event_type\":\"answer_completed\"")));
+        String answerCompleted = firstPayload(emitter, "\"event_type\":\"answer_completed\"");
+        assertTrue(answerCompleted.contains("\"plan_source\":\"keyword_fallback\""), answerCompleted);
         assertTrue(emitter.completed);
     }
 

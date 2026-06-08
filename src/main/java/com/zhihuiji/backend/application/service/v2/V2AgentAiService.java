@@ -472,7 +472,7 @@ public class V2AgentAiService {
                     "timestamp", System.currentTimeMillis()
                 )));
                 String blockedAnswer = "这个请求涉及越权或高风险操作，我不能直接执行。";
-                emitAnswerCompleted(emitter, runId, blockedAnswer, "blocked", "not_requested");
+                emitAnswerCompleted(emitter, runId, blockedAnswer, "blocked", "not_requested", "safety");
                 persistAssistantResponse(ownerUserId, conversation, blockedAnswer, List.of(), System.currentTimeMillis());
                 sendEvent(emitter, eventMap("run_completed", mapOf(
                     "run_id", runId,
@@ -510,7 +510,14 @@ public class V2AgentAiService {
             ensureRunActive(runId);
             FinalAnswer finalAnswer = buildFinalAnswerForStream(message, payload, emitter, runId);
             ensureRunActive(runId);
-            emitAnswerCompleted(emitter, runId, finalAnswer.answer(), finalAnswer.mode(), finalAnswer.llmStatus());
+            emitAnswerCompleted(
+                emitter,
+                runId,
+                finalAnswer.answer(),
+                finalAnswer.mode(),
+                finalAnswer.llmStatus(),
+                payload.planSource()
+            );
             persistAssistantResponse(ownerUserId, conversation, finalAnswer.answer(), payload.blocks(), System.currentTimeMillis());
             sendEvent(emitter, eventMap("run_completed", mapOf(
                 "run_id", runId,
@@ -2253,7 +2260,8 @@ public class V2AgentAiService {
         String runId,
         String answer,
         String mode,
-        String llmStatus
+        String llmStatus,
+        String planSource
     ) throws IOException {
         if (!StringUtils.hasText(answer)) {
             return;
@@ -2265,6 +2273,7 @@ public class V2AgentAiService {
             "answer", answer,
             "mode", mode,
             "llm_status", llmStatus,
+            "plan_source", planSource,
             "audit_id", auditId,
             "trace_id", traceId,
             "observability", observabilityFor(runId, auditId, traceId),

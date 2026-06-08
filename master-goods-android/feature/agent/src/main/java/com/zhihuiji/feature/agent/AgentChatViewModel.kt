@@ -431,6 +431,7 @@ class AgentChatViewModel @Inject constructor(
                     trace.copy(
                         mode = event.mode ?: trace.mode,
                         llmStatus = event.llmStatus ?: trace.llmStatus,
+                        planSource = event.planSource ?: trace.planSource,
                         auditId = event.auditId ?: trace.auditId,
                         traceId = event.traceId ?: trace.traceId,
                         logRef = event.observability?.logRef ?: trace.logRef,

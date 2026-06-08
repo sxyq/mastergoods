@@ -168,6 +168,7 @@ sealed class AgentStreamEvent {
         val answer: String,
         val mode: String? = null,
         @SerialName("llm_status") val llmStatus: String? = null,
+        @SerialName("plan_source") val planSource: String? = null,
         @SerialName("audit_id") val auditId: String? = null,
         @SerialName("trace_id") val traceId: String? = null,
         val observability: AgentObservabilityDto? = null,

@@ -166,6 +166,9 @@ class AgentStreamEventSerializationTest {
               "event_type": "answer_completed",
               "run_id": "run-1",
               "answer": "已基于真实业务数据完成查询。",
+              "mode": "tool_query_rule_summary",
+              "llm_status": "disabled",
+              "plan_source": "keyword_fallback",
               "audit_id": "run-1:audit",
               "trace_id": "run-1:trace",
               "observability": {
@@ -184,6 +187,9 @@ class AgentStreamEventSerializationTest {
         val completed = event as AgentStreamEvent.AnswerCompleted
         assertEquals("run-1", completed.runId)
         assertEquals("已基于真实业务数据完成查询。", completed.answer)
+        assertEquals("tool_query_rule_summary", completed.mode)
+        assertEquals("disabled", completed.llmStatus)
+        assertEquals("keyword_fallback", completed.planSource)
         assertEquals("run-1:audit", completed.auditId)
         assertEquals("run-1:trace", completed.traceId)
         assertEquals("agent-run:run-1", completed.observability?.logRef)
