@@ -609,6 +609,9 @@ class AgentChatViewModel @Inject constructor(
         if (pendingAnswerDeltaMessageId != null && pendingAnswerDeltaMessageId != assistantMessageId) {
             flushPendingAnswerDelta()
         }
+        if (pendingAnswerDelta.isNotEmpty() && pendingAnswerDeltaSource != null && deltaSource != pendingAnswerDeltaSource) {
+            flushPendingAnswerDelta()
+        }
         pendingAnswerDeltaMessageId = assistantMessageId
         pendingAnswerDelta.append(delta)
         pendingAnswerDeltaSource = deltaSource ?: pendingAnswerDeltaSource

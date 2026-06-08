@@ -295,8 +295,10 @@ class V2AgentAiServiceTest {
         List<String> deltaPayloads = emitter.payloads.stream()
             .filter(payload -> payload.contains("\"event_type\":\"answer_delta\""))
             .toList();
-        assertEquals(2, deltaPayloads.size(), String.join("\n", emitter.payloads));
-        assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"delta_source\":\"model_stream\"")));
+        List<String> modelDeltaPayloads = deltaPayloads.stream()
+            .filter(payload -> payload.contains("\"delta_source\":\"model_stream\""))
+            .toList();
+        assertEquals(2, modelDeltaPayloads.size(), String.join("\n", emitter.payloads));
         assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"audit_id\":\"run-model-stream:audit\"")));
         assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"trace_id\":\"run-model-stream:trace\"")));
         assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"log_ref\":\"agent-run:run-model-stream\"")));
@@ -322,6 +324,46 @@ class V2AgentAiServiceTest {
             String.join("\n", emitter.payloads)
         );
         assertTrue(emitter.completed);
+    }
+
+    @Test
+    void streamModelAnswerEmitsServerNoticeTailBeforeCompletionWhenBackendAppendsBoundaries() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
+        List<com.zhihuiji.backend.domain.entity.CustomerEntity> customers = new ArrayList<>();
+        for (int i = 1; i <= 10; i++) {
+            customers.add(customer((long) i, "客户" + i, 100.0 + i));
+        }
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(customers);
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+            .thenAnswer(invocation -> {
+                @SuppressWarnings("unchecked")
+                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                onDelta.accept("客户应收 Top10 已查询。");
+                return Optional.of("客户应收 Top10 已查询。");
+            });
+        CapturingEmitter emitter = new CapturingEmitter();
+
+        service.runChatStream(1L, conversation(110L), "客户应收情况", "run-server-notice", emitter);
+
+        String modelDelta = firstPayload(emitter, "\"delta_source\":\"model_stream\"");
+        String serverNotice = firstPayload(emitter, "\"delta_source\":\"server_notice\"");
+        assertTrue(serverNotice.contains("查询边界"), serverNotice);
+        assertTrue(serverNotice.contains("客户应收查询仅返回前 10 条"), serverNotice);
+        assertTrue(
+            firstPayloadIndex(emitter, modelDelta) < firstPayloadIndex(emitter, serverNotice),
+            String.join("\n", emitter.payloads)
+        );
+        assertTrue(
+            firstPayloadIndex(emitter, serverNotice)
+                < firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""),
+            String.join("\n", emitter.payloads)
+        );
+        String completed = firstPayload(emitter, "\"event_type\":\"answer_completed\"");
+        assertTrue(completed.contains("查询边界"), completed);
+        assertTrue(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())
+            && event.getPayloadJson().contains("\"delta_source\":\"server_notice\"")));
     }
 
     @Test

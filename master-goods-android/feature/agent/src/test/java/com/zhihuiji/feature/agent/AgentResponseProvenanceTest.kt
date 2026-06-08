@@ -61,6 +61,20 @@ class AgentResponseProvenanceTest {
     }
 
     @Test
+    fun serverNoticeDeltaIsLabeledAsBackendNoticeNotModelStream() {
+        assertEquals("正在补充服务端说明", DeltaSourceServerNotice.headerStatusLabel())
+        assertEquals("正在补充查询边界说明", DeltaSourceServerNotice.inlineStreamingLabel())
+        assertEquals(
+            "服务端说明",
+            assistantProvenanceLabel(
+                hasCompletedTool = false,
+                hasToolEvidence = false,
+                answerDeltaSource = DeltaSourceServerNotice,
+            )
+        )
+    }
+
+    @Test
     fun inlineStreamingStatusOnlyShowsWhileAssistantIsStreaming() {
         val completedModelAnswer = ChatMessage(
             id = "assistant-1",

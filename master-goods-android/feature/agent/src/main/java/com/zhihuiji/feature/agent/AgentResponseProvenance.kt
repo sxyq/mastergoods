@@ -5,6 +5,7 @@ import com.zhihuiji.core.model.v2.agent.ChatMessagePart
 
 internal const val DeltaSourceModelStream = "model_stream"
 internal const val DeltaSourceRuleSummary = "rule_summary"
+internal const val DeltaSourceServerNotice = "server_notice"
 
 internal fun assistantHeaderStatusLabel(
     isStreaming: Boolean,
@@ -28,16 +29,18 @@ internal fun assistantProvenanceLabel(
     answerDeltaSource: String?,
 ): String = when {
     hasCompletedTool -> "工具完成"
-    hasToolEvidence -> "工具执行"
-    answerDeltaSource == DeltaSourceModelStream -> "模型流"
-    answerDeltaSource == DeltaSourceRuleSummary -> "服务端摘要"
-    else -> "服务端文本"
-}
+        hasToolEvidence -> "工具执行"
+        answerDeltaSource == DeltaSourceModelStream -> "模型流"
+        answerDeltaSource == DeltaSourceRuleSummary -> "服务端摘要"
+        answerDeltaSource == DeltaSourceServerNotice -> "服务端说明"
+        else -> "服务端文本"
+    }
 
 internal fun String?.headerStatusLabel(isStreaming: Boolean = true): String =
     when (this) {
         DeltaSourceModelStream -> if (isStreaming) "模型正在流式生成" else "模型流式回复"
         DeltaSourceRuleSummary -> "数据查询 / 规则摘要模式"
+        DeltaSourceServerNotice -> "正在补充服务端说明"
         null -> if (isStreaming) "正在接收服务端回答" else "服务端回复结果"
         else -> if (isStreaming) "正在接收服务端回答" else "服务端回复结果"
     }
@@ -46,6 +49,7 @@ internal fun String?.inlineStreamingLabel(): String =
     when (this) {
         DeltaSourceModelStream -> "模型实时输出中"
         DeltaSourceRuleSummary -> "正在展示服务端规则摘要"
+        DeltaSourceServerNotice -> "正在补充查询边界说明"
         null -> "正在接收服务端增量"
         else -> "正在接收服务端增量"
     }

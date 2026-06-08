@@ -303,16 +303,19 @@ EOF
     ($sseEvents[0] // []) as $sseEvents |
     ($auditEvents[0] // []) as $auditEvents |
     ($auditEvents | map({key: key(.), value: .}) | from_entries) as $auditBySeq |
-    [
-      $sseEvents[] |
-      . as $sse |
+    reduce ($sseEvents[]) as $sse (
+      {seen_model_stream: false, rows: []};
       ($auditBySeq[key($sse)] // {}) as $audit |
-      {
+      ($sse.delta_source // $audit.delta_source // "") as $deltaSource |
+      ($sse.event_type // "") as $eventType |
+      ($eventType == "answer_delta" and $deltaSource == "model_stream") as $isModelDelta |
+      ($eventType == "answer_delta" and $deltaSource == "server_notice") as $isServerNoticeDelta |
+      .rows += [{
         seq: $sse.seq,
         event_id: $sse.event_id,
         raw_sse_event_type: $sse.event_type,
         audit_event_type: ($audit.event_type // null),
-        delta_source: ($sse.delta_source // $audit.delta_source // null),
+        delta_source: $deltaSource,
         mode: ($sse.mode // $audit.mode // null),
         llm_status: ($sse.llm_status // $audit.llm_status // null),
         android_runtrace_row:
@@ -329,11 +332,14 @@ EOF
           (if ($audit | length) == 0 then "fail"
           elif $sse.event_id != ($audit.event_id // null) then "fail"
           elif $sse.event_type != ($audit.event_type // null) then "fail"
-          elif ($sse.event_type // "") == "answer_delta" and ($sse.delta_source // $audit.delta_source // "") != "model_stream" then "fail"
+          elif $eventType == "answer_delta" and ($deltaSource != "model_stream" and $deltaSource != "server_notice") then "fail"
+          elif $isServerNoticeDelta and (.seen_model_stream | not) then "fail"
           else "pass"
           end)
-      }
-    ]
+      }]
+      | .seen_model_stream = (.seen_model_stream or $isModelDelta)
+    )
+    | .rows
   ' > "${reconciliation_json}"
 
   {
@@ -349,12 +355,12 @@ EOF
       echo
       echo "Status: fail"
       echo
-      echo "At least one SSE event did not match the persisted audit event with the same seq, or an answer_delta did not declare delta_source=model_stream."
+      echo "At least one SSE event did not match the persisted audit event with the same seq, an answer_delta used an unsupported delta_source, or server_notice appeared before any model_stream delta."
     else
       echo
       echo "Status: pass-for-interface"
       echo
-      echo "SSE and server audit events match by seq, event_id, event_type, and any answer_delta events declare delta_source=model_stream. Android UI evidence is still required before full P0 pass."
+      echo "SSE and server audit events match by seq, event_id, event_type. answer_delta events are limited to model_stream or post-model server_notice. Android UI evidence is still required before full P0 pass."
     fi
   } > "${output_file}"
 
@@ -644,6 +650,14 @@ data: "seq":3,
 data: "event_id":"evt-delta-3",
 data: "delta":"真实模型流",
 data: "delta_source":"model_stream"}
+
+event: answer_delta
+data: {"event_type":"answer_delta",
+data: "run_id":"run-self-test",
+data: "seq":4,
+data: "event_id":"evt-notice-4",
+data: "delta":"\n查询边界：仅返回前 10 条。",
+data: "delta_source":"server_notice"}
 EOF
 
   run_id="$(extract_run_id_from_sse "${sse_file}")"
@@ -662,7 +676,7 @@ EOF
     "mode": "tool_query_rule_summary",
     "llm_status": "disabled",
     "tool_count": 1,
-    "event_count": 3,
+    "event_count": 4,
     "events": [
       {
         "seq": 1,
@@ -704,6 +718,18 @@ EOF
           "delta": "真实模型流",
           "delta_source": "model_stream"
         }
+      },
+      {
+        "seq": 4,
+        "event_id": "evt-notice-4",
+        "event_type": "answer_delta",
+        "created_at": 1710000000200,
+        "payload": {
+          "event_id": "evt-notice-4",
+          "run_id": "run-self-test",
+          "delta": "\n查询边界：仅返回前 10 条。",
+          "delta_source": "server_notice"
+        }
       }
     ]
   }
@@ -714,6 +740,7 @@ EOF
     | .data.events[0].payload.event_id = "evt-run-1"
     | .data.events[1].event_id = "evt-tool-2"
     | .data.events[2].event_id = "evt-delta-3"
+    | .data.events[3].event_id = "evt-notice-4"
   ' "${audit_file}" > "${tmp_dir}/audit.fixed.json"
   mv "${tmp_dir}/audit.fixed.json" "${audit_file}"
 
@@ -732,10 +759,39 @@ EOF
   cp "${audit_file}" "${tmp_dir}/03-run-audit.json"
   write_reconciliation_file "${tmp_dir}"
   write_run_summary_file "${tmp_dir}"
-  jq -e '.event_count == 3 and .tools[0].is_truncated == false' "${tmp_dir}/14-agent-run-summary.json" >/dev/null
+  jq -e '.event_count == 4 and .tools[0].is_truncated == false' "${tmp_dir}/14-agent-run-summary.json" >/dev/null
   grep -q 'Status: pass-for-interface' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
   grep -q '`answer_delta`' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
   grep -q '`model_stream`' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
+  grep -q '`server_notice`' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
+
+  local bad_dir="${tmp_dir}/bad-server-notice"
+  mkdir -p "${bad_dir}"
+  cat > "${bad_dir}/02-raw-sse.log" <<'EOF'
+data: {"event_type":"answer_delta","run_id":"run-bad-notice","seq":1,"event_id":"evt-notice-first","delta":"不能先出现的服务端说明","delta_source":"server_notice"}
+EOF
+  cat > "${bad_dir}/03-run-audit.json" <<'EOF'
+{
+  "data": {
+    "run_id": "run-bad-notice",
+    "events": [
+      {
+        "seq": 1,
+        "event_id": "evt-notice-first",
+        "event_type": "answer_delta",
+        "payload": {
+          "event_id": "evt-notice-first",
+          "run_id": "run-bad-notice",
+          "delta": "不能先出现的服务端说明",
+          "delta_source": "server_notice"
+        }
+      }
+    ]
+  }
+}
+EOF
+  write_reconciliation_file "${bad_dir}"
+  grep -q 'Status: fail' "${bad_dir}/13-sse-audit-ui-reconciliation.md"
 
   cat > "${tmp_dir}/16-workbench-response.json" <<'EOF'
 {
@@ -930,6 +986,14 @@ review_forbidden_hit() {
     *AgentChatViewModel.kt*"import kotlinx.coroutines.delay"*)
       verdict="pass"
       reason="仅为同文件 answer_delta 合帧节流提供 coroutine delay import；是否安全由 delay(48) 调用点约束。"
+      ;;
+    *AgentChatScreen.kt*delay\(300\)*)
+      verdict="pass"
+      reason="仅用于刷新完成工具提示的短暂可见窗口；不拆分 answer，不生成 fake model_stream，也不制造业务数据。"
+      ;;
+    *AgentChatScreen.kt*"import kotlinx.coroutines.delay"*)
+      verdict="pass"
+      reason="仅为完成工具提示过期时钟提供 coroutine delay import；是否安全由 delay(300) 调用点约束。"
       ;;
     *AgentMarkdownText.kt*substring*)
       verdict="pass"

@@ -48,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -81,6 +82,7 @@ import com.zhihuiji.core.model.v2.agent.ToolCallStatus
 private val AgentChatHorizontalPadding = 16.dp
 private val AgentChatTopPadding = 16.dp
 private val AgentChatBottomInputClearance = 116.dp
+private const val CompletedToolPillVisibleMs = 1_800L
 
 @Composable
 fun AgentChatScreen(
@@ -96,6 +98,7 @@ fun AgentChatScreen(
     val lastMessageId = uiState.messages.lastOrNull()?.id
     val lastMessageContentLength = uiState.messages.lastOrNull()?.content?.length ?: 0
     val streamingScrollBucket = if (uiState.isStreaming) lastMessageContentLength / 80 else 0
+    var toolPillClock by remember { mutableStateOf(System.currentTimeMillis()) }
 
     // 新消息进入时使用动画；流式增量只做轻量贴底，避免每个 token 排队滚动动画。
     LaunchedEffect(uiState.messages.size, lastMessageId) {
@@ -108,6 +111,14 @@ fun AgentChatScreen(
         if (uiState.isStreaming && uiState.messages.isNotEmpty()) {
             listState.scrollToItem(uiState.messages.lastIndex)
         }
+    }
+
+    LaunchedEffect(uiState.isStreaming, uiState.currentRunId) {
+        while (uiState.isStreaming) {
+            toolPillClock = System.currentTimeMillis()
+            delay(300)
+        }
+        toolPillClock = System.currentTimeMillis()
     }
 
     // 如果有初始问题，自动发送
@@ -193,6 +204,7 @@ fun AgentChatScreen(
                         ) { message ->
                             ChatMessageItem(
                                 message = message,
+                                toolPillClock = toolPillClock,
                                 onToggleRunTrace = { viewModel.toggleRunTrace(message.id) },
                             )
                         }
@@ -245,6 +257,7 @@ fun AgentChatScreen(
 @Composable
 private fun ChatMessageItem(
     message: ChatMessage,
+    toolPillClock: Long,
     onToggleRunTrace: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -352,7 +365,7 @@ private fun ChatMessageItem(
                 }
 
                 if (!isUser && message.isStreaming) {
-                    val liveTool = message.runTrace?.toolCalls?.latestVisibleToolCall()
+                    val liveTool = message.runTrace?.toolCalls?.latestVisibleToolCall(toolPillClock)
                     if (liveTool != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         InlineToolActivityPill(toolCall = liveTool)
@@ -699,12 +712,18 @@ private fun InlineToolActivityPill(
     }
 }
 
-internal fun List<ToolCallRecord>.latestVisibleToolCall(): ToolCallRecord? =
+internal fun List<ToolCallRecord>.latestVisibleToolCall(nowMs: Long = System.currentTimeMillis()): ToolCallRecord? =
     asReversed().firstOrNull { call ->
         call.status == ToolCallStatus.RUNNING ||
             call.status == ToolCallStatus.PENDING ||
-            call.status == ToolCallStatus.FAILED
+            call.status == ToolCallStatus.FAILED ||
+            (call.status == ToolCallStatus.COMPLETED && call.isRecentlyCompleted(nowMs))
     }
+
+private fun ToolCallRecord.isRecentlyCompleted(nowMs: Long): Boolean {
+    val completedAt = completedAt ?: timestamp
+    return nowMs - completedAt in 0..CompletedToolPillVisibleMs
+}
 
 internal fun String.readableToolName(): String =
     when (this) {

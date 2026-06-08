@@ -1503,8 +1503,30 @@ public class V2AgentAiService {
             .map(String::trim)
             .map(answer -> appendFailureNotice(answer, payload.toolFailures()))
             .map(answer -> appendQueryBoundaryNotice(answer, payload.toolResults()))
+            .map(answer -> emitServerNoticeTailIfNeeded(emitter, runId, streamedAnswer.toString(), answer))
             .map(answer -> new FinalAnswer(answer, "tool_query_llm_streamed", "streaming", true))
             .orElseGet(() -> streamFallbackFinalAnswer(emitter, runId, streamedAnswer, synthesizedWithFailures, payload));
+    }
+
+    private String emitServerNoticeTailIfNeeded(
+        SseEmitter emitter,
+        String runId,
+        String streamedAnswer,
+        String finalAnswer
+    ) {
+        if (!StringUtils.hasText(streamedAnswer) || !StringUtils.hasText(finalAnswer)) {
+            return finalAnswer;
+        }
+        String visibleAnswer = streamedAnswer.trim();
+        String normalizedFinalAnswer = finalAnswer.trim();
+        if (normalizedFinalAnswer.length() <= visibleAnswer.length() || !normalizedFinalAnswer.startsWith(visibleAnswer)) {
+            return finalAnswer;
+        }
+        String serverNoticeTail = normalizedFinalAnswer.substring(visibleAnswer.length());
+        if (StringUtils.hasText(serverNoticeTail)) {
+            emitAnswerDeltaUnchecked(emitter, runId, serverNoticeTail, "server_notice");
+        }
+        return finalAnswer;
     }
 
     private FinalAnswer streamFallbackFinalAnswer(

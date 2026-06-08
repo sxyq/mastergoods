@@ -1,0 +1,121 @@
+{
+  "run_id": "03d3daad-6633-4c14-b6cf-b55d39820452",
+  "status": "completed",
+  "mode": "tool_query_rule_summary",
+  "llm_status": "disabled",
+  "plan_source": "keyword_fallback",
+  "tool_count": 2,
+  "event_count": 15,
+  "performance": {
+    "started_at": 1780953377415,
+    "completed_at": 1780953377478,
+    "duration_ms": 63
+  },
+  "tools": [
+    {
+      "tool_name": "inventory_low_stock_lookup",
+      "returned_count": 2,
+      "limit": 10,
+      "is_truncated": false,
+      "duration_ms": 6,
+      "result_summary": "命中 2 个低库存商品",
+      "evidence": {
+        "source": "tool:inventory_low_stock_lookup",
+        "scope": "current_owner",
+        "returned_count": 2,
+        "is_truncated": false
+      }
+    },
+    {
+      "tool_name": "product_catalog_lookup",
+      "returned_count": 5,
+      "limit": 10,
+      "is_truncated": false,
+      "duration_ms": 3,
+      "result_summary": "命中 5 个商品",
+      "evidence": {
+        "source": "tool:product_catalog_lookup",
+        "scope": "current_owner",
+        "returned_count": 5,
+        "is_truncated": false
+      }
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "event_id": "03d3daad-6633-4c14-b6cf-b55d39820452:1",
+      "event_type": "run_started"
+    },
+    {
+      "seq": 2,
+      "event_id": "03d3daad-6633-4c14-b6cf-b55d39820452:2",
+      "event_type": "safety_check_started"
+    },
+    {
+      "seq": 3,
+      "event_id": "03d3daad-6633-4c14-b6cf-b55d39820452:3",
+      "event_type": "safety_check_passed"
+    },
+    {
+      "seq": 4,
+      "event_id": "03d3daad-6633-4c14-b6cf-b55d39820452:4",
+      "event_type": "plan_delta"
+    },
+    {
+      "seq": 5,
+      "event_id": "03d3daad-6633-4c14-b6cf-b55d39820452:5",
+      "event_type": "tool_started"
+    },
+    {
+      "seq": 6,
+      "event_id": "03d3daad-6633-4c14-b6cf-b55d39820452:6",
+      "event_type": "tool_completed"
+    },
+    {
+      "seq": 7,
+      "event_id": "03d3daad-6633-4c14-b6cf-b55d39820452:7",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 8,
+      "event_id": "03d3daad-6633-4c14-b6cf-b55d39820452:8",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 9,
+      "event_id": "03d3daad-6633-4c14-b6cf-b55d39820452:9",
+      "event_type": "tool_started"
+    },
+    {
+      "seq": 10,
+      "event_id": "03d3daad-6633-4c14-b6cf-b55d39820452:10",
+      "event_type": "tool_completed"
+    },
+    {
+      "seq": 11,
+      "event_id": "03d3daad-6633-4c14-b6cf-b55d39820452:11",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 12,
+      "event_id": "03d3daad-6633-4c14-b6cf-b55d39820452:12",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 13,
+      "event_id": "03d3daad-6633-4c14-b6cf-b55d39820452:13",
+      "event_type": "result_block"
+    },
+    {
+      "seq": 14,
+      "event_id": "03d3daad-6633-4c14-b6cf-b55d39820452:14",
+      "event_type": "answer_completed"
+    },
+    {
+      "seq": 15,
+      "event_id": "03d3daad-6633-4c14-b6cf-b55d39820452:15",
+      "event_type": "run_completed"
+    }
+  ]
+}

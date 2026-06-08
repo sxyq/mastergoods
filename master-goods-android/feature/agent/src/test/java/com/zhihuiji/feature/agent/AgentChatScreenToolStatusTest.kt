@@ -20,12 +20,24 @@ class AgentChatScreenToolStatusTest {
 
     @Test
     fun latestVisibleToolDoesNotKeepCompletedToolAsPersistentPill() {
+        val now = 10_000L
         val calls = listOf(
-            tool("cashflow_summary", ToolCallStatus.COMPLETED),
-            tool("inventory_flow", ToolCallStatus.COMPLETED),
+            tool("cashflow_summary", ToolCallStatus.COMPLETED, completedAt = 1_000L),
+            tool("inventory_flow", ToolCallStatus.COMPLETED, completedAt = 2_000L),
         )
 
-        assertNull(calls.latestVisibleToolCall())
+        assertNull(calls.latestVisibleToolCall(now))
+    }
+
+    @Test
+    fun latestVisibleToolShowsRecentlyCompletedToolBriefly() {
+        val now = 10_000L
+        val calls = listOf(
+            tool("cashflow_summary", ToolCallStatus.COMPLETED, completedAt = 7_000L),
+            tool("inventory_flow", ToolCallStatus.COMPLETED, completedAt = 9_200L),
+        )
+
+        assertEquals("inventory_flow", calls.latestVisibleToolCall(now)?.toolName)
     }
 
     @Test
@@ -37,9 +49,11 @@ class AgentChatScreenToolStatusTest {
     private fun tool(
         name: String,
         status: ToolCallStatus,
+        completedAt: Long? = null,
     ): ToolCallRecord = ToolCallRecord(
         toolName = name,
         status = status,
+        completedAt = completedAt,
         timestamp = 1L,
     )
 }
