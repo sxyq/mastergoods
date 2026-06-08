@@ -144,13 +144,50 @@ extract_run_id_from_json() {
   ' "${file}" 2>/dev/null | head -n 1 || true
 }
 
+normalize_sse_data() {
+  local file="$1"
+  awk '
+    function trim_left(value) {
+      sub(/^[[:space:]]+/, "", value)
+      return value
+    }
+    function flush_event() {
+      if (data != "") {
+        sub(/\n$/, "", data)
+        gsub(/\n/, " ", data)
+        print data
+        data = ""
+      }
+    }
+    /^[[:space:]]*$/ {
+      flush_event()
+      next
+    }
+    /^:/ {
+      next
+    }
+    /^data:/ {
+      line = substr($0, 6)
+      data = data trim_left(line) "\n"
+      next
+    }
+    /^event:/ || /^id:/ || /^retry:/ {
+      next
+    }
+    {
+      flush_event()
+      print $0
+    }
+    END {
+      flush_event()
+    }
+  ' "${file}"
+}
+
 extract_run_id_from_sse() {
   local file="$1"
-  local line data candidate
-  while IFS= read -r line; do
-    [[ "${line}" == data:* ]] || continue
-    data="${line#data:}"
-    data="${data#"${data%%[![:space:]]*}"}"
+  local data candidate
+  while IFS= read -r data; do
     candidate="$(
       printf '%s' "${data}" |
         jq -er '.. | objects | (.run_id? // .runId? // empty)' 2>/dev/null |
@@ -160,7 +197,7 @@ extract_run_id_from_sse() {
       printf '%s\n' "${candidate}"
       return 0
     fi
-  done < "${file}"
+  done < <(normalize_sse_data "${file}")
 }
 
 tool_results_filter() {
@@ -207,8 +244,6 @@ tool_results_filter() {
 
 extract_sse_events_filter() {
   jq -R '
-    select(startswith("data:")) |
-    ltrimstr("data:") |
     fromjson? |
     {
       seq: (.seq // null),
@@ -244,7 +279,7 @@ EOF
     return 0
   fi
 
-  extract_sse_events_filter < "${dir}/02-raw-sse.log" > "${sse_events_file}" || true
+  normalize_sse_data "${dir}/02-raw-sse.log" | extract_sse_events_filter > "${sse_events_file}" || true
   jq -c '
     .data.events[]? |
     {
@@ -502,9 +537,17 @@ EOF
     (arr($data.risk_alerts // $data.riskAlerts)) as $risks |
     (text($data.today_summary // $data.todaySummary)) as $today |
     (arr($data.quick_questions // $data.quickQuestions)) as $questions |
+    (arr($data.capabilities)) as $capabilities |
+    (arr($data.warnings)) as $warnings |
+    (text($data.status)) as $workbenchStatus |
+    (text($data.data_policy // $data.dataPolicy)) as $dataPolicy |
     ($questions | map(select((text(.) | bad_question)))) as $badQuestions |
     {
       response_status: $status,
+      workbench_status: (if $status == "captured" then $workbenchStatus else null end),
+      data_policy: (if $status == "captured" then $dataPolicy else null end),
+      capabilities_count: (if $status == "captured" then ($capabilities | length) else null end),
+      warnings_count: (if $status == "captured" then ($warnings | length) else null end),
       kpi_cards_count: (if $status == "captured" then ($kpi | length) else null end),
       risk_alerts_count: (if $status == "captured" then ($risks | length) else null end),
       today_summary_present: (if $status == "captured" then ($today | length > 0) else null end),
@@ -516,6 +559,9 @@ EOF
           and ($risks | length) == 0
           and (($today | length) == 0)
           and (($badQuestions | length) == 0)
+          and $workbenchStatus == "clean_entry_ready"
+          and ($dataPolicy | test("不预取|发送问题后"))
+          and ($capabilities | length) > 0
          then "pass-for-interface"
          else "fail"
          end)
@@ -529,6 +575,10 @@ EOF
     echo "|---|---|"
     jq -r '
       "| response status | `\(.response_status)` |",
+      "| workbench status | `\(.workbench_status // "n/a")` |",
+      "| data policy | `\(.data_policy // "n/a")` |",
+      "| capabilities count | `\(.capabilities_count // "n/a")` |",
+      "| warnings count | `\(.warnings_count // "n/a")` |",
       "| kpi_cards count | `\(.kpi_cards_count // "n/a")` |",
       "| risk_alerts count | `\(.risk_alerts_count // "n/a")` |",
       "| today_summary present | `\(.today_summary_present // "n/a")` |",
@@ -586,6 +636,14 @@ data:{"event_type":"run_started","run_id":"run-self-test","seq":1,"event_id":"ev
 
 event: tool_completed
 data: {"event_type":"tool_completed","runId":"run-self-test","seq":2,"event_id":"evt-tool-2","tool_name":"inventory_low_stock_lookup"}
+
+event: answer_delta
+data: {"event_type":"answer_delta",
+data: "run_id":"run-self-test",
+data: "seq":3,
+data: "event_id":"evt-delta-3",
+data: "delta":"真实模型流",
+data: "delta_source":"model_stream"}
 EOF
 
   run_id="$(extract_run_id_from_sse "${sse_file}")"
@@ -604,7 +662,7 @@ EOF
     "mode": "tool_query_rule_summary",
     "llm_status": "disabled",
     "tool_count": 1,
-    "event_count": 2,
+    "event_count": 3,
     "events": [
       {
         "seq": 1,
@@ -634,6 +692,18 @@ EOF
           "evidence": [{"label": "低库存", "value": "3"}],
           "result_summary": "3 个商品低库存"
         }
+      },
+      {
+        "seq": 3,
+        "event_id": "evt-delta-3",
+        "event_type": "answer_delta",
+        "created_at": 1710000000100,
+        "payload": {
+          "event_id": "evt-delta-3",
+          "run_id": "run-self-test",
+          "delta": "真实模型流",
+          "delta_source": "model_stream"
+        }
       }
     ]
   }
@@ -643,6 +713,7 @@ EOF
     .data.events[0].event_id = "evt-run-1"
     | .data.events[0].payload.event_id = "evt-run-1"
     | .data.events[1].event_id = "evt-tool-2"
+    | .data.events[2].event_id = "evt-delta-3"
   ' "${audit_file}" > "${tmp_dir}/audit.fixed.json"
   mv "${tmp_dir}/audit.fixed.json" "${audit_file}"
 
@@ -661,8 +732,10 @@ EOF
   cp "${audit_file}" "${tmp_dir}/03-run-audit.json"
   write_reconciliation_file "${tmp_dir}"
   write_run_summary_file "${tmp_dir}"
-  jq -e '.event_count == 2 and .tools[0].is_truncated == false' "${tmp_dir}/14-agent-run-summary.json" >/dev/null
+  jq -e '.event_count == 3 and .tools[0].is_truncated == false' "${tmp_dir}/14-agent-run-summary.json" >/dev/null
   grep -q 'Status: pass-for-interface' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
+  grep -q '`answer_delta`' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
+  grep -q '`model_stream`' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
 
   cat > "${tmp_dir}/16-workbench-response.json" <<'EOF'
 {
@@ -677,7 +750,17 @@ EOF
       "recent_conversations": [],
       "pending_drafts": [],
       "risk_alerts": [],
-      "today_summary": null
+      "today_summary": null,
+      "status": "clean_entry_ready",
+      "data_policy": "AI 首页不预取或展示报表型经营数据；发送问题后才创建真实 owner-scoped run。",
+      "capabilities": [
+        {
+          "id": "real_data_chat",
+          "title": "真实数据问答",
+          "description": "按用户问题创建服务端 run。"
+        }
+      ],
+      "warnings": ["当前入口不返回默认 KPI、风险、今日摘要或报表图表。"]
     }
   }
 }

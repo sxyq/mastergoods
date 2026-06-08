@@ -89,7 +89,18 @@ public final class V2AgentDtos {
         List<RecentConversationItem> recentConversations,
         List<PendingDraftItem> pendingDrafts,
         List<RiskAlertItem> riskAlerts,
-        String todaySummary
+        String todaySummary,
+        String status,
+        String dataPolicy,
+        List<WorkbenchCapabilityItem> capabilities,
+        List<String> warnings
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record WorkbenchCapabilityItem(
+        String id,
+        String title,
+        String description
     ) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)

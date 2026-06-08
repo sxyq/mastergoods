@@ -12,6 +12,42 @@ class AgentChatResponseSerializationTest {
     }
 
     @Test
+    fun decodesCleanWorkbenchStatusContract() {
+        val response = json.decodeFromString(
+            AgentWorkbenchV2Dto.serializer(),
+            """
+            {
+              "greeting": "你好，我是智慧记 AI 助手",
+              "kpi_cards": [],
+              "quick_questions": [],
+              "recent_conversations": [],
+              "pending_drafts": [],
+              "risk_alerts": [],
+              "today_summary": null,
+              "status": "clean_entry_ready",
+              "data_policy": "AI 首页不预取或展示报表型经营数据；发送问题后才创建真实 owner-scoped run。",
+              "capabilities": [
+                {
+                  "id": "real_data_chat",
+                  "title": "真实数据问答",
+                  "description": "按用户问题创建服务端 run。"
+                }
+              ],
+              "warnings": ["当前入口不返回默认 KPI、风险、今日摘要或报表图表。"]
+            }
+            """.trimIndent()
+        )
+
+        assertEquals("clean_entry_ready", response.status)
+        assertTrue(response.kpiCards.isEmpty())
+        assertTrue(response.riskAlerts.isEmpty())
+        assertEquals(null, response.todaySummary)
+        assertTrue(response.dataPolicy?.contains("不预取") == true)
+        assertEquals("real_data_chat", response.capabilities.single().id)
+        assertTrue(response.warnings.single().contains("不返回默认 KPI"))
+    }
+
+    @Test
     fun decodesNonStreamingAgentRunContract() {
         val response = json.decodeFromString(
             AgentChatResponse.serializer(),

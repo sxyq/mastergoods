@@ -194,6 +194,15 @@ class V2AgentAiServiceTest {
         assertTrue(response.pendingDrafts().isEmpty());
         assertEquals("你好，我是智慧记 AI 助手", response.greeting());
         assertFalse(isReportLikeQuestion(response.greeting()));
+        assertEquals("clean_entry_ready", response.status());
+        assertNotNull(response.dataPolicy());
+        assertTrue(response.dataPolicy().contains("不预取或展示报表型经营数据"));
+        assertTrue(response.dataPolicy().contains("发送问题后才创建真实"));
+        assertEquals(3, response.capabilities().size());
+        assertTrue(response.capabilities().stream().anyMatch(capability -> "real_data_chat".equals(capability.id())));
+        assertTrue(response.capabilities().stream().anyMatch(capability -> "auditable_agent_trace".equals(capability.id())));
+        assertFalse(response.warnings().isEmpty());
+        assertTrue(response.warnings().get(0).contains("不返回默认 KPI"));
         verify(currentOwnerService).requireCurrentOwnerUserId();
         verifyNoInteractions(agentConversationRepository, agentDraftRepository, agentMessageRepository);
     }

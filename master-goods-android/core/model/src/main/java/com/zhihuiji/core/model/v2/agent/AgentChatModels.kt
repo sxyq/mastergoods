@@ -108,6 +108,17 @@ data class AgentWorkbenchV2Dto(
     @SerialName("pending_drafts") val pendingDrafts: List<PendingDraftItem>,
     @SerialName("risk_alerts") val riskAlerts: List<RiskAlertItem>,
     @SerialName("today_summary") val todaySummary: String? = null,
+    val status: String? = null,
+    @SerialName("data_policy") val dataPolicy: String? = null,
+    val capabilities: List<WorkbenchCapabilityItem> = emptyList(),
+    val warnings: List<String> = emptyList(),
+)
+
+@Serializable
+data class WorkbenchCapabilityItem(
+    val id: String,
+    val title: String,
+    val description: String,
 )
 
 @Serializable

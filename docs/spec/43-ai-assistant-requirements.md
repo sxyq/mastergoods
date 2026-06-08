@@ -19,6 +19,7 @@
 | Android 对话时间线按服务端事件顺序渲染 | `ChatMessage.parts` 增加 `Text` / `ResultBlock` 顺序片段；`AgentChatViewModelAnswerMergeTest` 覆盖 answer delta、result block、final answer 的合并顺序；`AgentChatScreen` 以 `AssistantMessageTimeline` 渲染片段 | 证明 Android 不再把所有结构化结果固定堆到回答下方；仍需真实模型流式 SSE 和真机截图证明端到端体验 |
 | Android 工具提示只展示真实工具状态 | `AgentChatScreenToolStatusTest` 覆盖最新 running / pending / failed / completed 工具选择；`AgentResponseProvenanceTest` 区分 `model_stream`、`rule_summary` 和完成态标签 | 证明 UI 文案不会把规则摘要伪装成模型流；仍需真实工具事件抓包和真机截图 |
 | Android SSE 客户端支持标准多行 SSE | `AgentSseClientCancellationTest.chatStream_buffersStandardMultiLineSseDataUntilBlankLine` 和 `chatStream_flushesLastBufferedSseEventWhenStreamEndsWithoutBlankLine` 覆盖多行 `data:` 缓冲与 EOF flush | 证明客户端可正确接收标准 SSE 事件；仍需真实后端流和供应商模型流抓包 |
+| AI workbench 是显式干净入口合同 | `V2AgentAiService.getWorkbench()` 返回 `status=clean_entry_ready`、`data_policy`、`capabilities` 和 `warnings`，并保持 KPI、风险、今日摘要、快捷报表问题为空；`V2AgentAiServiceTest.workbenchDoesNotExposeReportDashboardDefaults` 和 `AgentChatResponseSerializationTest.decodesCleanWorkbenchStatusContract` 覆盖服务端与 Android 模型；`tools/ai_agent_evidence_capture.sh self-test` 会拒绝缺少该状态合同的 workbench 证据 | 证明 workbench 不再只是空数组 placeholder，而是明确说明真实数据只在用户发起 chat run 后查询；仍需真机首页截图和 UI tree |
 | Android result block 图表渲染有坏数据门禁 | `ResultBlockRenderer` 对 `line_chart`、`bar_chart`、`donut_chart` 做 labels / series / 数值校验，并显示错误或空态文案 | 证明 UI 层不会主动补模拟图表数据；仍需真实后端 block 和真机截图 |
 | Markdown 解析已有基础覆盖 | `AgentMarkdownTextParserTest` 覆盖表格 pipe、代码块尾部空白、链接文本旁可见 URL、`www.` 链接规范化和坏链接不丢正文 | 证明部分解析边界和链接 URL 不丢；仍需真机视觉截图、链接点击 / 复制、长表格、代码复制交互和流式半成品视觉验收 |
 | 服务端 cancel run 代码路径已存在 | `V2AgentController` 暴露 `POST /v2/agent/runs/{runId}/cancel`；`V2AgentAiService.cancelRun` 会校验 owner、标记 active run cancelled、发送 `run_cancelled`，不再立即移除仍运行的 active run；`V2AgentAiServiceTest.cancelRunMarksActiveStreamCancelledAndEmitsRunCancelledEvent` 已证明 active stream 取消后会发出 `run_cancelled`、阻止 `answer_completed`、并把审计状态写成 `cancelled`；Android `AgentChatViewModel.stopGeneration` 会调用 `AgentV2Repository.cancelRun` 并把服务端取消确认 / 未确认 / 失败写入反馈 | 证明当前代码有更诚实的取消路径；仍需真实 Android 点击停止后的 HTTP/SSE 抓包、审计接口对账和 Android 取消反馈截图 |
@@ -47,7 +48,7 @@
 
 截至 `ed4d630`，非流式 `AgentChatResponse` 已在后端 DTO 和 Android 模型中包含 `tool_calls`、`evidence_refs`、`performance_summary`、`result_blocks` 等审计字段；任何仍声称“同步响应尚未提供这些顶层字段”的旧结论必须视为过期。
 
-截至 2026-06-09 当前待提交工作树，Android 已增加按事件顺序渲染的 `ChatMessage.parts` 时间线、真实工具状态短提示、规则摘要 / 模型流标签区分，以及标准多行 SSE 缓冲解析；这些只能证明代码和单测层面契约，不得替代真实端到端验收证据。
+截至 2026-06-09 当前待提交工作树，Android 已增加按事件顺序渲染的 `ChatMessage.parts` 时间线、真实工具状态短提示、规则摘要 / 模型流标签区分，以及标准多行 SSE 缓冲解析；后端 workbench 已增加 `clean_entry_ready`、`data_policy`、`capabilities` 和 `warnings` 以替代空壳式入口响应；这些只能证明代码和单测层面契约，不得替代真实端到端验收证据。
 
 ## 1. 背景和原则
 

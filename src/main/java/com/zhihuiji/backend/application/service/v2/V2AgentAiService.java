@@ -160,7 +160,27 @@ public class V2AgentAiService {
             List.of(),
             List.of(),
             List.of(),
-            null
+            null,
+            "clean_entry_ready",
+            "AI 首页不预取或展示报表型经营数据；发送问题后才创建真实 owner-scoped run 并查询业务工具。",
+            List.of(
+                new V2AgentDtos.WorkbenchCapabilityItem(
+                    "real_data_chat",
+                    "真实数据问答",
+                    "按用户问题创建服务端 run，查询当前账号可访问的库存、往来、销售、采购和财务数据。"
+                ),
+                new V2AgentDtos.WorkbenchCapabilityItem(
+                    "markdown_and_result_blocks",
+                    "Markdown 与结构化结果",
+                    "回答可包含 Markdown、表格、图表和证据卡；Android 只渲染后端返回的真实结果块。"
+                ),
+                new V2AgentDtos.WorkbenchCapabilityItem(
+                    "auditable_agent_trace",
+                    "可审计运行轨迹",
+                    "每次运行记录工具、模式、模型状态、耗时、audit id 和 trace id，便于后续核对。"
+                )
+            ),
+            List.of("当前入口不返回默认 KPI、风险、今日摘要或报表图表，避免与报表页重复或产生模拟数据。")
         );
     }
 
