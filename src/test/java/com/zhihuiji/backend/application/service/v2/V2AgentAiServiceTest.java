@@ -421,6 +421,37 @@ class V2AgentAiServiceTest {
     }
 
     @Test
+    void nonStreamingChatPlansEnglishBusinessKeywordsForDeviceQa() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        when(supplierRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of());
+        when(purchaseOrderRepository.search(1L, null, null, PageRequest.of(0, 10))).thenReturn(List.of());
+        when(financeRecordRepository.search(1L, null, null, null, null, PageRequest.of(0, 10))).thenReturn(List.of());
+        when(saleOrderRepository.sumTotalAmountBetween(any(), any(), any())).thenReturn(0.0);
+        when(saleOrderRepository.sumPaidAmountBetween(any(), any(), any())).thenReturn(0.0);
+        when(saleOrderRepository.countNonCancelledBetween(any(), any(), any())).thenReturn(0L);
+        when(productRepository.findLowStockProducts(1L, PageRequest.of(0, 5))).thenReturn(List.of());
+        when(customerRepository.sumPositiveBalance(1L)).thenReturn(0.0);
+        when(saleOrderRepository.customerSales(any(), any(), any(), any(), any())).thenReturn(List.of());
+        when(saleOrderRepository.findByOwnerUserIdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of());
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "recent sales purchase finance business overview", false)
+        );
+
+        assertEquals("keyword", response.planSource());
+        assertTrue(response.planSummary().contains("supplier_payable_lookup"), response.planSummary());
+        assertTrue(response.planSummary().contains("purchase_order_lookup"), response.planSummary());
+        assertTrue(response.planSummary().contains("finance_record_lookup"), response.planSummary());
+        assertTrue(response.planSummary().contains("sales_overview_lookup"), response.planSummary());
+        assertEquals(4, response.toolCalls().size());
+        assertTrue(response.toolCalls().stream().anyMatch(tool -> "supplier_payable_lookup".equals(tool.toolName())));
+        assertTrue(response.toolCalls().stream().anyMatch(tool -> "purchase_order_lookup".equals(tool.toolName())));
+        assertTrue(response.toolCalls().stream().anyMatch(tool -> "finance_record_lookup".equals(tool.toolName())));
+        assertTrue(response.toolCalls().stream().anyMatch(tool -> "sales_overview_lookup".equals(tool.toolName())));
+    }
+
+    @Test
     void getRunAuditReturnsOwnerScopedSummaryAndEvents() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))

@@ -1,0 +1,2 @@
+List of devices attached
+d715a3a4               device usb:1048576X product:ishtar model:25010PN30C device:ishtar transport_id:39

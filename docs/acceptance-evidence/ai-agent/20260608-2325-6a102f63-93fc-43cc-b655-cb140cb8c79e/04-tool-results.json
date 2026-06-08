@@ -1,0 +1,432 @@
+{
+  "run_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e",
+  "audit_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:audit",
+  "trace_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:trace",
+  "status": "completed",
+  "mode": "tool_query_rule_summary",
+  "llm_status": "disabled",
+  "tool_count": 4,
+  "tools": [
+    {
+      "seq": 5,
+      "event_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:5",
+      "event_type": "tool_started",
+      "created_at": 1780932311701,
+      "tool_call_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:supplier_payable_lookup",
+      "tool_name": "supplier_payable_lookup",
+      "status": null,
+      "input_summary": "查询当前账号供应商应付余额，参数 {limit=10}",
+      "query_window": {
+        "owner_scope": "current_owner",
+        "limit": 10
+      },
+      "returned_count": null,
+      "total_count": null,
+      "limit": null,
+      "is_truncated": null,
+      "next_cursor": null,
+      "duration_ms": null,
+      "error_code": null,
+      "evidence": null,
+      "result_summary": null,
+      "raw_payload": {
+        "event_type": "tool_started",
+        "run_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e",
+        "tool_call_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:supplier_payable_lookup",
+        "tool_name": "supplier_payable_lookup",
+        "input_summary": "查询当前账号供应商应付余额，参数 {limit=10}",
+        "query_window": {
+          "owner_scope": "current_owner",
+          "limit": 10
+        },
+        "tool_input": {
+          "limit": 10
+        },
+        "started_at": 1780932311700,
+        "audit_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:audit",
+        "trace_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:trace",
+        "timestamp": 1780932311700,
+        "conversation_id": 9,
+        "seq": 5,
+        "event_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:5"
+      }
+    },
+    {
+      "seq": 6,
+      "event_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:6",
+      "event_type": "tool_completed",
+      "created_at": 1780932311710,
+      "tool_call_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:supplier_payable_lookup",
+      "tool_name": "supplier_payable_lookup",
+      "status": null,
+      "input_summary": "查询当前账号供应商应付余额，参数 {limit=10}",
+      "query_window": {
+        "owner_scope": "current_owner",
+        "limit": 10
+      },
+      "returned_count": 3,
+      "total_count": null,
+      "limit": 10,
+      "is_truncated": false,
+      "next_cursor": null,
+      "duration_ms": 10,
+      "error_code": null,
+      "evidence": {
+        "source": "tool:supplier_payable_lookup",
+        "scope": "current_owner",
+        "returned_count": 3,
+        "is_truncated": false
+      },
+      "result_summary": "命中 3 个应付供应商",
+      "raw_payload": {
+        "event_type": "tool_completed",
+        "run_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e",
+        "tool_call_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:supplier_payable_lookup",
+        "tool_name": "supplier_payable_lookup",
+        "result_summary": "命中 3 个应付供应商",
+        "audit_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:audit",
+        "trace_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:trace",
+        "timestamp": 1780932311710,
+        "input_summary": "查询当前账号供应商应付余额，参数 {limit=10}",
+        "query_window": {
+          "owner_scope": "current_owner",
+          "limit": 10
+        },
+        "started_at": 1780932311700,
+        "completed_at": 1780932311710,
+        "duration_ms": 10,
+        "returned_count": 3,
+        "limit": 10,
+        "is_truncated": false,
+        "next_cursor": null,
+        "evidence": {
+          "source": "tool:supplier_payable_lookup",
+          "scope": "current_owner",
+          "returned_count": 3,
+          "is_truncated": false
+        },
+        "conversation_id": 9,
+        "seq": 6,
+        "event_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:6"
+      }
+    },
+    {
+      "seq": 10,
+      "event_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:10",
+      "event_type": "tool_started",
+      "created_at": 1780932311730,
+      "tool_call_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:purchase_order_lookup",
+      "tool_name": "purchase_order_lookup",
+      "status": null,
+      "input_summary": "查询当前账号最近采购单，参数 {limit=10}",
+      "query_window": {
+        "owner_scope": "current_owner",
+        "limit": 10
+      },
+      "returned_count": null,
+      "total_count": null,
+      "limit": null,
+      "is_truncated": null,
+      "next_cursor": null,
+      "duration_ms": null,
+      "error_code": null,
+      "evidence": null,
+      "result_summary": null,
+      "raw_payload": {
+        "event_type": "tool_started",
+        "run_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e",
+        "tool_call_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:purchase_order_lookup",
+        "tool_name": "purchase_order_lookup",
+        "input_summary": "查询当前账号最近采购单，参数 {limit=10}",
+        "query_window": {
+          "owner_scope": "current_owner",
+          "limit": 10
+        },
+        "tool_input": {
+          "limit": 10
+        },
+        "started_at": 1780932311730,
+        "audit_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:audit",
+        "trace_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:trace",
+        "timestamp": 1780932311730,
+        "conversation_id": 9,
+        "seq": 10,
+        "event_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:10"
+      }
+    },
+    {
+      "seq": 11,
+      "event_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:11",
+      "event_type": "tool_completed",
+      "created_at": 1780932311738,
+      "tool_call_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:purchase_order_lookup",
+      "tool_name": "purchase_order_lookup",
+      "status": null,
+      "input_summary": "查询当前账号最近采购单，参数 {limit=10}",
+      "query_window": {
+        "owner_scope": "current_owner",
+        "limit": 10
+      },
+      "returned_count": 2,
+      "total_count": null,
+      "limit": 10,
+      "is_truncated": false,
+      "next_cursor": null,
+      "duration_ms": 7,
+      "error_code": null,
+      "evidence": {
+        "source": "tool:purchase_order_lookup",
+        "scope": "current_owner",
+        "returned_count": 2,
+        "is_truncated": false
+      },
+      "result_summary": "命中 2 条采购单",
+      "raw_payload": {
+        "event_type": "tool_completed",
+        "run_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e",
+        "tool_call_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:purchase_order_lookup",
+        "tool_name": "purchase_order_lookup",
+        "result_summary": "命中 2 条采购单",
+        "audit_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:audit",
+        "trace_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:trace",
+        "timestamp": 1780932311737,
+        "input_summary": "查询当前账号最近采购单，参数 {limit=10}",
+        "query_window": {
+          "owner_scope": "current_owner",
+          "limit": 10
+        },
+        "started_at": 1780932311730,
+        "completed_at": 1780932311737,
+        "duration_ms": 7,
+        "returned_count": 2,
+        "limit": 10,
+        "is_truncated": false,
+        "next_cursor": null,
+        "evidence": {
+          "source": "tool:purchase_order_lookup",
+          "scope": "current_owner",
+          "returned_count": 2,
+          "is_truncated": false
+        },
+        "conversation_id": 9,
+        "seq": 11,
+        "event_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:11"
+      }
+    },
+    {
+      "seq": 14,
+      "event_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:14",
+      "event_type": "tool_started",
+      "created_at": 1780932311750,
+      "tool_call_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:finance_record_lookup",
+      "tool_name": "finance_record_lookup",
+      "status": null,
+      "input_summary": "查询当前账号最近资金流水，参数 {limit=10}",
+      "query_window": {
+        "owner_scope": "current_owner",
+        "limit": 10
+      },
+      "returned_count": null,
+      "total_count": null,
+      "limit": null,
+      "is_truncated": null,
+      "next_cursor": null,
+      "duration_ms": null,
+      "error_code": null,
+      "evidence": null,
+      "result_summary": null,
+      "raw_payload": {
+        "event_type": "tool_started",
+        "run_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e",
+        "tool_call_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:finance_record_lookup",
+        "tool_name": "finance_record_lookup",
+        "input_summary": "查询当前账号最近资金流水，参数 {limit=10}",
+        "query_window": {
+          "owner_scope": "current_owner",
+          "limit": 10
+        },
+        "tool_input": {
+          "limit": 10
+        },
+        "started_at": 1780932311750,
+        "audit_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:audit",
+        "trace_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:trace",
+        "timestamp": 1780932311750,
+        "conversation_id": 9,
+        "seq": 14,
+        "event_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:14"
+      }
+    },
+    {
+      "seq": 15,
+      "event_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:15",
+      "event_type": "tool_completed",
+      "created_at": 1780932311762,
+      "tool_call_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:finance_record_lookup",
+      "tool_name": "finance_record_lookup",
+      "status": null,
+      "input_summary": "查询当前账号最近资金流水，参数 {limit=10}",
+      "query_window": {
+        "owner_scope": "current_owner",
+        "limit": 10
+      },
+      "returned_count": 0,
+      "total_count": null,
+      "limit": 10,
+      "is_truncated": false,
+      "next_cursor": null,
+      "duration_ms": 11,
+      "error_code": null,
+      "evidence": {
+        "source": "tool:finance_record_lookup",
+        "scope": "current_owner",
+        "returned_count": 0,
+        "is_truncated": false
+      },
+      "result_summary": "命中 0 条资金流水",
+      "raw_payload": {
+        "event_type": "tool_completed",
+        "run_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e",
+        "tool_call_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:finance_record_lookup",
+        "tool_name": "finance_record_lookup",
+        "result_summary": "命中 0 条资金流水",
+        "audit_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:audit",
+        "trace_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:trace",
+        "timestamp": 1780932311761,
+        "input_summary": "查询当前账号最近资金流水，参数 {limit=10}",
+        "query_window": {
+          "owner_scope": "current_owner",
+          "limit": 10
+        },
+        "started_at": 1780932311750,
+        "completed_at": 1780932311761,
+        "duration_ms": 11,
+        "returned_count": 0,
+        "limit": 10,
+        "is_truncated": false,
+        "next_cursor": null,
+        "evidence": {
+          "source": "tool:finance_record_lookup",
+          "scope": "current_owner",
+          "returned_count": 0,
+          "is_truncated": false
+        },
+        "conversation_id": 9,
+        "seq": 15,
+        "event_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:15"
+      }
+    },
+    {
+      "seq": 19,
+      "event_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:19",
+      "event_type": "tool_started",
+      "created_at": 1780932311770,
+      "tool_call_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:sales_overview_lookup",
+      "tool_name": "sales_overview_lookup",
+      "status": null,
+      "input_summary": "汇总当前账号近 7 天经营信号，参数 {rank_limit=5, low_stock_limit=5, window_days=7}",
+      "query_window": {
+        "owner_scope": "current_owner",
+        "rank_limit": 5,
+        "low_stock_limit": 5,
+        "window_days": 7
+      },
+      "returned_count": null,
+      "total_count": null,
+      "limit": null,
+      "is_truncated": null,
+      "next_cursor": null,
+      "duration_ms": null,
+      "error_code": null,
+      "evidence": null,
+      "result_summary": null,
+      "raw_payload": {
+        "event_type": "tool_started",
+        "run_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e",
+        "tool_call_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:sales_overview_lookup",
+        "tool_name": "sales_overview_lookup",
+        "input_summary": "汇总当前账号近 7 天经营信号，参数 {rank_limit=5, low_stock_limit=5, window_days=7}",
+        "query_window": {
+          "owner_scope": "current_owner",
+          "rank_limit": 5,
+          "low_stock_limit": 5,
+          "window_days": 7
+        },
+        "tool_input": {
+          "rank_limit": 5,
+          "low_stock_limit": 5,
+          "window_days": 7
+        },
+        "started_at": 1780932311770,
+        "audit_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:audit",
+        "trace_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:trace",
+        "timestamp": 1780932311770,
+        "conversation_id": 9,
+        "seq": 19,
+        "event_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:19"
+      }
+    },
+    {
+      "seq": 20,
+      "event_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:20",
+      "event_type": "tool_completed",
+      "created_at": 1780932311785,
+      "tool_call_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:sales_overview_lookup",
+      "tool_name": "sales_overview_lookup",
+      "status": null,
+      "input_summary": "汇总当前账号近 7 天经营信号，参数 {rank_limit=5, low_stock_limit=5, window_days=7}",
+      "query_window": {
+        "owner_scope": "current_owner",
+        "rank_limit": 5,
+        "low_stock_limit": 5,
+        "window_days": 7
+      },
+      "returned_count": 2,
+      "total_count": null,
+      "limit": null,
+      "is_truncated": false,
+      "next_cursor": null,
+      "duration_ms": 15,
+      "error_code": null,
+      "evidence": {
+        "source": "tool:sales_overview_lookup",
+        "scope": "current_owner",
+        "returned_count": 2,
+        "is_truncated": false
+      },
+      "result_summary": "已汇总近7天销售、应收和库存信号",
+      "raw_payload": {
+        "event_type": "tool_completed",
+        "run_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e",
+        "tool_call_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:sales_overview_lookup",
+        "tool_name": "sales_overview_lookup",
+        "result_summary": "已汇总近7天销售、应收和库存信号",
+        "audit_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:audit",
+        "trace_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:trace",
+        "timestamp": 1780932311785,
+        "input_summary": "汇总当前账号近 7 天经营信号，参数 {rank_limit=5, low_stock_limit=5, window_days=7}",
+        "query_window": {
+          "owner_scope": "current_owner",
+          "rank_limit": 5,
+          "low_stock_limit": 5,
+          "window_days": 7
+        },
+        "started_at": 1780932311770,
+        "completed_at": 1780932311785,
+        "duration_ms": 15,
+        "returned_count": 2,
+        "is_truncated": false,
+        "next_cursor": null,
+        "evidence": {
+          "source": "tool:sales_overview_lookup",
+          "scope": "current_owner",
+          "returned_count": 2,
+          "is_truncated": false
+        },
+        "conversation_id": 9,
+        "seq": 20,
+        "event_id": "6a102f63-93fc-43cc-b655-cb140cb8c79e:20"
+      }
+    }
+  ]
+}

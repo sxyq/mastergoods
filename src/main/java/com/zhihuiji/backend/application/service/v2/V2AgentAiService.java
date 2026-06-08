@@ -695,29 +695,29 @@ public class V2AgentAiService {
     private AgentToolPlan inferToolPlan(String message) {
         String normalized = message.toLowerCase(Locale.ROOT);
         List<String> tools = new ArrayList<>();
-        if (containsAny(normalized, "库存", "补货", "低库存", "缺货")) {
+        if (containsAny(normalized, "库存", "补货", "低库存", "缺货", "inventory", "stock", "low stock", "replenish")) {
             tools.add("inventory_low_stock_lookup");
         }
-        if (containsAny(normalized, "商品", "sku", "品类", "目录", "售价", "进价")) {
+        if (containsAny(normalized, "商品", "sku", "品类", "目录", "售价", "进价", "product", "catalog", "price")) {
             tools.add("product_catalog_lookup");
         }
-        if (containsAny(normalized, "欠款", "应收", "客户", "回款")) {
+        if (containsAny(normalized, "欠款", "应收", "客户", "回款", "receivable", "customer", "collection")) {
             tools.add("customer_receivable_lookup");
         }
-        if (containsAny(normalized, "供应商", "应付", "采购", "到货", "收货")) {
+        if (containsAny(normalized, "供应商", "应付", "采购", "到货", "收货", "supplier", "payable", "purchase", "procurement")) {
             tools.add("supplier_payable_lookup");
             tools.add("purchase_order_lookup");
         }
-        if (containsAny(normalized, "销售单", "订单", "成交", "收款", "付款情况")) {
+        if (containsAny(normalized, "销售单", "订单", "成交", "收款", "付款情况", "sale order", "sales order", "order", "deal")) {
             tools.add("sale_order_lookup");
         }
-        if (containsAny(normalized, "付款单", "已付款", "待付款")) {
+        if (containsAny(normalized, "付款单", "已付款", "待付款", "payment", "paid", "unpaid")) {
             tools.add("pay_order_lookup");
         }
-        if (containsAny(normalized, "流水", "收入", "支出", "财务", "费用", "开支")) {
+        if (containsAny(normalized, "流水", "收入", "支出", "财务", "费用", "开支", "finance", "cashflow", "income", "expense")) {
             tools.add("finance_record_lookup");
         }
-        if (containsAny(normalized, "经营", "概览", "销售", "最近", "7天", "七天")) {
+        if (containsAny(normalized, "经营", "概览", "销售", "最近", "7天", "七天", "business", "overview", "sales", "recent", "7 days")) {
             tools.add("sales_overview_lookup");
         }
         List<String> deduplicated = new ArrayList<>();
