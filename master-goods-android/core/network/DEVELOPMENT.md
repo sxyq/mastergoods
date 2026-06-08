@@ -1,6 +1,6 @@
 # core/network 模块开发说明
 
-- 当前状态：Retrofit/OkHttp/Hilt 网络层已落地，覆盖 V1 兼容接口与 V2 首轮合同；Agent SSE 接收链路已接 `/v2/agent/chat/stream`，但服务端 run cancel endpoint 尚未实现。
+- 当前状态：Retrofit/OkHttp/Hilt 网络层已落地，覆盖 V1 兼容接口与 V2 首轮合同；Agent SSE 接收链路已接 `/v2/agent/chat/stream`；服务端 run cancel endpoint 已接入 `/v2/agent/runs/{runId}/cancel`，并有后端单测覆盖 `run_cancelled` 与审计状态。
 - 实际源码目录：`core/network/src/main/java/com/zhihuiji/core/network`
 - 目标：提供 Retrofit API、认证头注入、刷新 token、统一错误解析。
 
@@ -27,7 +27,7 @@
 - `ZhihuijiApi` / `ZhihuijiV2Api`
   - 维护 `auth/products/customers/suppliers/sale-orders/purchase-orders/pay-orders/finance-records/reports/sync/agent` 的 V1/V2 合同。
 - `AgentSseClient`
-  - 负责 Agent 流式事件接收；当前只停止本机接收，不能宣称服务端任务已取消。
+  - 负责 Agent 流式事件接收；停止按钮必须配合 `AgentV2Repository.cancelRun()` 调用服务端取消，只有服务端返回确认后才能宣称服务端任务已取消。
 - `safeApiCall { ... }`
   - 统一把 HTTP 错误和业务错误转换为上层可处理异常。
 

@@ -1008,6 +1008,20 @@ private fun chartColor(rawColor: String?, index: Int): Color {
 private fun hasChartValues(series: List<ChartSeriesUi>): Boolean =
     series.any { item -> item.values.any { it.isUsableChartValue() } }
 
+internal fun validateChartContractForSeries(
+    labels: List<String>,
+    series: List<Pair<String, List<Double>>>,
+): String? = validateChartContract(
+    labels = labels,
+    series = series.mapIndexed { index, item ->
+        ChartSeriesUi(
+            name = item.first,
+            values = item.second,
+            color = chartColor(rawColor = null, index = index),
+        )
+    }
+)
+
 private fun validateChartContract(labels: List<String>, series: List<ChartSeriesUi>): String? {
     if (labels.isEmpty()) {
         return "图表数据缺少横轴标签，已停止绘制以避免生成模拟标签"
@@ -1311,7 +1325,7 @@ private fun UnknownBlock(block: ResultBlockDto, modifier: Modifier = Modifier) {
     }
 }
 
-private fun ResultBlockDto.dataPreview(): String? {
+internal fun ResultBlockDto.dataPreview(): String? {
     val raw = data?.toString()?.takeIf { it.isNotBlank() } ?: return null
     return "原始数据: " + raw.take(240)
 }

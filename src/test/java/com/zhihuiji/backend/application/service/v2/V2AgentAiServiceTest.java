@@ -3,6 +3,7 @@ package com.zhihuiji.backend.application.service.v2;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -40,6 +41,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -369,6 +373,59 @@ class V2AgentAiServiceTest {
             && event.getPayloadJson().contains("\"tool_name\":\"customer_receivable_lookup\"")));
         assertTrue(events.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())
             && event.getPayloadJson().contains("\"delta_source\":\"model_stream\"")));
+    }
+
+    @Test
+    void cancelRunMarksActiveStreamCancelledAndEmitsRunCancelledEvent() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(customer(1L, "客户A", 100.0)));
+        CountDownLatch modelStreamEntered = new CountDownLatch(1);
+        CountDownLatch releaseModelStream = new CountDownLatch(1);
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+            .thenAnswer(invocation -> {
+                modelStreamEntered.countDown();
+                assertTrue(releaseModelStream.await(3, TimeUnit.SECONDS), "model stream release timed out");
+                return Optional.of("模型返回但用户已经取消");
+            });
+        CapturingEmitter emitter = new CapturingEmitter();
+        AgentConversationEntity conversation = conversation(107L);
+        AtomicReference<Throwable> streamFailure = new AtomicReference<>();
+
+        Thread worker = new Thread(() -> {
+            try {
+                service.runChatStream(1L, conversation, "客户应收情况", "run-cancel", emitter);
+            } catch (RuntimeException ex) {
+                if (!String.valueOf(ex.getMessage()).startsWith("Agent run cancelled: run-cancel")) {
+                    streamFailure.set(ex);
+                }
+            } catch (Throwable ex) {
+                streamFailure.set(ex);
+            }
+        });
+        worker.start();
+        assertTrue(modelStreamEntered.await(3, TimeUnit.SECONDS), "stream did not reach model call");
+
+        V2AgentDtos.AgentRunCancelResponse response = service.cancelRun("run-cancel");
+        releaseModelStream.countDown();
+        worker.join(3_000);
+
+        assertFalse(worker.isAlive(), "stream worker should stop after server cancellation");
+        assertNull(streamFailure.get());
+        assertEquals("cancelled", response.status());
+        assertEquals(true, response.cancelled());
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"event_type\":\"run_cancelled\"")));
+        assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"event_type\":\"answer_completed\"")));
+
+        AgentRunAuditEntity audit = runAudits.get("run-cancel");
+        assertNotNull(audit);
+        assertEquals("cancelled", audit.getStatus());
+        assertEquals("cancelled", audit.getMode());
+        assertEquals("cancelled", audit.getLlmStatus());
+        assertEquals("用户已停止生成", audit.getErrorMessage());
+        assertNotNull(audit.getCompletedAt());
+        assertTrue(runAuditEvents.stream().anyMatch(event -> "run_cancelled".equals(event.getEventType())
+            && event.getPayloadJson().contains("\"reason\":\"用户已停止生成\"")));
     }
 
     @Test

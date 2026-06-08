@@ -2107,8 +2107,11 @@ public class V2AgentAiService {
 
     private void sendEvent(SseEmitter emitter, Map<String, Object> payload) throws IOException {
         Object runId = payload.get("run_id");
+        boolean cancellationEvent = "run_cancelled".equals(payload.get("event_type"));
         if (runId instanceof String runIdText) {
-            ensureRunActive(runIdText);
+            if (!cancellationEvent) {
+                ensureRunActive(runIdText);
+            }
             ActiveAgentRun activeRun = activeRuns.get(runIdText);
             if (activeRun != null) {
                 payload.putIfAbsent("conversation_id", activeRun.conversationId());

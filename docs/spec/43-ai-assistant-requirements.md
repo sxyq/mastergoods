@@ -17,8 +17,8 @@
 | 非流式后端服务响应具备可审计字段 | `V2AgentAiServiceTest.nonStreamingChatIncludesAuditableAgentRunContract` 强制重跑通过，断言 `planSummary`、`toolCalls`、`evidenceRefs`、`evidence_card`、`performanceSummary` | 证明服务单测路径具备合同雏形；仍需真实 HTTP 响应和 owner 数据证据 |
 | SSE `answer_delta` 不再承载规则摘要假流式 | `V2AgentAiServiceTest.streamFallbackAnswerCompletesRuleSummaryWithoutFakeDeltas`、`streamDisabledModelAnswerCompletesRuleSummaryWithoutFakeDeltas` 通过，断言规则摘要路径 `answer_delta` 数量为 0，降级内容只在 `answer_completed` 返回 `mode`、`llm_status` 和规则摘要说明 | 证明降级摘要不会通过分块制造“吐字”体验；仍需真实抓包和 UI 展示截图 |
 | Android result block 图表渲染有坏数据门禁 | `ResultBlockRenderer` 对 `line_chart`、`bar_chart`、`donut_chart` 做 labels / series / 数值校验，并显示错误或空态文案 | 证明 UI 层不会主动补模拟图表数据；仍需真实后端 block 和真机截图 |
-| Markdown 解析已有基础覆盖 | `AgentMarkdownTextParserTest` 覆盖表格 pipe 和代码块尾部空白等解析边界 | 证明部分解析边界；仍需链接、引用、列表、长表格、代码复制和流式半成品视觉验收 |
-| 服务端 cancel run 代码路径已存在 | `V2AgentController` 暴露 `POST /v2/agent/runs/{runId}/cancel`；`V2AgentAiService.cancelRun` 会校验 owner、标记 active run cancelled、发送 `run_cancelled`，不再立即移除仍运行的 active run；Android `AgentChatViewModel.stopGeneration` 会调用 `AgentV2Repository.cancelRun` 并把服务端取消确认 / 未确认 / 失败写入反馈 | 证明当前代码有更诚实的取消路径；仍需后端编译、真实 SSE 取消抓包、审计状态和 Android 取消反馈证据 |
+| Markdown 解析已有基础覆盖 | `AgentMarkdownTextParserTest` 覆盖表格 pipe、代码块尾部空白、链接文本旁可见 URL、`www.` 链接规范化和坏链接不丢正文 | 证明部分解析边界和链接 URL 不丢；仍需真机视觉截图、链接点击 / 复制、长表格、代码复制交互和流式半成品视觉验收 |
+| 服务端 cancel run 代码路径已存在 | `V2AgentController` 暴露 `POST /v2/agent/runs/{runId}/cancel`；`V2AgentAiService.cancelRun` 会校验 owner、标记 active run cancelled、发送 `run_cancelled`，不再立即移除仍运行的 active run；`V2AgentAiServiceTest.cancelRunMarksActiveStreamCancelledAndEmitsRunCancelledEvent` 已证明 active stream 取消后会发出 `run_cancelled`、阻止 `answer_completed`、并把审计状态写成 `cancelled`；Android `AgentChatViewModel.stopGeneration` 会调用 `AgentV2Repository.cancelRun` 并把服务端取消确认 / 未确认 / 失败写入反馈 | 证明当前代码有更诚实的取消路径；仍需真实 Android 点击停止后的 HTTP/SSE 抓包、审计接口对账和 Android 取消反馈截图 |
 
 ### 0.2 当前仍未完成 / 不得误判为通过
 
@@ -120,7 +120,7 @@ P0 非目标：
 | 已知 result block 类型解析失败后静默消失 | 后端真实图表 / 表格已经返回，但 Android 用户看不到，也无法知道数据丢失 | P0 不允许静默丢弃 result block；解析失败必须显示“结构化结果暂无法渲染”并保留标题、类型、错误码或原始摘要 | 构造已知类型字段缺失 / 类型错误，确认 UI 显示失败卡且日志可定位 |
 | draft 确认只是把状态改为 `archived` | 假确认，业务未执行 | P1 前确认按钮禁用或标注“仅归档”；P1 必须新增确认执行接口和状态机 | 点击确认后检查业务单据是否真实创建 / 更新 |
 | 草稿缺字段时合成本地业务号 / 金额 | 用户会把本地占位当作真实草稿字段 | 缺字段必须显示“后端未返回某字段”或结构化错误，不能合成 `草稿 #id`、默认金额或默认往来方 | 构造缺业务号 / 往来方 / 金额的草稿，列表显示字段缺失而不是假业务值 |
-| cancel run 尚缺端到端和审计验收 | 代码路径已从“本机停止”推进到“服务端标记取消并由 worker 收尾”，但若未编译、未真实触发或未写审计，用户仍无法确信服务端已停止 | P0 必须编译通过并真实调用 `/v2/agent/runs/{run_id}/cancel`；Android 若取消请求失败必须显示“已停止本机接收，服务端取消失败或仍在处理” | 取消后检查 HTTP 响应、SSE `run_cancelled`、后端 active run 收尾移除、审计状态和 Android 提示 |
+| cancel run 尚缺真机端到端验收 | 后端服务单测已证明 active stream 取消会返回 `cancelled`、发送 SSE `run_cancelled`、阻止后续 `answer_completed`，并把审计状态写成 `cancelled`；但还缺 Android 真机点击停止后的 HTTP/SSE 抓包和 UI 反馈截图 | P0 必须真实调用 `/v2/agent/runs/{run_id}/cancel`；Android 若取消请求失败必须显示“已停止本机接收，服务端取消失败或仍在处理” | 取消后检查 HTTP 响应、SSE `run_cancelled`、后端 active run 收尾移除、审计状态和 Android 提示 |
 | demo seed 产生 agent tasks / notifications | 生产任务 / 通知可能被演示数据污染 | demo seed 只能在 local/demo profile 下写入，生产 profile 不得产生 AI 任务 / 通知 | 生产 profile seed / 启动后任务通知为空或来自真实 run |
 | 缺少性能和可观测性门禁 | 功能看似可用但线上无法定位慢请求、断流、失败或审计丢失 | 每个 run 必须输出可关联日志 / 指标 / 审计；验收记录首事件、总耗时、工具耗时、模型耗时、失败原因 | 对 3 个真实问题导出日志、SSE、审计和耗时表 |
 
