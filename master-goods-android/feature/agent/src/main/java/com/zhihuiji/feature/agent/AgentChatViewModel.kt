@@ -444,10 +444,15 @@ class AgentChatViewModel @Inject constructor(
             is AgentStreamEvent.ResultBlockEvent -> {
                 flushPendingAnswerDelta()
                 updateAssistantMessage(assistantMessageId) { msg ->
-                    val updatedBlocks = msg.blocks + event.block
+                    val updatedBlocks = msg.blocks.appendDistinctResultBlock(event.block)
+                    val updatedParts = if (updatedBlocks.size == msg.blocks.size) {
+                        msg.parts
+                    } else {
+                        msg.parts.appendResultBlockAfterVisibleText(event.block)
+                    }
                     msg.copy(
                         blocks = updatedBlocks,
-                        parts = msg.parts.appendResultBlockAfterVisibleText(event.block),
+                        parts = updatedParts,
                     )
                 }
             }
@@ -942,8 +947,14 @@ internal fun List<ChatMessagePart>.appendResultBlockAfterVisibleText(block: Resu
     if (none { it is ChatMessagePart.Text }) {
         return this
     }
+    if (any { it is ChatMessagePart.ResultBlock && it.block == block }) {
+        return this
+    }
     return this + ChatMessagePart.ResultBlock(block)
 }
+
+internal fun List<ResultBlockDto>.appendDistinctResultBlock(block: ResultBlockDto): List<ResultBlockDto> =
+    if (contains(block)) this else this + block
 
 internal fun List<ChatMessagePart>.withAuthoritativeText(
     content: String,

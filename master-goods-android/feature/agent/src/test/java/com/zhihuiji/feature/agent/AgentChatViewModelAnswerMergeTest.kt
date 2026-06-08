@@ -83,6 +83,49 @@ class AgentChatViewModelAnswerMergeTest {
     }
 
     @Test
+    fun duplicateResultBlockBeforeFirstAnswerStaysPendingOnce() {
+        val block = ResultBlockDto(blockType = "line_chart", title = "销售趋势")
+        val blocks = emptyList<ResultBlockDto>()
+            .appendDistinctResultBlock(block)
+            .appendDistinctResultBlock(block)
+
+        val beforeAnswer = emptyList<ChatMessagePart>()
+            .appendResultBlockAfterVisibleText(block)
+            .appendResultBlockAfterVisibleText(block)
+        val afterFirstDelta = beforeAnswer.appendStreamingText(
+            delta = "我查到了销售趋势。",
+            pendingBlocks = blocks,
+        )
+
+        assertEquals(listOf(block), blocks)
+        assertEquals(emptyList<ChatMessagePart>(), beforeAnswer)
+        assertEquals(
+            listOf(
+                ChatMessagePart.Text("我查到了销售趋势。"),
+                ChatMessagePart.ResultBlock(block),
+            ),
+            afterFirstDelta
+        )
+    }
+
+    @Test
+    fun duplicateResultBlockAfterVisibleAnswerDoesNotRenderTwice() {
+        val block = ResultBlockDto(blockType = "table", title = "销售明细")
+
+        val parts = listOf(ChatMessagePart.Text("我查到了明细。"))
+            .appendResultBlockAfterVisibleText(block)
+            .appendResultBlockAfterVisibleText(block)
+
+        assertEquals(
+            listOf(
+                ChatMessagePart.Text("我查到了明细。"),
+                ChatMessagePart.ResultBlock(block),
+            ),
+            parts
+        )
+    }
+
+    @Test
     fun authoritativeTextUpdatesOnlyTextPartWithoutMovingResultBlocks() {
         val block = ResultBlockDto(blockType = "line_chart", title = "趋势")
         val parts = listOf(

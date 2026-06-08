@@ -310,16 +310,16 @@ class V2AgentAiServiceTest {
         assertTrue(answerCompleted.contains("\"plan_source\":\"keyword_fallback\""), answerCompleted);
         assertTrue(
             firstPayloadIndex(emitter, "\"event_type\":\"tool_completed\"")
-                < firstPayloadIndex(emitter, "\"event_type\":\"result_block\""),
-            String.join("\n", emitter.payloads)
-        );
-        assertTrue(
-            firstPayloadIndex(emitter, "\"event_type\":\"result_block\"")
                 < firstPayloadIndex(emitter, "\"event_type\":\"answer_delta\""),
             String.join("\n", emitter.payloads)
         );
         assertTrue(
             firstPayloadIndex(emitter, "\"event_type\":\"answer_delta\"")
+                < firstPayloadIndex(emitter, "\"event_type\":\"result_block\""),
+            String.join("\n", emitter.payloads)
+        );
+        assertTrue(
+            firstPayloadIndex(emitter, "\"event_type\":\"result_block\"")
                 < firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""),
             String.join("\n", emitter.payloads)
         );
@@ -420,11 +420,12 @@ class V2AgentAiServiceTest {
         );
         int answerCompleted = firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\"");
 
-        assertTrue(inventoryCompleted < firstResultBlock, String.join("\n", emitter.payloads));
-        assertTrue(firstResultBlock < receivableCompleted, String.join("\n", emitter.payloads));
-        assertTrue(firstPayloadIndex(emitter, "\"title\":\"库存风险\"") < receivableCompleted, String.join("\n", emitter.payloads));
+        assertTrue(inventoryCompleted < receivableCompleted, String.join("\n", emitter.payloads));
+        assertTrue(receivableCompleted < answerCompleted, String.join("\n", emitter.payloads));
+        assertTrue(answerCompleted < firstResultBlock, String.join("\n", emitter.payloads));
+        assertTrue(firstPayloadIndex(emitter, "\"title\":\"库存风险\"") > answerCompleted, String.join("\n", emitter.payloads));
         assertTrue(firstPayloadIndex(emitter, "\"title\":\"应收概览\"") > receivableCompleted, String.join("\n", emitter.payloads));
-        assertTrue(firstPayloadIndex(emitter, "\"title\":\"本次回答依据\"") < answerCompleted, String.join("\n", emitter.payloads));
+        assertTrue(firstPayloadIndex(emitter, "\"title\":\"本次回答依据\"") > answerCompleted, String.join("\n", emitter.payloads));
     }
 
     @Test
@@ -466,6 +467,16 @@ class V2AgentAiServiceTest {
         assertTrue(answerDelta.contains("\"conversation_id\":105"), answerDelta);
         assertTrue(answerDelta.contains("\"audit_id\":\"run-envelope:audit\""), answerDelta);
         assertTrue(answerDelta.contains("\"trace_id\":\"run-envelope:trace\""), answerDelta);
+        assertTrue(
+            firstPayloadIndex(emitter, "\"event_type\":\"answer_delta\"")
+                < firstPayloadIndex(emitter, "\"event_type\":\"result_block\""),
+            String.join("\n", emitter.payloads)
+        );
+        assertTrue(
+            firstPayloadIndex(emitter, "\"event_type\":\"result_block\"")
+                < firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""),
+            String.join("\n", emitter.payloads)
+        );
 
         AgentRunAuditEntity audit = runAudits.get("run-envelope");
         assertNotNull(audit);
@@ -679,8 +690,8 @@ class V2AgentAiServiceTest {
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"stream_not_supported\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")), String.join("\n", emitter.payloads));
         assertTrue(
-            firstPayloadIndex(emitter, "\"event_type\":\"result_block\"")
-                < firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""),
+            firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\"")
+                < firstPayloadIndex(emitter, "\"event_type\":\"result_block\""),
             String.join("\n", emitter.payloads)
         );
         assertFalse(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())));

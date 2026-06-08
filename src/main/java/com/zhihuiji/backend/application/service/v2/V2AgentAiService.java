@@ -54,6 +54,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import jakarta.annotation.PreDestroy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -508,7 +509,20 @@ public class V2AgentAiService {
             ensureRunActive(runId);
             ResponsePayload payload = buildResponse(ownerUserId, message, emitter, runId);
             ensureRunActive(runId);
-            FinalAnswer finalAnswer = buildFinalAnswerForStream(message, payload, emitter, runId);
+            AtomicBoolean blocksEmitted = new AtomicBoolean(false);
+            Runnable emitBlocksAfterVisibleAnswer = () -> {
+                if (blocksEmitted.compareAndSet(false, true)) {
+                    emitBlocks(emitter, runId, payload.blocks());
+                    ensureRunActive(runId);
+                }
+            };
+            FinalAnswer finalAnswer = buildFinalAnswerForStream(
+                message,
+                payload,
+                emitter,
+                runId,
+                emitBlocksAfterVisibleAnswer
+            );
             ensureRunActive(runId);
             emitAnswerCompleted(
                 emitter,
@@ -518,6 +532,7 @@ public class V2AgentAiService {
                 finalAnswer.llmStatus(),
                 payload.planSource()
             );
+            emitBlocksAfterVisibleAnswer.run();
             persistAssistantResponse(ownerUserId, conversation, finalAnswer.answer(), payload.blocks(), System.currentTimeMillis());
             sendEvent(emitter, eventMap("run_completed", mapOf(
                 "run_id", runId,
@@ -571,8 +586,6 @@ public class V2AgentAiService {
                 if (payload != null) {
                     answers.add(payload.answer());
                     blocks.addAll(payload.blocks());
-                    emitBlocks(emitter, runId, payload.blocks());
-                    ensureRunActive(runId);
                     toolResults.addAll(payload.toolResults());
                 }
             } catch (AgentRunCancelledException ex) {
@@ -602,8 +615,6 @@ public class V2AgentAiService {
             ensureRunActive(runId);
             V2AgentDtos.ResultBlockDto evidenceBlock = buildEvidenceBlock(runId, toolResults);
             blocks.add(evidenceBlock);
-            emitBlocks(emitter, runId, List.of(evidenceBlock));
-            ensureRunActive(runId);
         }
 
         if (answers.isEmpty()) {
@@ -1457,7 +1468,8 @@ public class V2AgentAiService {
         String userMessage,
         ResponsePayload payload,
         SseEmitter emitter,
-        String runId
+        String runId,
+        Runnable onFirstModelDelta
     ) {
         if (payload.toolFailures() != null && !payload.toolFailures().isEmpty()
             && (payload.toolResults() == null || payload.toolResults().isEmpty())) {
@@ -1497,6 +1509,9 @@ public class V2AgentAiService {
             ensureRunActive(runId);
             streamedAnswer.append(delta);
             emitAnswerDeltaUnchecked(emitter, runId, delta, "model_stream");
+            if (StringUtils.hasText(delta)) {
+                onFirstModelDelta.run();
+            }
         });
         return streamed
             .filter(StringUtils::hasText)

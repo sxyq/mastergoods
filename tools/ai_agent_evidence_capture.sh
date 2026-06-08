@@ -651,13 +651,19 @@ data: "event_id":"evt-delta-3",
 data: "delta":"真实模型流",
 data: "delta_source":"model_stream"}
 
+event: result_block
+data: {"event_type":"result_block","run_id":"run-self-test","seq":4,"event_id":"evt-block-4","block":{"block_type":"table","title":"真实结果"}}
+
 event: answer_delta
 data: {"event_type":"answer_delta",
 data: "run_id":"run-self-test",
-data: "seq":4,
+data: "seq":5,
 data: "event_id":"evt-notice-4",
 data: "delta":"\n查询边界：仅返回前 10 条。",
 data: "delta_source":"server_notice"}
+
+event: answer_completed
+data: {"event_type":"answer_completed","run_id":"run-self-test","seq":6,"event_id":"evt-answer-6","answer":"真实模型流\n查询边界：仅返回前 10 条。"}
 EOF
 
   run_id="$(extract_run_id_from_sse "${sse_file}")"
@@ -676,7 +682,7 @@ EOF
     "mode": "tool_query_rule_summary",
     "llm_status": "disabled",
     "tool_count": 1,
-    "event_count": 4,
+    "event_count": 6,
     "events": [
       {
         "seq": 1,
@@ -721,6 +727,20 @@ EOF
       },
       {
         "seq": 4,
+        "event_id": "evt-block-4",
+        "event_type": "result_block",
+        "created_at": 1710000000150,
+        "payload": {
+          "event_id": "evt-block-4",
+          "run_id": "run-self-test",
+          "block": {
+            "block_type": "table",
+            "title": "真实结果"
+          }
+        }
+      },
+      {
+        "seq": 5,
         "event_id": "evt-notice-4",
         "event_type": "answer_delta",
         "created_at": 1710000000200,
@@ -729,6 +749,17 @@ EOF
           "run_id": "run-self-test",
           "delta": "\n查询边界：仅返回前 10 条。",
           "delta_source": "server_notice"
+        }
+      },
+      {
+        "seq": 6,
+        "event_id": "evt-answer-6",
+        "event_type": "answer_completed",
+        "created_at": 1710000000300,
+        "payload": {
+          "event_id": "evt-answer-6",
+          "run_id": "run-self-test",
+          "answer": "真实模型流\n查询边界：仅返回前 10 条。"
         }
       }
     ]
@@ -740,7 +771,9 @@ EOF
     | .data.events[0].payload.event_id = "evt-run-1"
     | .data.events[1].event_id = "evt-tool-2"
     | .data.events[2].event_id = "evt-delta-3"
-    | .data.events[3].event_id = "evt-notice-4"
+    | .data.events[3].event_id = "evt-block-4"
+    | .data.events[4].event_id = "evt-notice-4"
+    | .data.events[5].event_id = "evt-answer-6"
   ' "${audit_file}" > "${tmp_dir}/audit.fixed.json"
   mv "${tmp_dir}/audit.fixed.json" "${audit_file}"
 
@@ -759,7 +792,7 @@ EOF
   cp "${audit_file}" "${tmp_dir}/03-run-audit.json"
   write_reconciliation_file "${tmp_dir}"
   write_run_summary_file "${tmp_dir}"
-  jq -e '.event_count == 4 and .tools[0].is_truncated == false' "${tmp_dir}/14-agent-run-summary.json" >/dev/null
+  jq -e '.event_count == 6 and .tools[0].is_truncated == false' "${tmp_dir}/14-agent-run-summary.json" >/dev/null
   grep -q 'Status: pass-for-interface' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
   grep -q '`answer_delta`' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
   grep -q '`model_stream`' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
@@ -830,10 +863,12 @@ EOF
   grep -q 'cannot prove Android rendering' "${tmp_dir}/12-conclusion.md"
   grep -q 'Android first-visible timing' "${tmp_dir}/12-conclusion.md"
   grep -q '`first_event_latency_ms`' "${tmp_dir}/11-latency.md"
+  grep -q '`first_result_block_latency_ms`' "${tmp_dir}/11-latency.md"
   grep -q '`first_model_stream_delta_latency_ms`' "${tmp_dir}/11-latency.md"
   grep -q '`server_notice_delta_count`' "${tmp_dir}/11-latency.md"
   grep -q '`tool_duration_sum_ms`' "${tmp_dir}/11-latency.md"
   grep -q 'Provider-backed `model_stream` timing is present' "${tmp_dir}/11-latency.md"
+  grep -q 'Result blocks followed the first provider-backed `model_stream` delta' "${tmp_dir}/11-latency.md"
 
   echo "ai_agent_evidence_capture self-test passed"
 }
@@ -1029,10 +1064,16 @@ EOF
         else
           "- Provider-backed `model_stream` timing is present and must be reconciled with raw SSE and audit events."
         end,
-        if (.first_result_block_latency_ms != null and .first_answer_delta_latency_ms == null) then
-          "- Result blocks arrived before answer deltas; Android must keep early blocks pending until answer text is visible to avoid a data-before-answer inversion."
+        if (.first_result_block_at != null and (.model_stream_delta_count // 0) > 0 and (.first_model_stream_delta_at == null or .first_result_block_at < .first_model_stream_delta_at)) then
+          "- Result blocks arrived before the first provider-backed `model_stream` delta; this can recreate a data-before-answer inversion and must be reconciled with Android pending-block evidence."
+        elif (.first_result_block_at != null and (.model_stream_delta_count // 0) == 0 and (.answer_completed_at == null or .first_result_block_at < .answer_completed_at)) then
+          "- Result blocks arrived before `answer_completed` in a non-model-stream run; rule-summary / non-streaming-provider paths must not show data blocks before answer text."
+        elif (.first_result_block_at != null and (.model_stream_delta_count // 0) > 0) then
+          "- Result blocks followed the first provider-backed `model_stream` delta; verify Android shows the answer text before structured data."
+        elif (.first_result_block_at != null) then
+          "- Result blocks followed `answer_completed`; verify Android shows the completed answer before structured data."
         else
-          "- Result block and answer timing should still be checked against Android screenshots or recording."
+          "- No result_block timing was observed; verify whether this question was expected to return structured data."
         end,
         if (.tool_failed_count // 0) > 0 then
           "- Tool failures were observed; verify the answer and UI show partial/failed state rather than a confident full conclusion."
