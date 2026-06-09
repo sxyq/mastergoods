@@ -5,6 +5,8 @@
 > 维护范围：AI 助手需求基线与当前代码证据校准；不代表本轮已经完成所有后端或 Android 代码整改
 > 覆盖范围：后端 `/v2/agent/*`、Android AI 助手页面、AI 首页干净入口、真实数据查询、真实工具事件、草稿执行、取消确认、运行审计、性能可观测性、后续审查 checklist
 
+> 执行门禁：后续 AI 助手审查 / 修改必须同步使用 `docs/spec/44-ai-assistant-review-gates.md`。本文件保留完整需求和历史证据，`44` 是逐项 pass / partial / fail 的执行清单。
+
 ## 0. 当前证据快照
 
 本节只记录截至 2026-06-09 当前工作树可由代码和测试证明的事实，不能替代第 17 节端到端验收证据包。任何未列为“已证明”的能力，在后续审查中都必须按未完成处理。
@@ -787,6 +789,8 @@ python3 tools/capture_ai_home_device_evidence.py --wake
 该脚本输出 `docs/acceptance-evidence/ai-agent/{yyyyMMdd-HHmmss}-device-ai-home/`，其中 `08-home-cleanliness.json` 和 `10-conclusion.md` 必须为 `pass-for-ai-home-cleanliness` 才能作为 AI 首页干净入口证据。通过条件必须同时看到 `AI 助手` 标题和至少一个 Hero 锚点（如“主屏保持干净”或“开始一次真实 Agent 对话”），且不得命中 `销售额`、`KPI`、`今日经营摘要`、`风险列表`、`销售趋势`、`净现金流`、`库存预警` 等默认报表 / 看板内容。若状态为 `blocked-by-locked-device`、`partial-not-in-app` 或 `partial-ai-home-not-detected`，只能作为失败 / 部分尝试保存，不能支撑 P0 通过。注意：`mFocusedApp` / `ResumedActivity` 可能在锁屏时仍显示 `com.zhihuiji.app`，不得把它当成可见 App 证据；必须同时确认 `device_locked=false`、无 Keyguard / NotificationShade 遮挡且 UI tree 来自真实 app 内容。
 
 `tools/ai_agent_evidence_capture.sh` 会自动生成 `00-env.md`、`00-request.json`、`01-http-response.json`、`02-raw-sse.log`、`03-run-audit.json`、`04-tool-results.json`、`10-forbidden-scan.txt`、`11-latency.md`、`12-conclusion.md`、`13-sse-audit-ui-reconciliation.md`、`14-agent-run-summary.json`、`15-forbidden-scan-review.md`、`16-workbench-response.json` 和 `17-workbench-cleanliness.md`。其中 `11-latency.md` 必须包含接口侧 AI run timing summary：`first_event_latency_ms`、`first_tool_started_latency_ms`、`first_tool_completed_latency_ms`、`first_result_block_latency_ms`、`first_answer_delta_latency_ms`、`first_model_stream_delta_latency_ms`、`first_server_notice_delta_latency_ms`、`answer_completed_latency_ms`、`run_completed_latency_ms`、`tool_duration_sum_ms`、`tool_duration_max_ms` 和关键事件计数。`14-agent-run-summary.json` 必须派生 `status_consistency`，检查顶层 run audit 的 `mode` / `llm_status` 与 `answer_completed` payload 是否一致；任一不一致只能作为失败/待复核证据，不能作为 P0 通过证据。脚本默认结论为 `partial`，因为它只采集接口 / SSE / 审计证据，不会伪造真机截图或 UI tree。截图、UI tree 和 Android 首次可见耗时必须从真实设备补充。`12-conclusion.md` 必须列出不可替代证据清单，明确接口 / 审计对账不能证明 Android 渲染。`13-sse-audit-ui-reconciliation.md` 的 `pass-for-interface` 只能证明接口和服务端审计一致，不能替代 Android RunTrace 截图。`17-workbench-cleanliness.md` 的 `pass-for-interface` 只能证明后端 workbench 响应干净，不能替代 Android 首屏截图和 UI tree。`15-forbidden-scan-review.md` 是自动审查草案，不是自动通过证明；任何 `needs evidence` 行必须人工复核并给出源码 / 运行证据后才能 P0 通过。
+
+`tools/ai_agent_forbidden_scan.py` 是后续审查的轻量静态门禁：它扫描后端 `/v2/agent`、Android agent UI / repository / network 和 agent model 的生产相关路径，排除 build 产物，并把已知安全的测试 fake、输入框 placeholder、服务端 delta 合帧、Markdown 解析切片、SSE `data:` 前缀解析、摘要裁剪和“避免模拟数据”的保护性文案解释为 `pass`。任何未来新增的未知 `mock/demo/fake/sample/placeholder/模拟/演示/假数据/delay/timer/substring/chunkSize` 命中会被标为 `needs_evidence`，必须人工证明不在生产 AI 链路中。该脚本的 `pass-for-static-scan` 只证明静态禁止项已解释，不替代真实 HTTP、SSE、审计、provider `model_stream`、Android 截图、UI tree 或性能证据。
 
 已有证据包需要按最新脚本刷新派生产物时，使用：
 

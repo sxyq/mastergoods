@@ -6,6 +6,8 @@ Current baseline: `01b7f5f`; current worktree adds Android `page/limit` pass-thr
 
 This matrix maps `docs/spec/43-ai-assistant-requirements.md` requirement IDs to current evidence. It is an audit index, not a pass certificate. A row can only become `pass` when code evidence and runtime evidence both cover the full requirement scope.
 
+Execution gates for future reviews live in `docs/spec/44-ai-assistant-review-gates.md`. The matrix remains the evidence index; `44` is the checklist that decides whether a review item can be marked `pass`, `partial`, or `fail`.
+
 ## Evidence Packages
 
 | Evidence | Scope | Result |
