@@ -13,12 +13,14 @@ LOGIN_PASSWORD="${LOGIN_PASSWORD:-}"
 ACCOUNT_LABEL="${ACCOUNT_LABEL:-manual}"
 BACKEND_PROFILE="${BACKEND_PROFILE:-unknown}"
 LLM_STATUS_NOTE="${LLM_STATUS_NOTE:-unknown}"
+CANCEL_STREAM_TIMEOUT="${CANCEL_STREAM_TIMEOUT:-20}"
 TOKEN_SOURCE="provided"
 
 usage() {
   cat <<'USAGE'
 Usage:
   TOKEN="<bearer-token>" ./tools/ai_agent_evidence_capture.sh
+  TOKEN="<bearer-token>" ./tools/ai_agent_evidence_capture.sh cancel-test
   ./tools/ai_agent_evidence_capture.sh self-test
   ./tools/ai_agent_evidence_capture.sh refresh-existing <evidence-dir>
 
@@ -35,6 +37,8 @@ Environment:
   ACCOUNT_LABEL     Redacted account label written to 00-env.md.
   BACKEND_PROFILE   Human note for active backend profile.
   LLM_STATUS_NOTE   Human note for LLM config state.
+  CANCEL_STREAM_TIMEOUT
+                    Max seconds to keep the cancel-test SSE curl open. Default: 20.
 
 Output:
   docs/acceptance-evidence/ai-agent/{yyyyMMdd-HHmm}-{run_id}/
@@ -43,6 +47,11 @@ This script captures HTTP/SSE/audit evidence only. It never fabricates UI
 screenshots; add adb screenshots and UI tree dumps separately before marking
 the evidence package pass. It also captures `/v2/agent/workbench` when auth is
 available, or records an honest skipped/failed workbench result when it is not.
+
+`cancel-test` starts `/v2/agent/chat/stream`, waits for a real `run_id`, calls
+`POST /v2/agent/runs/{run_id}/cancel`, and writes `11-cancel-evidence.md`.
+It proves only interface/audit cancellation unless Android screenshots, UI tree
+and action capture are added separately.
 USAGE
 }
 
@@ -198,6 +207,24 @@ extract_run_id_from_sse() {
       return 0
     fi
   done < <(normalize_sse_data "${file}")
+}
+
+event_count_from_sse() {
+  local file="$1"
+  [[ -s "${file}" ]] || {
+    echo "0"
+    return 0
+  }
+  normalize_sse_data "${file}" |
+    jq -Rsc '[split("\n")[] | select(length > 0) | fromjson? | select(type == "object")] | length' 2>/dev/null
+}
+
+sse_has_event_type() {
+  local file="$1"
+  local event_type="$2"
+  [[ -s "${file}" ]] || return 1
+  normalize_sse_data "${file}" |
+    jq -Rer --arg event_type "${event_type}" 'fromjson? | select((.event_type // .eventType // "") == $event_type)' >/dev/null 2>&1
 }
 
 tool_results_filter() {
@@ -443,6 +470,78 @@ write_run_summary_file() {
   if [[ -n "${generated_tool_results_json}" ]]; then
     rm -f "${generated_tool_results_json}"
   fi
+}
+
+write_cancel_evidence_file() {
+  local dir="$1"
+  local run_id="$2"
+  local output_file="${dir}/11-cancel-evidence.md"
+  local cancel_status="missing"
+  local cancel_confirmed="missing"
+  local cancel_reason="missing"
+  local cancel_http_code="missing"
+  local audit_status="missing"
+  local sse_run_cancelled="no"
+  local sse_event_count="0"
+  local verdict="partial"
+
+  if [[ -s "${dir}/05-cancel-response.json" ]] && jq -e '.data' "${dir}/05-cancel-response.json" >/dev/null 2>&1; then
+    cancel_status="$(jq -r '.data.status // "missing"' "${dir}/05-cancel-response.json")"
+    cancel_confirmed="$(jq -r '.data.cancelled // .data.is_cancelled // .data.isCancelled // "missing"' "${dir}/05-cancel-response.json")"
+    cancel_reason="$(jq -r '.data.reason // .data.message // "missing"' "${dir}/05-cancel-response.json")"
+  fi
+  if [[ -s "${dir}/05-cancel-metrics.txt" ]]; then
+    cancel_http_code="$(sed -n 's/^http_code=//p' "${dir}/05-cancel-metrics.txt" | head -n 1)"
+    cancel_http_code="${cancel_http_code:-missing}"
+  fi
+  if [[ -s "${dir}/03-run-audit.json" ]] && jq -e '.data' "${dir}/03-run-audit.json" >/dev/null 2>&1; then
+    audit_status="$(jq -r '.data.status // "missing"' "${dir}/03-run-audit.json")"
+  fi
+  if sse_has_event_type "${dir}/02-raw-sse.log" "run_cancelled"; then
+    sse_run_cancelled="yes"
+  fi
+  sse_event_count="$(event_count_from_sse "${dir}/02-raw-sse.log")"
+
+  if [[ "${cancel_http_code}" == 2* && "${cancel_confirmed}" == "true" && "${sse_run_cancelled}" == "yes" && "${audit_status}" == "cancelled" ]]; then
+    verdict="pass-for-interface"
+  elif [[ "${cancel_http_code}" == 2* && ( "${cancel_confirmed}" == "false" || "${cancel_status}" == "not_found" || "${cancel_status}" == "already_completed" || "${cancel_status}" == "not_cancellable" ) ]]; then
+    verdict="partial-honest-not-cancelled"
+  elif [[ "${cancel_http_code}" == "missing" ]]; then
+    verdict="partial-missing-cancel-call"
+  else
+    verdict="fail-needs-review"
+  fi
+
+  cat > "${output_file}" <<EOF
+# Cancel Evidence
+
+Status: ${verdict}
+
+| Check | Value |
+|---|---|
+| run_id | \`${run_id:-missing}\` |
+| cancel_http_code | \`${cancel_http_code}\` |
+| cancel_response_status | \`${cancel_status}\` |
+| cancel_response_cancelled | \`${cancel_confirmed}\` |
+| cancel_response_reason | \`${cancel_reason}\` |
+| raw_sse_event_count | \`${sse_event_count}\` |
+| raw_sse_has_run_cancelled | \`${sse_run_cancelled}\` |
+| audit_status | \`${audit_status}\` |
+
+## Files
+
+- \`02-raw-sse.log\`: stream events captured during the cancel run.
+- \`05-cancel-response.json\`: raw cancel endpoint body.
+- \`05-cancel-headers.txt\`: cancel endpoint response headers.
+- \`05-cancel-metrics.txt\`: cancel endpoint curl timing and HTTP status.
+- \`03-run-audit.json\`: server run audit after cancellation attempt.
+
+## Interpretation
+
+- \`pass-for-interface\` means the backend HTTP/SSE/audit path shows a confirmed cancel with \`run_cancelled\` and \`audit_status=cancelled\`.
+- \`partial-honest-not-cancelled\` means the cancel endpoint returned an explicit non-cancelled state; Android must show that cancellation was unconfirmed or not possible.
+- This file does not prove Android stop-button behavior, clear-chat behavior, connection release on the device, or UI feedback. Add screenshots, UI tree, logcat and action capture before marking AGT-P0-019 or AGT-P0-021 as full pass.
+EOF
 }
 
 capture_workbench_response() {
@@ -1017,6 +1116,89 @@ EOF
   grep -q 'Result blocks followed the first provider-backed `model_stream` delta' "${tmp_dir}/11-latency.md"
   grep -q 'Model streaming was interrupted after at least one completion event' "${tmp_dir}/11-latency.md"
 
+  local cancel_dir="${tmp_dir}/cancel-evidence"
+  mkdir -p "${cancel_dir}"
+  cat > "${cancel_dir}/02-raw-sse.log" <<'EOF'
+data: {"event_type":"run_started","run_id":"run-cancel-self-test","seq":1,"event_id":"evt-cancel-run-1"}
+
+data: {"event_type":"run_cancelled","run_id":"run-cancel-self-test","seq":2,"event_id":"evt-cancel-2","status":"cancelled"}
+EOF
+  cat > "${cancel_dir}/03-run-audit.json" <<'EOF'
+{
+  "data": {
+    "run_id": "run-cancel-self-test",
+    "status": "cancelled",
+    "events": [
+      {
+        "seq": 1,
+        "event_id": "evt-cancel-run-1",
+        "event_type": "run_started",
+        "payload": {
+          "run_id": "run-cancel-self-test",
+          "event_id": "evt-cancel-run-1"
+        }
+      },
+      {
+        "seq": 2,
+        "event_id": "evt-cancel-2",
+        "event_type": "run_cancelled",
+        "payload": {
+          "run_id": "run-cancel-self-test",
+          "event_id": "evt-cancel-2",
+          "status": "cancelled"
+        }
+      }
+    ]
+  }
+}
+EOF
+  cat > "${cancel_dir}/05-cancel-response.json" <<'EOF'
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "run_id": "run-cancel-self-test",
+    "cancelled": true,
+    "status": "cancelled",
+    "reason": "cancel_requested"
+  }
+}
+EOF
+  printf 'http_code=200\ntime_total=0.010\n' > "${cancel_dir}/05-cancel-metrics.txt"
+  write_cancel_evidence_file "${cancel_dir}" "run-cancel-self-test"
+  grep -q 'Status: pass-for-interface' "${cancel_dir}/11-cancel-evidence.md"
+  grep -q '| raw_sse_has_run_cancelled | `yes` |' "${cancel_dir}/11-cancel-evidence.md"
+
+  local not_cancelled_dir="${tmp_dir}/not-cancelled-evidence"
+  mkdir -p "${not_cancelled_dir}"
+  cat > "${not_cancelled_dir}/02-raw-sse.log" <<'EOF'
+data: {"event_type":"run_started","run_id":"run-not-cancelled-self-test","seq":1,"event_id":"evt-not-cancelled-run-1"}
+EOF
+  cat > "${not_cancelled_dir}/03-run-audit.json" <<'EOF'
+{
+  "data": {
+    "run_id": "run-not-cancelled-self-test",
+    "status": "completed",
+    "events": []
+  }
+}
+EOF
+  cat > "${not_cancelled_dir}/05-cancel-response.json" <<'EOF'
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "run_id": "run-not-cancelled-self-test",
+    "cancelled": false,
+    "status": "already_completed",
+    "reason": "run already completed"
+  }
+}
+EOF
+  printf 'http_code=200\ntime_total=0.010\n' > "${not_cancelled_dir}/05-cancel-metrics.txt"
+  write_cancel_evidence_file "${not_cancelled_dir}" "run-not-cancelled-self-test"
+  grep -q 'Status: partial-honest-not-cancelled' "${not_cancelled_dir}/11-cancel-evidence.md"
+
   echo "ai_agent_evidence_capture self-test passed"
 }
 
@@ -1521,9 +1703,133 @@ capture_audit_and_tools() {
   }
 }
 
+run_cancel_test() {
+  require_cmd jq
+  require_cmd curl
+  require_cmd rg
+  resolve_token
+
+  mkdir -p "${EVIDENCE_ROOT}"
+  local stamp dir run_id final_dir payload endpoint curl_pid wait_attempt cancel_http_status
+  stamp="$(date +"%Y%m%d-%H%M")"
+  dir="${EVIDENCE_ROOT}/${stamp}-$(unique_capture_suffix)-cancel-test"
+  mkdir -p "${dir}"
+  write_env_file "${dir}"
+
+  local auth_args=()
+  if [[ -n "${TOKEN}" ]]; then
+    auth_args=(-H "Authorization: Bearer ${TOKEN}")
+  fi
+
+  endpoint="${BASE_URL%/}/v2/agent/chat/stream"
+  payload="$(build_payload "true")"
+  printf '%s\n' "${payload}" > "${dir}/00-request.json"
+
+  (
+    curl -sS -N \
+      --max-time "${CANCEL_STREAM_TIMEOUT}" \
+      ${auth_args[@]+"${auth_args[@]}"} \
+      -H "Content-Type: application/json" \
+      -H "Accept: text/event-stream" \
+      -D "${dir}/01-http-headers.txt" \
+      -w 'http_code=%{http_code}\ntime_namelookup=%{time_namelookup}\ntime_connect=%{time_connect}\ntime_starttransfer=%{time_starttransfer}\ntime_total=%{time_total}\n' \
+      -o "${dir}/02-raw-sse.log" \
+      -d "${payload}" \
+      "${endpoint}" \
+      > "${dir}/01-http-metrics.txt"
+  ) &
+  curl_pid="$!"
+
+  run_id=""
+  for wait_attempt in $(seq 1 80); do
+    if [[ -s "${dir}/02-raw-sse.log" ]]; then
+      run_id="$(extract_run_id_from_sse "${dir}/02-raw-sse.log")"
+      if [[ -n "${run_id}" ]]; then
+        break
+      fi
+    fi
+    if ! kill -0 "${curl_pid}" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 0.1
+  done
+
+  if [[ -n "${run_id}" ]]; then
+    cancel_http_status="$(
+      curl -sS \
+        -X POST \
+        ${auth_args[@]+"${auth_args[@]}"} \
+        -H "Accept: application/json" \
+        -D "${dir}/05-cancel-headers.txt" \
+        -w 'http_code=%{http_code}\ntime_namelookup=%{time_namelookup}\ntime_connect=%{time_connect}\ntime_starttransfer=%{time_starttransfer}\ntime_total=%{time_total}\n' \
+        -o "${dir}/05-cancel-response.json" \
+        "${BASE_URL%/}/v2/agent/runs/${run_id}/cancel"
+    )"
+    printf '%s' "${cancel_http_status}" > "${dir}/05-cancel-metrics.txt"
+  else
+    jq -n \
+      --arg captured_at "$(timestamp_utc)" \
+      '{captured_at: $captured_at, error: "run_id was not observed before stream ended or timeout elapsed; cancel was not called"}' \
+      > "${dir}/05-cancel-response.json"
+    printf 'http_code=missing\ntime_total=0\n' > "${dir}/05-cancel-metrics.txt"
+    : > "${dir}/05-cancel-headers.txt"
+  fi
+
+  wait "${curl_pid}" >/dev/null 2>&1 || true
+  touch "${dir}/01-http-headers.txt" "${dir}/01-http-metrics.txt" "${dir}/02-raw-sse.log" \
+    "${dir}/05-cancel-headers.txt" "${dir}/05-cancel-metrics.txt" "${dir}/05-cancel-response.json"
+  normalize_capture_file "${dir}/01-http-headers.txt"
+  normalize_capture_file "${dir}/01-http-metrics.txt"
+  normalize_capture_file "${dir}/02-raw-sse.log"
+  normalize_capture_file "${dir}/05-cancel-headers.txt"
+  normalize_capture_file "${dir}/05-cancel-metrics.txt"
+  normalize_capture_file "${dir}/05-cancel-response.json"
+
+  jq -n \
+    --arg endpoint "${endpoint}" \
+    --arg mode "cancel-test" \
+    --arg captured_at "$(timestamp_utc)" \
+    --slurpfile request "${dir}/00-request.json" \
+    --rawfile headers "${dir}/01-http-headers.txt" \
+    --rawfile metrics "${dir}/01-http-metrics.txt" \
+    --rawfile cancel_metrics "${dir}/05-cancel-metrics.txt" \
+    '{captured_at: $captured_at, mode: $mode, endpoint: $endpoint, request: $request[0], headers: $headers, metrics: $metrics, cancel_metrics: $cancel_metrics}' \
+    > "${dir}/01-http-response.json"
+
+  if [[ -n "${run_id}" ]]; then
+    final_dir="${EVIDENCE_ROOT}/${stamp}-$(safe_name "${run_id}")-cancel-test"
+    if [[ "${final_dir}" != "${dir}" ]]; then
+      mv "${dir}" "${final_dir}"
+      dir="${final_dir}"
+    fi
+  fi
+
+  capture_audit_and_tools "${dir}" "${run_id:-}"
+  capture_workbench_response "${dir}"
+  write_cancel_evidence_file "${dir}" "${run_id:-}"
+  write_reconciliation_file "${dir}"
+  write_run_summary_file "${dir}"
+  write_workbench_cleanliness_file "${dir}"
+  write_result_block_evidence_file "${dir}"
+  capture_forbidden_scan "${dir}"
+  write_forbidden_scan_review "${dir}"
+  write_forbidden_scan_gate "${dir}"
+  write_latency_file "${dir}"
+  write_conclusion_file "${dir}" "${run_id:-}"
+
+  echo "AI agent cancel evidence package written to: ${dir}"
+  if [[ -z "${run_id:-}" ]]; then
+    echo "WARNING: run_id was not found before attempting cancel; inspect 02-raw-sse.log." >&2
+  fi
+}
+
 main() {
   if [[ "${1:-}" == "self-test" ]]; then
     run_self_test
+    exit 0
+  fi
+  if [[ "${1:-}" == "cancel-test" ]]; then
+    run_cancel_test
     exit 0
   fi
   if [[ "${1:-}" == "refresh-existing" ]]; then

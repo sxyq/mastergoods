@@ -110,6 +110,12 @@ python3 tools/ai_agent_forbidden_scan.py --output docs/acceptance-evidence/ai-ag
 - `11-cancel-evidence.md`：停止生成和清空聊天的 HTTP/SSE 抓包、run audit、active run 收尾、Android UI 提示。
 - `12-safety-block-evidence.md`：安全拦截 raw SSE、Android 错误终态截图、RunTrace safety result。
 
+接口侧取消证据可先用以下命令生成；它不会替代 Android 停止按钮 / 清空聊天截图、UI tree 或 logcat：
+
+```bash
+TOKEN="<bearer-token>" ./tools/ai_agent_evidence_capture.sh cancel-test
+```
+
 没有 Android 截图和 UI tree 时，只能证明接口侧，结论最高为 `partial`。没有 provider `model_stream` 抓包时，ChatGPT-like 真模型流式体验最高为 `partial`。
 
 ## 7. 三个必测真实问题
