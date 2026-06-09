@@ -123,6 +123,34 @@ class AgentResponseProvenanceTest {
     }
 
     @Test
+    fun realQueryStatusCardHidesAfterAnyVisibleTimelineArrives() {
+        val block = ResultBlockDto(blockType = "table", title = "销售明细")
+        val waitingForFirstEvent = ChatMessage(
+            id = "assistant-query-status",
+            conversationId = 1L,
+            role = MessageRole.ASSISTANT,
+            isStreaming = true,
+        )
+
+        assertTrue(waitingForFirstEvent.shouldShowRealQueryStatusCard())
+        assertFalse(
+            waitingForFirstEvent.copy(
+                parts = listOf(ChatMessagePart.PendingResultBlock(block)),
+            ).shouldShowRealQueryStatusCard()
+        )
+        assertFalse(
+            waitingForFirstEvent.copy(
+                parts = listOf(ChatMessagePart.ResultBlock(block)),
+            ).shouldShowRealQueryStatusCard()
+        )
+        assertFalse(
+            waitingForFirstEvent.copy(
+                parts = listOf(ChatMessagePart.Text("我正在整理结果。")),
+            ).shouldShowRealQueryStatusCard()
+        )
+    }
+
+    @Test
     fun assistantHeaderBadgesAreHiddenAfterCompletion() {
         val completedAnswer = ChatMessage(
             id = "assistant-2",

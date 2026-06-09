@@ -40,6 +40,9 @@ import javax.inject.Inject
 
 private const val LOCAL_STREAM_STOP_MESSAGE = "已停止本机接收，正在请求服务端取消"
 private const val SERVER_CANCEL_CONFIRMED_MESSAGE = "服务端已确认取消生成"
+private const val TOOL_ENDED_WITHOUT_COMPLETION_MESSAGE = "运行已结束，未收到工具完成事件"
+private const val TOOL_CANCELLED_WITH_RUN_MESSAGE = "生成已取消，工具查询已停止"
+private const val TOOL_INTERRUPTED_BY_ERROR_MESSAGE = "连接中断，工具状态未确认"
 
 /**
  * 聊天页 UI 状态
@@ -514,6 +517,9 @@ class AgentChatViewModel @Inject constructor(
                         auditId = event.auditId ?: trace.auditId,
                         traceId = event.traceId ?: trace.traceId,
                         logRef = event.observability?.logRef ?: trace.logRef,
+                        toolCalls = trace.toolCalls.closeOpenToolCalls(
+                            resultSummary = TOOL_ENDED_WITHOUT_COMPLETION_MESSAGE,
+                        ),
                     )
                 }
                 currentAuditBuilder?.finalAnswerSummary = finalAnswer
@@ -530,7 +536,17 @@ class AgentChatViewModel @Inject constructor(
                     )
                 }
                 updateAssistantMessage(assistantMessageId) { msg ->
-                    msg.copy(isStreaming = false, animateReveal = false)
+                    msg.copy(
+                        isStreaming = false,
+                        animateReveal = false,
+                        runTrace = msg.runTrace?.let { trace ->
+                            trace.copy(
+                                toolCalls = trace.toolCalls.closeOpenToolCalls(
+                                    resultSummary = TOOL_CANCELLED_WITH_RUN_MESSAGE,
+                                ),
+                            )
+                        },
+                    )
                 }
                 currentAuditBuilder?.errorInfo = ErrorAuditInfo(
                     message = "用户取消生成",
@@ -560,6 +576,13 @@ class AgentChatViewModel @Inject constructor(
                 isError = true,
                 errorMessage = errorMessage,
                 animateReveal = false,
+                runTrace = msg.runTrace?.let { trace ->
+                    trace.copy(
+                        toolCalls = trace.toolCalls.closeOpenToolCalls(
+                            resultSummary = TOOL_INTERRUPTED_BY_ERROR_MESSAGE,
+                        ),
+                    )
+                },
             )
         }
         currentAuditBuilder?.errorInfo = ErrorAuditInfo(
@@ -707,13 +730,27 @@ class AgentChatViewModel @Inject constructor(
         cancellingAuditBuilder?.errorInfo = ErrorAuditInfo(
             message = LOCAL_STREAM_STOP_MESSAGE,
         )
+        cancellingAuditBuilder?.closeOpenToolCalls(
+            status = "cancelled",
+            resultSummary = TOOL_CANCELLED_WITH_RUN_MESSAGE,
+        )
         if (runId.isNullOrBlank()) {
             cancellingAuditBuilder?.let(::saveAuditRecord)
         }
         _uiState.update { state ->
             val stoppedMessages = state.messages.map { message ->
                 if (message.role == MessageRole.ASSISTANT && message.isStreaming) {
-                    message.copy(isStreaming = false, animateReveal = false)
+                    message.copy(
+                        isStreaming = false,
+                        animateReveal = false,
+                        runTrace = message.runTrace?.let { trace ->
+                            trace.copy(
+                                toolCalls = trace.toolCalls.closeOpenToolCalls(
+                                    resultSummary = TOOL_CANCELLED_WITH_RUN_MESSAGE,
+                                ),
+                            )
+                        },
+                    )
                 } else {
                     message
                 }
@@ -864,6 +901,23 @@ private fun List<ToolCallRecord>.updateToolCall(
     )
     return updated
 }
+
+internal fun List<ToolCallRecord>.closeOpenToolCalls(
+    resultSummary: String,
+    completedAt: Long = System.currentTimeMillis(),
+): List<ToolCallRecord> =
+    map { call ->
+        if (call.status == ToolCallStatus.RUNNING || call.status == ToolCallStatus.PENDING) {
+            call.copy(
+                status = ToolCallStatus.FAILED,
+                resultSummary = call.resultSummary?.takeIf { it.isNotBlank() } ?: resultSummary,
+                completedAt = call.completedAt ?: completedAt,
+                timestamp = completedAt,
+            )
+        } else {
+            call
+        }
+    }
 
 private fun AgentMessageDto.toChatMessage(): ChatMessage {
     val parsedBlocks = parseStoredResultBlocks(structuredDataJson)
@@ -1140,6 +1194,25 @@ private class AuditRecordBuilder(
                     timestamp = timestamp,
                 )
             )
+        }
+    }
+
+    fun closeOpenToolCalls(
+        status: String,
+        resultSummary: String,
+        completedAt: Long = System.currentTimeMillis(),
+    ) {
+        toolsCalled.replaceAll { tool ->
+            if (tool.status == "running" || tool.status == "pending") {
+                tool.copy(
+                    status = status,
+                    resultSummary = tool.resultSummary?.takeIf { it.isNotBlank() } ?: resultSummary,
+                    completedAt = tool.completedAt ?: completedAt,
+                    timestamp = completedAt,
+                )
+            } else {
+                tool
+            }
         }
     }
 

@@ -713,6 +713,7 @@ refresh_existing_evidence() {
   write_result_block_evidence_file "${dir}"
   capture_forbidden_scan "${dir}"
   write_forbidden_scan_review "${dir}"
+  write_forbidden_scan_gate "${dir}"
   write_latency_file "${dir}"
   write_conclusion_file "${dir}" "${run_id:-}"
   echo "AI agent existing evidence package refreshed: ${dir}"
@@ -913,6 +914,25 @@ EOF
   grep -q '`server_notice`' "${tmp_dir}/13-sse-audit-ui-reconciliation.md"
   grep -q 'Status: pass-for-interface' "${tmp_dir}/18-result-block-evidence.md"
   grep -q 'low_stock_count' "${tmp_dir}/18-result-block-evidence.md"
+
+  cat > "${tmp_dir}/10-forbidden-scan.txt" <<EOF
+${ROOT_DIR}/master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatViewModel.kt:627:            delay(48)
+${ROOT_DIR}/master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatScreen.kt:951:                placeholder = "输入经营问题，AI 会查询真实业务数据...",
+EOF
+  write_forbidden_scan_review "${tmp_dir}"
+  write_forbidden_scan_gate "${tmp_dir}"
+  grep -q 'Status: pass-for-forbidden-scan-review' "${tmp_dir}/19-forbidden-scan-gate.md"
+  grep -q '| needs_evidence_hits | 0 |' "${tmp_dir}/19-forbidden-scan-gate.md"
+
+  local bad_forbidden_dir="${tmp_dir}/bad-forbidden-scan"
+  mkdir -p "${bad_forbidden_dir}"
+  cat > "${bad_forbidden_dir}/10-forbidden-scan.txt" <<EOF
+${ROOT_DIR}/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java:9999:chunkSize = 8
+EOF
+  write_forbidden_scan_review "${bad_forbidden_dir}"
+  write_forbidden_scan_gate "${bad_forbidden_dir}"
+  grep -q 'Status: fail-needs-review' "${bad_forbidden_dir}/19-forbidden-scan-gate.md"
+  grep -q '| needs_evidence_hits | 1 |' "${bad_forbidden_dir}/19-forbidden-scan-gate.md"
 
   local bad_dir="${tmp_dir}/bad-server-notice"
   mkdir -p "${bad_dir}"
@@ -1416,6 +1436,46 @@ write_forbidden_scan_review() {
   } > "${review_file}"
 }
 
+write_forbidden_scan_gate() {
+  local dir="$1"
+  local review_file="${dir}/15-forbidden-scan-review.md"
+  local gate_file="${dir}/19-forbidden-scan-gate.md"
+  local total_count needs_evidence_count pass_count status
+
+  total_count="$(
+    grep -E '^\| [0-9]+ \|' "${review_file}" 2>/dev/null | wc -l | tr -d ' '
+  )"
+  needs_evidence_count="$(
+    (grep -E '^\| [0-9]+ \|.*\| `needs evidence` \|' "${review_file}" 2>/dev/null || true) | wc -l | tr -d ' '
+  )"
+  pass_count="$(
+    (grep -E '^\| [0-9]+ \|.*\| `pass` \|' "${review_file}" 2>/dev/null || true) | wc -l | tr -d ' '
+  )"
+
+  if [[ "${needs_evidence_count}" -eq 0 ]]; then
+    status="pass-for-forbidden-scan-review"
+  else
+    status="fail-needs-review"
+  fi
+
+  cat > "${gate_file}" <<EOF
+# Forbidden Scan Gate
+
+Status: ${status}
+
+| metric | value |
+|---|---:|
+| reviewed_hits | ${total_count} |
+| pass_hits | ${pass_count} |
+| needs_evidence_hits | ${needs_evidence_count} |
+
+This gate only covers the current static forbidden-item scan. A pass here does
+not prove provider streaming, Android rendering, production profile runtime
+isolation, or real device behavior. Any \`needs evidence\` hit must be resolved
+before the evidence package can support P0 acceptance.
+EOF
+}
+
 capture_audit_and_tools() {
   local dir="$1"
   local run_id="$2"
@@ -1576,6 +1636,7 @@ main() {
   write_result_block_evidence_file "${dir}"
   capture_forbidden_scan "${dir}"
   write_forbidden_scan_review "${dir}"
+  write_forbidden_scan_gate "${dir}"
   write_latency_file "${dir}"
   write_conclusion_file "${dir}" "${run_id:-}"
 

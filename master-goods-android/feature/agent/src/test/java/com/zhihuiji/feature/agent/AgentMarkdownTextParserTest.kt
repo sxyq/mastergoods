@@ -36,6 +36,27 @@ class AgentMarkdownTextParserTest {
     }
 
     @Test
+    fun parseMarkdownSeparatesCommonAiAnswerBlocks() {
+        val markdown = """
+            ## 销售建议
+            - 检查库存
+            - 联系客户
+            1. 先确认应收
+            2. 再安排回款
+            > 仅基于当前账号真实数据
+            ---
+            最后给出结论。
+        """.trimIndent()
+
+        val blocks = parseMarkdownBlocks(markdown)
+
+        assertEquals(
+            listOf("Heading", "ListBlock", "ListBlock", "Quote", "Divider", "Paragraph"),
+            blocks.map { it.javaClass.simpleName }
+        )
+    }
+
+    @Test
     fun inlineMarkdownShowsLinkLabelAndVisibleUrl() {
         val rendered = inlineMarkdownText("查看[官方文档](https://example.com/docs)后继续。")
 
@@ -47,6 +68,19 @@ class AgentMarkdownTextParserTest {
         val rendered = inlineMarkdownText("入口：[帮助中心](www.example.com/help)")
 
         assertEquals("入口：帮助中心 (https://www.example.com/help)", rendered)
+    }
+
+    @Test
+    fun inlineMarkdownKeepsMixedBoldCodeAndLinkTextReadable() {
+        val rendered = inlineMarkdownText("客户 **张三** 的 `receivable` 为 [1280 元](https://example.com/r/1)。")
+
+        assertEquals("客户 张三 的  receivable  为 1280 元 (https://example.com/r/1)。", rendered)
+    }
+
+    @Test
+    fun inlineMarkdownKeepsUnclosedFormattingAsPlainTextDuringStreaming() {
+        assertEquals("正在分析 **销售额", inlineMarkdownText("正在分析 **销售额"))
+        assertEquals("字段 `receivable", inlineMarkdownText("字段 `receivable"))
     }
 
     @Test

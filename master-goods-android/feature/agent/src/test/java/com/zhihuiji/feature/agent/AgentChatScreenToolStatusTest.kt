@@ -83,6 +83,59 @@ class AgentChatScreenToolStatusTest {
     }
 
     @Test
+    fun closeOpenToolCallsStopsRunningPillsAfterRunTerminalEvent() {
+        val calls = listOf(
+            tool("sales_trend", ToolCallStatus.RUNNING),
+            tool("inventory_flow", ToolCallStatus.PENDING),
+        )
+
+        val closed = calls.closeOpenToolCalls(
+            resultSummary = "运行已结束，未收到工具完成事件",
+            completedAt = 10_000L,
+        )
+
+        assertEquals(ToolCallStatus.FAILED, closed[0].status)
+        assertEquals(ToolCallStatus.FAILED, closed[1].status)
+        assertEquals("运行已结束，未收到工具完成事件", closed[0].resultSummary)
+        assertEquals("运行已结束，未收到工具完成事件", closed[1].resultSummary)
+        assertNull(closed.latestVisibleToolCall(16_001L))
+    }
+
+    @Test
+    fun closeOpenToolCallsKeepsExistingSummaryButRemovesActiveStatus() {
+        val calls = listOf(
+            tool(
+                name = "sales_trend",
+                status = ToolCallStatus.RUNNING,
+                resultSummary = "已查询 3 条销售记录",
+            ),
+        )
+
+        val closed = calls.closeOpenToolCalls(
+            resultSummary = "生成已取消，工具查询已停止",
+            completedAt = 10_000L,
+        )
+
+        assertEquals(ToolCallStatus.FAILED, closed.single().status)
+        assertEquals("已查询 3 条销售记录", closed.single().resultSummary)
+    }
+
+    @Test
+    fun closeOpenToolCallsKeepsRealCompletedAndFailedToolEvents() {
+        val calls = listOf(
+            tool("cashflow_summary", ToolCallStatus.COMPLETED, completedAt = 9_000L),
+            tool("sales_trend", ToolCallStatus.FAILED, completedAt = 9_100L),
+        )
+
+        val closed = calls.closeOpenToolCalls(
+            resultSummary = "运行已结束，未收到工具完成事件",
+            completedAt = 10_000L,
+        )
+
+        assertEquals(calls, closed)
+    }
+
+    @Test
     fun readableToolNameUsesBusinessLabelsForKnownTools() {
         assertEquals("销售趋势", "sales_trend".readableToolName())
         assertEquals("custom tool", "custom_tool".readableToolName())
@@ -92,6 +145,28 @@ class AgentChatScreenToolStatusTest {
     fun resultBlockTimingLabelSeparatesStreamingAndCompletedMessages() {
         assertEquals("实时结果", resultBlockTimingLabel(isStreaming = true))
         assertEquals("查询结果", resultBlockTimingLabel(isStreaming = false))
+    }
+
+    @Test
+    fun resultBlockSourceLabelDistinguishesStructuredEvidenceAndMarkdown() {
+        assertEquals(
+            "实时结果 · 结构化查询",
+            resultBlockSourceLabel(blockType = "line_chart", isStreaming = true)
+        )
+        assertEquals(
+            "查询结果 · 工具证据",
+            resultBlockSourceLabel(blockType = "evidence_card", isStreaming = false)
+        )
+        assertEquals(
+            "查询结果 · Markdown 结果块",
+            resultBlockSourceLabel(blockType = "markdown", isStreaming = false)
+        )
+    }
+
+    @Test
+    fun assistantTextSourceLabelMarksModelSummarySeparatelyFromResultBlocks() {
+        assertEquals("AI 总结", assistantTextSourceLabel())
+        assertFalse(resultBlockSourceLabel(blockType = "markdown", isStreaming = false).contains("AI 总结"))
     }
 
     @Test
@@ -115,10 +190,12 @@ class AgentChatScreenToolStatusTest {
         name: String,
         status: ToolCallStatus,
         completedAt: Long? = null,
+        resultSummary: String? = null,
     ): ToolCallRecord = ToolCallRecord(
         toolName = name,
         status = status,
         completedAt = completedAt,
+        resultSummary = resultSummary,
         timestamp = 1L,
     )
 }

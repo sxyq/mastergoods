@@ -73,6 +73,9 @@ internal fun ChatMessage.shouldShowRunTracePanel(): Boolean =
         runTrace?.isExpanded == true ||
         (isStreaming && !hasVisibleAssistantTimeline())
 
+internal fun ChatMessage.shouldShowRealQueryStatusCard(): Boolean =
+    isStreaming && !hasVisibleAssistantTimeline()
+
 internal fun ChatMessage?.shouldShowStandaloneTypingIndicator(isStreaming: Boolean): Boolean =
     isStreaming && (this == null || !hasVisibleAssistantTimeline())
 

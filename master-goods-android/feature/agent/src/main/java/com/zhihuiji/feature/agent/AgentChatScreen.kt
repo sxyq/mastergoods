@@ -394,7 +394,7 @@ private fun ChatMessageItem(
                         isExpanded = runTrace.isExpanded,
                         onToggleExpand = onToggleRunTrace,
                     )
-                } else if (!isUser && message.isStreaming && message.content.isBlank()) {
+                } else if (!isUser && message.shouldShowRealQueryStatusCard()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     RealQueryStatusCard()
                 }
@@ -587,6 +587,7 @@ private fun AssistantMessageTimeline(
                     when (part) {
                         is ChatMessagePart.Text -> {
                             if (part.markdown.isNotBlank()) {
+                                AssistantTextSourceLabel()
                                 AgentMarkdownText(
                                     markdown = part.markdown,
                                     contentColor = TextPrimary,
@@ -617,6 +618,22 @@ private fun AssistantMessageTimeline(
         }
     }
 }
+
+@Composable
+private fun AssistantTextSourceLabel(modifier: Modifier = Modifier) {
+    Text(
+        text = assistantTextSourceLabel(),
+        style = MaterialTheme.typography.labelSmall,
+        color = AgentAssistantAccent,
+        fontWeight = FontWeight.SemiBold,
+        modifier = modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(AgentAssistantAccent.copy(alpha = 0.08f))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+    )
+}
+
+internal fun assistantTextSourceLabel(): String = "AI 总结"
 
 @Composable
 private fun PendingResultBlockNotice(
@@ -710,7 +727,7 @@ private fun TimelineResultBlock(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = resultBlockTimingLabel(isStreaming),
+                text = resultBlockSourceLabel(block.blockType, isStreaming),
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.White.copy(alpha = 0.72f),
             )
@@ -721,6 +738,16 @@ private fun TimelineResultBlock(
 
 internal fun resultBlockTimingLabel(isStreaming: Boolean): String =
     if (isStreaming) "实时结果" else "查询结果"
+
+internal fun resultBlockSourceLabel(blockType: String, isStreaming: Boolean): String {
+    val source = when (blockType) {
+        "evidence_card" -> "工具证据"
+        "text", "markdown" -> "Markdown 结果块"
+        "draft_card" -> "草稿结果"
+        else -> "结构化查询"
+    }
+    return "${resultBlockTimingLabel(isStreaming)} · $source"
+}
 
 private fun String.readableResultBlockName(): String =
     when (this) {
