@@ -65,6 +65,16 @@ class AgentChatScreenToolStatusTest {
     }
 
     @Test
+    fun completedToolPillDisappearsAfterShortAgenticHintWindow() {
+        val calls = listOf(
+            tool("inventory_flow", ToolCallStatus.COMPLETED, completedAt = 9_200L),
+        )
+
+        assertEquals("inventory_flow", calls.latestVisibleToolCall(10_400L)?.toolName)
+        assertNull(calls.latestVisibleToolCall(10_401L))
+    }
+
+    @Test
     fun latestVisibleToolDoesNotKeepFailedToolAsPersistentPill() {
         val now = 10_000L
         val calls = listOf(

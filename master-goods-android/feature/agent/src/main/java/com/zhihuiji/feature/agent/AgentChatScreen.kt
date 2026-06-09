@@ -83,7 +83,7 @@ import com.zhihuiji.core.model.v2.agent.ToolCallStatus
 private val AgentChatHorizontalPadding = 16.dp
 private val AgentChatTopPadding = 16.dp
 private val AgentChatBottomInputClearance = 116.dp
-private const val CompletedToolPillVisibleMs = 1_800L
+private const val CompletedToolPillVisibleMs = 1_200L
 private const val AgentChatAutoFollowBottomThresholdItems = 1
 
 @Composable
