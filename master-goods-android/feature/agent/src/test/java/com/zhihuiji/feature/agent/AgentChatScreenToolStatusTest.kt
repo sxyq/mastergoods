@@ -150,6 +150,14 @@ class AgentChatScreenToolStatusTest {
     }
 
     @Test
+    fun onlyModelStreamDeltasAreVisibleAssistantText() {
+        assertEquals(true, null.isVisibleAnswerDeltaSource())
+        assertEquals(true, DeltaSourceModelStream.isVisibleAnswerDeltaSource())
+        assertFalse(DeltaSourceRuleSummary.isVisibleAnswerDeltaSource())
+        assertFalse(DeltaSourceServerNotice.isVisibleAnswerDeltaSource())
+    }
+
+    @Test
     fun readableToolNameUsesBusinessLabelsForKnownTools() {
         assertEquals("销售趋势", "sales_trend".readableToolName())
         assertEquals("低库存查询", "inventory_low_stock_lookup".readableToolName())

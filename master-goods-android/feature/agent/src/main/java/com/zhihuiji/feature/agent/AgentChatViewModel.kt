@@ -457,11 +457,13 @@ class AgentChatViewModel @Inject constructor(
             }
 
             is AgentStreamEvent.AnswerDelta -> {
-                enqueueAnswerDelta(
-                    assistantMessageId = assistantMessageId,
-                    delta = event.delta,
-                    deltaSource = event.deltaSource,
-                )
+                if (event.deltaSource.isVisibleAnswerDeltaSource()) {
+                    enqueueAnswerDelta(
+                        assistantMessageId = assistantMessageId,
+                        delta = event.delta,
+                        deltaSource = event.deltaSource,
+                    )
+                }
                 updateRunTrace(assistantMessageId) { trace ->
                     trace.withAnswerDeltaSourceIfChanged(event.deltaSource)
                 }
@@ -990,6 +992,9 @@ internal fun RunTrace.withAnswerDeltaSourceIfChanged(deltaSource: String?): RunT
         copy(answerDeltaSource = nextSource)
     }
 }
+
+internal fun String?.isVisibleAnswerDeltaSource(): Boolean =
+    this == null || this == DeltaSourceModelStream
 
 private fun AgentMessageDto.toChatMessage(): ChatMessage {
     val parsedBlocks = parseStoredResultBlocks(structuredDataJson)
