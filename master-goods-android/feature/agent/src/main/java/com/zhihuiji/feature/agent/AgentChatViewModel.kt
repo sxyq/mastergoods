@@ -46,6 +46,7 @@ private const val SERVER_CANCEL_CONFIRMED_MESSAGE = "服务端已确认取消生
 private const val TOOL_ENDED_WITHOUT_COMPLETION_MESSAGE = "运行已结束，未收到工具完成事件"
 private const val TOOL_CANCELLED_WITH_RUN_MESSAGE = "生成已取消，工具查询已停止"
 private const val TOOL_INTERRUPTED_BY_ERROR_MESSAGE = "连接中断，工具状态未确认"
+internal const val AnswerDeltaFlushDelayMs = 24L
 
 /**
  * 聊天页 UI 状态
@@ -700,7 +701,7 @@ class AgentChatViewModel @Inject constructor(
         if (answerDeltaFlushJob?.isActive == true) return
         answerDeltaFlushJob = viewModelScope.launch {
             // UI 合帧节流：只合并服务端 answer_delta，不拆分完整回答伪造 token。
-            delay(48)
+            delay(AnswerDeltaFlushDelayMs)
             flushPendingAnswerDelta()
         }
     }

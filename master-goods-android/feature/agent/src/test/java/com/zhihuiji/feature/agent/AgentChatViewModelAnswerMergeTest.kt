@@ -14,6 +14,14 @@ import org.junit.Test
 class AgentChatViewModelAnswerMergeTest {
 
     @Test
+    fun answerDeltaFlushDelayStaysWithinHighRefreshBudget() {
+        assertTrue(
+            "answer_delta should flush within roughly two 120Hz frames",
+            AnswerDeltaFlushDelayMs <= 24L,
+        )
+    }
+
+    @Test
     fun authoritativeAnswerFillsEmptyMessage() {
         assertEquals("完整回答", "".withAuthoritativeAnswer("完整回答"))
     }
