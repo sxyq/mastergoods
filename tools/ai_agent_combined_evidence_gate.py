@@ -73,13 +73,86 @@ def interface_status(interface_dir: Path, scenario: str) -> str:
     return status
 
 
+def parse_sse_events(raw: str) -> list[dict[str, object]]:
+    events: list[dict[str, object]] = []
+    current_event: str | None = None
+    data_lines: list[str] = []
+
+    def flush() -> None:
+        nonlocal current_event, data_lines
+        if not data_lines:
+            current_event = None
+            return
+        data_text = "\n".join(data_lines)
+        data_lines = []
+        try:
+            payload = json.loads(data_text)
+        except json.JSONDecodeError:
+            payload = {"raw_data": data_text}
+        if not isinstance(payload, dict):
+            payload = {"data": payload}
+        event_type = str(payload.get("event_type") or payload.get("eventType") or current_event or "message")
+        events.append(
+            {
+                "event_type": event_type,
+                "payload": payload,
+            }
+        )
+        current_event = None
+
+    for raw_line in raw.splitlines():
+        line = raw_line.rstrip("\r")
+        if not line.strip():
+            flush()
+            continue
+        if line.startswith(":"):
+            continue
+        if line.startswith("event:"):
+            current_event = line[6:].strip()
+            continue
+        if line.startswith("data:"):
+            data_lines.append(line[5:].lstrip())
+            continue
+        flush()
+        stripped = line.strip()
+        if not stripped or stripped == "[DONE]":
+            continue
+        try:
+            payload = json.loads(stripped)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            event_type = str(payload.get("event_type") or payload.get("eventType") or "message")
+            events.append({"event_type": event_type, "payload": payload})
+    flush()
+    return events
+
+
+def nested_payload_value(payload: dict[str, object], *keys: str) -> object | None:
+    for key in keys:
+        if key in payload:
+            return payload[key]
+    data = payload.get("data")
+    if isinstance(data, dict):
+        for key in keys:
+            if key in data:
+                return data[key]
+    return None
+
+
 def has_provider_model_stream(interface_dir: Path) -> bool:
     raw_sse = read_text(interface_dir / "02-raw-sse.log")
     latency = read_text(interface_dir / "11-latency.md")
+    for event in parse_sse_events(raw_sse):
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        if str(event.get("event_type") or "") != "answer_delta":
+            continue
+        if nested_payload_value(payload, "delta_source", "deltaSource") == "model_stream":
+            return True
     return (
-        '"delta_source":"model_stream"' in raw_sse
-        or '"delta_source": "model_stream"' in raw_sse
-        or "`model_stream_delta_count` | `0`" not in latency
+        "`model_stream_delta_count` | `0`" not in latency
         and "`model_stream_delta_count`" in latency
         and "Provider-backed `model_stream` timing is present" in latency
     )
@@ -168,10 +241,22 @@ def self_test() -> None:
         interface.mkdir()
         device.mkdir()
         write_file(interface / "18-result-block-evidence.md", "Status: pass-for-interface\n")
-        write_file(interface / "02-raw-sse.log", 'data: {"event_type":"answer_delta","delta_source":"model_stream"}\n')
+        write_file(
+            interface / "02-raw-sse.log",
+            "\n".join(
+                [
+                    "event: answer_delta",
+                    'data: {"event_type":"answer_delta",',
+                    'data: "deltaSource":"model_stream",',
+                    'data: "delta":"真实模型流"}',
+                    "",
+                ]
+            ),
+        )
         write_file(device / "11-chat-evidence.json", json.dumps({"status": "pass-for-device-ai-chat-evidence"}))
         result = evaluate(interface, device, "chat")
         assert result.status == "pass-for-combined-provider-chat-evidence", result
+        assert parse_sse_events(read_text(interface / "02-raw-sse.log"))[0]["event_type"] == "answer_delta"
 
         write_file(interface / "02-raw-sse.log", 'data: {"event_type":"answer_completed"}\n')
         result = evaluate(interface, device, "chat")
