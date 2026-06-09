@@ -190,6 +190,52 @@ class AgentChatScreenToolStatusTest {
     }
 
     @Test
+    fun streamAutoFollowDoesNotTriggerForEmptyTimeline() {
+        assertFalse(
+            shouldAutoFollowStream(
+                messageCount = 0,
+                lastVisibleItemIndex = null,
+                visibleItemCount = 0,
+            )
+        )
+    }
+
+    @Test
+    fun streamAutoFollowAllowsInitialLayoutToReachLatestMessage() {
+        assertEquals(
+            true,
+            shouldAutoFollowStream(
+                messageCount = 2,
+                lastVisibleItemIndex = null,
+                visibleItemCount = 0,
+            )
+        )
+    }
+
+    @Test
+    fun streamAutoFollowKeepsUserReadingOlderMessages() {
+        assertFalse(
+            shouldAutoFollowStream(
+                messageCount = 12,
+                lastVisibleItemIndex = 6,
+                visibleItemCount = 5,
+            )
+        )
+    }
+
+    @Test
+    fun streamAutoFollowContinuesWhenUserIsNearBottom() {
+        assertEquals(
+            true,
+            shouldAutoFollowStream(
+                messageCount = 12,
+                lastVisibleItemIndex = 10,
+                visibleItemCount = 5,
+            )
+        )
+    }
+
+    @Test
     fun emptyChatCopyUsesUserFacingAgentLanguage() {
         assertEquals(
             "发送问题后，AI 会按当前账号权限查询真实业务数据，并返回 Markdown、表格或统计图。",

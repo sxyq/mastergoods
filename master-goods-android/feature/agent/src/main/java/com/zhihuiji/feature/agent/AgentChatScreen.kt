@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -83,6 +84,7 @@ private val AgentChatHorizontalPadding = 16.dp
 private val AgentChatTopPadding = 16.dp
 private val AgentChatBottomInputClearance = 116.dp
 private const val CompletedToolPillVisibleMs = 1_800L
+private const val AgentChatAutoFollowBottomThresholdItems = 1
 
 @Composable
 fun AgentChatScreen(
@@ -111,7 +113,11 @@ fun AgentChatScreen(
     }
 
     LaunchedEffect(uiState.isStreaming, streamingScrollBucket) {
-        if (uiState.isStreaming && uiState.messages.isNotEmpty()) {
+        if (
+            uiState.isStreaming &&
+            uiState.messages.isNotEmpty() &&
+            listState.shouldAutoFollowStreamingContent(uiState.messages.size)
+        ) {
             listState.scrollToItem(uiState.messages.lastIndex)
         }
     }
@@ -415,6 +421,24 @@ private fun ChatMessage.displayParts(): List<ChatMessagePart> =
             }
         }
     }
+
+private fun LazyListState.shouldAutoFollowStreamingContent(messageCount: Int): Boolean =
+    shouldAutoFollowStream(
+        messageCount = messageCount,
+        lastVisibleItemIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index,
+        visibleItemCount = layoutInfo.visibleItemsInfo.size,
+    )
+
+internal fun shouldAutoFollowStream(
+    messageCount: Int,
+    lastVisibleItemIndex: Int?,
+    visibleItemCount: Int,
+): Boolean {
+    if (messageCount <= 0) return false
+    if (lastVisibleItemIndex == null) return visibleItemCount == 0
+    val lastMessageIndex = messageCount - 1
+    return lastMessageIndex - lastVisibleItemIndex <= AgentChatAutoFollowBottomThresholdItems
+}
 
 @Composable
 private fun AssistantErrorCard(
