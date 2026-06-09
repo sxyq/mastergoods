@@ -105,8 +105,23 @@ class AgentMarkdownTextParserTest {
     }
 
     @Test
+    fun inlineMarkdownSupportsUnderscoreEmphasisFromModelReplies() {
+        val rendered = inlineMarkdownText("请优先处理 __应收风险__，并标记为 _高优先级_。")
+
+        assertEquals("请优先处理 应收风险，并标记为 高优先级。", rendered)
+    }
+
+    @Test
+    fun inlineMarkdownKeepsBusinessFieldUnderscoresReadable() {
+        val rendered = inlineMarkdownText("依据字段 customer_count 与 top_10_receivable_total 生成。")
+
+        assertEquals("依据字段 customer_count 与 top_10_receivable_total 生成。", rendered)
+    }
+
+    @Test
     fun inlineMarkdownKeepsUnclosedFormattingAsPlainTextDuringStreaming() {
         assertEquals("正在分析 **销售额", inlineMarkdownText("正在分析 **销售额"))
+        assertEquals("正在分析 __销售额", inlineMarkdownText("正在分析 __销售额"))
         assertEquals("字段 `receivable", inlineMarkdownText("字段 `receivable"))
     }
 

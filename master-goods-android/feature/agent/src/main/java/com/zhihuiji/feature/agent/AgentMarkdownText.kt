@@ -588,8 +588,34 @@ internal fun inlineMarkdown(text: String, contentColor: Color): AnnotatedString 
                         }
                     }
 
+                    text.startsWith("__", index) && canOpenUnderscoreEmphasis(text, index, markerLength = 2) -> {
+                        val end = findClosingUnderscoreEmphasis(text, startIndex = index + 2, marker = "__")
+                        if (end > index) {
+                            pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = contentColor))
+                            append(text.substring(index + 2, end))
+                            pop()
+                            index = end + 2
+                        } else {
+                            append(text[index])
+                            index++
+                        }
+                    }
+
                     text.startsWith("*", index) -> {
                         val end = text.indexOf("*", startIndex = index + 1)
+                        if (end > index) {
+                            pushStyle(SpanStyle(fontStyle = FontStyle.Italic, color = contentColor))
+                            append(text.substring(index + 1, end))
+                            pop()
+                            index = end + 1
+                        } else {
+                            append(text[index])
+                            index++
+                        }
+                    }
+
+                    text.startsWith("_", index) && canOpenUnderscoreEmphasis(text, index, markerLength = 1) -> {
+                        val end = findClosingUnderscoreEmphasis(text, startIndex = index + 1, marker = "_")
                         if (end > index) {
                             pushStyle(SpanStyle(fontStyle = FontStyle.Italic, color = contentColor))
                             append(text.substring(index + 1, end))
@@ -629,7 +655,39 @@ internal fun inlineMarkdown(text: String, contentColor: Color): AnnotatedString 
         }
     }
 private fun hasInlineMarkdownSyntax(text: String): Boolean =
-    text.indexOfAny(charArrayOf('[', '*', '`')) >= 0
+    text.indexOfAny(charArrayOf('[', '*', '`', '_')) >= 0
+
+private fun canOpenUnderscoreEmphasis(
+    text: String,
+    index: Int,
+    markerLength: Int,
+): Boolean {
+    val previous = text.getOrNull(index - 1)
+    val next = text.getOrNull(index + markerLength)
+    return next != null &&
+        !next.isWhitespace() &&
+        previous?.isLetterOrDigit() != true &&
+        previous != '_'
+}
+
+private fun findClosingUnderscoreEmphasis(
+    text: String,
+    startIndex: Int,
+    marker: String,
+): Int {
+    var index = startIndex
+    while (index < text.length) {
+        val candidate = text.indexOf(marker, startIndex = index)
+        if (candidate < 0) return -1
+        val previous = text.getOrNull(candidate - 1)
+        val next = text.getOrNull(candidate + marker.length)
+        if (previous != null && !previous.isWhitespace() && next?.isLetterOrDigit() != true && next != '_') {
+            return candidate
+        }
+        index = candidate + marker.length
+    }
+    return -1
+}
 
 private fun normalizeMarkdownUrl(url: String): String {
     val trimmed = url.trim()
