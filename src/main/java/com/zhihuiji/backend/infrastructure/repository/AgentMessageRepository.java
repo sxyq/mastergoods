@@ -15,6 +15,12 @@ public interface AgentMessageRepository extends JpaRepository<AgentMessageEntity
         Pageable pageable
     );
 
+    List<AgentMessageEntity> findAllByOwnerUserIdAndConversationIdOrderByCreatedAtDescIdDesc(
+        Long ownerUserId,
+        Long conversationId,
+        Pageable pageable
+    );
+
     long countByOwnerUserIdAndConversationId(Long ownerUserId, Long conversationId);
 
     Optional<AgentMessageEntity> findByIdAndOwnerUserId(Long id, Long ownerUserId);

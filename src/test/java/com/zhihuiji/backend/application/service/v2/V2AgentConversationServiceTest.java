@@ -235,24 +235,24 @@ class V2AgentConversationServiceTest {
     }
 
     @Test
-    void listMessagesReturnsOwnerScopedConversationMessages() {
+    void listMessagesReturnsRecentWindowInTimelineOrder() {
         AgentConversationEntity conversation = conversation(7L);
-        AgentMessageEntity first = message(301L, 7L, "assistant", "summary", "摘要");
-        AgentMessageEntity second = message(302L, 7L, "user", "text", "正文");
+        AgentMessageEntity newest = message(303L, 7L, "assistant", "summary", "最新摘要");
+        AgentMessageEntity recent = message(302L, 7L, "user", "text", "最近正文");
         when(agentConversationRepository.findByIdAndOwnerUserId(7L, 1L)).thenReturn(Optional.of(conversation));
-        when(agentMessageRepository.findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(eq(1L), eq(7L), any(Pageable.class)))
-            .thenReturn(java.util.List.of(first, second));
+        when(agentMessageRepository.findAllByOwnerUserIdAndConversationIdOrderByCreatedAtDescIdDesc(eq(1L), eq(7L), any(Pageable.class)))
+            .thenReturn(java.util.List.of(newest, recent));
 
-        java.util.List<V2AgentDtos.AgentMessageResponse> result = service.listMessages(7L);
+        java.util.List<V2AgentDtos.AgentMessageResponse> result = service.listMessages(7L, 0, 80);
 
         assertEquals(2, result.size());
-        assertEquals("summary", result.get(0).messageType());
-        assertEquals("正文", result.get(1).content());
+        assertEquals("最近正文", result.get(0).content());
+        assertEquals("最新摘要", result.get(1).content());
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(agentMessageRepository).findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(eq(1L), eq(7L), pageableCaptor.capture());
+        verify(agentMessageRepository).findAllByOwnerUserIdAndConversationIdOrderByCreatedAtDescIdDesc(eq(1L), eq(7L), pageableCaptor.capture());
         assertEquals(0, pageableCaptor.getValue().getPageNumber());
-        assertEquals(100, pageableCaptor.getValue().getPageSize());
+        assertEquals(80, pageableCaptor.getValue().getPageSize());
     }
 
     @Test

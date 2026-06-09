@@ -64,6 +64,27 @@ class AgentV2RepositoryTest {
     }
 
     @Test
+    fun listRecentMessagesUsesFixedFirstPageWindow() = runBlocking {
+        var invokedMethod: String? = null
+        var invokedArgs: Array<out Any?>? = null
+        val api = fakeApi { methodName, args ->
+            invokedMethod = methodName
+            invokedArgs = args
+            ApiResponse<List<AgentMessageDto>>(code = 0, message = "ok", data = emptyList())
+        }
+
+        val repository = AgentV2Repository(api, fakeSseClient, json)
+        val result = repository.listRecentMessages(conversationId = 7L)
+
+        assertTrue(result.isSuccess)
+        assertEquals("agentMessagesV2", invokedMethod)
+        assertEquals(7L, invokedArgs?.get(0))
+        assertEquals(0, invokedArgs?.get(1))
+        assertEquals(RECENT_AGENT_MESSAGE_WINDOW_LIMIT, invokedArgs?.get(2))
+        assertEquals(80, invokedArgs?.get(2))
+    }
+
+    @Test
     fun listDraftsPassesConversationPageAndLimit() = runBlocking {
         var invokedMethod: String? = null
         var invokedArgs: Array<out Any?>? = null

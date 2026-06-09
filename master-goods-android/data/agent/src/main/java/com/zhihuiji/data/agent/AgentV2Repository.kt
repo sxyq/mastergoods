@@ -24,6 +24,8 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
+const val RECENT_AGENT_MESSAGE_WINDOW_LIMIT = 80
+
 @Singleton
 class AgentV2Repository @Inject constructor(
     private val api: ZhihuijiV2Api,
@@ -116,3 +118,10 @@ class AgentV2Repository @Inject constructor(
         return sseClient.chatStream(requestJson)
     }
 }
+
+suspend fun AgentV2Repository.listRecentMessages(conversationId: Long): Result<List<AgentMessageDto>> =
+    listMessages(
+        conversationId = conversationId,
+        page = 0,
+        limit = RECENT_AGENT_MESSAGE_WINDOW_LIMIT,
+    )

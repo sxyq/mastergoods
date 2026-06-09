@@ -1,0 +1,62 @@
+# AI Agent Forbidden Scan
+
+Status: `pass-for-static-scan`
+Needs evidence hits: `0`
+
+This scan covers static production-path AI files only. A pass here does not replace HTTP, SSE, audit, Android screenshot, UI tree, or provider model_stream evidence.
+
+| File | Line | Term | Verdict | Reason | Snippet |
+|---|---:|---|---|---|---|
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 19 | `fake` | `pass` | test-only path | `private val fakeSseClient = AgentSseClient(` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 31 | `fake` | `pass` | test-only path | `val api = fakeApi { methodName, args ->` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 37 | `fake` | `pass` | test-only path | `val repository = AgentV2Repository(api, fakeSseClient, json)` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 50 | `fake` | `pass` | test-only path | `val api = fakeApi { methodName, args ->` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 56 | `fake` | `pass` | test-only path | `val repository = AgentV2Repository(api, fakeSseClient, json)` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 70 | `fake` | `pass` | test-only path | `val api = fakeApi { methodName, args ->` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 76 | `fake` | `pass` | test-only path | `val repository = AgentV2Repository(api, fakeSseClient, json)` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 91 | `fake` | `pass` | test-only path | `val api = fakeApi { methodName, args ->` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 97 | `fake` | `pass` | test-only path | `val repository = AgentV2Repository(api, fakeSseClient, json)` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 111 | `fake` | `pass` | test-only path | `val api = fakeApi { methodName, args ->` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 117 | `fake` | `pass` | test-only path | `val repository = AgentV2Repository(api, fakeSseClient, json)` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 129 | `fake` | `pass` | test-only path | `val api = fakeApi { methodName, args ->` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 135 | `fake` | `pass` | test-only path | `val repository = AgentV2Repository(api, fakeSseClient, json)` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 147 | `fake` | `pass` | test-only path | `val api = fakeApi { methodName, args ->` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 157 | `fake` | `pass` | test-only path | `val repository = AgentV2Repository(api, fakeSseClient, json)` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 170 | `fake` | `pass` | test-only path | `val api = fakeApi { methodName, args ->` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 188 | `fake` | `pass` | test-only path | `val api = fakeApi { methodName, args ->` |
+| `master-goods-android/data/agent/src/test/java/com/zhihuiji/data/agent/AgentV2RepositoryTest.kt` | 202 | `fake` | `pass` | test-only path | `private fun fakeApi(handler: (methodName: String, args: Array<out Any?>?) -> Any?): ZhihuijiV2Api {` |
+| `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatScreen.kt` | 51 | `delay` | `pass` | tool-status clock refresh only; does not create answer text | `import kotlinx.coroutines.delay` |
+| `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatScreen.kt` | 124 | `delay` | `pass` | tool-status clock refresh only; does not create answer text | `delay(300)` |
+| `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatScreen.kt` | 978 | `placeholder` | `pass` | input placeholder copy only | `placeholder = "输入经营问题，AI 会查询真实业务数据...",` |
+| `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatViewModel.kt` | 29 | `delay` | `pass` | UI coalescing delay for server answer_delta only | `import kotlinx.coroutines.delay` |
+| `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentChatViewModel.kt` | 656 | `delay` | `pass` | UI coalescing delay for server answer_delta only | `delay(48)` |
+| `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentMarkdownText.kt` | 525 | `substring` | `pass` | markdown parser string slicing, not answer reveal | `return substring(start, end)` |
+| `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentMarkdownText.kt` | 550 | `substring` | `pass` | markdown parser string slicing, not answer reveal | `val label = text.substring(index + 1, labelEnd).ifBlank {` |
+| `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentMarkdownText.kt` | 551 | `substring` | `pass` | markdown parser string slicing, not answer reveal | `text.substring(labelEnd + 2, urlEnd).trim()` |
+| `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentMarkdownText.kt` | 553 | `substring` | `pass` | markdown parser string slicing, not answer reveal | `val url = normalizeMarkdownUrl(text.substring(labelEnd + 2, urlEnd))` |
+| `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentMarkdownText.kt` | 582 | `substring` | `pass` | markdown parser string slicing, not answer reveal | `append(text.substring(index + 2, end))` |
+| `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentMarkdownText.kt` | 595 | `substring` | `pass` | markdown parser string slicing, not answer reveal | `append(text.substring(index + 1, end))` |
+| `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/AgentMarkdownText.kt` | 614 | `substring` | `pass` | markdown parser string slicing, not answer reveal | `append(" ${text.substring(index + 1, end)} ")` |
+| `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/ResultBlockRenderer.kt` | 1131 | `模拟` | `pass` | user-facing error says rendering stopped to avoid simulated chart labels | `return "图表数据缺少横轴标签，已停止绘制以避免生成模拟标签"` |
+| `master-goods-android/feature/agent/src/main/java/com/zhihuiji/feature/agent/ResultBlockRenderer.kt` | 1134 | `模拟` | `pass` | user-facing error says rendering stopped to avoid simulated chart labels | `return "图表横轴标签存在空值，已停止绘制以避免生成模拟标签"` |
+| `master-goods-android/feature/agent/src/test/java/com/zhihuiji/feature/agent/AgentChatViewModelAnswerMergeTest.kt` | 37 | `Fake` | `pass` | test-only path | `fun blankAuthoritativeTextPromotesPendingResultWithoutCreatingFakeAnswer() {` |
+| `master-goods-android/feature/agent/src/test/java/com/zhihuiji/feature/agent/ResultBlockRendererContractTest.kt` | 17 | `Mock` | `pass` | test-only path | `fun chartContractRejectsMissingLabelsInsteadOfGeneratingMockLabels() {` |
+| `master-goods-android/feature/agent/src/test/java/com/zhihuiji/feature/agent/ResultBlockRendererContractTest.kt` | 23 | `模拟` | `pass` | test-only path | `assertEquals("图表数据缺少横轴标签，已停止绘制以避免生成模拟标签", error)` |
+| `master-goods-android/feature/agent/src/test/java/com/zhihuiji/feature/agent/ResultBlockRendererContractTest.kt` | 27 | `Mock` | `pass` | test-only path | `fun chartContractRejectsBlankLabelsInsteadOfGeneratingMockLabels() {` |
+| `master-goods-android/feature/agent/src/test/java/com/zhihuiji/feature/agent/ResultBlockRendererContractTest.kt` | 33 | `模拟` | `pass` | test-only path | `assertEquals("图表横轴标签存在空值，已停止绘制以避免生成模拟标签", error)` |
+| `master-goods-android/feature/agent/src/test/java/com/zhihuiji/feature/agent/ResultBlockRendererContractTest.kt` | 199 | `Mock` | `pass` | test-only path | `fun donutChartSegmentsReportAllInvalidSegmentsWithoutCreatingMockData() {` |
+| `src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java` | 209 | `模拟` | `pass` | user-facing/model instruction text explicitly forbids simulated data | `List.of("当前入口不返回默认 KPI、风险、今日摘要或报表图表，避免与报表页重复或产生模拟数据。")` |
+| `src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java` | 748 | `substring` | `pass` | summary truncation, JSON extraction, server_notice tail, or title clipping; not fake streaming | `return rawText.substring(start, end + 1);` |
+| `src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java` | 1485 | `模拟` | `pass` | user-facing/model instruction text explicitly forbids simulated data | `4. 如果有工具查询失败，必须明确说明哪些查询失败，且不要用模拟数据替代。` |
+| `src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java` | 1583 | `substring` | `pass` | summary truncation, JSON extraction, server_notice tail, or title clipping; not fake streaming | `String serverNoticeTail = normalizedFinalAnswer.substring(visibleAnswer.length());` |
+| `src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java` | 1620 | `模拟` | `pass` | user-facing/model instruction text explicitly forbids simulated data | `4. 如果有工具查询失败，必须明确说明哪些查询失败，且不要用模拟数据替代。` |
+| `src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java` | 1639 | `模拟` | `pass` | user-facing/model instruction text explicitly forbids simulated data | `+ "我没有使用模拟数据替代，因此不能给出确定结论。"` |
+| `src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java` | 1859 | `substring` | `pass` | summary truncation, JSON extraction, server_notice tail, or title clipping; not fake streaming | `return raw.length() <= 180 ? raw : raw.substring(0, 180) + "...";` |
+| `src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java` | 1933 | `模拟` | `pass` | user-facing/model instruction text explicitly forbids simulated data | `builder.append("。失败部分未使用模拟数据替代。");` |
+| `src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java` | 2629 | `substring` | `pass` | summary truncation, JSON extraction, server_notice tail, or title clipping; not fake streaming | `return value.substring(0, Math.max(0, maxLength));` |
+| `src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java` | 2691 | `substring` | `pass` | summary truncation, JSON extraction, server_notice tail, or title clipping; not fake streaming | `message = message.substring(0, 160) + "...";` |
+| `src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java` | 2794 | `substring` | `pass` | summary truncation, JSON extraction, server_notice tail, or title clipping; not fake streaming | `return text.length() <= 8 ? text : text.substring(0, 8) + "...";` |
+| `src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java` | 2857 | `substring` | `pass` | summary truncation, JSON extraction, server_notice tail, or title clipping; not fake streaming | `return normalized.substring(0, 24);` |
+| `src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java` | 2872 | `substring` | `pass` | summary truncation, JSON extraction, server_notice tail, or title clipping; not fake streaming | `return normalized.length() <= 120 ? normalized : normalized.substring(0, 120);` |
+| `src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentConversationService.java` | 302 | `substring` | `pass` | conversation summary/title clipping only | `return normalized.substring(0, 120);` |
+| `src/main/java/com/zhihuiji/backend/infrastructure/ai/LongCatAnthropicClient.java` | 308 | `substring` | `pass` | SSE data-prefix parsing only | `? trimmed.substring("data:".length()).trim()` |

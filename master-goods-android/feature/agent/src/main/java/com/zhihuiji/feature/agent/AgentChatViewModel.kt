@@ -22,6 +22,7 @@ import com.zhihuiji.core.model.v2.agent.ToolCallStatus
 import com.zhihuiji.core.model.v2.agent.UpdateAgentDraftRequest
 import com.zhihuiji.data.agent.AgentAuditRepository
 import com.zhihuiji.data.agent.AgentV2Repository
+import com.zhihuiji.data.agent.listRecentMessages
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -105,7 +106,7 @@ class AgentChatViewModel @Inject constructor(
         if (conversationId == null || conversationId <= 0 || _uiState.value.conversationId == conversationId) return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, conversationId = conversationId) }
-            repository.listMessages(conversationId)
+            repository.listRecentMessages(conversationId)
                 .onSuccess { messages ->
                     val chatMessages = withContext(Dispatchers.Default) {
                         messages.map { dto -> dto.toChatMessage() }

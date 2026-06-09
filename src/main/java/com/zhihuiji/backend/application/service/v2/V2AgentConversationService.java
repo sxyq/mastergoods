@@ -8,6 +8,7 @@ import com.zhihuiji.backend.domain.entity.AgentMessageEntity;
 import com.zhihuiji.backend.infrastructure.repository.AgentConversationRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentDraftRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentMessageRepository;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import org.springframework.data.domain.PageRequest;
@@ -107,13 +108,15 @@ public class V2AgentConversationService {
     public List<V2AgentDtos.AgentMessageResponse> listMessages(Long conversationId, Integer page, Integer limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         ensureConversationOwned(conversationId, ownerUserId);
-        return agentMessageRepository
-            .findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(
+        List<AgentMessageEntity> recentMessages = agentMessageRepository
+            .findAllByOwnerUserIdAndConversationIdOrderByCreatedAtDescIdDesc(
                 ownerUserId,
                 conversationId,
                 PageRequest.of(safePage(page), safeLimit(limit, DEFAULT_MESSAGE_LIMIT))
-            )
+            );
+        return recentMessages
             .stream()
+            .sorted(Comparator.comparing(AgentMessageEntity::getCreatedAt).thenComparing(AgentMessageEntity::getId))
             .map(this::toMessageResponse)
             .toList();
     }
