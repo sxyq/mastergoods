@@ -278,9 +278,32 @@ class ResultBlockRendererContractTest {
 
         val preview = block.dataPreview()
 
-        assertTrue(preview!!.startsWith("原始数据: "))
+        assertTrue(preview!!.contains("原始数据: "))
         assertTrue(preview.contains("tool:sales_overview_lookup"))
-        assertTrue(preview.length <= "原始数据: ".length + 240)
+        assertTrue(preview.substringAfter("原始数据: ").length <= 240)
+    }
+
+    @Test
+    fun dataPreviewSurfacesSourceQueryWindowAndTruncationForAuditability() {
+        val block = ResultBlockDto(
+            blockType = "future_chart",
+            title = "未来图表",
+            data = buildJsonObject {
+                put("source", "tool:sales_overview_lookup")
+                put("query_window", buildJsonObject {
+                    put("owner_scope", "current_owner")
+                    put("window_days", 7)
+                    put("limit", 10)
+                })
+                put("is_truncated", true)
+                put("payload", "真实后端结构化结果")
+            }
+        )
+
+        val preview = block.dataPreview()!!
+
+        assertTrue(preview.startsWith("来源 sales_overview_lookup · 范围 当前账号 · 近 7 天 · 上限 10 条 · 结果已截断 · 原始数据: "))
+        assertTrue(preview.contains("\"payload\":\"真实后端结构化结果\""))
     }
 
     private fun donutSegment(name: String, value: Double): DonutChartBlockData.Segment =

@@ -1513,7 +1513,19 @@ private fun UnknownBlock(block: ResultBlockDto, modifier: Modifier = Modifier) {
 
 internal fun ResultBlockDto.dataPreview(): String? {
     val raw = data?.toString()?.takeIf { it.isNotBlank() } ?: return null
-    return "原始数据: " + raw.take(240)
+    val dataObject = data as? JsonObject
+    val auditParts = listOfNotNull(
+        dataObject?.stringValue("source")?.takeIf { it.isNotBlank() }
+            ?.let { "来源 ${it.removePrefix("tool:").compactEvidenceText(maxLength = 44)}" },
+        dataObject?.get("query_window")?.evidenceQueryWindowSummary()
+            ?.let { "范围 $it" },
+        dataObject?.booleanValue("is_truncated")?.takeIf { it }
+            ?.let { "结果已截断" },
+    )
+    val prefix = auditParts.takeIf { it.isNotEmpty() }
+        ?.joinToString(" · ", postfix = " · ")
+        .orEmpty()
+    return prefix + "原始数据: " + raw.take(240)
 }
 
 private fun JsonElement.compactJsonText(maxLength: Int = 90): String? =
