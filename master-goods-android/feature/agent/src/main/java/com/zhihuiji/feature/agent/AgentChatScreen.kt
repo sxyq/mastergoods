@@ -103,8 +103,6 @@ fun AgentChatScreen(
     } else {
         0
     }
-    var toolPillClock by remember { mutableStateOf(System.currentTimeMillis()) }
-
     // 新消息进入时使用动画；流式增量只做轻量贴底，避免每个 token 排队滚动动画。
     LaunchedEffect(uiState.messages.size, lastMessageId) {
         if (uiState.messages.isNotEmpty()) {
@@ -116,14 +114,6 @@ fun AgentChatScreen(
         if (uiState.isStreaming && uiState.messages.isNotEmpty()) {
             listState.scrollToItem(uiState.messages.lastIndex)
         }
-    }
-
-    LaunchedEffect(uiState.isStreaming, uiState.currentRunId) {
-        while (uiState.isStreaming) {
-            toolPillClock = System.currentTimeMillis()
-            delay(300)
-        }
-        toolPillClock = System.currentTimeMillis()
     }
 
     // 如果有初始问题，自动发送
@@ -209,7 +199,6 @@ fun AgentChatScreen(
                         ) { message ->
                             ChatMessageItem(
                                 message = message,
-                                toolPillClock = toolPillClock,
                                 onToggleRunTrace = { viewModel.toggleRunTrace(message.id) },
                             )
                         }
@@ -263,7 +252,6 @@ fun AgentChatScreen(
 @Composable
 private fun ChatMessageItem(
     message: ChatMessage,
-    toolPillClock: Long,
     onToggleRunTrace: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -371,11 +359,7 @@ private fun ChatMessageItem(
                 }
 
                 if (!isUser && message.isStreaming) {
-                    val liveTool = message.runTrace?.toolCalls?.latestVisibleToolCall(toolPillClock)
-                    if (liveTool != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        InlineToolActivityPill(toolCall = liveTool)
-                    }
+                    StreamingToolActivityPill(toolCalls = message.runTrace?.toolCalls.orEmpty())
                 }
 
                 if (!isUser && message.isError) {
@@ -759,6 +743,29 @@ private fun String.readableResultBlockName(): String =
         "donut_chart", "pie_chart" -> "占比图"
         else -> replace('_', ' ')
     }
+
+@Composable
+private fun StreamingToolActivityPill(
+    toolCalls: List<ToolCallRecord>,
+    modifier: Modifier = Modifier,
+) {
+    if (toolCalls.isEmpty()) return
+
+    var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            nowMs = System.currentTimeMillis()
+            delay(300)
+        }
+    }
+
+    val liveTool = toolCalls.latestVisibleToolCall(nowMs) ?: return
+    Spacer(modifier = Modifier.height(8.dp))
+    InlineToolActivityPill(
+        toolCall = liveTool,
+        modifier = modifier,
+    )
+}
 
 @Composable
 private fun InlineToolActivityPill(
