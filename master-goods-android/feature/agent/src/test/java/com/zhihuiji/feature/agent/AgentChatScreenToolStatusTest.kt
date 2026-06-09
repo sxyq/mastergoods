@@ -165,6 +165,41 @@ class AgentChatScreenToolStatusTest {
     }
 
     @Test
+    fun runningToolActivityLabelPrefersRealInputSummary() {
+        val call = tool(
+            name = "inventory_low_stock_lookup",
+            status = ToolCallStatus.RUNNING,
+            inputSummary = "查询当前账号低库存商品",
+            resultSummary = "已拿到 3 条记录",
+        )
+
+        assertEquals("查询当前账号低库存商品", call.activityLabel())
+    }
+
+    @Test
+    fun runningToolActivityLabelFallsBackToResultSummary() {
+        val call = tool(
+            name = "sales_overview_lookup",
+            status = ToolCallStatus.PENDING,
+            resultSummary = "正在汇总近 7 天经营信号",
+        )
+
+        assertEquals("正在汇总近 7 天经营信号", call.activityLabel())
+    }
+
+    @Test
+    fun completedToolActivityLabelKeepsRealResultSummary() {
+        val call = tool(
+            name = "customer_receivable_lookup",
+            status = ToolCallStatus.COMPLETED,
+            inputSummary = "查询客户应收余额",
+            resultSummary = "查询完成，共 8 个客户存在应收",
+        )
+
+        assertEquals("查询完成，共 8 个客户存在应收", call.activityLabel())
+    }
+
+    @Test
     fun resultBlockTimingLabelSeparatesStreamingAndCompletedMessages() {
         assertEquals("实时结果", resultBlockTimingLabel(isStreaming = true))
         assertEquals("查询结果", resultBlockTimingLabel(isStreaming = false))
@@ -260,11 +295,13 @@ class AgentChatScreenToolStatusTest {
         status: ToolCallStatus,
         completedAt: Long? = null,
         resultSummary: String? = null,
+        inputSummary: String? = null,
     ): ToolCallRecord = ToolCallRecord(
         toolName = name,
         status = status,
         completedAt = completedAt,
         resultSummary = resultSummary,
+        inputSummary = inputSummary,
         timestamp = 1L,
     )
 }

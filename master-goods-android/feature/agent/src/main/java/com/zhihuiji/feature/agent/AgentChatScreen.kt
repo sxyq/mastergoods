@@ -797,12 +797,7 @@ private fun InlineToolActivityPill(
         ToolCallStatus.FAILED -> DangerRed
         else -> WarningOrange
     }
-    val label = when (toolCall.status) {
-        ToolCallStatus.COMPLETED -> toolCall.resultSummary?.take(34)?.ifBlank { null } ?: "工具查询完成"
-        ToolCallStatus.FAILED -> toolCall.resultSummary?.take(34)?.ifBlank { null } ?: "工具查询失败"
-        ToolCallStatus.PENDING,
-        ToolCallStatus.RUNNING -> toolCall.resultSummary?.take(34)?.ifBlank { null } ?: "正在查询真实业务数据"
-    }
+    val label = toolCall.activityLabel()
 
     Row(
         modifier = modifier
@@ -842,6 +837,19 @@ private fun InlineToolActivityPill(
         )
     }
 }
+
+internal fun ToolCallRecord.activityLabel(): String =
+    when (status) {
+        ToolCallStatus.COMPLETED -> resultSummary.shortToolActivityLabel() ?: "工具查询完成"
+        ToolCallStatus.FAILED -> resultSummary.shortToolActivityLabel() ?: "工具查询失败"
+        ToolCallStatus.PENDING,
+        ToolCallStatus.RUNNING -> inputSummary.shortToolActivityLabel()
+            ?: resultSummary.shortToolActivityLabel()
+            ?: "正在查询真实业务数据"
+    }
+
+private fun String?.shortToolActivityLabel(): String? =
+    this?.trim()?.take(34)?.ifBlank { null }
 
 internal fun List<ToolCallRecord>.latestVisibleToolCall(nowMs: Long = System.currentTimeMillis()): ToolCallRecord? {
     val activeCall = asReversed().firstOrNull { call ->
