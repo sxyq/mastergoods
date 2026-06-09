@@ -545,12 +545,18 @@ internal fun inlineMarkdown(text: String, contentColor: Color): AnnotatedString 
                 when {
                     text.startsWith("[", index) -> {
                         val labelEnd = text.indexOf("](", startIndex = index + 1)
-                        val urlEnd = if (labelEnd > index) text.indexOf(")", startIndex = labelEnd + 2) else -1
+                        val urlEnd = if (labelEnd > index) {
+                            findMarkdownLinkDestinationEnd(text, startIndex = labelEnd + 2)
+                        } else {
+                            -1
+                        }
                         if (labelEnd > index && urlEnd > labelEnd) {
                             val label = text.substring(index + 1, labelEnd).ifBlank {
                                 text.substring(labelEnd + 2, urlEnd).trim()
                             }
-                            val url = normalizeMarkdownUrl(text.substring(labelEnd + 2, urlEnd))
+                            val url = normalizeMarkdownUrl(
+                                markdownLinkDestination(text.substring(labelEnd + 2, urlEnd))
+                            )
                             pushLink(
                                 LinkAnnotation.Url(
                                     url = url,
@@ -687,6 +693,39 @@ private fun findClosingUnderscoreEmphasis(
         index = candidate + marker.length
     }
     return -1
+}
+
+private fun findMarkdownLinkDestinationEnd(text: String, startIndex: Int): Int {
+    var depth = 0
+    var inAngleDestination = text.getOrNull(startIndex) == '<'
+    var index = startIndex
+    while (index < text.length) {
+        val char = text[index]
+        when {
+            char == '\\' && index + 1 < text.length -> index++
+            inAngleDestination && char == '>' -> inAngleDestination = false
+            inAngleDestination -> Unit
+            char == '(' -> depth++
+            char == ')' && depth > 0 -> depth--
+            char == ')' -> return index
+        }
+        index++
+    }
+    return -1
+}
+
+private fun markdownLinkDestination(raw: String): String {
+    val trimmed = raw.trim()
+    val destination = if (trimmed.startsWith("<")) {
+        val end = trimmed.indexOf(">")
+        if (end > 0) trimmed.substring(1, end) else trimmed
+    } else {
+        trimmed
+            .substringBefore(" \"")
+            .substringBefore(" '")
+            .substringBefore(" (")
+    }
+    return destination.trim()
 }
 
 private fun normalizeMarkdownUrl(url: String): String {

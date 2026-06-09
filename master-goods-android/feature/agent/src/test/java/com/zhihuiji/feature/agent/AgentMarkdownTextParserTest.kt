@@ -98,6 +98,27 @@ class AgentMarkdownTextParserTest {
     }
 
     @Test
+    fun inlineMarkdownKeepsLinkDestinationWithBalancedParentheses() {
+        val rendered = inlineMarkdownText("来源：[销售报表](https://example.com/report/(daily)) 已核对。")
+
+        assertEquals("来源：销售报表 (https://example.com/report/(daily)) 已核对。", rendered)
+    }
+
+    @Test
+    fun inlineMarkdownDropsOptionalLinkTitleFromVisibleUrl() {
+        val rendered = inlineMarkdownText("参考：[客户明细](https://example.com/customer \"后台明细\")")
+
+        assertEquals("参考：客户明细 (https://example.com/customer)", rendered)
+    }
+
+    @Test
+    fun inlineMarkdownSupportsAngleWrappedDestinationWithSpacesInTitle() {
+        val rendered = inlineMarkdownText("查看：[审计日志](<https://example.com/audit?q=run%201> \"Run audit\")")
+
+        assertEquals("查看：审计日志 (https://example.com/audit?q=run%201)", rendered)
+    }
+
+    @Test
     fun inlineMarkdownKeepsMixedBoldCodeAndLinkTextReadable() {
         val rendered = inlineMarkdownText("客户 **张三** 的 `receivable` 为 [1280 元](https://example.com/r/1)。")
 
