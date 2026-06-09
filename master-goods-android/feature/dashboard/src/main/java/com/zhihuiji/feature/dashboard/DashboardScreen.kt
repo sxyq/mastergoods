@@ -51,6 +51,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -558,101 +559,135 @@ private fun SalesLineChart(
         return
     }
 
-    Canvas(modifier = modifier) {
-        val maxValue = trend.maxOfOrNull { it.value } ?: 0.0
-        val hasPositiveValue = maxValue > 0.0
-
-        if (trend.size == 1) {
-            val centerX = size.width / 2f
-            val centerY = if (hasPositiveValue) size.height * 0.24f else size.height * 0.58f
-            val baselineY = size.height * 0.72f
-            drawLine(
-                color = ZhihuijiPrimaryBright.copy(alpha = 0.16f),
-                start = Offset(0f, baselineY),
-                end = Offset(size.width, baselineY),
-                strokeWidth = 1.dp.toPx(),
-                cap = StrokeCap.Round
-            )
-            drawCircle(
-                color = ZhihuijiPrimaryBright.copy(alpha = 0.14f),
-                radius = 28.dp.toPx(),
-                center = Offset(centerX, centerY)
-            )
-            drawCircle(
-                color = Color.White,
-                radius = 8.dp.toPx(),
-                center = Offset(centerX, centerY)
-            )
-            drawCircle(
-                color = ZhihuijiPrimary,
-                radius = 5.dp.toPx(),
-                center = Offset(centerX, centerY)
-            )
-            return@Canvas
-        }
-
-        val horizontalStep = if (trend.size > 1) size.width / (trend.size - 1) else size.width
-        val topPadding = size.height * 0.12f
-        val bottomPadding = size.height * 0.76f
-        val quietBaseline = size.height * 0.58f
-        val points = trend.mapIndexed { index, point ->
-            val x = horizontalStep * index
-            val y = if (hasPositiveValue) {
-                val normalized = (point.value / maxValue).toFloat().coerceIn(0f, 1f)
-                bottomPadding - ((bottomPadding - topPadding) * normalized)
+    Canvas(
+        modifier = modifier.drawWithCache {
+            val maxValue = trend.maxOfOrNull { it.value } ?: 0.0
+            val hasPositiveValue = maxValue > 0.0
+            val singlePointCenter = if (trend.size == 1) {
+                Offset(
+                    x = size.width / 2f,
+                    y = if (hasPositiveValue) size.height * 0.24f else size.height * 0.58f
+                )
             } else {
-                quietBaseline
+                null
             }
-            Offset(x, y)
-        }
-
-        fun Path.drawSmooth(points: List<Offset>) {
-            moveTo(points.first().x, points.first().y)
-            points.zipWithNext().forEach { (start, end) ->
-                val controlX = (start.x + end.x) / 2f
-                cubicTo(controlX, start.y, controlX, end.y, end.x, end.y)
+            val baselineY = size.height * 0.72f
+            val horizontalStep = if (trend.size > 1) size.width / (trend.size - 1) else size.width
+            val topPadding = size.height * 0.12f
+            val bottomPadding = size.height * 0.76f
+            val quietBaseline = size.height * 0.58f
+            val points = if (trend.size > 1) {
+                trend.mapIndexed { index, point ->
+                    val x = horizontalStep * index
+                    val y = if (hasPositiveValue) {
+                        val normalized = (point.value / maxValue).toFloat().coerceIn(0f, 1f)
+                        bottomPadding - ((bottomPadding - topPadding) * normalized)
+                    } else {
+                        quietBaseline
+                    }
+                    Offset(x, y)
+                }
+            } else {
+                emptyList()
             }
-        }
 
-        val linePath = Path().apply {
-            drawSmooth(points)
-        }
-        val fillPath = Path().apply {
-            drawSmooth(points)
-            lineTo(points.last().x, size.height)
-            lineTo(points.first().x, size.height)
-            close()
-        }
+            fun Path.drawSmooth(points: List<Offset>) {
+                moveTo(points.first().x, points.first().y)
+                points.zipWithNext().forEach { (start, end) ->
+                    val controlX = (start.x + end.x) / 2f
+                    cubicTo(controlX, start.y, controlX, end.y, end.x, end.y)
+                }
+            }
 
-        drawPath(
-            path = fillPath,
-            color = ZhihuijiPrimaryBright.copy(alpha = 0.10f)
-        )
-        drawPath(
-            path = linePath,
-            color = ZhihuijiPrimary,
-            style = Stroke(
+            val linePath = if (points.isNotEmpty()) {
+                Path().apply { drawSmooth(points) }
+            } else {
+                null
+            }
+            val fillPath = if (points.isNotEmpty()) {
+                Path().apply {
+                    drawSmooth(points)
+                    lineTo(points.last().x, size.height)
+                    lineTo(points.first().x, size.height)
+                    close()
+                }
+            } else {
+                null
+            }
+            val lineStroke = Stroke(
                 width = 2.dp.toPx(),
                 cap = StrokeCap.Round,
                 join = StrokeJoin.Round
             )
-        )
-        points.forEachIndexed { index, offset ->
-            val shouldEmphasize = index == points.lastIndex || index == points.size / 2
-            if (!shouldEmphasize) return@forEachIndexed
-            val radius = if (index == points.lastIndex) 4.dp.toPx() else 3.dp.toPx()
-            drawCircle(
-                color = Color.White,
-                radius = radius + 2.dp.toPx(),
-                center = offset
-            )
-            drawCircle(
-                color = ZhihuijiPrimary,
-                radius = radius,
-                center = offset
-            )
+            val baselineStrokeWidth = 1.dp.toPx()
+            val singleHaloRadius = 28.dp.toPx()
+            val singleOuterRadius = 8.dp.toPx()
+            val singleInnerRadius = 5.dp.toPx()
+            val emphasizedPoints = points.mapIndexedNotNull { index, offset ->
+                val shouldEmphasize = index == points.lastIndex || index == points.size / 2
+                if (shouldEmphasize) {
+                    val radius = if (index == points.lastIndex) 4.dp.toPx() else 3.dp.toPx()
+                    offset to radius
+                } else {
+                    null
+                }
+            }
+
+            onDrawBehind {
+                if (singlePointCenter != null) {
+                    drawLine(
+                        color = ZhihuijiPrimaryBright.copy(alpha = 0.16f),
+                        start = Offset(0f, baselineY),
+                        end = Offset(size.width, baselineY),
+                        strokeWidth = baselineStrokeWidth,
+                        cap = StrokeCap.Round
+                    )
+                    drawCircle(
+                        color = ZhihuijiPrimaryBright.copy(alpha = 0.14f),
+                        radius = singleHaloRadius,
+                        center = singlePointCenter
+                    )
+                    drawCircle(
+                        color = Color.White,
+                        radius = singleOuterRadius,
+                        center = singlePointCenter
+                    )
+                    drawCircle(
+                        color = ZhihuijiPrimary,
+                        radius = singleInnerRadius,
+                        center = singlePointCenter
+                    )
+                    return@onDrawBehind
+                }
+
+                fillPath?.let { path ->
+                    drawPath(
+                        path = path,
+                        color = ZhihuijiPrimaryBright.copy(alpha = 0.10f)
+                    )
+                }
+                linePath?.let { path ->
+                    drawPath(
+                        path = path,
+                        color = ZhihuijiPrimary,
+                        style = lineStroke
+                    )
+                }
+                emphasizedPoints.forEach { (offset, radius) ->
+                    drawCircle(
+                        color = Color.White,
+                        radius = radius + 2.dp.toPx(),
+                        center = offset
+                    )
+                    drawCircle(
+                        color = ZhihuijiPrimary,
+                        radius = radius,
+                        center = offset
+                    )
+                }
+            }
         }
-    }
+    ) {}
 }
 
 @Composable

@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -81,33 +82,39 @@ private fun rememberStaticGradientBrush(): Brush = staticGradientBrush
 
 @Composable
 private fun AuroraAmbientLights() {
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(AuroraBlue.copy(alpha = 0.22f), Color.Transparent),
-                center = Offset(size.width * 0.06f, size.height * 0.02f),
-                radius = size.width * 0.62f
-            ),
-            radius = size.width * 0.62f,
-            center = Offset(size.width * 0.06f, size.height * 0.02f)
-        )
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(AuroraCyan.copy(alpha = 0.14f), Color.Transparent),
-                center = Offset(size.width * 0.28f, size.height * 0.24f),
-                radius = size.width * 0.48f
-            ),
-            radius = size.width * 0.48f,
-            center = Offset(size.width * 0.28f, size.height * 0.24f)
-        )
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(AuroraIndigo.copy(alpha = 0.16f), Color.Transparent),
-                center = Offset(size.width * 1.08f, size.height * 0.72f),
-                radius = size.width * 0.82f
-            ),
-            radius = size.width * 0.82f,
-            center = Offset(size.width * 1.08f, size.height * 0.72f)
-        )
-    }
+    Canvas(
+        modifier = Modifier
+            .fillMaxSize()
+            .drawWithCache {
+                val blueCenter = Offset(size.width * 0.06f, size.height * 0.02f)
+                val blueRadius = size.width * 0.62f
+                val blueBrush = Brush.radialGradient(
+                    colors = listOf(AuroraBlue.copy(alpha = 0.22f), Color.Transparent),
+                    center = blueCenter,
+                    radius = blueRadius
+                )
+
+                val cyanCenter = Offset(size.width * 0.28f, size.height * 0.24f)
+                val cyanRadius = size.width * 0.48f
+                val cyanBrush = Brush.radialGradient(
+                    colors = listOf(AuroraCyan.copy(alpha = 0.14f), Color.Transparent),
+                    center = cyanCenter,
+                    radius = cyanRadius
+                )
+
+                val indigoCenter = Offset(size.width * 1.08f, size.height * 0.72f)
+                val indigoRadius = size.width * 0.82f
+                val indigoBrush = Brush.radialGradient(
+                    colors = listOf(AuroraIndigo.copy(alpha = 0.16f), Color.Transparent),
+                    center = indigoCenter,
+                    radius = indigoRadius
+                )
+
+                onDrawBehind {
+                    drawCircle(brush = blueBrush, radius = blueRadius, center = blueCenter)
+                    drawCircle(brush = cyanBrush, radius = cyanRadius, center = cyanCenter)
+                    drawCircle(brush = indigoBrush, radius = indigoRadius, center = indigoCenter)
+                }
+            }
+    ) {}
 }

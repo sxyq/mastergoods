@@ -50,15 +50,7 @@ fun BottomActionBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-	            .background(
-	                brush = Brush.verticalGradient(
-	                    colors = listOf(
-	                        BackgroundGradientEnd.copy(alpha = 0.82f),
-	                        BackgroundGradientEnd.copy(alpha = 0.96f),
-	                        BackgroundGradientEnd
-	                    )
-	                )
-	            )
+            .background(brush = bottomActionBarBackgroundBrush)
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         LiquidGlassCard(
@@ -129,4 +121,14 @@ fun BottomActionBar(
         }
         Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
+}
+
+private val bottomActionBarBackgroundBrush by lazy {
+    Brush.verticalGradient(
+        colors = listOf(
+            BackgroundGradientEnd.copy(alpha = 0.82f),
+            BackgroundGradientEnd.copy(alpha = 0.96f),
+            BackgroundGradientEnd
+        )
+    )
 }

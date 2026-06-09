@@ -146,7 +146,13 @@ private fun PurchaseOrderDetailContent(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        items(order.items) { item ->
+        items(
+            items = order.items,
+            key = { item ->
+                item.id.takeIf { it != 0L }
+                    ?: "${item.productId}:${item.productName}:${item.quantity}:${item.unitCost}:${item.amount}:${item.createdAt}"
+            }
+        ) { item ->
             OrderItemCard(item = item)
         }
 

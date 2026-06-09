@@ -130,7 +130,13 @@ private fun SaleOrderDetailContent(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        items(order.items) { item ->
+        items(
+            items = order.items,
+            key = { item ->
+                item.id.takeIf { it != 0L }
+                    ?: "${item.productId}:${item.productName}:${item.quantity}:${item.unitPrice}:${item.amount}:${item.createdAt}"
+            }
+        ) { item ->
             OrderItemCard(item = item)
         }
 
