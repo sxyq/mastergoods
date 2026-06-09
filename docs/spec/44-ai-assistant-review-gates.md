@@ -21,6 +21,8 @@ AI 助手必须像真实 ChatGPT-like agent：先理解用户问题，创建真�
 | UX-AI-005 | Markdown 是一等内容能力，标题、列表、表格、引用、代码、链接、粗体、斜体、行内代码必须可读。 | Markdown 被纯文本糊成一团；链接 URL 丢失；代码尾部空白被吞；表格错列或崩溃后静默消失。 |
 | UX-AI-006 | 图表只能渲染后端真实 result block。 | Android 为了美观补示例数据、0 值假图、默认排行、默认趋势。 |
 | UX-AI-007 | 停止生成必须优先调用服务端 cancel；失败时诚实提示本机已停止接收但服务端取消未确认。 | 本地取消后伪造 `run_cancelled`，或取消失败仍显示“已成功取消”。 |
+| UX-AI-008 | 清空聊天或离开流式收集时不得只清本地 UI；有 active run 时必须释放 SSE 连接并请求服务端 cancel。 | 用户点清空后 UI 消失，但后端 run 继续执行、模型继续消耗或稍后写入任务 / 通知。 |
+| UX-AI-009 | 安全拦截必须是明确终态。 | 高风险问题触发 `safety_check_blocked` 后 assistant 仍显示流式、等待、工具查询中或可继续停止。 |
 
 ## 3. 后端真实 Agent 门禁
 
@@ -48,6 +50,8 @@ AI 助手必须像真实 ChatGPT-like agent：先理解用户问题，创建真�
 | AND-AI-005 | Markdown 解析失败必须降级为安全可读文本，不得丢正文。 | Markdown 单测、真实回答截图。 |
 | AND-AI-006 | 已知 result block 解析失败、未知 block、坏 SSE 帧、空图表必须显示错误 / 空态卡，不得静默吞掉。 | Renderer 单测、坏块截图。 |
 | AND-AI-007 | AI 首页远程同步失败时不得显示“已同步”或默认能力承诺，只保留对话入口和真实失败提示。 | 断网 / 403 / 500 截图、UI tree。 |
+| AND-AI-008 | SSE Flow 取消必须传递到底层 OkHttp call，包含 execute 阻塞和 response body 读取阶段。 | `AgentSseClientCancellationTest`、真机停止 / 清空抓包。 |
+| AND-AI-009 | `SafetyCheckBlocked` 必须关闭 message streaming、关闭停止按钮并写入错误 / RunTrace 安全结果。 | ViewModel 单测、真机高风险问题截图。 |
 
 ## 5. 禁止项扫描门禁
 
@@ -103,6 +107,8 @@ python3 tools/ai_agent_forbidden_scan.py --output docs/acceptance-evidence/ai-ag
 - `08-gfxinfo.txt`：帧耗时 / jank 证据。
 - `09-forbidden-scan.md`：禁止项扫描和解释。
 - `10-conclusion.md`：按本文件编号逐项给 `pass` / `partial` / `fail`。
+- `11-cancel-evidence.md`：停止生成和清空聊天的 HTTP/SSE 抓包、run audit、active run 收尾、Android UI 提示。
+- `12-safety-block-evidence.md`：安全拦截 raw SSE、Android 错误终态截图、RunTrace safety result。
 
 没有 Android 截图和 UI tree 时，只能证明接口侧，结论最高为 `partial`。没有 provider `model_stream` 抓包时，ChatGPT-like 真模型流式体验最高为 `partial`。
 
