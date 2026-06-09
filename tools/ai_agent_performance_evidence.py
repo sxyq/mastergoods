@@ -13,6 +13,7 @@ import argparse
 import json
 import math
 import os
+import re
 import statistics
 import sys
 import time
@@ -61,6 +62,54 @@ def percentile(values: list[float], ratio: float) -> float | None:
 
 def round_ms(value: float | None) -> float | None:
     return None if value is None else round(value, 2)
+
+
+def parse_android_gfxinfo(text: str) -> dict[str, Any]:
+    def int_match(pattern: str) -> int | None:
+        match = re.search(pattern, text, re.MULTILINE)
+        return int(match.group(1)) if match else None
+
+    def float_match(pattern: str) -> float | None:
+        match = re.search(pattern, text, re.MULTILINE)
+        return float(match.group(1)) if match else None
+
+    total_frames = int_match(r"^Total frames rendered:\s*(\d+)")
+    janky_frames = int_match(r"^Janky frames:\s*(\d+)")
+    janky_percent = float_match(r"^Janky frames:\s*\d+\s*\(([\d.]+)%\)")
+    percentiles = {
+        "p50_ms": int_match(r"^50th percentile:\s*(\d+)ms"),
+        "p90_ms": int_match(r"^90th percentile:\s*(\d+)ms"),
+        "p95_ms": int_match(r"^95th percentile:\s*(\d+)ms"),
+        "p99_ms": int_match(r"^99th percentile:\s*(\d+)ms"),
+    }
+    gpu_percentiles = {
+        "p50_ms": int_match(r"^50th gpu percentile:\s*(\d+)ms"),
+        "p90_ms": int_match(r"^90th gpu percentile:\s*(\d+)ms"),
+        "p95_ms": int_match(r"^95th gpu percentile:\s*(\d+)ms"),
+        "p99_ms": int_match(r"^99th gpu percentile:\s*(\d+)ms"),
+    }
+    deadline_missed = int_match(r"^Number Frame deadline missed:\s*(\d+)")
+    missed_vsync = int_match(r"^Number Missed Vsync:\s*(\d+)")
+    slow_ui_thread = int_match(r"^Number Slow UI thread:\s*(\d+)")
+    slow_bitmap_uploads = int_match(r"^Number Slow bitmap uploads:\s*(\d+)")
+    slow_draw_commands = int_match(r"^Number Slow issue draw commands:\s*(\d+)")
+    high_input_latency = int_match(r"^Number High input latency:\s*(\d+)")
+    source = "summary" if total_frames is not None else "missing"
+    return {
+        "source": source,
+        "total_frames": total_frames,
+        "janky_frames": janky_frames,
+        "janky_percent": janky_percent,
+        "frame_deadline_missed": deadline_missed,
+        "missed_vsync": missed_vsync,
+        "slow_ui_thread": slow_ui_thread,
+        "slow_bitmap_uploads": slow_bitmap_uploads,
+        "slow_draw_commands": slow_draw_commands,
+        "high_input_latency": high_input_latency,
+        "percentiles": percentiles,
+        "gpu_percentiles": gpu_percentiles,
+        "has_frame_timing": total_frames is not None and janky_frames is not None,
+    }
 
 
 def safe_json(value: Any, max_chars: int = 3000) -> Any:
@@ -481,11 +530,12 @@ def write_env(output_dir: Path, args: argparse.Namespace, questions: list[str], 
                 f"- Token source: `{token_source}`",
                 f"- Backend profile note: `{args.backend_profile}`",
                 f"- LLM status note: `{args.llm_status_note}`",
+                f"- Android gfxinfo file: `{args.android_gfxinfo or 'not attached'}`",
                 "- Questions:",
                 *[f"  - `{question}`" for question in questions],
                 "",
-                "This package is backend AI-agent performance evidence only.",
-                "It does not prove Android first-visible latency, frame timing, or provider-native model streaming unless those signals appear in captured samples.",
+                "This package is backend AI-agent performance evidence unless `--android-gfxinfo` is attached.",
+                "It does not prove Android first-visible latency or provider-native model streaming unless those signals appear in captured samples.",
             ]
         )
         + "\n",
@@ -559,9 +609,37 @@ def write_summary_markdown(output_dir: Path, samples: list[dict[str, Any]], summ
             f"- Audit emitted / persisted events: `{summary.get('audit_emitted_event_total')}` / `{summary.get('audit_persisted_event_total')}`.",
             f"- Audit write dropped total: `{summary.get('audit_write_dropped_total')}`.",
             f"- Audit write failed total: `{summary.get('audit_write_failed_total')}`.",
+        ]
+    )
+    android_frame_timing = summary.get("android_frame_timing")
+    if isinstance(android_frame_timing, dict):
+        percentiles = android_frame_timing.get("percentiles")
+        percentiles = percentiles if isinstance(percentiles, dict) else {}
+        lines.extend(
+            [
+                "",
+                "## Android Frame Timing",
+                "",
+                "| Metric | Value |",
+                "|---|---:|",
+                f"| source | `{android_frame_timing.get('source')}` |",
+                f"| total_frames | `{markdown_value(android_frame_timing.get('total_frames'))}` |",
+                f"| janky_frames | `{markdown_value(android_frame_timing.get('janky_frames'))}` |",
+                f"| janky_percent | `{markdown_value(android_frame_timing.get('janky_percent'))}` |",
+                f"| p50_ms | `{markdown_value(percentiles.get('p50_ms'))}` |",
+                f"| p90_ms | `{markdown_value(percentiles.get('p90_ms'))}` |",
+                f"| p95_ms | `{markdown_value(percentiles.get('p95_ms'))}` |",
+                f"| p99_ms | `{markdown_value(percentiles.get('p99_ms'))}` |",
+                f"| frame_deadline_missed | `{markdown_value(android_frame_timing.get('frame_deadline_missed'))}` |",
+                f"| missed_vsync | `{markdown_value(android_frame_timing.get('missed_vsync'))}` |",
+                f"| slow_ui_thread | `{markdown_value(android_frame_timing.get('slow_ui_thread'))}` |",
+            ]
+        )
+    lines.extend(
+        [
             "",
             "If provider `model_stream` count is zero, this package only supports rule-summary / non-model timing and must remain partial for ChatGPT-like streaming acceptance.",
-            "If Android frame timing is not attached, this package cannot pass the high-refresh mobile performance requirement by itself.",
+            "If Android frame timing is not attached or `source=missing`, this package cannot pass the high-refresh mobile performance requirement by itself.",
         ]
     )
     output_dir.joinpath("03-summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -581,6 +659,9 @@ def status_for_summary(summary: dict[str, Any]) -> str:
         return "partial-result-before-answer-risk"
     if int(summary.get("model_stream_samples") or 0) == 0:
         return "partial-rule-summary-performance"
+    android_frame_timing = summary.get("android_frame_timing")
+    if not isinstance(android_frame_timing, dict) or not android_frame_timing.get("has_frame_timing"):
+        return "partial-provider-stream-missing-android-frames"
     return "partial-provider-stream-performance"
 
 
@@ -636,6 +717,12 @@ def run_capture(args: argparse.Namespace) -> Path:
             )
 
     summary = summarize_all(samples)
+    if args.android_gfxinfo:
+        gfxinfo_path = Path(args.android_gfxinfo)
+        gfxinfo_text = gfxinfo_path.read_text(encoding="utf-8", errors="replace")
+        summary["android_frame_timing"] = parse_android_gfxinfo(gfxinfo_text)
+        summary["android_frame_timing"]["source_file"] = str(gfxinfo_path)
+        output_dir.joinpath("05-android-gfxinfo.txt").write_text(gfxinfo_text, encoding="utf-8")
     write_json(output_dir / "01-samples.json", samples)
     write_json(output_dir / "02-summary.json", summary)
     write_json(output_dir / "04-file-index.json", raw_index)
@@ -733,6 +820,34 @@ def self_test() -> None:
     assert summary["audit_write_dropped_total"] == 2
     assert summary["audit_write_failed_total"] == 1
     assert status_for_summary(summary) == "partial-result-before-answer-risk"
+    gfxinfo = "\n".join(
+        [
+            "Total frames rendered: 2124",
+            "Janky frames: 511 (24.06%)",
+            "50th percentile: 23ms",
+            "90th percentile: 38ms",
+            "95th percentile: 42ms",
+            "99th percentile: 53ms",
+            "Number Missed Vsync: 37",
+            "Number Slow UI thread: 316",
+            "Number Frame deadline missed: 511",
+            "50th gpu percentile: 6ms",
+            "90th gpu percentile: 24ms",
+            "95th gpu percentile: 25ms",
+            "99th gpu percentile: 4950ms",
+        ]
+    )
+    frame_timing = parse_android_gfxinfo(gfxinfo)
+    assert frame_timing["has_frame_timing"]
+    assert frame_timing["total_frames"] == 2124
+    assert frame_timing["janky_frames"] == 511
+    assert frame_timing["janky_percent"] == 24.06
+    assert frame_timing["percentiles"]["p95_ms"] == 42
+    assert frame_timing["gpu_percentiles"]["p99_ms"] == 4950
+    provider_summary = summarize_all([sample])
+    assert status_for_summary(provider_summary) == "partial-provider-stream-missing-android-frames"
+    provider_summary["android_frame_timing"] = frame_timing
+    assert status_for_summary(provider_summary) == "partial-provider-stream-performance"
     print("ai_agent_performance_evidence self-test passed")
 
 
@@ -749,6 +864,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--timeout-seconds", type=float, default=60)
     parser.add_argument("--backend-profile", default=os.environ.get("BACKEND_PROFILE", "unknown"))
     parser.add_argument("--llm-status-note", default=os.environ.get("LLM_STATUS_NOTE", "unknown"))
+    parser.add_argument("--android-gfxinfo", default=os.environ.get("ANDROID_GFXINFO"), help="Optional dumpsys gfxinfo file to attach and parse for Android frame timing.")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args(argv)
     if args.iterations < 1:

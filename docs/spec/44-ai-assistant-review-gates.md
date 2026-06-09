@@ -160,6 +160,14 @@ P0 每次回归至少覆盖：
 
 性能优化不得改变视觉层级、颜色、布局、动画语义或内容顺序；任何视觉变化都必须回到 UI 设计验收。
 
+采集 AI 后端流式耗时并附加 Android 帧统计时，使用：
+
+```bash
+python3 tools/ai_agent_performance_evidence.py --android-gfxinfo docs/acceptance-evidence/ai-agent/<device-package>/09-gfxinfo.txt
+```
+
+`--android-gfxinfo` 会解析 `dumpsys gfxinfo` 的 total frames、janky frames、P50/P90/P95/P99、missed vsync 和 slow UI thread；它仍不替代 Android 首次可见耗时、provider `model_stream` 抓包或真机录屏。
+
 ## 9. 审查结论格式
 
 每次审查必须输出：
