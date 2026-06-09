@@ -122,16 +122,11 @@ fun AgentChatScreen(
         }
     }
 
-    // 如果有初始问题，自动发送
-    LaunchedEffect(conversationId) {
-        viewModel.loadConversation(conversationId)
-    }
-
-    LaunchedEffect(initialQuestion) {
-        if (!initialQuestion.isNullOrBlank() && uiState.messages.isEmpty()) {
-            viewModel.onInputChange(initialQuestion)
-            viewModel.sendMessage()
-        }
+    LaunchedEffect(conversationId, initialQuestion) {
+        viewModel.startConversation(
+            conversationId = conversationId,
+            initialQuestion = initialQuestion,
+        )
     }
 
     // 错误提示

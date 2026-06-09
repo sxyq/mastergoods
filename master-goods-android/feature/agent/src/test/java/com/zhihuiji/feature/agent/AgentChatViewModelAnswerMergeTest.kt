@@ -1,8 +1,12 @@
 package com.zhihuiji.feature.agent
 
+import com.zhihuiji.core.model.v2.agent.ChatMessage
 import com.zhihuiji.core.model.v2.agent.ChatMessagePart
+import com.zhihuiji.core.model.v2.agent.MessageRole
 import com.zhihuiji.core.model.v2.agent.ResultBlockDto
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AgentChatViewModelAnswerMergeTest {
@@ -310,4 +314,97 @@ class AgentChatViewModelAnswerMergeTest {
             afterRunCompleted
         )
     }
+
+    @Test
+    fun loadedHistoryDoesNotOverwriteLiveStreamingMessages() {
+        val loaded = listOf(chatMessage(id = "server-1", content = "历史回答"))
+        val live = listOf(
+            chatMessage(id = "server-1", content = "历史回答"),
+            chatMessage(id = "local-user", role = MessageRole.USER, content = "继续分析"),
+            chatMessage(id = "local-assistant", content = "正在查询", isStreaming = true),
+        )
+
+        val merged = mergeLoadedConversationMessages(
+            loadedMessages = loaded,
+            currentMessages = live,
+            isStreaming = true,
+        )
+
+        assertEquals(listOf("server-1", "local-user", "local-assistant"), merged.map { it.id })
+    }
+
+    @Test
+    fun loadedHistoryReplacesMessagesWhenNotStreaming() {
+        val loaded = listOf(chatMessage(id = "server-1", content = "历史回答"))
+        val stale = listOf(chatMessage(id = "stale-local", content = "旧本地状态"))
+
+        val merged = mergeLoadedConversationMessages(
+            loadedMessages = loaded,
+            currentMessages = stale,
+            isStreaming = false,
+        )
+
+        assertEquals(listOf("server-1"), merged.map { it.id })
+    }
+
+    @Test
+    fun initialQuestionSendGateDeduplicatesConsumedQuestionKey() {
+        assertFalse(
+            shouldSendInitialQuestion(
+                initialQuestion = "库存风险",
+                consumedInitialQuestionKey = "7:库存风险",
+                nextInitialQuestionKey = "7:库存风险",
+                isStreaming = false,
+            )
+        )
+        assertTrue(
+            shouldSendInitialQuestion(
+                initialQuestion = "客户应收",
+                consumedInitialQuestionKey = "7:库存风险",
+                nextInitialQuestionKey = "7:客户应收",
+                isStreaming = false,
+            )
+        )
+        assertFalse(
+            shouldSendInitialQuestion(
+                initialQuestion = " ",
+                consumedInitialQuestionKey = null,
+                nextInitialQuestionKey = "7:",
+                isStreaming = false,
+            )
+        )
+        assertFalse(
+            shouldSendInitialQuestion(
+                initialQuestion = "客户应收",
+                consumedInitialQuestionKey = null,
+                nextInitialQuestionKey = "7:客户应收",
+                isStreaming = true,
+            )
+        )
+    }
+
+    @Test
+    fun startConversationCanReuseAlreadyLoadedConversationMessages() {
+        val state = AgentChatUiState(
+            conversationId = 7L,
+            messages = listOf(chatMessage(id = "server-1", content = "历史回答")),
+        )
+
+        assertTrue(shouldReuseLoadedConversation(state, conversationId = 7L))
+        assertFalse(shouldReuseLoadedConversation(state, conversationId = 8L))
+        assertFalse(shouldReuseLoadedConversation(state.copy(messages = emptyList()), conversationId = 7L))
+    }
+
+    private fun chatMessage(
+        id: String,
+        role: MessageRole = MessageRole.ASSISTANT,
+        content: String,
+        isStreaming: Boolean = false,
+    ): ChatMessage = ChatMessage(
+        id = id,
+        conversationId = 7L,
+        role = role,
+        content = content,
+        isStreaming = isStreaming,
+    )
 }

@@ -94,6 +94,7 @@ class AgentChatViewModel @Inject constructor(
     private var pendingAnswerDeltaMessageId: String? = null
     private val pendingAnswerDelta = StringBuilder()
     private var pendingAnswerDeltaSource: String? = null
+    private var consumedInitialQuestionKey: String? = null
 
     /** 当前运行的审计记录构建器 */
     private var currentAuditBuilder: AuditRecordBuilder? = null
@@ -102,26 +103,62 @@ class AgentChatViewModel @Inject constructor(
         _uiState.update { it.copy(inputText = text) }
     }
 
-    fun loadConversation(conversationId: Long?) {
-        if (conversationId == null || conversationId <= 0 || _uiState.value.conversationId == conversationId) return
+    fun startConversation(
+        conversationId: Long?,
+        initialQuestion: String?,
+    ) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null, conversationId = conversationId) }
-            repository.listRecentMessages(conversationId)
-                .onSuccess { messages ->
-                    val chatMessages = withContext(Dispatchers.Default) {
-                        messages.map { dto -> dto.toChatMessage() }
-                    }
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            messages = chatMessages,
-                        )
-                    }
-                }
-                .onFailure { e ->
-                    _uiState.update { it.copy(isLoading = false, error = e.message) }
-                }
+            val normalizedQuestion = initialQuestion?.trim().orEmpty()
+            val questionKey = initialQuestionKey(conversationId, normalizedQuestion)
+            val shouldSendInitialQuestion = shouldSendInitialQuestion(
+                initialQuestion = normalizedQuestion,
+                consumedInitialQuestionKey = consumedInitialQuestionKey,
+                nextInitialQuestionKey = questionKey,
+                isStreaming = _uiState.value.isStreaming,
+            )
+            if (conversationId != null && conversationId > 0) {
+                loadConversationMessages(conversationId, forceReload = false)
+            }
+            if (shouldSendInitialQuestion && consumedInitialQuestionKey != questionKey) {
+                consumedInitialQuestionKey = questionKey
+                onInputChange(normalizedQuestion)
+                sendMessage()
+            }
         }
+    }
+
+    fun loadConversation(conversationId: Long?) {
+        if (conversationId == null || conversationId <= 0) return
+        viewModelScope.launch {
+            loadConversationMessages(conversationId, forceReload = true)
+        }
+    }
+
+    private suspend fun loadConversationMessages(
+        conversationId: Long,
+        forceReload: Boolean,
+    ) {
+        if (!forceReload && shouldReuseLoadedConversation(_uiState.value, conversationId)) return
+        _uiState.update { it.copy(isLoading = true, error = null, conversationId = conversationId) }
+        repository.listRecentMessages(conversationId)
+            .onSuccess { messages ->
+                val chatMessages = withContext(Dispatchers.Default) {
+                    messages.map { dto -> dto.toChatMessage() }
+                }
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        messages = mergeLoadedConversationMessages(
+                            loadedMessages = chatMessages,
+                            currentMessages = it.messages,
+                            isStreaming = it.isStreaming,
+                        ),
+                    )
+                }
+            }
+            .onFailure { e ->
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
     }
 
     /**
@@ -950,6 +987,37 @@ private fun AgentMessageDto.toChatMessage(): ChatMessage {
         createdAt = createdAt,
     )
 }
+
+internal fun mergeLoadedConversationMessages(
+    loadedMessages: List<ChatMessage>,
+    currentMessages: List<ChatMessage>,
+    isStreaming: Boolean,
+): List<ChatMessage> {
+    if (!isStreaming) return loadedMessages
+    if (currentMessages.isEmpty()) return loadedMessages
+    val loadedIds = loadedMessages.mapTo(mutableSetOf()) { it.id }
+    val liveMessages = currentMessages.filter { message -> message.id !in loadedIds }
+    return loadedMessages + liveMessages
+}
+
+internal fun shouldSendInitialQuestion(
+    initialQuestion: String,
+    consumedInitialQuestionKey: String?,
+    nextInitialQuestionKey: String,
+    isStreaming: Boolean,
+): Boolean =
+    initialQuestion.isNotBlank() && !isStreaming && consumedInitialQuestionKey != nextInitialQuestionKey
+
+internal fun shouldReuseLoadedConversation(
+    state: AgentChatUiState,
+    conversationId: Long,
+): Boolean =
+    state.conversationId == conversationId && state.messages.isNotEmpty()
+
+private fun initialQuestionKey(
+    conversationId: Long?,
+    initialQuestion: String,
+): String = "${conversationId ?: 0L}:${initialQuestion.trim()}"
 
 private fun buildStoredMessageParts(
     content: String,
