@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
 import kotlinx.coroutines.runBlocking
@@ -143,6 +144,29 @@ class AgentSseClientCancellationTest {
     }
 
     @Test
+    fun chatStream_mapsTransportIoFailureToUserReadableNetworkException() = runBlocking {
+        val client = AgentSseClient(
+            okHttpClient = OkHttpClient(),
+            json = Json {
+                ignoreUnknownKeys = true
+                classDiscriminator = "event_type"
+            },
+            baseUrlProvider = { "http://localhost" },
+            callFactory = { _, request -> FailingCall(request, IOException("socket closed")) },
+        )
+
+        val failures = mutableListOf<Throwable>()
+        client.chatStream("""{"message":"库存","stream":true}""")
+            .catch { failures += it }
+            .toList()
+
+        val error = failures.single() as NetworkException
+        assertEquals(-1, error.code)
+        assertTrue(error.message.orEmpty().contains("AI 流式连接中断"))
+        assertTrue(error.message.orEmpty().contains("socket closed"))
+    }
+
+    @Test
     fun chatStream_normalizesLegacyBaseUrlBeforeOpeningSseEndpoint() = runBlocking {
         var capturedUrl = ""
         val client = AgentSseClient(
@@ -235,6 +259,29 @@ class AgentSseClientCancellationTest {
         override fun timeout(): okio.Timeout = okio.Timeout.NONE
 
         override fun clone(): Call = StaticBodyCall(request, body)
+    }
+
+    private class FailingCall(
+        private val request: Request,
+        private val failure: IOException,
+    ) : Call {
+        override fun request(): Request = request
+
+        override fun execute(): Response {
+            throw failure
+        }
+
+        override fun enqueue(responseCallback: okhttp3.Callback) = error("Not used")
+
+        override fun cancel() = Unit
+
+        override fun isExecuted(): Boolean = false
+
+        override fun isCanceled(): Boolean = false
+
+        override fun timeout(): okio.Timeout = okio.Timeout.NONE
+
+        override fun clone(): Call = FailingCall(request, failure)
     }
 
     private class BlockingBodyCall(

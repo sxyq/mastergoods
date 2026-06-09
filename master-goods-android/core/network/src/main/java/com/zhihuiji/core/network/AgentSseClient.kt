@@ -126,7 +126,7 @@ class AgentSseClient(
             }
         } catch (e: IOException) {
             currentCoroutineContext().ensureActive()
-            throw e
+            throw NetworkException(-1, agentSseNetworkErrorMessage(e))
         }
     }.flowOn(streamDispatcher)
 
@@ -139,6 +139,15 @@ class AgentSseClient(
                 message = "服务端返回了一条无法解析的 Agent 事件，已保留错误状态而不是静默丢弃。片段: ${jsonLine.take(160)}",
             )
         }
+    }
+}
+
+private fun agentSseNetworkErrorMessage(error: IOException): String {
+    val detail = error.message?.takeIf { it.isNotBlank() }
+    return if (detail == null) {
+        "AI 流式连接中断，请检查网络后重试"
+    } else {
+        "AI 流式连接中断，请检查网络后重试：$detail"
     }
 }
 
