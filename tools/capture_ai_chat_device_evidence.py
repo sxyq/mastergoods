@@ -14,6 +14,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -154,6 +155,106 @@ def matching_terms(texts: list[str], terms: tuple[str, ...]) -> list[str]:
     joined = "\n".join(texts)
     lowered = joined.lower()
     return [term for term in terms if term.lower() in lowered]
+
+
+def parse_raw_sse_events(raw: str) -> list[dict[str, object]]:
+    events: list[dict[str, object]] = []
+    current_event: str | None = None
+    data_lines: list[str] = []
+
+    def flush() -> None:
+        nonlocal current_event, data_lines
+        if not data_lines:
+            current_event = None
+            return
+        data_text = "\n".join(data_lines)
+        data_lines = []
+        try:
+            payload = json.loads(data_text)
+        except json.JSONDecodeError:
+            payload = {"raw_data": data_text}
+        if not isinstance(payload, dict):
+            payload = {"data": payload}
+        event_type = str(payload.get("event_type") or payload.get("eventType") or current_event or "message")
+        events.append({"event_type": event_type, "payload": payload})
+        current_event = None
+
+    for raw_line in raw.splitlines():
+        line = raw_line.rstrip("\r")
+        if not line.strip():
+            flush()
+            continue
+        if line.startswith(":"):
+            continue
+        if line.startswith("event:"):
+            current_event = line[6:].strip()
+            continue
+        if line.startswith("data:"):
+            data_lines.append(line[5:].lstrip())
+            continue
+        flush()
+        stripped = line.strip()
+        if not stripped or stripped == "[DONE]":
+            continue
+        try:
+            payload = json.loads(stripped)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            event_type = str(payload.get("event_type") or payload.get("eventType") or "message")
+            events.append({"event_type": event_type, "payload": payload})
+    flush()
+    return events
+
+
+def payload_value(payload: dict[str, object], *keys: str) -> object | None:
+    for key in keys:
+        if key in payload:
+            return payload[key]
+    data = payload.get("data")
+    if isinstance(data, dict):
+        for key in keys:
+            if key in data:
+                return data[key]
+    return None
+
+
+def non_model_delta_texts_from_raw_sse(raw: str) -> list[dict[str, str]]:
+    deltas: list[dict[str, str]] = []
+    for event in parse_raw_sse_events(raw):
+        if str(event.get("event_type") or "") != "answer_delta":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        source = payload_value(payload, "delta_source", "deltaSource")
+        if source is None or source == "model_stream":
+            continue
+        delta = payload_value(payload, "delta")
+        if isinstance(delta, str) and delta.strip():
+            deltas.append({"source": str(source), "text": delta.strip()})
+    return deltas
+
+
+def non_model_delta_visibility(
+    texts: list[str],
+    raw_sse_path: str | None,
+) -> tuple[bool | None, list[dict[str, str]]]:
+    if not raw_sse_path:
+        return None, []
+    raw_path = Path(raw_sse_path)
+    if not raw_path.exists():
+        return None, []
+    deltas = non_model_delta_texts_from_raw_sse(raw_path.read_text(encoding="utf-8", errors="replace"))
+    if not deltas:
+        return False, []
+    joined = "\n".join(texts)
+    visible = []
+    for item in deltas:
+        text = item["text"]
+        if text in joined:
+            visible.append(item)
+    return bool(visible), visible
 
 
 def scenario_guidance(scenario: str) -> list[str]:
@@ -315,6 +416,7 @@ def capture(args: argparse.Namespace) -> Path:
                 f"- Backend reverse port: `{args.backend_port}`",
                 f"- Scenario: `{args.scenario}`",
                 f"- Question hint: `{args.question}`",
+                f"- Raw SSE for non-model delta visibility: `{args.raw_sse or 'not provided'}`",
                 f"- Wake before capture: `{args.wake}`",
                 f"- Send question automatically: `{args.send_question}`",
                 "",
@@ -396,7 +498,20 @@ def capture(args: argparse.Namespace) -> Path:
         device_locked=device_locked,
         scenario=args.scenario,
     )
-    write_verdict(output_dir, status, reason, texts, hits, package_seen, screenshot_bytes, device_locked, args.scenario)
+    non_model_visible, visible_non_model_deltas = non_model_delta_visibility(texts, args.raw_sse)
+    write_verdict(
+        output_dir,
+        status,
+        reason,
+        texts,
+        hits,
+        package_seen,
+        screenshot_bytes,
+        device_locked,
+        args.scenario,
+        non_model_delta_visible_as_reply=non_model_visible,
+        visible_non_model_deltas=visible_non_model_deltas,
+    )
     return output_dir
 
 
@@ -465,6 +580,8 @@ def write_verdict(
     screenshot_bytes: int,
     device_locked: bool,
     scenario: str,
+    non_model_delta_visible_as_reply: bool | None = None,
+    visible_non_model_deltas: list[dict[str, str]] | None = None,
 ) -> None:
     write_json(
         output_dir / "11-chat-evidence.json",
@@ -483,14 +600,35 @@ def write_verdict(
             "stop_cancel_anchors_any": list(STOP_CANCEL_ANCHORS),
             "clear_chat_anchors_any": list(CLEAR_CHAT_ANCHORS),
             "scenario_guidance": scenario_guidance(scenario),
+            "non_model_delta_visible_as_reply": non_model_delta_visible_as_reply,
+            "visible_non_model_deltas": visible_non_model_deltas or [],
             "hits": hits,
             "ui_text_preview": texts[:100],
         },
     )
-    write_text(output_dir / "12-conclusion.md", conclusion_md(status, reason, texts, hits, scenario))
+    write_text(
+        output_dir / "12-conclusion.md",
+        conclusion_md(
+            status,
+            reason,
+            texts,
+            hits,
+            scenario,
+            non_model_delta_visible_as_reply=non_model_delta_visible_as_reply,
+            visible_non_model_deltas=visible_non_model_deltas or [],
+        ),
+    )
 
 
-def conclusion_md(status: str, reason: str, texts: list[str], hits: dict[str, list[str]], scenario: str) -> str:
+def conclusion_md(
+    status: str,
+    reason: str,
+    texts: list[str],
+    hits: dict[str, list[str]],
+    scenario: str,
+    non_model_delta_visible_as_reply: bool | None = None,
+    visible_non_model_deltas: list[dict[str, str]] | None = None,
+) -> str:
     preview = texts[:80]
     lines = [
         "# Device AI Chat Evidence Conclusion",
@@ -509,6 +647,13 @@ def conclusion_md(status: str, reason: str, texts: list[str], hits: dict[str, li
         lines.append(f"- {key}: `{', '.join(values) if values else 'none'}`")
     lines.extend(
         [
+            "",
+            f"Non-model delta visible as reply: `{str(non_model_delta_visible_as_reply).lower() if non_model_delta_visible_as_reply is not None else 'unknown'}`",
+            "",
+            "Visible non-model deltas:",
+            "",
+            *(f"- {item['source']}: {item['text']}" for item in (visible_non_model_deltas or [])),
+            *([] if visible_non_model_deltas else ["- none"]),
             "",
             "Scenario guidance:",
             "",
@@ -564,6 +709,23 @@ def self_test() -> None:
     raw = "ignored\n<?xml version='1.0'?><hierarchy><node text='AI 对话'/></hierarchy>\nUI hierchary dumped"
     assert clean_ui_xml(raw).startswith("<?xml")
     assert extract_ui_texts(clean_ui_xml(raw)) == ["AI 对话"]
+    sse = "\n".join(
+        [
+            'data: {"event_type":"answer_delta","deltaSource":"model_stream","delta":"模型回答"}',
+            "",
+            'data: {"event_type":"answer_delta","deltaSource":"server_notice","delta":"查询说明"}',
+            "",
+        ]
+    )
+    assert non_model_delta_texts_from_raw_sse(sse) == [{"source": "server_notice", "text": "查询说明"}]
+    with tempfile.TemporaryDirectory() as raw_dir:
+        raw_sse = Path(raw_dir) / "02-raw-sse.log"
+        raw_sse.write_text(sse, encoding="utf-8")
+        assert non_model_delta_visibility(["AI 对话", "模型回答"], str(raw_sse)) == (False, [])
+        assert non_model_delta_visibility(["AI 对话", "查询说明"], str(raw_sse)) == (
+            True,
+            [{"source": "server_notice", "text": "查询说明"}],
+        )
     print("capture_ai_chat_device_evidence self-test passed")
 
 
@@ -576,6 +738,7 @@ def main() -> int:
     parser.add_argument("--backend-port", type=int, default=int(os.environ.get("BACKEND_PORT", DEFAULT_BACKEND_PORT)))
     parser.add_argument("--output-root", default=os.environ.get("EVIDENCE_ROOT", str(DEFAULT_OUTPUT_ROOT)))
     parser.add_argument("--question", default=os.environ.get("AI_CHAT_QUESTION", DEFAULT_QUESTION))
+    parser.add_argument("--raw-sse", default=os.environ.get("AI_CHAT_RAW_SSE"))
     parser.add_argument(
         "--scenario",
         choices=("chat", "safety-block", "stop", "clear"),
