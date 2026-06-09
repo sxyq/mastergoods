@@ -32,8 +32,11 @@ public class V2AgentController {
     }
 
     @GetMapping("/conversations")
-    public ApiResponse<List<V2AgentDtos.AgentConversationResponse>> listConversations() {
-        return ApiResponse.success(v2AgentConversationService.listConversations());
+    public ApiResponse<List<V2AgentDtos.AgentConversationResponse>> listConversations(
+        @RequestParam(value = "page", required = false) Integer page,
+        @RequestParam(value = "limit", required = false) Integer limit
+    ) {
+        return ApiResponse.success(v2AgentConversationService.listConversations(page, limit));
     }
 
     @GetMapping("/conversations/{id}")
@@ -63,8 +66,12 @@ public class V2AgentController {
     }
 
     @GetMapping("/conversations/{conversationId}/messages")
-    public ApiResponse<List<V2AgentDtos.AgentMessageResponse>> listMessages(@PathVariable Long conversationId) {
-        return ApiResponse.success(v2AgentConversationService.listMessages(conversationId));
+    public ApiResponse<List<V2AgentDtos.AgentMessageResponse>> listMessages(
+        @PathVariable Long conversationId,
+        @RequestParam(value = "page", required = false) Integer page,
+        @RequestParam(value = "limit", required = false) Integer limit
+    ) {
+        return ApiResponse.success(v2AgentConversationService.listMessages(conversationId, page, limit));
     }
 
     @PostMapping("/conversations/{conversationId}/messages")
@@ -77,9 +84,11 @@ public class V2AgentController {
 
     @GetMapping("/drafts")
     public ApiResponse<List<V2AgentDtos.AgentDraftResponse>> listDrafts(
-        @RequestParam(value = "conversation_id", required = false) Long conversationId
+        @RequestParam(value = "conversation_id", required = false) Long conversationId,
+        @RequestParam(value = "page", required = false) Integer page,
+        @RequestParam(value = "limit", required = false) Integer limit
     ) {
-        return ApiResponse.success(v2AgentConversationService.listDrafts(conversationId));
+        return ApiResponse.success(v2AgentConversationService.listDrafts(conversationId, page, limit));
     }
 
     @PostMapping("/drafts")

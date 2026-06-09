@@ -1,0 +1,26 @@
+[
+  {
+    "audit": "sample-01-01-audit.json",
+    "events": "sample-01-01-events.json",
+    "iteration": 1,
+    "question": "库存和客户应收情况",
+    "raw_sse": "sample-01-01-raw-sse.log",
+    "run_id": "63b3316c-90c8-4892-845a-aa4e50bd4194"
+  },
+  {
+    "audit": "sample-02-01-audit.json",
+    "events": "sample-02-01-events.json",
+    "iteration": 1,
+    "question": "客户应收情况",
+    "raw_sse": "sample-02-01-raw-sse.log",
+    "run_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93"
+  },
+  {
+    "audit": "sample-03-01-audit.json",
+    "events": "sample-03-01-events.json",
+    "iteration": 1,
+    "question": "最近销售采购和财务情况怎么样？",
+    "raw_sse": "sample-03-01-raw-sse.log",
+    "run_id": "88a32564-5319-4191-a406-75bc26ee8949"
+  }
+]

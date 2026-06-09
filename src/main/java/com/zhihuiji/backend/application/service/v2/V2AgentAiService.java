@@ -2377,7 +2377,6 @@ public class V2AgentAiService {
         emitter.send(SseEmitter.event().data(payloadJson));
         if (runId instanceof String runIdText) {
             persistRunAuditEvent(runIdText, payload, payloadJson);
-            incrementRunAuditEventCount(runIdText);
         }
     }
 
@@ -2423,17 +2422,17 @@ public class V2AgentAiService {
             entity.setErrorMessage(truncate(errorMessage, 1000));
             entity.setCompletedAt(completedAt);
             entity.setUpdatedAt(completedAt);
+            entity.setEventCount(currentRunEventCount(runId, entity.getEventCount()));
             agentRunAuditRepository.save(entity);
         });
     }
 
-    private void incrementRunAuditEventCount(String runId) {
-        agentRunAuditRepository.findByRunId(runId)
-            .ifPresent(entity -> {
-                entity.setEventCount(Math.max(0, entity.getEventCount() == null ? 0 : entity.getEventCount()) + 1);
-                entity.setUpdatedAt(System.currentTimeMillis());
-                agentRunAuditRepository.save(entity);
-            });
+    private int currentRunEventCount(String runId, Integer fallback) {
+        ActiveAgentRun activeRun = activeRuns.get(runId);
+        if (activeRun != null) {
+            return activeRun.eventCount();
+        }
+        return Math.max(0, fallback == null ? 0 : fallback);
     }
 
     private void persistRunAuditEvent(String runId, Map<String, Object> payload, String payloadJson) {
@@ -2451,6 +2450,10 @@ public class V2AgentAiService {
         entity.setPayloadJson(payloadJson);
         entity.setCreatedAt(System.currentTimeMillis());
         agentRunAuditEventRepository.save(entity);
+        ActiveAgentRun activeRun = activeRuns.get(runId);
+        if (activeRun != null) {
+            activeRun.recordPersistedEvent();
+        }
     }
 
     private V2AgentDtos.AgentRunAuditEventResponse toRunAuditEventResponse(AgentRunAuditEventEntity entity) {
@@ -2943,6 +2946,7 @@ public class V2AgentAiService {
         private final Long conversationId;
         private final SseEmitter emitter;
         private final AtomicInteger eventSequence = new AtomicInteger(1);
+        private final AtomicInteger persistedEventCount = new AtomicInteger(0);
         private volatile boolean cancelled;
         private volatile CompletableFuture<?> future;
 
@@ -2967,6 +2971,14 @@ public class V2AgentAiService {
 
         private int nextSeq() {
             return eventSequence.getAndIncrement();
+        }
+
+        private void recordPersistedEvent() {
+            persistedEventCount.incrementAndGet();
+        }
+
+        private int eventCount() {
+            return persistedEventCount.get();
         }
 
         private boolean cancelled() {

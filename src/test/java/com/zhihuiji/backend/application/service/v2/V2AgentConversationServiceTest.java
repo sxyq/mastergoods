@@ -3,6 +3,7 @@ package com.zhihuiji.backend.application.service.v2;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.data.domain.Pageable;
 
 class V2AgentConversationServiceTest {
     @Mock
@@ -89,13 +91,32 @@ class V2AgentConversationServiceTest {
         AgentConversationEntity second = conversation(8L);
         second.setTitle("导入追踪");
         second.setUpdatedAt(20L);
-        when(agentConversationRepository.findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(1L)).thenReturn(java.util.List.of(first, second));
+        when(agentConversationRepository.findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(eq(1L), any(Pageable.class)))
+            .thenReturn(java.util.List.of(first, second));
 
         java.util.List<V2AgentDtos.AgentConversationResponse> result = service.listConversations();
 
         assertEquals(2, result.size());
         assertEquals(7L, result.get(0).id());
         assertEquals("导入追踪", result.get(1).title());
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(agentConversationRepository).findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(eq(1L), pageableCaptor.capture());
+        assertEquals(0, pageableCaptor.getValue().getPageNumber());
+        assertEquals(50, pageableCaptor.getValue().getPageSize());
+    }
+
+    @Test
+    void listConversationsClampsInvalidPageAndOversizedLimit() {
+        when(agentConversationRepository.findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(eq(1L), any(Pageable.class)))
+            .thenReturn(java.util.List.of());
+
+        service.listConversations(-2, 999);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(agentConversationRepository).findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(eq(1L), pageableCaptor.capture());
+        assertEquals(0, pageableCaptor.getValue().getPageNumber());
+        assertEquals(200, pageableCaptor.getValue().getPageSize());
     }
 
     @Test
@@ -219,7 +240,7 @@ class V2AgentConversationServiceTest {
         AgentMessageEntity first = message(301L, 7L, "assistant", "summary", "摘要");
         AgentMessageEntity second = message(302L, 7L, "user", "text", "正文");
         when(agentConversationRepository.findByIdAndOwnerUserId(7L, 1L)).thenReturn(Optional.of(conversation));
-        when(agentMessageRepository.findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(1L, 7L))
+        when(agentMessageRepository.findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(eq(1L), eq(7L), any(Pageable.class)))
             .thenReturn(java.util.List.of(first, second));
 
         java.util.List<V2AgentDtos.AgentMessageResponse> result = service.listMessages(7L);
@@ -227,6 +248,11 @@ class V2AgentConversationServiceTest {
         assertEquals(2, result.size());
         assertEquals("summary", result.get(0).messageType());
         assertEquals("正文", result.get(1).content());
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(agentMessageRepository).findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(eq(1L), eq(7L), pageableCaptor.capture());
+        assertEquals(0, pageableCaptor.getValue().getPageNumber());
+        assertEquals(100, pageableCaptor.getValue().getPageSize());
     }
 
     @Test
@@ -290,7 +316,7 @@ class V2AgentConversationServiceTest {
         second.setTitle("新草稿");
         AgentConversationEntity conversation = conversation(7L);
         when(agentConversationRepository.findByIdAndOwnerUserId(7L, 1L)).thenReturn(Optional.of(conversation));
-        when(agentDraftRepository.findAllByOwnerUserIdAndConversationIdOrderByUpdatedAtDescIdDesc(1L, 7L))
+        when(agentDraftRepository.findAllByOwnerUserIdAndConversationIdOrderByUpdatedAtDescIdDesc(eq(1L), eq(7L), any(Pageable.class)))
             .thenReturn(java.util.List.of(first, second));
 
         java.util.List<V2AgentDtos.AgentDraftResponse> result = service.listDrafts(7L);
@@ -298,6 +324,28 @@ class V2AgentConversationServiceTest {
         assertEquals(2, result.size());
         assertEquals(12L, result.get(0).id());
         assertEquals("新草稿", result.get(1).title());
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(agentDraftRepository).findAllByOwnerUserIdAndConversationIdOrderByUpdatedAtDescIdDesc(eq(1L), eq(7L), pageableCaptor.capture());
+        assertEquals(0, pageableCaptor.getValue().getPageNumber());
+        assertEquals(50, pageableCaptor.getValue().getPageSize());
+    }
+
+    @Test
+    void listDraftsWithoutConversationUsesOwnerScopedDefaultPage() {
+        AgentDraftEntity draft = draft(12L, null);
+        when(agentDraftRepository.findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(eq(1L), any(Pageable.class)))
+            .thenReturn(java.util.List.of(draft));
+
+        java.util.List<V2AgentDtos.AgentDraftResponse> result = service.listDrafts(null);
+
+        assertEquals(1, result.size());
+        assertEquals(12L, result.get(0).id());
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(agentDraftRepository).findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(eq(1L), pageableCaptor.capture());
+        assertEquals(0, pageableCaptor.getValue().getPageNumber());
+        assertEquals(50, pageableCaptor.getValue().getPageSize());
     }
 
     @Test

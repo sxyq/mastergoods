@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface AgentDraftRepository extends JpaRepository<AgentDraftEntity, Long> {
     List<AgentDraftEntity> findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(Long ownerUserId);
 
+    List<AgentDraftEntity> findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(Long ownerUserId, Pageable pageable);
+
     List<AgentDraftEntity> findAllByOwnerUserIdAndStatusIgnoreCaseOrderByUpdatedAtDescIdDesc(
         Long ownerUserId,
         String status,
@@ -16,6 +18,12 @@ public interface AgentDraftRepository extends JpaRepository<AgentDraftEntity, Lo
     );
 
     List<AgentDraftEntity> findAllByOwnerUserIdAndConversationIdOrderByUpdatedAtDescIdDesc(Long ownerUserId, Long conversationId);
+
+    List<AgentDraftEntity> findAllByOwnerUserIdAndConversationIdOrderByUpdatedAtDescIdDesc(
+        Long ownerUserId,
+        Long conversationId,
+        Pageable pageable
+    );
 
     long countByOwnerUserIdAndStatusIgnoreCase(Long ownerUserId, String status);
 

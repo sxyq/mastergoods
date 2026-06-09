@@ -40,7 +40,7 @@
 | AI 首页干净入口 | 文档规定不得展示报表型数据，但仍需真机 UI tree / 截图确认当前实现 | `05-ui-home.png` 和 `09-ui-tree.xml`，证明无销售额、KPI、报表图、风险列表默认展示 |
 | RunTrace 展开与 UI 区分度 | 文档规定用户 / AI / 工具 / 结果 / 错误分层，但仍需视觉证据 | 真实对话截图，含展开 RunTrace、Markdown、result block、错误或降级态 |
 | 草稿真实执行 | 当前 P0 允许不执行写操作；不能把 `archived` 当执行成功 | P1 前确认按钮禁用或诚实归档；P1 后需业务单据真实创建 / 更新证据 |
-| 全链路性能优化 | 当前已做局部优化：SSE worker 使用专用 executor；Android answer_delta 48ms 批量刷新；流式中先轻量文本渲染，完成后再 Markdown；AI 聊天列表提供稳定 key / contentType，Markdown inline 解析结果按文本缓存以减少流式重组开销；部分工具查询改为 DB 分页；AI workbench 不再查最近会话 / 草稿；Reports 往来余额改走后端汇总；Dashboard 应收金额 / 应收客户数 / 净现金流优先走后端汇总；`tools/ai_agent_evidence_capture.sh` 已增强 `11-latency.md`，可从 run audit 派生首事件、首工具、首 result block、首 `answer_delta`、首 `model_stream`、首 `server_notice`、完成态、`stream_interrupted_count`、工具耗时合计 / 最大值和事件计数；`docs/acceptance-evidence/performance/20260609-052957-backend-report-performance/` 已采集 7 个后端报表接口各 5 次样本且均为 HTTP 200 / `code=0`。仍不等于完整性能验收 | 性能基线、优化前后对比、真实 AI 三问接口耗时、provider `model_stream` 耗时、Android 首次可见耗时和帧统计 |
+| 全链路性能优化 | 当前已做局部优化：SSE worker 使用专用 executor；Android answer_delta 48ms 批量刷新；流式中先轻量文本渲染，完成后再 Markdown；AI 聊天列表提供稳定 key / contentType，Markdown inline 解析结果按文本缓存以减少流式重组开销；部分工具查询改为 DB 分页；AI workbench 不再查最近会话 / 草稿；Reports 往来余额改走后端汇总；Dashboard 应收金额 / 应收客户数 / 净现金流优先走后端汇总；流式 run summary 的 `event_count` 已从每 SSE 事件 `find + save` 改为 active run 内存计数并在完成 / 失败 / 取消时一次写回，事件 payload 仍逐条保存；`tools/ai_agent_evidence_capture.sh` 已增强 `11-latency.md`，可从 run audit 派生首事件、首工具、首 result block、首 `answer_delta`、首 `model_stream`、首 `server_notice`、完成态、`stream_interrupted_count`、工具耗时合计 / 最大值和事件计数；`tools/ai_agent_performance_evidence.py` 已补多问题采样入口；`docs/acceptance-evidence/performance/20260609-052957-backend-report-performance/` 已采集 7 个后端报表接口各 5 次样本且均为 HTTP 200 / `code=0`；`docs/acceptance-evidence/performance/20260609-090033-ai-agent-performance/` 已在 local H2 / LLM disabled 下采集 3 个 AI 业务问题，3/3 HTTP 200 并 completed，p50 total 494.3ms、p95 total 857.59ms，且 rule-summary 模式没有 result block 抢在 answer_completed 前。仍不等于完整性能验收 | provider `model_stream` 耗时、模型中断 / 慢模型 / 并发排队、Android 首次可见耗时、录屏 / frame timing、大数据量复测和完整异步审计队列 |
 | 底部 tap 栏 BiliPay 参考对齐 | 当前仅对齐了玻璃态、横向扫动、底栏区域上滑转发首页滚动，以及跨 tab 距离感动画；尚未重构为 BiliPay 的 `HorizontalPager + MainBottomPagerState + indicatorProgress` 主架构 | 后续若要求完全一比一，需用真实 pager 承载顶级页面，提供切换录屏、帧率 / jank 证据和与 `/Users/sunyiyang/Desktop/Project/Bilipay UI` 的文件级对照表 |
 
 ### 0.3 证据快照一致性规则
@@ -1019,8 +1019,10 @@ AI 助手 P0 修改后的最小验证矩阵：
 | 后端 agent 单测 | `JAVA_HOME=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home ./master-goods-android/gradlew -p /Users/sunyiyang/Desktop/Project/master-goods test --tests 'com.zhihuiji.backend.application.service.v2.V2AgentAiServiceTest' --tests 'com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest' --console=plain -Dorg.gradle.java.home=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home` | 固定 run 审计、SSE 合同、非流式合同和 audit API |
 | Android agent 合同 | `JAVA_HOME=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home ./gradlew :core:model:testDebugUnitTest :feature:agent:compileDebugKotlin --console=plain -Dorg.gradle.java.home=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home` | 固定模型解析、Markdown / stream 合同和 agent UI 编译 |
 | 证据脚本离线自测 | `./tools/ai_agent_evidence_capture.sh self-test` | 无需后端或 token，验证 SSE run_id 提取、audit tool result 展开、SSE/audit 对账、run summary 派生逻辑和 `11-latency.md` 的 AI run timing 字段 |
+| AI agent 性能脚本自测 | `python3 tools/ai_agent_performance_evidence.py --self-test` | 无需后端或 token，验证 SSE 解析、provider `model_stream` 时间点、result block 顺序和非模型路径 data-before-answer 风险检测 |
 | AI 首页设备脚本自测 | `python3 tools/capture_ai_home_device_evidence.py --self-test` | 无需设备，验证锁屏、弱锚点、默认报表内容和干净首页判定规则 |
 | 真实接口证据 | `TOKEN=<redacted> ./tools/ai_agent_evidence_capture.sh` 或 `LOGIN_PHONE=<phone> LOGIN_PASSWORD=<password> ./tools/ai_agent_evidence_capture.sh` | 生成 HTTP / SSE / run audit / workbench / 对账 / summary / 禁止项扫描 / latency 初稿；不得保存密码或 token |
+| AI agent 性能证据 | `LOGIN_PHONE=<phone> LOGIN_PASSWORD=<password> python3 tools/ai_agent_performance_evidence.py --base-url <url> --iterations 3 --backend-profile <profile> --llm-status-note <note>` | 对默认 3 个真实业务问题重复采样，生成 raw SSE、事件 JSON、run audit、P50 / P95 / max / mean 汇总和顺序风险结论；不得替代 Android 首次可见耗时或 provider stream 证据 |
 | AI 首页真机证据 | `ANDROID_SERIAL=<serial> python3 tools/capture_ai_home_device_evidence.py --wake`，且 `10-conclusion.md` 为 `pass-for-ai-home-cleanliness` | 证明 AI 初始屏是干净入口；锁屏、非 app、弱锚点或报表默认内容必须保持非通过 |
 | 聊天真机证据 | ADB 截图、UI tree、logcat 或录屏 | 证明聊天、RunTrace、Markdown、图表真实渲染 |
 | 禁止项扫描 | `10-forbidden-scan.txt` + `15-forbidden-scan-review.md`；所有 `needs evidence` 行必须人工处理 | 防止 mock、fake、demo、假流式、占位数据回流 |
@@ -1059,6 +1061,7 @@ P0 验收必须在同一环境、同一账号、同一后端 profile 下记录�
 - 冷启动和热路径要分开：冷启动记录首次请求，热路径记录同一进程后续请求。
 - Android 首次可见耗时必须来自真实设备证据，如录屏时间轴、logcat 埋点或 frame timing；接口耗时不能替代 UI 可见耗时。
 - 如果 provider 或网络异常导致不能采样，必须在 `12-conclusion.md` 标 `partial/fail` 并写明不可测原因。
+- AI agent 接口侧性能优先使用 `tools/ai_agent_performance_evidence.py`，因为它会保存每个样本的 raw SSE、事件 JSON、run audit 和 `03-summary.md`，并自动标记 provider `model_stream` 缺失、server_notice 乱序和 result block 早于回答的风险。
 
 ### 18.1 当前剩余性能债台账
 
@@ -1071,6 +1074,8 @@ P0 验收必须在同一环境、同一账号、同一后端 profile 下记录�
 | 库存出库 / 库存流水报表仍需 Android / 大数据量证据 | 已新增 repository 级按时间倒序分页查询；`stockOutRecords()` 不再拉整段订单 / 明细后排序，`inventoryFlow()` 改为销售出库、取消入库、库存调整三路各取前 N 后合并截断；同一性能包记录 `report_stock_out_records` p95 1.68ms、`report_inventory_flow` p95 2.65ms，均 5/5 HTTP OK、5/5 logical OK | 用真实账号对比新旧响应顺序和值，并补 Android 报表首次可见耗时 / frame timing | 库存流水混合销售出库、取消入库、调整单，真实对账必须覆盖三类来源 |
 | V2 销售单列表仍需 Android / 大数据量证据 | `V2SaleOrderController` 已将 page / size 下传 service；`V2SaleOrderService.list()` 使用 repository `Pageable` 查询订单，并按当前页 orderId 批量查询明细；同一性能包记录 `v2_sale_orders_page` p95 4.06ms、`v2_sale_orders_filtered_page` p95 2.47ms，均 5/5 HTTP OK、5/5 logical OK | 用真实账号对比分页结果、过滤条件和接口耗时；如果 UI 需要 total / hasMore 再扩展合同 | 当前响应仍为 `List`，不能从响应直接判断总数或下一页 |
 | AI evidence 与 Top N 截断仍需端到端证据 | 后端已补字段级 `evidence_refs` 和查询边界提示；部分工具默认 limit=10，刚好返回 10 条时会提示不能视为全量结论 | 生成真实超限数据证据包，证明 HTTP、SSE、RunTrace 和最终回答都一致展示字段来源与查询边界 | 不能把单测通过当成 P0 端到端通过 |
+| AI agent 三问性能仍需 provider / Android 证据 | `docs/acceptance-evidence/performance/20260609-090033-ai-agent-performance/03-summary.md` 记录 local H2 / `AGENT_LLM_ENABLED=false` 下 3 个业务问题 3/3 HTTP 200 且 completed，p50 total 494.3ms、p95 total 857.59ms，rule-summary 模式未出现 result block 早于 answer_completed | 在 provider `model_stream` 配置完整后重复采样；增加慢模型 / 中断 / 并发场景；补 Android 首次可见耗时、录屏或 frame timing | 当前包只能证明接口侧 rule-summary 性能，不能证明 ChatGPT-like 真流式、真机高刷新率或模型路径性能 |
+| SSE run summary 逐事件写入开销已收窄但仍需异步化证据 | `V2AgentAiService.sendEvent()` 不再每个 SSE 事件后调用 run summary `findByRunId + save` 增加 `event_count`；`ActiveAgentRun` 内存记录成功落库事件数，`finishRunAudit()` 在终态一次写回。`V2AgentAiServiceTest.streamEventsIncludeCompatibleEnvelopeMetadata` 断言 run summary 只保存 create / finish 两次，且 `eventCount == events.size()` | 后续若继续优化，应把 `agent_run_audit_events` 逐条 insert 也隔离到有序 audit executor / bounded queue，并给审计写失败加入 warning / metric | 当前仍是同步逐条保存 event payload；DB 写入抖动仍可能影响下一事件，只是少了每事件主表读写 |
 
 后端接口性能证据包模板：
 
@@ -1089,6 +1094,20 @@ python3 tools/report_performance_evidence.py \
 ```
 
 `tools/report_performance_evidence.py` 会采集 `cashflow-summary`、对应 `finance-records` 分页对账锚点、`profit-summary`、`stock-out-records`、`inventory-flow`、`/v2/sale-orders?page=&size=` 和带 `status/created_after/created_before` 的销售单过滤分页路径的 HTTP 状态、业务 `code`、p50 / p95 / max / mean 耗时，输出到 `docs/acceptance-evidence/performance/{yyyyMMdd-HHmmss}-backend-report-performance/`。该包只证明后端接口侧，结论必须保持 `partial`，不能替代 Android 首次可见耗时、截图、UI tree 或 frame timing。
+
+AI agent 性能证据包模板：
+
+```bash
+LOGIN_PHONE="<phone>" \
+LOGIN_PASSWORD="<password>" \
+python3 tools/ai_agent_performance_evidence.py \
+  --base-url "http://localhost:18080" \
+  --iterations 3 \
+  --backend-profile "local-h2" \
+  --llm-status-note "disabled"
+```
+
+`tools/ai_agent_performance_evidence.py` 默认采集 `库存和客户应收情况`、`客户应收情况`、`最近销售采购和财务情况怎么样？` 三个真实业务问题，并为每个样本保存 raw SSE、解析后的事件、run audit、样本表和汇总表。该包只证明接口 / SSE / 审计侧性能和事件顺序；如果 `model_stream_samples=0` 或没有 Android frame timing，结论必须保持 `partial`。
 
 可观测性验收包必须包含：
 

@@ -1,0 +1,350 @@
+[
+  {
+    "arrival_ms": 17.54,
+    "event": null,
+    "event_type": "run_started",
+    "payload": {
+      "audit_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:audit",
+      "conversation_id": 16,
+      "event_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:1",
+      "event_type": "run_started",
+      "observability": {
+        "audit_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:audit",
+        "correlation_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+        "log_ref": "agent-run:7f89d81e-f70c-402e-afab-ad2ee051bf93",
+        "request_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+        "trace_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:trace"
+      },
+      "run_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+      "seq": 1,
+      "timestamp": 1780966834989,
+      "trace_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:trace"
+    }
+  },
+  {
+    "arrival_ms": 29.04,
+    "event": null,
+    "event_type": "safety_check_started",
+    "payload": {
+      "conversation_id": 16,
+      "event_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:2",
+      "event_type": "safety_check_started",
+      "run_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+      "seq": 2,
+      "timestamp": 1780966834998
+    }
+  },
+  {
+    "arrival_ms": 64.55,
+    "event": null,
+    "event_type": "safety_check_passed",
+    "payload": {
+      "conversation_id": 16,
+      "event_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:3",
+      "event_type": "safety_check_passed",
+      "run_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+      "seq": 3,
+      "timestamp": 1780966835007
+    }
+  },
+  {
+    "arrival_ms": 73.09,
+    "event": null,
+    "event_type": "plan_delta",
+    "payload": {
+      "content": "根据问题关键词兜底选择只读查询工具：customer_receivable_lookup",
+      "conversation_id": 16,
+      "event_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:4",
+      "event_type": "plan_delta",
+      "plan_source": "keyword_fallback",
+      "run_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+      "seq": 4,
+      "timestamp": 1780966835023
+    }
+  },
+  {
+    "arrival_ms": 76.36,
+    "event": null,
+    "event_type": "tool_started",
+    "payload": {
+      "audit_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:audit",
+      "conversation_id": 16,
+      "event_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:5",
+      "event_type": "tool_started",
+      "input_summary": "查询当前账号客户应收余额，参数 {limit=10}",
+      "query_window": {
+        "limit": 10,
+        "owner_scope": "current_owner"
+      },
+      "run_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+      "seq": 5,
+      "started_at": 1780966835033,
+      "timestamp": 1780966835033,
+      "tool_call_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:customer_receivable_lookup",
+      "tool_input": {
+        "limit": 10
+      },
+      "tool_name": "customer_receivable_lookup",
+      "trace_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:trace"
+    }
+  },
+  {
+    "arrival_ms": 87.86,
+    "event": null,
+    "event_type": "tool_completed",
+    "payload": {
+      "audit_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:audit",
+      "completed_at": 1780966835054,
+      "conversation_id": 16,
+      "duration_ms": 21,
+      "event_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:6",
+      "event_type": "tool_completed",
+      "evidence": {
+        "is_truncated": false,
+        "returned_count": 0,
+        "scope": "current_owner",
+        "source": "tool:customer_receivable_lookup"
+      },
+      "input_summary": "查询当前账号客户应收余额，参数 {limit=10}",
+      "is_truncated": false,
+      "limit": 10,
+      "next_cursor": null,
+      "query_window": {
+        "limit": 10,
+        "owner_scope": "current_owner"
+      },
+      "result_summary": "命中 0 个欠款客户",
+      "returned_count": 0,
+      "run_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+      "seq": 6,
+      "started_at": 1780966835033,
+      "timestamp": 1780966835054,
+      "tool_call_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:customer_receivable_lookup",
+      "tool_name": "customer_receivable_lookup",
+      "trace_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:trace"
+    }
+  },
+  {
+    "arrival_ms": 117.72,
+    "event": null,
+    "event_type": "answer_completed",
+    "payload": {
+      "answer": "说明：本回答为真实数据查询后的规则摘要，当前未使用模型生成。\n\n针对“客户应收情况”，我已基于当前登录账号下的真实经营数据完成查询。\n1. 客户侧没有明显应收欠款压力。\n查询边界：客户应收查询最多查询 10 条，实际返回 0 条。",
+      "audit_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:audit",
+      "conversation_id": 16,
+      "event_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:7",
+      "event_type": "answer_completed",
+      "llm_status": "disabled",
+      "mode": "tool_query_rule_summary",
+      "observability": {
+        "audit_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:audit",
+        "correlation_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+        "log_ref": "agent-run:7f89d81e-f70c-402e-afab-ad2ee051bf93",
+        "request_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+        "trace_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:trace"
+      },
+      "plan_source": "keyword_fallback",
+      "run_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+      "seq": 7,
+      "timestamp": 1780966835066,
+      "trace_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:trace"
+    }
+  },
+  {
+    "arrival_ms": 120.94,
+    "event": null,
+    "event_type": "result_block",
+    "payload": {
+      "block": {
+        "block_type": "kpi_grid",
+        "data": {
+          "kpis": [
+            {
+              "label": "欠款客户数",
+              "trend_direction": "flat",
+              "value": "0"
+            },
+            {
+              "label": "Top10 应收合计",
+              "trend_direction": "flat",
+              "value": "¥0.00"
+            },
+            {
+              "label": "最高单户欠款",
+              "trend_direction": "flat",
+              "value": "¥0.00"
+            }
+          ]
+        },
+        "title": "应收概览"
+      },
+      "conversation_id": 16,
+      "event_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:8",
+      "event_type": "result_block",
+      "run_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+      "seq": 8,
+      "timestamp": 1780966835075
+    }
+  },
+  {
+    "arrival_ms": 126.51,
+    "event": null,
+    "event_type": "result_block",
+    "payload": {
+      "block": {
+        "block_type": "rank_list",
+        "data": {
+          "items": []
+        },
+        "title": "欠款客户排行"
+      },
+      "conversation_id": 16,
+      "event_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:9",
+      "event_type": "result_block",
+      "run_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+      "seq": 9,
+      "timestamp": 1780966835087
+    }
+  },
+  {
+    "arrival_ms": 145.98,
+    "event": null,
+    "event_type": "result_block",
+    "payload": {
+      "block": {
+        "block_type": "evidence_card",
+        "data": {
+          "items": [
+            {
+              "is_truncated": false,
+              "label": "customer_receivable_lookup",
+              "query_window": {
+                "completed_at": 1780966835064,
+                "duration_ms": 31,
+                "evidence": {
+                  "is_truncated": false,
+                  "returned_count": 0,
+                  "scope": "current_owner",
+                  "source": "tool:customer_receivable_lookup"
+                },
+                "input_summary": "查询当前账号客户应收余额，参数 {limit=10}",
+                "is_truncated": false,
+                "limit": 10,
+                "next_cursor": null,
+                "query_window": {
+                  "limit": 10,
+                  "owner_scope": "current_owner"
+                },
+                "returned_count": 0,
+                "started_at": 1780966835033,
+                "tool_input": {
+                  "limit": 10
+                },
+                "tool_name": "customer_receivable_lookup"
+              },
+              "source": "tool:customer_receivable_lookup",
+              "tool_call_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:customer_receivable_lookup",
+              "value": "欠款客户 0 个，Top10 应收合计 ¥0.00"
+            },
+            {
+              "is_truncated": false,
+              "label": "欠款客户数 (customer_count)",
+              "query_window": {
+                "completed_at": 1780966835064,
+                "duration_ms": 31,
+                "evidence": {
+                  "is_truncated": false,
+                  "returned_count": 0,
+                  "scope": "current_owner",
+                  "source": "tool:customer_receivable_lookup"
+                },
+                "input_summary": "查询当前账号客户应收余额，参数 {limit=10}",
+                "is_truncated": false,
+                "limit": 10,
+                "next_cursor": null,
+                "query_window": {
+                  "limit": 10,
+                  "owner_scope": "current_owner"
+                },
+                "returned_count": 0,
+                "started_at": 1780966835033,
+                "tool_input": {
+                  "limit": 10
+                },
+                "tool_name": "customer_receivable_lookup"
+              },
+              "source": "tool:customer_receivable_lookup",
+              "tool_call_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:customer_receivable_lookup",
+              "value": "0个"
+            },
+            {
+              "is_truncated": false,
+              "label": "Top10 应收合计 (top10_receivable_total)",
+              "query_window": {
+                "completed_at": 1780966835064,
+                "duration_ms": 31,
+                "evidence": {
+                  "is_truncated": false,
+                  "returned_count": 0,
+                  "scope": "current_owner",
+                  "source": "tool:customer_receivable_lookup"
+                },
+                "input_summary": "查询当前账号客户应收余额，参数 {limit=10}",
+                "is_truncated": false,
+                "limit": 10,
+                "next_cursor": null,
+                "query_window": {
+                  "limit": 10,
+                  "owner_scope": "current_owner"
+                },
+                "returned_count": 0,
+                "started_at": 1780966835033,
+                "tool_input": {
+                  "limit": 10
+                },
+                "tool_name": "customer_receivable_lookup"
+              },
+              "source": "tool:customer_receivable_lookup",
+              "tool_call_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:customer_receivable_lookup",
+              "value": "¥0.00"
+            }
+          ],
+          "title": "本次回答依据"
+        },
+        "title": "本次回答依据"
+      },
+      "conversation_id": 16,
+      "event_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:10",
+      "event_type": "result_block",
+      "run_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+      "seq": 10,
+      "timestamp": 1780966835100
+    }
+  },
+  {
+    "arrival_ms": 173.31,
+    "event": null,
+    "event_type": "run_completed",
+    "payload": {
+      "audit_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:audit",
+      "conversation_id": 16,
+      "event_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:11",
+      "event_type": "run_completed",
+      "final_answer": "说明：本回答为真实数据查询后的规则摘要，当前未使用模型生成。\n\n针对“客户应收情况”，我已基于当前登录账号下的真实经营数据完成查询。\n1. 客户侧没有明显应收欠款压力。\n查询边界：客户应收查询最多查询 10 条，实际返回 0 条。",
+      "llm_status": "disabled",
+      "mode": "tool_query_rule_summary",
+      "observability": {
+        "audit_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:audit",
+        "correlation_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+        "log_ref": "agent-run:7f89d81e-f70c-402e-afab-ad2ee051bf93",
+        "request_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+        "trace_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:trace"
+      },
+      "plan_source": "keyword_fallback",
+      "run_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93",
+      "seq": 11,
+      "timestamp": 1780966835139,
+      "trace_id": "7f89d81e-f70c-402e-afab-ad2ee051bf93:trace"
+    }
+  }
+]

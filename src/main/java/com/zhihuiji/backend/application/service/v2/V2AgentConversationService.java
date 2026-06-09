@@ -10,6 +10,7 @@ import com.zhihuiji.backend.infrastructure.repository.AgentDraftRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentMessageRepository;
 import java.util.List;
 import java.util.Set;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +19,10 @@ public class V2AgentConversationService {
     private static final Set<String> VALID_CONVERSATION_STATUSES = Set.of("active", "closed", "archived");
     private static final Set<String> TERMINAL_STATUSES = Set.of("closed", "archived");
     private static final Set<String> VALID_DRAFT_STATUSES = Set.of("active", "archived");
+    private static final int DEFAULT_CONVERSATION_LIMIT = 50;
+    private static final int DEFAULT_MESSAGE_LIMIT = 100;
+    private static final int DEFAULT_DRAFT_LIMIT = 50;
+    private static final int MAX_LIST_LIMIT = 200;
 
     private final AgentConversationRepository agentConversationRepository;
     private final AgentMessageRepository agentMessageRepository;
@@ -37,8 +42,17 @@ public class V2AgentConversationService {
     }
 
     public List<V2AgentDtos.AgentConversationResponse> listConversations() {
+        return listConversations(null, null);
+    }
+
+    public List<V2AgentDtos.AgentConversationResponse> listConversations(Integer page, Integer limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return agentConversationRepository.findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(ownerUserId).stream()
+        return agentConversationRepository
+            .findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(
+                ownerUserId,
+                PageRequest.of(safePage(page), safeLimit(limit, DEFAULT_CONVERSATION_LIMIT))
+            )
+            .stream()
             .map(this::toConversationResponse)
             .toList();
     }
@@ -87,9 +101,19 @@ public class V2AgentConversationService {
     }
 
     public List<V2AgentDtos.AgentMessageResponse> listMessages(Long conversationId) {
+        return listMessages(conversationId, null, null);
+    }
+
+    public List<V2AgentDtos.AgentMessageResponse> listMessages(Long conversationId, Integer page, Integer limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         ensureConversationOwned(conversationId, ownerUserId);
-        return agentMessageRepository.findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(ownerUserId, conversationId).stream()
+        return agentMessageRepository
+            .findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(
+                ownerUserId,
+                conversationId,
+                PageRequest.of(safePage(page), safeLimit(limit, DEFAULT_MESSAGE_LIMIT))
+            )
+            .stream()
             .map(this::toMessageResponse)
             .toList();
     }
@@ -119,13 +143,18 @@ public class V2AgentConversationService {
     }
 
     public List<V2AgentDtos.AgentDraftResponse> listDrafts(Long conversationId) {
+        return listDrafts(conversationId, null, null);
+    }
+
+    public List<V2AgentDtos.AgentDraftResponse> listDrafts(Long conversationId, Integer page, Integer limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         List<AgentDraftEntity> rows;
+        PageRequest pageRequest = PageRequest.of(safePage(page), safeLimit(limit, DEFAULT_DRAFT_LIMIT));
         if (conversationId == null) {
-            rows = agentDraftRepository.findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(ownerUserId);
+            rows = agentDraftRepository.findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(ownerUserId, pageRequest);
         } else {
             ensureConversationOwned(conversationId, ownerUserId);
-            rows = agentDraftRepository.findAllByOwnerUserIdAndConversationIdOrderByUpdatedAtDescIdDesc(ownerUserId, conversationId);
+            rows = agentDraftRepository.findAllByOwnerUserIdAndConversationIdOrderByUpdatedAtDescIdDesc(ownerUserId, conversationId, pageRequest);
         }
         return rows.stream().map(this::toDraftResponse).toList();
     }
@@ -268,5 +297,17 @@ public class V2AgentConversationService {
             return normalized;
         }
         return normalized.substring(0, 120);
+    }
+
+    private int safePage(Integer page) {
+        return Math.max(0, page == null ? 0 : page);
+    }
+
+    private int safeLimit(Integer limit, int defaultLimit) {
+        int value = limit == null ? defaultLimit : limit;
+        if (value <= 0) {
+            value = defaultLimit;
+        }
+        return Math.min(MAX_LIST_LIMIT, value);
     }
 }

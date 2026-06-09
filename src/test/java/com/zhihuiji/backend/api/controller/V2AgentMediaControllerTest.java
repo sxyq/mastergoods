@@ -2,6 +2,7 @@ package com.zhihuiji.backend.api.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -52,7 +53,7 @@ class V2AgentMediaControllerTest {
 
     @Test
     void listConversationsReturnsSnakeCaseFields() throws Exception {
-        when(v2AgentConversationService.listConversations()).thenReturn(List.of(
+        when(v2AgentConversationService.listConversations(null, null)).thenReturn(List.of(
             new V2AgentDtos.AgentConversationResponse(1L, "采购讨论", "active", "最近讨论了补货计划", 1L, 2L, 2L)
         ));
 
@@ -60,6 +61,21 @@ class V2AgentMediaControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data[0].latest_summary").value("最近讨论了补货计划"))
             .andExpect(jsonPath("$.data[0].last_message_at").value(2L));
+
+        verify(v2AgentConversationService).listConversations(null, null);
+    }
+
+    @Test
+    void listConversationsBindsPageAndLimitQuery() throws Exception {
+        when(v2AgentConversationService.listConversations(1, 20)).thenReturn(List.of(
+            new V2AgentDtos.AgentConversationResponse(1L, "采购讨论", "active", "摘要", 1L, 2L, 2L)
+        ));
+
+        mockMvc.perform(get("/v2/agent/conversations").param("page", "1").param("limit", "20"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data[0].id").value(1));
+
+        verify(v2AgentConversationService).listConversations(1, 20);
     }
 
     @Test
@@ -140,7 +156,7 @@ class V2AgentMediaControllerTest {
 
     @Test
     void listMessagesReturnsSnakeCaseFields() throws Exception {
-        when(v2AgentConversationService.listMessages(7L)).thenReturn(List.of(
+        when(v2AgentConversationService.listMessages(7L, null, null)).thenReturn(List.of(
             new V2AgentDtos.AgentMessageResponse(3L, 7L, "assistant", "summary", "这里是摘要", "{\"kind\":\"summary\"}", 10L)
         ));
 
@@ -149,13 +165,28 @@ class V2AgentMediaControllerTest {
             .andExpect(jsonPath("$.data[0].conversation_id").value(7))
             .andExpect(jsonPath("$.data[0].message_type").value("summary"))
             .andExpect(jsonPath("$.data[0].structured_data_json").value("{\"kind\":\"summary\"}"));
+
+        verify(v2AgentConversationService).listMessages(7L, null, null);
+    }
+
+    @Test
+    void listMessagesBindsPageAndLimitQuery() throws Exception {
+        when(v2AgentConversationService.listMessages(7L, 2, 25)).thenReturn(List.of(
+            new V2AgentDtos.AgentMessageResponse(4L, 7L, "user", "text", "正文", null, 11L)
+        ));
+
+        mockMvc.perform(get("/v2/agent/conversations/7/messages").param("page", "2").param("limit", "25"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data[0].id").value(4));
+
+        verify(v2AgentConversationService).listMessages(7L, 2, 25);
     }
 
     // --- Agent Draft tests ---
 
     @Test
     void listDraftsReturnsSnakeCaseFields() throws Exception {
-        when(v2AgentConversationService.listDrafts(7L)).thenReturn(List.of(
+        when(v2AgentConversationService.listDrafts(7L, null, null)).thenReturn(List.of(
             new V2AgentDtos.AgentDraftResponse(8L, 7L, "operation", "采购建议", "{\"sku\":1}", "active", 10L, 11L)
         ));
 
@@ -164,6 +195,24 @@ class V2AgentMediaControllerTest {
             .andExpect(jsonPath("$.data[0].conversation_id").value(7))
             .andExpect(jsonPath("$.data[0].draft_type").value("operation"))
             .andExpect(jsonPath("$.data[0].content_json").value("{\"sku\":1}"));
+
+        verify(v2AgentConversationService).listDrafts(7L, null, null);
+    }
+
+    @Test
+    void listDraftsBindsConversationPageAndLimitQuery() throws Exception {
+        when(v2AgentConversationService.listDrafts(7L, 1, 20)).thenReturn(List.of(
+            new V2AgentDtos.AgentDraftResponse(8L, 7L, "operation", "采购建议", "{\"sku\":1}", "active", 10L, 11L)
+        ));
+
+        mockMvc.perform(get("/v2/agent/drafts")
+                .param("conversation_id", "7")
+                .param("page", "1")
+                .param("limit", "20"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data[0].id").value(8));
+
+        verify(v2AgentConversationService).listDrafts(7L, 1, 20);
     }
 
     @Test

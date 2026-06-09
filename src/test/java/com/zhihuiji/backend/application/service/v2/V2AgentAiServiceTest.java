@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -528,6 +529,7 @@ class V2AgentAiServiceTest {
         assertEquals("keyword_fallback", audit.getPlanSource());
         assertEquals(1, audit.getToolCount());
         assertTrue(audit.getEventCount() > 0);
+        verify(agentRunAuditRepository, times(2)).save(any(AgentRunAuditEntity.class));
         List<AgentRunAuditEventEntity> events = runAuditEvents.stream()
             .filter(event -> "run-envelope".equals(event.getRunId()))
             .toList();

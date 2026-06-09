@@ -1,0 +1,96 @@
+{
+  "completed": 3,
+  "http_ok": 3,
+  "metrics": {
+    "answer_completed_latency_ms": {
+      "count": 3,
+      "max_ms": 757.82,
+      "mean_ms": 403.43,
+      "p50_ms": 334.74,
+      "p95_ms": 757.82
+    },
+    "first_answer_delta_latency_ms": {
+      "count": 0,
+      "max_ms": null,
+      "mean_ms": null,
+      "p50_ms": null,
+      "p95_ms": null
+    },
+    "first_event_latency_ms": {
+      "count": 3,
+      "max_ms": 529.4,
+      "mean_ms": 191.75,
+      "p50_ms": 28.31,
+      "p95_ms": 529.4
+    },
+    "first_model_stream_delta_latency_ms": {
+      "count": 0,
+      "max_ms": null,
+      "mean_ms": null,
+      "p50_ms": null,
+      "p95_ms": null
+    },
+    "first_result_block_latency_ms": {
+      "count": 3,
+      "max_ms": 766.24,
+      "mean_ms": 411.26,
+      "p50_ms": 346.6,
+      "p95_ms": 766.24
+    },
+    "first_tool_completed_latency_ms": {
+      "count": 3,
+      "max_ms": 692.66,
+      "mean_ms": 285.36,
+      "p50_ms": 87.86,
+      "p95_ms": 692.66
+    },
+    "first_tool_started_latency_ms": {
+      "count": 3,
+      "max_ms": 664.39,
+      "mean_ms": 268.18,
+      "p50_ms": 76.36,
+      "p95_ms": 664.39
+    },
+    "run_completed_latency_ms": {
+      "count": 3,
+      "max_ms": 819.56,
+      "mean_ms": 495.69,
+      "p50_ms": 494.2,
+      "p95_ms": 819.56
+    },
+    "time_to_headers_ms": {
+      "count": 3,
+      "max_ms": 509.16,
+      "mean_ms": 183.16,
+      "p50_ms": 26.99,
+      "p95_ms": 509.16
+    },
+    "tool_duration_max_ms": {
+      "count": 3,
+      "max_ms": 64.0,
+      "mean_ms": 36.67,
+      "p50_ms": 25.0,
+      "p95_ms": 64.0
+    },
+    "tool_duration_sum_ms": {
+      "count": 3,
+      "max_ms": 152.0,
+      "mean_ms": 71.33,
+      "p50_ms": 41.0,
+      "p95_ms": 152.0
+    },
+    "total_response_ms": {
+      "count": 3,
+      "max_ms": 857.59,
+      "mean_ms": 518.17,
+      "p50_ms": 494.3,
+      "p95_ms": 857.59
+    }
+  },
+  "model_stream_samples": 0,
+  "result_before_answer_completed_without_model_samples": 0,
+  "result_before_model_delta_samples": 0,
+  "sample_count": 3,
+  "server_notice_before_model_samples": 0,
+  "tool_failed_samples": 0
+}
