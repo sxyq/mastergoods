@@ -83,8 +83,8 @@ fun ResultBlockRenderer(
     modifier: Modifier = Modifier,
 ) {
     when (block.blockType) {
-        "text", "markdown" -> block.renderParsedBlock<TextBlockData>(modifier) {
-            TextResultBlock(data = it, title = block.title, modifier = modifier)
+        "text", "markdown" -> block.renderParsedTextBlock(modifier) {
+            TextResultBlock(markdown = it, title = block.title, modifier = modifier)
         }
 
         "kpi_grid" -> block.renderParsedBlock<KpiGridBlockData>(modifier) {
@@ -157,8 +157,27 @@ private val ResultBlockJson = Json {
 }
 
 @Composable
+private fun ResultBlockDto.renderParsedTextBlock(
+    modifier: Modifier,
+    content: @Composable (String) -> Unit,
+) {
+    val parsed = remember(blockType, data) { parseTextBlockMarkdown() }
+    if (parsed == null) {
+        BlockParseFailed(block = this, modifier = modifier)
+    } else {
+        content(parsed)
+    }
+}
+
+internal fun ResultBlockDto.parseTextBlockMarkdown(): String? =
+    parseData<TextBlockData>()?.let { data ->
+        data.text?.takeIf { it.isNotBlank() }
+            ?: data.markdown?.takeIf { it.isNotBlank() }
+    }
+
+@Composable
 private fun TextResultBlock(
-    data: TextBlockData,
+    markdown: String,
     title: String?,
     modifier: Modifier = Modifier,
 ) {
@@ -176,7 +195,7 @@ private fun TextResultBlock(
                     fontWeight = FontWeight.SemiBold,
                 )
             }
-            AgentMarkdownText(markdown = data.text, contentColor = TextPrimary)
+            AgentMarkdownText(markdown = markdown, contentColor = TextPrimary)
         }
     }
 }

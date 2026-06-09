@@ -1,6 +1,8 @@
 package com.zhihuiji.core.model.v2.agent
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -256,5 +258,35 @@ class AgentStreamEventSerializationTest {
         val blockEvent = event as AgentStreamEvent.ResultBlockEvent
         assertEquals("table", blockEvent.block.blockType)
         assertEquals("低库存商品列表", blockEvent.block.title)
+    }
+
+    @Test
+    fun decodesMarkdownResultBlockEventWithoutDroppingMarkdownPayload() {
+        val event = json.decodeFromString(
+            AgentStreamEvent.serializer(),
+            """
+            {
+              "event_type": "result_block",
+              "run_id": "run-1",
+              "block": {
+                "block_type": "markdown",
+                "title": "销售分析",
+                "data": {
+                  "markdown": "## 销售结论\n- 今日销售额 1280 元"
+                }
+              },
+              "timestamp": 1002
+            }
+            """.trimIndent()
+        )
+
+        assertTrue(event is AgentStreamEvent.ResultBlockEvent)
+        val blockEvent = event as AgentStreamEvent.ResultBlockEvent
+        assertEquals("markdown", blockEvent.block.blockType)
+        assertEquals("销售分析", blockEvent.block.title)
+        assertEquals(
+            "## 销售结论\n- 今日销售额 1280 元",
+            blockEvent.block.data!!.jsonObject["markdown"]!!.jsonPrimitive.content
+        )
     }
 }

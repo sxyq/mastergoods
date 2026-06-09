@@ -86,6 +86,33 @@ class ResultBlockRendererContractTest {
     }
 
     @Test
+    fun markdownResultBlockAcceptsMarkdownFieldAliasFromAgent() {
+        val block = ResultBlockDto(
+            blockType = "markdown",
+            title = "AI 分析",
+            data = buildJsonObject {
+                put("markdown", "## 销售结论\n- 今日销售额 1280 元")
+            }
+        )
+
+        assertEquals("## 销售结论\n- 今日销售额 1280 元", block.parseTextBlockMarkdown())
+    }
+
+    @Test
+    fun textResultBlockRejectsEmptyTextAndMarkdownInsteadOfRenderingBlankCard() {
+        val block = ResultBlockDto(
+            blockType = "markdown",
+            title = "空结果",
+            data = buildJsonObject {
+                put("text", "")
+                put("markdown", "")
+            }
+        )
+
+        assertNull(block.parseTextBlockMarkdown())
+    }
+
+    @Test
     fun evidenceCardItemKeepsAuditSummaryForFieldLevelEvidence() {
         val item = EvidenceCardBlockData.EvidenceItem(
             label = "欠款客户数 (customer_count)",

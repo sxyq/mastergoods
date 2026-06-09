@@ -18,7 +18,8 @@ data class ResultBlockDto(
 /** 纯文本块（兜底） */
 @Serializable
 data class TextBlockData(
-    val text: String,
+    val text: String? = null,
+    val markdown: String? = null,
 )
 
 /** KPI 网格块：一组关键指标卡片 */
