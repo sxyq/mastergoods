@@ -8,6 +8,7 @@ import com.zhihuiji.core.model.v2.agent.ResultBlockDto
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -132,6 +133,46 @@ class ResultBlockRendererContractTest {
         assertTrue(summary.contains("当前账号"))
         assertTrue(summary.contains("上限 10 条"))
         assertTrue(summary.contains("结果已截断"))
+    }
+
+    @Test
+    fun evidenceCardLongTextsUseCompactReadableLabelsForNarrowScreens() {
+        val item = EvidenceCardBlockData.EvidenceItem(
+            label = "超长客户名称与字段 customer_count 不应挤压金额",
+            value = "12345678901234567890123456789012345678901234567890 元",
+            source = "tool:customer_receivable_lookup_with_extremely_long_backend_source_name",
+            toolCallId = "run-contract-very-long-id:customer_receivable_lookup:0",
+            queryWindow = buildJsonObject {
+                put("owner_scope", "current_owner")
+                put("limit", 10)
+            },
+            isTruncated = true,
+        )
+
+        assertEquals("12345678901234...567890 元", item.displayValue())
+        assertEquals(
+            "来源: customer_recei...rce_name",
+            item.displaySource()
+        )
+        assertTrue(item.auditSummary()!!.contains("调用 run-contract-v...lookup:0"))
+    }
+
+    @Test
+    fun evidenceCardAuditSummaryCompactsLongFreeformOwnerScope() {
+        val item = EvidenceCardBlockData.EvidenceItem(
+            label = "范围",
+            value = "当前查询",
+            queryWindow = buildJsonObject {
+                put("owner_scope", "tenant_owner_scope_with_unusually_long_debug_suffix_1234567890")
+                put("limit", 10)
+            },
+        )
+
+        val summary = item.auditSummary()!!
+
+        assertTrue(summary.contains("tenant_owner_s...34567890"))
+        assertTrue(summary.contains("上限 10 条"))
+        assertFalse(summary.contains("tenant_owner_scope_with_unusually_long_debug_suffix_1234567890"))
     }
 
     @Test

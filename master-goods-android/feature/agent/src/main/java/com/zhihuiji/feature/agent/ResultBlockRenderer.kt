@@ -1240,19 +1240,25 @@ private fun EvidenceCardBlock(data: EvidenceCardBlockData, modifier: Modifier = 
         surfaceColor = Color(0xFFF5F8FF).copy(alpha = 0.70f),
     ) {
         Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 Icon(
                     imageVector = Icons.Default.Info,
                     contentDescription = null,
                     tint = ZhihuijiPrimary,
                     modifier = Modifier.size(16.dp)
                 )
-                Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = data.title ?: "依据",
                     style = MaterialTheme.typography.titleSmall,
                     color = TextPrimary,
                     fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
             }
             Spacer(modifier = Modifier.height(6.dp))
@@ -1264,25 +1270,33 @@ private fun EvidenceCardBlock(data: EvidenceCardBlockData, modifier: Modifier = 
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.Top,
                             ) {
                                 Text(
                                     text = item.label,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = TextSecondary,
+                                    modifier = Modifier.weight(1f),
                                 )
                                 Text(
-                                    text = item.value,
+                                    text = item.displayValue(),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = TextPrimary,
                                     fontWeight = FontWeight.SemiBold,
+                                    textAlign = TextAlign.End,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(0.78f),
                                 )
                             }
-                            if (!item.source.isNullOrBlank()) {
+                            item.displaySource()?.let { source ->
                                 Text(
-                                    text = "来源: ${item.source}",
+                                    text = source,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = TextTertiary,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                             item.auditSummary()?.let { audit ->
@@ -1290,6 +1304,8 @@ private fun EvidenceCardBlock(data: EvidenceCardBlockData, modifier: Modifier = 
                                     text = audit,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = if (item.isTruncated == true) WarningOrange else TextTertiary,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                         }
@@ -1302,17 +1318,25 @@ private fun EvidenceCardBlock(data: EvidenceCardBlockData, modifier: Modifier = 
 
 internal fun EvidenceCardBlockData.EvidenceItem.auditSummary(): String? {
     val parts = listOfNotNull(
-        toolCallId?.takeIf { it.isNotBlank() }?.let { "调用 ${it.compactMiddle()}" },
+        toolCallId?.takeIf { it.isNotBlank() }?.let { "调用 ${it.compactEvidenceText()}" },
         queryWindow?.evidenceQueryWindowSummary()?.let { "范围 $it" },
         isTruncated?.takeIf { it }?.let { "结果已截断" },
     )
     return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
 }
 
+internal fun EvidenceCardBlockData.EvidenceItem.displayValue(): String =
+    value.compactEvidenceText(maxLength = 42)
+
+internal fun EvidenceCardBlockData.EvidenceItem.displaySource(): String? =
+    source?.takeIf { it.isNotBlank() }?.let { raw ->
+        "来源: ${raw.removePrefix("tool:").compactEvidenceText(maxLength = 44)}"
+    }
+
 private fun JsonElement.evidenceQueryWindowSummary(): String? {
     val obj = this as? JsonObject ?: return compactJsonText()
     val parts = listOfNotNull(
-        obj.stringValue("owner_scope")?.let { if (it == "current_owner") "当前账号" else it },
+        obj.stringValue("owner_scope")?.let { if (it == "current_owner") "当前账号" else it.compactEvidenceText() },
         obj.intValue("window_days")?.let { "近 ${it} 天" },
         obj.intValue("limit")?.let { "上限 $it 条" },
         obj.intValue("rank_limit")?.let { "排行 $it 条" },
@@ -1494,8 +1518,8 @@ internal fun ResultBlockDto.dataPreview(): String? {
 
 private fun JsonElement.compactJsonText(maxLength: Int = 90): String? =
     toString().takeIf { it.isNotBlank() }?.let { raw ->
-        if (raw.length <= maxLength) raw else raw.take(maxLength) + "..."
+        raw.compactEvidenceText(maxLength)
     }
 
-private fun String.compactMiddle(maxLength: Int = 28): String =
+internal fun String.compactEvidenceText(maxLength: Int = 28): String =
     if (length <= maxLength) this else take(14) + "..." + takeLast(8)
