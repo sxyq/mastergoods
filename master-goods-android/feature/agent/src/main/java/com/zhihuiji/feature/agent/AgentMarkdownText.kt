@@ -315,7 +315,16 @@ private sealed interface MarkdownBlock {
     data class Table(val headers: List<String>, val rows: List<List<String>>) : MarkdownBlock
 }
 
+private val HeadingRegex = Regex("^(#{1,6})\\s+(.+)$")
+private val UnorderedListRegex = Regex("^[-*+]\\s+(.+)$")
+private val OrderedListRegex = Regex("^\\d+[.)]\\s+(.+)$")
+private val DividerRegex = Regex("^[-*_]{3,}$")
+private val TableSeparatorRegex = Regex(":?-{3,}:?")
+
 private fun parseMarkdown(markdown: String): List<MarkdownBlock> {
+    if (!hasMarkdownBlockSyntax(markdown)) {
+        return listOf(MarkdownBlock.Paragraph(markdown.trim()))
+    }
     val lines = markdown.replace("\r\n", "\n").split("\n")
     val blocks = mutableListOf<MarkdownBlock>()
     var index = 0
@@ -360,7 +369,7 @@ private fun parseMarkdown(markdown: String): List<MarkdownBlock> {
             continue
         }
 
-        if (trimmed.matches(Regex("^[-*_]{3,}$"))) {
+        if (DividerRegex.matches(trimmed)) {
             blocks += MarkdownBlock.Divider
             index++
             continue
@@ -396,7 +405,7 @@ private fun parseMarkdown(markdown: String): List<MarkdownBlock> {
         while (index < lines.size) {
             val next = lines[index].trim()
             if (next.isBlank() || next.startsWith("```") || headingMatch(next) != null ||
-                next.startsWith(">") || listMatch(next) != null || next.matches(Regex("^[-*_]{3,}$")) ||
+                next.startsWith(">") || listMatch(next) != null || DividerRegex.matches(next) ||
                 isTableStart(lines, index)
             ) {
                 break
@@ -410,16 +419,33 @@ private fun parseMarkdown(markdown: String): List<MarkdownBlock> {
     return blocks.ifEmpty { listOf(MarkdownBlock.Paragraph(markdown)) }
 }
 
+private fun hasMarkdownBlockSyntax(markdown: String): Boolean {
+    if (markdown.indexOfAny(charArrayOf('\n', '#', '-', '*', '+', '>', '`', '|')) < 0) {
+        return false
+    }
+    return markdown
+        .lineSequence()
+        .map(String::trim)
+        .any { line ->
+            line.startsWith("```") ||
+                headingMatch(line) != null ||
+                line.startsWith(">") ||
+                listMatch(line) != null ||
+                DividerRegex.matches(line) ||
+                hasTableDelimiter(line)
+        }
+}
+
 private fun headingMatch(line: String): Pair<Int, String>? {
-    val match = Regex("^(#{1,6})\\s+(.+)$").find(line) ?: return null
+    val match = HeadingRegex.find(line) ?: return null
     return match.groupValues[1].length to match.groupValues[2].trim()
 }
 
 private fun listMatch(line: String): Pair<Boolean, String>? {
-    Regex("^[-*+]\\s+(.+)$").find(line)?.let {
+    UnorderedListRegex.find(line)?.let {
         return false to it.groupValues[1].trim()
     }
-    Regex("^\\d+[.)]\\s+(.+)$").find(line)?.let {
+    OrderedListRegex.find(line)?.let {
         return true to it.groupValues[1].trim()
     }
     return null
@@ -435,7 +461,7 @@ private fun isTableStart(lines: List<String>, index: Int): Boolean {
     val separatorCells = parseTableRow(separator)
     return headerCells.size >= 2 &&
         separatorCells.size == headerCells.size &&
-        separatorCells.all { cell -> cell.trim().matches(Regex(":?-{3,}:?")) }
+        separatorCells.all { cell -> TableSeparatorRegex.matches(cell.trim()) }
 }
 
 private fun hasTableDelimiter(line: String): Boolean {
@@ -510,94 +536,100 @@ private fun String.isEscaped(index: Int): Boolean {
 }
 
 internal fun inlineMarkdown(text: String, contentColor: Color): AnnotatedString =
-    buildAnnotatedString {
-        var index = 0
-        while (index < text.length) {
-            when {
-                text.startsWith("[", index) -> {
-                    val labelEnd = text.indexOf("](", startIndex = index + 1)
-                    val urlEnd = if (labelEnd > index) text.indexOf(")", startIndex = labelEnd + 2) else -1
-                    if (labelEnd > index && urlEnd > labelEnd) {
-                        val label = text.substring(index + 1, labelEnd).ifBlank {
-                            text.substring(labelEnd + 2, urlEnd).trim()
-                        }
-                        val url = normalizeMarkdownUrl(text.substring(labelEnd + 2, urlEnd))
-                        pushLink(
-                            LinkAnnotation.Url(
-                                url = url,
-                                styles = TextLinkStyles(
-                                    style = SpanStyle(
-                                        color = ZhihuijiPrimary,
-                                        fontWeight = FontWeight.SemiBold,
-                                        textDecoration = TextDecoration.Underline,
+    if (!hasInlineMarkdownSyntax(text)) {
+        AnnotatedString(text)
+    } else {
+        buildAnnotatedString {
+            var index = 0
+            while (index < text.length) {
+                when {
+                    text.startsWith("[", index) -> {
+                        val labelEnd = text.indexOf("](", startIndex = index + 1)
+                        val urlEnd = if (labelEnd > index) text.indexOf(")", startIndex = labelEnd + 2) else -1
+                        if (labelEnd > index && urlEnd > labelEnd) {
+                            val label = text.substring(index + 1, labelEnd).ifBlank {
+                                text.substring(labelEnd + 2, urlEnd).trim()
+                            }
+                            val url = normalizeMarkdownUrl(text.substring(labelEnd + 2, urlEnd))
+                            pushLink(
+                                LinkAnnotation.Url(
+                                    url = url,
+                                    styles = TextLinkStyles(
+                                        style = SpanStyle(
+                                            color = ZhihuijiPrimary,
+                                            fontWeight = FontWeight.SemiBold,
+                                            textDecoration = TextDecoration.Underline,
+                                        )
                                     )
                                 )
                             )
-                        )
-                        append(label)
-                        if (!label.equals(url, ignoreCase = true)) {
-                            append(" ($url)")
+                            append(label)
+                            if (!label.equals(url, ignoreCase = true)) {
+                                append(" ($url)")
+                            }
+                            pop()
+                            index = urlEnd + 1
+                        } else {
+                            append(text[index])
+                            index++
                         }
-                        pop()
-                        index = urlEnd + 1
-                    } else {
-                        append(text[index])
-                        index++
                     }
-                }
 
-                text.startsWith("**", index) -> {
-                    val end = text.indexOf("**", startIndex = index + 2)
-                    if (end > index) {
-                        pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = contentColor))
-                        append(text.substring(index + 2, end))
-                        pop()
-                        index = end + 2
-                    } else {
-                        append(text[index])
-                        index++
+                    text.startsWith("**", index) -> {
+                        val end = text.indexOf("**", startIndex = index + 2)
+                        if (end > index) {
+                            pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = contentColor))
+                            append(text.substring(index + 2, end))
+                            pop()
+                            index = end + 2
+                        } else {
+                            append(text[index])
+                            index++
+                        }
                     }
-                }
 
-                text.startsWith("*", index) -> {
-                    val end = text.indexOf("*", startIndex = index + 1)
-                    if (end > index) {
-                        pushStyle(SpanStyle(fontStyle = FontStyle.Italic, color = contentColor))
-                        append(text.substring(index + 1, end))
-                        pop()
-                        index = end + 1
-                    } else {
-                        append(text[index])
-                        index++
+                    text.startsWith("*", index) -> {
+                        val end = text.indexOf("*", startIndex = index + 1)
+                        if (end > index) {
+                            pushStyle(SpanStyle(fontStyle = FontStyle.Italic, color = contentColor))
+                            append(text.substring(index + 1, end))
+                            pop()
+                            index = end + 1
+                        } else {
+                            append(text[index])
+                            index++
+                        }
                     }
-                }
 
-                text.startsWith("`", index) -> {
-                    val end = text.indexOf("`", startIndex = index + 1)
-                    if (end > index) {
-                        pushStyle(
-                            SpanStyle(
-                                fontFamily = FontFamily.Monospace,
-                                color = ZhihuijiPrimary,
-                                background = ZhihuijiPrimary.copy(alpha = 0.10f)
+                    text.startsWith("`", index) -> {
+                        val end = text.indexOf("`", startIndex = index + 1)
+                        if (end > index) {
+                            pushStyle(
+                                SpanStyle(
+                                    fontFamily = FontFamily.Monospace,
+                                    color = ZhihuijiPrimary,
+                                    background = ZhihuijiPrimary.copy(alpha = 0.10f)
+                                )
                             )
-                        )
-                        append(" ${text.substring(index + 1, end)} ")
-                        pop()
-                        index = end + 1
-                    } else {
+                            append(" ${text.substring(index + 1, end)} ")
+                            pop()
+                            index = end + 1
+                        } else {
+                            append(text[index])
+                            index++
+                        }
+                    }
+
+                    else -> {
                         append(text[index])
                         index++
                     }
-                }
-
-                else -> {
-                    append(text[index])
-                    index++
                 }
             }
         }
     }
+private fun hasInlineMarkdownSyntax(text: String): Boolean =
+    text.indexOfAny(charArrayOf('[', '*', '`')) >= 0
 
 private fun normalizeMarkdownUrl(url: String): String {
     val trimmed = url.trim()

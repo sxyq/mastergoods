@@ -1,10 +1,12 @@
 package com.zhihuiji.feature.agent
 
+import com.zhihuiji.core.model.v2.agent.RunTrace
 import com.zhihuiji.core.model.v2.agent.ToolCallRecord
 import com.zhihuiji.core.model.v2.agent.ToolCallStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Test
 
 class AgentChatScreenToolStatusTest {
@@ -133,6 +135,18 @@ class AgentChatScreenToolStatusTest {
         )
 
         assertEquals(calls, closed)
+    }
+
+    @Test
+    fun runTraceAnswerDeltaSourceOnlyCopiesWhenSourceChanges() {
+        val trace = RunTrace(runId = "run-1", answerDeltaSource = "model_stream")
+
+        assertSame(trace, trace.withAnswerDeltaSourceIfChanged("model_stream"))
+        assertSame(trace, trace.withAnswerDeltaSourceIfChanged(null))
+        assertEquals(
+            "server_notice",
+            trace.withAnswerDeltaSourceIfChanged("server_notice").answerDeltaSource
+        )
     }
 
     @Test

@@ -23,6 +23,7 @@ import com.zhihuiji.core.model.v2.agent.UpdateAgentDraftRequest
 import com.zhihuiji.data.agent.AgentAuditRepository
 import com.zhihuiji.data.agent.AgentV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
@@ -105,10 +107,13 @@ class AgentChatViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null, conversationId = conversationId) }
             repository.listMessages(conversationId)
                 .onSuccess { messages ->
+                    val chatMessages = withContext(Dispatchers.Default) {
+                        messages.map { dto -> dto.toChatMessage() }
+                    }
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            messages = messages.map { dto -> dto.toChatMessage() },
+                            messages = chatMessages,
                         )
                     }
                 }
@@ -418,7 +423,7 @@ class AgentChatViewModel @Inject constructor(
                     deltaSource = event.deltaSource,
                 )
                 updateRunTrace(assistantMessageId) { trace ->
-                    trace.copy(answerDeltaSource = event.deltaSource ?: trace.answerDeltaSource)
+                    trace.withAnswerDeltaSourceIfChanged(event.deltaSource)
                 }
             }
 
@@ -918,6 +923,15 @@ internal fun List<ToolCallRecord>.closeOpenToolCalls(
             call
         }
     }
+
+internal fun RunTrace.withAnswerDeltaSourceIfChanged(deltaSource: String?): RunTrace {
+    val nextSource = deltaSource ?: answerDeltaSource
+    return if (nextSource == answerDeltaSource) {
+        this
+    } else {
+        copy(answerDeltaSource = nextSource)
+    }
+}
 
 private fun AgentMessageDto.toChatMessage(): ChatMessage {
     val parsedBlocks = parseStoredResultBlocks(structuredDataJson)

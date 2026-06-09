@@ -192,6 +192,36 @@ class AgentChatResponseSerializationTest {
     }
 
     @Test
+    fun decodesMarkdownResultBlockDataFromNonStreamingResponse() {
+        val response = json.decodeFromString(
+            AgentChatResponse.serializer(),
+            """
+            {
+              "run_id": "run-markdown-1",
+              "conversation_id": 101,
+              "answer": "已完成分析。",
+              "safety_passed": true,
+              "result_blocks": [
+                {
+                  "block_type": "markdown",
+                  "title": "销售分析",
+                  "data": {
+                    "markdown": "## 销售结论\n- 今日销售额 1280 元"
+                  }
+                }
+              ]
+            }
+            """.trimIndent()
+        )
+
+        val markdownBlock = Json.decodeFromJsonElement<TextBlockData>(response.resultBlocks.single().data!!)
+
+        assertEquals("markdown", response.resultBlocks.single().blockType)
+        assertEquals("## 销售结论\n- 今日销售额 1280 元", markdownBlock.markdown)
+        assertEquals(null, markdownBlock.text)
+    }
+
+    @Test
     fun decodesLegacyNonStreamingResponseWithoutAgentAuditFields() {
         val response = json.decodeFromString(
             AgentChatResponse.serializer(),

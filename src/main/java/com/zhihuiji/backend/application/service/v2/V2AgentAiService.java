@@ -79,6 +79,7 @@ public class V2AgentAiService {
     private static final int OVERVIEW_SIGNAL_LIMIT = 5;
     private static final int AUDIT_WRITE_THREADS = 2;
     private static final int AUDIT_WRITE_QUEUE_CAPACITY = 512;
+    private static final int ANSWER_DELTA_BATCH_CHAR_THRESHOLD = 24;
     private static final String RULE_SUMMARY_NOTICE = "说明：本回答为真实数据查询后的规则摘要，当前未使用模型生成。";
 
     private final CurrentOwnerService currentOwnerService;
@@ -1535,14 +1536,16 @@ public class V2AgentAiService {
         String systemPrompt = finalAnswerSystemPrompt();
         String prompt = finalAnswerUserPrompt(userMessage, payload, synthesizedWithFailures);
         StringBuilder streamedAnswer = new StringBuilder();
+        AnswerDeltaBatcher answerDeltaBatcher = new AnswerDeltaBatcher(emitter, runId);
         Optional<String> streamed = longCatAnthropicClient.streamTextMessage(systemPrompt, prompt, delta -> {
             ensureRunActive(runId);
             streamedAnswer.append(delta);
-            emitAnswerDeltaUnchecked(emitter, runId, delta, "model_stream");
-            if (StringUtils.hasText(delta)) {
+            boolean emittedVisibleDelta = answerDeltaBatcher.accept(delta, "model_stream");
+            if (emittedVisibleDelta) {
                 onFirstModelDelta.run();
             }
         });
+        answerDeltaBatcher.flush();
         return streamed
             .filter(StringUtils::hasText)
             .map(String::trim)
@@ -2385,6 +2388,48 @@ public class V2AgentAiService {
             )));
         } catch (IOException ex) {
             throw new IllegalStateException("发送 answer_delta 失败", ex);
+        }
+    }
+
+    private final class AnswerDeltaBatcher {
+        private final SseEmitter emitter;
+        private final String runId;
+        private final StringBuilder buffer = new StringBuilder();
+        private String deltaSource;
+        private boolean emittedAnyDelta;
+
+        private AnswerDeltaBatcher(SseEmitter emitter, String runId) {
+            this.emitter = emitter;
+            this.runId = runId;
+        }
+
+        private boolean accept(String delta, String nextDeltaSource) {
+            if (!StringUtils.hasText(delta)) {
+                return false;
+            }
+            if (!StringUtils.hasText(deltaSource)) {
+                deltaSource = nextDeltaSource;
+            }
+            if (!deltaSource.equals(nextDeltaSource)) {
+                flush();
+                deltaSource = nextDeltaSource;
+            }
+            buffer.append(delta);
+            if (!emittedAnyDelta || buffer.length() >= ANSWER_DELTA_BATCH_CHAR_THRESHOLD) {
+                flush();
+                return true;
+            }
+            return false;
+        }
+
+        private void flush() {
+            if (!StringUtils.hasText(buffer.toString())) {
+                buffer.setLength(0);
+                return;
+            }
+            emitAnswerDeltaUnchecked(emitter, runId, buffer.toString(), deltaSource);
+            buffer.setLength(0);
+            emittedAnyDelta = true;
         }
     }
 

@@ -340,6 +340,43 @@ class V2AgentAiServiceTest {
     }
 
     @Test
+    void streamModelAnswerBatchesSmallDeltasWithoutDelayingFirstVisibleAnswer() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(customer(1L, "客户A", 100.0)));
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+            .thenAnswer(invocation -> {
+                @SuppressWarnings("unchecked")
+                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                onDelta.accept("客户A");
+                onDelta.accept("应收");
+                onDelta.accept("100");
+                onDelta.accept("元");
+                onDelta.accept("，建议跟进。");
+                return Optional.of("客户A应收100元，建议跟进。");
+            });
+        CapturingEmitter emitter = new CapturingEmitter();
+
+        service.runChatStream(1L, conversation(112L), "客户应收情况", "run-model-batch", emitter);
+
+        List<String> modelDeltaPayloads = emitter.payloads.stream()
+            .filter(payload -> payload.contains("\"event_type\":\"answer_delta\""))
+            .filter(payload -> payload.contains("\"delta_source\":\"model_stream\""))
+            .toList();
+        assertTrue(modelDeltaPayloads.size() < 5, String.join("\n", emitter.payloads));
+        assertTrue(modelDeltaPayloads.stream().anyMatch(payload -> payload.contains("客户A")), String.join("\n", modelDeltaPayloads));
+        assertTrue(modelDeltaPayloads.stream().anyMatch(payload -> payload.contains("建议跟进")), String.join("\n", modelDeltaPayloads));
+        assertTrue(
+            firstPayloadIndex(emitter, "\"event_type\":\"answer_delta\"")
+                < firstPayloadIndex(emitter, "\"event_type\":\"result_block\""),
+            String.join("\n", emitter.payloads)
+        );
+        assertTrue(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())
+            && event.getPayloadJson().contains("建议跟进")));
+    }
+
+    @Test
     void streamInterruptedAfterVisibleModelDeltaKeepsPartialAnswerAndBlocksAfterText() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);

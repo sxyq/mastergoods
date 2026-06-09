@@ -57,6 +57,33 @@ class AgentMarkdownTextParserTest {
     }
 
     @Test
+    fun parseMarkdownKeepsPlainStreamingTextAsSingleParagraph() {
+        val blocks = parseMarkdownBlocks("正在基于真实销售记录分析，本周销售额持续回升。")
+
+        assertEquals(listOf("Paragraph"), blocks.map { it.javaClass.simpleName })
+        assertEquals("正在基于真实销售记录分析，本周销售额持续回升。", paragraphText(blocks.single()))
+    }
+
+    @Test
+    fun parseMarkdownFastPathStillAllowsInlineMarkdownInsideParagraph() {
+        val blocks = parseMarkdownBlocks("客户 **张三** 的 `receivable` 为 [1280 元](https://example.com/r/1)。")
+
+        assertEquals(listOf("Paragraph"), blocks.map { it.javaClass.simpleName })
+        assertEquals("客户 **张三** 的 `receivable` 为 [1280 元](https://example.com/r/1)。", paragraphText(blocks.single()))
+        assertEquals(
+            "客户 张三 的  receivable  为 1280 元 (https://example.com/r/1)。",
+            inlineMarkdownText(paragraphText(blocks.single()))
+        )
+    }
+
+    @Test
+    fun inlineMarkdownKeepsPlainStreamingTextWithoutInlineScanChanges() {
+        val rendered = inlineMarkdownText("正在基于真实销售记录分析，本周销售额持续回升。")
+
+        assertEquals("正在基于真实销售记录分析，本周销售额持续回升。", rendered)
+    }
+
+    @Test
     fun inlineMarkdownShowsLinkLabelAndVisibleUrl() {
         val rendered = inlineMarkdownText("查看[官方文档](https://example.com/docs)后继续。")
 
@@ -126,6 +153,12 @@ class AgentMarkdownTextParserTest {
     }
 
     private fun headingText(block: Any): String {
+        val textProperty = block.javaClass.getDeclaredMethod("getText")
+        textProperty.isAccessible = true
+        return textProperty.invoke(block) as String
+    }
+
+    private fun paragraphText(block: Any): String {
         val textProperty = block.javaClass.getDeclaredMethod("getText")
         textProperty.isAccessible = true
         return textProperty.invoke(block) as String
