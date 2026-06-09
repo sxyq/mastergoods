@@ -20,6 +20,7 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
+import okhttp3.ResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -50,6 +51,36 @@ class AgentSseClientCancellationTest {
             collectJob.cancelAndJoin()
 
             assertTrue("Cancelling the Flow must cancel the underlying OkHttp Call", call.awaitCancel())
+        } finally {
+            streamDispatcher.close()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class, DelicateCoroutinesApi::class)
+    @Test
+    fun chatStream_cancelsUnderlyingOkHttpCallWhileReadingResponseBody() = runBlocking {
+        val bodyReadStarted = CountDownLatch(1)
+        val call = BlockingBodyCall(bodyReadStarted)
+        val streamDispatcher = newSingleThreadContext("agent-sse-body-read-test")
+        try {
+            val client = AgentSseClient(
+                okHttpClient = OkHttpClient(),
+                json = Json { ignoreUnknownKeys = true },
+                baseUrlProvider = { "http://localhost" },
+                callFactory = { _, _ -> call },
+                streamDispatcher = streamDispatcher,
+            )
+
+            val collectJob = launch {
+                client.chatStream("""{"message":"销售趋势","stream":true}""").collect {}
+            }
+            yield()
+
+            assertTrue("SSE body read did not start", bodyReadStarted.await(3, TimeUnit.SECONDS))
+
+            collectJob.cancelAndJoin()
+
+            assertTrue("Cancelling during response-body read must cancel the underlying OkHttp Call", call.awaitCancel())
         } finally {
             streamDispatcher.close()
         }
@@ -204,5 +235,67 @@ class AgentSseClientCancellationTest {
         override fun timeout(): okio.Timeout = okio.Timeout.NONE
 
         override fun clone(): Call = StaticBodyCall(request, body)
+    }
+
+    private class BlockingBodyCall(
+        private val bodyReadStarted: CountDownLatch,
+    ) : Call {
+        private val cancelCalled = CountDownLatch(1)
+        private val request = Request.Builder().url("http://localhost/v2/agent/chat/stream").build()
+
+        override fun request(): Request = request
+
+        override fun execute(): Response =
+            Response.Builder()
+                .request(request)
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .body(object : ResponseBody() {
+                    override fun contentType() = "text/event-stream".toMediaType()
+
+                    override fun contentLength(): Long = -1L
+
+                    @Suppress("DEPRECATION_ERROR")
+                    override fun source(): okio.BufferedSource {
+                        val source = object : okio.Source {
+                            private var emittedFirstEvent = false
+
+                            override fun read(sink: okio.Buffer, byteCount: Long): Long {
+                                if (!emittedFirstEvent) {
+                                    emittedFirstEvent = true
+                                    return okio.Buffer()
+                                        .writeUtf8("""data: {"event_type":"answer_delta","run_id":"run-1","delta":"真实","delta_source":"model_stream"}""" + "\n\n")
+                                        .read(sink, byteCount)
+                                }
+                                bodyReadStarted.countDown()
+                                cancelCalled.await(3, TimeUnit.SECONDS)
+                                throw IOException("cancelled while reading body")
+                            }
+
+                            override fun timeout(): okio.Timeout = okio.Timeout.NONE
+
+                            override fun close() = Unit
+                        }
+                        return okio.Okio.buffer(source)
+                    }
+                })
+                .build()
+
+        override fun enqueue(responseCallback: okhttp3.Callback) = error("Not used")
+
+        override fun cancel() {
+            cancelCalled.countDown()
+        }
+
+        override fun isExecuted(): Boolean = true
+
+        override fun isCanceled(): Boolean = cancelCalled.count == 0L
+
+        override fun timeout(): okio.Timeout = okio.Timeout.NONE
+
+        override fun clone(): Call = this
+
+        fun awaitCancel(): Boolean = cancelCalled.await(3, TimeUnit.SECONDS)
     }
 }

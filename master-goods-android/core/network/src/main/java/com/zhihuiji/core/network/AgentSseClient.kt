@@ -8,6 +8,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.job
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import okhttp3.Call
@@ -64,6 +65,11 @@ class AgentSseClient(
 
         val call = callFactory(streamingOkHttpClient, request)
         try {
+            currentCoroutineContext().job.invokeOnCompletion { cause ->
+                if (cause != null && !call.isCanceled()) {
+                    call.cancel()
+                }
+            }
             call.executeCancellable().use { response ->
                 if (!response.isSuccessful) {
                     throw NetworkException(
@@ -88,6 +94,7 @@ class AgentSseClient(
                 }
 
                 while (!source.exhausted()) {
+                    currentCoroutineContext().ensureActive()
                     val line = source.readUtf8Line() ?: break
 
                     // 标准 SSE 以空行结束一个事件；后端当前单行 data 也兼容这个路径。

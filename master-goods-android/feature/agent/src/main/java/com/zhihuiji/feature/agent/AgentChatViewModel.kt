@@ -746,6 +746,10 @@ class AgentChatViewModel @Inject constructor(
     }
 
     fun stopGeneration() {
+        stopActiveGeneration(showStatus = true)
+    }
+
+    private fun stopActiveGeneration(showStatus: Boolean) {
         flushPendingAnswerDelta()
         val runId = _uiState.value.currentRunId
         val cancellingAuditBuilder = currentAuditBuilder
@@ -759,13 +763,17 @@ class AgentChatViewModel @Inject constructor(
                             "已停止本机接收，服务端取消未确认：${response.status}"
                         }
                         cancellingAuditBuilder?.errorInfo = ErrorAuditInfo(message = message)
-                        _uiState.update { it.copy(error = message) }
+                        if (showStatus) {
+                            _uiState.update { it.copy(error = message) }
+                        }
                         cancellingAuditBuilder?.let(::saveAuditRecord)
                     }
                     .onFailure { error ->
                         val message = "已停止本机接收，服务端取消失败：${error.message ?: "未知错误"}"
                         cancellingAuditBuilder?.errorInfo = ErrorAuditInfo(message = message)
-                        _uiState.update { it.copy(error = message) }
+                        if (showStatus) {
+                            _uiState.update { it.copy(error = message) }
+                        }
                         cancellingAuditBuilder?.let(::saveAuditRecord)
                     }
             }
@@ -805,7 +813,7 @@ class AgentChatViewModel @Inject constructor(
                 isStreaming = false,
                 canStop = false,
                 currentRunId = null,
-                error = LOCAL_STREAM_STOP_MESSAGE,
+                error = if (showStatus) LOCAL_STREAM_STOP_MESSAGE else state.error,
             )
         }
     }
@@ -815,7 +823,11 @@ class AgentChatViewModel @Inject constructor(
     }
 
     fun clearMessages() {
-        chatJob?.cancel()
+        if (shouldCancelServerRunBeforeClearing(_uiState.value, chatJob?.isActive == true)) {
+            stopActiveGeneration(showStatus = false)
+        } else {
+            chatJob?.cancel()
+        }
         clearPendingAnswerDelta()
         _uiState.update {
             it.copy(
@@ -1015,6 +1027,11 @@ internal fun shouldReuseLoadedConversation(
     conversationId: Long,
 ): Boolean =
     state.conversationId == conversationId && state.messages.isNotEmpty()
+
+internal fun shouldCancelServerRunBeforeClearing(
+    state: AgentChatUiState,
+    chatJobActive: Boolean,
+): Boolean = state.isStreaming || chatJobActive
 
 internal fun ChatMessage.withSafetyBlockedResult(
     safetyResult: SafetyResult,

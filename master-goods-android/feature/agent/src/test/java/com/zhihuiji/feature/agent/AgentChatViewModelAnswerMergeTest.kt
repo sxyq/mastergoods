@@ -398,6 +398,28 @@ class AgentChatViewModelAnswerMergeTest {
     }
 
     @Test
+    fun clearMessagesShouldCancelServerRunWhenStreamIsActive() {
+        assertTrue(
+            shouldCancelServerRunBeforeClearing(
+                state = AgentChatUiState(isStreaming = true),
+                chatJobActive = false,
+            )
+        )
+        assertTrue(
+            shouldCancelServerRunBeforeClearing(
+                state = AgentChatUiState(isStreaming = false),
+                chatJobActive = true,
+            )
+        )
+        assertFalse(
+            shouldCancelServerRunBeforeClearing(
+                state = AgentChatUiState(isStreaming = false),
+                chatJobActive = false,
+            )
+        )
+    }
+
+    @Test
     fun safetyBlockedResultStopsAssistantStreamingAndShowsHonestError() {
         val message = chatMessage(
             id = "assistant",
