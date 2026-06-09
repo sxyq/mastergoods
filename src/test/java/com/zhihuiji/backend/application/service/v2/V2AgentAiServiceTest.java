@@ -48,8 +48,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
@@ -87,7 +93,7 @@ class V2AgentAiServiceTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         runAudits = new HashMap<>();
-        runAuditEvents = new ArrayList<>();
+        runAuditEvents = new CopyOnWriteArrayList<>();
         service = new V2AgentAiService(
             currentOwnerService,
             agentConversationRepository,
@@ -145,6 +151,12 @@ class V2AgentAiServiceTest {
                 .filter(event -> runId.equals(event.getRunId()))
                 .sorted((left, right) -> Integer.compare(left.getSeq(), right.getSeq()))
                 .toList();
+        });
+        when(agentRunAuditEventRepository.countByRunId(anyString())).thenAnswer(invocation -> {
+            String runId = invocation.getArgument(0, String.class);
+            return runAuditEvents.stream()
+                .filter(event -> runId.equals(event.getRunId()))
+                .count();
         });
     }
 
@@ -541,6 +553,153 @@ class V2AgentAiServiceTest {
             && event.getPayloadJson().contains("\"tool_name\":\"customer_receivable_lookup\"")));
         assertTrue(events.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())
             && event.getPayloadJson().contains("\"delta_source\":\"model_stream\"")));
+        assertSequentialAuditEvents("run-envelope", events);
+    }
+
+    @Test
+    void slowAuditEventWriteDoesNotBlockVisibleStreamPayloads() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(customer(1L, "客户A", 100.0)));
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+            .thenAnswer(invocation -> {
+                @SuppressWarnings("unchecked")
+                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                onDelta.accept("客户A");
+                return Optional.of("客户A应收100元");
+            });
+        CountDownLatch firstAuditWriteStarted = new CountDownLatch(1);
+        CountDownLatch releaseFirstAuditWrite = new CountDownLatch(1);
+        AtomicBoolean blockedFirstWrite = new AtomicBoolean(false);
+        when(agentRunAuditEventRepository.save(any(AgentRunAuditEventEntity.class))).thenAnswer(invocation -> {
+            AgentRunAuditEventEntity entity = invocation.getArgument(0);
+            if (blockedFirstWrite.compareAndSet(false, true)) {
+                firstAuditWriteStarted.countDown();
+                assertTrue(releaseFirstAuditWrite.await(2, TimeUnit.SECONDS));
+            }
+            runAuditEvents.add(entity);
+            return entity;
+        });
+        CapturingEmitter emitter = new CapturingEmitter();
+
+        CompletableFuture<Void> streamFuture = CompletableFuture.runAsync(() -> {
+            try {
+                service.runChatStream(1L, conversation(107L), "客户应收情况", "run-slow-audit", emitter);
+            } catch (IOException ex) {
+                throw new IllegalStateException(ex);
+            }
+        });
+
+        assertTrue(firstAuditWriteStarted.await(1, TimeUnit.SECONDS));
+        try {
+            assertTrue(
+                waitUntilPayloadContains(emitter, "\"event_type\":\"run_completed\"", 1, TimeUnit.SECONDS),
+                "SSE payloads should keep flowing while the first audit write is blocked: " + emitter.snapshotPayloads()
+            );
+            assertFalse(streamFuture.isDone(), "run should wait for audit drain only at finishRunAudit");
+        } finally {
+            releaseFirstAuditWrite.countDown();
+        }
+        streamFuture.get(2, TimeUnit.SECONDS);
+
+        AgentRunAuditEntity audit = runAudits.get("run-slow-audit");
+        assertNotNull(audit);
+        assertEquals("completed", audit.getStatus());
+        List<AgentRunAuditEventEntity> events = runAuditEvents.stream()
+            .filter(event -> "run-slow-audit".equals(event.getRunId()))
+            .toList();
+        assertEquals(audit.getEventCount(), events.size());
+        assertTrue(events.stream().anyMatch(event -> "run_completed".equals(event.getEventType())));
+        assertSequentialAuditEvents("run-slow-audit", events);
+    }
+
+    @Test
+    void failedAuditEventWriteDoesNotFailStreamOrPoisonLaterEvents() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(customer(1L, "客户A", 100.0)));
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+            .thenAnswer(invocation -> {
+                @SuppressWarnings("unchecked")
+                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                onDelta.accept("客户A");
+                return Optional.of("客户A应收100元");
+            });
+        AtomicBoolean failFirstWrite = new AtomicBoolean(true);
+        when(agentRunAuditEventRepository.save(any(AgentRunAuditEventEntity.class))).thenAnswer(invocation -> {
+            AgentRunAuditEventEntity entity = invocation.getArgument(0);
+            if (failFirstWrite.getAndSet(false)) {
+                throw new IllegalStateException("simulated audit write failure");
+            }
+            runAuditEvents.add(entity);
+            return entity;
+        });
+        CapturingEmitter emitter = new CapturingEmitter();
+
+        service.runChatStream(1L, conversation(108L), "客户应收情况", "run-audit-write-failure", emitter);
+
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"event_type\":\"run_completed\"")));
+        AgentRunAuditEntity audit = runAudits.get("run-audit-write-failure");
+        assertNotNull(audit);
+        assertEquals("completed", audit.getStatus());
+        assertNull(audit.getErrorCode());
+        assertNull(audit.getErrorMessage());
+        assertEquals(0, audit.getAuditWriteDroppedCount());
+        assertEquals(1, audit.getAuditWriteFailedCount());
+        assertEquals(true, audit.getAuditLossy());
+        assertTrue(audit.getEmittedEventCount() > audit.getEventCount());
+        List<AgentRunAuditEventEntity> events = runAuditEvents.stream()
+            .filter(event -> "run-audit-write-failure".equals(event.getRunId()))
+            .toList();
+        assertEquals(audit.getEventCount(), events.size());
+        assertTrue(events.stream().anyMatch(event -> "run_completed".equals(event.getEventType())));
+        assertOrderedPersistedAuditEvents("run-audit-write-failure", events);
+    }
+
+    @Test
+    void rejectedAuditWriteRecordsDropNoticeWithoutFailingStream() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(customer(1L, "客户A", 100.0)));
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+            .thenAnswer(invocation -> {
+                @SuppressWarnings("unchecked")
+                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                onDelta.accept("客户A");
+                return Optional.of("客户A应收100元");
+            });
+        replaceAuditWriteExecutor(new RejectingThreadPoolExecutor());
+        CapturingEmitter emitter = new CapturingEmitter();
+
+        service.runChatStream(1L, conversation(109L), "客户应收情况", "run-audit-rejected", emitter);
+
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"event_type\":\"run_completed\"")));
+        AgentRunAuditEntity audit = runAudits.get("run-audit-rejected");
+        assertNotNull(audit);
+        assertEquals("completed", audit.getStatus());
+        assertNull(audit.getErrorCode());
+        assertNull(audit.getErrorMessage());
+        assertEquals(0, audit.getEventCount());
+        assertTrue(audit.getEmittedEventCount() > audit.getEventCount());
+        assertEquals(0, audit.getAuditWriteFailedCount());
+        assertTrue(audit.getAuditWriteDroppedCount() > 0);
+        assertEquals(true, audit.getAuditLossy());
+        assertEquals(0, runAuditEvents.stream().filter(event -> "run-audit-rejected".equals(event.getRunId())).count());
+
+        V2AgentDtos.AgentRunAuditResponse response = service.getRunAudit("run-audit-rejected");
+        assertEquals("completed", response.status());
+        assertNull(response.errorCode());
+        assertNull(response.errorMessage());
+        assertEquals(0, response.eventCount());
+        assertTrue(response.emittedEventCount() > response.eventCount());
+        assertEquals(0, response.auditWriteFailedCount());
+        assertTrue(response.auditWriteDroppedCount() > 0);
+        assertEquals(true, response.auditLossy());
+        assertTrue(response.warnings().stream().anyMatch(warning -> warning.startsWith("audit_events_dropped:")));
+        assertEquals(0, response.events().size());
     }
 
     @Test
@@ -859,6 +1018,11 @@ class V2AgentAiServiceTest {
         assertEquals("run-audit-read:audit", response.auditId());
         assertEquals("run-audit-read:trace", response.traceId());
         assertTrue(response.eventCount() > 0);
+        assertEquals(response.eventCount(), response.emittedEventCount());
+        assertEquals(0, response.auditWriteDroppedCount());
+        assertEquals(0, response.auditWriteFailedCount());
+        assertEquals(false, response.auditLossy());
+        assertTrue(response.warnings().isEmpty());
         assertEquals(response.eventCount(), response.events().size());
         assertEquals("run_started", response.events().get(0).eventType());
         assertEquals("run-audit-read", response.events().get(0).payload().path("run_id").asText());
@@ -905,6 +1069,14 @@ class V2AgentAiServiceTest {
         activeRuns.put(runId, constructor.newInstance(ownerUserId, runId, conversationId, emitter));
     }
 
+    private void replaceAuditWriteExecutor(ThreadPoolExecutor executor) throws Exception {
+        Field auditExecutorField = V2AgentAiService.class.getDeclaredField("auditWriteExecutor");
+        auditExecutorField.setAccessible(true);
+        ThreadPoolExecutor previous = (ThreadPoolExecutor) auditExecutorField.get(service);
+        previous.shutdownNow();
+        auditExecutorField.set(service, executor);
+    }
+
     private static String firstPayload(CapturingEmitter emitter, String marker) {
         return emitter.payloads.stream()
             .filter(payload -> payload.contains(marker))
@@ -937,6 +1109,41 @@ class V2AgentAiServiceTest {
         return emitter.payloads.stream()
             .filter(payload -> payload.contains("\"event_type\":\"answer_delta\""))
             .toList();
+    }
+
+    private static void assertSequentialAuditEvents(String runId, List<AgentRunAuditEventEntity> events) {
+        List<AgentRunAuditEventEntity> sorted = events.stream()
+            .sorted((left, right) -> Integer.compare(left.getSeq(), right.getSeq()))
+            .toList();
+        for (int index = 0; index < sorted.size(); index++) {
+            int expectedSeq = index + 1;
+            assertEquals(expectedSeq, sorted.get(index).getSeq());
+            assertEquals(runId + ":" + expectedSeq, sorted.get(index).getEventId());
+        }
+    }
+
+    private static void assertOrderedPersistedAuditEvents(String runId, List<AgentRunAuditEventEntity> events) {
+        List<AgentRunAuditEventEntity> sorted = events.stream()
+            .sorted((left, right) -> Integer.compare(left.getSeq(), right.getSeq()))
+            .toList();
+        int previousSeq = 0;
+        for (AgentRunAuditEventEntity event : sorted) {
+            assertTrue(event.getSeq() > previousSeq);
+            assertEquals(runId + ":" + event.getSeq(), event.getEventId());
+            previousSeq = event.getSeq();
+        }
+    }
+
+    private static boolean waitUntilPayloadContains(CapturingEmitter emitter, String marker, long timeout, TimeUnit unit)
+        throws InterruptedException {
+        long deadline = System.nanoTime() + unit.toNanos(timeout);
+        while (System.nanoTime() < deadline) {
+            if (emitter.containsPayload(marker)) {
+                return true;
+            }
+            Thread.sleep(10L);
+        }
+        return emitter.containsPayload(marker);
     }
 
     private static AgentConversationEntity conversation(Long id) {
@@ -1022,9 +1229,39 @@ class V2AgentAiServiceTest {
             }
         }
 
+        private synchronized boolean containsPayload(String marker) {
+            return payloads.stream().anyMatch(payload -> payload.contains(marker));
+        }
+
+        private synchronized List<String> snapshotPayloads() {
+            return List.copyOf(payloads);
+        }
+
         @Override
         public void complete() {
             completed = true;
+        }
+    }
+
+    private static final class RejectingThreadPoolExecutor extends ThreadPoolExecutor {
+        private RejectingThreadPoolExecutor() {
+            super(
+                1,
+                1,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(1),
+                runnable -> {
+                    Thread thread = new Thread(runnable, "rejecting-audit-write");
+                    thread.setDaemon(true);
+                    return thread;
+                }
+            );
+        }
+
+        @Override
+        public void execute(Runnable command) {
+            throw new RejectedExecutionException("test rejection");
         }
     }
 }

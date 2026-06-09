@@ -62,6 +62,18 @@ public class AgentRunAuditEntity {
     @Column(name = "event_count", nullable = false)
     private Integer eventCount;
 
+    @Column(name = "audit_write_dropped_count", nullable = false)
+    private Integer auditWriteDroppedCount;
+
+    @Column(name = "audit_write_failed_count", nullable = false)
+    private Integer auditWriteFailedCount;
+
+    @Column(name = "audit_lossy", nullable = false)
+    private Boolean auditLossy;
+
+    @Column(name = "emitted_event_count", nullable = false)
+    private Integer emittedEventCount;
+
     public Long getId() { return id; }
     public Long getOwnerUserId() { return ownerUserId; }
     public void setOwnerUserId(Long ownerUserId) { this.ownerUserId = ownerUserId; }
@@ -95,4 +107,12 @@ public class AgentRunAuditEntity {
     public void setUpdatedAt(Long updatedAt) { this.updatedAt = updatedAt; }
     public Integer getEventCount() { return eventCount; }
     public void setEventCount(Integer eventCount) { this.eventCount = eventCount; }
+    public Integer getAuditWriteDroppedCount() { return auditWriteDroppedCount; }
+    public void setAuditWriteDroppedCount(Integer auditWriteDroppedCount) { this.auditWriteDroppedCount = auditWriteDroppedCount; }
+    public Integer getAuditWriteFailedCount() { return auditWriteFailedCount; }
+    public void setAuditWriteFailedCount(Integer auditWriteFailedCount) { this.auditWriteFailedCount = auditWriteFailedCount; }
+    public Boolean getAuditLossy() { return auditLossy; }
+    public void setAuditLossy(Boolean auditLossy) { this.auditLossy = auditLossy; }
+    public Integer getEmittedEventCount() { return emittedEventCount; }
+    public void setEmittedEventCount(Integer emittedEventCount) { this.emittedEventCount = emittedEventCount; }
 }

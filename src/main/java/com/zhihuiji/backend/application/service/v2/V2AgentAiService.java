@@ -48,11 +48,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
 import jakarta.annotation.PreDestroy;
@@ -73,6 +77,8 @@ public class V2AgentAiService {
     private static final int DEFAULT_TOOL_LIMIT = 10;
     private static final int SUPPLIER_SCAN_LIMIT = 50;
     private static final int OVERVIEW_SIGNAL_LIMIT = 5;
+    private static final int AUDIT_WRITE_THREADS = 2;
+    private static final int AUDIT_WRITE_QUEUE_CAPACITY = 512;
     private static final String RULE_SUMMARY_NOTICE = "说明：本回答为真实数据查询后的规则摘要，当前未使用模型生成。";
 
     private final CurrentOwnerService currentOwnerService;
@@ -95,6 +101,15 @@ public class V2AgentAiService {
     private final LongCatAnthropicClient longCatAnthropicClient;
     private final Map<String, ActiveAgentRun> activeRuns = new ConcurrentHashMap<>();
     private final ExecutorService streamExecutor = Executors.newFixedThreadPool(4, namedThreadFactory("agent-sse-stream"));
+    private ThreadPoolExecutor auditWriteExecutor = new ThreadPoolExecutor(
+        AUDIT_WRITE_THREADS,
+        AUDIT_WRITE_THREADS,
+        0L,
+        TimeUnit.MILLISECONDS,
+        new ArrayBlockingQueue<>(AUDIT_WRITE_QUEUE_CAPACITY),
+        namedThreadFactory("agent-audit-write"),
+        new ThreadPoolExecutor.AbortPolicy()
+    );
 
     public V2AgentAiService(
         CurrentOwnerService currentOwnerService,
@@ -139,6 +154,15 @@ public class V2AgentAiService {
     @PreDestroy
     public void shutdownStreamExecutor() {
         streamExecutor.shutdownNow();
+        auditWriteExecutor.shutdown();
+        try {
+            if (!auditWriteExecutor.awaitTermination(2, TimeUnit.SECONDS)) {
+                auditWriteExecutor.shutdownNow();
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            auditWriteExecutor.shutdownNow();
+        }
     }
 
     private static ThreadFactory namedThreadFactory(String prefix) {
@@ -405,6 +429,7 @@ public class V2AgentAiService {
     public V2AgentDtos.AgentRunAuditResponse getRunAudit(String runId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         String normalizedRunId = normalizeRequired(runId, "run_id 不能为空");
+        awaitRunAuditEvents(normalizedRunId);
         AgentRunAuditEntity audit = agentRunAuditRepository.findByRunIdAndOwnerUserId(normalizedRunId, ownerUserId)
             .orElseThrow(() -> new IllegalArgumentException("run audit not found"));
         List<V2AgentDtos.AgentRunAuditEventResponse> events = agentRunAuditEventRepository
@@ -422,6 +447,11 @@ public class V2AgentAiService {
             audit.getPlanSource(),
             audit.getToolCount(),
             audit.getEventCount(),
+            audit.getAuditWriteDroppedCount(),
+            audit.getAuditWriteFailedCount(),
+            Boolean.TRUE.equals(audit.getAuditLossy()),
+            audit.getEmittedEventCount(),
+            auditWarnings(audit),
             audit.getAuditId(),
             audit.getTraceId(),
             audit.getErrorCode(),
@@ -2376,7 +2406,7 @@ public class V2AgentAiService {
         String payloadJson = objectMapper.writeValueAsString(payload);
         emitter.send(SseEmitter.event().data(payloadJson));
         if (runId instanceof String runIdText) {
-            persistRunAuditEvent(runIdText, payload, payloadJson);
+            queueRunAuditEvent(runIdText, payload, payloadJson);
         }
     }
 
@@ -2391,6 +2421,10 @@ public class V2AgentAiService {
         entity.setStartedAt(startedAt);
         entity.setUpdatedAt(startedAt);
         entity.setEventCount(0);
+        entity.setAuditWriteDroppedCount(0);
+        entity.setAuditWriteFailedCount(0);
+        entity.setAuditLossy(false);
+        entity.setEmittedEventCount(0);
         agentRunAuditRepository.save(entity);
     }
 
@@ -2412,6 +2446,7 @@ public class V2AgentAiService {
         String errorMessage,
         long completedAt
     ) {
+        awaitRunAuditEvents(runId);
         agentRunAuditRepository.findByRunIdAndOwnerUserId(runId, ownerUserId).ifPresent(entity -> {
             entity.setStatus(status);
             entity.setMode(mode);
@@ -2422,17 +2457,58 @@ public class V2AgentAiService {
             entity.setErrorMessage(truncate(errorMessage, 1000));
             entity.setCompletedAt(completedAt);
             entity.setUpdatedAt(completedAt);
-            entity.setEventCount(currentRunEventCount(runId, entity.getEventCount()));
+            entity.setEventCount(currentRunEventCount(runId));
+            int droppedCount = currentRunAuditDroppedCount(runId);
+            int failedCount = currentRunAuditFailedCount(runId);
+            entity.setAuditWriteDroppedCount(droppedCount);
+            entity.setAuditWriteFailedCount(failedCount);
+            entity.setAuditLossy(droppedCount > 0 || failedCount > 0);
+            entity.setEmittedEventCount(currentRunEmittedEventCount(runId, entity.getEventCount()));
             agentRunAuditRepository.save(entity);
         });
     }
 
-    private int currentRunEventCount(String runId, Integer fallback) {
+    private int currentRunEventCount(String runId) {
+        return Math.toIntExact(agentRunAuditEventRepository.countByRunId(runId));
+    }
+
+    private int currentRunAuditDroppedCount(String runId) {
+        ActiveAgentRun activeRun = activeRuns.get(runId);
+        return activeRun == null ? 0 : activeRun.droppedAuditEventCount();
+    }
+
+    private int currentRunAuditFailedCount(String runId) {
+        ActiveAgentRun activeRun = activeRuns.get(runId);
+        return activeRun == null ? 0 : activeRun.failedAuditEventCount();
+    }
+
+    private int currentRunEmittedEventCount(String runId, Integer fallback) {
+        ActiveAgentRun activeRun = activeRuns.get(runId);
+        if (activeRun == null) {
+            return Math.max(0, fallback == null ? 0 : fallback);
+        }
+        return activeRun.emittedEventCount();
+    }
+
+    private void queueRunAuditEvent(String runId, Map<String, Object> payload, String payloadJson) {
+        ActiveAgentRun activeRun = activeRuns.get(runId);
+        Runnable writeTask = () -> persistRunAuditEvent(runId, payload, payloadJson);
+        if (activeRun == null) {
+            try {
+                CompletableFuture.runAsync(writeTask, auditWriteExecutor).join();
+            } catch (RejectedExecutionException ex) {
+                // run 已不在 activeRuns 中时无法可靠回写 drop 计数；避免重新阻塞 SSE 线程。
+            }
+            return;
+        }
+        activeRun.enqueueAuditWrite(writeTask, auditWriteExecutor);
+    }
+
+    private void awaitRunAuditEvents(String runId) {
         ActiveAgentRun activeRun = activeRuns.get(runId);
         if (activeRun != null) {
-            return activeRun.eventCount();
+            activeRun.awaitAuditWrites();
         }
-        return Math.max(0, fallback == null ? 0 : fallback);
     }
 
     private void persistRunAuditEvent(String runId, Map<String, Object> payload, String payloadJson) {
@@ -2450,10 +2526,6 @@ public class V2AgentAiService {
         entity.setPayloadJson(payloadJson);
         entity.setCreatedAt(System.currentTimeMillis());
         agentRunAuditEventRepository.save(entity);
-        ActiveAgentRun activeRun = activeRuns.get(runId);
-        if (activeRun != null) {
-            activeRun.recordPersistedEvent();
-        }
     }
 
     private V2AgentDtos.AgentRunAuditEventResponse toRunAuditEventResponse(AgentRunAuditEventEntity entity) {
@@ -2464,6 +2536,19 @@ public class V2AgentAiService {
             parseAuditPayload(entity.getPayloadJson()),
             entity.getCreatedAt()
         );
+    }
+
+    private List<String> auditWarnings(AgentRunAuditEntity audit) {
+        List<String> warnings = new ArrayList<>();
+        int droppedCount = Math.max(0, audit.getAuditWriteDroppedCount() == null ? 0 : audit.getAuditWriteDroppedCount());
+        int failedCount = Math.max(0, audit.getAuditWriteFailedCount() == null ? 0 : audit.getAuditWriteFailedCount());
+        if (droppedCount > 0) {
+            warnings.add("audit_events_dropped:" + droppedCount);
+        }
+        if (failedCount > 0) {
+            warnings.add("audit_events_write_failed:" + failedCount);
+        }
+        return warnings;
     }
 
     private JsonNode parseAuditPayload(String payloadJson) {
@@ -2946,7 +3031,10 @@ public class V2AgentAiService {
         private final Long conversationId;
         private final SseEmitter emitter;
         private final AtomicInteger eventSequence = new AtomicInteger(1);
-        private final AtomicInteger persistedEventCount = new AtomicInteger(0);
+        private final AtomicInteger droppedAuditEventCount = new AtomicInteger(0);
+        private final AtomicInteger failedAuditEventCount = new AtomicInteger(0);
+        private final Object auditLock = new Object();
+        private CompletableFuture<Void> auditWriteChain = CompletableFuture.completedFuture(null);
         private volatile boolean cancelled;
         private volatile CompletableFuture<?> future;
 
@@ -2973,12 +3061,52 @@ public class V2AgentAiService {
             return eventSequence.getAndIncrement();
         }
 
-        private void recordPersistedEvent() {
-            persistedEventCount.incrementAndGet();
+        private int emittedEventCount() {
+            return Math.max(0, eventSequence.get() - 1);
         }
 
-        private int eventCount() {
-            return persistedEventCount.get();
+        private void enqueueAuditWrite(Runnable writeTask, ExecutorService executor) {
+            synchronized (auditLock) {
+                auditWriteChain = auditWriteChain
+                    .handle((ignoredResult, ignoredError) -> null)
+                    .thenCompose(ignored -> submitAuditWrite(writeTask, executor));
+            }
+        }
+
+        private int droppedAuditEventCount() {
+            return droppedAuditEventCount.get();
+        }
+
+        private int failedAuditEventCount() {
+            return failedAuditEventCount.get();
+        }
+
+        private CompletableFuture<Void> submitAuditWrite(Runnable writeTask, ExecutorService executor) {
+            CompletableFuture<Void> result = new CompletableFuture<>();
+            try {
+                executor.execute(() -> {
+                    try {
+                        writeTask.run();
+                    } catch (RuntimeException ignored) {
+                        failedAuditEventCount.incrementAndGet();
+                        // 审计事件写入失败不应阻断后续 SSE 事件或污染同一 run 的队列。
+                    } finally {
+                        result.complete(null);
+                    }
+                });
+            } catch (RejectedExecutionException ex) {
+                droppedAuditEventCount.incrementAndGet();
+                result.complete(null);
+            }
+            return result;
+        }
+
+        private void awaitAuditWrites() {
+            CompletableFuture<Void> currentChain;
+            synchronized (auditLock) {
+                currentChain = auditWriteChain;
+            }
+            currentChain.join();
         }
 
         private boolean cancelled() {

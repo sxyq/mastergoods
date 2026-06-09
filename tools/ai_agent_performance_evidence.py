@@ -400,7 +400,12 @@ def summarize_sample(
         "audit_llm_status": nested(audit, "data", "llm_status") if audit else None,
         "audit_plan_source": nested(audit, "data", "plan_source") if audit else None,
         "audit_event_count": nested(audit, "data", "event_count") if audit else None,
+        "audit_emitted_event_count": nested(audit, "data", "emitted_event_count") if audit else None,
         "audit_tool_count": nested(audit, "data", "tool_count") if audit else None,
+        "audit_write_dropped_count": nested(audit, "data", "audit_write_dropped_count") if audit else None,
+        "audit_write_failed_count": nested(audit, "data", "audit_write_failed_count") if audit else None,
+        "audit_lossy": nested(audit, "data", "audit_lossy") if audit else None,
+        "audit_warnings": nested(audit, "data", "warnings") if audit else None,
     }
 
 
@@ -442,6 +447,11 @@ def summarize_all(samples: list[dict[str, Any]]) -> dict[str, Any]:
             1 for sample in samples if sample.get("result_before_answer_completed_without_model")
         ),
         "server_notice_before_model_samples": sum(1 for sample in samples if sample.get("server_notice_before_model")),
+        "audit_lossy_samples": sum(1 for sample in samples if sample.get("audit_lossy")),
+        "audit_write_dropped_total": sum(int(sample.get("audit_write_dropped_count") or 0) for sample in samples),
+        "audit_write_failed_total": sum(int(sample.get("audit_write_failed_count") or 0) for sample in samples),
+        "audit_emitted_event_total": sum(int(sample.get("audit_emitted_event_count") or 0) for sample in samples),
+        "audit_persisted_event_total": sum(int(sample.get("audit_event_count") or 0) for sample in samples),
         "metrics": metric_summary,
     }
 
@@ -491,8 +501,8 @@ def write_summary_markdown(output_dir: Path, samples: list[dict[str, Any]], summ
         "",
         "## Sample Table",
         "",
-        "| Question | Iteration | Run | HTTP | Mode | LLM | First event | First tool | First answer delta | Answer completed | First result block | Run completed | Total |",
-        "|---|---:|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|",
+        "| Question | Iteration | Run | HTTP | Mode | LLM | Audit loss | First event | First tool | First answer delta | Answer completed | First result block | Run completed | Total |",
+        "|---|---:|---|---:|---|---|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for sample in samples:
         lines.append(
@@ -505,6 +515,7 @@ def write_summary_markdown(output_dir: Path, samples: list[dict[str, Any]], summ
                     markdown_value(sample.get("http_status")),
                     f"`{sample.get('audit_mode') or 'missing'}`",
                     f"`{sample.get('audit_llm_status') or 'missing'}`",
+                    f"`{sample.get('audit_lossy')}`",
                     markdown_value(sample.get("first_event_latency_ms")),
                     markdown_value(sample.get("first_tool_started_latency_ms")),
                     markdown_value(sample.get("first_answer_delta_latency_ms")),
@@ -544,6 +555,10 @@ def write_summary_markdown(output_dir: Path, samples: list[dict[str, Any]], summ
             f"- Result-before-model-delta samples: `{summary.get('result_before_model_delta_samples')}`.",
             f"- Result-before-answer-completed non-model samples: `{summary.get('result_before_answer_completed_without_model_samples')}`.",
             f"- Server-notice-before-model samples: `{summary.get('server_notice_before_model_samples')}`.",
+            f"- Audit lossy samples: `{summary.get('audit_lossy_samples')}`.",
+            f"- Audit emitted / persisted events: `{summary.get('audit_emitted_event_total')}` / `{summary.get('audit_persisted_event_total')}`.",
+            f"- Audit write dropped total: `{summary.get('audit_write_dropped_total')}`.",
+            f"- Audit write failed total: `{summary.get('audit_write_failed_total')}`.",
             "",
             "If provider `model_stream` count is zero, this package only supports rule-summary / non-model timing and must remain partial for ChatGPT-like streaming acceptance.",
             "If Android frame timing is not attached, this package cannot pass the high-refresh mobile performance requirement by itself.",
@@ -659,7 +674,12 @@ def self_test() -> None:
             "llm_status": "streaming",
             "plan_source": "provider",
             "event_count": 6,
+            "emitted_event_count": 6,
             "tool_count": 1,
+            "audit_write_dropped_count": 0,
+            "audit_write_failed_count": 0,
+            "audit_lossy": False,
+            "warnings": [],
             "events": [
                 {"event_type": "tool_completed", "payload": {"duration_ms": 17}},
             ],
@@ -683,10 +703,35 @@ def self_test() -> None:
         ]
     )
     bad_events = parse_sse_stream(bad_raw, [5, 6, 9, 10, 20, 21])
-    bad_sample = summarize_sample("库存", 1, StreamCapture(200, 4, 21, bad_raw, bad_events), {"data": {"status": "completed"}})
+    bad_sample = summarize_sample(
+        "库存",
+        1,
+        StreamCapture(200, 4, 21, bad_raw, bad_events),
+        {
+            "data": {
+                "status": "completed",
+                "event_count": 3,
+                "emitted_event_count": 6,
+                "audit_write_dropped_count": 2,
+                "audit_write_failed_count": 1,
+                "audit_lossy": True,
+                "warnings": ["audit_events_dropped:2", "audit_events_write_failed:1"],
+            }
+        },
+    )
     assert bad_sample["result_before_answer_completed_without_model"]
+    assert bad_sample["audit_lossy"]
+    assert bad_sample["audit_event_count"] == 3
+    assert bad_sample["audit_emitted_event_count"] == 6
+    assert bad_sample["audit_write_dropped_count"] == 2
+    assert bad_sample["audit_write_failed_count"] == 1
     summary = summarize_all([sample, bad_sample])
     assert summary["result_before_answer_completed_without_model_samples"] == 1
+    assert summary["audit_lossy_samples"] == 1
+    assert summary["audit_emitted_event_total"] == 12
+    assert summary["audit_persisted_event_total"] == 9
+    assert summary["audit_write_dropped_total"] == 2
+    assert summary["audit_write_failed_total"] == 1
     assert status_for_summary(summary) == "partial-result-before-answer-risk"
     print("ai_agent_performance_evidence self-test passed")
 

@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AgentRunAuditEventRepository extends JpaRepository<AgentRunAuditEventEntity, Long> {
     List<AgentRunAuditEventEntity> findAllByRunIdOrderBySeqAsc(String runId);
+
+    long countByRunId(String runId);
 }

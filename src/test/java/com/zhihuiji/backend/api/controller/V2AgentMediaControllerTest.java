@@ -280,6 +280,11 @@ class V2AgentMediaControllerTest {
                 "keyword",
                 1,
                 2,
+                1,
+                0,
+                true,
+                3,
+                List.of("audit_events_dropped:1"),
                 "run-1:audit",
                 "run-1:trace",
                 null,
@@ -305,6 +310,11 @@ class V2AgentMediaControllerTest {
             .andExpect(jsonPath("$.data.conversation_id").value(7))
             .andExpect(jsonPath("$.data.llm_status").value("streaming"))
             .andExpect(jsonPath("$.data.event_count").value(2))
+            .andExpect(jsonPath("$.data.audit_write_dropped_count").value(1))
+            .andExpect(jsonPath("$.data.audit_write_failed_count").value(0))
+            .andExpect(jsonPath("$.data.audit_lossy").value(true))
+            .andExpect(jsonPath("$.data.emitted_event_count").value(3))
+            .andExpect(jsonPath("$.data.warnings[0]").value("audit_events_dropped:1"))
             .andExpect(jsonPath("$.data.events[0].event_id").value("run-1:1"))
             .andExpect(jsonPath("$.data.events[0].event_type").value("run_started"))
             .andExpect(jsonPath("$.data.events[0].payload.run_id").value("run-1"));
