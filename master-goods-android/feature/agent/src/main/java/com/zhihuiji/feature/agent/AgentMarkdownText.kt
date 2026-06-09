@@ -122,14 +122,19 @@ private fun MarkdownParagraph(text: String, contentColor: Color) {
 private fun MarkdownList(block: MarkdownBlock.ListBlock, contentColor: Color) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         block.items.forEachIndexed { index, item ->
-            val inlineText = remember(item, contentColor) {
-                inlineMarkdown(item, contentColor)
+            val inlineText = remember(item.text, contentColor) {
+                inlineMarkdown(item.text, contentColor)
             }
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = if (block.ordered) "${index + 1}." else "•",
+                    text = when {
+                        item.checked == true -> "☑"
+                        item.checked == false -> "☐"
+                        block.ordered -> "${index + 1}."
+                        else -> "•"
+                    },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = ZhihuijiPrimary,
+                    color = if (item.checked == true) TextSecondary else ZhihuijiPrimary,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.width(22.dp)
                 )
@@ -308,16 +313,22 @@ private fun MarkdownInlineText(
 private sealed interface MarkdownBlock {
     data class Heading(val level: Int, val text: String) : MarkdownBlock
     data class Paragraph(val text: String) : MarkdownBlock
-    data class ListBlock(val ordered: Boolean, val items: List<String>) : MarkdownBlock
+    data class ListBlock(val ordered: Boolean, val items: List<MarkdownListItem>) : MarkdownBlock
     data class CodeBlock(val language: String, val code: String) : MarkdownBlock
     data class Quote(val text: String) : MarkdownBlock
     data object Divider : MarkdownBlock
     data class Table(val headers: List<String>, val rows: List<List<String>>) : MarkdownBlock
 }
 
+private data class MarkdownListItem(
+    val text: String,
+    val checked: Boolean? = null,
+)
+
 private val HeadingRegex = Regex("^(#{1,6})\\s+(.+)$")
 private val UnorderedListRegex = Regex("^[-*+]\\s+(.+)$")
 private val OrderedListRegex = Regex("^\\d+[.)]\\s+(.+)$")
+private val TaskListRegex = Regex("^\\[([ xX])]\\s+(.+)$")
 private val DividerRegex = Regex("^[-*_]{3,}$")
 private val TableSeparatorRegex = Regex(":?-{3,}:?")
 
@@ -441,14 +452,27 @@ private fun headingMatch(line: String): Pair<Int, String>? {
     return match.groupValues[1].length to match.groupValues[2].trim()
 }
 
-private fun listMatch(line: String): Pair<Boolean, String>? {
+private fun listMatch(line: String): Pair<Boolean, MarkdownListItem>? {
     UnorderedListRegex.find(line)?.let {
-        return false to it.groupValues[1].trim()
+        val rawItem = it.groupValues[1].trim()
+        return false to parseTaskListItem(rawItem)
     }
     OrderedListRegex.find(line)?.let {
-        return true to it.groupValues[1].trim()
+        return true to MarkdownListItem(it.groupValues[1].trim())
     }
     return null
+}
+
+private fun parseTaskListItem(rawItem: String): MarkdownListItem {
+    val task = TaskListRegex.find(rawItem)
+    return if (task == null) {
+        MarkdownListItem(rawItem)
+    } else {
+        MarkdownListItem(
+            text = task.groupValues[2].trim(),
+            checked = task.groupValues[1].equals("x", ignoreCase = true),
+        )
+    }
 }
 
 private fun isTableStart(lines: List<String>, index: Int): Boolean {

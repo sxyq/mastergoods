@@ -57,6 +57,15 @@ class AgentMarkdownTextParserTest {
     }
 
     @Test
+    fun parseMarkdownSupportsTaskListItemsFromAgentChecklists() {
+        val blocks = parseMarkdownBlocks("- [x] 已核对应收依据\n- [ ] 联系客户确认回款")
+        val items = listItems(blocks.single())
+
+        assertEquals(listOf("已核对应收依据", "联系客户确认回款"), items.map(::listItemText))
+        assertEquals(listOf(true, false), items.map(::listItemChecked))
+    }
+
+    @Test
     fun parseMarkdownKeepsPlainStreamingTextAsSingleParagraph() {
         val blocks = parseMarkdownBlocks("正在基于真实销售记录分析，本周销售额持续回升。")
 
@@ -219,6 +228,25 @@ class AgentMarkdownTextParserTest {
         val textProperty = block.javaClass.getDeclaredMethod("getText")
         textProperty.isAccessible = true
         return textProperty.invoke(block) as String
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun listItems(block: Any): List<Any> {
+        val itemsProperty = block.javaClass.getDeclaredMethod("getItems")
+        itemsProperty.isAccessible = true
+        return itemsProperty.invoke(block) as List<Any>
+    }
+
+    private fun listItemText(item: Any): String {
+        val textProperty = item.javaClass.getDeclaredMethod("getText")
+        textProperty.isAccessible = true
+        return textProperty.invoke(item) as String
+    }
+
+    private fun listItemChecked(item: Any): Boolean? {
+        val checkedProperty = item.javaClass.getDeclaredMethod("getChecked")
+        checkedProperty.isAccessible = true
+        return checkedProperty.invoke(item) as Boolean?
     }
 
     private companion object {
