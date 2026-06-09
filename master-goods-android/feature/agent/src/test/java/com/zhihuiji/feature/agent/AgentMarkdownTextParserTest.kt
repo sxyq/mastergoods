@@ -119,6 +119,27 @@ class AgentMarkdownTextParserTest {
     }
 
     @Test
+    fun inlineMarkdownAutolinksBareHttpsUrlFromModelAnswer() {
+        val rendered = inlineMarkdownText("来源 https://example.com/report/123 已核对。")
+
+        assertEquals("来源 https://example.com/report/123 已核对。", rendered)
+    }
+
+    @Test
+    fun inlineMarkdownAutolinksBareWwwUrlAndKeepsTrailingPunctuationOutsideLink() {
+        val rendered = inlineMarkdownText("帮助见 www.example.com/help。")
+
+        assertEquals("帮助见 https://www.example.com/help。", rendered)
+    }
+
+    @Test
+    fun inlineMarkdownBareUrlKeepsChineseRightParenOutsideVisibleUrl() {
+        val rendered = inlineMarkdownText("（https://example.com/audit）")
+
+        assertEquals("（https://example.com/audit）", rendered)
+    }
+
+    @Test
     fun inlineMarkdownKeepsMixedBoldCodeAndLinkTextReadable() {
         val rendered = inlineMarkdownText("客户 **张三** 的 `receivable` 为 [1280 元](https://example.com/r/1)。")
 

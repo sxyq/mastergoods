@@ -581,6 +581,18 @@ internal fun inlineMarkdown(text: String, contentColor: Color): AnnotatedString 
                         }
                     }
 
+                    startsBareMarkdownUrl(text, index) -> {
+                        val match = bareMarkdownUrl(text, index)
+                        if (match != null) {
+                            appendVisibleUrlLink(match.url)
+                            append(match.trailingPunctuation)
+                            index = match.endIndex
+                        } else {
+                            append(text[index])
+                            index++
+                        }
+                    }
+
                     text.startsWith("**", index) -> {
                         val end = text.indexOf("**", startIndex = index + 2)
                         if (end > index) {
@@ -661,7 +673,64 @@ internal fun inlineMarkdown(text: String, contentColor: Color): AnnotatedString 
         }
     }
 private fun hasInlineMarkdownSyntax(text: String): Boolean =
-    text.indexOfAny(charArrayOf('[', '*', '`', '_')) >= 0
+    text.indexOfAny(charArrayOf('[', '*', '`', '_')) >= 0 ||
+        text.contains("https://", ignoreCase = true) ||
+        text.contains("http://", ignoreCase = true) ||
+        text.contains("www.", ignoreCase = true)
+
+private fun AnnotatedString.Builder.appendVisibleUrlLink(rawUrl: String) {
+    val url = normalizeMarkdownUrl(rawUrl)
+    pushLink(
+        LinkAnnotation.Url(
+            url = url,
+            styles = TextLinkStyles(
+                style = SpanStyle(
+                    color = ZhihuijiPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    textDecoration = TextDecoration.Underline,
+                )
+            )
+        )
+    )
+    append(url)
+    pop()
+}
+
+private data class BareMarkdownUrl(
+    val url: String,
+    val trailingPunctuation: String,
+    val endIndex: Int,
+)
+
+private fun startsBareMarkdownUrl(text: String, index: Int): Boolean {
+    if (index > 0 && !text[index - 1].isWhitespace() && text[index - 1] != '(') return false
+    return text.startsWith("https://", index, ignoreCase = true) ||
+        text.startsWith("http://", index, ignoreCase = true) ||
+        text.startsWith("www.", index, ignoreCase = true)
+}
+
+private fun bareMarkdownUrl(text: String, index: Int): BareMarkdownUrl? {
+    var end = index
+    while (end < text.length && !text[end].isWhitespace()) {
+        end++
+    }
+    if (end <= index) return null
+
+    val rawToken = text.substring(index, end)
+    val url = rawToken.trimEnd(*BareUrlTrailingPunctuation)
+    val trailing = rawToken.substring(url.length)
+    return if (url.isBlank()) {
+        null
+    } else {
+        BareMarkdownUrl(url = url, trailingPunctuation = trailing, endIndex = end)
+    }
+}
+
+private val BareUrlTrailingPunctuation = charArrayOf(
+    '.', ',', ';', ':', '!', '?',
+    '。', '，', '；', '：', '！', '？',
+    ')', '）',
+)
 
 private fun canOpenUnderscoreEmphasis(
     text: String,
