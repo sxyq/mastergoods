@@ -40,6 +40,39 @@ class AgentChatViewModelAnswerMergeTest {
     }
 
     @Test
+    fun finalAnswerWithoutAnyServerDeltaDoesNotCreateFakeVisibleReply() {
+        assertEquals(
+            "",
+            "".withAuthoritativeAnswerIfVisible(
+                answer = "一次性完成事件里的兜底回答",
+                hasServerAnswerDelta = false,
+            )
+        )
+    }
+
+    @Test
+    fun finalAnswerCanCompleteRealServerDelta() {
+        assertEquals(
+            "我查到了销售趋势，整体回升。",
+            "我查到了销售趋势".withAuthoritativeAnswerIfVisible(
+                answer = "我查到了销售趋势，整体回升。",
+                hasServerAnswerDelta = true,
+            )
+        )
+    }
+
+    @Test
+    fun finalAnswerCanCompleteAlreadyVisibleTextEvenIfDeltaFlagWasMissing() {
+        assertEquals(
+            "已有可见回答，继续补全。",
+            "已有可见回答".withAuthoritativeAnswerIfVisible(
+                answer = "已有可见回答，继续补全。",
+                hasServerAnswerDelta = false,
+            )
+        )
+    }
+
+    @Test
     fun blankAuthoritativeTextPromotesPendingResultWithoutCreatingFakeAnswer() {
         val block = ResultBlockDto(blockType = "table", title = "销售明细")
         val parts = listOf(ChatMessagePart.PendingResultBlock(block))

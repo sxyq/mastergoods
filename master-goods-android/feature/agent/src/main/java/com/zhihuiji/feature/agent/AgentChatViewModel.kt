@@ -470,7 +470,10 @@ class AgentChatViewModel @Inject constructor(
             is AgentStreamEvent.AnswerCompleted -> {
                 flushPendingAnswerDelta()
                 updateAssistantMessage(assistantMessageId) { msg ->
-                    val finalContent = msg.content.withAuthoritativeAnswer(event.answer)
+                    val finalContent = msg.content.withAuthoritativeAnswerIfVisible(
+                        answer = event.answer,
+                        hasServerAnswerDelta = msg.hasServerAnswerDelta,
+                    )
                     msg.copy(
                         content = finalContent,
                         parts = msg.parts.withAuthoritativeText(finalContent, msg.blocks),
@@ -546,7 +549,10 @@ class AgentChatViewModel @Inject constructor(
                     )
                 }
                 updateAssistantMessage(assistantMessageId) { msg ->
-                    val finalContent = msg.content.withAuthoritativeAnswer(finalAnswer)
+                    val finalContent = msg.content.withAuthoritativeAnswerIfVisible(
+                        answer = finalAnswer,
+                        hasServerAnswerDelta = msg.hasServerAnswerDelta,
+                    )
                     msg.copy(
                         content = finalContent,
                         parts = msg.parts.withAuthoritativeText(finalContent, msg.blocks),
@@ -1099,6 +1105,16 @@ internal fun String.withAuthoritativeAnswer(answer: String?): String {
         else -> this
     }
 }
+
+internal fun String.withAuthoritativeAnswerIfVisible(
+    answer: String?,
+    hasServerAnswerDelta: Boolean,
+): String =
+    if (hasServerAnswerDelta || isNotBlank()) {
+        withAuthoritativeAnswer(answer)
+    } else {
+        this
+    }
 
 internal fun List<ChatMessagePart>.appendStreamingText(
     delta: String,
