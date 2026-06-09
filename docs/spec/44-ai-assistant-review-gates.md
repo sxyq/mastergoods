@@ -130,6 +130,16 @@ python3 tools/capture_ai_chat_device_evidence.py --scenario stop
 python3 tools/capture_ai_chat_device_evidence.py --scenario clear
 ```
 
+接口证据和 Android 设备证据必须用组合门禁再核对一次；该门禁用于防止只拿 HTTP/SSE 或只拿截图就宣称完整通过：
+
+```bash
+python3 tools/ai_agent_combined_evidence_gate.py \
+  --scenario chat \
+  --interface-dir docs/acceptance-evidence/ai-agent/<interface-package> \
+  --device-dir docs/acceptance-evidence/ai-agent/<device-package> \
+  --output docs/acceptance-evidence/ai-agent/<combined-package>/10-combined-gate.md
+```
+
 没有 Android 截图和 UI tree 时，只能证明接口侧，结论最高为 `partial`。没有 provider `model_stream` 抓包时，ChatGPT-like 真模型流式体验最高为 `partial`。
 
 ## 7. 三个必测真实问题
