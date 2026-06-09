@@ -72,6 +72,24 @@ TOOL_ANCHORS = (
     "inventory low stock lookup",
     "inventory_low_stock_lookup",
 )
+SAFETY_BLOCK_ANCHORS = (
+    "安全拦截",
+    "安全审查未通过",
+    "该请求不能执行",
+)
+STOP_CANCEL_ANCHORS = (
+    "停止接收",
+    "已停止本机接收",
+    "生成已取消",
+    "服务端取消",
+    "取消未确认",
+    "取消失败",
+)
+CLEAR_CHAT_ANCHORS = (
+    "清空对话",
+    "开始一次真实 Agent 对话",
+    "还没有对话",
+)
 HOME_ONLY_ANCHORS = (
     "主屏保持干净",
     "开始一次真实 Agent 对话",
@@ -138,12 +156,34 @@ def matching_terms(texts: list[str], terms: tuple[str, ...]) -> list[str]:
     return [term for term in terms if term.lower() in lowered]
 
 
+def scenario_guidance(scenario: str) -> list[str]:
+    if scenario == "safety-block":
+        return [
+            "Send a high-risk or disallowed prompt before capture.",
+            "Expected UI: assistant message is an error terminal state, stop affordance is gone, RunTrace contains failed safety result.",
+        ]
+    if scenario == "stop":
+        return [
+            "Start a streaming AI run, tap the stop control with content-desc/text `停止接收`, then capture.",
+            "Expected UI: local receiving stopped and server cancel result is shown honestly.",
+        ]
+    if scenario == "clear":
+        return [
+            "Start a streaming AI run or keep an active conversation, tap `清空对话`, then capture.",
+            "Expected UI: chat is cleared only after the active run has been cancelled or cancellation is explicitly unconfirmed.",
+        ]
+    return [
+        "Capture a normal completed or streaming AI chat with answer, result block and real tool anchor.",
+    ]
+
+
 def status_from_texts(
     texts: list[str],
     package_seen: bool,
     *,
     screenshot_bytes: int = 1,
     device_locked: bool = False,
+    scenario: str = "chat",
 ) -> tuple[str, str, dict[str, list[str]]]:
     hits = {
         "lockscreen": matching_terms(texts, LOCKSCREEN_TERMS),
@@ -151,6 +191,9 @@ def status_from_texts(
         "answer": matching_terms(texts, ANSWER_ANCHORS),
         "result_block": matching_terms(texts, RESULT_BLOCK_ANCHORS),
         "tool": matching_terms(texts, TOOL_ANCHORS),
+        "safety_block": matching_terms(texts, SAFETY_BLOCK_ANCHORS),
+        "stop_cancel": matching_terms(texts, STOP_CANCEL_ANCHORS),
+        "clear_chat": matching_terms(texts, CLEAR_CHAT_ANCHORS),
         "home_only": matching_terms(texts, HOME_ONLY_ANCHORS),
     }
     if device_locked or hits["lockscreen"]:
@@ -175,6 +218,48 @@ def status_from_texts(
         return (
             "partial-ai-chat-not-detected",
             "App content was captured, but AI chat title and assistant identity were not both detected.",
+            hits,
+        )
+    if scenario == "safety-block":
+        if not hits["safety_block"]:
+            return (
+                "partial-safety-block-not-visible",
+                "Safety-block scenario was requested, but no safety block / safety review failure anchor was visible.",
+                hits,
+            )
+        if hits["stop_cancel"] and "停止接收" in hits["stop_cancel"]:
+            return (
+                "partial-safety-stop-still-visible",
+                "Safety-block state is visible, but the stop receiving affordance still appears in the UI tree.",
+                hits,
+            )
+        return (
+            "pass-for-device-safety-block-evidence",
+            "UI tree contains AI chat and safety-block terminal anchors, and the stop receiving affordance is not visible.",
+            hits,
+        )
+    if scenario == "stop":
+        if not hits["stop_cancel"]:
+            return (
+                "partial-stop-cancel-feedback-not-visible",
+                "Stop scenario was requested, but no stop/cancel feedback anchor was visible.",
+                hits,
+            )
+        return (
+            "pass-for-device-stop-feedback-evidence",
+            "UI tree contains AI chat and stop/cancel feedback anchors. Pair this with interface cancel evidence before full pass.",
+            hits,
+        )
+    if scenario == "clear":
+        if not hits["clear_chat"]:
+            return (
+                "partial-clear-chat-state-not-visible",
+                "Clear scenario was requested, but no clear-chat entry/empty-state anchor was visible.",
+                hits,
+            )
+        return (
+            "pass-for-device-clear-chat-evidence",
+            "UI tree contains AI chat and clear-chat or clean-entry anchors. Pair this with cancel HTTP/SSE evidence before full pass.",
             hits,
         )
     if hits["home_only"] and not hits["answer"] and not hits["result_block"]:
@@ -228,12 +313,17 @@ def capture(args: argparse.Namespace) -> Path:
                 f"- Package: `{args.package}`",
                 f"- Activity: `{args.activity}`",
                 f"- Backend reverse port: `{args.backend_port}`",
+                f"- Scenario: `{args.scenario}`",
                 f"- Question hint: `{args.question}`",
                 f"- Wake before capture: `{args.wake}`",
                 f"- Send question automatically: `{args.send_question}`",
                 "",
                 "This package proves only the visible device state captured here.",
                 "It does not prove provider model streaming unless logcat/SSE evidence in the same package shows `delta_source=model_stream`.",
+                "",
+                "Scenario guidance:",
+                "",
+                *(f"- {item}" for item in scenario_guidance(args.scenario)),
             ]
         ),
     )
@@ -304,8 +394,9 @@ def capture(args: argparse.Namespace) -> Path:
         package_seen,
         screenshot_bytes=screenshot_bytes,
         device_locked=device_locked,
+        scenario=args.scenario,
     )
-    write_verdict(output_dir, status, reason, texts, hits, package_seen, screenshot_bytes, device_locked)
+    write_verdict(output_dir, status, reason, texts, hits, package_seen, screenshot_bytes, device_locked, args.scenario)
     return output_dir
 
 
@@ -373,12 +464,14 @@ def write_verdict(
     package_seen: bool,
     screenshot_bytes: int,
     device_locked: bool,
+    scenario: str,
 ) -> None:
     write_json(
         output_dir / "11-chat-evidence.json",
         {
             "status": status,
             "reason": reason,
+            "scenario": scenario,
             "package_seen": package_seen,
             "device_locked": device_locked,
             "screenshot_bytes": screenshot_bytes,
@@ -386,37 +479,48 @@ def write_verdict(
             "answer_anchors_any": list(ANSWER_ANCHORS),
             "result_block_anchors_any": list(RESULT_BLOCK_ANCHORS),
             "tool_anchors_any": list(TOOL_ANCHORS),
+            "safety_block_anchors_any": list(SAFETY_BLOCK_ANCHORS),
+            "stop_cancel_anchors_any": list(STOP_CANCEL_ANCHORS),
+            "clear_chat_anchors_any": list(CLEAR_CHAT_ANCHORS),
+            "scenario_guidance": scenario_guidance(scenario),
             "hits": hits,
             "ui_text_preview": texts[:100],
         },
     )
-    write_text(output_dir / "12-conclusion.md", conclusion_md(status, reason, texts, hits))
+    write_text(output_dir / "12-conclusion.md", conclusion_md(status, reason, texts, hits, scenario))
 
 
-def conclusion_md(status: str, reason: str, texts: list[str], hits: dict[str, list[str]]) -> str:
+def conclusion_md(status: str, reason: str, texts: list[str], hits: dict[str, list[str]], scenario: str) -> str:
     preview = texts[:80]
     lines = [
         "# Device AI Chat Evidence Conclusion",
         "",
         f"Status: `{status}`",
         "",
+        f"Scenario: `{scenario}`",
+        "",
         reason,
         "",
         "Captured checks:",
         "",
     ]
-    for key in ("lockscreen", "chat_required", "answer", "result_block", "tool", "home_only"):
+    for key in ("lockscreen", "chat_required", "answer", "result_block", "tool", "safety_block", "stop_cancel", "clear_chat", "home_only"):
         values = hits.get(key, [])
         lines.append(f"- {key}: `{', '.join(values) if values else 'none'}`")
     lines.extend(
         [
+            "",
+            "Scenario guidance:",
+            "",
+            *(f"- {item}" for item in scenario_guidance(scenario)),
             "",
             "UI text preview:",
             "",
             *(f"- {item}" for item in preview),
             "",
             "If status is not `pass-for-device-ai-chat-evidence`, keep this evidence as a failed/partial attempt only.",
-            "Do not use it to claim AI chat, Markdown, result-block, tool-hint, or agent streaming acceptance.",
+            "Scenario pass statuses prove only the visible device state for that scenario.",
+            "Do not use this file alone to claim AI chat, Markdown, result-block, tool-hint, safety-block, cancel, clear-chat, or agent streaming acceptance without the matching HTTP/SSE/audit evidence.",
         ]
     )
     return "\n".join(lines)
@@ -438,6 +542,20 @@ def self_test() -> None:
     assert status_from_texts(no_tool, package_seen=True)[0] == "partial-tool-status-not-visible"
     passed = ["AI 对话", "智慧记 AI", "客户应收", "查询结果", "依据", "调用", "customer_receivable_lookup"]
     assert status_from_texts(passed, package_seen=True)[0] == "pass-for-device-ai-chat-evidence"
+    safety_missing = ["AI 对话", "智慧记 AI", "客户应收"]
+    assert status_from_texts(safety_missing, package_seen=True, scenario="safety-block")[0] == "partial-safety-block-not-visible"
+    safety_with_stop = ["AI 对话", "智慧记 AI", "安全拦截", "停止接收"]
+    assert status_from_texts(safety_with_stop, package_seen=True, scenario="safety-block")[0] == "partial-safety-stop-still-visible"
+    safety_passed = ["AI 对话", "智慧记 AI", "安全拦截", "安全审查未通过"]
+    assert status_from_texts(safety_passed, package_seen=True, scenario="safety-block")[0] == "pass-for-device-safety-block-evidence"
+    stop_missing = ["AI 对话", "智慧记 AI", "客户应收"]
+    assert status_from_texts(stop_missing, package_seen=True, scenario="stop")[0] == "partial-stop-cancel-feedback-not-visible"
+    stop_passed = ["AI 对话", "智慧记 AI", "已停止本机接收", "服务端取消"]
+    assert status_from_texts(stop_passed, package_seen=True, scenario="stop")[0] == "pass-for-device-stop-feedback-evidence"
+    clear_missing = ["AI 对话", "智慧记 AI", "客户应收"]
+    assert status_from_texts(clear_missing, package_seen=True, scenario="clear")[0] == "partial-clear-chat-state-not-visible"
+    clear_passed = ["AI 对话", "智慧记 AI", "清空对话", "开始一次真实 Agent 对话"]
+    assert status_from_texts(clear_passed, package_seen=True, scenario="clear")[0] == "pass-for-device-clear-chat-evidence"
     locked_window = "mFocusedApp=ActivityRecord{... com.zhihuiji.app/.MainActivity}\nisKeyguardShowing=true"
     assert is_device_locked(locked_window)
     assert not package_visible("com.zhihuiji.app", "", locked_window, device_locked=True)
@@ -458,6 +576,12 @@ def main() -> int:
     parser.add_argument("--backend-port", type=int, default=int(os.environ.get("BACKEND_PORT", DEFAULT_BACKEND_PORT)))
     parser.add_argument("--output-root", default=os.environ.get("EVIDENCE_ROOT", str(DEFAULT_OUTPUT_ROOT)))
     parser.add_argument("--question", default=os.environ.get("AI_CHAT_QUESTION", DEFAULT_QUESTION))
+    parser.add_argument(
+        "--scenario",
+        choices=("chat", "safety-block", "stop", "clear"),
+        default=os.environ.get("AI_CHAT_SCENARIO", "chat"),
+        help="Evidence scenario to evaluate. Non-chat scenarios require matching HTTP/SSE/audit evidence before full acceptance.",
+    )
     parser.add_argument("--settle-seconds", type=float, default=float(os.environ.get("SETTLE_SECONDS", "3")))
     parser.add_argument("--chat-wait-seconds", type=float, default=float(os.environ.get("CHAT_WAIT_SECONDS", "8")))
     parser.add_argument("--wake", action="store_true", default=os.environ.get("WAKE_DEVICE") == "1")

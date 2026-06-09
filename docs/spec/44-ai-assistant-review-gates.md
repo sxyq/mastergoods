@@ -116,6 +116,14 @@ python3 tools/ai_agent_forbidden_scan.py --output docs/acceptance-evidence/ai-ag
 TOKEN="<bearer-token>" ./tools/ai_agent_evidence_capture.sh cancel-test
 ```
 
+Android 侧场景证据可用以下命令分别采集；这些命令只证明设备可见状态，仍必须和对应 HTTP/SSE/audit 证据包对齐：
+
+```bash
+python3 tools/capture_ai_chat_device_evidence.py --scenario safety-block
+python3 tools/capture_ai_chat_device_evidence.py --scenario stop
+python3 tools/capture_ai_chat_device_evidence.py --scenario clear
+```
+
 没有 Android 截图和 UI tree 时，只能证明接口侧，结论最高为 `partial`。没有 provider `model_stream` 抓包时，ChatGPT-like 真模型流式体验最高为 `partial`。
 
 ## 7. 三个必测真实问题
