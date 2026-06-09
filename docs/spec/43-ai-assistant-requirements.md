@@ -22,6 +22,7 @@
 | Android 对话时间线按服务端事件顺序渲染 | `ChatMessage.parts` 增加 `Text` / `ResultBlock` 顺序片段；`AgentChatViewModelAnswerMergeTest` 覆盖 answer delta、result block、final answer 的合并顺序，且最终答案不会重排已有 `Text -> ResultBlock -> Text` 时间线；同时覆盖 `result_block` 早于回答文本到达时先隐藏为 pending，等首段回答文本出现后再接入可见时间线，并覆盖重复 `result_block` 不会重复渲染；`AgentChatScreen` 以 `AssistantMessageTimeline` 渲染片段 | 证明 Android 不再把所有结构化结果固定堆到回答下方，也不会在完成态把流式时间线重新搬动；且不会出现“先直接给查询数据，等一会儿回答才出来”的倒置体验。仍需真实模型流式 SSE 和真机截图证明端到端体验 |
 | Android 工具提示只展示真实短状态并自动收敛 | `AgentChatScreenToolStatusTest.latestVisibleToolShowsRecentlyCompletedToolBriefly` 证明工具完成后可短暂显示完成态；`latestVisibleToolDoesNotKeepCompletedToolAsPersistentPill` 证明过期完成工具不会作为 inline pill 常驻；`AgentResponseProvenanceTest.streamingRunTracePanelCollapsesAfterVisibleTimelineArrives` 证明文本或 result block 到达后默认收起 RunTrace；`AgentResponseProvenanceTest.runTracePanelHidesForCompletedSuccessUnlessAttentionIsNeeded` 证明完成成功 / 规则摘要完成态不再默认展开过程面板；`AgentResponseProvenanceTest.streamInterruptedAnswerKeepsHonestHeaderAfterCompletion` 证明部分模型流中断完成后仍显示“模型流式中断”header，不伪装为成功模型流；`AgentResponseProvenanceTest.runTraceRecognizesStreamInterruptedFromModeOrLlmStatus` 固定 RunTrace 可从 mode 或 llmStatus 识别中断态 | 证明 UI 会像真实 agent 一样显示正在查询 / 刚完成 / 失败 / 流式中断的短状态，RunTrace 摘要也不会把中断态误归为普通模型流；错误、手动展开、首个可见事件前仍保留审计入口；仍需真实工具事件抓包和真机截图 |
 | P0 证据矩阵已有统一入口 | `docs/acceptance-evidence/ai-agent/AI_AGENT_P0_EVIDENCE_MATRIX.md` 将 AGT-P0-001..019 映射到当前代码证据、接口证据、Android 设备证据、缺口和下一步 | 证明后续审查有统一总表；该矩阵本身不让任何 partial 项升级为 pass，真实 provider stream、cancel 端到端、生产 profile、性能和全屏 UI 仍需补证据 |
+| AI 对话真机证据采集门禁 | `tools/capture_ai_chat_device_evidence.py --self-test` 已覆盖锁屏、非 app、仍在 AI 首页、缺回答、缺 result block / evidence、缺工具锚点等负例，只有 UI tree 同时出现 AI 对话、回答、结果 / 依据和工具锚点时才允许 `pass-for-device-ai-chat-evidence` | 证明后续设备验收工具不会把锁屏、首页或半截对话误判为通过；仍需在解锁设备上采集真实截图、UI tree、logcat 和 gfxinfo |
 | Android SSE 客户端支持标准多行 SSE | `AgentSseClientCancellationTest.chatStream_buffersStandardMultiLineSseDataUntilBlankLine` 和 `chatStream_flushesLastBufferedSseEventWhenStreamEndsWithoutBlankLine` 覆盖多行 `data:` 缓冲与 EOF flush | 证明客户端可正确接收标准 SSE 事件；仍需真实后端流和供应商模型流抓包 |
 | AI workbench 是显式干净入口合同 | `V2AgentAiService.getWorkbench()` 返回 `status=clean_entry_ready`、`data_policy`、`capabilities` 和 `warnings`，并保持 KPI、风险、今日摘要、快捷报表问题为空；`V2AgentAiServiceTest.workbenchDoesNotExposeReportDashboardDefaults` 和 `AgentChatResponseSerializationTest.decodesCleanWorkbenchStatusContract` 覆盖服务端与 Android 模型；`tools/ai_agent_evidence_capture.sh self-test` 会拒绝缺少该状态合同的 workbench 证据 | 证明 workbench 不再只是空数组 placeholder，而是明确说明真实数据只在用户发起 chat run 后查询；仍需真机首页截图和 UI tree |
 | Android result block 渲染有坏数据门禁 | `ResultBlockRendererContractTest` 覆盖图表缺 labels、空 labels、缺 series、series 长度不一致、NaN / Infinity、柱状负数、donut / pie 非正数或无效分段、已知图表缺字段解析失败、未知 block 原始摘要、结构化 table 行列不一致和 table 单元格 Markdown；`ResultBlockRenderer` 对这些情况显示错误 / 空态 / 忽略提示，不补模拟图表或模拟表格数据 | 证明 UI 层不会主动补模拟图表 / 表格数据；仍需真实后端 block、真机截图和坏块视觉验收 |
@@ -453,6 +454,68 @@ P1 增强事件：
 - `tool_failed`：`tool_name`、`error_code`、`safe_message`、`duration_ms`
 
 空实现的 `emitToolStarted` / `emitToolCompleted` 不满足 P0。
+
+### 9.5 ChatGPT-like 对话体验验收
+
+AI 对话体验必须像真实对话式 agent，而不是“先扔数据卡，最后补一段答案”的报表页。P0 审查时必须同时看 SSE 时间线、Android UI tree、截图 / 录屏和审计，而不能只看接口字段。
+
+最低体验要求：
+
+- 用户发送问题后，先看到当前 run 的真实状态：等待首事件、真实工具查询、模型流式、规则摘要降级或错误；不得用固定“AI 正在思考”覆盖所有状态。
+- 有真实 `answer_delta(model_stream)` 时，正文应边到达边稳定显示；Markdown 半成品不得导致整条消息重排、闪烁、消失或变成纯文本。
+- 没有真实 `answer_delta` 时，规则摘要只能在 `answer_completed` 后一次性出现，并明确标注数据查询 / 规则摘要模式；不得本地拆字模拟吐字。
+- `result_block`、evidence card、表格、图表必须接在首段可见回答之后进入时间线；如果后端先发结构化块，Android 只能先保留为 pending / RunTrace 证据，不能先展示数据卡再等答案。
+- 用户手动上滑查看历史时，流式自动滚动不得强行抢回；用户停留在底部时可以轻量贴底。
+- stop 按钮、错误、模型中断、工具失败、降级状态必须在当前助手消息中可见，不得只写入日志。
+- 长回答、长表格、长代码、多个 result block 和多轮上下文压缩都必须保持可读，不得因为性能优化牺牲内容完整性。
+
+验收证据至少包含：
+
+- 原始 SSE / HTTP 事件时间线：首事件、首工具、首 `answer_delta`、首 `result_block`、`answer_completed`、`run_completed`。
+- Android 截图或录屏：能看到用户消息、AI 正文、结构化结果、工具短提示或 RunTrace、降级 / 中断标签。
+- `tools/capture_ai_chat_device_evidence.py` 生成的 `11-chat-evidence.json` 和 `12-conclusion.md`；如果不是 `pass-for-device-ai-chat-evidence`，该轮设备体验不得判定通过。
+
+### 9.6 工具短提示即时性 SLO
+
+工具短提示用于让用户感知真实 agent 正在查询，而不是固定装饰动画。P0 允许在低端设备或慢网络下记录偏差，但必须有量化证据，不能只凭主观截图通过。
+
+目标 SLO：
+
+- `tool_started` 到 UI 可见工具 pill 的目标耗时不超过 200ms；超过时必须记录原因，如主线程繁忙、首帧未到、网络批处理或设备锁屏。
+- 活动工具优先级高于最近完成工具；只要存在 `RUNNING` 或 `PENDING` 工具，UI 不得继续显示旧的 completed / failed pill。
+- completed / failed 工具提示只短暂展示 1 到 3 秒，随后自动收敛；完成态不得长期固定成“工具查询完成”装饰条。
+- 连续多工具查询时，UI 必须按服务端真实事件切换当前工具；不能把上一工具名称、结果摘要或耗时沿用到下一工具。
+- 工具失败必须显示安全错误摘要，并能在 RunTrace 或审计中定位 `tool_call_id`、`error_code`、`query_window` 和耗时。
+
+验收证据至少包含：
+
+- 同一 `run_id` 的 SSE `tool_started/tool_completed/tool_failed` 时间戳。
+- Android 截图 / 录屏或 UI tree，证明活动工具、完成短提示、失败提示的可见性和收敛。
+- `AgentChatScreenToolStatusTest` 或等价单测，覆盖活动工具优先、完成提示过期、失败提示短暂可见和连续工具切换。
+
+### 9.7 Agent 来源分级与文案规范
+
+P0 当前允许服务端 orchestrator 编排工具查询、规则兜底 planner 和规则摘要降级，但 UI 与文档必须诚实区分来源。任何文案不得把服务端编排、关键词兜底或规则摘要包装成 provider 原生 function calling。
+
+来源分级：
+
+| 来源 | 典型字段 | 允许文案 | 禁止文案 |
+|---|---|---|---|
+| provider model stream | `answer_delta.delta_source=model_stream`、`mode=tool_query_llm_streamed`、`llm_status=streaming` | “模型正在生成回答”“模型流式回答” | 在没有 `model_stream` delta 时显示“模型正在吐字” |
+| server notice | `answer_delta.delta_source=server_notice` | “服务端说明”“查询边界说明”“部分结果提示” | “模型补充说明”“模型继续生成” |
+| server orchestrator tool event | `tool_started/tool_completed/tool_failed`、`tool_call_id`、`query_window` | “正在查询真实业务数据”“工具查询完成”“工具查询失败” | “模型正在调用工具”“模型已执行工具” |
+| LLM planner | `plan_source=llm` 且有模型规划证据 | “模型规划了查询步骤” | 无规划证据时显示“模型规划” |
+| keyword fallback planner | `plan_source=keyword_fallback` | “关键词兜底规划”“按问题关键词选择只读工具” | “智能规划完成”“模型规划完成” |
+| rule summary | `mode=tool_query_rule_summary`、`llm_status=disabled/stream_failed_or_empty/not_configured` | “真实数据查询后的规则摘要”“模型暂不可用，当前为数据查询摘要” | “AI 已完整分析”“模型回答完成” |
+| blocked / safety | `mode=blocked`、`llm_status=not_requested` | “安全检查拦截”“该请求不能执行” | “查询失败，可稍后重试” |
+
+审查要求：
+
+- Android header、RunTrace、工具短提示、错误卡和降级状态必须优先读取 `delta_source`、`mode`、`llm_status`、`plan_source`、`tool_call_id`，不得用是否有文字或 result block 猜测来源。
+- 服务端若只完成了真实工具查询但模型未参与，必须返回规则摘要 / 降级字段；Android 可以展示完整答案，但不能展示模型流式或模型成功标签。
+- 服务端补充查询边界、截断、部分失败、权限范围时，应使用 `server_notice` 或 evidence card；不得把这些说明混入 `model_stream`。
+- 后续升级 provider 原生 tool / function calling 时，必须新增明确字段或审计证据，例如 `tool_source=provider_function_call`，并保持与现有 orchestrator 工具事件可区分。
+- 每次文案调整都要用至少一个模型流、一个规则摘要、一个工具失败或安全拦截状态截图 / UI tree 验证，不得只看正常成功态。
 
 ## 10. 草稿和执行需求
 
@@ -1172,12 +1235,14 @@ python3 tools/report_performance_evidence.py \
 - [ ] 取消机制：P0 验证服务端 cancel 可调用、owner-aware、SSE `run_cancelled` 或明确不可取消状态和审计一致；若当前环境调用失败，Android 必须显示“本机已停止接收但服务端取消未确认”。
 - [ ] 确认机制：P0 不把 `archived` 当执行成功；P1 验证 confirm / reject / execution 接口真实事务写入。
 - [ ] 降级机制：验证 `AGENT_LLM_ENABLED=false`、模型错误、工具失败、无数据、SSE 断开都有诚实 UI / 响应。
+- [ ] 来源文案验收：验证 provider model stream、server notice、orchestrator tool event、keyword fallback、rule summary、blocked / safety 至少各有字段到 UI 文案的映射；不得把非 provider tool calling 写成模型原生 tool calling。
 - [ ] 性能验收：记录 3 个真实问题的首事件耗时、工具耗时、模型耗时、端到端耗时、slow warning 和错误率。
 - [ ] 可观测性验收：确认响应、日志、指标、审计包含 `run_id`、`trace_id`、`audit_id` 或可定位替代字段。
 - [ ] 安全验收：确认日志、审计、SSE、Android 本地状态不包含密钥、token、完整内部 prompt、SQL 堆栈或跨 owner 数据。
 - [ ] Markdown 验收：真实回答覆盖标题、列表、表格、引用、代码块、链接、粗体、斜体、行内代码；确认链接文本旁可见 URL，代码块可复制并保留尾部空白，解析失败不丢正文。
 - [ ] 图表验收：真实 result block 覆盖折线、柱状、环形 / 饼图；空 labels、series 长度与 labels 不一致、NaN / Infinity、donut / pie 非正数 segment、未知 block、已知 block 字段缺失、坏 SSE 帧、工具失败均显示真实空态 / 错误态，不生成示例图。
 - [ ] AI 首页文案验收：首屏截图和 UI tree 无默认报表看板、今日经营摘要、风险列表或预置统计图暗示。
+- [ ] AI 对话设备验收：运行 `tools/capture_ai_chat_device_evidence.py` 生成截图、UI tree、logcat、gfxinfo 和 `11-chat-evidence.json`；状态不是 `pass-for-device-ai-chat-evidence` 时不得宣称对话、Markdown、result block、工具提示或 agent 流式体验已通过。
 - [ ] 多 agent 审查：至少一个 Android 视角、一个后端 / agent 视角并行复核；若代理额度不足，记录阻塞原因并在资源释放后补跑。
 - [ ] 结论更新：按第 20 节模板和第 21 节需求 ID 更新 pass / fail / partial / not_applicable，不删除未解决问题。
 

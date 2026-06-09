@@ -1,11 +1,140 @@
 # 28 AI 助手域
 
-## 需求表
+> 状态：领域对象审查索引，配合 `docs/spec/43-ai-assistant-requirements.md` 使用
+> 更新日期：2026-06-09
+> 目的：让后续 AI 助手审查不只看旧的任务 / 通知 / 会话表，而能覆盖真实 run、SSE、工具、result block、审计和 Android 本地证据。
 
-| 对象 | 状态 | 旧版情况 | 新版目标 | 当前实现 | 备注 |
-|---|---|---|---|---|---|
-| agent_tasks | 新版已做 | 旧版无此域 | 任务中心 | 已有 | 继续增强 |
-| agent_notifications | 新版已做 | 旧版无此域 | 通知中心 | 已有 | 继续增强 |
-| agent_conversations | 待验证 | 旧版无此域 | 会话表 | 已新增 `agent_conversations`、`AgentConversationEntity/Repository`、`V2AgentConversationService` 与 `/v2/agent/conversations/*` | 已补 owner 维度 service/controller 回归，仍待真实工作台联调；已新增 `PUT /v2/agent/conversations/{id}`（更新标题/状态）与 `DELETE /v2/agent/conversations/{id}`（级联删除消息与草稿）；状态枚举约束为 `[active, closed, archived]`，删除时服务级与 DB 级 `ON DELETE CASCADE` 均已落地（V14 迁移） |
-| agent_messages | 待验证 | 旧版无此域 | 消息表 | 已新增 `agent_messages`、`AgentMessageEntity/Repository` 与 `/v2/agent/conversations/{conversationId}/messages` | 已验证会话摘要刷新与 owner 校验，仍待真实问答链联调；已增 `AgentMessageRepository.deleteAllByOwnerUserIdAndConversationId` 批量删除方法；`closed/archived` 状态会话拒绝新消息写入 |
-| agent_drafts | 待验证 | 旧版无此域 | 草稿缓存 | 已新增 `agent_drafts`、`AgentDraftEntity/Repository` 与 `/v2/agent/drafts/*` | 已验证草稿 owner 引用与更新链路，推荐结果缓存仍待后续扩展；已增 `AgentDraftRepository.deleteAllByOwnerUserIdAndConversationId` 批量删除方法；草稿状态枚举约束为 `[active, archived]` |
+## 1. 阅读规则
+
+`43-ai-assistant-requirements.md` 是 AI 助手体验和验收基线；本文只负责说明当前代码里的领域对象、接口和证据归属。若本文与 `43` 冲突，以 `43`、当前源码和最新验收证据为准。
+
+本文不能作为通过证明。每个对象都必须通过真实 owner-scoped 接口、SSE、审计、Android UI tree / 截图和测试证据才能升级为通过。
+
+## 2. 核心领域对象
+
+| 对象 / 合同 | 当前状态 | 代码 / 接口归属 | 审查重点 |
+|---|---|---|---|
+| `agent_conversations` | 已接入，仍需端到端联调证据 | `AgentConversationEntity/Repository`、`V2AgentConversationService`、`/v2/agent/conversations/*` | owner 隔离、标题 / 状态更新、删除时消息与草稿级联、closed / archived 会话拒绝继续写入 |
+| `agent_messages` | 已接入，仍需真实问答链路证据 | `AgentMessageEntity/Repository`、`/v2/agent/conversations/{conversationId}/messages` | user / assistant 消息保存、结构化 result block JSON 持久化、会话摘要刷新、owner 校验 |
+| `agent_drafts` | 已接入，P0 只允许诚实归档 | `AgentDraftEntity/Repository`、`/v2/agent/drafts/*` | `archived` 不代表执行成功；P1 前不得把确认按钮包装成真实写单；后续需补 confirm / reject / executing / executed / failed 状态机 |
+| `agent_tasks` | 已接入，仍需真实来源证据 | `AgentTaskEntity/Repository`、`/v2/agent/tasks` | 任务不得来自生产 demo seed；接口失败不能伪装成“暂无任务”；任务结果需关联真实 run 或真实后台任务 |
+| `agent_notifications` | 已接入，仍需真实来源证据 | `AgentNotificationEntity/Repository`、`/v2/agent/notifications`、mark read 接口 | 通知不得来自生产 demo seed；任务 / 通知分 tab 失败要诚实展示；已读状态 owner-aware |
+| `agent_run_audits` | 已接入 run 摘要审计，仍需真实 DB / SSE 对账 | `AgentRunAuditEntity/Repository`、`GET /v2/agent/runs/{runId}/audit` | run 状态、mode、llmStatus、planSource、toolCount、eventCount、auditId、traceId、错误码和耗时必须能对上 HTTP / SSE |
+| `agent_run_audit_events` | 已接入事件级审计，仍需真实对账 | `AgentRunAuditEventEntity/Repository`、`V2AgentAiService.sendEvent` | `event_id`、`seq`、`event_type`、payload JSON 不得缺失；不得记录密钥、token、完整内部 prompt 或跨 owner 数据 |
+| `ActiveAgentRun` | 内存态 active run，P0 取消路径已存在 | `V2AgentAiService.ActiveAgentRun`、`POST /v2/agent/runs/{runId}/cancel` | active run 必须 owner-aware；取消成功发 `run_cancelled` 并阻止后续完成；未知 / 跨 owner run 不能伪造取消成功 |
+| `AgentWorkbenchResponse` | 已改为干净入口合同 | `/v2/agent/workbench`、Android `AgentWorkbenchScreen` / model | 初始屏不得默认展示 KPI、风险、今日摘要、图表或排行；远端失败只能显示入口和同步失败 |
+| Android `agent_audit_records` | 本地审计缓存已存在 | `AgentAuditEntity/Dao/Repository` | 仅作本地辅助证据；不能替代后端 run audit；保存失败不得影响主流程，但验收要记录 |
+
+## 3. 运行域对象补充
+
+### 3.1 Run
+
+Run 是一次用户问题到回答完成 / 失败 / 取消的最小审计单位。
+
+必须贯穿：
+
+- HTTP 响应：`run_id`、`audit_id`、`trace_id`、`observability`。
+- SSE：`run_started`、安全检查、plan、tool、answer、result block、draft、cancel、completed / failed。
+- 后端审计：`agent_run_audits` 摘要和 `agent_run_audit_events` 事件 payload。
+- Android UI：`RunTrace`、工具短提示、降级 / 中断标签、result block 时间线。
+
+P0 状态至少覆盖 `running`、`completed`、`blocked`、`failed`、`cancelled`。如果环境无法证明其中某个状态，不得把该状态标记为验收通过。
+
+### 3.2 Tool Call
+
+Tool call 是真实查询的最小证据单位。当前实现里没有独立 `agent_tool_calls` 表，工具调用主要通过 SSE payload、`AgentToolCallDto`、`ToolCallRecord`、`ToolAuditRecord`、`evidence_refs` 和 run audit event 承载。
+
+每个工具必须可审查：
+
+- `tool_call_id`
+- `tool_name`
+- `status`
+- `input_summary`
+- `query_window`
+- `returned_count`
+- `total_count`
+- `limit`
+- `is_truncated`
+- `duration_ms`
+- `error_code` / `safe_message`
+- `evidence`
+- `next_cursor`
+
+后续若新增 `agent_tool_calls` 表，必须与 `agent_run_audit_events` 和 `AgentToolCallDto` 保持同一 `tool_call_id`。
+
+### 3.3 Result Block
+
+Result block 是 AI 可视化结果的最小渲染单位。当前实现里没有独立 `agent_result_blocks` 表，主要通过：
+
+- 后端 `V2AgentDtos.ResultBlockDto`
+- SSE `result_block`
+- 非流式 `result_blocks`
+- Android `ResultBlockDto`
+- 历史消息 `structuredDataJson`
+
+P0 已知类型：
+
+- `text`
+- `kpi_grid`
+- `table`
+- `rank_list`
+- `line_chart` / `area_chart` / `trend_chart`
+- `bar_chart` / `column_chart` / `horizontal_bar_chart`
+- `donut_chart` / `pie_chart`
+- `risk_card`
+- `evidence_card`
+- `draft_card`
+
+审查要求：
+
+- Android 只能渲染后端返回的 block，不得补示例序列、默认排行或假图表。
+- 已知类型解析失败要显示错误卡；未知类型要显示标题、类型和原始摘要；不能静默消失。
+- `evidence_card` 必须能把关键字段、值、来源、`tool_call_id`、`query_window`、截断状态展示给用户或审查者。
+
+### 3.4 SSE Event
+
+SSE event 是 ChatGPT-like 体验的时序证据，不只是网络格式。
+
+必须区分：
+
+- `answer_delta(delta_source=model_stream)`：只允许来自供应商真实 streaming。
+- `answer_delta(delta_source=server_notice)`：只能在真实模型 delta 之后补充服务端查询边界 / 部分失败说明。
+- `answer_completed`：规则摘要、禁用模型、非流式 provider 或最终收束。
+- `result_block`：真实结构化结果，用户可见时间线不得早于首段回答正文。
+- `tool_started/tool_completed/tool_failed`：真实工具状态和短提示来源。
+
+规则摘要不得拆分成 `answer_delta`；Android 不得本地 timer / delay / substring 制造吐字。
+
+## 4. 与 `43` 需求基线映射
+
+| 领域对象 / 合同 | 对应 `43` 需求 | 当前证据强度 | 仍缺证据 |
+|---|---|---|---|
+| conversations / messages | AGT-P0-002、AGT-P0-011、AGT-P0-012 | 代码和部分接口证据 | 当前提交后的真实端到端对话、消息持久化和 UI 回放截图 |
+| drafts | AGT-P0-008 | 代码边界和文档说明 | 草稿 dialog 真机证据、归档不写业务单据证据；P1 执行状态机 |
+| tasks / notifications | AGT-P0-001、AGT-P0-009、AGT-P0-018 | 代码路径和局部失败诚实态 | 生产 profile 下无 demo 污染证据、断网 / 单接口失败截图 |
+| run audit / event audit | AGT-P0-002、AGT-P0-012、AGT-P0-013 | 单测和接口证据包 | 同一 run 的 HTTP、SSE、DB audit、Android UI reconciliation |
+| active run / cancel | AGT-P0-019 | 服务端单测和 Android 调用路径 | Android stop 点击、cancel HTTP、SSE `run_cancelled`、审计状态和 UI 反馈 |
+| tool calls | AGT-P0-003、AGT-P0-004、AGT-P0-006、AGT-P0-011 | 单测和 interface evidence | 工具失败、超限截断、多工具连续切换和真机 RunTrace |
+| result blocks / evidence cards | AGT-P0-010、AGT-P0-015、AGT-P0-017 | 模型 / 渲染单测和 interface evidence | 真机截图证明 answer、evidence、query window、tool source 同屏可审查 |
+| SSE answer delta / completed | AGT-P0-005、AGT-P0-007、AGT-P0-015、AGT-P0-016 | 单测门禁和规则摘要 evidence | 真实 provider `model_stream` 抓包、stream interrupted / empty / failed 真机证据 |
+| workbench clean entry | AGT-P0-014、AGT-P0-018 | 代码和旧设备包；新锁屏包是 blocked | 解锁设备首屏截图、UI tree、断开后端状态 |
+| Android local audit | AGT-P0-012、AGT-P0-015 | 本地模型和 DAO 存在 | 与后端 audit 对账，证明本地审计不漏关键状态 |
+
+## 5. 后续领域演进建议
+
+这些建议不是 P0 必须一次完成，但后续实现时应避免和现有合同冲突。
+
+- 新增 `agent_runs` 持久化表：用于跨进程恢复 active run、取消、超时和重试状态。
+- 新增 `agent_tool_calls` 表：减少只靠 event payload 追工具调用的审计成本。
+- 新增 `agent_result_blocks` 表或消息 block 子表：让历史结构化结果可分页、可单独审计、可重渲染。
+- 扩展 `agent_drafts` 状态：`pending`、`confirmed`、`executing`、`executed`、`failed`、`archived`。
+- 为 workbench 兼容字段标注 deprecated 或收窄默认响应，避免后续重新塞入报表型默认数据。
+- 建立 `run_id` 级证据包命名规范：一个真实问题一个目录，包含 HTTP、SSE、audit、tool result、Android screenshot/UI tree、latency 和 conclusion。
+
+## 6. 审查禁区
+
+- 不得用 `AdminService.runAgentSmoke()`、demo seed 或 local-only admin 接口证明生产 AI agent 能力。
+- 不得把 Android 本地 `agent_audit_records` 当作后端 run audit 的替代。
+- 不得把规则摘要、关键词 fallback 或服务端 orchestrator 包装成 provider 原生 function calling；具体文案边界见 `43-ai-assistant-requirements.md` 第 9.7 节。
+- 不得把 `archived` 草稿说成“已执行”。
+- 不得把锁屏、AI 首页、无 result block、无工具锚点的设备截图说成 AI 对话体验通过。
