@@ -91,6 +91,27 @@ class AgentSseClientCancellationTest {
     }
 
     @Test
+    fun chatStream_emitsParseErrorAndContinuesAfterMalformedSseData() = runBlocking {
+        val client = clientForBody(
+            """
+            data: {"event_type":"answer_delta","delta":
+
+            data: {"event_type":"run_completed","run_id":"run-1","final_answer":"完成"}
+
+            """.trimIndent()
+        )
+
+        val events = client.chatStream("""{"message":"库存","stream":true}""").toList()
+
+        assertEquals(2, events.size)
+        val error = events[0] as AgentStreamEvent.ErrorEvent
+        assertEquals("STREAM_PARSE_ERROR", error.code)
+        assertTrue(error.message.contains("无法解析"))
+        val completed = events[1] as AgentStreamEvent.RunCompleted
+        assertEquals("完成", completed.finalAnswer)
+    }
+
+    @Test
     fun chatStream_normalizesLegacyBaseUrlBeforeOpeningSseEndpoint() = runBlocking {
         var capturedUrl = ""
         val client = AgentSseClient(
