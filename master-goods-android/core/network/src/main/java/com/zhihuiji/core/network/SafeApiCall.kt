@@ -16,7 +16,7 @@ suspend fun <T> safeApiCall(block: suspend () -> ApiResponse<T>): Result<T> {
             Result.failure(NetworkException(response.code, response.message))
         }
     } catch (e: HttpException) {
-        Result.failure(NetworkException(e.code(), e.message()))
+        Result.failure(NetworkException(e.code(), httpErrorMessage(e.code(), e.message())))
     } catch (e: IOException) {
         Result.failure(NetworkException(-1, "网络连接失败，请检查网络设置"))
     } catch (e: Exception) {
@@ -33,10 +33,18 @@ suspend fun safeApiUnitCall(block: suspend () -> ApiResponse<*>): Result<Unit> {
             Result.failure(NetworkException(response.code, response.message))
         }
     } catch (e: HttpException) {
-        Result.failure(NetworkException(e.code(), e.message()))
+        Result.failure(NetworkException(e.code(), httpErrorMessage(e.code(), e.message())))
     } catch (e: IOException) {
         Result.failure(NetworkException(-1, "网络连接失败，请检查网络设置"))
     } catch (e: Exception) {
         Result.failure(NetworkException(-1, e.message ?: "未知错误"))
     }
+}
+
+internal fun httpErrorMessage(code: Int, fallback: String): String = when (code) {
+    401 -> "登录已失效，请重新登录"
+    403 -> "登录状态无效或没有权限，请重新登录后再试"
+    404 -> "远程服务地址不正确或接口不存在，请检查服务器配置"
+    in 500..599 -> "服务器暂时不可用，请稍后重试"
+    else -> fallback.ifBlank { "请求失败：$code" }
 }

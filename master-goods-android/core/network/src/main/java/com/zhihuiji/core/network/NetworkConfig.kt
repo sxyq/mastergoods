@@ -12,4 +12,10 @@ object NetworkConfig {
     const val WRITE_TIMEOUT = 30L
 
     fun normalizeBaseUrl(raw: String): String = SettingsStore.normalizeBaseUrl(raw)
+
+    fun endpointUrl(baseUrl: String, relativePath: String): String {
+        val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
+        val cleanRelativePath = relativePath.trimStart('/')
+        return normalizedBaseUrl + cleanRelativePath
+    }
 }

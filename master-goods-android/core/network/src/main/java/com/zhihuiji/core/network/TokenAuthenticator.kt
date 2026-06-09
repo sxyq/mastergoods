@@ -24,7 +24,6 @@ class TokenAuthenticator @Inject constructor(
 ) : Authenticator {
     override fun authenticate(route: Route?, response: Response): Request? {
         if (responseCount(response) >= 2) return null
-        if (sessionStore.isTokenExpired()) return null
         val refreshToken = sessionStore.peekRefreshToken() ?: return null
 
         return try {
@@ -34,7 +33,7 @@ class TokenAuthenticator @Inject constructor(
             }
             val body = json.encodeToString(RefreshRequest.serializer(), RefreshRequest(refreshToken))
             val request = Request.Builder()
-                .url("${refreshBaseUrl}auth/refresh")
+                .url(NetworkConfig.endpointUrl(refreshBaseUrl, "v1/auth/refresh"))
                 .post(body.toRequestBody("application/json".toMediaType()))
                 .build()
             val client = OkHttpClient.Builder()

@@ -27,7 +27,7 @@ class SettingsStore @Inject constructor(
         val DEFAULT_BASE_URL = if (BuildConfig.BASE_URL_EDITABLE) {
             "http://117.72.79.106/zhihuiji/"
         } else {
-            "https://api.zhihuiji.com/v1/"
+            "https://api.zhihuiji.com/"
         }
         private const val PRODUCTION_HOST = "api.zhihuiji.com"
         private const val SERVER_124_HOST = "124.222.153.108"
@@ -41,7 +41,29 @@ class SettingsStore @Inject constructor(
             if (trimmed.isEmpty()) return DEFAULT_BASE_URL
             if (trimmed.contains(SERVER_124_HOST)) return DEFAULT_BASE_URL
             if (!allowDebug117Host && trimmed.contains(DEBUG_SERVER_117_HOST)) return DEFAULT_BASE_URL
-            return if (trimmed.endsWith("/")) trimmed else "$trimmed/"
+            val withTrailingSlash = if (trimmed.endsWith("/")) trimmed else "$trimmed/"
+            return stripEndpointVersionSuffix(withTrailingSlash)
+        }
+
+        private fun stripEndpointVersionSuffix(baseUrl: String): String {
+            val uri = runCatching { URI(baseUrl) }.getOrNull() ?: return baseUrl
+            val path = uri.path.orEmpty().removeSuffix("/")
+            val canonicalPath = when {
+                path.endsWith("/v1") -> path.removeSuffix("/v1")
+                path.endsWith("/v2") -> path.removeSuffix("/v2")
+                path == "/v1" || path == "/v2" -> ""
+                else -> return baseUrl
+            }
+            val rebuilt = URI(
+                uri.scheme,
+                uri.userInfo,
+                uri.host,
+                uri.port,
+                canonicalPath.ifBlank { "/" },
+                uri.query,
+                uri.fragment,
+            ).toString()
+            return if (rebuilt.endsWith("/")) rebuilt else "$rebuilt/"
         }
 
         fun isTrustedReleaseBaseUrl(baseUrl: String): Boolean {

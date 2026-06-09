@@ -52,8 +52,7 @@ class AgentSseClient(
      * @param requestBodyJson AgentChatRequest 的 JSON 字符串
      */
     fun chatStream(requestBodyJson: String): Flow<AgentStreamEvent> = flow {
-        val baseUrl = baseUrlProvider().removeSuffix("/")
-        val url = "$baseUrl/v2/agent/chat/stream"
+        val url = NetworkConfig.endpointUrl(baseUrlProvider(), "v2/agent/chat/stream")
 
         val request = Request.Builder()
             .url(url)
@@ -69,7 +68,7 @@ class AgentSseClient(
                 if (!response.isSuccessful) {
                     throw NetworkException(
                         response.code,
-                        "SSE 连接失败: ${response.code} ${response.message}"
+                        httpErrorMessage(response.code, "SSE 连接失败: ${response.code} ${response.message}")
                     )
                 }
 

@@ -521,6 +521,39 @@ class V2AgentAiServiceTest {
     }
 
     @Test
+    void streamPartialToolFailureEmitsToolFailedAndDoesNotInventMissingData() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        when(productRepository.findLowStockProducts(1L, PageRequest.of(0, 10)))
+            .thenReturn(List.of(product(1L, "SKU-1", "纸巾", 2.0, 10.0, 12.5)));
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenThrow(new IllegalStateException("database timeout"));
+        CapturingEmitter emitter = new CapturingEmitter();
+
+        service.runChatStream(1L, conversation(111L), "库存和客户应收情况", "run-partial-tool-failure", emitter);
+
+        String failedPayload = firstPayload(emitter, "\"event_type\":\"tool_failed\"");
+        assertTrue(failedPayload.contains("\"tool_name\":\"customer_receivable_lookup\""), failedPayload);
+        assertTrue(failedPayload.contains("\"tool_call_id\":\"run-partial-tool-failure:customer_receivable_lookup\""), failedPayload);
+        assertTrue(failedPayload.contains("\"error_code\":\"TOOL_QUERY_FAILED\""), failedPayload);
+        assertTrue(failedPayload.contains("\"safe_message\":\"IllegalStateException: database timeout\""), failedPayload);
+        assertTrue(failedPayload.contains("\"input_summary\":\"查询当前账号客户应收余额"), failedPayload);
+        assertTrue(failedPayload.contains("\"query_window\":{\"owner_scope\":\"current_owner\",\"limit\":10}"), failedPayload);
+
+        String answerCompleted = firstPayload(emitter, "\"event_type\":\"answer_completed\"");
+        assertTrue(answerCompleted.contains("库存侧共发现 1 个低库存商品"), answerCompleted);
+        assertTrue(answerCompleted.contains("部分查询失败"), answerCompleted);
+        assertTrue(answerCompleted.contains("customer_receivable_lookup"), answerCompleted);
+        assertTrue(answerCompleted.contains("失败部分未使用模拟数据替代"), answerCompleted);
+        assertFalse(answerCompleted.contains("客户侧没有明显应收欠款压力"), answerCompleted);
+        assertFalse(answerCompleted.contains("欠款客户总数 0 个"), answerCompleted);
+        assertFalse(answerCompleted.contains("应收总额 ¥0.00"), answerCompleted);
+
+        assertTrue(firstPayloadIndex(emitter, "\"title\":\"库存风险\"") > firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""));
+        assertTrue(firstPayloadIndex(emitter, "\"title\":\"本次回答依据\"") > firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""));
+        assertEquals(-1, payloadIndexContaining(emitter, "\"title\":\"应收概览\""));
+    }
+
+    @Test
     void streamEventsIncludeCompatibleEnvelopeMetadata() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
@@ -1236,6 +1269,15 @@ class V2AgentAiServiceTest {
         throw new AssertionError(
             "Missing payload containing: " + firstMarker + " and " + secondMarker + "\n" + String.join("\n", emitter.payloads)
         );
+    }
+
+    private static int payloadIndexContaining(CapturingEmitter emitter, String marker) {
+        for (int index = 0; index < emitter.payloads.size(); index++) {
+            if (emitter.payloads.get(index).contains(marker)) {
+                return index;
+            }
+        }
+        return -1;
     }
 
     private static List<String> answerDeltaPayloads(CapturingEmitter emitter) {

@@ -90,6 +90,30 @@ class AgentSseClientCancellationTest {
         assertEquals("完成", completed.finalAnswer)
     }
 
+    @Test
+    fun chatStream_normalizesLegacyBaseUrlBeforeOpeningSseEndpoint() = runBlocking {
+        var capturedUrl = ""
+        val client = AgentSseClient(
+            okHttpClient = OkHttpClient(),
+            json = Json {
+                ignoreUnknownKeys = true
+                classDiscriminator = "event_type"
+            },
+            baseUrlProvider = { "http://117.72.79.106/zhihuiji/v1/" },
+            callFactory = { _, request ->
+                capturedUrl = request.url.toString()
+                StaticBodyCall(request, """data: {"event_type":"run_completed","run_id":"run-1","final_answer":"完成"}""")
+            },
+        )
+
+        client.chatStream("""{"message":"库存","stream":true}""").toList()
+
+        assertEquals(
+            "http://117.72.79.106/zhihuiji/v2/agent/chat/stream",
+            capturedUrl,
+        )
+    }
+
     private fun clientForBody(body: String): AgentSseClient =
         AgentSseClient(
             okHttpClient = OkHttpClient(),

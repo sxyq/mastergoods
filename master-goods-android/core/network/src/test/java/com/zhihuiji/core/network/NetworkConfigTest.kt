@@ -14,8 +14,32 @@ class NetworkConfigTest {
     @Test
     fun normalizeBaseUrl_trimsAndAppendsTrailingSlash() {
         assertEquals(
-            "http://117.72.79.106/zhihuiji/v1/",
+            "http://117.72.79.106/zhihuiji/",
             NetworkConfig.normalizeBaseUrl(" http://117.72.79.106/zhihuiji/v1 "),
+        )
+    }
+
+    @Test
+    fun normalizeBaseUrl_stripsPersistedEndpointVersionSuffixes() {
+        assertEquals(
+            "http://117.72.79.106/zhihuiji/",
+            NetworkConfig.normalizeBaseUrl("http://117.72.79.106/zhihuiji/v2/"),
+        )
+        assertEquals(
+            "http://117.72.79.106/",
+            NetworkConfig.normalizeBaseUrl("http://117.72.79.106/v1"),
+        )
+    }
+
+    @Test
+    fun endpointUrl_doesNotDuplicateApiVersionWhenLegacyBaseUrlWasPersisted() {
+        assertEquals(
+            "http://117.72.79.106/zhihuiji/v1/auth/refresh",
+            NetworkConfig.endpointUrl("http://117.72.79.106/zhihuiji/v1/", "v1/auth/refresh"),
+        )
+        assertEquals(
+            "http://117.72.79.106/zhihuiji/v2/agent/chat/stream",
+            NetworkConfig.endpointUrl("http://117.72.79.106/zhihuiji/v1/", "/v2/agent/chat/stream"),
         )
     }
 

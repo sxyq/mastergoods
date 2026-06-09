@@ -5,6 +5,9 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import okhttp3.ResponseBody.Companion.toResponseBody
+import retrofit2.HttpException
+import retrofit2.Response
 
 /**
  * Tests for safeApiCall and safeApiUnitCall behavior.
@@ -64,5 +67,17 @@ class SafeApiCallBehaviorTest {
         val response: ApiResponse<Unit> = ApiResponse(code = 0, message = "", data = null)
         val result = safeApiCall { response }
         assertTrue("safeApiCall should fail for ApiResponse<Unit> with null data (this is why safeApiUnitCall exists)", result.isFailure)
+    }
+
+    @Test
+    fun safeApiCall_mapsForbiddenToLoginStateMessage() = runBlocking {
+        val result = safeApiCall<String> {
+            throw HttpException(Response.error<String>(403, "".toResponseBody(null)))
+        }
+
+        assertTrue(result.isFailure)
+        val error = result.exceptionOrNull() as NetworkException
+        assertEquals(403, error.code)
+        assertEquals("登录状态无效或没有权限，请重新登录后再试", error.message)
     }
 }
