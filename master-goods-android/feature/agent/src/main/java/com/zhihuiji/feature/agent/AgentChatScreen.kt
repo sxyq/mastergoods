@@ -97,7 +97,12 @@ fun AgentChatScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val lastMessageId = uiState.messages.lastOrNull()?.id
     val lastMessageContentLength = uiState.messages.lastOrNull()?.content?.length ?: 0
-    val streamingScrollBucket = if (uiState.isStreaming) lastMessageContentLength / 80 else 0
+    val lastMessagePartCount = uiState.messages.lastOrNull()?.parts?.size ?: 0
+    val streamingScrollBucket = if (uiState.isStreaming) {
+        (lastMessageContentLength / 80) + lastMessagePartCount
+    } else {
+        0
+    }
     var toolPillClock by remember { mutableStateOf(System.currentTimeMillis()) }
 
     // 新消息进入时使用动画；流式增量只做轻量贴底，避免每个 token 排队滚动动画。
@@ -209,8 +214,9 @@ fun AgentChatScreen(
                             )
                         }
 
-                        val showStandaloneTyping = uiState.isStreaming &&
-                            uiState.messages.lastOrNull { it.role == MessageRole.ASSISTANT }?.content.isNullOrBlank()
+                        val showStandaloneTyping = uiState.messages
+                            .lastOrNull { it.role == MessageRole.ASSISTANT }
+                            .shouldShowStandaloneTypingIndicator(uiState.isStreaming)
                         if (showStandaloneTyping) {
                             item(
                                 key = "standalone-typing-indicator",
@@ -593,6 +599,12 @@ private fun AssistantMessageTimeline(
                                 isStreaming = message.isStreaming,
                             )
                         }
+                        is ChatMessagePart.PendingResultBlock -> {
+                            PendingResultBlockNotice(
+                                block = part.block,
+                                isStreaming = message.isStreaming,
+                            )
+                        }
                     }
                 }
                 if (message.shouldShowInlineStreamingStatus()) {
@@ -605,6 +617,64 @@ private fun AssistantMessageTimeline(
         }
     }
 }
+
+@Composable
+private fun PendingResultBlockNotice(
+    block: ResultBlockDto,
+    isStreaming: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val notice = pendingResultBlockNoticeText(isStreaming)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(ZhihuijiPrimary.copy(alpha = 0.08f))
+            .border(0.7.dp, ZhihuijiPrimary.copy(alpha = 0.16f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        if (isStreaming) {
+            CircularProgressIndicator(
+                color = ZhihuijiPrimary,
+                strokeWidth = 1.8.dp,
+                modifier = Modifier.size(15.dp),
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(9.dp)
+                    .clip(CircleShape)
+                    .background(ZhihuijiPrimary)
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = block.title?.takeIf { it.isNotBlank() } ?: block.blockType.readableResultBlockName(),
+                style = MaterialTheme.typography.labelMedium,
+                color = ZhihuijiPrimary,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = notice,
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+internal fun pendingResultBlockNoticeText(isStreaming: Boolean): String =
+    if (isStreaming) {
+        "已取得真实结果，正在组织回答"
+    } else {
+        "查询结果已返回，未收到可读回答"
+    }
 
 @Composable
 private fun TimelineResultBlock(

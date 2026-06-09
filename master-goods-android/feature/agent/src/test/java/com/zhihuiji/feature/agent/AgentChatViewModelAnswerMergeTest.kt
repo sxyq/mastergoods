@@ -34,6 +34,16 @@ class AgentChatViewModelAnswerMergeTest {
     }
 
     @Test
+    fun blankAuthoritativeTextPromotesPendingResultWithoutCreatingFakeAnswer() {
+        val block = ResultBlockDto(blockType = "table", title = "销售明细")
+        val parts = listOf(ChatMessagePart.PendingResultBlock(block))
+
+        val updated = parts.withAuthoritativeText(" ")
+
+        assertEquals(listOf(ChatMessagePart.ResultBlock(block)), updated)
+    }
+
+    @Test
     fun streamingTextDeltaAppendsToLastTextPart() {
         val parts = listOf(ChatMessagePart.Text("先分析"))
 
@@ -63,7 +73,7 @@ class AgentChatViewModelAnswerMergeTest {
     }
 
     @Test
-    fun resultBlockWaitsForFirstStreamingTextBeforeEnteringTimeline() {
+    fun resultBlockShowsPendingNoticeBeforeFirstStreamingText() {
         val block = ResultBlockDto(blockType = "line_chart", title = "销售趋势")
 
         val beforeAnswer = emptyList<ChatMessagePart>().appendResultBlockAfterVisibleText(block)
@@ -72,7 +82,7 @@ class AgentChatViewModelAnswerMergeTest {
             pendingBlocks = listOf(block),
         )
 
-        assertEquals(emptyList<ChatMessagePart>(), beforeAnswer)
+        assertEquals(listOf(ChatMessagePart.PendingResultBlock(block)), beforeAnswer)
         assertEquals(
             listOf(
                 ChatMessagePart.Text("我查到了销售趋势。"),
@@ -83,7 +93,7 @@ class AgentChatViewModelAnswerMergeTest {
     }
 
     @Test
-    fun duplicateResultBlockBeforeFirstAnswerStaysPendingOnce() {
+    fun duplicateResultBlockBeforeFirstAnswerKeepsSinglePendingNotice() {
         val block = ResultBlockDto(blockType = "line_chart", title = "销售趋势")
         val blocks = emptyList<ResultBlockDto>()
             .appendDistinctResultBlock(block)
@@ -98,7 +108,7 @@ class AgentChatViewModelAnswerMergeTest {
         )
 
         assertEquals(listOf(block), blocks)
-        assertEquals(emptyList<ChatMessagePart>(), beforeAnswer)
+        assertEquals(listOf(ChatMessagePart.PendingResultBlock(block)), beforeAnswer)
         assertEquals(
             listOf(
                 ChatMessagePart.Text("我查到了销售趋势。"),
@@ -126,6 +136,25 @@ class AgentChatViewModelAnswerMergeTest {
     }
 
     @Test
+    fun resultBlockReplacesPendingNoticeAfterTextIsVisible() {
+        val block = ResultBlockDto(blockType = "table", title = "销售明细")
+        val parts = listOf(
+            ChatMessagePart.Text("我正在整理销售明细。"),
+            ChatMessagePart.PendingResultBlock(block),
+        )
+
+        val updated = parts.appendResultBlockAfterVisibleText(block)
+
+        assertEquals(
+            listOf(
+                ChatMessagePart.Text("我正在整理销售明细。"),
+                ChatMessagePart.ResultBlock(block),
+            ),
+            updated
+        )
+    }
+
+    @Test
     fun authoritativeTextUpdatesOnlyTextPartWithoutMovingResultBlocks() {
         val block = ResultBlockDto(blockType = "line_chart", title = "趋势")
         val parts = listOf(
@@ -145,9 +174,47 @@ class AgentChatViewModelAnswerMergeTest {
     }
 
     @Test
+    fun authoritativeTextPromotesPendingResultWhenAnswerAlreadyMatches() {
+        val block = ResultBlockDto(blockType = "line_chart", title = "销售趋势")
+        val parts = listOf(
+            ChatMessagePart.Text("我查到了销售趋势。"),
+            ChatMessagePart.PendingResultBlock(block),
+        )
+
+        val updated = parts.withAuthoritativeText("我查到了销售趋势。")
+
+        assertEquals(
+            listOf(
+                ChatMessagePart.Text("我查到了销售趋势。"),
+                ChatMessagePart.ResultBlock(block),
+            ),
+            updated
+        )
+    }
+
+    @Test
+    fun authoritativeTextPromotesPendingResultEvenWhenFinalAnswerConflicts() {
+        val block = ResultBlockDto(blockType = "table", title = "销售明细")
+        val parts = listOf(
+            ChatMessagePart.Text("模型已输出的真实片段"),
+            ChatMessagePart.PendingResultBlock(block),
+        )
+
+        val updated = parts.withAuthoritativeText("最终答案与片段不完全一致")
+
+        assertEquals(
+            listOf(
+                ChatMessagePart.Text("模型已输出的真实片段"),
+                ChatMessagePart.ResultBlock(block),
+            ),
+            updated
+        )
+    }
+
+    @Test
     fun authoritativeTextPrependsBeforeResultBlockWhenNoTextArrivedYet() {
         val block = ResultBlockDto(blockType = "table", title = "明细")
-        val parts = listOf(ChatMessagePart.ResultBlock(block))
+        val parts = listOf(ChatMessagePart.PendingResultBlock(block))
 
         val updated = parts.withAuthoritativeText("基于上方明细给出结论。")
 

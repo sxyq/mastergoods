@@ -34,6 +34,7 @@ enum class MessageRole {
 sealed interface ChatMessagePart {
     data class Text(val markdown: String) : ChatMessagePart
     data class ResultBlock(val block: ResultBlockDto) : ChatMessagePart
+    data class PendingResultBlock(val block: ResultBlockDto) : ChatMessagePart
 }
 
 /**

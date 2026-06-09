@@ -56,7 +56,9 @@ internal fun String?.inlineStreamingLabel(): String =
     }
 
 internal fun ChatMessage.shouldShowInlineStreamingStatus(): Boolean =
-    isStreaming && (hasServerAnswerDelta || content.isBlank())
+    isStreaming &&
+        (hasServerAnswerDelta || !hasVisibleAssistantTimeline()) &&
+        parts.lastOrNull() !is ChatMessagePart.PendingResultBlock
 
 internal fun ChatMessage.shouldShowAssistantHeader(): Boolean =
     isStreaming || runTrace?.isStreamInterrupted() == true || isRuleSummaryMode(
@@ -71,12 +73,16 @@ internal fun ChatMessage.shouldShowRunTracePanel(): Boolean =
         runTrace?.isExpanded == true ||
         (isStreaming && !hasVisibleAssistantTimeline())
 
+internal fun ChatMessage?.shouldShowStandaloneTypingIndicator(isStreaming: Boolean): Boolean =
+    isStreaming && (this == null || !hasVisibleAssistantTimeline())
+
 internal fun ChatMessage.hasVisibleAssistantTimeline(): Boolean =
     content.isNotBlank() ||
         parts.any { part ->
             when (part) {
                 is ChatMessagePart.Text -> part.markdown.isNotBlank()
                 is ChatMessagePart.ResultBlock -> true
+                is ChatMessagePart.PendingResultBlock -> true
             }
         }
 

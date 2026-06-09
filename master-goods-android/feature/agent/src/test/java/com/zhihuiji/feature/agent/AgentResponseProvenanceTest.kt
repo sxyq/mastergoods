@@ -222,6 +222,30 @@ class AgentResponseProvenanceTest {
     }
 
     @Test
+    fun inlineStreamingStatusHidesWhenPendingResultNoticeIsCurrentTimelineItem() {
+        val block = ResultBlockDto(blockType = "table", title = "销售明细")
+        val streamingText = ChatMessage(
+            id = "assistant-streaming-text",
+            conversationId = 1L,
+            role = MessageRole.ASSISTANT,
+            content = "我查到了销售明细。",
+            parts = listOf(ChatMessagePart.Text("我查到了销售明细。")),
+            isStreaming = true,
+            hasServerAnswerDelta = true,
+            answerDeltaSource = DeltaSourceModelStream,
+        )
+        val pendingResult = streamingText.copy(
+            parts = listOf(
+                ChatMessagePart.Text("我查到了销售明细。"),
+                ChatMessagePart.PendingResultBlock(block),
+            )
+        )
+
+        assertTrue(streamingText.shouldShowInlineStreamingStatus())
+        assertFalse(pendingResult.shouldShowInlineStreamingStatus())
+    }
+
+    @Test
     fun runTraceRecognizesStreamInterruptedFromModeOrLlmStatus() {
         assertTrue(
             RunTrace(
@@ -308,27 +332,47 @@ class AgentResponseProvenanceTest {
     }
 
     @Test
-    fun pendingBlocksAreNotTreatedAsVisibleTimelineBeforeAnswerTextArrives() {
+    fun standaloneTypingIndicatorHidesAfterPendingResultNoticeArrives() {
+        val block = ResultBlockDto(blockType = "table", title = "销售明细")
+        val emptyStreamingMessage = ChatMessage(
+            id = "assistant-typing",
+            conversationId = 1L,
+            role = MessageRole.ASSISTANT,
+            content = "",
+            isStreaming = true,
+        )
+        val pendingResultMessage = emptyStreamingMessage.copy(
+            parts = listOf(ChatMessagePart.PendingResultBlock(block)),
+        )
+
+        assertTrue(null.shouldShowStandaloneTypingIndicator(isStreaming = true))
+        assertTrue(emptyStreamingMessage.shouldShowStandaloneTypingIndicator(isStreaming = true))
+        assertFalse(pendingResultMessage.shouldShowStandaloneTypingIndicator(isStreaming = true))
+        assertFalse(pendingResultMessage.shouldShowStandaloneTypingIndicator(isStreaming = false))
+    }
+
+    @Test
+    fun pendingResultNoticeCountsAsVisibleTimelineBeforeAnswerTextArrives() {
         val block = ResultBlockDto(blockType = "line_chart", title = "销售趋势")
-        val waitingWithHiddenBlock = ChatMessage(
+        val waitingWithPendingNotice = ChatMessage(
             id = "assistant-6",
             conversationId = 1L,
             role = MessageRole.ASSISTANT,
             content = "",
             blocks = listOf(block),
-            parts = emptyList(),
+            parts = listOf(ChatMessagePart.PendingResultBlock(block)),
             isStreaming = true,
             runTrace = RunTrace(runId = "run-2"),
         )
-        val visibleAfterFirstAnswerText = waitingWithHiddenBlock.copy(
+        val visibleAfterFirstAnswerText = waitingWithPendingNotice.copy(
             parts = listOf(
                 ChatMessagePart.Text("我查到了近 7 天销售趋势。"),
                 ChatMessagePart.ResultBlock(block),
             )
         )
 
-        assertFalse(waitingWithHiddenBlock.hasVisibleAssistantTimeline())
-        assertTrue(waitingWithHiddenBlock.shouldShowRunTracePanel())
+        assertTrue(waitingWithPendingNotice.hasVisibleAssistantTimeline())
+        assertFalse(waitingWithPendingNotice.shouldShowRunTracePanel())
         assertTrue(visibleAfterFirstAnswerText.hasVisibleAssistantTimeline())
         assertFalse(visibleAfterFirstAnswerText.shouldShowRunTracePanel())
     }

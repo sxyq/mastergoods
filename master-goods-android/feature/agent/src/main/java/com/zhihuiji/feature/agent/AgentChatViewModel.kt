@@ -932,8 +932,14 @@ internal fun List<ChatMessagePart>.appendStreamingText(
     pendingBlocks: List<ResultBlockDto> = emptyList(),
 ): List<ChatMessagePart> {
     if (delta.isBlank()) return this
-    if (none { it is ChatMessagePart.Text } && pendingBlocks.isNotEmpty()) {
-        return listOf(ChatMessagePart.Text(delta)) + pendingBlocks.map(ChatMessagePart::ResultBlock)
+    if (none { it is ChatMessagePart.Text }) {
+        val blocksToShow = pendingBlocks.ifEmpty {
+            filterIsInstance<ChatMessagePart.PendingResultBlock>().map { it.block }
+        }
+        val resultBlocks = blocksToShow
+            .distinct()
+            .map(ChatMessagePart::ResultBlock)
+        return listOf(ChatMessagePart.Text(delta)) + resultBlocks
     }
     val last = lastOrNull()
     return if (last is ChatMessagePart.Text) {
@@ -945,10 +951,19 @@ internal fun List<ChatMessagePart>.appendStreamingText(
 
 internal fun List<ChatMessagePart>.appendResultBlockAfterVisibleText(block: ResultBlockDto): List<ChatMessagePart> {
     if (none { it is ChatMessagePart.Text }) {
-        return this
+        if (containsResultBlock(block)) {
+            return this
+        }
+        return this + ChatMessagePart.PendingResultBlock(block)
     }
     if (any { it is ChatMessagePart.ResultBlock && it.block == block }) {
         return this
+    }
+    val pendingIndex = indexOfFirst { it is ChatMessagePart.PendingResultBlock && it.block == block }
+    if (pendingIndex >= 0) {
+        return toMutableList().also { parts ->
+            parts[pendingIndex] = ChatMessagePart.ResultBlock(block)
+        }
     }
     return this + ChatMessagePart.ResultBlock(block)
 }
@@ -960,16 +975,18 @@ internal fun List<ChatMessagePart>.withAuthoritativeText(
     content: String,
     pendingBlocks: List<ResultBlockDto> = emptyList(),
 ): List<ChatMessagePart> {
-    if (content.isBlank()) return this
+    if (content.isBlank()) return promotePendingResultBlocks()
     val textIndexes = mapIndexedNotNull { index, part ->
         if (part is ChatMessagePart.Text) index else null
     }
     if (textIndexes.isEmpty()) {
-        val resultParts = if (any { it is ChatMessagePart.ResultBlock }) {
-            this
-        } else {
-            pendingBlocks.map(ChatMessagePart::ResultBlock)
+        val blocksToShow = pendingBlocks.ifEmpty {
+            filterIsInstance<ChatMessagePart.PendingResultBlock>().map { it.block } +
+                filterIsInstance<ChatMessagePart.ResultBlock>().map { it.block }
         }
+        val resultParts = blocksToShow
+            .distinct()
+            .map(ChatMessagePart::ResultBlock)
         return listOf(ChatMessagePart.Text(content)) + resultParts
     }
     if (textIndexes.size > 1) {
@@ -978,13 +995,40 @@ internal fun List<ChatMessagePart>.withAuthoritativeText(
     val firstTextIndex = textIndexes.first()
     val currentText = this[firstTextIndex] as ChatMessagePart.Text
     return when {
-        currentText.markdown == content -> this
+        currentText.markdown == content -> promotePendingResultBlocks()
         content.startsWith(currentText.markdown) -> {
             toMutableList().also { parts ->
                 parts[firstTextIndex] = currentText.copy(markdown = content)
-            }
+            }.promotePendingResultBlocks()
         }
-        else -> this
+        else -> promotePendingResultBlocks()
+    }
+}
+
+private fun List<ChatMessagePart>.containsResultBlock(block: ResultBlockDto): Boolean =
+    any { part ->
+        when (part) {
+            is ChatMessagePart.ResultBlock -> part.block == block
+            is ChatMessagePart.PendingResultBlock -> part.block == block
+            is ChatMessagePart.Text -> false
+        }
+    }
+
+private fun List<ChatMessagePart>.promotePendingResultBlocks(): List<ChatMessagePart> =
+    map { part ->
+        when (part) {
+            is ChatMessagePart.PendingResultBlock -> ChatMessagePart.ResultBlock(part.block)
+            else -> part
+        }
+    }.distinctResultBlocks()
+
+private fun List<ChatMessagePart>.distinctResultBlocks(): List<ChatMessagePart> {
+    val seenBlocks = mutableSetOf<ResultBlockDto>()
+    return filter { part ->
+        when (part) {
+            is ChatMessagePart.ResultBlock -> seenBlocks.add(part.block)
+            else -> true
+        }
     }
 }
 

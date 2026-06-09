@@ -95,6 +95,12 @@ class AgentChatScreenToolStatusTest {
     }
 
     @Test
+    fun pendingResultNoticeDoesNotClaimLoadingAfterStreamEnds() {
+        assertEquals("已取得真实结果，正在组织回答", pendingResultBlockNoticeText(isStreaming = true))
+        assertEquals("查询结果已返回，未收到可读回答", pendingResultBlockNoticeText(isStreaming = false))
+    }
+
+    @Test
     fun emptyChatCopyUsesUserFacingAgentLanguage() {
         assertEquals(
             "发送问题后，AI 会按当前账号权限查询真实业务数据，并返回 Markdown、表格或统计图。",
