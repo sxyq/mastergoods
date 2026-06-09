@@ -40,6 +40,8 @@ class GateResult:
     device_status: str
     has_model_stream: bool
     has_stream_order_risk: bool
+    non_model_delta_sources: list[str]
+    non_model_delta_visible_as_reply: bool | None
 
 
 def read_text(path: Path) -> str:
@@ -62,6 +64,18 @@ def device_status(device_dir: Path) -> str:
     except json.JSONDecodeError:
         return "invalid"
     return str(payload.get("status") or "missing")
+
+
+def device_non_model_delta_visible_as_reply(device_dir: Path) -> bool | None:
+    evidence_file = device_dir / "11-chat-evidence.json"
+    if not evidence_file.exists():
+        return None
+    try:
+        payload = json.loads(evidence_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    value = payload.get("non_model_delta_visible_as_reply")
+    return value if isinstance(value, bool) else None
 
 
 def interface_status(interface_dir: Path, scenario: str) -> str:
@@ -159,6 +173,23 @@ def has_provider_model_stream(interface_dir: Path) -> bool:
     )
 
 
+def non_model_delta_sources(interface_dir: Path) -> list[str]:
+    sources: list[str] = []
+    for event in parse_sse_events(read_text(interface_dir / "02-raw-sse.log")):
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        if str(event.get("event_type") or "") != "answer_delta":
+            continue
+        source = nested_payload_value(payload, "delta_source", "deltaSource")
+        if source is None or source == "model_stream":
+            continue
+        source_text = str(source)
+        if source_text not in sources:
+            sources.append(source_text)
+    return sources
+
+
 def stream_order_risks(interface_dir: Path) -> list[str]:
     events = parse_sse_events(read_text(interface_dir / "02-raw-sse.log"))
     if not events:
@@ -209,6 +240,8 @@ def evaluate(interface_dir: Path, device_dir: Path, scenario: str) -> GateResult
     i_status = interface_status(interface_dir, scenario)
     d_status = device_status(device_dir)
     model_stream = has_provider_model_stream(interface_dir)
+    non_model_sources = non_model_delta_sources(interface_dir) if scenario == "chat" else []
+    non_model_visible = device_non_model_delta_visible_as_reply(device_dir) if scenario == "chat" else None
     order_risks = stream_order_risks(interface_dir) if scenario == "chat" else []
 
     if not interface_dir.exists():
@@ -225,11 +258,18 @@ def evaluate(interface_dir: Path, device_dir: Path, scenario: str) -> GateResult
             reasons.append(f"chat interface status is `{i_status}`, expected `pass-for-interface`")
         if not model_stream:
             reasons.append("provider `model_stream` was not observed; ChatGPT-like streaming remains partial")
+        if non_model_sources and non_model_visible is not False:
+            reasons.append(
+                "raw SSE includes non-model answer_delta sources "
+                f"`{', '.join(non_model_sources)}` without Android proof that they were not shown as reply text"
+            )
         reasons.extend(order_risks)
         if not reasons:
             status = "pass-for-combined-provider-chat-evidence"
         elif d_status == expected_device and i_status == "pass-for-interface" and order_risks:
             status = "partial-combined-chat-stream-order-risk"
+        elif d_status == expected_device and i_status == "pass-for-interface" and model_stream and non_model_sources:
+            status = "partial-combined-chat-non-model-delta-visibility-unknown"
         elif d_status == expected_device and i_status == "pass-for-interface":
             status = "partial-combined-chat-missing-provider-stream"
         else:
@@ -247,7 +287,7 @@ def evaluate(interface_dir: Path, device_dir: Path, scenario: str) -> GateResult
 
     if not reasons:
         reasons.append("interface evidence and Android device evidence both satisfy this scenario gate")
-    return GateResult(status, reasons, i_status, d_status, model_stream, bool(order_risks))
+    return GateResult(status, reasons, i_status, d_status, model_stream, bool(order_risks), non_model_sources, non_model_visible)
 
 
 def render_markdown(result: GateResult, interface_dir: Path, device_dir: Path, scenario: str) -> str:
@@ -263,6 +303,8 @@ def render_markdown(result: GateResult, interface_dir: Path, device_dir: Path, s
         f"- Device status: `{result.device_status}`",
         f"- Provider model_stream observed: `{str(result.has_model_stream).lower()}`",
         f"- Stream ordering risk observed: `{str(result.has_stream_order_risk).lower()}`",
+        f"- Non-model answer_delta sources: `{', '.join(result.non_model_delta_sources) if result.non_model_delta_sources else 'none'}`",
+        f"- Non-model delta visible as reply: `{str(result.non_model_delta_visible_as_reply).lower() if result.non_model_delta_visible_as_reply is not None else 'unknown'}`",
         "",
         "Reasons:",
         "",
@@ -325,6 +367,35 @@ def self_test() -> None:
         assert result.has_stream_order_risk, result
         assert any("result_block appeared before" in reason for reason in result.reasons), result
 
+        write_file(
+            interface / "02-raw-sse.log",
+            "\n".join(
+                [
+                    'data: {"event_type":"answer_delta","run_id":"run-notice","deltaSource":"model_stream","delta":"真实模型流"}',
+                    "",
+                    'data: {"event_type":"answer_delta","run_id":"run-notice","deltaSource":"server_notice","delta":"查询说明"}',
+                    "",
+                ]
+            ),
+        )
+        result = evaluate(interface, device, "chat")
+        assert result.status == "partial-combined-chat-non-model-delta-visibility-unknown", result
+        assert result.non_model_delta_sources == ["server_notice"], result
+        assert any("non-model answer_delta" in reason for reason in result.reasons), result
+
+        write_file(
+            device / "11-chat-evidence.json",
+            json.dumps(
+                {
+                    "status": "pass-for-device-ai-chat-evidence",
+                    "non_model_delta_visible_as_reply": False,
+                }
+            ),
+        )
+        result = evaluate(interface, device, "chat")
+        assert result.status == "pass-for-combined-provider-chat-evidence", result
+
+        write_file(device / "11-chat-evidence.json", json.dumps({"status": "pass-for-device-ai-chat-evidence"}))
         write_file(interface / "02-raw-sse.log", 'data: {"event_type":"answer_completed"}\n')
         result = evaluate(interface, device, "chat")
         assert result.status == "partial-combined-chat-missing-provider-stream", result

@@ -9,6 +9,8 @@ Status: `partial-combined-chat-evidence`
 - Device status: `blocked-by-locked-device`
 - Provider model_stream observed: `false`
 - Stream ordering risk observed: `false`
+- Non-model answer_delta sources: `none`
+- Non-model delta visible as reply: `unknown`
 
 Reasons:
 
