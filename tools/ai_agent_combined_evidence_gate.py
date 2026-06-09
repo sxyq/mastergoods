@@ -39,6 +39,7 @@ class GateResult:
     interface_status: str
     device_status: str
     has_model_stream: bool
+    has_stream_order_risk: bool
 
 
 def read_text(path: Path) -> str:
@@ -158,11 +159,57 @@ def has_provider_model_stream(interface_dir: Path) -> bool:
     )
 
 
+def stream_order_risks(interface_dir: Path) -> list[str]:
+    events = parse_sse_events(read_text(interface_dir / "02-raw-sse.log"))
+    if not events:
+        return ["raw SSE is missing or contains no parseable events"]
+
+    first_model_stream_index: int | None = None
+    first_answer_completed_index: int | None = None
+    first_result_block_index: int | None = None
+    first_server_notice_index: int | None = None
+    model_stream_count = 0
+
+    for index, event in enumerate(events):
+        event_name = str(event.get("event_type") or "")
+        payload = event.get("payload")
+        payload = payload if isinstance(payload, dict) else {}
+        if event_name == "answer_delta":
+            source = nested_payload_value(payload, "delta_source", "deltaSource")
+            if source == "model_stream":
+                model_stream_count += 1
+                if first_model_stream_index is None:
+                    first_model_stream_index = index
+            elif source == "server_notice" and first_server_notice_index is None:
+                first_server_notice_index = index
+        elif event_name == "answer_completed" and first_answer_completed_index is None:
+            first_answer_completed_index = index
+        elif event_name == "result_block" and first_result_block_index is None:
+            first_result_block_index = index
+
+    risks: list[str] = []
+    if first_result_block_index is not None and first_model_stream_index is not None:
+        if first_result_block_index < first_model_stream_index:
+            risks.append("result_block appeared before the first provider model_stream delta")
+    if first_server_notice_index is not None:
+        if first_model_stream_index is None or first_server_notice_index < first_model_stream_index:
+            risks.append("server_notice appeared before the first provider model_stream delta")
+    if (
+        first_result_block_index is not None
+        and model_stream_count == 0
+        and first_answer_completed_index is not None
+        and first_result_block_index < first_answer_completed_index
+    ):
+        risks.append("result_block appeared before answer_completed on a non-provider stream path")
+    return risks
+
+
 def evaluate(interface_dir: Path, device_dir: Path, scenario: str) -> GateResult:
     reasons: list[str] = []
     i_status = interface_status(interface_dir, scenario)
     d_status = device_status(device_dir)
     model_stream = has_provider_model_stream(interface_dir)
+    order_risks = stream_order_risks(interface_dir) if scenario == "chat" else []
 
     if not interface_dir.exists():
         reasons.append(f"interface evidence dir missing: {interface_dir}")
@@ -178,8 +225,11 @@ def evaluate(interface_dir: Path, device_dir: Path, scenario: str) -> GateResult
             reasons.append(f"chat interface status is `{i_status}`, expected `pass-for-interface`")
         if not model_stream:
             reasons.append("provider `model_stream` was not observed; ChatGPT-like streaming remains partial")
+        reasons.extend(order_risks)
         if not reasons:
             status = "pass-for-combined-provider-chat-evidence"
+        elif d_status == expected_device and i_status == "pass-for-interface" and order_risks:
+            status = "partial-combined-chat-stream-order-risk"
         elif d_status == expected_device and i_status == "pass-for-interface":
             status = "partial-combined-chat-missing-provider-stream"
         else:
@@ -197,7 +247,7 @@ def evaluate(interface_dir: Path, device_dir: Path, scenario: str) -> GateResult
 
     if not reasons:
         reasons.append("interface evidence and Android device evidence both satisfy this scenario gate")
-    return GateResult(status, reasons, i_status, d_status, model_stream)
+    return GateResult(status, reasons, i_status, d_status, model_stream, bool(order_risks))
 
 
 def render_markdown(result: GateResult, interface_dir: Path, device_dir: Path, scenario: str) -> str:
@@ -212,6 +262,7 @@ def render_markdown(result: GateResult, interface_dir: Path, device_dir: Path, s
         f"- Interface status: `{result.interface_status}`",
         f"- Device status: `{result.device_status}`",
         f"- Provider model_stream observed: `{str(result.has_model_stream).lower()}`",
+        f"- Stream ordering risk observed: `{str(result.has_stream_order_risk).lower()}`",
         "",
         "Reasons:",
         "",
@@ -257,6 +308,22 @@ def self_test() -> None:
         result = evaluate(interface, device, "chat")
         assert result.status == "pass-for-combined-provider-chat-evidence", result
         assert parse_sse_events(read_text(interface / "02-raw-sse.log"))[0]["event_type"] == "answer_delta"
+
+        write_file(
+            interface / "02-raw-sse.log",
+            "\n".join(
+                [
+                    'data: {"event_type":"result_block","run_id":"run-risk"}',
+                    "",
+                    'data: {"event_type":"answer_delta","run_id":"run-risk","deltaSource":"model_stream","delta":"真实模型流"}',
+                    "",
+                ]
+            ),
+        )
+        result = evaluate(interface, device, "chat")
+        assert result.status == "partial-combined-chat-stream-order-risk", result
+        assert result.has_stream_order_risk, result
+        assert any("result_block appeared before" in reason for reason in result.reasons), result
 
         write_file(interface / "02-raw-sse.log", 'data: {"event_type":"answer_completed"}\n')
         result = evaluate(interface, device, "chat")

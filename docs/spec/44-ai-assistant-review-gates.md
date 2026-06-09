@@ -140,7 +140,7 @@ python3 tools/ai_agent_combined_evidence_gate.py \
   --output docs/acceptance-evidence/ai-agent/<combined-package>/10-combined-gate.md
 ```
 
-没有 Android 截图和 UI tree 时，只能证明接口侧，结论最高为 `partial`。没有 provider `model_stream` 抓包时，ChatGPT-like 真模型流式体验最高为 `partial`。
+没有 Android 截图和 UI tree 时，只能证明接口侧，结论最高为 `partial`。没有 provider `model_stream` 抓包时，ChatGPT-like 真模型流式体验最高为 `partial`。聊天组合门禁还会直接解析 raw SSE 顺序；如果 `result_block` 或 `server_notice` 抢在首个 `answer_delta(delta_source=model_stream)` 前出现，或非模型路径在 `answer_completed` 前展开 `result_block`，该聊天证据必须保持 `partial`，不能宣称真实 ChatGPT-like 体验通过。
 
 ## 7. 三个必测真实问题
 

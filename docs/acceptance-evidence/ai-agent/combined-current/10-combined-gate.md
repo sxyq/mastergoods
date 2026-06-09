@@ -8,6 +8,7 @@ Status: `partial-combined-chat-evidence`
 - Interface status: `pass-for-interface`
 - Device status: `blocked-by-locked-device`
 - Provider model_stream observed: `false`
+- Stream ordering risk observed: `false`
 
 Reasons:
 
