@@ -116,6 +116,12 @@ python3 tools/ai_agent_forbidden_scan.py --output docs/acceptance-evidence/ai-ag
 TOKEN="<bearer-token>" ./tools/ai_agent_evidence_capture.sh cancel-test
 ```
 
+接口侧安全拦截证据可先用以下命令生成；它不会替代 Android 错误终态截图、停止按钮消失证据或 RunTrace safety result：
+
+```bash
+TOKEN="<bearer-token>" ./tools/ai_agent_evidence_capture.sh safety-test
+```
+
 Android 侧场景证据可用以下命令分别采集；这些命令只证明设备可见状态，仍必须和对应 HTTP/SSE/audit 证据包对齐：
 
 ```bash
