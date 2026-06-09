@@ -4,6 +4,8 @@ import com.zhihuiji.core.model.v2.agent.ChatMessage
 import com.zhihuiji.core.model.v2.agent.ChatMessagePart
 import com.zhihuiji.core.model.v2.agent.MessageRole
 import com.zhihuiji.core.model.v2.agent.ResultBlockDto
+import com.zhihuiji.core.model.v2.agent.RunTrace
+import com.zhihuiji.core.model.v2.agent.SafetyResult
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -393,6 +395,33 @@ class AgentChatViewModelAnswerMergeTest {
         assertTrue(shouldReuseLoadedConversation(state, conversationId = 7L))
         assertFalse(shouldReuseLoadedConversation(state, conversationId = 8L))
         assertFalse(shouldReuseLoadedConversation(state.copy(messages = emptyList()), conversationId = 7L))
+    }
+
+    @Test
+    fun safetyBlockedResultStopsAssistantStreamingAndShowsHonestError() {
+        val message = chatMessage(
+            id = "assistant",
+            content = "",
+            isStreaming = true,
+        ).copy(
+            runTrace = RunTrace(runId = "run-1"),
+        )
+
+        val blocked = message.withSafetyBlockedResult(
+            safetyResult = SafetyResult(
+                passed = false,
+                reason = "不允许执行未确认写操作",
+                suggestedAction = "请先生成草稿",
+            ),
+            errorMessage = "安全拦截: 不允许执行未确认写操作",
+        )
+
+        assertFalse(blocked.isStreaming)
+        assertFalse(blocked.animateReveal)
+        assertTrue(blocked.isError)
+        assertEquals("安全拦截: 不允许执行未确认写操作", blocked.errorMessage)
+        assertEquals(false, blocked.runTrace?.safetyResult?.passed)
+        assertEquals("不允许执行未确认写操作", blocked.runTrace?.safetyResult?.reason)
     }
 
     private fun chatMessage(

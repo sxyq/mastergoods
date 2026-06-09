@@ -264,13 +264,15 @@ class AgentChatViewModel @Inject constructor(
             }
 
             is AgentStreamEvent.SafetyCheckBlocked -> {
-                updateRunTrace(assistantMessageId) { trace ->
-                    trace.copy(
-                        safetyResult = SafetyResult(
-                            passed = false,
-                            reason = event.reason,
-                            suggestedAction = event.suggestedAction,
-                        )
+                val blockedSafetyResult = SafetyResult(
+                    passed = false,
+                    reason = event.reason,
+                    suggestedAction = event.suggestedAction,
+                )
+                updateAssistantMessage(assistantMessageId) { msg ->
+                    msg.withSafetyBlockedResult(
+                        safetyResult = blockedSafetyResult,
+                        errorMessage = "安全拦截: ${event.reason}",
                     )
                 }
                 _uiState.update {
@@ -1013,6 +1015,23 @@ internal fun shouldReuseLoadedConversation(
     conversationId: Long,
 ): Boolean =
     state.conversationId == conversationId && state.messages.isNotEmpty()
+
+internal fun ChatMessage.withSafetyBlockedResult(
+    safetyResult: SafetyResult,
+    errorMessage: String,
+): ChatMessage =
+    copy(
+        isStreaming = false,
+        isError = true,
+        errorMessage = errorMessage,
+        animateReveal = false,
+        runTrace = runTrace?.copy(safetyResult = safetyResult)
+            ?: RunTrace(
+                runId = "unknown",
+                safetyResult = safetyResult,
+                isExpanded = true,
+            ),
+    )
 
 private fun initialQuestionKey(
     conversationId: Long?,
