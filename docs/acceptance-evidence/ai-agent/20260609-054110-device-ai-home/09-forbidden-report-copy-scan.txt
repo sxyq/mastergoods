@@ -1,0 +1,25 @@
+# Forbidden Report Copy Scan
+
+Strong forbidden hits: `none`
+
+Strong forbidden terms are default dashboard/report content, not generic capability copy.
+Allowed entry copy may mention generating Markdown, charts, or evidence after the user asks a question.
+
+UI text preview:
+
+- 5:41
+- 6
+/
+9
+- 6月9日
+- 周二
+- 周二
+- 5:41
+- 手电筒
+- 拍照
+- 中国移动  |  中国移动
+- 5G信号强度4格共4格
+- 5G信号强度4格共4格
+- WLAN 信号强度为三格。
+- 6
+- 电池电量为百分之 88。

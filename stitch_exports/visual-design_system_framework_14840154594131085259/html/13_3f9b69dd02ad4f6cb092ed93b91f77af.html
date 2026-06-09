@@ -1,0 +1,279 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
+<title>销售收款 - 智慧记</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-secondary": "#ffffff",
+                        "surface-tint": "#005bc0",
+                        "surface-container-low": "#f1f4f9",
+                        "on-surface": "#181c20",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#e0e2e7",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "primary-container": "#1a73e8",
+                        "on-secondary-container": "#5d6571",
+                        "surface": "#f7f9fe",
+                        "primary-fixed": "#d8e2ff",
+                        "secondary": "#575f6b",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "inverse-primary": "#adc7ff",
+                        "on-surface-variant": "#414754",
+                        "on-primary-fixed-variant": "#004493",
+                        "on-tertiary-fixed-variant": "#783100",
+                        "on-primary": "#ffffff",
+                        "background": "#f7f9fe",
+                        "warning-orange": "#FB8C00",
+                        "data-text-secondary": "#6B7280",
+                        "data-text-primary": "#1F2937",
+                        "on-secondary-fixed": "#141c26",
+                        "outline-variant": "#c1c6d6",
+                        "inverse-on-surface": "#eff1f6",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-dim": "#d8dadf",
+                        "success-green": "#34A853",
+                        "status-blue-light": "#E3F2FD",
+                        "inverse-surface": "#2d3135",
+                        "outline": "#727785",
+                        "error-red": "#EA4335",
+                        "surface-bright": "#f7f9fe",
+                        "on-secondary-fixed-variant": "#3f4752",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-fixed": "#341100",
+                        "tertiary-fixed": "#ffdbcb",
+                        "secondary-container": "#dbe3f1",
+                        "secondary-fixed-dim": "#bfc7d4",
+                        "tertiary-container": "#c55500",
+                        "primary-fixed-dim": "#adc7ff",
+                        "on-primary-fixed": "#001a41",
+                        "surface-container": "#eceef3",
+                        "surface-container-high": "#e6e8ed",
+                        "surface-variant": "#e0e2e7",
+                        "on-primary-container": "#ffffff",
+                        "tertiary": "#9e4300",
+                        "secondary-fixed": "#dbe3f1",
+                        "primary": "#005bbf",
+                        "on-tertiary-container": "#0e0200",
+                        "error": "#ba1a1a",
+                        "on-background": "#181c20"
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.25rem",
+                        lg: "0.5rem",
+                        xl: "0.75rem",
+                        full: "9999px"
+                    },
+                    spacing: {
+                        "container-margin": "16px",
+                        "stack-gap": "12px",
+                        "section-padding": "20px",
+                        "inline-gap": "8px",
+                        "card-internal-padding": "16px"
+                    },
+                    fontFamily: {
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "data-numeric-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "data-numeric-lg": ["Plus Jakarta Sans"]
+                    },
+                    fontSize: {
+                        "headline-md": ["20px", { lineHeight: "28px", fontWeight: "600" }],
+                        "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+                        "label-sm": ["12px", { lineHeight: "16px", letterSpacing: "0.5px", fontWeight: "600" }],
+                        "headline-lg": ["24px", { lineHeight: "32px", fontWeight: "700" }],
+                        "data-numeric-sm": ["13px", { lineHeight: "18px", fontWeight: "600" }],
+                        "body-lg": ["16px", { lineHeight: "24px", fontWeight: "500" }],
+                        "data-numeric-lg": ["22px", { lineHeight: "28px", fontWeight: "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            background-image: linear-gradient(135deg, theme('colors.surface') 0%, theme('colors.surface-container-low') 100%);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
+        .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+        
+        /* Aurora effect behind total amount */
+        .aurora-bg {
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 50% 50%, rgba(0, 91, 191, 0.08) 0%, rgba(26, 115, 232, 0.05) 25%, transparent 60%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .payment-radio:checked + div {
+            border-color: theme('colors.primary');
+            background-color: theme('colors.primary-fixed');
+            color: theme('colors.on-primary-fixed');
+        }
+        .payment-radio:checked + div .check-icon {
+            opacity: 1;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-background min-h-screen flex flex-col relative overflow-x-hidden">
+<!-- Top App Bar -->
+<header class="fixed top-0 w-full z-50 pt-safe bg-surface/40 backdrop-blur-2xl border-b border-white/50">
+<div class="flex justify-between items-center px-4 py-3 w-full h-[56px]">
+<button class="text-on-surface hover:bg-primary/10 transition-colors p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">arrow_back</span>
+</button>
+<h1 class="text-headline-md font-headline-md text-on-surface font-bold tracking-tight">销售收款</h1>
+<div class="w-10"></div> <!-- Spacer for centering -->
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 px-container-margin pt-[80px] pb-[100px] flex flex-col gap-stack-gap relative">
+<div class="aurora-bg"></div>
+<!-- Total Amount Card -->
+<section class="glass-card rounded-xl p-section-padding relative overflow-hidden flex flex-col items-center justify-center text-center z-10 mt-4">
+<span class="text-label-sm font-label-sm text-on-surface-variant mb-2">应收总计 (CNY)</span>
+<div class="flex items-baseline gap-1">
+<span class="text-headline-md font-headline-md text-primary">¥</span>
+<span class="text-[36px] leading-[44px] font-headline-lg font-bold text-primary tracking-tight">12,840.00</span>
+</div>
+<!-- Customer Info Summary inside Amount Card for cohesiveness -->
+<div class="mt-6 w-full pt-4 border-t border-outline-variant/30 flex justify-between items-center text-left">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center text-primary font-bold">
+                        张
+                    </div>
+<div>
+<div class="text-body-md font-body-md text-on-surface font-medium">张三丰</div>
+<div class="text-label-sm font-label-sm text-data-text-secondary">单号: SO-20231024-001</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Amount Received Input -->
+<section class="glass-card rounded-xl p-card-internal-padding flex flex-col gap-2 z-10">
+<label class="text-label-sm font-label-sm text-on-surface-variant">实收金额</label>
+<div class="relative flex items-center">
+<span class="absolute left-3 text-headline-md font-headline-md text-on-surface-variant">¥</span>
+<input class="w-full bg-white/80 border border-outline-variant/50 rounded-lg py-3 pl-8 pr-4 text-headline-md font-headline-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" type="number" value="12840.00">
+<button class="absolute right-3 text-primary text-label-sm font-label-sm font-medium">全额</button>
+</div>
+</section>
+<!-- Payment Method Selection -->
+<section class="z-10 mt-2">
+<h2 class="text-body-md font-body-md text-on-surface-variant font-medium mb-3 pl-1">支付方式</h2>
+<div class="grid grid-cols-2 gap-inline-gap">
+<!-- WeChat -->
+<label class="relative cursor-pointer group">
+<input checked="" class="payment-radio sr-only" name="payment_method" type="radio" value="wechat">
+<div class="glass-card rounded-lg p-3 flex flex-col items-center justify-center gap-2 border border-transparent transition-all h-24">
+<span class="material-symbols-outlined text-[32px] text-[#07C160]" style="font-variation-settings: 'FILL' 1;">chat</span>
+<span class="text-body-md font-body-md font-medium">微信支付</span>
+<span class="material-symbols-outlined absolute top-2 right-2 text-primary opacity-0 check-icon transition-opacity" style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+</div>
+</label>
+<!-- Alipay -->
+<label class="relative cursor-pointer group">
+<input class="payment-radio sr-only" name="payment_method" type="radio" value="alipay">
+<div class="glass-card rounded-lg p-3 flex flex-col items-center justify-center gap-2 border border-transparent transition-all h-24">
+<span class="material-symbols-outlined text-[32px] text-[#1677FF]" style="font-variation-settings: 'FILL' 1;">qr_code_scanner</span>
+<span class="text-body-md font-body-md font-medium text-on-surface">支付宝</span>
+<span class="material-symbols-outlined absolute top-2 right-2 text-primary opacity-0 check-icon transition-opacity" style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+</div>
+</label>
+<!-- Bank Transfer -->
+<label class="relative cursor-pointer group">
+<input class="payment-radio sr-only" name="payment_method" type="radio" value="bank">
+<div class="glass-card rounded-lg p-3 flex flex-col items-center justify-center gap-2 border border-transparent transition-all h-24">
+<span class="material-symbols-outlined text-[32px] text-secondary" style="font-variation-settings: 'FILL' 0;">account_balance</span>
+<span class="text-body-md font-body-md font-medium text-on-surface">银行转账</span>
+<span class="material-symbols-outlined absolute top-2 right-2 text-primary opacity-0 check-icon transition-opacity" style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+</div>
+</label>
+<!-- Cash -->
+<label class="relative cursor-pointer group">
+<input class="payment-radio sr-only" name="payment_method" type="radio" value="cash">
+<div class="glass-card rounded-lg p-3 flex flex-col items-center justify-center gap-2 border border-transparent transition-all h-24">
+<span class="material-symbols-outlined text-[32px] text-[#F59E0B]" style="font-variation-settings: 'FILL' 0;">payments</span>
+<span class="text-body-md font-body-md font-medium text-on-surface">现金</span>
+<span class="material-symbols-outlined absolute top-2 right-2 text-primary opacity-0 check-icon transition-opacity" style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+</div>
+</label>
+</div>
+</section>
+</main>
+<!-- Action Bar (Floating above Bottom Nav) -->
+<div class="fixed bottom-[80px] w-full px-container-margin z-40">
+<button class="w-full bg-primary hover:bg-primary/90 text-on-primary rounded-xl py-4 flex items-center justify-center gap-2 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.1),0_8px_16px_rgba(0,91,191,0.2)] active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-body-lg font-body-lg font-bold">确认收款</span>
+</button>
+</div>
+<!-- Bottom Navigation Bar (Suppressed on transactional screens typically, but requested by user, treating as a hub for this specific flow) -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-xl bg-white/40 backdrop-blur-2xl border-t border-white/50 shadow-sm md:hidden">
+<div class="flex justify-around items-center h-16 w-full px-2 pb-safe">
+<!-- Items mapped from JSON. None are 'active' as this is a transactional screen, but defaulting to Home if forced -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">home</span>
+<span class="text-label-sm font-label-sm mt-1">首页</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary scale-110 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">description</span>
+<span class="text-label-sm font-label-sm mt-1">单据</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">inventory_2</span>
+<span class="text-label-sm font-label-sm mt-1">档案</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">bar_chart</span>
+<span class="text-label-sm font-label-sm mt-1">报表</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">smart_toy</span>
+<span class="text-label-sm font-label-sm mt-1">助手</span>
+</a>
+</div>
+</nav>
+<script>
+        // Simple micro-interaction for input format
+        const amountInput = document.querySelector('input[type="number"]');
+        const fullAmountBtn = document.querySelector('button.text-primary');
+        
+        fullAmountBtn.addEventListener('click', () => {
+            amountInput.value = '12840.00';
+            // Trigger a small pulse effect
+            amountInput.classList.add('ring-2', 'ring-primary');
+            setTimeout(() => amountInput.classList.remove('ring-2', 'ring-primary'), 200);
+        });
+    </script>
+</body></html>

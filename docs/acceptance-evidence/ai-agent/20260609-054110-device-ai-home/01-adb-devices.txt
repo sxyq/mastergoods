@@ -1,0 +1,3 @@
+List of devices attached
+d715a3a4               device usb:0-1 product:ishtar model:25010PN30C device:ishtar transport_id:1
+

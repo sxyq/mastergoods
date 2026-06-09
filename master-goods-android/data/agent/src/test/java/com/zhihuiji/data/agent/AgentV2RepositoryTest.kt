@@ -1,6 +1,9 @@
 package com.zhihuiji.data.agent
 
 import com.zhihuiji.core.model.ApiResponse
+import com.zhihuiji.core.model.v2.agent.AgentConversationDto
+import com.zhihuiji.core.model.v2.agent.AgentDraftDto
+import com.zhihuiji.core.model.v2.agent.AgentMessageDto
 import com.zhihuiji.core.model.v2.agent.AgentRunCancelDto
 import com.zhihuiji.core.network.AgentSseClient
 import com.zhihuiji.core.network.ZhihuijiV2Api
@@ -20,6 +23,65 @@ class AgentV2RepositoryTest {
     )
 
     private val json = Json { ignoreUnknownKeys = true }
+
+    @Test
+    fun listConversationsPassesOptionalPageAndLimit() = runBlocking {
+        var invokedMethod: String? = null
+        var invokedArgs: Array<out Any?>? = null
+        val api = fakeApi { methodName, args ->
+            invokedMethod = methodName
+            invokedArgs = args
+            ApiResponse<List<AgentConversationDto>>(code = 0, message = "ok", data = emptyList())
+        }
+
+        val repository = AgentV2Repository(api, fakeSseClient, json)
+        val result = repository.listConversations(page = 2, limit = 25)
+
+        assertTrue(result.isSuccess)
+        assertEquals("agentConversationsV2", invokedMethod)
+        assertEquals(2, invokedArgs?.get(0))
+        assertEquals(25, invokedArgs?.get(1))
+    }
+
+    @Test
+    fun listMessagesPassesOptionalPageAndLimit() = runBlocking {
+        var invokedMethod: String? = null
+        var invokedArgs: Array<out Any?>? = null
+        val api = fakeApi { methodName, args ->
+            invokedMethod = methodName
+            invokedArgs = args
+            ApiResponse<List<AgentMessageDto>>(code = 0, message = "ok", data = emptyList())
+        }
+
+        val repository = AgentV2Repository(api, fakeSseClient, json)
+        val result = repository.listMessages(conversationId = 7L, page = 1, limit = 40)
+
+        assertTrue(result.isSuccess)
+        assertEquals("agentMessagesV2", invokedMethod)
+        assertEquals(7L, invokedArgs?.get(0))
+        assertEquals(1, invokedArgs?.get(1))
+        assertEquals(40, invokedArgs?.get(2))
+    }
+
+    @Test
+    fun listDraftsPassesConversationPageAndLimit() = runBlocking {
+        var invokedMethod: String? = null
+        var invokedArgs: Array<out Any?>? = null
+        val api = fakeApi { methodName, args ->
+            invokedMethod = methodName
+            invokedArgs = args
+            ApiResponse<List<AgentDraftDto>>(code = 0, message = "ok", data = emptyList())
+        }
+
+        val repository = AgentV2Repository(api, fakeSseClient, json)
+        val result = repository.listDrafts(conversationId = 9L, page = 3, limit = 10)
+
+        assertTrue(result.isSuccess)
+        assertEquals("agentDraftsV2", invokedMethod)
+        assertEquals(9L, invokedArgs?.get(0))
+        assertEquals(3, invokedArgs?.get(1))
+        assertEquals(10, invokedArgs?.get(2))
+    }
 
     @Test
     fun deleteDraftDelegatesToDeleteAgentDraftV2AndSucceeds() = runBlocking {

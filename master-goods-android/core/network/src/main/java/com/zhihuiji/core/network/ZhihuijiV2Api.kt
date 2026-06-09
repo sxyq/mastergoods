@@ -486,7 +486,10 @@ interface ZhihuijiV2Api {
     suspend fun cancelImportJobV2(@Path("id") id: Long): ApiResponse<ImportJobV2Dto>
 
     @GET("v2/agent/conversations")
-    suspend fun agentConversationsV2(): ApiResponse<List<AgentConversationDto>>
+    suspend fun agentConversationsV2(
+        @Query("page") page: Int? = null,
+        @Query("limit") limit: Int? = null,
+    ): ApiResponse<List<AgentConversationDto>>
 
     @GET("v2/agent/conversations/{id}")
     suspend fun agentConversationV2(@Path("id") id: Long): ApiResponse<AgentConversationDto>
@@ -501,7 +504,11 @@ interface ZhihuijiV2Api {
     suspend fun deleteAgentConversationV2(@Path("id") id: Long): ApiResponse<Unit>
 
     @GET("v2/agent/conversations/{conversationId}/messages")
-    suspend fun agentMessagesV2(@Path("conversationId") conversationId: Long): ApiResponse<List<AgentMessageDto>>
+    suspend fun agentMessagesV2(
+        @Path("conversationId") conversationId: Long,
+        @Query("page") page: Int? = null,
+        @Query("limit") limit: Int? = null,
+    ): ApiResponse<List<AgentMessageDto>>
 
     @POST("v2/agent/conversations/{conversationId}/messages")
     suspend fun createAgentMessageV2(
@@ -510,7 +517,11 @@ interface ZhihuijiV2Api {
     ): ApiResponse<AgentMessageDto>
 
     @GET("v2/agent/drafts")
-    suspend fun agentDraftsV2(@Query("conversation_id") conversationId: Long? = null): ApiResponse<List<AgentDraftDto>>
+    suspend fun agentDraftsV2(
+        @Query("conversation_id") conversationId: Long? = null,
+        @Query("page") page: Int? = null,
+        @Query("limit") limit: Int? = null,
+    ): ApiResponse<List<AgentDraftDto>>
 
     @POST("v2/agent/drafts")
     suspend fun createAgentDraftV2(@Body body: CreateAgentDraftRequest): ApiResponse<AgentDraftDto>

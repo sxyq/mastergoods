@@ -1,0 +1,283 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>供应商档案</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#d8dadf",
+                        "on-secondary-fixed-variant": "#3f4752",
+                        "surface-tint": "#005bc0",
+                        "on-tertiary-fixed": "#341100",
+                        "on-error-container": "#93000a",
+                        "data-text-primary": "#1F2937",
+                        "inverse-primary": "#adc7ff",
+                        "secondary-container": "#dbe3f1",
+                        "secondary-fixed-dim": "#bfc7d4",
+                        "secondary": "#575f6b",
+                        "outline-variant": "#c1c6d6",
+                        "on-surface": "#181c20",
+                        "on-secondary-container": "#5d6571",
+                        "surface": "#f7f9fe",
+                        "on-background": "#181c20",
+                        "error": "#ba1a1a",
+                        "tertiary-fixed": "#ffdbcb",
+                        "on-tertiary-fixed-variant": "#783100",
+                        "on-secondary-fixed": "#141c26",
+                        "surface-container-highest": "#e0e2e7",
+                        "secondary-fixed": "#dbe3f1",
+                        "inverse-on-surface": "#eff1f6",
+                        "on-primary": "#ffffff",
+                        "outline": "#727785",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed-variant": "#004493",
+                        "error-red": "#EA4335",
+                        "on-tertiary": "#ffffff",
+                        "inverse-surface": "#2d3135",
+                        "tertiary": "#9e4300",
+                        "on-error": "#ffffff",
+                        "warning-orange": "#FB8C00",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#001a41",
+                        "on-surface-variant": "#414754",
+                        "background": "#f7f9fe",
+                        "surface-container-high": "#e6e8ed",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-container": "#0e0200",
+                        "data-text-secondary": "#6B7280",
+                        "status-blue-light": "#E3F2FD",
+                        "primary": "#005bbf",
+                        "surface-bright": "#f7f9fe",
+                        "primary-container": "#1a73e8",
+                        "surface-container-low": "#f1f4f9",
+                        "primary-fixed-dim": "#adc7ff",
+                        "surface-variant": "#e0e2e7",
+                        "success-green": "#34A853",
+                        "tertiary-container": "#c55500",
+                        "primary-fixed": "#d8e2ff",
+                        "surface-container": "#eceef3",
+                        "on-primary-container": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb691"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "inline-gap": "8px",
+                        "container-margin": "16px",
+                        "section-padding": "20px",
+                        "stack-gap": "12px",
+                        "card-internal-padding": "16px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "data-numeric-lg": ["Plus Jakarta Sans"],
+                        "body-lg": ["Inter"],
+                        "data-numeric-sm": ["Inter"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "headline-lg": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "data-numeric-lg": ["22px", {"lineHeight": "28px", "fontWeight": "700"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "500"}],
+                        "data-numeric-sm": ["13px", {"lineHeight": "18px", "fontWeight": "600"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f7f9fe 50%, #e0e2e7 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom, 20px);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-surface antialiased overflow-x-hidden pb-24 md:pb-0">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/40 dark:bg-surface-container/40 backdrop-blur-2xl border-b border-white/50 dark:border-outline/20">
+<div class="flex justify-between items-center px-4 py-2 w-full z-50">
+<button class="text-primary dark:text-inverse-primary hover:bg-primary/10 dark:hover:bg-inverse-primary/10 transition-colors p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="text-headline-md font-headline-md font-bold text-on-surface dark:text-on-surface-variant">智慧记</h1>
+<button class="text-primary dark:text-inverse-primary hover:bg-primary/10 dark:hover:bg-inverse-primary/10 transition-colors p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-20 px-container-margin pb-safe max-w-3xl mx-auto">
+<!-- Search and Action Area -->
+<div class="flex items-center gap-inline-gap mb-section-padding">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full pl-10 pr-4 py-3 rounded-xl border border-outline-variant bg-white/70 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-body-md font-body-md glass-card" placeholder="搜索供应商名称/联系人" type="text">
+</div>
+<button class="bg-primary text-on-primary px-4 py-3 rounded-xl flex items-center gap-2 hover:bg-primary-container transition-colors shadow-sm">
+<span class="material-symbols-outlined text-sm">add</span>
+<span class="text-label-sm font-label-sm hidden sm:inline">新增</span>
+</button>
+</div>
+<!-- Supplier List -->
+<div class="flex flex-col gap-stack-gap">
+<!-- Supplier Card 1 -->
+<div class="glass-card rounded-xl p-card-internal-padding flex flex-col gap-3 transition-transform hover:-translate-y-1 duration-200 cursor-pointer">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-status-blue-light text-primary flex items-center justify-center font-headline-md text-headline-md">
+                            晨
+                        </div>
+<div>
+<h3 class="text-body-lg font-body-lg text-on-surface">晨光纸品厂</h3>
+<p class="text-label-sm font-label-sm text-on-surface-variant flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[14px]">inventory_2</span> 主营：办公纸张、包装材料
+                            </p>
+</div>
+</div>
+<span class="px-2 py-1 bg-surface-container-low text-primary rounded-md text-label-sm font-label-sm border border-primary/20">核心供应商</span>
+</div>
+<div class="h-px w-full bg-outline-variant/30 my-1"></div>
+<div class="flex justify-between items-end">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2 text-body-md font-body-md text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">person</span> 张建国 (经理)
+                        </div>
+<div class="flex items-center gap-2 text-body-md font-body-md text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">call</span> 138****5678
+                        </div>
+</div>
+<div class="text-right">
+<p class="text-label-sm font-label-sm text-outline mb-1">应付款项</p>
+<p class="text-data-numeric-lg font-data-numeric-lg text-error">¥ 45,200.00</p>
+</div>
+</div>
+</div>
+<!-- Supplier Card 2 -->
+<div class="glass-card rounded-xl p-card-internal-padding flex flex-col gap-3 transition-transform hover:-translate-y-1 duration-200 cursor-pointer">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container text-on-surface-variant flex items-center justify-center font-headline-md text-headline-md">
+                            鼎
+                        </div>
+<div>
+<h3 class="text-body-lg font-body-lg text-on-surface">鼎盛塑料五金制品</h3>
+<p class="text-label-sm font-label-sm text-on-surface-variant flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[14px]">inventory_2</span> 主营：日用塑料、五金配件
+                            </p>
+</div>
+</div>
+</div>
+<div class="h-px w-full bg-outline-variant/30 my-1"></div>
+<div class="flex justify-between items-end">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2 text-body-md font-body-md text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">person</span> 李雪 (销售)
+                        </div>
+<div class="flex items-center gap-2 text-body-md font-body-md text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">call</span> 159****2341
+                        </div>
+</div>
+<div class="text-right">
+<p class="text-label-sm font-label-sm text-outline mb-1">应付款项</p>
+<p class="text-data-numeric-lg font-data-numeric-lg text-on-surface">¥ 0.00</p>
+</div>
+</div>
+</div>
+<!-- Supplier Card 3 -->
+<div class="glass-card rounded-xl p-card-internal-padding flex flex-col gap-3 transition-transform hover:-translate-y-1 duration-200 cursor-pointer">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-status-blue-light text-primary flex items-center justify-center font-headline-md text-headline-md">
+                            华
+                        </div>
+<div>
+<h3 class="text-body-lg font-body-lg text-on-surface">华泰电子元器件批发</h3>
+<p class="text-label-sm font-label-sm text-on-surface-variant flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[14px]">inventory_2</span> 主营：电子元件、线材
+                            </p>
+</div>
+</div>
+</div>
+<div class="h-px w-full bg-outline-variant/30 my-1"></div>
+<div class="flex justify-between items-end">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2 text-body-md font-body-md text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">person</span> 王强 (总监)
+                        </div>
+<div class="flex items-center gap-2 text-body-md font-body-md text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">call</span> 135****8899
+                        </div>
+</div>
+<div class="text-right">
+<p class="text-label-sm font-label-sm text-outline mb-1">应付款项</p>
+<p class="text-data-numeric-lg font-data-numeric-lg text-error">¥ 12,500.50</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 rounded-t-xl bg-white/40 dark:bg-surface-container-high/40 backdrop-blur-2xl border-t border-white/50 dark:border-outline/20 shadow-sm">
+<div class="flex justify-around items-center h-16 w-full px-2 pb-safe">
+<button class="flex flex-col items-center justify-center text-on-surface-variant/70 dark:text-on-surface-variant/70 hover:text-primary dark:hover:text-inverse-primary transition-all">
+<span class="material-symbols-outlined mb-1">home</span>
+<span class="text-label-sm font-label-sm">首页</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant/70 dark:text-on-surface-variant/70 hover:text-primary dark:hover:text-inverse-primary transition-all">
+<span class="material-symbols-outlined mb-1">description</span>
+<span class="text-label-sm font-label-sm">单据</span>
+</button>
+<button class="flex flex-col items-center justify-center text-primary dark:text-inverse-primary scale-110 transition-transform">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+<span class="text-label-sm font-label-sm">档案</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant/70 dark:text-on-surface-variant/70 hover:text-primary dark:hover:text-inverse-primary transition-all">
+<span class="material-symbols-outlined mb-1">bar_chart</span>
+<span class="text-label-sm font-label-sm">报表</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant/70 dark:text-on-surface-variant/70 hover:text-primary dark:hover:text-inverse-primary transition-all">
+<span class="material-symbols-outlined mb-1">smart_toy</span>
+<span class="text-label-sm font-label-sm">助手</span>
+</button>
+</div>
+</nav>
+</body></html>

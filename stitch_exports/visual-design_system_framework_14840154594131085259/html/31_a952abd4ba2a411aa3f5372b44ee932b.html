@@ -1,0 +1,277 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<title>Master-Goods ERP - 库存盘点</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary": "#ffffff",
+                    "surface-tint": "#005bc0",
+                    "inverse-primary": "#adc7ff",
+                    "surface": "#f7f9fe",
+                    "on-secondary-fixed": "#141c26",
+                    "on-primary-container": "#ffffff",
+                    "primary-fixed": "#d8e2ff",
+                    "on-primary-fixed-variant": "#004493",
+                    "tertiary-fixed-dim": "#ffb691",
+                    "outline-variant": "#c1c6d6",
+                    "surface-container-highest": "#e0e2e7",
+                    "background": "#f7f9fe",
+                    "warning-orange": "#FB8C00",
+                    "surface-container": "#eceef3",
+                    "on-secondary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-variant": "#e0e2e7",
+                    "surface-dim": "#d8dadf",
+                    "on-tertiary-fixed-variant": "#783100",
+                    "secondary-fixed-dim": "#bfc7d4",
+                    "error": "#ba1a1a",
+                    "on-surface-variant": "#414754",
+                    "data-text-primary": "#1F2937",
+                    "surface-container-high": "#e6e8ed",
+                    "on-primary-fixed": "#001a41",
+                    "data-text-secondary": "#6B7280",
+                    "surface-container-low": "#f1f4f9",
+                    "success-green": "#34A853",
+                    "on-tertiary": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "tertiary": "#9e4300",
+                    "on-background": "#181c20",
+                    "tertiary-container": "#c55500",
+                    "primary-container": "#1a73e8",
+                    "primary": "#005bbf",
+                    "inverse-surface": "#2d3135",
+                    "on-error": "#ffffff",
+                    "secondary-fixed": "#dbe3f1",
+                    "on-tertiary-container": "#0e0200",
+                    "tertiary-fixed": "#ffdbcb",
+                    "on-secondary-fixed-variant": "#3f4752",
+                    "inverse-on-surface": "#eff1f6",
+                    "secondary": "#575f6b",
+                    "surface-bright": "#f7f9fe",
+                    "on-surface": "#181c20",
+                    "on-secondary-container": "#5d6571",
+                    "outline": "#727785",
+                    "on-error-container": "#93000a",
+                    "status-blue-light": "#E3F2FD",
+                    "error-red": "#EA4335",
+                    "on-tertiary-fixed": "#341100",
+                    "primary-fixed-dim": "#adc7ff",
+                    "secondary-container": "#dbe3f1"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-gap": "12px",
+                    "inline-gap": "8px",
+                    "container-margin": "16px",
+                    "card-internal-padding": "16px",
+                    "section-padding": "20px"
+            },
+            "fontFamily": {
+                    "label-sm": ["Inter"],
+                    "headline-md": ["Plus Jakarta Sans"],
+                    "body-md": ["Inter"],
+                    "data-numeric-sm": ["Inter"],
+                    "headline-lg": ["Plus Jakarta Sans"],
+                    "data-numeric-lg": ["Plus Jakarta Sans"],
+                    "body-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "600"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "data-numeric-sm": ["13px", {"lineHeight": "18px", "fontWeight": "600"}],
+                    "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "data-numeric-lg": ["22px", {"lineHeight": "28px", "fontWeight": "700"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "500"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(255, 255, 255, 0.5);
+        }
+        /* Hide number input spinners */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen relative overflow-x-hidden antialiased bg-gradient-to-br from-surface via-surface to-primary-fixed/30">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/70 backdrop-blur-2xl shadow-sm border-b-[0.5px] border-white/50 flex justify-between items-center px-container-margin h-14">
+<button class="text-on-surface hover:bg-surface-container-low p-2 rounded-full active:scale-95 transition-transform flex items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-primary font-bold tracking-tight">库存盘点</h1>
+<div class="w-10"></div> <!-- Spacer for centering -->
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-20 pb-32 px-container-margin flex flex-col gap-section-padding">
+<!-- Context & Summary Section (Bento Grid Style) -->
+<section class="flex flex-col gap-stack-gap">
+<div class="inline-flex items-center gap-2 bg-surface-container/50 backdrop-blur-md px-4 py-2 rounded-full self-start border-[0.5px] border-white/40 shadow-sm">
+<span class="material-symbols-outlined text-[18px] text-primary">warehouse</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">主仓库 - A区 (电子配件)</span>
+</div>
+<div class="grid grid-cols-3 gap-inline-gap">
+<!-- Total Items -->
+<div class="glass-panel rounded-xl p-3 shadow-sm flex flex-col justify-center items-center relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent"></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant relative z-10">待盘商品</span>
+<span class="font-data-numeric-lg text-data-numeric-lg text-data-text-primary mt-1 relative z-10">142</span>
+</div>
+<!-- Gain -->
+<div class="glass-panel rounded-xl p-3 shadow-sm flex flex-col justify-center items-center relative overflow-hidden border-success-green/20">
+<div class="absolute inset-0 bg-success-green/5"></div>
+<span class="font-label-sm text-label-sm text-success-green relative z-10">盘盈数量</span>
+<div class="flex items-center gap-1 mt-1 relative z-10">
+<span class="material-symbols-outlined text-[16px] text-success-green">trending_up</span>
+<span class="font-data-numeric-lg text-data-numeric-lg text-success-green">+15</span>
+</div>
+</div>
+<!-- Loss -->
+<div class="glass-panel rounded-xl p-3 shadow-sm flex flex-col justify-center items-center relative overflow-hidden border-error-red/20">
+<div class="absolute inset-0 bg-error-red/5"></div>
+<span class="font-label-sm text-label-sm text-error-red relative z-10">盘亏数量</span>
+<div class="flex items-center gap-1 mt-1 relative z-10">
+<span class="material-symbols-outlined text-[16px] text-error-red">trending_down</span>
+<span class="font-data-numeric-lg text-data-numeric-lg text-error-red">-3</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Inventory Items List -->
+<section class="flex flex-col gap-stack-gap">
+<div class="flex justify-between items-end mb-1">
+<h2 class="font-body-lg text-body-lg text-on-surface font-semibold">盘点明细</h2>
+<span class="font-label-sm text-label-sm text-on-surface-variant">已盘 3 / 142</span>
+</div>
+<!-- Card 1: Gain (盘盈) -->
+<div class="glass-panel rounded-xl p-card-internal-padding shadow-sm flex gap-3 relative overflow-hidden">
+<div class="w-16 h-16 rounded-lg bg-surface-container overflow-hidden shrink-0 border border-outline-variant/20">
+<img class="w-full h-full object-cover" data-alt="A clean, well-lit product photograph of a modern electronic smart sensor component resting on a pristine white surface. The lighting is soft and studio-quality, emphasizing the sleek industrial design. The aesthetic matches a high-end enterprise resource planning system's inventory catalog." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAk2Ej3O7fQstxw4oqsV1M3J8bu8elqN8Qa2dKKRCQCNfU3HQnAlIpHmcuSTY1R49NzK2dDNfm3_-VlSnXaPGZTkWawNZhDGFFi-YneR9HGeQcNn0EJh4VJS3F-pR7REOIBguxDoW6KDHtXWhK_H2BKPN40IqqMJuiY3-584poGFiO-c0tqLeR--ZHcH8hIawrkyTKibU8vj-yVY-or-YlzwCGVU0TFFJZaCnmB9uuavOXUE2a0f60456kLui0NjwyilHcSEU4kuEum">
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start">
+<h3 class="font-body-md text-body-md text-data-text-primary font-semibold line-clamp-1">智能温湿度传感器 V2</h3>
+<div class="bg-success-green/10 text-success-green px-2 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">add</span>
+<span class="font-data-numeric-sm text-data-numeric-sm">5</span>
+</div>
+</div>
+<p class="font-label-sm text-label-sm text-data-text-secondary mt-0.5">SKU: SENS-TH-002</p>
+</div>
+<div class="flex justify-between items-end mt-3">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-data-text-secondary">系统库存</span>
+<span class="font-data-numeric-sm text-data-numeric-sm text-data-text-primary">120</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label-sm text-label-sm text-primary mb-1">实际盘点</span>
+<div class="relative w-24">
+<input class="w-full text-center font-data-numeric-sm text-data-numeric-sm text-primary border-[1.5px] border-success-green/50 bg-success-green/5 rounded-lg py-1.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" type="number" value="125">
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 2: Loss (盘亏) -->
+<div class="glass-panel rounded-xl p-card-internal-padding shadow-sm flex gap-3 relative overflow-hidden">
+<div class="w-16 h-16 rounded-lg bg-surface-container overflow-hidden shrink-0 border border-outline-variant/20">
+<img class="w-full h-full object-cover" data-alt="A macro shot of metallic industrial gears and cogs arranged neatly on a light gray background. The lighting highlights the precision engineering and metallic textures. The image conveys an organized, professional business environment suitable for an inventory management application." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbnCMt9s6SDqONXeWRLUBDa6VTJEOEUcHSVnZxz30Hfh6Y8pDdxCEC-MzzHNbqDxkUOq24ZzS2mU9cwrrz0QDdz4aUdxvriAgoRts3Jv-2qkG2HK3qKyHkrT88YZ5rV0GPv9OPtDO9rHKgqx_qR7iP5xCJCfWofBlDZxYoSalNNxumSXeR-bi4JTDriUmGDR-2tMdjiG48qJw3KJyCbC09f6x3utqklpoCd5tKsPCVhfRfuKKD-bAba0L4Bq2AnFD_e7PTvup1hXGv">
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start">
+<h3 class="font-body-md text-body-md text-data-text-primary font-semibold line-clamp-1">高精度伺服电机齿轮组</h3>
+<div class="bg-error-red/10 text-error-red px-2 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">remove</span>
+<span class="font-data-numeric-sm text-data-numeric-sm">3</span>
+</div>
+</div>
+<p class="font-label-sm text-label-sm text-data-text-secondary mt-0.5">SKU: GEAR-SM-104</p>
+</div>
+<div class="flex justify-between items-end mt-3">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-data-text-secondary">系统库存</span>
+<span class="font-data-numeric-sm text-data-numeric-sm text-data-text-primary">45</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label-sm text-label-sm text-primary mb-1">实际盘点</span>
+<div class="relative w-24">
+<input class="w-full text-center font-data-numeric-sm text-data-numeric-sm text-error-red border-[1.5px] border-error-red/50 bg-error-red/5 rounded-lg py-1.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" type="number" value="42">
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 3: Normal (无差异) -->
+<div class="glass-panel rounded-xl p-card-internal-padding shadow-sm flex gap-3 relative overflow-hidden">
+<div class="w-16 h-16 rounded-lg bg-surface-container overflow-hidden shrink-0 border border-outline-variant/20">
+<img class="w-full h-full object-cover" data-alt="A minimal, top-down view of stacked electronic circuit boards on a white, frosted glass table. The lighting is diffused, giving a clean and clinical appearance. The image perfectly fits a modern enterprise resource planning interface focusing on precision components." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD-VKfTiVlexGpodJVNK00T8EWxOUjYN7EmLGrAgCgJ3ihwMk5FSmaKjmJMT5YXSVgvT7QFbnGNDEZIURszjyy55oTFL-abiroG-GbfuLUaqIZJHjxynxAkB4pWWreCeUwLz5yoqS0ZuSz4dNcMvwdMbaEBolDL2PXYLDS-Xc1oznJc8H0a7L3vpxH7kM1vXWXpvd-DBgLLch9QQdogEaCgEijWI4V5eCHUxYx1WBU_L1vM1wm4WaCsCCkDA1QpY7CpuUrmCQO1q2ex">
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start">
+<h3 class="font-body-md text-body-md text-data-text-primary font-semibold line-clamp-1">核心控制主板 PCB-A</h3>
+<div class="bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">check</span>
+<span class="font-label-sm text-label-sm">正常</span>
+</div>
+</div>
+<p class="font-label-sm text-label-sm text-data-text-secondary mt-0.5">SKU: PCB-MB-001</p>
+</div>
+<div class="flex justify-between items-end mt-3">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-data-text-secondary">系统库存</span>
+<span class="font-data-numeric-sm text-data-numeric-sm text-data-text-primary">88</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label-sm text-label-sm text-primary mb-1">实际盘点</span>
+<div class="relative w-24">
+<input class="w-full text-center font-data-numeric-sm text-data-numeric-sm text-data-text-primary border border-outline-variant/50 bg-white rounded-lg py-1.5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all shadow-inner" type="number" value="88">
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Contextual Action Bar (Replaces Navigation Shell for focused tasks) -->
+<div class="fixed bottom-0 w-full z-50 bg-surface/80 backdrop-blur-2xl border-t-[0.5px] border-outline-variant/20 p-container-margin pb-safe flex gap-inline-gap shadow-[0_-8px_24px_rgba(0,0,0,0.04)]">
+<button class="flex-1 py-3.5 rounded-xl border-[1.5px] border-primary text-primary font-body-md text-body-md font-semibold text-center hover:bg-primary/5 active:scale-[0.98] transition-all">
+            保存草稿
+        </button>
+<button class="flex-[2] py-3.5 rounded-xl bg-primary text-on-primary font-body-md text-body-md font-semibold text-center shadow-[0_4px_12px_rgba(0,91,191,0.2)] hover:bg-primary/90 hover:shadow-lg active:scale-[0.98] transition-all flex justify-center items-center gap-2">
+<span class="material-symbols-outlined text-[20px]">task_alt</span>
+            完成盘点
+        </button>
+</div>
+</body></html>

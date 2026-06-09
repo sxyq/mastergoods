@@ -1,0 +1,228 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>智慧记 - 库存流水</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#d8dadf",
+                        "primary": "#005bbf",
+                        "on-surface": "#181c20",
+                        "surface-container": "#eceef3",
+                        "on-secondary-fixed": "#141c26",
+                        "data-text-secondary": "#6B7280",
+                        "data-text-primary": "#1F2937",
+                        "on-primary-container": "#ffffff",
+                        "error-red": "#EA4335",
+                        "on-primary-fixed-variant": "#004493",
+                        "surface": "#f7f9fe",
+                        "tertiary": "#9e4300",
+                        "on-tertiary-container": "#0e0200",
+                        "on-background": "#181c20",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "warning-orange": "#FB8C00",
+                        "on-tertiary": "#ffffff",
+                        "status-blue-light": "#E3F2FD",
+                        "tertiary-fixed": "#ffdbcb",
+                        "inverse-on-surface": "#eff1f6",
+                        "secondary-fixed": "#dbe3f1",
+                        "background": "#f7f9fe",
+                        "on-surface-variant": "#414754",
+                        "on-tertiary-fixed": "#341100",
+                        "outline-variant": "#c1c6d6",
+                        "on-secondary-fixed-variant": "#3f4752",
+                        "surface-variant": "#e0e2e7",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed": "#001a41",
+                        "outline": "#727785",
+                        "surface-tint": "#005bc0",
+                        "error": "#ba1a1a",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed": "#d8e2ff",
+                        "surface-container-low": "#f1f4f9",
+                        "primary-fixed-dim": "#adc7ff",
+                        "on-secondary-container": "#5d6571",
+                        "secondary-fixed-dim": "#bfc7d4",
+                        "on-primary": "#ffffff",
+                        "secondary": "#575f6b",
+                        "inverse-surface": "#2d3135",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#e0e2e7",
+                        "inverse-primary": "#adc7ff",
+                        "success-green": "#34A853",
+                        "surface-container-high": "#e6e8ed",
+                        "primary-container": "#1a73e8",
+                        "surface-bright": "#f7f9fe",
+                        "on-error-container": "#93000a",
+                        "tertiary-container": "#c55500",
+                        "on-error": "#ffffff",
+                        "secondary-container": "#dbe3f1",
+                        "on-tertiary-fixed-variant": "#783100"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "inline-gap": "8px",
+                        "container-margin": "16px",
+                        "stack-gap": "12px",
+                        "section-padding": "20px",
+                        "card-internal-padding": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "data-numeric-lg": ["Plus Jakarta Sans"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "data-numeric-sm": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "data-numeric-lg": ["22px", { "lineHeight": "28px", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "data-numeric-sm": ["13px", { "lineHeight": "18px", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(255, 255, 255, 0.5);
+        }
+        .aurora-bg {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 50%, #90caf9 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="aurora-bg text-on-surface min-h-screen font-body-md antialiased pb-20">
+<!-- TopAppBar -->
+<header class="bg-surface/40 dark:bg-surface-container/40 backdrop-blur-2xl docked full-width top-0 border-b border-white/50 dark:border-outline/20 flat no shadows flex justify-between items-center px-4 py-2 w-full z-50 fixed">
+<button class="text-primary dark:text-inverse-primary hover:bg-primary/10 dark:hover:bg-inverse-primary/10 transition-colors Active: scale-95 duration-150 p-2 rounded-full">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">arrow_back</span>
+</button>
+<h1 class="text-headline-md font-headline-md font-bold text-on-surface dark:text-on-surface-variant">库存流水</h1>
+<button class="text-primary dark:text-inverse-primary hover:bg-primary/10 dark:hover:bg-inverse-primary/10 transition-colors Active: scale-95 duration-150 p-2 rounded-full">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">filter_list</span>
+</button>
+</header>
+<!-- Main Content -->
+<main class="pt-20 px-container-margin flex flex-col gap-stack-gap">
+<!-- Product Summary Card -->
+<section class="glass-card rounded-xl p-card-internal-padding shadow-sm flex flex-col gap-inline-gap">
+<div class="flex items-start justify-between">
+<div>
+<h2 class="text-body-lg font-body-lg text-data-text-primary">A4打印纸 80g</h2>
+<p class="text-body-md font-body-md text-data-text-secondary">编号: P-2023-001 | 规格: 箱 (5包)</p>
+</div>
+<div class="bg-status-blue-light text-primary px-2 py-1 rounded text-label-sm font-label-sm">
+                    库存充足
+                </div>
+</div>
+<div class="mt-2">
+<p class="text-label-sm font-label-sm text-data-text-secondary">当前库存</p>
+<div class="flex items-baseline gap-2">
+<span class="text-data-numeric-lg font-data-numeric-lg text-primary">5,000</span>
+<span class="text-body-md font-body-md text-data-text-secondary">箱</span>
+</div>
+</div>
+</section>
+<!-- Timeline Section -->
+<section class="glass-card rounded-xl p-card-internal-padding shadow-sm flex-1">
+<h3 class="text-body-lg font-body-lg text-data-text-primary mb-4">库存变动记录</h3>
+<div class="relative border-l-2 border-primary/20 ml-3 pl-6 flex flex-col gap-6">
+<!-- Timeline Item 1 -->
+<div class="relative">
+<div class="absolute -left-[31px] bg-primary rounded-full p-1 border-2 border-white">
+<span class="material-symbols-outlined text-white text-[16px]" style="font-variation-settings: 'FILL' 1;">add_shopping_cart</span>
+</div>
+<div class="flex justify-between items-start mb-1">
+<div>
+<p class="text-body-md font-body-md text-data-text-primary font-medium">采购入库</p>
+<p class="text-label-sm font-label-sm text-data-text-secondary">2023-10-25 14:30</p>
+</div>
+<div class="text-right">
+<p class="text-data-numeric-sm font-data-numeric-sm text-success-green">+500</p>
+<p class="text-label-sm font-label-sm text-data-text-secondary">结存: 5,000</p>
+</div>
+</div>
+<p class="text-body-md font-body-md text-data-text-secondary text-sm">单号: CG-20231025-001</p>
+</div>
+<!-- Timeline Item 2 -->
+<div class="relative">
+<div class="absolute -left-[31px] bg-warning-orange rounded-full p-1 border-2 border-white">
+<span class="material-symbols-outlined text-white text-[16px]" style="font-variation-settings: 'FILL' 1;">shopping_cart_checkout</span>
+</div>
+<div class="flex justify-between items-start mb-1">
+<div>
+<p class="text-body-md font-body-md text-data-text-primary font-medium">销售出库</p>
+<p class="text-label-sm font-label-sm text-data-text-secondary">2023-10-24 09:15</p>
+</div>
+<div class="text-right">
+<p class="text-data-numeric-sm font-data-numeric-sm text-error-red">-200</p>
+<p class="text-label-sm font-label-sm text-data-text-secondary">结存: 4,500</p>
+</div>
+</div>
+<p class="text-body-md font-body-md text-data-text-secondary text-sm">单号: XS-20231024-002</p>
+</div>
+<!-- Timeline Item 3 -->
+<div class="relative">
+<div class="absolute -left-[31px] bg-secondary rounded-full p-1 border-2 border-white">
+<span class="material-symbols-outlined text-white text-[16px]" style="font-variation-settings: 'FILL' 1;">sync_alt</span>
+</div>
+<div class="flex justify-between items-start mb-1">
+<div>
+<p class="text-body-md font-body-md text-data-text-primary font-medium">库存盘点</p>
+<p class="text-label-sm font-label-sm text-data-text-secondary">2023-10-20 18:00</p>
+</div>
+<div class="text-right">
+<p class="text-data-numeric-sm font-data-numeric-sm text-error-red">-10</p>
+<p class="text-label-sm font-label-sm text-data-text-secondary">结存: 4,700</p>
+</div>
+</div>
+<p class="text-body-md font-body-md text-data-text-secondary text-sm">盘点损耗调整</p>
+</div>
+<!-- Timeline Item 4 -->
+<div class="relative">
+<div class="absolute -left-[31px] bg-primary rounded-full p-1 border-2 border-white">
+<span class="material-symbols-outlined text-white text-[16px]" style="font-variation-settings: 'FILL' 1;">add_shopping_cart</span>
+</div>
+<div class="flex justify-between items-start mb-1">
+<div>
+<p class="text-body-md font-body-md text-data-text-primary font-medium">采购入库</p>
+<p class="text-label-sm font-label-sm text-data-text-secondary">2023-10-15 10:20</p>
+</div>
+<div class="text-right">
+<p class="text-data-numeric-sm font-data-numeric-sm text-success-green">+1,000</p>
+<p class="text-label-sm font-label-sm text-data-text-secondary">结存: 4,710</p>
+</div>
+</div>
+<p class="text-body-md font-body-md text-data-text-secondary text-sm">单号: CG-20231015-003</p>
+</div>
+</div>
+</section>
+</main>
+</body></html>

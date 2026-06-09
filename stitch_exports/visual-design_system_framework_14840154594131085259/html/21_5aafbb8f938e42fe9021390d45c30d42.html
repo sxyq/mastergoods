@@ -1,0 +1,326 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Sales Order Details</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-dim": "#d8dadf",
+                      "primary": "#005bbf",
+                      "on-surface": "#181c20",
+                      "surface-container": "#eceef3",
+                      "on-secondary-fixed": "#141c26",
+                      "data-text-secondary": "#6B7280",
+                      "data-text-primary": "#1F2937",
+                      "on-primary-container": "#ffffff",
+                      "error-red": "#EA4335",
+                      "on-primary-fixed-variant": "#004493",
+                      "surface": "#f7f9fe",
+                      "tertiary": "#9e4300",
+                      "on-tertiary-container": "#0e0200",
+                      "on-background": "#181c20",
+                      "tertiary-fixed-dim": "#ffb691",
+                      "warning-orange": "#FB8C00",
+                      "on-tertiary": "#ffffff",
+                      "status-blue-light": "#E3F2FD",
+                      "tertiary-fixed": "#ffdbcb",
+                      "inverse-on-surface": "#eff1f6",
+                      "secondary-fixed": "#dbe3f1",
+                      "background": "#f7f9fe",
+                      "on-surface-variant": "#414754",
+                      "on-tertiary-fixed": "#341100",
+                      "outline-variant": "#c1c6d6",
+                      "on-secondary-fixed-variant": "#3f4752",
+                      "surface-variant": "#e0e2e7",
+                      "on-secondary": "#ffffff",
+                      "on-primary-fixed": "#001a41",
+                      "outline": "#727785",
+                      "surface-tint": "#005bc0",
+                      "error": "#ba1a1a",
+                      "surface-container-lowest": "#ffffff",
+                      "primary-fixed": "#d8e2ff",
+                      "surface-container-low": "#f1f4f9",
+                      "primary-fixed-dim": "#adc7ff",
+                      "on-secondary-container": "#5d6571",
+                      "secondary-fixed-dim": "#bfc7d4",
+                      "on-primary": "#ffffff",
+                      "secondary": "#575f6b",
+                      "inverse-surface": "#2d3135",
+                      "error-container": "#ffdad6",
+                      "surface-container-highest": "#e0e2e7",
+                      "inverse-primary": "#adc7ff",
+                      "success-green": "#34A853",
+                      "surface-container-high": "#e6e8ed",
+                      "primary-container": "#1a73e8",
+                      "surface-bright": "#f7f9fe",
+                      "on-error-container": "#93000a",
+                      "tertiary-container": "#c55500",
+                      "on-error": "#ffffff",
+                      "secondary-container": "#dbe3f1",
+                      "on-tertiary-fixed-variant": "#783100"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "inline-gap": "8px",
+                      "container-margin": "16px",
+                      "stack-gap": "12px",
+                      "section-padding": "20px",
+                      "card-internal-padding": "16px"
+              },
+              "fontFamily": {
+                      "headline-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "data-numeric-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "data-numeric-sm": [
+                              "Inter"
+                      ],
+                      "label-sm": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "headline-lg": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "data-numeric-lg": [
+                              "22px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "data-numeric-sm": [
+                              "13px",
+                              {
+                                      "lineHeight": "18px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.5px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "500"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        body {
+            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-surface pb-24">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/40 dark:bg-surface-container/40 backdrop-blur-2xl border-b border-white/50 dark:border-outline/20 flex justify-between items-center px-4 py-2">
+<div class="flex items-center gap-4">
+<button aria-label="Back" class="text-primary dark:text-inverse-primary hover:bg-primary/10 dark:hover:bg-inverse-primary/10 transition-colors p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="text-headline-lg font-headline-lg font-bold text-on-surface dark:text-on-surface-variant">订单详情</h1>
+</div>
+<button aria-label="Share" class="text-primary dark:text-inverse-primary hover:bg-primary/10 dark:hover:bg-inverse-primary/10 transition-colors p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="share">share</span>
+</button>
+</header>
+<main class="pt-20 px-container-margin flex flex-col gap-stack-gap max-w-md mx-auto">
+<!-- Header Info -->
+<section class="glass-card rounded-xl p-card-internal-padding flex flex-col gap-4">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-label-sm font-label-sm text-data-text-secondary mb-1">订单编号</p>
+<h2 class="text-headline-md font-headline-md text-data-text-primary">SO-20231024-001</h2>
+</div>
+<div class="bg-success-green/10 text-success-green px-3 py-1 rounded-full text-label-sm font-label-sm">
+                    已完成
+                </div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-4 border-t border-white/50">
+<div>
+<p class="text-label-sm font-label-sm text-data-text-secondary mb-1">客户名称</p>
+<p class="text-body-md font-body-md text-data-text-primary">李想商贸</p>
+</div>
+<div>
+<p class="text-label-sm font-label-sm text-data-text-secondary mb-1">支付状态</p>
+<p class="text-body-md font-body-md text-data-text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-success-green text-[16px]" data-icon="check_circle">check_circle</span>
+                        已全款
+                    </p>
+</div>
+<div>
+<p class="text-label-sm font-label-sm text-data-text-secondary mb-1">下单时间</p>
+<p class="text-body-md font-body-md text-data-text-primary">2023-10-24 14:30</p>
+</div>
+<div>
+<p class="text-label-sm font-label-sm text-data-text-secondary mb-1">业务员</p>
+<p class="text-body-md font-body-md text-data-text-primary">张伟</p>
+</div>
+</div>
+</section>
+<!-- Order Items -->
+<section class="glass-card rounded-xl p-card-internal-padding flex flex-col gap-4">
+<h3 class="text-body-lg font-body-lg text-data-text-primary font-semibold border-b border-white/50 pb-2">商品明细</h3>
+<!-- Item 1 -->
+<div class="flex gap-4 items-center border-b border-white/30 pb-4 last:border-0 last:pb-0">
+<div class="w-16 h-16 bg-white/50 rounded-lg flex-shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-outline text-[32px]" data-icon="inventory_2">inventory_2</span>
+</div>
+<div class="flex-grow flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<p class="text-body-md font-body-md text-data-text-primary font-medium line-clamp-2">高透防滑钢化玻璃膜 (Pro Max)</p>
+</div>
+<p class="text-label-sm font-label-sm text-data-text-secondary mt-1">SKU: GL-PM-001</p>
+<div class="flex justify-between items-end mt-2">
+<p class="text-data-numeric-sm font-data-numeric-sm text-primary">¥25.00</p>
+<p class="text-body-md font-body-md text-data-text-secondary">x 100</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-data-numeric-sm font-data-numeric-sm text-data-text-primary">¥2,500.00</p>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex gap-4 items-center border-b border-white/30 pb-4 last:border-0 last:pb-0">
+<div class="w-16 h-16 bg-white/50 rounded-lg flex-shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-outline text-[32px]" data-icon="inventory_2">inventory_2</span>
+</div>
+<div class="flex-grow flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<p class="text-body-md font-body-md text-data-text-primary font-medium line-clamp-2">极光系列手机壳 (透明防摔)</p>
+</div>
+<p class="text-label-sm font-label-sm text-data-text-secondary mt-1">SKU: CS-AU-002</p>
+<div class="flex justify-between items-end mt-2">
+<p class="text-data-numeric-sm font-data-numeric-sm text-primary">¥45.00</p>
+<p class="text-body-md font-body-md text-data-text-secondary">x 50</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-data-numeric-sm font-data-numeric-sm text-data-text-primary">¥2,250.00</p>
+</div>
+</div>
+</section>
+<!-- Financial Summary -->
+<section class="glass-card rounded-xl p-card-internal-padding flex flex-col gap-3">
+<h3 class="text-body-lg font-body-lg text-data-text-primary font-semibold border-b border-white/50 pb-2 mb-1">财务结算</h3>
+<div class="flex justify-between items-center text-body-md font-body-md text-data-text-secondary">
+<span>商品总额</span>
+<span class="text-data-numeric-sm font-data-numeric-sm">¥4,750.00</span>
+</div>
+<div class="flex justify-between items-center text-body-md font-body-md text-data-text-secondary">
+<span>折扣优惠 (新客95折)</span>
+<span class="text-data-numeric-sm font-data-numeric-sm text-error-red">- ¥237.50</span>
+</div>
+<div class="flex justify-between items-center text-body-md font-body-md text-data-text-secondary">
+<span>运费</span>
+<span class="text-data-numeric-sm font-data-numeric-sm">¥0.00</span>
+</div>
+<div class="border-t border-white/50 pt-3 mt-1 flex justify-between items-center">
+<span class="text-body-lg font-body-lg text-data-text-primary font-semibold">实付金额</span>
+<span class="text-data-numeric-lg font-data-numeric-lg text-primary">¥4,512.50</span>
+</div>
+</section>
+<!-- Timeline Logs -->
+<section class="glass-card rounded-xl p-card-internal-padding flex flex-col gap-4">
+<h3 class="text-body-lg font-body-lg text-data-text-primary font-semibold border-b border-white/50 pb-2 mb-2">订单动态</h3>
+<div class="relative pl-6 border-l-2 border-primary/30 flex flex-col gap-6">
+<!-- Log Entry -->
+<div class="relative">
+<div class="absolute -left-[31px] top-1 w-3 h-3 bg-primary rounded-full border-2 border-white"></div>
+<p class="text-body-md font-body-md text-data-text-primary font-medium">订单已完成</p>
+<p class="text-label-sm font-label-sm text-data-text-secondary mt-1">2023-10-25 10:15</p>
+</div>
+<!-- Log Entry -->
+<div class="relative">
+<div class="absolute -left-[31px] top-1 w-3 h-3 bg-surface-dim rounded-full border-2 border-white"></div>
+<p class="text-body-md font-body-md text-data-text-primary">已发货 (顺丰速运)</p>
+<p class="text-label-sm font-label-sm text-data-text-secondary mt-1">2023-10-24 18:00</p>
+</div>
+<!-- Log Entry -->
+<div class="relative">
+<div class="absolute -left-[31px] top-1 w-3 h-3 bg-surface-dim rounded-full border-2 border-white"></div>
+<p class="text-body-md font-body-md text-data-text-primary">收款完成</p>
+<p class="text-label-sm font-label-sm text-data-text-secondary mt-1">2023-10-24 14:35</p>
+</div>
+<!-- Log Entry -->
+<div class="relative">
+<div class="absolute -left-[31px] top-1 w-3 h-3 bg-surface-dim rounded-full border-2 border-white"></div>
+<p class="text-body-md font-body-md text-data-text-primary">订单创建</p>
+<p class="text-label-sm font-label-sm text-data-text-secondary mt-1">2023-10-24 14:30</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Action Zone -->
+<div class="fixed bottom-0 w-full max-w-md left-1/2 -translate-x-1/2 p-container-margin z-40">
+<button class="w-full bg-primary text-on-primary font-body-lg text-body-lg py-4 rounded-xl shadow-lg hover:bg-primary/90 transition-colors active:scale-95 duration-150">
+            再次购买
+        </button>
+</div>
+</body></html>

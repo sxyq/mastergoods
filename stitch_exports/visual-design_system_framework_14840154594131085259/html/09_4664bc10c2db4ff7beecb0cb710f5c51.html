@@ -1,0 +1,358 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>智慧记 AI 助手</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary": "#9e4300",
+                        "secondary-fixed-dim": "#bfc7d4",
+                        "on-surface-variant": "#414754",
+                        "error-red": "#EA4335",
+                        "surface": "#f7f9fe",
+                        "on-error-container": "#93000a",
+                        "inverse-on-surface": "#eff1f6",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "success-green": "#34A853",
+                        "surface-container": "#eceef3",
+                        "on-tertiary-fixed": "#341100",
+                        "on-error": "#ffffff",
+                        "secondary": "#575f6b",
+                        "surface-container-lowest": "#ffffff",
+                        "background": "#f7f9fe",
+                        "primary-fixed": "#d8e2ff",
+                        "status-blue-light": "#E3F2FD",
+                        "tertiary-container": "#c55500",
+                        "secondary-container": "#dbe3f1",
+                        "on-secondary-fixed-variant": "#3f4752",
+                        "on-primary-container": "#ffffff",
+                        "surface-container-highest": "#e0e2e7",
+                        "data-text-primary": "#1F2937",
+                        "primary-fixed-dim": "#adc7ff",
+                        "surface-bright": "#f7f9fe",
+                        "inverse-primary": "#adc7ff",
+                        "error-container": "#ffdad6",
+                        "primary": "#005bbf",
+                        "outline-variant": "#c1c6d6",
+                        "surface-container-high": "#e6e8ed",
+                        "inverse-surface": "#2d3135",
+                        "outline": "#727785",
+                        "error": "#ba1a1a",
+                        "data-text-secondary": "#6B7280",
+                        "surface-dim": "#d8dadf",
+                        "secondary-fixed": "#dbe3f1",
+                        "primary-container": "#1a73e8",
+                        "on-primary": "#ffffff",
+                        "surface-variant": "#e0e2e7",
+                        "warning-orange": "#FB8C00",
+                        "on-tertiary-fixed-variant": "#783100",
+                        "on-surface": "#181c20",
+                        "on-secondary-container": "#5d6571",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-fixed-variant": "#004493",
+                        "on-background": "#181c20",
+                        "surface-tint": "#005bc0",
+                        "on-secondary": "#ffffff",
+                        "surface-container-low": "#f1f4f9",
+                        "on-secondary-fixed": "#141c26",
+                        "on-primary-fixed": "#001a41",
+                        "on-tertiary-container": "#0e0200",
+                        "tertiary-fixed": "#ffdbcb"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "inline-gap": "8px",
+                        "stack-gap": "12px",
+                        "section-padding": "20px",
+                        "card-internal-padding": "16px",
+                        "container-margin": "16px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "label-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "data-numeric-lg": ["Plus Jakarta Sans"],
+                        "data-numeric-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "600"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "500"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "data-numeric-lg": ["22px", {"lineHeight": "28px", "fontWeight": "700"}],
+                        "data-numeric-sm": ["13px", {"lineHeight": "18px", "fontWeight": "600"}],
+                        "headline-md-mobile": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+                        "headline-lg-mobile": ["22px", {"lineHeight": "28px", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        body {
+            min-height: 100dvh;
+        }
+        .aurora-glass {
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 0.5px solid rgba(255, 255, 255, 0.4);
+        }
+    </style>
+</head>
+<body class="text-on-surface antialiased bg-gradient-to-br from-[#E6F0FF] via-[#F5F8FF] to-[#FFFFFF] min-h-screen">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 aurora-glass flex items-center px-4 h-16 justify-between">
+<div class="flex items-center gap-2">
+<button class="p-2 hover:bg-white/20 rounded-full text-on-surface flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined">arrow_back_ios_new</span>
+</button>
+<h1 class="text-on-surface font-headline-md-mobile">智慧记 AI 助手</h1>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-2 hover:bg-white/20 rounded-full text-on-surface flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined">history</span>
+</button>
+<button class="p-2 hover:bg-white/20 rounded-full text-on-surface flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</div>
+</header>
+<!-- Main Scrollable Conversation Flow -->
+<main class="pt-20 pb-44 px-4 max-w-2xl mx-auto space-y-6">
+<!-- User Message -->
+<div class="flex flex-col items-end gap-1">
+<div class="flex items-end gap-2 max-w-[85%]">
+<div class="aurora-glass text-data-text-primary rounded-2xl rounded-tr-none px-4 py-3 shadow-sm">
+<p class="font-body-md">帮我分析一下最近7天的销售情况</p>
+</div>
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary border border-primary/20">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">person</span>
+</div>
+</div>
+<span class="text-[10px] text-data-text-secondary mr-10 opacity-60">09:25</span>
+</div>
+<!-- AI Response -->
+<div class="flex flex-col items-start gap-1">
+<div class="flex items-start gap-2 w-full">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0 text-white shadow-sm">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<div class="flex-1 space-y-4 max-w-[90%]"><div class="aurora-glass rounded-2xl px-4 py-2 shadow-sm space-y-2 opacity-80">
+<div class="flex items-center gap-2 text-primary">
+<span class="material-symbols-outlined text-[18px] animate-spin">sync</span>
+<span class="text-[12px] font-medium">思考中...</span>
+</div>
+<div class="space-y-1.5">
+<div class="flex items-center gap-2 text-data-text-secondary">
+<span class="material-symbols-outlined text-[14px] text-success-green">check_circle</span>
+<span class="text-[11px]">核朥最脑7天销唢数据...</span>
+</div>
+<div class="flex items-center gap-2 text-data-text-secondary">
+<span class="material-symbols-outlined text-[14px] text-success-green">check_circle</span>
+<span class="text-[11px]">分析TOP3热销商吁...</span>
+</div>
+<div class="flex items-center gap-2 text-data-text-secondary">
+<span class="material-symbols-outlined text-[14px] text-success-green">check_circle</span>
+<span class="text-[11px]">计算销唢趋势与同比...</span>
+</div>
+</div>
+</div>
+<div class="aurora-glass rounded-2xl rounded-tl-none px-4 py-3 shadow-sm">
+<p class="font-body-md text-on-surface">好的，以下是最近7天 (5.10-5.16) 的销售分析：</p>
+</div>
+<!-- Sales Overview Card -->
+<div class="aurora-glass rounded-2xl p-card-internal-padding shadow-sm">
+<div class="flex justify-between items-center mb-4">
+<h3 class="font-body-md font-semibold text-data-text-primary">销售概览</h3>
+<span class="font-label-sm text-data-text-secondary bg-white/50 px-2.5 py-0.5 rounded-full border border-white/40">5.10-5.16</span>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div>
+<p class="font-label-sm text-data-text-secondary mb-0.5">销售金额(元)</p>
+<p class="font-data-numeric-lg text-primary text-[24px]">86,340</p>
+<div class="flex items-center gap-0.5 font-label-sm text-success-green">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+<span>12.4%</span>
+</div>
+</div>
+<div>
+<p class="font-label-sm text-data-text-secondary mb-0.5">订单数(笔)</p>
+<p class="font-data-numeric-lg text-data-text-primary text-[24px]">238</p>
+<div class="flex items-center gap-0.5 font-label-sm text-success-green">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+<span>8.2%</span>
+</div>
+</div>
+</div>
+<!-- Trend Chart Mockup -->
+<div class="h-20 w-full relative">
+<svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 40">
+<defs>
+<linearGradient id="chartGrad" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#1a73e8" stop-opacity="0.2"></stop>
+<stop offset="100%" stop-color="#1a73e8" stop-opacity="0"></stop>
+</linearGradient>
+</defs>
+<path d="M0,30 L15,35 L30,22 L45,28 L60,12 L75,18 L90,5 L100,10 L100,40 L0,40 Z" fill="url(#chartGrad)"></path>
+<path d="M0,30 L15,35 L30,22 L45,28 L60,12 L75,18 L90,5 L100,10" fill="none" stroke="#1a73e8" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+<circle cx="90" cy="5" fill="#fff" r="2.5" stroke="#1a73e8" stroke-width="1.5"></circle>
+</svg>
+<div class="absolute right-[5%] top-[-8px] bg-primary text-white text-[10px] px-1.5 py-0.5 rounded shadow-sm">16,880</div>
+<div class="flex justify-between text-[10px] text-data-text-secondary mt-1 px-1">
+<span>05-10</span>
+<span>05-12</span>
+<span>05-14</span>
+<span>05-16</span>
+</div>
+</div>
+</div>
+<!-- Top 3 Products Card -->
+<div class="aurora-glass rounded-2xl p-card-internal-padding shadow-sm">
+<h3 class="font-body-md font-semibold text-data-text-primary mb-4">销售TOP3商品</h3>
+<div class="space-y-4"><!-- Item 1 -->
+<div class="space-y-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-white p-1 border border-white shadow-sm">
+<img alt="洗衣液" class="w-full h-full object-cover rounded-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuANOywFJ5lVSSlY-QjdKhwiqtLKZ8lD0TsD27FqBOAYpgGDllApaJdpYJ9XvrRCuBVTA7J4TCDnY2pR1_swxvqpj9mUJ5N79onKUCFAl8OW-DLt0z-76WrZ8qzRMg2lJPSWOk2D3phG-r4Vj5FaT1KrgNb1IUnS265iCCnYsNaknSnUc2l2lbwO4cHriQIMqJGq0YxU4Ml_M6xtNQqDl3dBBHR7oM19gF-shqusTH2eiSDkhN4pzNEBygjfEhNtXZq8R8byZpORZsZo">
+</div>
+<div>
+<p class="text-[13px] text-data-text-primary font-medium">洗衣液2kg</p>
+<p class="text-[10px] text-data-text-secondary">占比14.5%</p>
+</div>
+</div>
+<span class="font-data-numeric-sm text-data-text-primary text-[12px]">¥12,560</span>
+</div>
+<div class="h-1 w-full bg-white/30 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 14.5%;"></div>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="space-y-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-white p-1 border border-white shadow-sm">
+<img alt="纸巾" class="w-full h-full object-cover rounded-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDcUBNyfDuEzPB7KAbL464SPgTPk0i7RLe1oWzaX0suFOr2flR8EN07sbdPPDEA4LHAI_lXG4zg5F-ZGUtBSDd7XISFafeZpDQjBSOq9m8AzlF9STpKX3sA9StI2Ym9gq8QtNpKjkXHpk9WVHA1TcJrpXcMacqNIJpC_3BylgKv5L5xD2siY1l9j_Yofnt9ZNbmlqA4A-EybTRD4A4Thl_YPTyidN-EH-KkTQuHOCdswpKL0K4SOqJNDyBLhYV9H1mSP0I3FuPyX4tS">
+</div>
+<div>
+<p class="text-[13px] text-data-text-primary font-medium">纸巾抽纸3层</p>
+<p class="text-[10px] text-data-text-secondary">占比11.4%</p>
+</div>
+</div>
+<span class="font-data-numeric-sm text-data-text-primary text-[12px]">¥9,850</span>
+</div>
+<div class="h-1 w-full bg-white/30 rounded-full overflow-hidden">
+<div class="h-full bg-primary/70 rounded-full" style="width: 11.4%;"></div>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="space-y-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-white p-1 border border-white shadow-sm">
+<img alt="纯净水" class="w-full h-full object-cover rounded-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1DeXlHyl8q9xF3r6PaX6lGQBEEzqv_Nx1t3sLUR7K-DpKZQkCg9P_X8u_vqE_LhqMuxY63p88bYgz9VqrQpxsZwn97PjXCa9FUA6TR7HIxHnDNySXKUwJqKB8TCBb1cD0dbGLG0Bo1-YsGCbxPDW83OHS285kEziLiZbSONq9KS6zYYbMU6nLbYg_dkia5aQJEbT8V8JlvTO33Wu1p7it4zL9FZ_YJRHSGA0bmH3SwNHwCZaer6AJkpixCbCOlHKEfZUN0vFxBFr_">
+</div>
+<div>
+<p class="text-[13px] text-data-text-primary font-medium">纯净水550ml</p>
+<p class="text-[10px] text-data-text-secondary">占比8.5%</p>
+</div>
+</div>
+<span class="font-data-numeric-sm text-data-text-primary text-[12px]">¥7,320</span>
+</div>
+<div class="h-1 w-full bg-white/30 rounded-full overflow-hidden">
+<div class="h-full bg-primary/40 rounded-full" style="width: 8.5%;"></div>
+</div>
+</div></div>
+</div>
+<!-- Actionable Insights Card -->
+<div class="aurora-glass rounded-2xl p-card-internal-padding shadow-sm">
+<h3 class="font-body-md font-semibold text-data-text-primary mb-3">建议行动</h3>
+<ul class="space-y-3">
+<li class="flex items-start gap-2">
+<span class="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 text-[12px] font-bold mt-0.5">1</span>
+<p class="font-body-md text-on-surface-variant leading-relaxed">洗衣液2kg销量快速增长，建议加强备货以防缺货。</p>
+</li>
+<li class="flex items-start gap-2">
+<span class="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 text-[12px] font-bold mt-0.5">2</span>
+<p class="font-body-md text-on-surface-variant leading-relaxed">跟进3笔即将超期的应收款，总计约¥4,500元。</p>
+</li>
+<li class="flex items-start gap-2">
+<span class="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 text-[12px] font-bold mt-0.5">3</span>
+<p class="font-body-md text-on-surface-variant leading-relaxed">考虑对纯净水进行捆绑销售，以提升单笔订单金额。</p>
+</li>
+</ul>
+</div>
+<div class="flex gap-2 flex-wrap pt-2">
+<button class="aurora-glass px-4 py-1.5 rounded-full text-primary font-body-md text-[13px] shadow-sm hover:bg-white/60 transition-colors">哪些客户贡献最多？</button>
+<button class="aurora-glass px-4 py-1.5 rounded-full text-primary font-body-md text-[13px] shadow-sm hover:bg-white/60 transition-colors">哪些商品需要补货？</button>
+<button class="aurora-glass px-4 py-1.5 rounded-full text-primary font-body-md text-[13px] shadow-sm hover:bg-white/60 transition-colors">本月利润如何？</button>
+</div>
+</div>
+</div>
+<span class="text-[10px] text-data-text-secondary ml-10 opacity-60">09:25</span>
+</div>
+</main>
+<!-- Bottom Fixed Area (Input + Nav) -->
+<div class="fixed bottom-0 w-full z-50">
+<!-- Input Field Area -->
+<div class="px-4 pb-4 pt-2">
+<div class="aurora-glass rounded-full flex items-center p-1.5 shadow-md border border-white/60">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">add_circle</span>
+</button>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface placeholder:text-on-surface-variant/50 font-body-md px-2" placeholder="输入你的问题..." type="text">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">mic</span>
+</button>
+<button class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-md active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+</div>
+<!-- Navigation Bar -->
+<nav class="aurora-glass h-20 rounded-t-[32px] shadow-[0_-4px_24px_rgba(0,0,0,0.06)] flex justify-around items-center pb-safe px-4">
+<a class="flex flex-col items-center justify-center text-on-surface-variant gap-1 py-1 w-16" href="#">
+<span class="material-symbols-outlined text-[28px]">home</span>
+<span class="text-[12px] font-medium">首页</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant gap-1 py-1 w-16" href="#">
+<span class="material-symbols-outlined text-[28px]">description</span>
+<span class="text-[12px] font-medium">单据</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant gap-1 py-1 w-16" href="#">
+<span class="material-symbols-outlined text-[28px]">inventory_2</span>
+<span class="text-[12px] font-medium">档案</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant gap-1 py-1 w-16" href="#">
+<span class="material-symbols-outlined text-[28px]">analytics</span>
+<span class="text-[12px] font-medium">报表</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary gap-1 py-1 w-16" href="#">
+<span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+<span class="text-[12px] font-bold">助手</span>
+</a>
+</nav>
+</div>
+</body></html>

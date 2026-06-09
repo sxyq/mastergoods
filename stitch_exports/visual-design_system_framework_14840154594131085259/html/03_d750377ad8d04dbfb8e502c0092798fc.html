@@ -1,0 +1,218 @@
+<!DOCTYPE html><html class="light" lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<title>客户档案 - 智慧记</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-dim": "#d8dadf", "on-secondary-fixed-variant": "#3f4752", "surface-tint": "#005bc0",
+                        "on-tertiary-fixed": "#341100", "on-error-container": "#93000a", "data-text-primary": "#1F2937",
+                        "inverse-primary": "#adc7ff", "secondary-container": "#dbe3f1", "secondary-fixed-dim": "#bfc7d4",
+                        "secondary": "#575f6b", "outline-variant": "#c1c6d6", "on-surface": "#181c20",
+                        "on-secondary-container": "#5d6571", "surface": "#f7f9fe", "on-background": "#181c20",
+                        "error": "#ba1a1a", "tertiary-fixed": "#ffdbcb", "on-tertiary-fixed-variant": "#783100",
+                        "on-secondary-fixed": "#141c26", "surface-container-highest": "#e0e2e7", "secondary-fixed": "#dbe3f1",
+                        "inverse-on-surface": "#eff1f6", "on-primary": "#ffffff", "outline": "#727785",
+                        "on-secondary": "#ffffff", "on-primary-fixed-variant": "#004493", "error-red": "#EA4335",
+                        "on-tertiary": "#ffffff", "inverse-surface": "#2d3135", "tertiary": "#9e4300",
+                        "on-error": "#ffffff", "warning-orange": "#FB8C00", "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#001a41", "on-surface-variant": "#414754", "background": "#f7f9fe",
+                        "surface-container-high": "#e6e8ed", "error-container": "#ffdad6", "on-tertiary-container": "#0e0200",
+                        "data-text-secondary": "#6B7280", "status-blue-light": "#E3F2FD", "primary": "#005bbf",
+                        "surface-bright": "#f7f9fe", "primary-container": "#1a73e8", "surface-container-low": "#f1f4f9",
+                        "primary-fixed-dim": "#adc7ff", "surface-variant": "#e0e2e7", "success-green": "#34A853",
+                        "tertiary-container": "#c55500", "primary-fixed": "#d8e2ff", "surface-container": "#eceef3",
+                        "on-primary-container": "#ffffff", "tertiary-fixed-dim": "#ffb691"
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                    spacing: { "inline-gap": "8px", "container-margin": "16px", "section-padding": "20px", "stack-gap": "12px", "card-internal-padding": "16px" },
+                    fontFamily: {
+                        "label-sm": ["Inter"], "body-md": ["Inter"], "data-numeric-lg": ["Plus Jakarta Sans"],
+                        "body-lg": ["Inter"], "data-numeric-sm": ["Inter"], "headline-md": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"]
+                    },
+                    fontSize: {
+                        "label-sm": ["12px", { lineHeight: "16px", letterSpacing: "0.5px", fontWeight: "600" }],
+                        "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+                        "data-numeric-lg": ["22px", { lineHeight: "28px", fontWeight: "700" }],
+                        "body-lg": ["16px", { lineHeight: "24px", fontWeight: "500" }],
+                        "data-numeric-sm": ["13px", { lineHeight: "18px", fontWeight: "600" }],
+                        "headline-md": ["20px", { lineHeight: "28px", fontWeight: "600" }],
+                        "headline-lg": ["24px", { lineHeight: "32px", fontWeight: "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(255, 255, 255, 0.5);
+        }
+        .aurora-bg {
+            background: radial-gradient(circle at 0% 0%, rgba(0, 91, 191, 0.15) 0%, transparent 50%),
+                        radial-gradient(circle at 100% 100%, rgba(173, 199, 255, 0.3) 0%, transparent 50%),
+                        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.8) 0%, transparent 100%);
+            background-color: #f7f9fe;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="aurora-bg min-h-screen text-on-surface font-body-md overflow-x-hidden pb-[80px]">
+<!-- TopAppBar -->
+<header class="fixed top-0 flex justify-between items-center px-4 py-2 w-full z-50 bg-surface/40 backdrop-blur-2xl border-b border-white/50 text-primary">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="text-headline-lg font-headline-lg font-bold text-on-surface">智慧记</h1>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</header>
+<main class="pt-[72px] px-container-margin flex flex-col gap-stack-gap">
+<!-- Action Area: Search & Add -->
+<div class="flex items-center gap-inline-gap mt-2">
+<div class="flex-1 glass-card rounded-full flex items-center px-4 py-2 relative">
+<span class="material-symbols-outlined text-on-surface-variant mr-2" style="font-variation-settings: 'wght' 300;">search</span>
+<input class="bg-transparent border-none outline-none w-full text-body-md font-body-md text-on-surface placeholder:text-on-surface-variant/50 focus:ring-0 p-0" placeholder="搜索客户名称/电话" type="text">
+</div>
+<button class="bg-primary text-on-primary rounded-full px-5 py-2.5 flex items-center gap-1 shadow-sm hover:shadow-md transition-all active:scale-95">
+<span class="material-symbols-outlined text-[18px]">add</span>
+<span class="text-label-sm font-label-sm">新增客户</span>
+</button>
+</div>
+<!-- Summary Widget -->
+<div class="glass-card rounded-xl p-card-internal-padding flex justify-between items-center relative overflow-hidden">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full blur-xl"></div>
+<div>
+<p class="text-body-md font-body-md text-on-surface-variant mb-1">总应收欠款 (元)</p>
+<p class="text-data-numeric-lg font-data-numeric-lg text-primary">¥45,820.00</p>
+</div>
+<div class="w-12 h-12 rounded-full bg-status-blue-light flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+</div>
+</div>
+<!-- Customer List -->
+<div class="flex flex-col gap-stack-gap">
+<!-- List Item 1 -->
+<div class="glass-card rounded-xl p-card-internal-padding flex flex-col gap-3">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center text-body-lg font-headline-md font-bold">
+                            李
+                        </div>
+<div>
+<h3 class="text-body-lg font-body-lg text-on-surface font-semibold">李想商贸</h3>
+<div class="flex items-center gap-1 text-data-text-secondary mt-0.5">
+<span class="material-symbols-outlined text-[14px]">person</span>
+<span class="text-body-md font-body-md text-[13px]">李想</span>
+<span class="mx-1 text-outline-variant">|</span>
+<span class="material-symbols-outlined text-[14px]">call</span>
+<span class="text-body-md font-body-md text-[13px]">138-1234-5678</span>
+</div>
+</div>
+</div>
+<span class="px-2 py-1 bg-error-container text-on-error-container rounded text-[10px] font-label-sm font-bold tracking-wide uppercase">有欠款</span>
+</div>
+<div class="h-[1px] w-full bg-outline-variant/30"></div>
+<div class="flex justify-between items-center">
+<span class="text-body-md font-body-md text-on-surface-variant">欠款总额</span>
+<span class="text-data-numeric-sm font-data-numeric-sm text-error">¥ 12,500.00</span>
+</div>
+</div>
+<!-- List Item 2 -->
+<div class="glass-card rounded-xl p-card-internal-padding flex flex-col gap-3">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-tertiary-container text-on-primary-container flex items-center justify-center text-body-lg font-headline-md font-bold">
+                            顺
+                        </div>
+<div>
+<h3 class="text-body-lg font-body-lg text-on-surface font-semibold">顺发五金建材</h3>
+<div class="flex items-center gap-1 text-data-text-secondary mt-0.5">
+<span class="material-symbols-outlined text-[14px]">person</span>
+<span class="text-body-md font-body-md text-[13px]">王顺</span>
+<span class="mx-1 text-outline-variant">|</span>
+<span class="material-symbols-outlined text-[14px]">call</span>
+<span class="text-body-md font-body-md text-[13px]">139-8765-4321</span>
+</div>
+</div>
+</div>
+<span class="px-2 py-1 bg-surface-variant text-on-surface-variant rounded text-[10px] font-label-sm font-bold tracking-wide uppercase">已结清</span>
+</div>
+<div class="h-[1px] w-full bg-outline-variant/30"></div>
+<div class="flex justify-between items-center">
+<span class="text-body-md font-body-md text-on-surface-variant">欠款总额</span>
+<span class="text-data-numeric-sm font-data-numeric-sm text-on-surface-variant">¥ 0.00</span>
+</div>
+</div>
+<!-- List Item 3 -->
+<div class="glass-card rounded-xl p-card-internal-padding flex flex-col gap-3">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-secondary-container text-on-secondary-container flex items-center justify-center text-body-lg font-headline-md font-bold">
+                            兴
+                        </div>
+<div>
+<h3 class="text-body-lg font-body-lg text-on-surface font-semibold">兴隆超市总店</h3>
+<div class="flex items-center gap-1 text-data-text-secondary mt-0.5">
+<span class="material-symbols-outlined text-[14px]">person</span>
+<span class="text-body-md font-body-md text-[13px]">张隆</span>
+<span class="mx-1 text-outline-variant">|</span>
+<span class="material-symbols-outlined text-[14px]">call</span>
+<span class="text-body-md font-body-md text-[13px]">137-9999-8888</span>
+</div>
+</div>
+</div>
+<span class="px-2 py-1 bg-error-container text-on-error-container rounded text-[10px] font-label-sm font-bold tracking-wide uppercase">有欠款</span>
+</div>
+<div class="h-[1px] w-full bg-outline-variant/30"></div>
+<div class="flex justify-between items-center">
+<span class="text-body-md font-body-md text-on-surface-variant">欠款总额</span>
+<span class="text-data-numeric-sm font-data-numeric-sm text-error">¥ 33,320.00</span>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-xl bg-white/40 backdrop-blur-2xl border-t border-white/50 shadow-sm flex justify-around items-center h-16 px-2 pb-safe">
+<!-- Index 0 -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all w-[20%]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">home</span>
+<span class="text-label-sm font-label-sm mt-1">首页</span>
+</a>
+<!-- Index 1 -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all w-[20%]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">description</span>
+<span class="text-label-sm font-label-sm mt-1">单据</span>
+</a>
+<!-- Index 2 (Active: 档案) -->
+<a class="flex flex-col items-center justify-center text-primary scale-110 transition-transform w-[20%] active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+<span class="text-label-sm font-label-sm mt-1 font-bold">档案</span>
+</a>
+<!-- Index 3 -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all w-[20%]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">bar_chart</span>
+<span class="text-label-sm font-label-sm mt-1">报表</span>
+</a>
+<!-- Index 4 -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all w-[20%]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">smart_toy</span>
+<span class="text-label-sm font-label-sm mt-1">助手</span>
+</a>
+</nav>
+</body></html>

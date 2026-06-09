@@ -1,0 +1,514 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>经营报表</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "outline": "#727785",
+                "surface-container-low": "#f1f4f9",
+                "on-surface": "#181c20",
+                "on-primary-fixed": "#001a41",
+                "error": "#ba1a1a",
+                "on-tertiary-container": "#0e0200",
+                "tertiary": "#9e4300",
+                "on-background": "#181c20",
+                "inverse-primary": "#adc7ff",
+                "surface-dim": "#d8dadf",
+                "error-red": "#EA4335",
+                "status-blue-light": "#E3F2FD",
+                "secondary-fixed": "#dbe3f1",
+                "on-surface-variant": "#414754",
+                "primary-fixed": "#d8e2ff",
+                "primary": "#005bbf",
+                "data-text-primary": "#1F2937",
+                "tertiary-fixed-dim": "#ffb691",
+                "surface-variant": "#e0e2e7",
+                "surface-tint": "#005bc0",
+                "surface-container": "#eceef3",
+                "on-primary": "#ffffff",
+                "inverse-on-surface": "#eff1f6",
+                "on-secondary-container": "#5d6571",
+                "error-container": "#ffdad6",
+                "on-error-container": "#93000a",
+                "primary-container": "#1a73e8",
+                "primary-fixed-dim": "#adc7ff",
+                "surface-container-highest": "#e0e2e7",
+                "warning-orange": "#FB8C00",
+                "on-tertiary": "#ffffff",
+                "on-tertiary-fixed-variant": "#783100",
+                "on-primary-container": "#ffffff",
+                "tertiary-container": "#c55500",
+                "on-primary-fixed-variant": "#004493",
+                "on-error": "#ffffff",
+                "secondary-container": "#dbe3f1",
+                "on-secondary-fixed": "#141c26",
+                "on-secondary-fixed-variant": "#3f4752",
+                "surface-bright": "#f7f9fe",
+                "background": "#f7f9fe",
+                "outline-variant": "#c1c6d6",
+                "on-tertiary-fixed": "#341100",
+                "inverse-surface": "#2d3135",
+                "secondary": "#575f6b",
+                "surface-container-high": "#e6e8ed",
+                "tertiary-fixed": "#ffdbcb",
+                "success-green": "#34A853",
+                "data-text-secondary": "#6B7280",
+                "on-secondary": "#ffffff",
+                "surface": "#f7f9fe",
+                "secondary-fixed-dim": "#bfc7d4",
+                "surface-container-lowest": "#ffffff"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "container-margin": "16px",
+                "section-padding": "20px",
+                "stack-gap": "12px",
+                "card-internal-padding": "16px",
+                "inline-gap": "8px"
+        },
+        "fontFamily": {
+                "body-lg": [
+                        "Inter"
+                ],
+                "data-numeric-sm": [
+                        "Inter"
+                ],
+                "body-md": [
+                        "Inter"
+                ],
+                "headline-lg": [
+                        "Plus Jakarta Sans"
+                ],
+                "headline-md": [
+                        "Plus Jakarta Sans"
+                ],
+                "data-numeric-lg": [
+                        "Plus Jakarta Sans"
+                ],
+                "label-sm": [
+                        "Inter"
+                ]
+        },
+        "fontSize": {
+                "body-lg": [
+                        "16px",
+                        {
+                                "lineHeight": "24px",
+                                "fontWeight": "500"
+                        }
+                ],
+                "data-numeric-sm": [
+                        "13px",
+                        {
+                                "lineHeight": "18px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-md": [
+                        "14px",
+                        {
+                                "lineHeight": "20px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "headline-lg": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "fontWeight": "700"
+                        }
+                ],
+                "headline-md": [
+                        "20px",
+                        {
+                                "lineHeight": "28px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "data-numeric-lg": [
+                        "22px",
+                        {
+                                "lineHeight": "28px",
+                                "fontWeight": "700"
+                        }
+                ],
+                "label-sm": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "letterSpacing": "0.5px",
+                                "fontWeight": "600"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .icon-fill {
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+</style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-surface-bright text-on-surface antialiased min-h-screen pb-safe relative overflow-x-hidden"><div class="fixed inset-0 pointer-events-none z-[-1] overflow-hidden"><div class="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]"></div><div class="absolute top-[20%] -right-[10%] w-[50%] h-[50%] bg-tertiary-fixed/10 rounded-full blur-[150px]"></div></div>
+<header class="fixed top-0 w-full z-50 bg-white/30 backdrop-blur-2xl border-b border-white/20 shadow-sm flex items-center px-4 h-16">
+<button aria-label="Back" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-primary/10 transition-all active:scale-95 text-primary dark:text-inverse-primary mr-2">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-primary flex-1">AI Assistant</h1>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-primary/10 transition-all active:scale-95 text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</header>
+<main class="pt-20 pb-28 px-4 flex flex-col gap-4 max-w-2xl mx-auto">
+<div class="flex items-center justify-between mb-2">
+<h2 class="font-headline-lg text-headline-lg text-on-surface">经营报表</h2>
+</div>
+<div class="flex bg-white/20 backdrop-blur-2xl rounded-xl p-1 shadow-sm border border-white/20">
+<button class="flex-1 py-1.5 text-center font-body-md text-body-md rounded-md bg-white text-primary shadow-sm transition-all">今日</button>
+<button class="flex-1 py-1.5 text-center font-body-md text-body-md rounded-md text-on-surface-variant hover:bg-white/50 transition-all">本周</button>
+<button class="flex-1 py-1.5 text-center font-body-md text-body-md rounded-md text-on-surface-variant hover:bg-white/50 transition-all">本月</button>
+</div>
+<!-- KPI Cards -->
+<div class="grid grid-cols-2 gap-4">
+<div class="col-span-2 bg-white/30 backdrop-blur-2xl rounded-2xl p-6 border border-white/30 shadow-sm flex flex-col gap-2 relative overflow-hidden">
+<div class="absolute -right-6 -top-6 w-24 h-24 bg-primary/5 rounded-full blur-xl pointer-events-none"></div>
+<div class="flex justify-between items-start">
+<div class="flex flex-col gap-1">
+<span class="font-body-md text-body-md text-on-surface-variant flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]" data-icon="account_balance_wallet">account_balance_wallet</span>
+销售总额 (元)
+</span>
+<span class="font-data-numeric-lg text-[32px] font-bold text-primary leading-none tracking-tight">84,250.00</span>
+</div>
+<span class="font-data-numeric-sm text-data-numeric-sm text-success-green flex items-center bg-success-green/10 px-1.5 py-0.5 rounded">
+<span class="material-symbols-outlined text-[14px]" data-icon="trending_up">trending_up</span> 12.5%
+</span>
+</div>
+</div>
+<div class="bg-white/30 backdrop-blur-2xl rounded-2xl p-5 border border-white/30 shadow-sm">
+<div class="text-on-surface-variant flex items-center justify-between">
+<span class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]" data-icon="monitoring">monitoring</span>
+<span class="font-label-sm text-label-sm">预估利润</span>
+</span>
+<span class="material-symbols-outlined text-success-green text-[16px]" data-icon="arrow_upward">arrow_upward</span>
+</div>
+<span class="font-data-numeric-lg text-data-numeric-lg text-on-surface">¥32,180</span>
+</div>
+<div class="bg-white/30 backdrop-blur-2xl rounded-2xl p-5 border border-white/30 shadow-sm">
+<div class="text-on-surface-variant flex items-center justify-between">
+<span class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]" data-icon="receipt_long">receipt_long</span>
+<span class="font-label-sm text-label-sm">成交单量</span>
+</span>
+<span class="material-symbols-outlined text-error-red text-[16px]" data-icon="arrow_downward">arrow_downward</span>
+</div>
+<span class="font-data-numeric-lg text-data-numeric-lg text-on-surface">1,428</span>
+</div>
+</div>
+<!-- Sales Trend Chart -->
+<div class="bg-white/30 backdrop-blur-2xl rounded-2xl p-5 border border-white/30 shadow-sm">
+<h3 class="font-body-lg text-body-lg text-on-surface flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary" data-icon="timeline">timeline</span>
+销售趋势
+</h3>
+<div class="w-full h-48 relative">
+<canvas id="salesTrendChart"></canvas>
+</div>
+</div>
+<!-- Profit Distribution & Category Charts Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Profit Distribution Bar Chart -->
+<div class="bg-white/30 backdrop-blur-2xl rounded-2xl p-5 border border-white/30 shadow-sm">
+<h3 class="font-body-lg text-body-lg text-on-surface flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary" data-icon="bar_chart">bar_chart</span>
+利润分布 (近7天)
+</h3>
+<div class="w-full h-48 relative">
+<canvas id="profitBarChart"></canvas>
+</div>
+</div>
+<!-- Category Doughnut Chart -->
+<div class="bg-white/30 backdrop-blur-2xl rounded-2xl p-5 border border-white/30 shadow-sm">
+<h3 class="font-body-lg text-body-lg text-on-surface flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary" data-icon="pie_chart">pie_chart</span>
+商品类别构成
+</h3>
+<div class="w-full h-48 relative flex justify-center">
+<canvas id="categoryDoughnutChart"></canvas>
+</div>
+</div>
+</div>
+<!-- Top Sales Ranking -->
+<div class="bg-white/30 backdrop-blur-2xl rounded-2xl p-5 border border-white/30 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-body-lg text-body-lg text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="leaderboard">leaderboard</span>
+                Top 5 畅销商品
+            </h3>
+<button class="text-primary font-label-sm text-label-sm flex items-center hover:underline">
+                完整榜单 <span class="material-symbols-outlined text-[14px]" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+<div class="flex flex-col gap-4">
+<!-- Rank 1 -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end mb-1">
+<div class="flex items-center gap-2">
+<span class="w-5 h-5 flex items-center justify-center rounded bg-warning-orange/10 text-warning-orange font-data-numeric-sm text-[11px]">1</span>
+<span class="font-body-md text-body-md text-on-surface">A4打印纸 (500张/包)</span>
+</div>
+<span class="font-data-numeric-sm text-data-numeric-sm text-on-surface-variant">¥12,450</span>
+</div>
+<div class="h-2 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 85%;"></div>
+</div>
+</div>
+<!-- Rank 2 -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end mb-1">
+<div class="flex items-center gap-2">
+<span class="w-5 h-5 flex items-center justify-center rounded bg-surface-container-highest text-on-surface-variant font-data-numeric-sm text-[11px]">2</span>
+<span class="font-body-md text-body-md text-on-surface">中性笔 黑 (12支/盒)</span>
+</div>
+<span class="font-data-numeric-sm text-data-numeric-sm text-on-surface-variant">¥8,920</span>
+</div>
+<div class="h-2 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-primary/80 rounded-full" style="width: 65%;"></div>
+</div>
+</div>
+<!-- Rank 3 -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end mb-1">
+<div class="flex items-center gap-2">
+<span class="w-5 h-5 flex items-center justify-center rounded bg-surface-container-highest text-on-surface-variant font-data-numeric-sm text-[11px]">3</span>
+<span class="font-body-md text-body-md text-on-surface">文件夹 (A4厚度)</span>
+</div>
+<span class="font-data-numeric-sm text-data-numeric-sm text-on-surface-variant">¥6,300</span>
+</div>
+<div class="h-2 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-primary/60 rounded-full" style="width: 45%;"></div>
+</div>
+</div>
+<!-- Rank 4 -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end mb-1">
+<div class="flex items-center gap-2">
+<span class="w-5 h-5 flex items-center justify-center rounded bg-surface-container-highest text-on-surface-variant font-data-numeric-sm text-[11px]">4</span>
+<span class="font-body-md text-body-md text-on-surface">记事本 (皮面A5)</span>
+</div>
+<span class="font-data-numeric-sm text-data-numeric-sm text-on-surface-variant">¥4,150</span>
+</div>
+<div class="h-2 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-primary/40 rounded-full" style="width: 30%;"></div>
+</div>
+</div>
+<!-- Rank 5 -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end mb-1">
+<div class="flex items-center gap-2">
+<span class="w-5 h-5 flex items-center justify-center rounded bg-surface-container-highest text-on-surface-variant font-data-numeric-sm text-[11px]">5</span>
+<span class="font-body-md text-body-md text-on-surface">白板笔 (红黑蓝套装)</span>
+</div>
+<span class="font-data-numeric-sm text-data-numeric-sm text-on-surface-variant">¥2,800</span>
+</div>
+<div class="h-2 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-primary/30 rounded-full" style="width: 20%;"></div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<nav class="fixed bottom-0 w-full z-50 rounded-t-3xl bg-white/30 backdrop-blur-2xl border-t border-white/20 shadow-lg flex justify-around items-center pb-safe px-2 h-24">
+<button class="flex flex-col items-center justify-center text-on-secondary-container hover:bg-secondary-container/50 transition-transform active:scale-90 h-14 rounded-xl w-20">
+<span class="material-symbols-outlined mb-1 text-[28px]" data-icon="home">home</span>
+<span class="font-label-sm text-body-md">首页</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-secondary-container hover:bg-secondary-container/50 transition-transform active:scale-90 h-14 rounded-xl w-20">
+<span class="material-symbols-outlined mb-1 text-[28px]" data-icon="description">description</span>
+<span class="font-label-sm text-body-md">单据</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-secondary-container hover:bg-secondary-container/50 transition-transform active:scale-90 h-14 rounded-xl w-20">
+<span class="material-symbols-outlined mb-1 text-[28px]" data-icon="inventory_2">inventory_2</span>
+<span class="font-label-sm text-body-md">档案</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-3 py-1 transition-transform active:scale-90 h-14 w-20">
+<span class="material-symbols-outlined icon-fill mb-1 text-[28px]" data-icon="analytics">analytics</span>
+<span class="font-label-sm text-body-md">报表</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-secondary-container hover:bg-secondary-container/50 transition-transform active:scale-90 h-14 rounded-xl w-20">
+<span class="material-symbols-outlined mb-1 text-[28px]" data-icon="smart_toy">smart_toy</span>
+<span class="font-label-sm text-body-md">助手</span>
+</button>
+</nav>
+<script>
+    // Segmented control logic
+    const filterButtons = document.querySelectorAll('.backdrop-blur-2xl.rounded-lg > button');
+    filterButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+            filterButtons.forEach(btn => {
+                btn.classList.remove('bg-white', 'text-primary', 'shadow-sm');
+                btn.classList.add('text-on-surface-variant');
+            });
+            e.target.classList.add('bg-white', 'text-primary', 'shadow-sm');
+            e.target.classList.remove('text-on-surface-variant');
+        });
+    });
+
+    // Chart.js Default Config for Aurora Glass look
+    Chart.defaults.color = '#5d6571';
+    Chart.defaults.font.family = 'Inter, sans-serif';
+    Chart.defaults.scale.grid.color = 'rgba(255, 255, 255, 0.3)';
+    Chart.defaults.scale.grid.borderColor = 'transparent';
+
+    // 1. Sales Trend Line Chart
+    const ctxSales = document.getElementById('salesTrendChart').getContext('2d');
+    
+    // Create gradient for line chart area
+    const gradientSales = ctxSales.createLinearGradient(0, 0, 0, 400);
+    gradientSales.addColorStop(0, 'rgba(0, 91, 191, 0.2)');   // primary color with opacity
+    gradientSales.addColorStop(1, 'rgba(0, 91, 191, 0)');
+
+    new Chart(ctxSales, {
+        type: 'line',
+        data: {
+            labels: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+            datasets: [{
+                label: '销售额',
+                data: [12000, 19000, 15000, 25000, 22000, 30000, 28000],
+                borderColor: '#005bbf', // primary
+                backgroundColor: gradientSales,
+                borderWidth: 2,
+                tension: 0.4, // smooth curve
+                fill: true,
+                pointBackgroundColor: '#ffffff',
+                pointBorderColor: '#005bbf',
+                pointBorderWidth: 2,
+                pointRadius: 3,
+                pointHoverRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    titleColor: '#181c20',
+                    bodyColor: '#414754',
+                    borderColor: 'rgba(0,0,0,0.05)',
+                    borderWidth: 1,
+                    padding: 10,
+                    displayColors: false
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '¥' + value / 1000 + 'k';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 2. Profit Distribution Bar Chart
+    const ctxProfit = document.getElementById('profitBarChart').getContext('2d');
+    new Chart(ctxProfit, {
+        type: 'bar',
+        data: {
+            labels: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+            datasets: [{
+                label: '利润',
+                data: [3500, 5200, 4100, 6800, 5900, 8500, 7800],
+                backgroundColor: '#adc7ff', // inverse-primary / lighter blue
+                hoverBackgroundColor: '#005bbf', // primary
+                borderRadius: 4,
+                barPercentage: 0.6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) { return '¥' + value / 1000 + 'k'; }
+                    }
+                }
+            }
+        }
+    });
+
+    // 3. Category Doughnut Chart
+    const ctxCategory = document.getElementById('categoryDoughnutChart').getContext('2d');
+    new Chart(ctxCategory, {
+        type: 'doughnut',
+        data: {
+            labels: ['办公用纸', '书写工具', '收纳用品', '日常杂项'],
+            datasets: [{
+                data: [45, 25, 20, 10],
+                backgroundColor: [
+                    '#005bbf', // primary
+                    '#adc7ff', // inverse-primary
+                    '#ffb691', // tertiary-fixed-dim
+                    '#dbe3f1'  // secondary-fixed
+                ],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        usePointStyle: true,
+                        boxWidth: 8,
+                        padding: 15,
+                        font: { size: 12 }
+                    }
+                }
+            }
+        }
+    });
+</script>
+</body></html>

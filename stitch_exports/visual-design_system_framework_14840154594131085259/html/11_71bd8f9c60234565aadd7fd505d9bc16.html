@@ -1,0 +1,244 @@
+<!DOCTYPE html><html class="light" lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
+<title>添加/编辑商品 - 智慧记</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary": "#ffffff",
+                        "surface-tint": "#005bc0",
+                        "surface-container-low": "#f1f4f9",
+                        "on-surface": "#181c20",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#e0e2e7",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "primary-container": "#1a73e8",
+                        "on-secondary-container": "#5d6571",
+                        "surface": "#f7f9fe",
+                        "primary-fixed": "#d8e2ff",
+                        "secondary": "#575f6b",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "inverse-primary": "#adc7ff",
+                        "on-surface-variant": "#414754",
+                        "on-primary-fixed-variant": "#004493",
+                        "on-tertiary-fixed-variant": "#783100",
+                        "on-primary": "#ffffff",
+                        "background": "#f7f9fe",
+                        "warning-orange": "#FB8C00",
+                        "data-text-secondary": "#6B7280",
+                        "data-text-primary": "#1F2937",
+                        "on-secondary-fixed": "#141c26",
+                        "outline-variant": "#c1c6d6",
+                        "inverse-on-surface": "#eff1f6",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-dim": "#d8dadf",
+                        "success-green": "#34A853",
+                        "status-blue-light": "#E3F2FD",
+                        "inverse-surface": "#2d3135",
+                        "outline": "#727785",
+                        "error-red": "#EA4335",
+                        "surface-bright": "#f7f9fe",
+                        "on-secondary-fixed-variant": "#3f4752",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-fixed": "#341100",
+                        "tertiary-fixed": "#ffdbcb",
+                        "secondary-container": "#dbe3f1",
+                        "secondary-fixed-dim": "#bfc7d4",
+                        "tertiary-container": "#c55500",
+                        "primary-fixed-dim": "#adc7ff",
+                        "on-primary-fixed": "#001a41",
+                        "surface-container": "#eceef3",
+                        "surface-container-high": "#e6e8ed",
+                        "surface-variant": "#e0e2e7",
+                        "on-primary-container": "#ffffff",
+                        "tertiary": "#9e4300",
+                        "secondary-fixed": "#dbe3f1",
+                        "primary": "#005bbf",
+                        "on-tertiary-container": "#0e0200",
+                        "error": "#ba1a1a",
+                        "on-background": "#181c20"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-margin": "16px",
+                        "stack-gap": "12px",
+                        "section-padding": "20px",
+                        "inline-gap": "8px",
+                        "card-internal-padding": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "data-numeric-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "data-numeric-lg": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "600" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "data-numeric-sm": ["13px", { "lineHeight": "18px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "500" }],
+                        "data-numeric-lg": ["22px", { "lineHeight": "28px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            -webkit-tap-highlight-color: transparent;
+            background: linear-gradient(135deg, #f7f9fe 0%, #e6e8ed 100%);
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(255, 255, 255, 0.5);
+        }
+        .input-glass {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid #e0e2e7;
+            transition: all 0.2s ease;
+        }
+        .input-glass:focus-within {
+            border-color: #005bbf;
+            box-shadow: 0 0 0 2px rgba(0, 91, 191, 0.1);
+        }
+        /* Custom Scrollbar for hidden scroll effect */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom, 16px);
+        }
+        .pt-safe {
+            padding-top: env(safe-area-inset-top, 0px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-background font-body-md bg-background antialiased pb-24">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/40 dark:bg-surface-container/40 backdrop-blur-2xl flex justify-between items-center px-4 py-2 border-b border-white/50 pt-safe">
+<button class="text-on-surface p-2 rounded-full hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">arrow_back</span>
+</button>
+<h1 class="text-headline-md font-headline-md font-bold text-on-surface">添加商品</h1>
+<button class="text-primary p-2 rounded-full hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">qr_code_scanner</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="px-container-margin pt-24 pb-32 flex flex-col gap-stack-gap">
+<!-- Image Upload Area (Glassmorphism Card) -->
+<section class="glass-card rounded-xl p-card-internal-padding flex flex-col items-center justify-center gap-2 relative overflow-hidden group cursor-pointer" style="min-height: 160px;">
+<div class="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-outline text-[32px]" style="font-variation-settings: 'FILL' 0;">add_a_photo</span>
+</div>
+<p class="text-body-md font-body-md text-on-surface-variant">点击上传商品图片</p>
+<p class="text-label-sm font-label-sm text-outline">支持 JPG, PNG 格式</p>
+</section>
+<!-- Basic Info Section -->
+<section class="glass-card rounded-xl p-card-internal-padding flex flex-col gap-4">
+<h2 class="text-label-sm font-label-sm text-primary tracking-wider uppercase mb-2">基本信息</h2>
+<div class="input-glass rounded-lg px-3 py-2 flex items-center gap-3">
+<span class="material-symbols-outlined text-outline" style="font-variation-settings: 'FILL' 0;">badge</span>
+<input class="flex-1 bg-transparent border-none p-0 focus:ring-0 text-body-md font-body-md text-on-surface placeholder:text-outline-variant outline-none" placeholder="商品名称 (必填)" type="text">
+</div>
+<div class="flex gap-stack-gap">
+<div class="input-glass rounded-lg px-3 py-2 flex items-center gap-3 flex-1 relative">
+<span class="material-symbols-outlined text-outline" style="font-variation-settings: 'FILL' 0;">category</span>
+<select class="flex-1 bg-transparent border-none p-0 focus:ring-0 text-body-md font-body-md text-on-surface outline-none appearance-none w-full cursor-pointer">
+<option disabled="" selected="" value="">选择分类</option>
+<option value="1">食品饮料</option>
+<option value="2">日用百货</option>
+<option value="3">电子产品</option>
+</select>
+<span class="material-symbols-outlined text-outline absolute right-3 pointer-events-none">expand_more</span>
+</div>
+<div class="input-glass rounded-lg px-3 py-2 flex items-center gap-3 w-1/3">
+<input class="w-full bg-transparent border-none p-0 focus:ring-0 text-body-md font-body-md text-on-surface placeholder:text-outline-variant outline-none text-center" placeholder="单位(如:个)" type="text">
+</div>
+</div>
+<div class="input-glass rounded-lg px-3 py-2 flex items-center gap-3">
+<span class="material-symbols-outlined text-outline" style="font-variation-settings: 'FILL' 0;">barcode</span>
+<input class="flex-1 bg-transparent border-none p-0 focus:ring-0 text-body-md font-body-md text-on-surface placeholder:text-outline-variant outline-none" placeholder="条码编号" type="text">
+<button class="text-primary"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">crop_free</span></button>
+</div>
+</section>
+<!-- Pricing Section -->
+<section class="glass-card rounded-xl p-card-internal-padding flex flex-col gap-4">
+<h2 class="text-label-sm font-label-sm text-primary tracking-wider uppercase mb-2">价格设置</h2>
+<div class="grid grid-cols-2 gap-stack-gap">
+<div class="input-glass rounded-lg px-3 py-2 flex flex-col gap-1">
+<label class="text-label-sm font-label-sm text-on-surface-variant">零售价 (¥)</label>
+<input class="w-full bg-transparent border-none p-0 focus:ring-0 text-body-lg font-body-lg text-on-surface outline-none font-medium" placeholder="0.00" type="number">
+</div>
+<div class="input-glass rounded-lg px-3 py-2 flex flex-col gap-1">
+<label class="text-label-sm font-label-sm text-on-surface-variant">进货价 (¥)</label>
+<input class="w-full bg-transparent border-none p-0 focus:ring-0 text-body-lg font-body-lg text-on-surface outline-none font-medium" placeholder="0.00" type="number">
+</div>
+<div class="input-glass rounded-lg px-3 py-2 flex flex-col gap-1 col-span-2">
+<label class="text-label-sm font-label-sm text-on-surface-variant">批发价 (¥) <span class="text-outline-variant font-normal">- 选填</span></label>
+<input class="w-full bg-transparent border-none p-0 focus:ring-0 text-body-lg font-body-lg text-on-surface outline-none font-medium" placeholder="0.00" type="number">
+</div>
+</div>
+</section>
+<!-- Inventory & Supplier Section -->
+<section class="glass-card rounded-xl p-card-internal-padding flex flex-col gap-4">
+<h2 class="text-label-sm font-label-sm text-primary tracking-wider uppercase mb-2">库存与供应商</h2>
+<div class="flex gap-stack-gap">
+<div class="input-glass rounded-lg px-3 py-2 flex flex-col gap-1 flex-1">
+<label class="text-label-sm font-label-sm text-on-surface-variant">期初库存</label>
+<input class="w-full bg-transparent border-none p-0 focus:ring-0 text-body-md font-body-md text-on-surface outline-none" placeholder="0" type="number">
+</div>
+<div class="input-glass rounded-lg px-3 py-2 flex flex-col gap-1 flex-1">
+<label class="text-label-sm font-label-sm text-on-surface-variant flex items-center gap-1">安全库存 <span class="material-symbols-outlined text-[14px] text-warning-orange" style="font-variation-settings: 'FILL' 1;">warning</span></label>
+<input class="w-full bg-transparent border-none p-0 focus:ring-0 text-body-md font-body-md text-on-surface outline-none" placeholder="5" type="number">
+</div>
+</div>
+<div class="input-glass rounded-lg px-3 py-2 flex items-center gap-3 relative cursor-pointer mt-2 group">
+<span class="material-symbols-outlined text-outline" style="font-variation-settings: 'FILL' 0;">local_shipping</span>
+<select class="flex-1 bg-transparent border-none p-0 focus:ring-0 text-body-md font-body-md text-on-surface outline-none appearance-none w-full cursor-pointer">
+<option disabled="" selected="" value="">选择首选供应商</option>
+<option value="s1">华南总代</option>
+<option value="s2">义乌小商品城</option>
+<option value="s3">本地批发市场</option>
+</select>
+<span class="material-symbols-outlined text-outline absolute right-3 pointer-events-none group-focus-within:text-primary transition-colors">chevron_right</span>
+</div>
+</section>
+</main>
+<!-- Action Zone FAB / Sticky Bottom -->
+<div class="fixed bottom-0 w-full z-[60] bg-surface-container-lowest/80 backdrop-blur-xl border-t border-surface-variant p-4 pb-safe flex gap-4">
+<button class="flex-1 py-3 px-4 rounded-xl border border-outline-variant text-on-surface font-body-lg font-medium hover:bg-surface-variant transition-colors active:scale-95 duration-150 flex items-center justify-center gap-2">
+            保存并继续添加
+        </button>
+<button class="flex-1 py-3 px-4 rounded-xl bg-primary text-on-primary font-body-lg font-medium shadow-md shadow-primary/20 hover:bg-on-primary-fixed-variant transition-colors active:scale-95 duration-150 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check</span> 保存
+        </button>
+</div>
+</body></html>

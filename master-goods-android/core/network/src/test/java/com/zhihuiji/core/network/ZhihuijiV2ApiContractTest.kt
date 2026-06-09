@@ -56,8 +56,12 @@ class ZhihuijiV2ApiContractTest {
 
         val mediaBindingQueryValues = getQueryValues("mediaBindingsV2")
         assertEquals(listOf("target_type", "target_id"), mediaBindingQueryValues)
+        val conversationQueryValues = getQueryValues("agentConversationsV2")
+        assertEquals(listOf("page", "limit"), conversationQueryValues)
+        val messageQueryValues = getQueryValues("agentMessagesV2")
+        assertEquals(listOf("page", "limit"), messageQueryValues)
         val draftQueryValues = getQueryValues("agentDraftsV2")
-        assertEquals(listOf("conversation_id"), draftQueryValues)
+        assertEquals(listOf("conversation_id", "page", "limit"), draftQueryValues)
     }
 
     @Test

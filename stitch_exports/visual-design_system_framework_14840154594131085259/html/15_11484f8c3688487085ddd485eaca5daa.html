@@ -1,0 +1,288 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>智慧记 - 首页看板</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-secondary-container": "#5d6571",
+                        "secondary-fixed": "#dbe3f1",
+                        "on-tertiary-fixed-variant": "#783100",
+                        "surface": "#f7f9fe",
+                        "on-tertiary-container": "#0e0200",
+                        "tertiary": "#9e4300",
+                        "surface-tint": "#005bc0",
+                        "surface-container-highest": "#e0e2e7",
+                        "inverse-primary": "#adc7ff",
+                        "surface-container-high": "#e6e8ed",
+                        "error-red": "#EA4335",
+                        "surface-bright": "#f7f9fe",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#bfc7d4",
+                        "data-text-primary": "#1F2937",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "on-primary-fixed": "#001a41",
+                        "error": "#ba1a1a",
+                        "inverse-on-surface": "#eff1f6",
+                        "on-tertiary-fixed": "#341100",
+                        "on-primary": "#ffffff",
+                        "status-blue-light": "#E3F2FD",
+                        "on-surface-variant": "#414754",
+                        "warning-orange": "#FB8C00",
+                        "surface-container-lowest": "#ffffff",
+                        "success-green": "#34A853",
+                        "surface-dim": "#d8dadf",
+                        "secondary": "#575f6b",
+                        "on-secondary": "#ffffff",
+                        "data-text-secondary": "#6B7280",
+                        "background": "#f7f9fe",
+                        "tertiary-fixed": "#ffdbcb",
+                        "on-error": "#ffffff",
+                        "surface-variant": "#e0e2e7",
+                        "on-surface": "#181c20",
+                        "secondary-container": "#dbe3f1",
+                        "outline-variant": "#c1c6d6",
+                        "surface-container": "#eceef3",
+                        "on-primary-fixed-variant": "#004493",
+                        "tertiary-container": "#c55500",
+                        "primary-container": "#1a73e8",
+                        "on-primary-container": "#ffffff",
+                        "primary-fixed": "#d8e2ff",
+                        "on-error-container": "#93000a",
+                        "surface-container-low": "#f1f4f9",
+                        "inverse-surface": "#2d3135",
+                        "primary": "#005bbf",
+                        "primary-fixed-dim": "#adc7ff",
+                        "on-secondary-fixed-variant": "#3f4752",
+                        "on-secondary-fixed": "#141c26",
+                        "on-tertiary": "#ffffff",
+                        "outline": "#727785",
+                        "on-background": "#181c20"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "section-padding": "20px",
+                        "card-internal-padding": "16px",
+                        "stack-gap": "12px",
+                        "inline-gap": "8px",
+                        "container-margin": "16px"
+                    },
+                    fontFamily: {
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "data-numeric-lg": ["Plus Jakarta Sans"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "data-numeric-sm": ["Inter"],
+                        "label-sm": ["Inter"]
+                    },
+                    fontSize: {
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "500" }],
+                        "data-numeric-lg": ["22px", { "lineHeight": "28px", "fontWeight": "700" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "data-numeric-sm": ["13px", { "lineHeight": "18px", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-[#e8f1ff] via-[#f5f8ff] to-[#e9f2ff] min-h-screen text-on-surface font-body-md antialiased selection:bg-primary-container selection:text-on-primary-container relative">
+<!-- Ambient Fluid Lighting Background -->
+<div class="fixed top-[-15%] left-[-10%] w-[70%] h-[50%] bg-blue-300/20 rounded-full mix-blend-multiply filter blur-[120px] pointer-events-none z-0"></div>
+<div class="fixed bottom-[-10%] right-[-20%] w-[80%] h-[60%] bg-indigo-300/15 rounded-full mix-blend-multiply filter blur-[120px] pointer-events-none z-0"></div>
+<!-- Top Navigation Anchor (Customized for Dashboard Intent) -->
+<header class="fixed top-0 w-full z-50 bg-white/40 backdrop-blur-xl border-b shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between px-4 h-16 transition-all backdrop-blur-2xl border-white/40">
+<div class="font-headline-lg text-headline-lg text-primary tracking-tight">智慧记</div>
+<div class="flex items-center gap-2 text-on-surface-variant">
+<button class="relative p-2 rounded-full hover:bg-white/50 transition-all active:scale-95 group">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error-red rounded-full border-2 border-white"></span>
+</button>
+<button class="p-2 rounded-full hover:bg-white/50 transition-all active:scale-95 group">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">settings</span>
+</button>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="pt-20 pb-28 px-4 max-w-md mx-auto space-y-6 relative z-10">
+<!-- Core Section 1: Today's Overview (Bento Grid Style) -->
+<section class="space-y-4">
+<div class="flex items-center justify-between">
+<h2 class="font-headline-md text-headline-md text-on-surface">今日经营概览</h2>
+<span class="font-label-sm text-label-sm text-data-text-secondary bg-white/60 backdrop-blur-md border-[0.5px] border-white px-2 py-1 rounded-full shadow-sm">实时数据</span>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<!-- Sales Card -->
+<div class="backdrop-blur-xl border-[0.5px] border-white shadow-[0_8px_24px_rgba(0,36,104,0.04)] rounded-2xl p-4 flex flex-col gap-2 relative overflow-hidden group hover:shadow-[0_12px_32px_rgba(0,36,104,0.06)] transition-shadow cursor-default backdrop-blur-2xl bg-white/40">
+<div class="absolute -right-6 -top-6 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors"></div>
+<span class="font-body-md text-body-md text-data-text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-primary opacity-70">payments</span>
+                        销售额 (元)
+                    </span>
+<span class="font-data-numeric-lg text-data-numeric-lg text-data-text-primary mt-1">¥24,580</span>
+<span class="font-label-sm text-label-sm text-success-green flex items-center mt-auto">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> <span class="ml-1">+12.5%</span>
+</span>
+</div>
+<!-- Pending Receivables Card -->
+<div class="backdrop-blur-xl border-[0.5px] border-white shadow-[0_8px_24px_rgba(0,36,104,0.04)] rounded-2xl p-4 flex flex-col gap-2 relative overflow-hidden group hover:shadow-[0_12px_32px_rgba(0,36,104,0.06)] transition-shadow cursor-default backdrop-blur-2xl bg-white/40">
+<span class="font-body-md text-body-md text-data-text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-warning-orange opacity-70">account_balance_wallet</span>
+                        待收款
+                    </span>
+<span class="font-data-numeric-lg text-data-numeric-lg text-warning-orange mt-1">¥5,230</span>
+<div class="mt-auto flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-warning-orange"></span>
+<span class="font-label-sm text-label-sm text-data-text-secondary">3 笔待催收</span>
+</div>
+</div>
+<!-- Low Stock Alert Card -->
+<div class="backdrop-blur-xl border-[0.5px] border-white shadow-[0_8px_24px_rgba(0,36,104,0.04)] rounded-2xl p-4 flex flex-col gap-2 relative overflow-hidden group hover:shadow-[0_12px_32px_rgba(0,36,104,0.06)] transition-shadow cursor-default backdrop-blur-2xl bg-white/40">
+<span class="font-body-md text-body-md text-data-text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-error-red opacity-70">inventory_2</span>
+                        低库存预警
+                    </span>
+<span class="font-data-numeric-lg text-data-numeric-lg text-error-red mt-1">12<span class="font-body-md text-body-md text-data-text-secondary ml-1">件</span></span>
+<div class="mt-auto flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-error-red animate-pulse"></span>
+<span class="font-label-sm text-label-sm text-data-text-secondary">需立即补货</span>
+</div>
+</div>
+<!-- Net Cash Flow Card -->
+<div class="backdrop-blur-xl border-[0.5px] border-white shadow-[0_8px_24px_rgba(0,36,104,0.04)] rounded-2xl p-4 flex flex-col gap-2 relative overflow-hidden group hover:shadow-[0_12px_32px_rgba(0,36,104,0.06)] transition-shadow cursor-default backdrop-blur-2xl bg-white/40">
+<span class="font-body-md text-body-md text-data-text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-success-green opacity-70">account_balance</span>
+                        净现钞流
+                    </span>
+<span class="font-data-numeric-lg text-data-numeric-lg text-success-green mt-1">+¥18,350</span>
+<span class="font-label-sm text-label-sm text-data-text-secondary mt-auto">较昨日稳定</span>
+</div>
+</div>
+</section>
+<!-- Core Section 2: Sales Trend Chart -->
+<section class="space-y-4">
+<h2 class="font-headline-md text-headline-md text-on-surface">近7天销售趋势</h2>
+<div class="backdrop-blur-xl border-[0.5px] border-white shadow-[0_8px_24px_rgba(0,36,104,0.04)] rounded-2xl p-5 h-48 flex flex-col relative overflow-hidden backdrop-blur-2xl bg-white/40">
+<!-- Abstract Gradient Area -->
+<div class="absolute inset-0 bg-gradient-to-t from-primary/5 to-transparent z-0"></div>
+<!-- Chart Value Anchor -->
+<div class="z-10 flex justify-between items-start mb-4">
+<div class="font-body-md text-body-md text-data-text-secondary">总计 <span class="font-data-numeric-sm text-data-numeric-sm text-data-text-primary ml-1">¥142,890</span></div>
+<button class="material-symbols-outlined text-outline-variant hover:text-primary transition-colors">more_horiz</button>
+</div>
+<!-- SVG Curve Representation -->
+<div class="flex-grow relative z-10 w-full">
+<!-- Path Fill -->
+<svg class="w-full h-full absolute inset-0 text-primary opacity-10" preserveAspectRatio="none" viewBox="0 0 100 50">
+<path d="M0,50 L0,30 C20,40 40,10 60,25 C80,40 90,15 100,5 L100,50 Z" fill="currentColor"></path>
+</svg>
+<!-- Path Line -->
+<svg class="w-full h-full absolute inset-0 text-primary" preserveAspectRatio="none" viewBox="0 0 100 50">
+<path d="M0,30 C20,40 40,10 60,25 C80,40 90,15 100,5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<!-- Data Points -->
+<div class="absolute right-[0%] top-[10%] w-2 h-2 bg-white border-2 border-primary rounded-full shadow-sm"></div>
+<div class="absolute left-[60%] top-[50%] w-2 h-2 bg-white border-2 border-primary rounded-full shadow-sm opacity-50"></div>
+</div>
+<!-- X-Axis Labels -->
+<div class="w-full flex justify-between font-label-sm text-label-sm text-data-text-secondary z-10 mt-2">
+<span>10/01</span>
+<span>10/04</span>
+<span>今日</span>
+</div>
+</div>
+</section>
+<!-- Core Section 3: Pending Tasks (Glassmorphism List) -->
+<section class="space-y-4">
+<h2 class="font-headline-md text-headline-md text-on-surface">待处理提醒</h2>
+<div class="flex flex-col gap-3">
+<!-- Task Item 1 -->
+<div class="backdrop-blur-xl border-[0.5px] border-white shadow-[0_4px_16px_rgba(0,36,104,0.03)] rounded-2xl p-4 flex items-center justify-between active:scale-[0.98] transition-transform cursor-pointer group backdrop-blur-2xl bg-white/40">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-error-container/80 flex items-center justify-center text-on-error-container group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined fill-icon text-[20px]">assignment</span>
+</div>
+<div>
+<div class="font-body-lg text-body-lg text-on-surface">待审核单据</div>
+<div class="font-body-md text-body-md text-data-text-secondary mt-0.5">进货单、盘点单需复核</div>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="bg-error-red text-on-error font-label-sm text-label-sm px-2 py-0.5 rounded-full shadow-sm">5</span>
+<span class="material-symbols-outlined text-outline-variant text-[20px]">chevron_right</span>
+</div>
+</div>
+<!-- Task Item 2 -->
+<div class="backdrop-blur-xl border-[0.5px] border-white shadow-[0_4px_16px_rgba(0,36,104,0.03)] rounded-2xl p-4 flex items-center justify-between active:scale-[0.98] transition-transform cursor-pointer group backdrop-blur-2xl bg-white/40">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary-container/80 flex items-center justify-center text-on-secondary-container group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined fill-icon text-[20px]">group</span>
+</div>
+<div>
+<div class="font-body-lg text-body-lg text-on-surface">待收款客户</div>
+<div class="font-body-md text-body-md text-data-text-secondary mt-0.5">3位客户账期即将超期</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant text-[20px]">chevron_right</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Shared Component: BottomNavBar (Active: Home) -->
+<nav class="backdrop-blur-xl fixed bottom-0 w-full z-50 rounded-t-2xl border-t shadow-[0_-8px_24px_rgba(0,36,104,0.05)] flex justify-around items-center pb-safe px-2 md:hidden backdrop-blur-2xl bg-white/40 border-white/40 h-24">
+<!-- Active Tab: Home -->
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-3 py-1 transition-transform active:scale-90 w-20" href="#">
+<span class="material-symbols-outlined fill-icon">home</span>
+<span class="font-label-sm mt-1 text-[14px]">首页</span>
+</a>
+<!-- Inactive Tab: Documents -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container hover:bg-secondary-container/50 rounded-xl px-3 py-1 transition-transform active:scale-90 w-20" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-label-sm mt-1 text-[14px]">单据</span>
+</a>
+<!-- Inactive Tab: Archives -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container hover:bg-secondary-container/50 rounded-xl px-3 py-1 transition-transform active:scale-90 w-20" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-label-sm mt-1 text-[14px]">档案</span>
+</a>
+<!-- Inactive Tab: Reports -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container hover:bg-secondary-container/50 rounded-xl px-3 py-1 transition-transform active:scale-90 w-20" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-label-sm mt-1 text-[14px]">报表</span>
+</a>
+<!-- Inactive Tab: Assistant -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container hover:bg-secondary-container/50 rounded-xl px-3 py-1 transition-transform active:scale-90 w-20" href="#">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="font-label-sm mt-1 text-[14px]">助手</span>
+</a>
+</nav>
+</body></html>

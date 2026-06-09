@@ -1,0 +1,303 @@
+<!DOCTYPE html><html lang="zh-CN" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(255, 255, 255, 0.5);
+        }
+        @keyframes aurora-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .aurora-bg {
+            background: linear-gradient(-45deg, #f7f9fe, #d8e2ff, #e3f2fd, #ffffff);
+            background-size: 400% 400%;
+            animation: aurora-shift 15s ease infinite;
+        }
+        .loading-spin {
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .pulse-dot {
+            animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .3; }
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed-dim": "#adc7ff",
+                        "on-primary-container": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-surface": "#181c20",
+                        "surface": "#f7f9fe",
+                        "on-secondary": "#ffffff",
+                        "inverse-primary": "#adc7ff",
+                        "surface-variant": "#e0e2e7",
+                        "primary-fixed": "#d8e2ff",
+                        "on-secondary-container": "#5d6571",
+                        "surface-tint": "#005bc0",
+                        "surface-container-low": "#f1f4f9",
+                        "error-red": "#EA4335",
+                        "data-text-secondary": "#6B7280",
+                        "on-secondary-fixed": "#141c26",
+                        "on-tertiary-fixed-variant": "#783100",
+                        "success-green": "#34A853",
+                        "on-error-container": "#93000a",
+                        "on-surface-variant": "#414754",
+                        "on-secondary-fixed-variant": "#3f4752",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "inverse-on-surface": "#eff1f6",
+                        "surface-container-high": "#e6e8ed",
+                        "surface-dim": "#d8dadf",
+                        "surface-container-highest": "#e0e2e7",
+                        "surface-bright": "#f7f9fe",
+                        "secondary-fixed-dim": "#bfc7d4",
+                        "outline": "#727785",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-fixed": "#341100",
+                        "tertiary-fixed": "#ffdbcb",
+                        "primary": "#005bbf",
+                        "tertiary-container": "#c55500",
+                        "on-tertiary-container": "#0e0200",
+                        "outline-variant": "#c1c6d6",
+                        "data-text-primary": "#1F2937",
+                        "background": "#f7f9fe",
+                        "on-error": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-container": "#dbe3f1",
+                        "warning-orange": "#FB8C00",
+                        "secondary": "#575f6b",
+                        "on-primary-fixed-variant": "#004493",
+                        "on-primary-fixed": "#001a41",
+                        "secondary-fixed": "#dbe3f1",
+                        "on-background": "#181c20",
+                        "inverse-surface": "#2d3135",
+                        "status-blue-light": "#E3F2FD",
+                        "tertiary": "#9e4300",
+                        "surface-container": "#eceef3",
+                        "primary-container": "#1a73e8"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "inline-gap": "8px",
+                        "card-internal-padding": "16px",
+                        "container-margin": "16px",
+                        "stack-gap": "12px",
+                        "section-padding": "20px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["Inter"],
+                        "data-numeric-sm": ["Inter"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "data-numeric-lg": ["Plus Jakarta Sans"],
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "600"}],
+                        "label-sm-mobile": ["11px", {"lineHeight": "14px", "letterSpacing": "0.4px", "fontWeight": "600"}],
+                        "data-numeric-sm": ["13px", {"lineHeight": "18px", "fontWeight": "600"}],
+                        "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "headline-lg-mobile": ["20px", {"lineHeight": "28px", "fontWeight": "800"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "data-numeric-lg": ["22px", {"lineHeight": "28px", "fontWeight": "700"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "500"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="aurora-bg text-on-surface min-h-screen flex flex-col font-body-md">
+<!-- Top App Bar (Shared Component) -->
+<header class="fixed top-0 w-full z-50 bg-surface/40 backdrop-blur-2xl border-b border-white/50 flex justify-between items-center px-4 py-2 h-14">
+<div class="flex items-center gap-3">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-primary/10 transition-colors active:scale-95 duration-150">
+<span class="material-symbols-outlined text-on-surface">arrow_back</span>
+</button>
+<h1 class="text-headline-lg-mobile font-headline-lg-mobile font-bold text-on-surface">智慧记 AI 助手</h1>
+</div>
+<div class="flex items-center">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-primary/10 transition-colors active:scale-95 duration-150">
+<span class="material-symbols-outlined text-on-surface">history</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 mt-14 mb-20 px-4 overflow-y-auto">
+<div class="max-w-lg mx-auto py-6 space-y-6">
+<!-- User Query Bubble -->
+<div class="flex justify-end">
+<div class="max-w-[85%] bg-primary text-on-primary px-4 py-3 rounded-2xl rounded-tr-none shadow-sm flex items-center gap-3">
+<p class="font-body-lg text-body-lg">帮我分析一下最近7天的销售情况</p>
+</div>
+</div>
+<!-- AI Thought/Processing Section -->
+<div class="space-y-4">
+<!-- AI Identity Header -->
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg">
+<span class="material-symbols-outlined text-white text-[18px]" style="font-variation-settings: &quot;FILL&quot; 1;">smart_toy</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">智慧记助手</span>
+</div>
+<!-- Thinking Glass Card -->
+<div class="glass-card rounded-3xl p-5 space-y-5 backdrop-blur-2xl">
+<div class="flex items-center gap-3">
+<div class="loading-spin flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-[24px]" style="font-variation-settings: &quot;wght&quot; 600;">progress_activity</span>
+</div>
+<h2 class="font-headline-md text-body-lg font-bold text-primary">正在思考中...</h2>
+</div>
+<!-- Thinking Chain Steps -->
+<div class="space-y-4 pl-1"><!-- Step 1 (Completed) -->
+<div class="flex flex-col gap-1">
+  <div class="flex items-start gap-4">
+    <div class="mt-1 w-5 h-5 rounded-full bg-success-green/20 flex items-center justify-center shrink-0">
+      <span class="material-symbols-outlined text-success-green text-[14px]" style="font-variation-settings: &quot;wght&quot; 700;">check</span>
+    </div>
+    <div class="flex-1">
+      <p class="text-body-md text-on-surface-variant font-medium">正在从库中提取最近7天销售明细...</p>
+      <p class="text-label-sm text-on-surface-variant/50 font-normal mt-0.5">[0.2s] 已扫描 1,248 条交易记录</p>
+    </div>
+  </div>
+</div>
+<!-- Step 2 (Processing) -->
+<div class="flex flex-col gap-1">
+  <div class="flex items-start gap-4">
+    <div class="mt-1 w-5 h-5 flex items-center justify-center shrink-0">
+      <div class="w-2 h-2 rounded-full bg-primary pulse-dot"></div>
+    </div>
+    <div class="flex-1">
+      <p class="text-body-md text-on-surface font-semibold">正在核算销售总额与环比数据...</p>
+      <div class="flex items-center gap-2 mt-1">
+        <span class="w-1 h-1 rounded-full bg-primary/40 animate-pulse"></span>
+        <p class="text-label-sm text-primary/70 font-medium">正在计算方差与趋势向量...</p>
+      </div>
+    </div>
+  </div>
+</div><div class="bg-on-surface/5 rounded-xl p-3 font-mono text-[11px] space-y-1 border border-outline/10 mt-2 ml-9"><div class="flex justify-between text-on-surface-variant/60"><span class="">[0.4s] 正在检索 2024-05-10 至 2024-05-16 交易明细...</span><span class="text-success-green">完成</span></div><div class="flex justify-between text-on-surface-variant/60"><span class="">[0.6s] 已扫描 1,248 条原始单据，正在进行数据清洗...</span><span class="text-success-green">完成</span></div><div class="flex justify-between text-on-surface-variant/60"><span class="">[0.8s] 正在核算销售总额与环比数据，进度 65%...</span><span class="text-primary animate-pulse">执行中</span></div></div>
+<!-- Step 3 (Pending) -->
+<div class="flex items-start gap-4 opacity-50">
+  <div class="mt-1 w-5 h-5 border-2 border-outline/30 rounded-full shrink-0"></div>
+  <p class="text-body-md text-on-surface-variant">正在识别 TOP 3 热销单品与库存占比...</p>
+</div>
+<!-- Step 4 (Pending) -->
+<div class="flex items-start gap-4 opacity-50">
+  <div class="mt-1 w-5 h-5 border-2 border-outline/30 rounded-full shrink-0"></div>
+  <p class="text-body-md text-on-surface-variant">正在生成经营优化建议...</p>
+</div></div>
+<!-- Progress Bar Sub-detail -->
+
+</div>
+</div>
+<!-- Visual Atmosphere: Content Placeholder -->
+<div class="transition-all duration-700 delay-500 ease-out">
+<!-- This will animate in once content is generated -->
+
+</div>
+</div>
+</main>
+<!-- Bottom Nav Bar (Shared Component) -->
+<div class="fixed bottom-16 left-0 w-full px-4 pb-4 z-50">
+  <div class="max-w-lg mx-auto glass-card rounded-full p-2 flex items-center gap-2 shadow-lg">
+    <button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-primary/10 transition-colors">
+      <span class="material-symbols-outlined text-on-surface-variant">mic</span>
+    </button>
+    <input type="text" placeholder="输入你的问题..." class="flex-1 bg-transparent border-none focus:ring-0 text-body-md text-on-surface placeholder:text-on-surface-variant/50 px-2">
+    <button class="w-10 h-10 bg-primary flex items-center justify-center rounded-full text-white shadow-md active:scale-95 transition-transform">
+      <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: &quot;FILL&quot; 1;">send</span>
+    </button>
+  </div>
+</div><nav class="fixed bottom-0 w-full z-50 bg-white/40 backdrop-blur-2xl border-t border-white/50 h-16 rounded-t-xl flex justify-around items-center px-2 pb-safe shadow-sm">
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined text-[28px]">home</span>
+<span class="font-label-sm text-label-sm-mobile mt-1">首页</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined text-[28px]">description</span>
+<span class="font-label-sm text-label-sm-mobile mt-1">单据</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined text-[28px]">inventory_2</span>
+<span class="font-label-sm text-label-sm-mobile mt-1">档案</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined text-[28px]">bar_chart</span>
+<span class="font-label-sm text-label-sm-mobile mt-1">报表</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary scale-110 transition-transform" href="#">
+<span class="material-symbols-outlined text-[28px]" style="font-variation-settings: &quot;FILL&quot; 1;">smart_toy</span>
+<span class="font-label-sm text-label-sm-mobile mt-1">助手</span>
+</a>
+</nav>
+<!-- Decorative Image Element for Background Aura (Prompted) -->
+<div class="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+<div class="absolute top-[-10%] right-[-10%] w-[300px] h-[300px] blur-[100px] opacity-40 rounded-full bg-primary/30"></div>
+<div class="absolute bottom-[20%] left-[-10%] w-[400px] h-[400px] blur-[120px] opacity-30 rounded-full bg-inverse-primary/40"></div>
+<!-- Hidden Image for Model Context - Represents the Data Atmosphere -->
+<img alt="Data Visualization Atmosphere" class="hidden" data-alt="A sophisticated business intelligence dashboard abstract visualization. The scene features glowing digital data streams, translucent glass geometric shapes, and fluid holographic waves in shades of professional brand blue and pristine white. Soft, ethereal lighting creates a luminous and airy light-mode environment, evoking a sense of high-tech precision, organized data flow, and modern enterprise management. The mood is calm, professional, and intellectually advanced." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBtSlMRRW9ZVqQI9b7dkZyhNHIX3Z3kC7aW1GjRTunfLux-hHcHRvNKIzyiNlol0vwANqU0Xwj2eFXWHFjyo2upMEPRQzVMGMaYVKDLrW5cycgJBYIrh1VpS0GeVr2jturrXlJdkzTMrJ3F0FL-vU6REV8OtQGNX2TlXQalT12zuLJvcqzUPnIy1yrgJo9snTWQd4yulfwlUaq8ZtY-meV9xZC-MPg5xMj_Gw77Cx1gaacVkbMsBzuHcKZAHZzGReMfiSVBeGrapFy8">
+</div>
+<script>
+        // Simple Micro-interaction: Update progress bar dummy
+        let progress = 45;
+        const bar = document.querySelector('.transition-all.duration-1000');
+        setInterval(() => {
+            if (progress < 95) {
+                progress += Math.random() * 2;
+                if (bar) bar.style.width = progress + '%';
+            }
+        }, 2000);
+
+        // Active State Scale Animation Simulation
+        document.querySelectorAll('nav a, header button').forEach(el => {
+            el.addEventListener('touchstart', () => {
+                el.classList.add('scale-95');
+            });
+            el.addEventListener('touchend', () => {
+                el.classList.remove('scale-95');
+            });
+        });
+    </script>
+
+
+
+
+</body></html>

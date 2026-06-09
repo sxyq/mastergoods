@@ -1,0 +1,184 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<title>档案管理</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-container": "#5d6571",
+                        "secondary-fixed": "#dbe3f1",
+                        "on-tertiary-fixed-variant": "#783100",
+                        "surface": "#f7f9fe",
+                        "on-tertiary-container": "#0e0200",
+                        "tertiary": "#9e4300",
+                        "surface-tint": "#005bc0",
+                        "surface-container-highest": "#e0e2e7",
+                        "inverse-primary": "#adc7ff",
+                        "surface-container-high": "#e6e8ed",
+                        "error-red": "#EA4335",
+                        "surface-bright": "#f7f9fe",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#bfc7d4",
+                        "data-text-primary": "#1F2937",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "on-primary-fixed": "#001a41",
+                        "error": "#ba1a1a",
+                        "inverse-on-surface": "#eff1f6",
+                        "on-tertiary-fixed": "#341100",
+                        "on-primary": "#ffffff",
+                        "status-blue-light": "#E3F2FD",
+                        "on-surface-variant": "#414754",
+                        "warning-orange": "#FB8C00",
+                        "surface-container-lowest": "#ffffff",
+                        "success-green": "#34A853",
+                        "surface-dim": "#d8dadf",
+                        "secondary": "#575f6b",
+                        "on-secondary": "#ffffff",
+                        "data-text-secondary": "#6B7280",
+                        "background": "#f7f9fe",
+                        "tertiary-fixed": "#ffdbcb",
+                        "on-error": "#ffffff",
+                        "surface-variant": "#e0e2e7",
+                        "on-surface": "#181c20",
+                        "secondary-container": "#dbe3f1",
+                        "outline-variant": "#c1c6d6",
+                        "surface-container": "#eceef3",
+                        "on-primary-fixed-variant": "#004493",
+                        "tertiary-container": "#c55500",
+                        "primary-container": "#1a73e8",
+                        "on-primary-container": "#ffffff",
+                        "primary-fixed": "#d8e2ff",
+                        "on-error-container": "#93000a",
+                        "surface-container-low": "#f1f4f9",
+                        "inverse-surface": "#2d3135",
+                        "primary": "#005bbf",
+                        "primary-fixed-dim": "#adc7ff",
+                        "on-secondary-fixed-variant": "#3f4752",
+                        "on-secondary-fixed": "#141c26",
+                        "on-tertiary": "#ffffff",
+                        "outline": "#727785",
+                        "on-background": "#181c20"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "section-padding": "20px",
+                        "card-internal-padding": "16px",
+                        "stack-gap": "12px",
+                        "inline-gap": "8px",
+                        "container-margin": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "data-numeric-lg": ["Plus Jakarta Sans"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "data-numeric-sm": ["Inter"],
+                        "label-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "500" }],
+                        "data-numeric-lg": ["22px", { "lineHeight": "28px", "fontWeight": "700" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "data-numeric-sm": ["13px", { "lineHeight": "18px", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Glassmorphism utility for images */
+        .glass-image-bg {
+            background-image: linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(247,249,254,0.4) 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-b from-[#e6f2ff] to-[#f5f9ff] text-on-surface font-body-md antialiased min-h-screen pb-24">
+<!-- Header -->
+<header class="sticky top-0 z-40 bg-transparent px-4 py-4 flex items-center justify-between border-b border-white/20">
+<h1 class="font-headline-md text-headline-md text-on-surface tracking-tight">档案管理</h1>
+<button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant" style="font-variation-settings: 'FILL' 0, 'wght' 300;">add</span>
+</button>
+</header>
+<main class="max-w-md mx-auto">
+<!-- Search & Tabs Section -->
+<section class="px-4 py-4 space-y-4">
+<!-- Search Bar -->
+<div class="flex items-center gap-3">
+<div class="flex-1 relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant group-focus-within:text-primary transition-colors">search</span>
+<input class="w-full h-11 pl-10 pr-4 bg-white/40 backdrop-blur-xl border border-white/40 rounded-xl font-body-md text-body-md text-data-text-primary placeholder:text-outline focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm transition-all" placeholder="搜索商品名称、编码..." type="text">
+</div>
+<button class="w-11 h-11 flex items-center justify-center bg-white/70 backdrop-blur-md border border-white/50 rounded-xl text-primary shadow-sm hover:bg-primary-container hover:text-on-primary-container hover:border-transparent transition-all active:scale-95">
+<span class="material-symbols-outlined">qr_code_scanner</span>
+</button>
+</div>
+<!-- Tabs -->
+<div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+<button class="px-5 py-2 rounded-full bg-primary text-on-primary font-label-sm text-label-sm whitespace-nowrap shadow-md shadow-primary/20 transition-all">商品</button>
+<button class="px-5 py-2 rounded-full bg-white/40 backdrop-blur-xl text-on-surface-variant border border-white/40 font-label-sm text-label-sm whitespace-nowrap hover:bg-white/90 transition-all">客户</button>
+<button class="px-5 py-2 rounded-full bg-white/40 backdrop-blur-xl text-on-surface-variant border border-white/40 font-label-sm text-label-sm whitespace-nowrap hover:bg-white/90 transition-all">供应商</button>
+</div>
+</section>
+<!-- Inventory List -->
+<section class="px-4 space-y-3">
+<!-- Item Card 1 -->
+<div class="p-3 bg-white/40 backdrop-blur-xl border border-white/40 rounded-xl shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"><div class="w-16 h-16 rounded-lg bg-white/50 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-outline-variant">image</span></div><div class="flex-1 min-w-0"><h3 class="font-body-lg text-on-surface truncate">A4规格 80g 复印纸</h3><p class="text-label-sm text-on-surface-variant">SKU: 6921168500011</p><div class="flex items-center justify-between mt-1"><span class="text-primary font-bold">¥22.50</span><span class="text-label-sm text-on-surface-variant">库存: 120</span></div></div></div>
+<!-- Item Card 2 -->
+<div class="p-3 bg-white/40 backdrop-blur-xl border border-white/40 rounded-xl shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"><div class="w-16 h-16 rounded-lg bg-white/50 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-outline-variant">image</span></div><div class="flex-1 min-w-0"><h3 class="font-body-lg text-on-surface truncate">晨光 GP-1008 签字笔</h3><p class="text-label-sm text-on-surface-variant">SKU: 6921168500028</p><div class="flex items-center justify-between mt-1"><span class="text-primary font-bold">¥1.80</span><span class="text-label-sm text-on-surface-variant">库存: 18</span></div></div></div>
+<!-- Item Card 3 -->
+<div class="p-3 bg-white/40 backdrop-blur-xl border border-white/40 rounded-xl shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"><div class="w-16 h-16 rounded-lg bg-white/50 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-outline-variant">image</span></div><div class="flex-1 min-w-0"><h3 class="font-body-lg text-on-surface truncate">洗衣液 2kg</h3><p class="text-label-sm text-on-surface-variant">SKU: 6921168500035</p><div class="flex items-center justify-between mt-1"><span class="text-primary font-bold">¥18.90</span><span class="text-label-sm text-error font-bold">缺货</span></div></div></div>
+<!-- Item Card 4 -->
+<div class="p-3 bg-white/40 backdrop-blur-xl border border-white/40 rounded-xl shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"><div class="w-16 h-16 rounded-lg bg-white/50 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-outline-variant">image</span></div><div class="flex-1 min-w-0"><h3 class="font-body-lg text-on-surface truncate">纯净水 550ml</h3><p class="text-label-sm text-on-surface-variant">SKU: 6921168500042</p><div class="flex items-center justify-between mt-1"><span class="text-primary font-bold">¥1.50</span><span class="text-label-sm text-on-surface-variant">库存: 50</span></div></div></div>
+<div class="p-3 bg-white/40 backdrop-blur-xl border border-white/40 rounded-xl shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"><div class="w-16 h-16 rounded-lg bg-white/50 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-outline-variant">image</span></div><div class="flex-1 min-w-0"><h3 class="font-body-lg text-on-surface truncate">得力 订书机 0306</h3><p class="text-label-sm text-on-surface-variant">SKU: 6921168500059</p><div class="flex items-center justify-between mt-1"><span class="text-primary font-bold">¥12.00</span><span class="text-label-sm text-on-surface-variant">库存: 45</span></div></div></div><div class="p-3 bg-white/40 backdrop-blur-xl border border-white/40 rounded-xl shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"><div class="w-16 h-16 rounded-lg bg-white/50 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-outline-variant">image</span></div><div class="flex-1 min-w-0"><h3 class="font-body-lg text-on-surface truncate">维达 抽纸 3层130抽</h3><p class="text-label-sm text-on-surface-variant">SKU: 6921168500066</p><div class="flex items-center justify-between mt-1"><span class="text-primary font-bold">¥3.50</span><span class="text-label-sm text-on-surface-variant">库存: 200</span></div></div></div></section>
+</main>
+<!-- Bottom Navigation Bar (Shared Component Implementation) -->
+<nav class="bg-white/40 dark:bg-surface-dim/90 backdrop-blur-xl fixed bottom-0 w-full z-50 rounded-t-xl border-t border-white/40 shadow-lg flex justify-around items-center pb-safe px-2 h-24"><!-- Home -->
+<a class="flex flex-1 flex-col items-center justify-center text-on-secondary-container transition-all active:scale-95 hover:bg-white/20 rounded-xl py-2" href="#">
+<span class="material-symbols-outlined text-[28px] mb-1">home</span>
+<span class="font-label-sm text-label-sm tracking-tight">首页</span>
+</a>
+<!-- Documents -->
+<a class="flex flex-1 flex-col items-center justify-center text-on-secondary-container transition-all active:scale-95 hover:bg-white/20 rounded-xl py-2" href="#">
+<span class="material-symbols-outlined text-[28px] mb-1">description</span>
+<span class="font-label-sm text-label-sm tracking-tight">单据</span>
+</a>
+<!-- Archives (Active) -->
+<a class="flex flex-1 flex-col items-center justify-center bg-primary text-on-primary shadow-lg shadow-primary/30 rounded-2xl py-2.5 mx-1 transition-all active:scale-95" href="#">
+<span class="material-symbols-outlined text-[28px] mb-1" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+<span class="font-label-sm text-label-sm font-bold tracking-tight">档案</span>
+</a>
+<!-- Reports -->
+<a class="flex flex-1 flex-col items-center justify-center text-on-secondary-container transition-all active:scale-95 hover:bg-white/20 rounded-xl py-2" href="#">
+<span class="material-symbols-outlined text-[28px] mb-1">analytics</span>
+<span class="font-label-sm text-label-sm tracking-tight">报表</span>
+</a>
+<!-- Assistant -->
+<a class="flex flex-1 flex-col items-center justify-center text-on-secondary-container transition-all active:scale-95 hover:bg-white/20 rounded-xl py-2" href="#">
+<span class="material-symbols-outlined text-[28px] mb-1">smart_toy</span>
+<span class="font-label-sm text-label-sm tracking-tight">助手</span>
+</a></nav>
+</body></html>

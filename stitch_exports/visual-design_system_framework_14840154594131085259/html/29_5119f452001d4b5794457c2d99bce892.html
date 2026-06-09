@@ -1,0 +1,338 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<title>日常支出开单 - 经营工具箱</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary": "#ffffff",
+                    "surface-tint": "#005bc0",
+                    "inverse-primary": "#adc7ff",
+                    "surface": "#f7f9fe",
+                    "on-secondary-fixed": "#141c26",
+                    "on-primary-container": "#ffffff",
+                    "primary-fixed": "#d8e2ff",
+                    "on-primary-fixed-variant": "#004493",
+                    "tertiary-fixed-dim": "#ffb691",
+                    "outline-variant": "#c1c6d6",
+                    "surface-container-highest": "#e0e2e7",
+                    "background": "#f7f9fe",
+                    "warning-orange": "#FB8C00",
+                    "surface-container": "#eceef3",
+                    "on-secondary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-variant": "#e0e2e7",
+                    "surface-dim": "#d8dadf",
+                    "on-tertiary-fixed-variant": "#783100",
+                    "secondary-fixed-dim": "#bfc7d4",
+                    "error": "#ba1a1a",
+                    "on-surface-variant": "#414754",
+                    "data-text-primary": "#1F2937",
+                    "surface-container-high": "#e6e8ed",
+                    "on-primary-fixed": "#001a41",
+                    "data-text-secondary": "#6B7280",
+                    "surface-container-low": "#f1f4f9",
+                    "success-green": "#34A853",
+                    "on-tertiary": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "tertiary": "#9e4300",
+                    "on-background": "#181c20",
+                    "tertiary-container": "#c55500",
+                    "primary-container": "#1a73e8",
+                    "primary": "#005bbf",
+                    "inverse-surface": "#2d3135",
+                    "on-error": "#ffffff",
+                    "secondary-fixed": "#dbe3f1",
+                    "on-tertiary-container": "#0e0200",
+                    "tertiary-fixed": "#ffdbcb",
+                    "on-secondary-fixed-variant": "#3f4752",
+                    "inverse-on-surface": "#eff1f6",
+                    "secondary": "#575f6b",
+                    "surface-bright": "#f7f9fe",
+                    "on-surface": "#181c20",
+                    "on-secondary-container": "#5d6571",
+                    "outline": "#727785",
+                    "on-error-container": "#93000a",
+                    "status-blue-light": "#E3F2FD",
+                    "error-red": "#EA4335",
+                    "on-tertiary-fixed": "#341100",
+                    "primary-fixed-dim": "#adc7ff",
+                    "secondary-container": "#dbe3f1"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-gap": "12px",
+                    "inline-gap": "8px",
+                    "container-margin": "16px",
+                    "card-internal-padding": "16px",
+                    "section-padding": "20px"
+            },
+            "fontFamily": {
+                    "label-sm": ["Inter"],
+                    "headline-md": ["Plus Jakarta Sans"],
+                    "body-md": ["Inter"],
+                    "data-numeric-sm": ["Inter"],
+                    "headline-lg": ["Plus Jakarta Sans"],
+                    "data-numeric-lg": ["Plus Jakarta Sans"],
+                    "body-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "600" }],
+                    "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                    "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                    "data-numeric-sm": ["13px", { "lineHeight": "18px", "fontWeight": "600" }],
+                    "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                    "data-numeric-lg": ["22px", { "lineHeight": "28px", "fontWeight": "700" }],
+                    "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "500" }]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body {
+            background-color: #f7f9fe;
+            /* Bright Aurora Gradient Background */
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(26, 115, 232, 0.08), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(173, 199, 255, 0.15), transparent 25%);
+            background-attachment: fixed;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+        }
+        
+        .glass-input {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid #e0e2e7;
+            transition: all 0.2s ease;
+        }
+        
+        .glass-input:focus-within {
+            border-color: #005bbf;
+            box-shadow: 0 0 0 2px rgba(0, 91, 191, 0.1);
+        }
+
+        .category-item.active {
+            background-color: #E3F2FD;
+            border-color: #005bbf;
+        }
+        
+        .category-item.active .material-symbols-outlined {
+            color: #005bbf;
+            font-variation-settings: 'FILL' 1;
+        }
+        
+        .category-item.active span {
+            color: #005bbf;
+            font-weight: 600;
+        }
+        
+        /* Hide scrollbar for horizontal scrolling */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-background font-body-md antialiased pb-[100px]">
+<!-- TopAppBar (Transactional - Has Back Button, no Nav expected based on logic, but prompt requested standard nav with '单据' active. Proceeding with hybrid approach for instruction compliance) -->
+<header class="fixed top-0 w-full z-50 bg-surface/70 dark:bg-surface-dim/70 backdrop-blur-2xl border-b-[0.5px] border-white/50 dark:border-outline-variant/20 shadow-sm flex justify-between items-center px-container-margin h-14 w-full">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-low active:scale-95 transition-transform text-primary dark:text-inverse-primary" onclick="history.back()">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-primary dark:text-inverse-primary font-bold">费用支出</h1>
+<div class="w-10 h-10"></div> <!-- Spacer for centering -->
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-20 px-container-margin flex flex-col gap-stack-gap">
+<!-- Amount Input Area (Large Numeric Display) -->
+<section class="glass-card rounded-xl p-card-internal-padding flex flex-col items-center justify-center gap-4">
+<span class="font-label-sm text-label-sm text-secondary">支出金额 (¥)</span>
+<div class="flex items-center justify-center w-full">
+<span class="font-data-numeric-lg text-data-numeric-lg text-data-text-primary mr-1">¥</span>
+<input class="bg-transparent border-none text-center font-data-numeric-lg text-[40px] leading-[48px] font-bold text-data-text-primary focus:ring-0 w-full max-w-[200px] placeholder-secondary-fixed-dim" placeholder="0.00" style="outline: none;" type="number">
+</div>
+</section>
+<!-- Expense Category Selection -->
+<section class="glass-card rounded-xl p-card-internal-padding">
+<h2 class="font-label-sm text-label-sm text-secondary mb-4">支出类别</h2>
+<div class="grid grid-cols-4 gap-inline-gap">
+<!-- Category: Rent -->
+<button class="category-item active flex flex-col items-center justify-center p-3 rounded-lg border border-transparent transition-all duration-200">
+<span class="material-symbols-outlined mb-2 text-secondary text-[28px]" data-icon="real_estate_agent">real_estate_agent</span>
+<span class="font-label-sm text-label-sm text-secondary">房租</span>
+</button>
+<!-- Category: Utilities -->
+<button class="category-item flex flex-col items-center justify-center p-3 rounded-lg border border-transparent transition-all duration-200">
+<span class="material-symbols-outlined mb-2 text-secondary text-[28px]" data-icon="electric_bolt">electric_bolt</span>
+<span class="font-label-sm text-label-sm text-secondary">水电</span>
+</button>
+<!-- Category: Salary -->
+<button class="category-item flex flex-col items-center justify-center p-3 rounded-lg border border-transparent transition-all duration-200">
+<span class="material-symbols-outlined mb-2 text-secondary text-[28px]" data-icon="payments">payments</span>
+<span class="font-label-sm text-label-sm text-secondary">工资</span>
+</button>
+<!-- Category: Office Supplies -->
+<button class="category-item flex flex-col items-center justify-center p-3 rounded-lg border border-transparent transition-all duration-200">
+<span class="material-symbols-outlined mb-2 text-secondary text-[28px]" data-icon="inventory">inventory</span>
+<span class="font-label-sm text-label-sm text-secondary">办公</span>
+</button>
+<!-- Category: Marketing -->
+<button class="category-item flex flex-col items-center justify-center p-3 rounded-lg border border-transparent transition-all duration-200">
+<span class="material-symbols-outlined mb-2 text-secondary text-[28px]" data-icon="campaign">campaign</span>
+<span class="font-label-sm text-label-sm text-secondary">营销</span>
+</button>
+<!-- Category: Logistics -->
+<button class="category-item flex flex-col items-center justify-center p-3 rounded-lg border border-transparent transition-all duration-200">
+<span class="material-symbols-outlined mb-2 text-secondary text-[28px]" data-icon="local_shipping">local_shipping</span>
+<span class="font-label-sm text-label-sm text-secondary">物流</span>
+</button>
+<!-- Category: Meals -->
+<button class="category-item flex flex-col items-center justify-center p-3 rounded-lg border border-transparent transition-all duration-200">
+<span class="material-symbols-outlined mb-2 text-secondary text-[28px]" data-icon="restaurant">restaurant</span>
+<span class="font-label-sm text-label-sm text-secondary">餐饮</span>
+</button>
+<!-- Category: Others -->
+<button class="category-item flex flex-col items-center justify-center p-3 rounded-lg border border-transparent transition-all duration-200">
+<span class="material-symbols-outlined mb-2 text-secondary text-[28px]" data-icon="more_horiz">more_horiz</span>
+<span class="font-label-sm text-label-sm text-secondary">其他</span>
+</button>
+</div>
+</section>
+<!-- Payment Account & Date -->
+<section class="glass-card rounded-xl p-card-internal-padding flex flex-col gap-4">
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-secondary">付款账户</label>
+<div class="relative glass-input rounded-lg flex items-center px-3 py-3">
+<span class="material-symbols-outlined text-secondary mr-2">account_balance_wallet</span>
+<select class="w-full bg-transparent border-none p-0 m-0 focus:ring-0 font-body-md text-data-text-primary appearance-none outline-none">
+<option value="bank">工商银行 (尾号8892)</option>
+<option value="wechat">微信支付</option>
+<option value="alipay">支付宝</option>
+<option value="cash">现金</option>
+</select>
+<span class="material-symbols-outlined text-secondary pointer-events-none absolute right-3">arrow_drop_down</span>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-secondary">发生日期</label>
+<div class="glass-input rounded-lg flex items-center px-3 py-3">
+<span class="material-symbols-outlined text-secondary mr-2">calendar_today</span>
+<input class="w-full bg-transparent border-none p-0 m-0 focus:ring-0 font-body-md text-data-text-primary outline-none" type="date" value="2023-10-25">
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-secondary">备注说明</label>
+<div class="glass-input rounded-lg flex items-start px-3 py-3">
+<span class="material-symbols-outlined text-secondary mr-2 mt-0.5">notes</span>
+<textarea class="w-full bg-transparent border-none p-0 m-0 focus:ring-0 font-body-md text-data-text-primary resize-none outline-none" placeholder="添加支出详情描述..." rows="2"></textarea>
+</div>
+</div>
+</section>
+<!-- Attachments Area -->
+<section class="glass-card rounded-xl p-card-internal-padding">
+<div class="flex justify-between items-center mb-4">
+<h2 class="font-label-sm text-label-sm text-secondary">附件与凭证</h2>
+<span class="font-label-sm text-label-sm text-secondary-fixed-dim">最多9张</span>
+</div>
+<div class="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+<!-- Upload Button -->
+<button class="min-w-[80px] w-[80px] h-[80px] rounded-lg border border-dashed border-outline-variant flex flex-col items-center justify-center gap-1 hover:bg-surface-container-low transition-colors text-primary">
+<span class="material-symbols-outlined text-[24px]">add_a_photo</span>
+<span class="font-label-sm text-[10px]">上传照片</span>
+</button>
+<!-- Placeholder for an uploaded receipt image -->
+<div class="relative min-w-[80px] w-[80px] h-[80px] rounded-lg overflow-hidden border border-outline-variant/30">
+<img alt="Uploaded receipt" class="w-full h-full object-cover" data-alt="A close-up photograph of a printed store receipt resting on a clean, white modern desk surface. The lighting is bright and high-key, casting soft shadows that emphasize the light-mode corporate aesthetic. The receipt shows neat rows of printed black text, conveying a sense of organized financial management. The overall mood is crisp, professional, and reliable." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA8XfL9ddf3vGkCA8le3ku7uoOI6wCy5_sVuAqMWTDOfolG2GhRMHsqVL7AblpH0EZ99j7fVsm6aOHq0XDz2yz_NHCKfzo_3kRAUcHEb0rMDjPmmEn1wgs0IKEPEGtrhf1Tu4kwOmcbJyQFsprlrM_pagMUGimwejubx0kWbmG2Q7dYM8mMo9ggZ2sgLg1Qdn-oCXMs5_aE2rKoPaL-_Q6bFv6KSiESQ0cY_OxdbX9cRJIl28GeWAVFjlUiJ1WS-TNSvpEdIDEbAfKs">
+<button class="absolute top-1 right-1 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center text-white backdrop-blur-sm">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Spacer for Bottom Action Area -->
+<div class="h-[80px]"></div>
+</main>
+<!-- Bottom Action Zone (Floating CTA) -->
+<div class="fixed bottom-[80px] left-0 w-full px-container-margin z-40 pb-4 pt-8 bg-gradient-to-t from-surface via-surface/90 to-transparent pointer-events-none">
+<button class="w-full bg-primary text-on-primary font-headline-md text-body-lg font-bold rounded-xl py-4 shadow-lg shadow-primary/20 active:scale-[0.98] transition-all duration-200 pointer-events-auto flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+            记录支出
+        </button>
+</div>
+<!-- BottomNavBar (As requested in prompt, though normally suppressed for transactional pages) -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-xl bg-surface/80 dark:bg-surface-dim/80 backdrop-blur-2xl border-t-[0.5px] border-white/50 dark:border-outline-variant/20 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] flex justify-around items-center h-20 pb-safe px-2">
+<!-- 首页 -->
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim px-3 py-1 hover:bg-surface-variant/50 active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="home">home</span>
+<span class="font-label-sm text-label-sm mt-1">首页</span>
+</a>
+<!-- 单据 (Active based on prompt) -->
+<a class="flex flex-col items-center justify-center text-primary dark:text-inverse-primary bg-primary-container/30 rounded-xl px-3 py-1 hover:bg-surface-variant/50 active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="description" data-weight="fill" style="font-variation-settings: 'FILL' 1;">description</span>
+<span class="font-label-sm text-label-sm mt-1">单据</span>
+</a>
+<!-- 档案 -->
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim px-3 py-1 hover:bg-surface-variant/50 active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="inventory_2">inventory_2</span>
+<span class="font-label-sm text-label-sm mt-1">档案</span>
+</a>
+<!-- 报表 -->
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim px-3 py-1 hover:bg-surface-variant/50 active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="analytics">analytics</span>
+<span class="font-label-sm text-label-sm mt-1">报表</span>
+</a>
+<!-- 助手 -->
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim px-3 py-1 hover:bg-surface-variant/50 active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="smart_toy">smart_toy</span>
+<span class="font-label-sm text-label-sm mt-1">助手</span>
+</a>
+</nav>
+<script>
+        // Simple JS for category selection interaction
+        document.addEventListener('DOMContentLoaded', () => {
+            const categories = document.querySelectorAll('.category-item');
+            categories.forEach(item => {
+                item.addEventListener('click', () => {
+                    // Remove active from all
+                    categories.forEach(c => {
+                        c.classList.remove('active');
+                        const icon = c.querySelector('.material-symbols-outlined');
+                        icon.style.fontVariationSettings = "'FILL' 0";
+                    });
+                    // Add to clicked
+                    item.classList.add('active');
+                    const icon = item.querySelector('.material-symbols-outlined');
+                    icon.style.fontVariationSettings = "'FILL' 1";
+                });
+            });
+        });
+    </script>
+</body></html>

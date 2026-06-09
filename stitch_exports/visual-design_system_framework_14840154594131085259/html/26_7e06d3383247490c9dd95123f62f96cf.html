@@ -1,0 +1,310 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>供应商往来详情</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary": "#ffffff",
+                        "surface-tint": "#005bc0",
+                        "inverse-primary": "#adc7ff",
+                        "surface": "#f7f9fe",
+                        "on-secondary-fixed": "#141c26",
+                        "on-primary-container": "#ffffff",
+                        "primary-fixed": "#d8e2ff",
+                        "on-primary-fixed-variant": "#004493",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "outline-variant": "#c1c6d6",
+                        "surface-container-highest": "#e0e2e7",
+                        "background": "#f7f9fe",
+                        "warning-orange": "#FB8C00",
+                        "surface-container": "#eceef3",
+                        "on-secondary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-variant": "#e0e2e7",
+                        "surface-dim": "#d8dadf",
+                        "on-tertiary-fixed-variant": "#783100",
+                        "secondary-fixed-dim": "#bfc7d4",
+                        "error": "#ba1a1a",
+                        "on-surface-variant": "#414754",
+                        "data-text-primary": "#1F2937",
+                        "surface-container-high": "#e6e8ed",
+                        "on-primary-fixed": "#001a41",
+                        "data-text-secondary": "#6B7280",
+                        "surface-container-low": "#f1f4f9",
+                        "success-green": "#34A853",
+                        "on-tertiary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "tertiary": "#9e4300",
+                        "on-background": "#181c20",
+                        "tertiary-container": "#c55500",
+                        "primary-container": "#1a73e8",
+                        "primary": "#005bbf",
+                        "inverse-surface": "#2d3135",
+                        "on-error": "#ffffff",
+                        "secondary-fixed": "#dbe3f1",
+                        "on-tertiary-container": "#0e0200",
+                        "tertiary-fixed": "#ffdbcb",
+                        "on-secondary-fixed-variant": "#3f4752",
+                        "inverse-on-surface": "#eff1f6",
+                        "secondary": "#575f6b",
+                        "surface-bright": "#f7f9fe",
+                        "on-surface": "#181c20",
+                        "on-secondary-container": "#5d6571",
+                        "outline": "#727785",
+                        "on-error-container": "#93000a",
+                        "status-blue-light": "#E3F2FD",
+                        "error-red": "#EA4335",
+                        "on-tertiary-fixed": "#341100",
+                        "primary-fixed-dim": "#adc7ff",
+                        "secondary-container": "#dbe3f1"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-gap": "12px",
+                        "inline-gap": "8px",
+                        "container-margin": "16px",
+                        "card-internal-padding": "16px",
+                        "section-padding": "20px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["Inter"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "body-md": ["Inter"],
+                        "data-numeric-sm": ["Inter"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "data-numeric-lg": ["Plus Jakarta Sans"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "600" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "data-numeric-sm": ["13px", { "lineHeight": "18px", "fontWeight": "600" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "data-numeric-lg": ["22px", { "lineHeight": "28px", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #f7f9fe;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(211,100%,74%,0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(340,100%,76%,0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, hsla(211,100%,74%,0.15) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, hsla(340,100%,76%,0.1) 0px, transparent 50%);
+            background-attachment: fixed;
+            -webkit-font-smoothing: antialiased;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        }
+        .timeline-line::before {
+            content: '';
+            position: absolute;
+            left: 23px;
+            top: 40px;
+            bottom: -20px;
+            width: 2px;
+            background-color: #e0e2e7;
+            z-index: 0;
+        }
+        .timeline-item:last-child .timeline-line::before {
+            display: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-surface antialiased pb-[180px]">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/70 backdrop-blur-2xl border-b-[0.5px] border-white/50 shadow-sm flex justify-between items-center px-container-margin h-14 transition-transform">
+<button aria-label="Go back" class="p-2 -ml-2 text-primary hover:bg-surface-container-low rounded-full active:scale-95 transition-transform">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-headline-md font-headline-md text-primary">往来对账详情</h1>
+<button aria-label="Notifications" class="p-2 -mr-2 text-on-surface-variant hover:bg-surface-container-low rounded-full active:scale-95 transition-transform">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</header>
+<!-- Main Content -->
+<main class="pt-[72px] px-container-margin space-y-stack-gap">
+<!-- Supplier Profile Card -->
+<section class="glass-card rounded-xl p-card-internal-padding">
+<div class="flex items-start justify-between mb-4">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-lg bg-primary-container/30 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-size: 28px;">business</span>
+</div>
+<div>
+<h2 class="text-headline-md font-headline-md text-on-surface">星海优创供应商</h2>
+<p class="text-label-sm font-label-sm text-data-text-secondary">ID: SUP-2023-8842</p>
+</div>
+</div>
+<span class="px-2 py-1 bg-status-blue-light text-primary text-label-sm font-label-sm rounded">活跃</span>
+</div>
+<div class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-surface-variant/50">
+<div>
+<p class="text-label-sm font-label-sm text-data-text-secondary mb-1">应付余额</p>
+<p class="text-data-numeric-lg font-data-numeric-lg text-primary">¥45,280.00</p>
+</div>
+<div>
+<p class="text-label-sm font-label-sm text-data-text-secondary mb-1">本月新增</p>
+<div class="flex items-center gap-1">
+<p class="text-data-numeric-lg font-data-numeric-lg text-data-text-primary">¥12,400.00</p>
+<span class="material-symbols-outlined text-warning-orange" style="font-size: 16px;">trending_up</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Filters & Search -->
+<section class="flex gap-2">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" style="font-size: 20px;">search</span>
+<input class="w-full h-10 pl-10 pr-4 rounded-lg bg-white border border-surface-variant text-body-md font-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-colors" placeholder="搜索单号..." type="text">
+</div>
+<button class="h-10 px-4 rounded-lg bg-white border border-surface-variant flex items-center gap-2 text-body-md font-body-md text-data-text-primary hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined" style="font-size: 20px;">calendar_today</span>
+<span>本月</span>
+</button>
+<button class="w-10 h-10 rounded-lg bg-white border border-surface-variant flex items-center justify-center text-data-text-primary hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined" style="font-size: 20px;">tune</span>
+</button>
+</section>
+<!-- Transaction Timeline -->
+<section class="glass-card rounded-xl p-card-internal-padding">
+<h3 class="text-body-lg font-body-lg text-on-surface mb-4">交易明细</h3>
+<div class="space-y-4">
+<!-- Timeline Item 1 -->
+<div class="relative timeline-item timeline-line flex gap-4">
+<div class="relative z-10 w-12 h-12 rounded-full bg-surface-container-lowest border border-surface-variant flex items-center justify-center text-warning-orange flex-shrink-0 mt-1">
+<span class="material-symbols-outlined">shopping_cart</span>
+</div>
+<div class="flex-1 pb-4">
+<div class="flex justify-between items-start mb-1">
+<div>
+<h4 class="text-body-md font-body-md text-on-surface font-semibold">采购入库单</h4>
+<p class="text-label-sm font-label-sm text-data-text-secondary">PO-20231024-001</p>
+</div>
+<span class="text-data-numeric-sm font-data-numeric-sm text-warning-orange">+ ¥8,500.00</span>
+</div>
+<p class="text-label-sm font-label-sm text-outline mt-1">2023-10-24 14:30</p>
+</div>
+</div>
+<!-- Timeline Item 2 -->
+<div class="relative timeline-item timeline-line flex gap-4">
+<div class="relative z-10 w-12 h-12 rounded-full bg-surface-container-lowest border border-surface-variant flex items-center justify-center text-success-green flex-shrink-0 mt-1">
+<span class="material-symbols-outlined">payments</span>
+</div>
+<div class="flex-1 pb-4">
+<div class="flex justify-between items-start mb-1">
+<div>
+<h4 class="text-body-md font-body-md text-on-surface font-semibold">付款单 (银行转账)</h4>
+<p class="text-label-sm font-label-sm text-data-text-secondary">PAY-20231020-055</p>
+</div>
+<span class="text-data-numeric-sm font-data-numeric-sm text-success-green">- ¥15,000.00</span>
+</div>
+<p class="text-label-sm font-label-sm text-outline mt-1">2023-10-20 09:15</p>
+</div>
+</div>
+<!-- Timeline Item 3 -->
+<div class="relative timeline-item timeline-line flex gap-4">
+<div class="relative z-10 w-12 h-12 rounded-full bg-surface-container-lowest border border-surface-variant flex items-center justify-center text-warning-orange flex-shrink-0 mt-1">
+<span class="material-symbols-outlined">shopping_cart</span>
+</div>
+<div class="flex-1 pb-4">
+<div class="flex justify-between items-start mb-1">
+<div>
+<h4 class="text-body-md font-body-md text-on-surface font-semibold">采购入库单</h4>
+<p class="text-label-sm font-label-sm text-data-text-secondary">PO-20231015-012</p>
+</div>
+<span class="text-data-numeric-sm font-data-numeric-sm text-warning-orange">+ ¥3,900.00</span>
+</div>
+<p class="text-label-sm font-label-sm text-outline mt-1">2023-10-15 16:45</p>
+</div>
+</div>
+<!-- Timeline Item 4 (Return) -->
+<div class="relative timeline-item timeline-line flex gap-4">
+<div class="relative z-10 w-12 h-12 rounded-full bg-surface-container-lowest border border-surface-variant flex items-center justify-center text-error flex-shrink-0 mt-1">
+<span class="material-symbols-outlined">assignment_return</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<div>
+<h4 class="text-body-md font-body-md text-on-surface font-semibold">采购退货单</h4>
+<p class="text-label-sm font-label-sm text-data-text-secondary">RT-20231010-003</p>
+</div>
+<span class="text-data-numeric-sm font-data-numeric-sm text-error">- ¥1,200.00</span>
+</div>
+<p class="text-label-sm font-label-sm text-outline mt-1">2023-10-10 11:20</p>
+</div>
+</div>
+</div>
+<button class="w-full mt-6 py-2 text-body-md font-body-md text-primary text-center hover:bg-surface-container-low rounded-lg transition-colors">
+                加载更多记录
+            </button>
+</section>
+</main>
+<!-- Bottom Actions Container -->
+<div class="fixed bottom-[80px] w-full px-container-margin py-3 bg-surface/90 backdrop-blur-md border-t border-surface-variant z-40 flex gap-3">
+<button class="flex-1 h-12 rounded-xl bg-white border border-primary text-primary font-body-lg text-body-lg flex justify-center items-center gap-2 active:scale-95 transition-transform">
+<span class="material-symbols-outlined" style="font-size: 20px;">download</span>
+            导出对账单
+        </button>
+<button class="flex-1 h-12 rounded-xl bg-primary text-on-primary font-body-lg text-body-lg flex justify-center items-center shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)] active:scale-95 transition-transform">
+            发起结算
+        </button>
+</div>
+<!-- BottomNavBar -->
+<!-- Suppressed on desktop (md:hidden), shown on mobile -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 rounded-t-xl bg-surface/80 backdrop-blur-2xl border-t-[0.5px] border-white/50 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] flex justify-around items-center h-20 pb-safe px-2 w-full">
+<!-- Home -->
+<button class="flex flex-col items-center justify-center text-secondary px-3 py-1 hover:bg-surface-variant/50 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined mb-1">home</span>
+<span class="font-label-sm text-label-sm">首页</span>
+</button>
+<!-- Documents -->
+<button class="flex flex-col items-center justify-center text-secondary px-3 py-1 hover:bg-surface-variant/50 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined mb-1">description</span>
+<span class="font-label-sm text-label-sm">单据</span>
+</button>
+<!-- Archives (Active) -->
+<button class="flex flex-col items-center justify-center text-primary bg-primary-container/30 rounded-xl px-3 py-1 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+<span class="font-label-sm text-label-sm font-bold">档案</span>
+</button>
+<!-- Reports -->
+<button class="flex flex-col items-center justify-center text-secondary px-3 py-1 hover:bg-surface-variant/50 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined mb-1">analytics</span>
+<span class="font-label-sm text-label-sm">报表</span>
+</button>
+<!-- Agent -->
+<button class="flex flex-col items-center justify-center text-secondary px-3 py-1 hover:bg-surface-variant/50 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined mb-1">smart_toy</span>
+<span class="font-label-sm text-label-sm">助手</span>
+</button>
+</nav>
+</body></html>

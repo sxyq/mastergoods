@@ -1,0 +1,312 @@
+<!DOCTYPE html><html class="light" lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
+<title>智慧记 - 销售退货单</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#d8dadf",
+                        "on-secondary-fixed-variant": "#3f4752",
+                        "surface-tint": "#005bc0",
+                        "on-tertiary-fixed": "#341100",
+                        "on-error-container": "#93000a",
+                        "data-text-primary": "#1F2937",
+                        "inverse-primary": "#adc7ff",
+                        "secondary-container": "#dbe3f1",
+                        "secondary-fixed-dim": "#bfc7d4",
+                        "secondary": "#575f6b",
+                        "outline-variant": "#c1c6d6",
+                        "on-surface": "#181c20",
+                        "on-secondary-container": "#5d6571",
+                        "surface": "#f7f9fe",
+                        "on-background": "#181c20",
+                        "error": "#ba1a1a",
+                        "tertiary-fixed": "#ffdbcb",
+                        "on-tertiary-fixed-variant": "#783100",
+                        "on-secondary-fixed": "#141c26",
+                        "surface-container-highest": "#e0e2e7",
+                        "secondary-fixed": "#dbe3f1",
+                        "inverse-on-surface": "#eff1f6",
+                        "on-primary": "#ffffff",
+                        "outline": "#727785",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed-variant": "#004493",
+                        "error-red": "#EA4335",
+                        "on-tertiary": "#ffffff",
+                        "inverse-surface": "#2d3135",
+                        "tertiary": "#9e4300",
+                        "on-error": "#ffffff",
+                        "warning-orange": "#FB8C00",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#001a41",
+                        "on-surface-variant": "#414754",
+                        "background": "#f7f9fe",
+                        "surface-container-high": "#e6e8ed",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-container": "#0e0200",
+                        "data-text-secondary": "#6B7280",
+                        "status-blue-light": "#E3F2FD",
+                        "primary": "#005bbf",
+                        "surface-bright": "#f7f9fe",
+                        "primary-container": "#1a73e8",
+                        "surface-container-low": "#f1f4f9",
+                        "primary-fixed-dim": "#adc7ff",
+                        "surface-variant": "#e0e2e7",
+                        "success-green": "#34A853",
+                        "tertiary-container": "#c55500",
+                        "primary-fixed": "#d8e2ff",
+                        "surface-container": "#eceef3",
+                        "on-primary-container": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb691"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "inline-gap": "8px",
+                        "container-margin": "16px",
+                        "section-padding": "20px",
+                        "stack-gap": "12px",
+                        "card-internal-padding": "16px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "data-numeric-lg": ["Plus Jakarta Sans"],
+                        "body-lg": ["Inter"],
+                        "data-numeric-sm": ["Inter"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "headline-lg": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "data-numeric-lg": ["22px", {"lineHeight": "28px", "fontWeight": "700"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "500"}],
+                        "data-numeric-sm": ["13px", {"lineHeight": "18px", "fontWeight": "600"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(255, 255, 255, 0.5);
+        }
+        .aurora-bg {
+            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+        }
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 91, 191, 0.2);
+            border-radius: 4px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="aurora-bg text-on-surface antialiased min-h-screen flex flex-col overflow-x-hidden font-body-md">
+<!-- Header: Hidden on Mobile, Visible on Web (TopAppBar Logic Applied) -->
+<header class="hidden md:flex justify-between items-center px-4 py-2 w-full z-50 bg-surface/40 backdrop-blur-2xl border-b border-white/50 docked full-width top-0">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary text-2xl cursor-pointer hover:bg-primary/10 transition-colors rounded-full p-2" data-icon="menu">menu</span>
+<span class="text-headline-lg font-headline-lg font-bold text-on-surface">智慧记</span>
+</div>
+<!-- Navigation cluster for Web -->
+<nav class="flex items-center gap-8">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="home">home</span>
+<span class="text-label-sm font-label-sm">首页</span>
+</a>
+<!-- Highlight '单据' (Documents) as active based on '销售退货单' (Sales Return Document) context -->
+<a class="flex flex-col items-center justify-center text-primary scale-110 transition-transform" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="description" style="font-variation-settings: 'FILL' 1;">description</span>
+<span class="text-label-sm font-label-sm">单据</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="inventory_2">inventory_2</span>
+<span class="text-label-sm font-label-sm">档案</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="bar_chart">bar_chart</span>
+<span class="text-label-sm font-label-sm">报表</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="smart_toy">smart_toy</span>
+<span class="text-label-sm font-label-sm">助手</span>
+</a>
+</nav>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary text-2xl cursor-pointer hover:bg-primary/10 transition-colors rounded-full p-2" data-icon="notifications">notifications</span>
+</div>
+</header>
+<!-- Mobile Top App Bar (Simplified for focused transactional intent, but keeping Brand anchor) -->
+<div class="md:hidden flex justify-between items-center px-4 py-3 w-full z-40 bg-surface/40 backdrop-blur-2xl sticky top-0">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface text-xl" data-icon="arrow_back">arrow_back</span>
+<span class="text-headline-md font-headline-md text-on-surface">销售退货单</span>
+</div>
+<span class="material-symbols-outlined text-primary text-xl" data-icon="more_horiz">more_horiz</span>
+</div>
+<!-- Main Content Canvas -->
+<main class="flex-1 w-full max-w-3xl mx-auto px-container-margin py-section-padding flex flex-col gap-stack-gap pb-32 md:pb-8">
+<!-- Customer Selection Card (Glassmorphism) -->
+<section class="glass-card rounded-xl p-card-internal-padding shadow-sm flex items-center justify-between cursor-pointer active:scale-[0.98] transition-transform">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-status-blue-light flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+</div>
+<div>
+<p class="text-body-md font-body-md text-data-text-secondary mb-1">退货客户</p>
+<p class="text-body-lg font-body-lg text-data-text-primary">选择退货客户</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline" data-icon="chevron_right">chevron_right</span>
+</section>
+<!-- Return Items List -->
+<section class="flex flex-col gap-2">
+<div class="flex items-center justify-between px-2 mb-1">
+<h2 class="text-label-sm font-label-sm text-data-text-secondary uppercase tracking-wider">退货商品明细</h2>
+<button class="text-primary text-label-sm font-label-sm flex items-center gap-1 hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined text-sm" data-icon="add_circle">add_circle</span>
+                    添加商品
+                </button>
+</div>
+<!-- Item Card 1 -->
+<div class="glass-card rounded-xl p-card-internal-padding shadow-sm flex flex-col gap-3 relative overflow-hidden group">
+<!-- Delete swipe indicator (visual only) -->
+<div class="absolute right-0 top-0 bottom-0 w-16 bg-error-container flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity translate-x-full group-hover:translate-x-0 cursor-pointer">
+<span class="material-symbols-outlined text-error" data-icon="delete">delete</span>
+</div>
+<div class="flex gap-4">
+<img alt="Red Sneaker" class="w-16 h-16 rounded-lg object-cover bg-surface-container shadow-sm border border-outline-variant/30" data-alt="A modern, sleek red athletic sneaker displayed on a minimalist white pedestal. The lighting is soft and high-key, creating a clean, bright, corporate-modern aesthetic. The background is a slightly blurred, light cool grey, emphasizing the product's premium quality. The image feels professional, organized, and suitable for a high-end retail inventory management system." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA6QtZOWE1ivaMf9wbyAZ-fAVNlzMIo03TPiJoG2WP9lzXKAvkZ97kvBHSUkjd-NmHTZsrtT4MM3eFOAXn-LatOgEqON6Wz3u92K2Bee9dl7MQoC2CCBKtHJirOlGNbaOteenaDTnlAKGTbhx-W7kJUxj7KCakJloDNYmHxnSuMTaq40j61qv1JjooKoHgkE9AK6Z1QlBDhKEQLlDRdmOBUrGmk7diHQUUVwEwvB8U2D6fM1Ng07y3-FLO7Oj-YfpG3tuRet06njw_S">
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start">
+<h3 class="text-body-lg font-body-lg text-data-text-primary truncate pr-4">Nike Air Max 2024</h3>
+</div>
+<p class="text-label-sm font-label-sm text-data-text-secondary mt-0.5">编码: SP-10042 • 红色 / 42码</p>
+</div>
+<div class="flex justify-between items-end mt-2">
+<span class="text-data-numeric-sm font-data-numeric-sm text-error">¥899.00</span>
+<div class="flex items-center gap-3 bg-surface-container-low rounded-lg p-1 border border-outline-variant/50">
+<button class="w-6 h-6 flex items-center justify-center text-secondary hover:text-primary transition-colors"><span class="material-symbols-outlined text-sm" data-icon="remove">remove</span></button>
+<span class="text-body-md font-body-md text-data-text-primary min-w-[20px] text-center">1</span>
+<button class="w-6 h-6 flex items-center justify-center text-secondary hover:text-primary transition-colors"><span class="material-symbols-outlined text-sm" data-icon="add">add</span></button>
+</div>
+</div>
+</div>
+</div>
+<div class="pt-2 mt-1 border-t border-outline-variant/30 flex justify-between items-center">
+<span class="text-label-sm font-label-sm text-data-text-secondary">退货小计</span>
+<span class="text-data-numeric-sm font-data-numeric-sm text-data-text-primary">¥899.00</span>
+</div>
+</div>
+<!-- Item Card 2 -->
+<div class="glass-card rounded-xl p-card-internal-padding shadow-sm flex flex-col gap-3 relative overflow-hidden group">
+<div class="absolute right-0 top-0 bottom-0 w-16 bg-error-container flex items-center justify-center opacity-0 transition-opacity translate-x-full cursor-pointer">
+<span class="material-symbols-outlined text-error" data-icon="delete">delete</span>
+</div>
+<div class="flex gap-4">
+<img alt="Smart Watch" class="w-16 h-16 rounded-lg object-cover bg-surface-container shadow-sm border border-outline-variant/30" data-alt="A sleek, black modern smartwatch with a minimalist digital display face, resting on a clean white surface. Soft, diffused lighting casts a gentle shadow, highlighting the metallic casing and smooth silicone band. The environment is airy and light, fitting a sophisticated, glassmorphism-inspired business management tool. The overall tone is precise, organized, and high-tech." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCa1mHdq5gWnQKp9ULzK_9g6mTqkKPlrltlPUjDfxawnglO5YE5aj90mFxhgx63E5o10J9d7Au7hKemILJJ5UR307GsqeZ614hnQl4Ce6bFQYRayjM2Ycm9dq8SDnKXOFJGfYUNQiX0TzMP5i9e6gmOZssHieG3ioi-FihpeCawd66PxOYD0MnoH49L-Mw3eXo1gkrItnCSHS7elV0EA2-mJFPt3hO1uW7igvYJgmOQ0fRRznGk9Tnt4LuSCzGVfxhEf9w9hXEGSxrv">
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start">
+<h3 class="text-body-lg font-body-lg text-data-text-primary truncate pr-4">TechPro 智能手表</h3>
+<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-warning-orange/10 text-warning-orange border border-warning-orange/20 whitespace-nowrap">外包装破损</span>
+</div>
+<p class="text-label-sm font-label-sm text-data-text-secondary mt-0.5">编码: EL-9931 • 星空黑</p>
+</div>
+<div class="flex justify-between items-end mt-2">
+<span class="text-data-numeric-sm font-data-numeric-sm text-error">¥1,299.00</span>
+<div class="flex items-center gap-3 bg-surface-container-low rounded-lg p-1 border border-outline-variant/50">
+<button class="w-6 h-6 flex items-center justify-center text-secondary hover:text-primary transition-colors"><span class="material-symbols-outlined text-sm" data-icon="remove">remove</span></button>
+<span class="text-body-md font-body-md text-data-text-primary min-w-[20px] text-center">2</span>
+<button class="w-6 h-6 flex items-center justify-center text-secondary hover:text-primary transition-colors"><span class="material-symbols-outlined text-sm" data-icon="add">add</span></button>
+</div>
+</div>
+</div>
+</div>
+<div class="pt-2 mt-1 border-t border-outline-variant/30 flex justify-between items-center">
+<span class="text-label-sm font-label-sm text-data-text-secondary">退货小计</span>
+<span class="text-data-numeric-sm font-data-numeric-sm text-data-text-primary">¥2,598.00</span>
+</div>
+</div>
+</section>
+<!-- Additional Information (Optional fields typical in this context) -->
+<section class="glass-card rounded-xl p-card-internal-padding shadow-sm flex flex-col gap-4">
+<div class="flex justify-between items-center border-b border-outline-variant/30 pb-3">
+<span class="text-body-md font-body-md text-data-text-secondary">退货原因</span>
+<div class="flex items-center gap-1 text-data-text-primary cursor-pointer">
+<span class="text-body-md font-body-md">质量问题/协商退货</span>
+<span class="material-symbols-outlined text-outline text-sm" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<span class="text-body-md font-body-md text-data-text-secondary">备注说明</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-lg px-3 py-2 text-body-md font-body-md text-data-text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all placeholder:text-outline-variant" placeholder="选填，输入备注信息..." type="text">
+</div>
+</section>
+</main>
+<!-- Bottom Action Zone (Anchored Summary & Submit) -->
+<div class="fixed bottom-16 md:bottom-0 left-0 right-0 z-40 px-4 py-3 bg-surface-container-lowest/80 backdrop-blur-xl border-t border-outline-variant/20 shadow-[0_-4px_24px_rgba(0,0,0,0.05)]">
+<div class="max-w-3xl mx-auto flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-label-sm font-label-sm text-data-text-secondary mb-0.5">应退总额 (共3件)</span>
+<span class="text-data-numeric-lg font-data-numeric-lg text-error leading-none">¥3,497.00</span>
+</div>
+<button class="bg-primary hover:bg-primary-container active:scale-95 transition-all text-on-primary rounded-xl px-8 py-3 text-body-lg font-body-lg font-semibold shadow-sm shadow-primary/20">
+                提交退货单
+            </button>
+</div>
+</div>
+<!-- Mobile Bottom Navigation Bar (Visible only on mobile) -->
+<!-- Nav applies structural classes and strictly uses strings from JSON -->
+<nav class="md:hidden flex justify-around items-center h-16 w-full px-2 pb-safe fixed bottom-0 z-50 rounded-t-xl bg-white/40 dark:bg-surface-container-high/40 backdrop-blur-2xl shadow-sm border-t border-white/50">
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="home">home</span>
+<span class="text-label-sm font-label-sm">首页</span>
+</a>
+<!-- '单据' is ACTIVE contextually for '销售退货单' -->
+<a class="flex flex-col items-center justify-center text-primary scale-110 transition-transform active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="description" style="font-variation-settings: 'FILL' 1;">description</span>
+<span class="text-label-sm font-label-sm">单据</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="inventory_2">inventory_2</span>
+<span class="text-label-sm font-label-sm">档案</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="bar_chart">bar_chart</span>
+<span class="text-label-sm font-label-sm">报表</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="smart_toy">smart_toy</span>
+<span class="text-label-sm font-label-sm">助手</span>
+</a>
+</nav>
+</body></html>

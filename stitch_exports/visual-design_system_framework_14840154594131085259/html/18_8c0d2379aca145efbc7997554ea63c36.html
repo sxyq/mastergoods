@@ -1,0 +1,276 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<title>采购入库 - 经营工具箱</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary": "#ffffff",
+                        "surface-tint": "#005bc0",
+                        "inverse-primary": "#adc7ff",
+                        "surface": "#f7f9fe",
+                        "on-secondary-fixed": "#141c26",
+                        "on-primary-container": "#ffffff",
+                        "primary-fixed": "#d8e2ff",
+                        "on-primary-fixed-variant": "#004493",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "outline-variant": "#c1c6d6",
+                        "surface-container-highest": "#e0e2e7",
+                        "background": "#f7f9fe",
+                        "warning-orange": "#FB8C00",
+                        "surface-container": "#eceef3",
+                        "on-secondary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-variant": "#e0e2e7",
+                        "surface-dim": "#d8dadf",
+                        "on-tertiary-fixed-variant": "#783100",
+                        "secondary-fixed-dim": "#bfc7d4",
+                        "error": "#ba1a1a",
+                        "on-surface-variant": "#414754",
+                        "data-text-primary": "#1F2937",
+                        "surface-container-high": "#e6e8ed",
+                        "on-primary-fixed": "#001a41",
+                        "data-text-secondary": "#6B7280",
+                        "surface-container-low": "#f1f4f9",
+                        "success-green": "#34A853",
+                        "on-tertiary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "tertiary": "#9e4300",
+                        "on-background": "#181c20",
+                        "tertiary-container": "#c55500",
+                        "primary-container": "#1a73e8",
+                        "primary": "#005bbf",
+                        "inverse-surface": "#2d3135",
+                        "on-error": "#ffffff",
+                        "secondary-fixed": "#dbe3f1",
+                        "on-tertiary-container": "#0e0200",
+                        "tertiary-fixed": "#ffdbcb",
+                        "on-secondary-fixed-variant": "#3f4752",
+                        "inverse-on-surface": "#eff1f6",
+                        "secondary": "#575f6b",
+                        "surface-bright": "#f7f9fe",
+                        "on-surface": "#181c20",
+                        "on-secondary-container": "#5d6571",
+                        "outline": "#727785",
+                        "on-error-container": "#93000a",
+                        "status-blue-light": "#E3F2FD",
+                        "error-red": "#EA4335",
+                        "on-tertiary-fixed": "#341100",
+                        "primary-fixed-dim": "#adc7ff",
+                        "secondary-container": "#dbe3f1"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-gap": "12px",
+                        "inline-gap": "8px",
+                        "container-margin": "16px",
+                        "card-internal-padding": "16px",
+                        "section-padding": "20px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["Inter"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "body-md": ["Inter"],
+                        "data-numeric-sm": ["Inter"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "data-numeric-lg": ["Plus Jakarta Sans"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "600" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "data-numeric-sm": ["13px", { "lineHeight": "18px", "fontWeight": "600" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "data-numeric-lg": ["22px", { "lineHeight": "28px", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen pb-[120px] pt-14 no-scrollbar">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/70 dark:bg-surface-dim/70 backdrop-blur-2xl text-primary dark:text-inverse-primary border-b-[0.5px] border-white/50 dark:border-outline-variant/20 shadow-sm flex justify-between items-center px-container-margin h-14 w-full">
+<button aria-label="返回" class="w-10 h-10 flex items-center justify-center hover:bg-surface-container-low rounded-full active:scale-95 transition-transform">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-primary dark:text-inverse-primary font-bold tracking-tight">采购入库</h1>
+<button aria-label="通知" class="w-10 h-10 flex items-center justify-center hover:bg-surface-container-low rounded-full active:scale-95 transition-transform">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</header>
+<main class="px-container-margin pt-6 max-w-2xl mx-auto flex flex-col gap-stack-gap">
+<!-- Header Section (PO Details) -->
+<section class="glass-card rounded-xl p-card-internal-padding relative overflow-hidden">
+<div class="absolute top-0 right-0 w-24 h-24 bg-primary-container opacity-20 rounded-bl-full -mr-4 -mt-4"></div>
+<div class="flex justify-between items-start mb-4">
+<div>
+<h2 class="font-body-md text-body-md text-data-text-secondary mb-1">采购单号</h2>
+<p class="font-data-numeric-lg text-data-numeric-lg text-data-text-primary">PO-20231027-001</p>
+</div>
+<div class="bg-warning-orange/10 text-warning-orange px-2 py-1 rounded border border-warning-orange/20 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">pending_actions</span>
+<span class="font-label-sm text-label-sm">待收货</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 border-t border-outline-variant/20 pt-4 mt-2">
+<div>
+<p class="font-body-md text-body-md text-data-text-secondary mb-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">factory</span> 供应商
+                    </p>
+<p class="font-body-lg text-body-lg text-on-surface font-medium">晨光纸品厂</p>
+</div>
+<div>
+<p class="font-body-md text-body-md text-data-text-secondary mb-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">calendar_today</span> 预计日期
+                    </p>
+<p class="font-data-numeric-sm text-data-numeric-sm text-on-surface font-medium">2023-10-28</p>
+</div>
+</div>
+</section>
+<!-- Warehouse Selection -->
+<section class="glass-card rounded-xl p-card-internal-padding flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">warehouse</span>
+</div>
+<div>
+<p class="font-body-md text-body-md text-data-text-secondary">入库仓库</p>
+<p class="font-body-lg text-body-lg text-on-surface font-medium">主仓库</p>
+</div>
+</div>
+<button class="text-primary hover:bg-primary/5 p-2 rounded-full transition-colors flex items-center gap-1 font-body-md text-body-md">
+                更改 <span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</section>
+<!-- Items List -->
+<section class="mt-2">
+<h3 class="font-body-lg text-body-lg text-data-text-primary mb-3 font-semibold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">inventory_2</span> 入库明细 (2)
+            </h3>
+<div class="flex flex-col gap-stack-gap">
+<!-- Item Card 1 -->
+<div class="glass-card rounded-xl p-card-internal-padding flex gap-4 items-center">
+<div class="w-16 h-16 rounded-lg bg-surface-container-high border border-outline-variant/30 flex-shrink-0 overflow-hidden relative">
+<img alt="A4 Copy Paper stack" class="w-full h-full object-cover" data-alt="A stack of premium white A4 copy paper reams sitting on a modern office desk. Bright, clean, corporate lighting highlighting the crisp edges of the paper packaging. Light mode aesthetic with a professional business environment feel. Focus on stationery and office supplies." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB65hpnDt5QiSDY31zAegLMgEqW4orPscDUbMB4T3bLsOFyaLHRBeIUwnZrpndl_16lwxMDmDsxhEsrgqtAe1RFLhYglvojOjXvZUxy1nOpCLkfvH-GUDBZSI7gF8u76VPITyOGdH1JMjIXIFFANo5GLDntTQRLm25SCD6NxKqFvF_XNUFOSlQZAeqoo4JN3msjsgjRXMVNiuJ25SWOvk1XyAP08tgN75v0nXRP4w9Gcy9y0Yyz1f1akN6XzKEKb2wMt8myHoW4VhBH">
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start mb-1">
+<h4 class="font-body-lg text-body-lg text-on-surface font-medium leading-tight">A4 高级打印纸</h4>
+<span class="font-data-numeric-sm text-data-numeric-sm text-data-text-secondary">#SKU-8921</span>
+</div>
+<p class="font-body-md text-body-md text-data-text-secondary mb-2">规格: 500张/包, 5包/箱</p>
+<div class="flex items-center justify-between mt-3">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-data-text-secondary mb-1">应收 (箱)</span>
+<span class="font-data-numeric-lg text-data-numeric-lg text-data-text-primary">100</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-primary">实收</span>
+<div class="flex items-center border border-outline-variant/50 rounded-lg bg-white overflow-hidden focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
+<button class="w-8 h-8 flex items-center justify-center text-secondary hover:bg-surface-container-low active:bg-surface-container-high">
+<span class="material-symbols-outlined text-[16px]">remove</span>
+</button>
+<input class="w-12 h-8 text-center border-none p-0 font-data-numeric-sm text-data-numeric-sm text-data-text-primary bg-transparent focus:ring-0" style="-moz-appearance: textfield;" type="number" value="100">
+<button class="w-8 h-8 flex items-center justify-center text-secondary hover:bg-surface-container-low active:bg-surface-container-high">
+<span class="material-symbols-outlined text-[16px]">add</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Item Card 2 -->
+<div class="glass-card rounded-xl p-card-internal-padding flex gap-4 items-center">
+<div class="w-16 h-16 rounded-lg bg-surface-container-high border border-outline-variant/30 flex-shrink-0 overflow-hidden relative">
+<img alt="Office Binders" class="w-full h-full object-cover" data-alt="Several colorful office ring binders organized neatly on a shelf. Bright corporate lighting, clean and professional setting. The image uses a light, modern color palette appropriate for business inventory systems. Shallow depth of field focusing on the spine labels." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJLahcy9h3FtZhA8qeQA77oDhtjUUJok-0GUT0fkkM0HVRuOpOsAx4CDaEz0_va1GoTBjFqR_LrOh-vC2S-A03-BTgsR62ThwJ2yMUdGc2121zBGSprTz--gj2J8e2-acOCZAM8IZsdkKNXvknhzo68fDd9Y-k4HjZbLgAnYLiYjqI-OvLZAGtoR3OxUGzHOkyWBT6Prs6yxbTq5fWlbBi9jZhEiZTh5x7LKSOrpKKGWY5ET0iXqMbSwpmnRSMecp0LyrUpP4xxF0j">
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start mb-1">
+<h4 class="font-body-lg text-body-lg text-on-surface font-medium leading-tight">强力文件夹</h4>
+<span class="font-data-numeric-sm text-data-numeric-sm text-data-text-secondary">#SKU-3342</span>
+</div>
+<p class="font-body-md text-body-md text-data-text-secondary mb-2">规格: A4, 蓝色</p>
+<div class="flex items-center justify-between mt-3">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-data-text-secondary mb-1">应收 (件)</span>
+<span class="font-data-numeric-lg text-data-numeric-lg text-data-text-primary">50</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-primary">实收</span>
+<div class="flex items-center border border-outline-variant/50 rounded-lg bg-white overflow-hidden focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
+<button class="w-8 h-8 flex items-center justify-center text-secondary hover:bg-surface-container-low active:bg-surface-container-high">
+<span class="material-symbols-outlined text-[16px]">remove</span>
+</button>
+<input class="w-12 h-8 text-center border-none p-0 font-data-numeric-sm text-data-numeric-sm text-data-text-primary bg-transparent focus:ring-0" style="-moz-appearance: textfield;" type="number" value="50">
+<button class="w-8 h-8 flex items-center justify-center text-secondary hover:bg-surface-container-low active:bg-surface-container-high">
+<span class="material-symbols-outlined text-[16px]">add</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Remark Section -->
+<section class="mt-2 mb-6">
+<div class="glass-card rounded-xl p-card-internal-padding">
+<label class="block font-body-md text-body-md text-data-text-secondary mb-2" for="remarks">入库备注 (选填)</label>
+<textarea class="w-full bg-white border border-outline-variant/50 rounded-lg p-3 font-body-md text-body-md text-data-text-primary focus:border-primary focus:ring-1 focus:ring-primary transition-all" id="remarks" placeholder="添加备注信息..." rows="2"></textarea>
+</div>
+</section>
+</main>
+<!-- Bottom Action Bar (Contextual Safe Area) -->
+<div class="fixed bottom-20 left-0 w-full px-container-margin z-40 pb-4 pt-2 bg-gradient-to-t from-surface via-surface/90 to-transparent">
+<div class="max-w-2xl mx-auto flex gap-3">
+<button class="flex-1 bg-surface border border-outline-variant/50 text-on-surface font-body-lg text-body-lg font-medium py-3 rounded-xl shadow-sm hover:bg-surface-container-low active:bg-surface-container-highest transition-colors">
+                部分收货
+            </button>
+<button class="flex-[2] bg-primary text-on-primary font-body-lg text-body-lg font-medium py-3 rounded-xl shadow-[0_4px_14px_rgba(0,91,192,0.3)] hover:bg-on-primary-fixed-variant active:bg-primary-fixed-dim transition-colors flex justify-center items-center gap-2">
+<span class="material-symbols-outlined text-[20px]">check_circle</span> 确认入库
+            </button>
+</div>
+</div>
+<!-- Navigation suppression check: This is a linear transactional page with a "back" button, but the prompt explicitly requires the BottomNavBar with a specific active state. -->
+</body></html>

@@ -32,8 +32,11 @@ class AgentV2Repository @Inject constructor(
 ) {
     // ---------- Conversation ----------
 
-    suspend fun listConversations(): Result<List<AgentConversationDto>> =
-        safeApiCall { api.agentConversationsV2() }
+    suspend fun listConversations(
+        page: Int? = null,
+        limit: Int? = null,
+    ): Result<List<AgentConversationDto>> =
+        safeApiCall { api.agentConversationsV2(page, limit) }
 
     suspend fun getConversation(id: Long): Result<AgentConversationDto> =
         safeApiCall { api.agentConversationV2(id) }
@@ -49,8 +52,12 @@ class AgentV2Repository @Inject constructor(
 
     // ---------- Message ----------
 
-    suspend fun listMessages(conversationId: Long): Result<List<AgentMessageDto>> =
-        safeApiCall { api.agentMessagesV2(conversationId) }
+    suspend fun listMessages(
+        conversationId: Long,
+        page: Int? = null,
+        limit: Int? = null,
+    ): Result<List<AgentMessageDto>> =
+        safeApiCall { api.agentMessagesV2(conversationId, page, limit) }
 
     suspend fun createMessage(
         conversationId: Long,
@@ -59,8 +66,12 @@ class AgentV2Repository @Inject constructor(
 
     // ---------- Draft ----------
 
-    suspend fun listDrafts(conversationId: Long? = null): Result<List<AgentDraftDto>> =
-        safeApiCall { api.agentDraftsV2(conversationId) }
+    suspend fun listDrafts(
+        conversationId: Long? = null,
+        page: Int? = null,
+        limit: Int? = null,
+    ): Result<List<AgentDraftDto>> =
+        safeApiCall { api.agentDraftsV2(conversationId, page, limit) }
 
     suspend fun createDraft(request: CreateAgentDraftRequest): Result<AgentDraftDto> =
         safeApiCall { api.createAgentDraftV2(request) }

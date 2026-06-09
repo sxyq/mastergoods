@@ -1,0 +1,255 @@
+<!DOCTYPE html><html class="light" lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
+<title>系统设置 - 智慧记</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-dim": "#d8dadf",
+                        "on-secondary-fixed-variant": "#3f4752",
+                        "surface-tint": "#005bc0",
+                        "on-tertiary-fixed": "#341100",
+                        "on-error-container": "#93000a",
+                        "data-text-primary": "#1F2937",
+                        "inverse-primary": "#adc7ff",
+                        "secondary-container": "#dbe3f1",
+                        "secondary-fixed-dim": "#bfc7d4",
+                        "secondary": "#575f6b",
+                        "outline-variant": "#c1c6d6",
+                        "on-surface": "#181c20",
+                        "on-secondary-container": "#5d6571",
+                        "surface": "#f7f9fe",
+                        "on-background": "#181c20",
+                        "error": "#ba1a1a",
+                        "tertiary-fixed": "#ffdbcb",
+                        "on-tertiary-fixed-variant": "#783100",
+                        "on-secondary-fixed": "#141c26",
+                        "surface-container-highest": "#e0e2e7",
+                        "secondary-fixed": "#dbe3f1",
+                        "inverse-on-surface": "#eff1f6",
+                        "on-primary": "#ffffff",
+                        "outline": "#727785",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed-variant": "#004493",
+                        "error-red": "#EA4335",
+                        "on-tertiary": "#ffffff",
+                        "inverse-surface": "#2d3135",
+                        "tertiary": "#9e4300",
+                        "on-error": "#ffffff",
+                        "warning-orange": "#FB8C00",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#001a41",
+                        "on-surface-variant": "#414754",
+                        "background": "#f7f9fe",
+                        "surface-container-high": "#e6e8ed",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-container": "#0e0200",
+                        "data-text-secondary": "#6B7280",
+                        "status-blue-light": "#E3F2FD",
+                        "primary": "#005bbf",
+                        "surface-bright": "#f7f9fe",
+                        "primary-container": "#1a73e8",
+                        "surface-container-low": "#f1f4f9",
+                        "primary-fixed-dim": "#adc7ff",
+                        "surface-variant": "#e0e2e7",
+                        "success-green": "#34A853",
+                        "tertiary-container": "#c55500",
+                        "primary-fixed": "#d8e2ff",
+                        "surface-container": "#eceef3",
+                        "on-primary-container": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb691"
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.25rem",
+                        lg: "0.5rem",
+                        xl: "0.75rem",
+                        full: "9999px"
+                    },
+                    spacing: {
+                        "inline-gap": "8px",
+                        "container-margin": "16px",
+                        "section-padding": "20px",
+                        "stack-gap": "12px",
+                        "card-internal-padding": "16px"
+                    },
+                    fontFamily: {
+                        "label-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "data-numeric-lg": ["Plus Jakarta Sans"],
+                        "body-lg": ["Inter"],
+                        "data-numeric-sm": ["Inter"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "headline-lg": ["Plus Jakarta Sans"]
+                    },
+                    fontSize: {
+                        "label-sm": ["12px", { lineHeight: "16px", letterSpacing: "0.5px", fontWeight: "600" }],
+                        "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+                        "data-numeric-lg": ["22px", { lineHeight: "28px", fontWeight: "700" }],
+                        "body-lg": ["16px", { lineHeight: "24px", fontWeight: "500" }],
+                        "data-numeric-sm": ["13px", { lineHeight: "18px", fontWeight: "600" }],
+                        "headline-md": ["20px", { lineHeight: "28px", fontWeight: "600" }],
+                        "headline-lg": ["24px", { lineHeight: "32px", fontWeight: "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        }
+        .bg-aurora {
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 50%, #e0e7ff 100%);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
+        }
+        .glass-item:active {
+            background: rgba(255, 255, 255, 0.8);
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body class="text-on-background font-body-md antialiased min-h-screen relative pb-24 md:pb-0">
+<!-- Background Aurora Effect -->
+<div class="bg-aurora"></div>
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/40 dark:bg-surface-container/40 backdrop-blur-2xl border-b border-white/50 dark:border-outline/20">
+<div class="flex justify-between items-center px-4 py-2 w-full z-50 h-14">
+<button class="text-primary dark:text-inverse-primary hover:bg-primary/10 dark:hover:bg-inverse-primary/10 transition-colors p-2 rounded-full flex items-center justify-center active:scale-95 duration-150">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 0;">menu</span>
+</button>
+<h1 class="text-headline-lg font-headline-lg font-bold text-on-surface dark:text-on-surface-variant truncate mx-4 flex-1 text-center">智慧记</h1>
+<button class="text-primary dark:text-inverse-primary hover:bg-primary/10 dark:hover:bg-inverse-primary/10 transition-colors p-2 rounded-full flex items-center justify-center active:scale-95 duration-150">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 0;">notifications</span>
+</button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="pt-16 px-container-margin max-w-md mx-auto md:max-w-2xl">
+<!-- Profile Header Card -->
+<section class="mt-4 mb-stack-gap">
+<div class="glass-card rounded-xl p-card-internal-padding flex items-center gap-4">
+<div class="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 border-2 border-white/80 shadow-sm relative">
+<img alt="Shop Owner Profile" class="w-full h-full object-cover" data-alt="A professional headshot of a confident Asian male business owner in his 30s, wearing a smart casual light blue shirt. He has a warm, approachable smile. The background is a slightly blurred, modern, bright office environment with subtle cool-toned lighting, fitting a clean, corporate management aesthetic. High quality, clear focus." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdvLcCSyOiRJ7zezror3C1oyAcp7P7e5bhz1Ksy00cbvHJkG1vsgs33gnfbgq59eSmdgjwNcs37COUoP3okFOU-A5e9B-qWvDN8w_g5KS2i-SaXC6QBcgUczAONfbnUxMyYyJI6j0OIY6bUIt17MgmBQxCM_UedB9S62PTamayMqRSYm4JCNN8O9AgM87PBb-D5XZmV14Mtcn8MxThcfw5_lakULskHKZIHszaGVAVl3jfEpl3hd9nUCxdcgYT16YVce-6cRPaX5s0">
+</div>
+<div class="flex-1">
+<h2 class="text-headline-md font-headline-md text-data-text-primary mb-1">张掌柜</h2>
+<p class="text-body-md font-body-md text-data-text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">storefront</span>
+                        张氏精选便利店
+                    </p>
+</div>
+<button class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 active:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</button>
+</div>
+</section>
+<!-- Settings Groups -->
+<div class="flex flex-col gap-stack-gap mb-8">
+<!-- Group 1: Account & Security -->
+<div class="glass-card rounded-xl overflow-hidden flex flex-col">
+<a class="glass-item flex items-center p-card-internal-padding gap-3 border-b border-white/40 transition-all" href="#">
+<div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 0;">person</span>
+</div>
+<div class="flex-1 text-body-lg font-body-lg text-data-text-primary">个人资料</div>
+<span class="material-symbols-outlined text-outline-variant">chevron_right</span>
+</a>
+<a class="glass-item flex items-center p-card-internal-padding gap-3 transition-all" href="#">
+<div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 0;">security</span>
+</div>
+<div class="flex-1 text-body-lg font-body-lg text-data-text-primary">账号安全</div>
+<div class="text-label-sm font-label-sm text-data-text-secondary bg-surface-container-high px-2 py-0.5 rounded-full mr-2">已开启双重验证</div>
+<span class="material-symbols-outlined text-outline-variant">chevron_right</span>
+</a>
+</div>
+<!-- Group 2: Data Management -->
+<div class="glass-card rounded-xl overflow-hidden flex flex-col">
+<a class="glass-item flex items-center p-card-internal-padding gap-3 border-b border-white/40 transition-all" href="#">
+<div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 0;">sync</span>
+</div>
+<div class="flex-1 text-body-lg font-body-lg text-data-text-primary">同步设置</div>
+<div class="text-label-sm font-label-sm text-data-text-secondary mr-2">实时同步</div>
+<span class="material-symbols-outlined text-outline-variant">chevron_right</span>
+</a>
+<a class="glass-item flex items-center p-card-internal-padding gap-3 transition-all" href="#">
+<div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 0;">import_export</span>
+</div>
+<div class="flex-1 text-body-lg font-body-lg text-data-text-primary">数据导入导出</div>
+<span class="material-symbols-outlined text-outline-variant">chevron_right</span>
+</a>
+</div>
+<!-- Group 3: System & Info -->
+<div class="glass-card rounded-xl overflow-hidden flex flex-col">
+
+<a class="glass-item flex items-center p-card-internal-padding gap-3 transition-all" href="#">
+<div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 0;">info</span>
+</div>
+<div class="flex-1 text-body-lg font-body-lg text-data-text-primary">关于我们</div>
+<div class="text-label-sm font-label-sm text-data-text-secondary mr-2">v2.4.1</div>
+<span class="material-symbols-outlined text-outline-variant">chevron_right</span>
+</a>
+</div>
+</div>
+<!-- Log Out Button -->
+<button class="w-full glass-card rounded-xl py-3 text-error-red font-body-lg text-body-lg flex justify-center items-center active:bg-white/80 transition-colors mb-6">
+            退出登录
+        </button>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 rounded-t-xl bg-white/40 dark:bg-surface-container-high/40 backdrop-blur-2xl border-t border-white/50 dark:border-outline/20 shadow-sm flex justify-around items-center h-16 px-2 pb-safe">
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 dark:text-on-surface-variant/70 hover:text-primary dark:hover:text-inverse-primary transition-all w-16 h-full" href="#">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: &quot;FILL&quot; 0;">home</span>
+<span class="text-label-sm font-label-sm mt-1">首页</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 dark:text-on-surface-variant/70 hover:text-primary dark:hover:text-inverse-primary transition-all w-16 h-full" href="#">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: &quot;FILL&quot; 0;">description</span>
+<span class="text-label-sm font-label-sm mt-1">单据</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 dark:text-on-surface-variant/70 hover:text-primary dark:hover:text-inverse-primary transition-all w-16 h-full" href="#">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: &quot;FILL&quot; 0;">inventory_2</span>
+<span class="text-label-sm font-label-sm mt-1">档案</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/70 dark:text-on-surface-variant/70 hover:text-primary dark:hover:text-inverse-primary transition-all w-16 h-full" href="#">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: &quot;FILL&quot; 0;">bar_chart</span>
+<span class="text-label-sm font-label-sm mt-1">报表</span>
+</a>
+<!-- Active Tab: Assuming Settings relates to Assistant or a generic Profile context. Using Assistant as it's the 5th tab. If there was a 'Profile' tab, it would be active. Since not, and Assistant is closest to 'Management/Settings' in this limited set, or maybe we just don't highlight any if it's a subpage. The instruction says "If designing a user settings page, Profile is active." There is no Profile tab. So I will highlight none, or maybe Home if it's a sub-page of Home. Wait, "Assistant" (助手) could be it. Let's not highlight any if it doesn't match perfectly to avoid hallucination. Wait, "Intent Fallback: ONLY use semantic intent if there is no direct match". I will highlight Assistant (助手) as Settings are often there, or just keep them all inactive if it's a top-level setting not in nav. Let's make Home inactive. -->
+<a class="flex flex-col items-center justify-center text-primary dark:text-inverse-primary scale-110 transition-transform active:scale-90 duration-200 w-16 h-full" href="#">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: &quot;FILL&quot; 1;">smart_toy</span>
+<span class="text-label-sm font-label-sm mt-1">助手</span>
+</a>
+</nav>
+<script>
+        // Simple touch effect for glass items
+        document.querySelectorAll('.glass-item').forEach(item => {
+            item.addEventListener('touchstart', () => {
+                item.style.backgroundColor = 'rgba(255, 255, 255, 0.4)';
+            });
+            item.addEventListener('touchend', () => {
+                item.style.backgroundColor = 'transparent';
+            });
+        });
+    </script>
+
+
+</body></html>
