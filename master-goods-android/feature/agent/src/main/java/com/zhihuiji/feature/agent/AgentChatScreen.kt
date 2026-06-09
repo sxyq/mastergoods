@@ -869,6 +869,15 @@ internal fun String.readableToolName(): String =
         "inventory_flow" -> "库存流水"
         "profit_summary" -> "利润分析"
         "finance_records" -> "资金明细"
+        "inventory_low_stock_lookup" -> "低库存查询"
+        "product_catalog_lookup" -> "商品查询"
+        "customer_receivable_lookup" -> "客户应收查询"
+        "supplier_payable_lookup" -> "供应商应付查询"
+        "sales_overview_lookup" -> "经营概览查询"
+        "sale_order_lookup" -> "销售单查询"
+        "purchase_order_lookup" -> "采购单查询"
+        "pay_order_lookup" -> "付款单查询"
+        "finance_record_lookup" -> "资金流水查询"
         else -> replace('_', ' ')
     }
 

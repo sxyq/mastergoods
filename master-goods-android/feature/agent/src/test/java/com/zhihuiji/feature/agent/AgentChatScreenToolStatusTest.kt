@@ -152,6 +152,15 @@ class AgentChatScreenToolStatusTest {
     @Test
     fun readableToolNameUsesBusinessLabelsForKnownTools() {
         assertEquals("销售趋势", "sales_trend".readableToolName())
+        assertEquals("低库存查询", "inventory_low_stock_lookup".readableToolName())
+        assertEquals("商品查询", "product_catalog_lookup".readableToolName())
+        assertEquals("客户应收查询", "customer_receivable_lookup".readableToolName())
+        assertEquals("供应商应付查询", "supplier_payable_lookup".readableToolName())
+        assertEquals("经营概览查询", "sales_overview_lookup".readableToolName())
+        assertEquals("销售单查询", "sale_order_lookup".readableToolName())
+        assertEquals("采购单查询", "purchase_order_lookup".readableToolName())
+        assertEquals("付款单查询", "pay_order_lookup".readableToolName())
+        assertEquals("资金流水查询", "finance_record_lookup".readableToolName())
         assertEquals("custom tool", "custom_tool".readableToolName())
     }
 
