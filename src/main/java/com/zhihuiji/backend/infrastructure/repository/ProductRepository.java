@@ -24,9 +24,17 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
 
     List<ProductEntity> findAllByOwnerUserId(Long ownerUserId);
 
+    long countByOwnerUserId(Long ownerUserId);
+
     long countByOwnerUserIdAndCategoryId(Long ownerUserId, Long categoryId);
 
     long countByOwnerUserIdAndUnitId(Long ownerUserId, Long unitId);
+
+    @Query("SELECT COALESCE(SUM(p.stock), 0) FROM ProductEntity p WHERE p.ownerUserId = :ownerUserId")
+    Double sumStockByOwnerUserId(@Param("ownerUserId") Long ownerUserId);
+
+    @Query("SELECT COUNT(p) FROM ProductEntity p WHERE p.ownerUserId = :ownerUserId AND p.stock <= p.safeStock")
+    long countLowStockByOwnerUserId(@Param("ownerUserId") Long ownerUserId);
 
     @Query("SELECT p FROM ProductEntity p WHERE p.ownerUserId = :ownerUserId AND p.stock <= p.safeStock ORDER BY p.stock ASC, p.updatedAt DESC")
     List<ProductEntity> findLowStockProducts(@Param("ownerUserId") Long ownerUserId, Pageable pageable);

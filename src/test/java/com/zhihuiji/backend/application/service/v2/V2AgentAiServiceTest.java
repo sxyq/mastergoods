@@ -426,6 +426,8 @@ class V2AgentAiServiceTest {
         }
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(customers);
+        when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(10L);
+        when(customerRepository.sumPositiveBalance(1L)).thenReturn(1055.0);
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
                 @SuppressWarnings("unchecked")
@@ -877,6 +879,8 @@ class V2AgentAiServiceTest {
         }
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(customers);
+        when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(10L);
+        when(customerRepository.sumPositiveBalance(1L)).thenReturn(1055.0);
 
         V2AgentDtos.AgentChatResponse response = service.chat(
             new V2AgentDtos.AgentChatRequest(null, "客户应收情况", false)
@@ -890,13 +894,105 @@ class V2AgentAiServiceTest {
             ref.label().contains("customer_count") && "10个".equals(ref.value())
         ));
         assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("total_receivable") && ref.value().contains("¥")
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
             ref.label().contains("top10_receivable_total") && ref.value().contains("¥")
         ));
         assertTrue(response.blocks().stream().anyMatch(block ->
             "evidence_card".equals(block.blockType())
                 && block.data().toString().contains("customer_count")
+                && block.data().toString().contains("total_receivable")
                 && block.data().toString().contains("top10_receivable_total")
                 && block.data().toString().contains("tool:customer_receivable_lookup")
+        ));
+    }
+
+    @Test
+    void productCatalogUsesRepositoryAggregatesForSummaryInsteadOfPageSample() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+            .thenReturn(List.of(product(1L, "SKU-1", "纸巾", 2.0, 10.0, 12.5)));
+        when(productRepository.countByOwnerUserId(1L)).thenReturn(25L);
+        when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(300.0);
+        when(productRepository.countLowStockByOwnerUserId(1L)).thenReturn(4L);
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "商品目录情况", false)
+        );
+
+        assertTrue(response.answer().contains("商品总数 25 个"), response.answer());
+        assertTrue(response.answer().contains("库存总计 300"), response.answer());
+        assertTrue(response.answer().contains("低库存商品 4 个"), response.answer());
+        assertTrue(response.blocks().stream().anyMatch(block ->
+            "kpi_grid".equals(block.blockType())
+                && block.data().toString().contains("商品总数")
+                && block.data().toString().contains("\"value\":\"25\"")
+                && block.data().toString().contains("库存总计")
+                && block.data().toString().contains("\"value\":\"300\"")
+                && block.data().toString().contains("低库存商品")
+                && block.data().toString().contains("\"value\":\"4\"")
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("product_count") && "25个".equals(ref.value())
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("stock_total") && "300".equals(ref.value())
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("low_stock_count") && "4个".equals(ref.value())
+        ));
+        assertEquals(1, response.toolCalls().get(0).returnedCount());
+        assertEquals(10, response.toolCalls().get(0).limit());
+        verify(productRepository, never()).findAllByOwnerUserId(1L);
+    }
+
+    @Test
+    void receivableAndPayableUseRepositoryAggregatesForTotalsInsteadOfTopPageSample() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(customer(1L, "客户A", 100.0)));
+        when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(12L);
+        when(customerRepository.sumPositiveBalance(1L)).thenReturn(900.0);
+        when(supplierRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(supplier(1L, "供应商A", 80.0)));
+        when(supplierRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(8L);
+        when(supplierRepository.sumPositiveBalance(1L)).thenReturn(700.0);
+        when(purchaseOrderRepository.search(1L, null, null, PageRequest.of(0, 10))).thenReturn(List.of());
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "客户应收和供应商应付情况", false)
+        );
+
+        assertTrue(response.answer().contains("欠款客户总数 12 个"), response.answer());
+        assertTrue(response.answer().contains("应收总额 ¥900.00"), response.answer());
+        assertTrue(response.answer().contains("应付供应商总数 8 个"), response.answer());
+        assertTrue(response.answer().contains("应付总额 ¥700.00"), response.answer());
+        assertTrue(response.blocks().stream().anyMatch(block ->
+            "kpi_grid".equals(block.blockType())
+                && block.data().toString().contains("欠款客户总数")
+                && block.data().toString().contains("\"value\":\"12\"")
+                && block.data().toString().contains("应收总额")
+                && block.data().toString().contains("¥900.00")
+        ));
+        assertTrue(response.blocks().stream().anyMatch(block ->
+            "kpi_grid".equals(block.blockType())
+                && block.data().toString().contains("应付供应商总数")
+                && block.data().toString().contains("\"value\":\"8\"")
+                && block.data().toString().contains("应付总额")
+                && block.data().toString().contains("¥700.00")
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("total_receivable") && "¥900.00".equals(ref.value())
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("top10_receivable_total") && "¥100.00".equals(ref.value())
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("total_payable") && "¥700.00".equals(ref.value())
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("top10_payable_total") && "¥80.00".equals(ref.value())
         ));
     }
 
@@ -1013,9 +1109,9 @@ class V2AgentAiServiceTest {
         String answer = synthesizeAnswer("汇总经营情况", toolResults, "兜底回答");
 
         assertTrue(answer.contains("后端未返回低库存商品数量"), answer);
-        assertTrue(answer.contains("后端未返回库存合计"), answer);
-        assertTrue(answer.contains("后端未返回Top10 应收合计"), answer);
-        assertTrue(answer.contains("后端未返回Top10 应付合计"), answer);
+        assertTrue(answer.contains("后端未返回库存总计"), answer);
+        assertTrue(answer.contains("后端未返回应收总额"), answer);
+        assertTrue(answer.contains("后端未返回应付总额"), answer);
         assertTrue(answer.contains("后端未返回销售额"), answer);
         assertTrue(answer.contains("后端未返回采购额"), answer);
         assertTrue(answer.contains("后端未返回付款额"), answer);

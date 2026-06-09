@@ -864,11 +864,12 @@ public class V2AgentAiService {
     private ResponsePayload buildProductCatalogResponse(Long ownerUserId, SseEmitter emitter, String runId) {
         ToolAudit audit = startToolAudit(emitter, runId, "product_catalog_lookup", Map.of("limit", DEFAULT_TOOL_LIMIT));
         List<ProductEntity> products = productRepository.findAllByOwnerUserIdOrderByNameAsc(ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
+        long totalProductCount = safeLong(productRepository.countByOwnerUserId(ownerUserId));
+        double totalStock = safeDouble(productRepository.sumStockByOwnerUserId(ownerUserId));
+        long lowStockCount = safeLong(productRepository.countLowStockByOwnerUserId(ownerUserId));
         audit.markLimitedResult(products.size(), DEFAULT_TOOL_LIMIT);
-        emitToolCompleted(emitter, runId, "product_catalog_lookup", "命中 " + products.size() + " 个商品", audit);
+        emitToolCompleted(emitter, runId, "product_catalog_lookup", "返回 " + products.size() + " 个商品，总计 " + totalProductCount + " 个商品", audit);
 
-        double totalStock = products.stream().mapToDouble(item -> safeDouble(item.getStock())).sum();
-        long lowStockCount = products.stream().filter(item -> safeDouble(item.getStock()) <= safeDouble(item.getSafeStock())).count();
         ProductEntity maxStockProduct = products.stream()
             .max(Comparator.comparingDouble(item -> safeDouble(item.getStock())))
             .orElse(null);
@@ -878,8 +879,8 @@ public class V2AgentAiService {
             "商品概览",
             toJsonNode(mapOf(
                 "kpis", List.of(
-                    mapOf("label", "商品数", "value", String.valueOf(products.size()), "trend_direction", products.isEmpty() ? "flat" : "up"),
-                    mapOf("label", "查询库存合计", "value", formatNumber(totalStock), "trend_direction", totalStock > 0 ? "up" : "flat"),
+                    mapOf("label", "商品总数", "value", String.valueOf(totalProductCount), "trend_direction", totalProductCount == 0L ? "flat" : "up"),
+                    mapOf("label", "库存总计", "value", formatNumber(totalStock), "trend_direction", totalStock > 0 ? "up" : "flat"),
                     mapOf("label", "低库存商品", "value", String.valueOf(lowStockCount), "trend_direction", lowStockCount > 0 ? "up" : "flat")
                 )
             ))
@@ -901,17 +902,18 @@ public class V2AgentAiService {
         );
 
         List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, tableBlock);
-        String answer = products.isEmpty()
+        String answer = totalProductCount == 0L
             ? "当前账号下还没有商品数据。"
-            : "当前账号下已查询到 " + products.size() + " 个商品，"
-                + "查询库存合计 " + formatNumber(totalStock) + "，低库存商品 " + lowStockCount + " 个。"
+            : "当前账号下商品总数 " + totalProductCount + " 个，"
+                + "库存总计 " + formatNumber(totalStock) + "，低库存商品 " + lowStockCount + " 个。"
                 + (maxStockProduct == null ? "" : "当前库存最高的是 " + maxStockProduct.getName() + "。");
         ToolExecutionResult toolResult = new ToolExecutionResult(
             "product_catalog_lookup",
-            "商品查询 " + products.size() + " 个，低库存 " + lowStockCount + " 个",
+            "商品总数 " + totalProductCount + " 个，返回 " + products.size() + " 个，低库存 " + lowStockCount + " 个",
             toJsonNode(mapOf(
-                "product_count", products.size(),
-                "queried_stock_total", formatNumber(totalStock),
+                "product_count", totalProductCount,
+                "returned_product_count", products.size(),
+                "stock_total", formatNumber(totalStock),
                 "low_stock_count", lowStockCount,
                 "query_audit", audit.facts(),
                 "top_products", products.stream().limit(5).map(item -> mapOf(
@@ -931,16 +933,18 @@ public class V2AgentAiService {
         List<CustomerEntity> customers = customerRepository
             .findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(ownerUserId, 0.0, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
         audit.markLimitedResult(customers.size(), DEFAULT_TOOL_LIMIT);
-        emitToolCompleted(emitter, runId, "customer_receivable_lookup", "命中 " + customers.size() + " 个欠款客户", audit);
+        long totalCustomerCount = safeLong(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(ownerUserId, 0.0));
+        double totalReceivable = safeDouble(customerRepository.sumPositiveBalance(ownerUserId));
+        emitToolCompleted(emitter, runId, "customer_receivable_lookup", "返回 " + customers.size() + " 个欠款客户，总计 " + totalCustomerCount + " 个", audit);
 
-        double totalReceivable = customers.stream().mapToDouble(item -> safeDouble(item.getBalance())).sum();
+        double topReceivable = customers.stream().mapToDouble(item -> safeDouble(item.getBalance())).sum();
         V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
             "kpi_grid",
             "应收概览",
             toJsonNode(mapOf(
                 "kpis", List.of(
-                    mapOf("label", "欠款客户数", "value", String.valueOf(customers.size()), "trend_direction", customers.isEmpty() ? "flat" : "up"),
-                    mapOf("label", "Top10 应收合计", "value", money(totalReceivable), "trend_direction", totalReceivable > 0 ? "down" : "flat"),
+                    mapOf("label", "欠款客户总数", "value", String.valueOf(totalCustomerCount), "trend_direction", totalCustomerCount == 0L ? "flat" : "up"),
+                    mapOf("label", "应收总额", "value", money(totalReceivable), "trend_direction", totalReceivable > 0 ? "down" : "flat"),
                     mapOf("label", "最高单户欠款", "value", customers.isEmpty() ? money(0) : money(safeDouble(customers.get(0).getBalance())), "trend_direction", customers.isEmpty() ? "flat" : "up")
                 )
             ))
@@ -976,10 +980,12 @@ public class V2AgentAiService {
             : "我已经按欠款金额从高到低整理出客户排行，可以先跟进前几位客户的回款。";
         ToolExecutionResult toolResult = new ToolExecutionResult(
             "customer_receivable_lookup",
-            "欠款客户 " + customers.size() + " 个，Top10 应收合计 " + money(totalReceivable),
+            "欠款客户总数 " + totalCustomerCount + " 个，应收总额 " + money(totalReceivable) + "，Top10 应收合计 " + money(topReceivable),
             toJsonNode(mapOf(
-                "customer_count", customers.size(),
-                "top10_receivable_total", money(totalReceivable),
+                "customer_count", totalCustomerCount,
+                "returned_customer_count", customers.size(),
+                "total_receivable", money(totalReceivable),
+                "top10_receivable_total", money(topReceivable),
                 "query_audit", audit.facts(),
                 "top_customers", customers.stream().limit(5).map(item -> mapOf(
                     "name", item.getName(),
@@ -1003,17 +1009,19 @@ public class V2AgentAiService {
             0.0,
             PageRequest.of(0, DEFAULT_TOOL_LIMIT)
         );
-        double totalPayable = topPayables.stream().mapToDouble(item -> safeDouble(item.getBalance())).sum();
+        long totalSupplierCount = safeLong(supplierRepository.countByOwnerUserIdAndBalanceGreaterThan(ownerUserId, 0.0));
+        double totalPayable = safeDouble(supplierRepository.sumPositiveBalance(ownerUserId));
+        double topPayable = topPayables.stream().mapToDouble(item -> safeDouble(item.getBalance())).sum();
         audit.markLimitedResult(topPayables.size(), DEFAULT_TOOL_LIMIT);
-        emitToolCompleted(emitter, runId, "supplier_payable_lookup", "命中 " + topPayables.size() + " 个应付供应商", audit);
+        emitToolCompleted(emitter, runId, "supplier_payable_lookup", "返回 " + topPayables.size() + " 个应付供应商，总计 " + totalSupplierCount + " 个", audit);
 
         V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
             "kpi_grid",
             "应付概览",
             toJsonNode(mapOf(
                 "kpis", List.of(
-                    mapOf("label", "应付供应商数", "value", String.valueOf(topPayables.size()), "trend_direction", topPayables.isEmpty() ? "flat" : "up"),
-                    mapOf("label", "Top10 应付合计", "value", money(totalPayable), "trend_direction", totalPayable > 0 ? "up" : "flat"),
+                    mapOf("label", "应付供应商总数", "value", String.valueOf(totalSupplierCount), "trend_direction", totalSupplierCount == 0L ? "flat" : "up"),
+                    mapOf("label", "应付总额", "value", money(totalPayable), "trend_direction", totalPayable > 0 ? "up" : "flat"),
                     mapOf("label", "最高单户应付", "value", topPayables.isEmpty() ? money(0) : money(safeDouble(topPayables.get(0).getBalance())), "trend_direction", topPayables.isEmpty() ? "flat" : "up")
                 )
             ))
@@ -1044,15 +1052,17 @@ public class V2AgentAiService {
         blocks.add(rankBlock);
         String answer = topPayables.isEmpty()
             ? "当前账号下没有明显的供应商应付欠款。"
-            : "当前账号下共有 " + topPayables.size() + " 个重点应付供应商，Top10 应付合计 "
+            : "当前账号下共有 " + totalSupplierCount + " 个应付供应商，应付总额 "
                 + money(totalPayable) + "，最高单户应付 "
                 + money(safeDouble(topPayables.get(0).getBalance())) + "。";
         ToolExecutionResult toolResult = new ToolExecutionResult(
             "supplier_payable_lookup",
-            "重点应付供应商 " + topPayables.size() + " 个，Top10 应付合计 " + money(totalPayable),
+            "应付供应商总数 " + totalSupplierCount + " 个，应付总额 " + money(totalPayable) + "，Top10 应付合计 " + money(topPayable),
             toJsonNode(mapOf(
-                "supplier_count", topPayables.size(),
-                "top10_payable_total", money(totalPayable),
+                "supplier_count", totalSupplierCount,
+                "returned_supplier_count", topPayables.size(),
+                "total_payable", money(totalPayable),
+                "top10_payable_total", money(topPayable),
                 "query_audit", audit.facts(),
                 "top_suppliers", topPayables.stream().limit(5).map(item -> mapOf(
                     "name", item.getName(),
@@ -1771,15 +1781,17 @@ public class V2AgentAiService {
             case "inventory_low_stock_lookup" -> addEvidenceItem(items, result, "低库存商品数", "low_stock_count", "个");
             case "product_catalog_lookup" -> {
                 addEvidenceItem(items, result, "商品数", "product_count", "个");
-                addEvidenceItem(items, result, "查询库存合计", "queried_stock_total", null);
+                addEvidenceItem(items, result, "库存总计", "stock_total", null);
                 addEvidenceItem(items, result, "低库存商品数", "low_stock_count", "个");
             }
             case "customer_receivable_lookup" -> {
                 addEvidenceItem(items, result, "欠款客户数", "customer_count", "个");
+                addEvidenceItem(items, result, "应收总额", "total_receivable", null);
                 addEvidenceItem(items, result, "Top10 应收合计", "top10_receivable_total", null);
             }
             case "supplier_payable_lookup" -> {
                 addEvidenceItem(items, result, "应付供应商数", "supplier_count", "个");
+                addEvidenceItem(items, result, "应付总额", "total_payable", null);
                 addEvidenceItem(items, result, "Top10 应付合计", "top10_payable_total", null);
             }
             case "sales_overview_lookup" -> {
@@ -1826,7 +1838,9 @@ public class V2AgentAiService {
         if (value.isMissingNode() || value.isNull()) {
             return;
         }
-        String text = value.isTextual() ? value.asText() : value.asText("");
+        String text = value.isTextual() || value.isNumber() || value.isBoolean()
+            ? value.asText()
+            : compactJson(value);
         if (!StringUtils.hasText(text)) {
             return;
         }
@@ -2002,16 +2016,17 @@ public class V2AgentAiService {
                 }
                 case "product_catalog_lookup" -> {
                     String count = factText(toolResult, "product_count", "商品数量");
-                    String stockTotal = factText(toolResult, "queried_stock_total", "库存合计");
-                    findings.add("商品侧查询到 " + count + " 个，库存合计 " + stockTotal + "。");
+                    String stockTotal = factText(toolResult, "stock_total", "库存总计");
+                    String lowStockCount = factText(toolResult, "low_stock_count", "低库存商品数量");
+                    findings.add("商品侧商品总数 " + count + " 个，库存总计 " + stockTotal + "，低库存商品 " + lowStockCount + " 个。");
                 }
                 case "customer_receivable_lookup" -> {
                     Integer count = factInt(toolResult, "customer_count");
                     String countText = factText(toolResult, "customer_count", "客户数量");
-                    String total = factText(toolResult, "top10_receivable_total", "Top10 应收合计");
+                    String total = factText(toolResult, "total_receivable", "应收总额");
                     findings.add(count != null && count == 0
                         ? "客户侧没有明显应收欠款压力。"
-                        : "客户侧重点欠款客户 " + countText + " 个，Top10 应收合计 " + total + "。");
+                        : "客户侧欠款客户总数 " + countText + " 个，应收总额 " + total + "。");
                     if (count != null && count > 0) {
                         actions.add("先跟进欠款最高的 2 到 3 位客户，缩短回款周期。");
                     }
@@ -2019,10 +2034,10 @@ public class V2AgentAiService {
                 case "supplier_payable_lookup" -> {
                     Integer count = factInt(toolResult, "supplier_count");
                     String countText = factText(toolResult, "supplier_count", "供应商数量");
-                    String total = factText(toolResult, "top10_payable_total", "Top10 应付合计");
+                    String total = factText(toolResult, "total_payable", "应付总额");
                     findings.add(count != null && count == 0
                         ? "供应商侧暂时没有突出的应付压力。"
-                        : "供应商侧重点应付 " + countText + " 个，Top10 应付合计 " + total + "。");
+                        : "供应商侧应付供应商总数 " + countText + " 个，应付总额 " + total + "。");
                     if (count != null && count > 0) {
                         actions.add("结合回款节奏安排供应商付款，避免现金流过度前置。");
                     }
