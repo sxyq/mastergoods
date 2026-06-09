@@ -236,6 +236,36 @@ def non_model_delta_texts_from_raw_sse(raw: str) -> list[dict[str, str]]:
     return deltas
 
 
+def normalize_visibility_text(text: str) -> str:
+    return "".join(char.lower() for char in text if char.isalnum())
+
+
+def visibility_probe_fragments(text: str, *, min_length: int = 8, window: int = 32) -> list[str]:
+    normalized = normalize_visibility_text(text)
+    if len(normalized) < min_length:
+        return [normalized] if normalized else []
+    window_size = min(window, len(normalized))
+    middle_start = max(0, len(normalized) // 2 - min_length // 2)
+    probes = [
+        normalized,
+        normalized[:window_size],
+        normalized[middle_start : middle_start + window_size],
+        normalized[-window_size:],
+        normalized[:min_length],
+        normalized[middle_start : middle_start + min_length],
+        normalized[-min_length:],
+    ]
+    probes.extend(
+        normalized[index : index + min_length]
+        for index in range(0, max(1, len(normalized) - min_length + 1), min_length)
+    )
+    deduped: list[str] = []
+    for probe in probes:
+        if len(probe) >= min_length and probe not in deduped:
+            deduped.append(probe)
+    return deduped
+
+
 def non_model_delta_visibility(
     texts: list[str],
     raw_sse_path: str | None,
@@ -248,12 +278,13 @@ def non_model_delta_visibility(
     deltas = non_model_delta_texts_from_raw_sse(raw_path.read_text(encoding="utf-8", errors="replace"))
     if not deltas:
         return False, []
-    joined = "\n".join(texts)
+    joined = normalize_visibility_text("\n".join(texts))
     visible = []
     for item in deltas:
-        text = item["text"]
-        if text in joined:
-            visible.append(item)
+        probes = visibility_probe_fragments(item["text"])
+        matched = [probe for probe in probes if probe and probe in joined]
+        if matched:
+            visible.append({**item, "matched_fragment": matched[0]})
     return bool(visible), visible
 
 
@@ -718,14 +749,30 @@ def self_test() -> None:
         ]
     )
     assert non_model_delta_texts_from_raw_sse(sse) == [{"source": "server_notice", "text": "查询说明"}]
+    assert normalize_visibility_text("查询\n 说明") == "查询说明"
+    assert visibility_probe_fragments("查询说明") == ["查询说明"]
     with tempfile.TemporaryDirectory() as raw_dir:
         raw_sse = Path(raw_dir) / "02-raw-sse.log"
         raw_sse.write_text(sse, encoding="utf-8")
         assert non_model_delta_visibility(["AI 对话", "模型回答"], str(raw_sse)) == (False, [])
         assert non_model_delta_visibility(["AI 对话", "查询说明"], str(raw_sse)) == (
             True,
-            [{"source": "server_notice", "text": "查询说明"}],
+            [{"source": "server_notice", "text": "查询说明", "matched_fragment": "查询说明"}],
         )
+        long_sse = "\n".join(
+            [
+                'data: {"event_type":"answer_delta","deltaSource":"server_notice","delta":"这是服务端补充的查询边界说明，请不要当作模型正文展示。"}',
+                "",
+            ]
+        )
+        raw_sse.write_text(long_sse, encoding="utf-8")
+        visible, details = non_model_delta_visibility(["查询边界说明请不要当作模型"], str(raw_sse))
+        assert visible is True
+        assert details[0]["source"] == "server_notice"
+        assert details[0]["matched_fragment"]
+        visible, details = non_model_delta_visibility(["完全不同的正文"], str(raw_sse))
+        assert visible is False
+        assert details == []
     print("capture_ai_chat_device_evidence self-test passed")
 
 
