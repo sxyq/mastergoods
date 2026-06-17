@@ -16,18 +16,12 @@ export interface MemberDraft {
   status: 0 | 1
 }
 
-export interface ApiRoleBinding {
-  userId: number
-  role: StoreRole
-  title: string
-  status: 0 | 1
-}
-
 const state = reactive({
   currentRole: readStoredRole(),
   currentMemberId: 'u-owner',
   localMembers: readStoredMembers(),
-  apiRoleBindings: readStoredApiRoleBindings(),
+  currentTitle: localStorage.getItem('zhihuiji.web.title') ?? roleLabels.OWNER,
+  currentMemberStatus: Number(localStorage.getItem('zhihuiji.web.memberStatus') ?? 1) as 0 | 1,
   token: localStorage.getItem('zhihuiji.web.token') ?? '',
   refreshToken: localStorage.getItem('zhihuiji.web.refreshToken') ?? '',
   userId: Number(localStorage.getItem('zhihuiji.web.userId') ?? 0),
@@ -57,8 +51,8 @@ export function useSession() {
         phone: state.phone,
         storeId: state.storeId,
         storeName: state.storeName,
-        status: 1,
-        title: roleLabels[state.currentRole],
+        status: state.currentMemberStatus,
+        title: state.currentTitle || roleLabels[state.currentRole],
       }
     }
     return state.localMembers.find((item) => item.id === state.currentMemberId) ?? state.localMembers[0]
@@ -72,11 +66,11 @@ export function useSession() {
   const token = computed(() => state.token)
   const userId = computed(() => state.userId)
   const permissions = computed(() => {
+    if (state.currentRole === 'OWNER') return rolePermissions.OWNER
     if (state.permissions.length > 0) return state.permissions
-    if (state.source === 'demo') return rolePermissions[state.currentRole]
+    if (state.source === 'demo' || state.source === 'api') return rolePermissions[state.currentRole]
     return []
   })
-  const apiRoleBindings = computed(() => state.apiRoleBindings)
   const localMembers = computed<EditableStoreMember[]>(() => state.localMembers.map((item) => ({
     ...item,
     permissions: rolePermissions[item.role],
@@ -118,11 +112,19 @@ export function useSession() {
 
   function hasPermission(required?: Permission[]) {
     if (!required || required.length === 0) return true
+    if (state.currentRole === 'OWNER') return true
     if (state.source === 'api') {
-      const granted = new Set(state.permissions)
+      const granted = new Set(permissions.value)
       return required.every((permission) => granted.has(permission))
     }
     return canAccess(state.currentRole, required)
+  }
+
+  function hasAnyPermission(required?: Permission[]) {
+    if (!required || required.length === 0) return true
+    if (state.currentRole === 'OWNER') return true
+    const granted = new Set(permissions.value.length > 0 ? permissions.value : rolePermissions[state.currentRole])
+    return required.some((permission) => granted.has(permission))
   }
 
   async function login(phone: string, password: string) {
@@ -133,6 +135,7 @@ export function useSession() {
       applyAuthPayload(result, phone)
       const profile = await authApi.fetchCurrentUser(result.token)
       applyProfile(profile)
+      await refreshStoreContext()
       return true
     } catch (error) {
       state.error = error instanceof Error ? error.message : '登录失败'
@@ -149,6 +152,7 @@ export function useSession() {
     try {
       const profile = await authApi.fetchCurrentUser(state.token)
       applyProfile(profile)
+      await refreshStoreContext()
       return true
     } catch (error) {
       state.error = error instanceof Error ? error.message : '会话已失效'
@@ -156,6 +160,18 @@ export function useSession() {
       return false
     } finally {
       state.loading = false
+    }
+  }
+
+  async function refreshStoreContext() {
+    if (!state.token) return false
+    try {
+      const store = await authApi.fetchCurrentStore(state.token)
+      applyStoreContext(store)
+      return true
+    } catch (error) {
+      state.error = error instanceof Error ? error.message : '门店权限上下文加载失败'
+      return false
     }
   }
 
@@ -179,35 +195,9 @@ export function useSession() {
     persist()
   }
 
-  function getApiRoleBinding(userId: number) {
-    return state.apiRoleBindings[String(userId)] ?? null
-  }
-
-  function updateApiRoleBinding(userId: number, patch: Partial<Omit<ApiRoleBinding, 'userId'>>) {
-    if (!state.token || !hasPermission(['users:manage'])) {
-      state.error = '当前角色不能管理员工权限'
-      return false
-    }
-    const previous = state.apiRoleBindings[String(userId)]
-    const role = patch.role ?? previous?.role ?? 'ASSISTANT'
-    const next: ApiRoleBinding = {
-      userId,
-      role,
-      title: (patch.title ?? previous?.title ?? roleLabels[role]).trim() || roleLabels[role],
-      status: patch.status ?? previous?.status ?? 1,
-    }
-    state.apiRoleBindings[String(userId)] = next
-    if (state.userId === userId) {
-      applyApiRoleForUser(userId, next.status)
-    }
-    persistApiRoleBindings()
-    persist()
-    return true
-  }
-
   function createLocalMember(draft: MemberDraft) {
     if (state.source === 'api') {
-      state.error = '真实后端当前仍是 owner_user_id 模式，暂未开放门店成员角色接口'
+      state.error = '真实门店成员已改由后端维护'
       return false
     }
     if (!canAccess(state.currentRole, ['users:manage'])) {
@@ -231,7 +221,7 @@ export function useSession() {
 
   function updateLocalMember(memberId: string, patch: Partial<Omit<StoreMember, 'id' | 'storeId' | 'storeName'>>) {
     if (state.source === 'api') {
-      state.error = '真实后端当前仍是 owner_user_id 模式，暂未开放门店成员角色接口'
+      state.error = '真实门店成员已改由后端维护'
       return false
     }
     if (!canAccess(state.currentRole, ['users:manage'])) {
@@ -260,19 +250,18 @@ export function useSession() {
     token,
     userId,
     permissions,
-    apiRoleBindings,
     localMembers,
     loading,
     error,
     switchRole,
     switchMember,
     hasPermission,
+    hasAnyPermission,
     login,
     refreshProfile,
+    refreshStoreContext,
     logout,
     enterDemo,
-    getApiRoleBinding,
-    updateApiRoleBinding,
     createLocalMember,
     updateLocalMember,
   }
@@ -286,7 +275,6 @@ function applyAuthPayload(payload: authApi.AuthPayload, phone: string) {
   state.nickname = phone
   state.storeId = `owner-${payload.userId}`
   state.storeName = '当前 owner 数据域'
-  applyApiRoleForUser(payload.userId, 1)
   state.source = 'api'
   persist()
 }
@@ -295,7 +283,6 @@ function applyRefreshedAuthPayload(payload: authApi.AuthPayload) {
   state.token = payload.token
   state.refreshToken = payload.refreshToken
   state.userId = payload.userId || state.userId
-  applyApiRoleForUser(state.userId, 1)
   state.source = 'api'
   persist()
 }
@@ -304,19 +291,20 @@ function applyProfile(profile: authApi.UserProfile) {
   state.userId = profile.id
   state.phone = profile.phone
   state.nickname = profile.nickname
-  state.storeId = `owner-${profile.id}`
-  state.storeName = `${profile.nickname} 的智慧记店铺`
-  applyApiRoleForUser(profile.id, profile.status === 1 ? 1 : 0)
   state.source = 'api'
   persist()
 }
 
-function applyApiRoleForUser(userId: number, status: 0 | 1) {
-  const binding = state.apiRoleBindings[String(userId)]
-  const role = binding?.role ?? 'OWNER'
-  state.currentMemberId = `api-${userId}`
-  state.currentRole = role
-  state.permissions = status === 1 && binding?.status !== 0 ? rolePermissions[role] : []
+function applyStoreContext(profile: authApi.CurrentStoreProfile) {
+  state.storeId = String(profile.storeId)
+  state.storeName = profile.storeName
+  state.currentRole = profile.role
+  state.currentTitle = profile.title
+  state.currentMemberStatus = profile.status === 0 ? 0 : 1
+  state.permissions = profile.permissions
+  state.currentMemberId = `api-${profile.currentUserId}`
+  state.source = 'api'
+  persist()
 }
 
 function logoutInternal() {
@@ -331,6 +319,8 @@ function logoutInternal() {
   state.nickname = ''
   state.storeId = 'store-main'
   state.storeName = '智慧记总店'
+  state.currentTitle = roleLabels.OWNER
+  state.currentMemberStatus = 1
   clearPersisted()
 }
 
@@ -343,6 +333,8 @@ function persist() {
   localStorage.setItem('zhihuiji.web.storeId', state.storeId)
   localStorage.setItem('zhihuiji.web.storeName', state.storeName)
   localStorage.setItem('zhihuiji.web.storeRole', state.currentRole)
+  localStorage.setItem('zhihuiji.web.title', state.currentTitle)
+  localStorage.setItem('zhihuiji.web.memberStatus', String(state.currentMemberStatus))
   localStorage.setItem('zhihuiji.web.permissions', JSON.stringify(state.permissions))
   localStorage.setItem('zhihuiji.web.source', state.source)
 }
@@ -356,16 +348,15 @@ function clearPersisted() {
   localStorage.removeItem('zhihuiji.web.storeId')
   localStorage.removeItem('zhihuiji.web.storeName')
   localStorage.removeItem('zhihuiji.web.storeRole')
+  localStorage.removeItem('zhihuiji.web.title')
+  localStorage.removeItem('zhihuiji.web.memberStatus')
   localStorage.removeItem('zhihuiji.web.permissions')
   localStorage.removeItem('zhihuiji.web.source')
+  localStorage.removeItem('zhihuiji.web.apiRoleBindings')
 }
 
 function persistMembers() {
   localStorage.setItem('zhihuiji.web.localMembers', JSON.stringify(state.localMembers))
-}
-
-function persistApiRoleBindings() {
-  localStorage.setItem('zhihuiji.web.apiRoleBindings', JSON.stringify(state.apiRoleBindings))
 }
 
 function readStoredRole(): StoreRole {
@@ -383,40 +374,6 @@ function readStoredPermissions(): Permission[] {
   } catch {
     return localStorage.getItem('zhihuiji.web.source') === 'demo' ? rolePermissions[readStoredRole()] : []
   }
-}
-
-function readStoredApiRoleBindings(): Record<string, ApiRoleBinding> {
-  const stored = localStorage.getItem('zhihuiji.web.apiRoleBindings')
-  if (!stored) return {}
-  try {
-    const parsed = JSON.parse(stored)
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
-    return Object.fromEntries(
-      Object.entries(parsed)
-        .map(([key, value]) => normalizeApiRoleBinding(key, value))
-        .filter((entry): entry is [string, ApiRoleBinding] => Boolean(entry)),
-    )
-  } catch {
-    return {}
-  }
-}
-
-function normalizeApiRoleBinding(key: string, value: unknown): [string, ApiRoleBinding] | null {
-  if (!value || typeof value !== 'object') return null
-  const raw = value as Partial<ApiRoleBinding>
-  const userId = Number(raw.userId ?? key)
-  const role = raw.role && raw.role in rolePermissions ? raw.role : 'ASSISTANT'
-  const status = raw.status === 0 ? 0 : 1
-  if (!Number.isFinite(userId) || userId <= 0) return null
-  return [
-    String(userId),
-    {
-      userId,
-      role,
-      title: raw.title?.trim() || roleLabels[role],
-      status,
-    },
-  ]
 }
 
 function readStoredMembers(): StoreMember[] {

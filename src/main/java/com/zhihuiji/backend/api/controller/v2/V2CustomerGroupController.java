@@ -4,6 +4,7 @@ import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.common.PartnerTypes;
 import com.zhihuiji.backend.api.dto.v2.partner.V2PartnerDtos;
 import com.zhihuiji.backend.application.service.v2.V2PartnerGroupService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v2/customer-groups")
+@RequireStorePermission("archives:view")
 public class V2CustomerGroupController {
     private final V2PartnerGroupService v2PartnerGroupService;
 
@@ -30,11 +32,13 @@ public class V2CustomerGroupController {
     }
 
     @PostMapping
+    @RequireStorePermission("archives:write")
     public ApiResponse<V2PartnerDtos.PartnerGroupResponse> create(@Valid @RequestBody V2PartnerDtos.PartnerGroupWriteRequest request) {
         return ApiResponse.success(v2PartnerGroupService.create(PartnerTypes.CUSTOMER, request));
     }
 
     @PutMapping("/{id}")
+    @RequireStorePermission("archives:write")
     public ApiResponse<V2PartnerDtos.PartnerGroupResponse> update(
         @PathVariable Long id,
         @Valid @RequestBody V2PartnerDtos.PartnerGroupWriteRequest request
@@ -43,6 +47,7 @@ public class V2CustomerGroupController {
     }
 
     @DeleteMapping("/{id}")
+    @RequireStorePermission("archives:write")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         v2PartnerGroupService.delete(PartnerTypes.CUSTOMER, id);
         return ApiResponse.success(null);

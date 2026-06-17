@@ -7,6 +7,7 @@ import com.zhihuiji.backend.api.dto.PurchaseOrderItemDto;
 import com.zhihuiji.backend.application.service.PurchaseOrderService;
 import com.zhihuiji.backend.domain.entity.PurchaseOrderEntity;
 import com.zhihuiji.backend.domain.entity.PurchaseOrderItemEntity;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import java.util.List;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v1/purchase-orders")
+@RequireStorePermission("purchase:view")
 public class PurchaseOrderController {
     private final PurchaseOrderService purchaseOrderService;
 
@@ -27,6 +29,7 @@ public class PurchaseOrderController {
     }
 
     @PostMapping
+    @RequireStorePermission("purchase:write")
     public ApiResponse<PurchaseOrderDto> create(@Valid @RequestBody CreateRequest request) {
         List<PurchaseOrderService.PurchaseItemDraft> items = request.items().stream()
             .map(row -> new PurchaseOrderService.PurchaseItemDraft(

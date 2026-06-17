@@ -50,6 +50,8 @@ import com.zhihuiji.feature.suppliers.SupplierListScreen
 
 @Composable
 fun ArchivesScreen(
+    accessState: MainAccessUiState,
+    canCreate: Boolean = true,
     initialTab: Int = 0,
     onNavigateToProductDetail: (Long) -> Unit,
     onNavigateToProductCreate: () -> Unit,
@@ -58,17 +60,33 @@ fun ArchivesScreen(
     onNavigateToSupplierDetail: (Long) -> Unit,
     onNavigateToSupplierCreate: () -> Unit,
 ) {
-    val tabs = listOf("商品", "客户", "供应商")
-    var selectedTab by rememberSaveable(initialTab) { mutableIntStateOf(initialTab.coerceIn(tabs.indices)) }
+    val tabs = buildList {
+        if (!accessState.isResolved || accessState.hasPermission("archives:view")) {
+            add("商品")
+        }
+        if (!accessState.isResolved || accessState.hasPermission("sales:view")) {
+            add("客户")
+        }
+        if (!accessState.isResolved || accessState.hasPermission("purchase:view")) {
+            add("供应商")
+        }
+    }
+    if (tabs.isEmpty()) {
+        PermissionDeniedScreen(onBack = {})
+        return
+    }
+    val initialPage = initialTab.coerceIn(tabs.indices)
+    var selectedTab by rememberSaveable(tabs, initialPage) { mutableIntStateOf(initialPage) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
-    val onCreateClick = when (selectedTab) {
-        0 -> onNavigateToProductCreate
-        1 -> onNavigateToCustomerCreate
+    val selectedLabel = tabs[selectedTab]
+    val onCreateClick = when (selectedLabel) {
+        "商品" -> onNavigateToProductCreate
+        "客户" -> onNavigateToCustomerCreate
         else -> onNavigateToSupplierCreate
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        ArchivesTopBar(onCreateClick = onCreateClick)
+        ArchivesTopBar(onCreateClick = if (canCreate) onCreateClick else null)
         ArchivesSearchAndTabs(
             tabs = tabs,
             selectedIndex = selectedTab,
@@ -82,15 +100,15 @@ fun ArchivesScreen(
             onTabSelected = { selectedTab = it },
         )
         when (selectedTab) {
-            0 -> ProductListScreen(
+            tabs.indexOf("商品") -> ProductListScreen(
                 onNavigateToDetail = onNavigateToProductDetail,
                 searchQuery = searchQuery
             )
-            1 -> CustomerListScreen(
+            tabs.indexOf("客户") -> CustomerListScreen(
                 onNavigateToDetail = onNavigateToCustomerDetail,
                 searchQuery = searchQuery
             )
-            2 -> SupplierListScreen(
+            else -> SupplierListScreen(
                 onNavigateToDetail = onNavigateToSupplierDetail,
                 searchQuery = searchQuery
             )
@@ -100,7 +118,7 @@ fun ArchivesScreen(
 
 @Composable
 private fun ArchivesTopBar(
-    onCreateClick: () -> Unit,
+    onCreateClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     LiquidGlassSurface(
@@ -123,11 +141,14 @@ private fun ArchivesTopBar(
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary
             )
-            IconButton(onClick = onCreateClick) {
+            IconButton(
+                enabled = onCreateClick != null,
+                onClick = { onCreateClick?.invoke() },
+            ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = "新增档案",
-                    tint = TextPrimary,
+                    tint = if (onCreateClick != null) TextPrimary else TextTertiary,
                     modifier = Modifier.size(22.dp)
                 )
             }

@@ -4,6 +4,7 @@ import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.api.dto.v2.sales.V2SalesReturnDtos;
 import com.zhihuiji.backend.application.service.v2.V2SalesReturnService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import java.util.List;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v2/sales-returns")
+@RequireStorePermission("sales:view")
 public class V2SalesReturnController {
     private final V2SalesReturnService v2SalesReturnService;
 
@@ -25,6 +27,7 @@ public class V2SalesReturnController {
     }
 
     @PostMapping
+    @RequireStorePermission("sales:write")
     public ApiResponse<V2SalesReturnDtos.SalesReturnResponse> create(
         @Valid @RequestBody V2SalesReturnDtos.CreateRequest request
     ) {
@@ -52,6 +55,7 @@ public class V2SalesReturnController {
     }
 
     @PutMapping("/{id}/draft")
+    @RequireStorePermission("sales:write")
     public ApiResponse<V2SalesReturnDtos.SalesReturnResponse> updateDraft(
         @PathVariable Long id,
         @Valid @RequestBody V2SalesReturnDtos.UpdateDraftRequest request
@@ -60,6 +64,7 @@ public class V2SalesReturnController {
     }
 
     @PutMapping("/{id}/confirm")
+    @RequireStorePermission("sales:write")
     public ApiResponse<V2SalesReturnDtos.SalesReturnResponse> confirm(
         @PathVariable Long id,
         @Valid @RequestBody V2SalesReturnDtos.ConfirmRequest request
@@ -68,6 +73,7 @@ public class V2SalesReturnController {
     }
 
     @PostMapping("/{id}/refunds")
+    @RequireStorePermission("finance:write")
     public ApiResponse<V2SalesReturnDtos.SalesReturnResponse> addRefund(
         @PathVariable Long id,
         @Valid @RequestBody V2SalesReturnDtos.RefundRequest request
@@ -76,6 +82,7 @@ public class V2SalesReturnController {
     }
 
     @PutMapping("/{id}/cancel")
+    @RequireStorePermission("sales:write")
     public ApiResponse<V2SalesReturnDtos.SalesReturnResponse> cancel(@PathVariable Long id) {
         return ApiResponse.success(v2SalesReturnService.cancel(id));
     }

@@ -50,6 +50,7 @@ const queryProductId = computed(() => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null
 })
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
+const canWrite = computed(() => session.hasPermission(['inventory:write']))
 const selectedProduct = computed(() => products.value.find((item) => item.id === selectedProductId.value) ?? products.value[0] ?? null)
 const filteredProducts = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
@@ -243,7 +244,7 @@ async function submitAdjustment() {
           </label>
 
           <div class="form-actions">
-            <button type="button" :disabled="submitting || !isApiSource" @click="submitAdjustment">
+            <button type="button" :disabled="submitting || !isApiSource || !canWrite" @click="submitAdjustment">
               {{ submitting ? '提交中...' : '提交库存调整' }}
             </button>
           </div>

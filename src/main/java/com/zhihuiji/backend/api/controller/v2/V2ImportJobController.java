@@ -5,6 +5,7 @@ import com.zhihuiji.backend.api.dto.v2.sync.V2ImportJobDtos;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
 import com.zhihuiji.backend.application.service.LegacySQLiteImportService;
 import com.zhihuiji.backend.application.service.v2.V2ImportJobService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v2/import-jobs")
+@RequireStorePermission("database:manage")
 public class V2ImportJobController {
     private final V2ImportJobService v2ImportJobService;
     private final LegacySQLiteImportService legacySQLiteImportService;

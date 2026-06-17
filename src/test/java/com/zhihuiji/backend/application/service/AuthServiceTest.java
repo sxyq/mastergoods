@@ -98,6 +98,7 @@ class AuthServiceTest {
         UserEntity user = new UserEntity();
         user.setPhone("13800138000");
         user.setPasswordHash("HASH");
+        user.setStatus(1);
         when(userRepository.findByPhone("13800138000")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("123456", "HASH")).thenReturn(false);
 
@@ -114,6 +115,7 @@ class AuthServiceTest {
         setEntityId(user, 9L);
         user.setPhone("13800138000");
         user.setPasswordHash("HASH");
+        user.setStatus(1);
         when(userRepository.findByPhone("13800138000")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("123456", "HASH")).thenReturn(true);
         when(tokenService.issueToken()).thenReturn("token-2", "refresh-2");
@@ -135,8 +137,13 @@ class AuthServiceTest {
         old.setIsActive(true);
         old.setExpiresAt(System.currentTimeMillis() + 10000L);
         old.setCreatedAt(1L);
+        UserEntity user = new UserEntity();
+        setEntityId(user, 3L);
+        user.setPhone("13800138003");
+        user.setStatus(1);
 
         when(sessionAccessService.findActiveSessionByRefreshToken("refresh-old")).thenReturn(Optional.of(old));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(user));
         when(tokenService.issueToken()).thenReturn("token-new", "refresh-new");
         when(sessionRepository.save(any(SessionEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 

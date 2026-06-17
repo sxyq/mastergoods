@@ -4,6 +4,7 @@ import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.common.ParseUtils;
 import com.zhihuiji.backend.api.dto.v2.sales.V2SaleOrderDtos;
 import com.zhihuiji.backend.application.service.v2.V2SaleOrderService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import java.util.List;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v2/sale-orders")
+@RequireStorePermission("sales:view")
 public class V2SaleOrderController {
     private final V2SaleOrderService v2SaleOrderService;
 
@@ -25,6 +27,7 @@ public class V2SaleOrderController {
     }
 
     @PostMapping
+    @RequireStorePermission("sales:write")
     public ApiResponse<V2SaleOrderDtos.SaleOrderResponse> create(@Valid @RequestBody V2SaleOrderDtos.CreateRequest request) {
         return ApiResponse.success(v2SaleOrderService.create(request));
     }
@@ -64,6 +67,7 @@ public class V2SaleOrderController {
     }
 
     @PutMapping({"/{id}", "/{id}/draft"})
+    @RequireStorePermission("sales:write")
     public ApiResponse<V2SaleOrderDtos.SaleOrderResponse> updateDraft(
         @PathVariable Long id,
         @Valid @RequestBody V2SaleOrderDtos.UpdateDraftRequest request
@@ -72,6 +76,7 @@ public class V2SaleOrderController {
     }
 
     @PutMapping("/{id}/confirm")
+    @RequireStorePermission("sales:write")
     public ApiResponse<V2SaleOrderDtos.SaleOrderResponse> confirm(
         @PathVariable Long id,
         @Valid @RequestBody V2SaleOrderDtos.ConfirmRequest request
@@ -80,6 +85,7 @@ public class V2SaleOrderController {
     }
 
     @PostMapping("/{id}/payments")
+    @RequireStorePermission({"sales:write", "finance:write"})
     public ApiResponse<V2SaleOrderDtos.PaymentResponse> addPayment(
         @PathVariable Long id,
         @Valid @RequestBody V2SaleOrderDtos.PaymentRequest request
@@ -93,12 +99,14 @@ public class V2SaleOrderController {
     }
 
     @PutMapping("/{id}/status")
+    @RequireStorePermission("sales:write")
     public ApiResponse<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody V2SaleOrderDtos.StatusRequest request) {
         v2SaleOrderService.updateStatus(id, request.status());
         return ApiResponse.success(null);
     }
 
     @PutMapping("/{id}/cancel")
+    @RequireStorePermission("sales:write")
     public ApiResponse<V2SaleOrderDtos.SaleOrderResponse> cancel(@PathVariable Long id) {
         return ApiResponse.success(v2SaleOrderService.cancel(id));
     }

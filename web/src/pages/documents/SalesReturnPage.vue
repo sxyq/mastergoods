@@ -31,6 +31,8 @@ import {
   salesReturnRefundStatus,
   salesReturnStatusLabel,
 } from '@/shared/utils/business'
+import PageEmptyState from '@/shared/ui/PageEmptyState.vue'
+import PageStatusBanner from '@/shared/ui/PageStatusBanner.vue'
 
 type PageMode = 'manage' | 'create'
 
@@ -77,6 +79,7 @@ const queryReturnId = computed(() => readQueryId(route.query.id))
 const queryOrderId = computed(() => readQueryId(route.query.orderId))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canWrite = computed(() => session.hasPermission(['sales:write']))
+const canRefundWrite = computed(() => session.hasPermission(['finance:write']) || session.hasPermission(['sales:write']))
 const selectedReturn = computed(() => returns.value.find((item) => sameEntityId(item.id, selectedReturnId.value)) ?? null)
 const selectedSourceOrder = computed(() => sourceOrders.value.find((item) => sameEntityId(item.id, createOrderId.value)) ?? null)
 const remainingRefund = computed(() => {
@@ -91,7 +94,7 @@ const canEditDraft = computed(() => {
 })
 const canRefund = computed(() => {
   const current = selectedReturn.value
-  return Boolean(current && current.status !== SALES_RETURN_CANCELLED && remainingRefund.value > 0 && canWrite.value)
+  return Boolean(current && current.status !== SALES_RETURN_CANCELLED && remainingRefund.value > 0 && canRefundWrite.value)
 })
 const canCancel = computed(() => {
   const current = selectedReturn.value
@@ -357,10 +360,14 @@ async function refreshSelected(targetId: EntityId) {
   await loadReturns()
   selectedReturnId.value = targetId
 }
+
+async function retryPage() {
+  await loadPage()
+}
 </script>
 
 <template>
-  <section class="business-page">
+  <section class="business-page sales-return-page stitch-inspired-page">
     <section class="screen-hero">
       <div>
         <p class="eyebrow">销售退货 / Sales Returns</p>
@@ -373,11 +380,24 @@ async function refreshSelected(targetId: EntityId) {
       </div>
     </section>
 
-    <p v-if="!isApiSource" class="form-error">当前是演示模式。这一页只在真实登录后加载销售退货数据。</p>
-    <p v-else-if="error" class="form-error">{{ error }}</p>
-    <p v-else-if="success" class="form-success">{{ success }}</p>
+    <PageStatusBanner
+      v-if="!isApiSource"
+      tone="warning"
+      title="演示模式"
+      message="当前是演示模式。这一页只在真实登录后加载销售退货数据。"
+    />
+    <PageStatusBanner
+      v-else-if="error"
+      tone="error"
+      title="页面加载异常"
+      :message="error"
+      action-label="重新加载"
+      @action="retryPage"
+    />
+    <PageStatusBanner v-else-if="success" tone="success" title="操作成功" :message="success" />
+    <PageStatusBanner v-if="loading || sourceLoading" tone="info" title="正在同步" message="正在加载销售退货数据..." />
 
-    <section class="metrics-grid compact">
+    <section class="metrics-grid compact stitch-kpis">
       <article class="metric-card" data-tone="blue">
         <span>退货单数</span>
         <strong>{{ returns.length }}</strong>
@@ -468,11 +488,17 @@ async function refreshSelected(targetId: EntityId) {
           </div>
         </article>
 
-        <aside class="panel detail-panel">
+        <aside class="panel detail-panel sales-return-detail">
           <p class="eyebrow">退货单详情</p>
           <h3>{{ selectedReturn?.returnNo || '请选择退货单' }}</h3>
 
           <div v-if="selectedReturn" class="detail-stack">
+            <article class="detail-card sales-return-amount-card">
+              <span>退货金额 (CNY)</span>
+              <strong>{{ formatCurrency(selectedReturn.totalAmount) }}</strong>
+              <p>{{ selectedReturn.customerName || '未命名客户' }} / {{ salesReturnStatusLabel(selectedReturn.status) }}</p>
+            </article>
+
             <article class="detail-card">
               <dl class="detail-list">
                 <div>
@@ -502,7 +528,7 @@ async function refreshSelected(targetId: EntityId) {
               </dl>
             </article>
 
-            <article class="detail-card">
+            <article class="detail-card sales-return-lines-card">
               <p class="eyebrow">退货商品</p>
               <div class="mini-list">
                 <div v-for="line in selectedReturn.items" :key="line.id">
@@ -547,10 +573,7 @@ async function refreshSelected(targetId: EntityId) {
             </article>
           </div>
 
-          <div v-else class="empty-preview">
-            <strong>暂无退货单详情</strong>
-            <p>请从左侧选择一张退货单。</p>
-          </div>
+          <PageEmptyState v-else title="暂无退货单详情" message="请从左侧选择一张退货单。" />
         </aside>
       </section>
     </section>
@@ -594,6 +617,7 @@ async function refreshSelected(targetId: EntityId) {
             </div>
           </dl>
         </div>
+        <PageEmptyState v-else title="暂无来源销售单" message="请先选择一个可退货的来源销售单。" />
 
         <div class="table-shell">
           <table>

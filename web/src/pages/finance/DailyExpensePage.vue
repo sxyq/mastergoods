@@ -37,8 +37,9 @@ const methodOptions = [
   [METHOD_OTHER, '其他'],
 ]
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
+const canWrite = computed(() => session.hasPermission(['finance:write']))
 const parsedAmount = computed(() => Number(form.amount || 0))
-const canSubmit = computed(() => isApiSource.value && !saving.value && parsedAmount.value > 0 && form.category.trim().length > 0)
+const canSubmit = computed(() => canWrite.value && isApiSource.value && !saving.value && parsedAmount.value > 0 && form.category.trim().length > 0)
 
 async function submitForm() {
   if (!session.token.value) return

@@ -3,6 +3,7 @@ package com.zhihuiji.backend.api.controller.v2;
 import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.dto.v2.finance.V2FinanceDtos;
 import com.zhihuiji.backend.application.service.v2.V2AccountTransferService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v2/account-transfers")
+@RequireStorePermission("finance:view")
 public class V2AccountTransferController {
     private final V2AccountTransferService v2AccountTransferService;
 
@@ -32,6 +34,7 @@ public class V2AccountTransferController {
     }
 
     @PostMapping
+    @RequireStorePermission("finance:write")
     public ApiResponse<V2FinanceDtos.AccountTransferResponse> create(@Valid @RequestBody V2FinanceDtos.AccountTransferCreateRequest request) {
         return ApiResponse.success(v2AccountTransferService.create(request));
     }

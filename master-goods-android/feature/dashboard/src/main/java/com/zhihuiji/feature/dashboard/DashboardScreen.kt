@@ -118,7 +118,10 @@ fun DashboardScreen(
     onNavigateToProducts: () -> Unit = {},
     onNavigateToCustomers: () -> Unit = {},
     onNavigateToAgent: () -> Unit = {},
-    onNavigateToNotifications: () -> Unit = {}
+    onNavigateToNotifications: () -> Unit = {},
+    canOpenProducts: Boolean = true,
+    canOpenCustomers: Boolean = true,
+    canOpenAgent: Boolean = true,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showSalesDatePicker by remember { mutableStateOf(false) }
@@ -191,7 +194,10 @@ fun DashboardScreen(
                     pendingReminders = uiState.pendingReminders,
                     onProductsClick = onNavigateToProducts,
                     onCustomersClick = onNavigateToCustomers,
-                    onAgentClick = onNavigateToAgent
+                    onAgentClick = onNavigateToAgent,
+                    canOpenProducts = canOpenProducts,
+                    canOpenCustomers = canOpenCustomers,
+                    canOpenAgent = canOpenAgent,
                 )
             }
 
@@ -801,6 +807,9 @@ private fun PendingTasksSection(
     onProductsClick: () -> Unit,
     onCustomersClick: () -> Unit,
     onAgentClick: () -> Unit,
+    canOpenProducts: Boolean,
+    canOpenCustomers: Boolean,
+    canOpenAgent: Boolean,
     modifier: Modifier = Modifier
 ) {
     val reminders = remember(
@@ -811,6 +820,9 @@ private fun PendingTasksSection(
         onProductsClick,
         onCustomersClick,
         onAgentClick,
+        canOpenProducts,
+        canOpenCustomers,
+        canOpenAgent,
     ) {
         buildDashboardReminderItems(
             lowStockCount = lowStockCount,
@@ -820,6 +832,9 @@ private fun PendingTasksSection(
             onProductsClick = onProductsClick,
             onCustomersClick = onCustomersClick,
             onAgentClick = onAgentClick,
+            canOpenProducts = canOpenProducts,
+            canOpenCustomers = canOpenCustomers,
+            canOpenAgent = canOpenAgent,
         )
     }
     Column(
@@ -1304,8 +1319,11 @@ private fun buildDashboardReminderItems(
     onProductsClick: () -> Unit,
     onCustomersClick: () -> Unit,
     onAgentClick: () -> Unit,
+    canOpenProducts: Boolean,
+    canOpenCustomers: Boolean,
+    canOpenAgent: Boolean,
 ): List<DashboardReminderItem> = buildList {
-    if (lowStockCount > 0) {
+    if (lowStockCount > 0 && canOpenProducts) {
         add(
             DashboardReminderItem(
                 title = "低库存商品",
@@ -1318,7 +1336,7 @@ private fun buildDashboardReminderItems(
             )
         )
     }
-    if (receivableCustomerCount > 0) {
+    if (receivableCustomerCount > 0 && canOpenCustomers) {
         add(
             DashboardReminderItem(
                 title = "待收款客户",
@@ -1330,7 +1348,7 @@ private fun buildDashboardReminderItems(
             )
         )
     }
-    if (isEmpty() && pendingReminders.isNotEmpty()) {
+    if (isEmpty() && pendingReminders.isNotEmpty() && canOpenAgent) {
         add(
             DashboardReminderItem(
                 title = "AI 经营提醒",

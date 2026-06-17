@@ -6,6 +6,7 @@ import {
   fetchPurchaseOrder,
   fetchPurchaseReceiptsByOrder,
   type PurchaseOrder,
+  type PurchaseOrderItem,
   type PurchaseReceipt,
 } from '@/shared/api/client'
 import { readQueryId } from '@/shared/utils/id'
@@ -13,9 +14,7 @@ import {
   SALE_DRAFT,
   formatCurrency,
   formatDateTime,
-  purchaseOrderStatusLabel,
   purchasePaymentStatus,
-  purchaseReceiptFlowStatus,
   purchaseReceiptStatus,
 } from '@/shared/utils/business'
 
@@ -32,8 +31,20 @@ const orderId = computed(() => readQueryId(route.query.id))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canWrite = computed(() => session.hasPermission(['purchase:write']))
 const canEditDraft = computed(() => Boolean(order.value) && order.value?.status === SALE_DRAFT && canWrite.value)
-const pendingReceiptAmount = computed(() => order.value ? Math.max(order.value.totalAmount - order.value.receivedAmount, 0) : 0)
 const pendingPayAmount = computed(() => order.value ? Math.max(order.value.totalAmount - order.value.paidAmount, 0) : 0)
+const isReceiptDone = computed(() => Boolean(order.value) && order.value!.receivedAmount >= order.value!.totalAmount && order.value!.totalAmount > 0)
+const isPaymentDone = computed(() => Boolean(order.value) && order.value!.paidAmount >= order.value!.totalAmount && order.value!.totalAmount > 0)
+
+const progressSteps = computed(() => {
+  const currentOrder = order.value
+  return [
+    { label: '下达订单', time: currentOrder ? formatDateTime(currentOrder.createdAt).slice(5, 16) : '-', done: true, current: false, icon: 'check' },
+    { label: '审核通过', time: currentOrder?.status === SALE_DRAFT ? '待审核' : '已确认', done: currentOrder?.status !== SALE_DRAFT, current: currentOrder?.status === SALE_DRAFT, icon: 'check' },
+    { label: purchaseReceiptStatus(currentOrder?.totalAmount ?? 0, currentOrder?.receivedAmount ?? 0, currentOrder?.status ?? 0), time: isReceiptDone.value ? '已完成' : '处理中', done: isReceiptDone.value, current: !isReceiptDone.value, icon: 'inventory_2' },
+    { label: purchasePaymentStatus(currentOrder?.totalAmount ?? 0, currentOrder?.paidAmount ?? 0, currentOrder?.status ?? 0), time: isPaymentDone.value ? '已完成' : '待处理', done: isPaymentDone.value, current: !isPaymentDone.value, icon: 'payments' },
+    { label: '完成', time: isReceiptDone.value && isPaymentDone.value ? '已完成' : '等待', done: isReceiptDone.value && isPaymentDone.value, current: false, icon: 'flag' },
+  ]
+})
 
 watch(
   [() => session.source.value, () => session.token.value, orderId],
@@ -66,160 +77,185 @@ async function loadDetail() {
     loading.value = false
   }
 }
+
+function receivedQuantity(item: PurchaseOrderItem) {
+  return receipts.value.reduce((sum, receipt) => {
+    const matched = receipt.items.filter((receiptItem) => {
+      if (item.productId && receiptItem.productId === item.productId) return true
+      if (item.productCode && receiptItem.productCode === item.productCode) return true
+      return Boolean(item.productName && receiptItem.productName === item.productName)
+    })
+    return sum + matched.reduce((innerSum, receiptItem) => innerSum + receiptItem.quantity, 0)
+  }, 0)
+}
 </script>
 
 <template>
-  <section class="business-page">
-    <section class="screen-hero">
-      <div>
-        <p class="eyebrow">采购详情 / Purchase Order Detail</p>
-        <h2>采购单详情专页</h2>
-        <p>对齐真实采购单、入库记录和金额进度，作为采购编辑、入库与退货的主入口。</p>
+  <section class="pc-detail-page purchase-detail-page">
+    <header class="pc-list-titlebar">
+      <div class="pc-breadcrumb">
+        <span>采购管理</span>
+        <span class="material-symbols-outlined">chevron_right</span>
+        <span>采购单列表</span>
+        <span class="material-symbols-outlined">chevron_right</span>
+        <h1>详情</h1>
       </div>
-      <div class="hero-actions">
-        <button type="button" class="ghost-action" @click="router.push('/documents/purchases')">返回列表</button>
+      <div class="pc-title-actions">
+        <button type="button" class="pc-secondary-action">
+          <span class="material-symbols-outlined">print</span>
+          打印
+        </button>
+        <button type="button" class="pc-secondary-action">
+          <span class="material-symbols-outlined">download</span>
+          导出
+        </button>
         <button
           type="button"
-          class="ghost-action"
+          class="pc-secondary-action"
           :disabled="!canEditDraft || !order"
           @click="router.push({ path: '/documents/purchases/edit', query: { id: String(order?.id) } })"
         >
-          编辑草稿
+          编辑
+        </button>
+        <button
+          type="button"
+          class="pc-dark-action"
+          :disabled="!order || !isApiSource"
+          @click="router.push({ path: '/documents/purchase-receipts', query: { orderId: String(order?.id) } })"
+        >
+          生成入库单
         </button>
       </div>
-    </section>
+    </header>
 
     <p v-if="!isApiSource" class="form-error">当前是演示模式。这一页只在真实登录后读取采购单详情。</p>
     <p v-else-if="error" class="form-error">{{ error }}</p>
     <p v-else-if="loading" class="form-success">正在加载采购单详情...</p>
 
     <template v-if="order">
-      <section class="metrics-grid compact">
-        <article class="metric-card" data-tone="blue">
-          <span>采购金额</span>
-          <strong>{{ formatCurrency(order.totalAmount) }}</strong>
-          <p>{{ order.items.length }} 行商品</p>
-        </article>
-        <article class="metric-card" data-tone="orange">
-          <span>待入库金额</span>
-          <strong>{{ formatCurrency(pendingReceiptAmount) }}</strong>
-          <p>{{ purchaseReceiptStatus(order.totalAmount, order.receivedAmount, order.status) }}</p>
-        </article>
-        <article class="metric-card" data-tone="green">
-          <span>待付款金额</span>
-          <strong>{{ formatCurrency(pendingPayAmount) }}</strong>
-          <p>{{ purchasePaymentStatus(order.totalAmount, order.paidAmount, order.status) }}</p>
-        </article>
+      <section class="purchase-detail-head">
+        <div>
+          <h2>{{ order.orderNo }}</h2>
+          <span class="pc-status-chip" :data-tone="isReceiptDone ? 'done' : 'running'">
+            {{ purchaseReceiptStatus(order.totalAmount, order.receivedAmount, order.status) }}
+          </span>
+          <span class="pc-status-chip" :data-tone="isPaymentDone ? 'done' : 'running'">
+            {{ purchasePaymentStatus(order.totalAmount, order.paidAmount, order.status) }}
+          </span>
+          <p>创建时间: {{ formatDateTime(order.createdAt) }}</p>
+        </div>
       </section>
 
-      <section class="business-split">
-        <article class="panel">
-          <div class="panel-head">
-            <div>
-              <p class="eyebrow">采购主信息</p>
-              <h3>{{ order.orderNo }}</h3>
-            </div>
-            <span class="session-source">
-              {{ purchaseOrderStatusLabel(order.totalAmount, order.paidAmount, order.receivedAmount, order.status) }}
-            </span>
+      <section class="purchase-bento-grid">
+        <article class="pc-detail-card purchase-base-card">
+          <div class="pc-section-title">
+            <span class="material-symbols-outlined">info</span>
+            <h2>基础信息</h2>
           </div>
+          <div class="pc-info-grid">
+            <div><span>供应商名称</span><strong>{{ order.supplierName || '未命名供应商' }}</strong></div>
+            <div><span>联系人</span><strong>未登记</strong></div>
+            <div><span>采购员</span><strong>{{ session.member.value.name }}</strong></div>
+            <div><span>预计到货日期</span><strong>待确认</strong></div>
+            <div><span>收货仓库</span><strong>总仓 - 深圳</strong></div>
+            <div><span>备注</span><strong>{{ order.notes || '-' }}</strong></div>
+          </div>
+        </article>
 
-          <div class="detail-card">
-            <dl class="detail-list">
-              <div>
-                <dt>供应商</dt>
-                <dd>{{ order.supplierName || '未命名供应商' }}</dd>
-              </div>
-              <div>
-                <dt>创建时间</dt>
-                <dd>{{ formatDateTime(order.createdAt) }}</dd>
-              </div>
-              <div>
-                <dt>更新时间</dt>
-                <dd>{{ formatDateTime(order.updatedAt) }}</dd>
-              </div>
-              <div>
-                <dt>入库进度</dt>
-                <dd>{{ purchaseReceiptStatus(order.totalAmount, order.receivedAmount, order.status) }}</dd>
-              </div>
-              <div>
-                <dt>付款进度</dt>
-                <dd>{{ purchasePaymentStatus(order.totalAmount, order.paidAmount, order.status) }}</dd>
-              </div>
-              <div>
-                <dt>备注</dt>
-                <dd>{{ order.notes || '--' }}</dd>
-              </div>
-            </dl>
+        <article class="pc-detail-card purchase-settlement-card">
+          <div class="pc-section-title">
+            <span class="material-symbols-outlined">account_balance_wallet</span>
+            <h2>结算信息</h2>
           </div>
+          <dl class="pc-finance-list">
+            <div><dt>应付总额</dt><dd>{{ formatCurrency(order.totalAmount) }}</dd></div>
+            <div><dt>已付金额</dt><dd class="success">{{ formatCurrency(order.paidAmount) }}</dd></div>
+            <div class="total"><dt>待付余额</dt><dd class="danger">{{ formatCurrency(pendingPayAmount) }}</dd></div>
+          </dl>
+          <button type="button" class="pc-secondary-action" @click="router.push('/documents/pay-orders/detail')">查看付款流水</button>
+        </article>
 
-          <div class="panel-head section-head">
-            <div>
-              <p class="eyebrow">商品明细</p>
-              <h3>采购行项目</h3>
-            </div>
+        <article class="pc-detail-card purchase-progress-card">
+          <h2>采购进度</h2>
+          <div class="pc-progress-line purchase-progress-line">
+            <article v-for="step in progressSteps" :key="step.label" :class="{ done: step.done, current: step.current }">
+              <div><span class="material-symbols-outlined">{{ step.done ? 'check' : step.icon }}</span></div>
+              <strong>{{ step.label }}</strong>
+              <small>{{ step.time }}</small>
+            </article>
           </div>
-          <div class="table-shell">
-            <table>
+        </article>
+
+        <article class="pc-detail-card pc-detail-table-card purchase-lines-card">
+          <div class="pc-section-title">
+            <span class="material-symbols-outlined">list_alt</span>
+            <h2>采购明细</h2>
+            <small>共 {{ order.items.length }} 项</small>
+          </div>
+          <div class="pc-table-scroll">
+            <table class="pc-data-table">
               <thead>
                 <tr>
-                  <th>编码</th>
-                  <th>商品</th>
-                  <th>数量</th>
-                  <th>进货价</th>
-                  <th>小计</th>
+                  <th>商品信息</th>
+                  <th class="align-right">单价</th>
+                  <th class="align-center">采购数</th>
+                  <th class="align-center">已入库</th>
+                  <th class="align-right">小计</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="item in order.items" :key="item.id || `${item.productCode}-${item.productName}`">
-                  <td>{{ item.productCode || '--' }}</td>
-                  <td>{{ item.productName || item.productCode || '未命名商品' }}</td>
-                  <td>{{ item.quantity }}</td>
-                  <td>{{ formatCurrency(item.unitCost) }}</td>
-                  <td>{{ formatCurrency(item.amount) }}</td>
+                  <td>
+                    <div class="purchase-product-cell">
+                      <span class="material-symbols-outlined">inventory_2</span>
+                      <div>
+                        <strong>{{ item.productName || item.productCode || '未命名商品' }}</strong>
+                        <small>SKU: {{ item.productCode || '-' }}</small>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="align-right">{{ formatCurrency(item.unitCost) }}</td>
+                  <td class="align-center amount-strong">{{ item.quantity }}</td>
+                  <td class="align-center success-text">{{ receivedQuantity(item) }}</td>
+                  <td class="align-right amount-strong">{{ formatCurrency(item.amount) }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </article>
 
-        <aside class="panel detail-panel">
-          <p class="eyebrow">后续动作</p>
-          <h3>入库与退货入口</h3>
-
-          <div class="detail-stack">
-            <article class="detail-card">
-              <div class="form-actions">
-                <button type="button" :disabled="!order" @click="router.push({ path: '/documents/purchase-receipts', query: { orderId: String(order.id) } })">
-                  去做入库
-                </button>
-                <button type="button" class="ghost-action" :disabled="!order" @click="router.push({ path: '/documents/purchase-returns', query: { orderId: String(order.id) } })">
-                  去做退货
-                </button>
-                <button type="button" class="ghost-action" @click="router.push('/documents/pay-orders/detail')">
-                  处理付款
-                </button>
+        <article class="pc-detail-card purchase-runtrace-card">
+          <div class="pc-section-title">
+            <span class="material-symbols-outlined">memory</span>
+            <h2>AI RunTrace 溯源</h2>
+            <em>Smart Track</em>
+          </div>
+          <div class="purchase-trace-list">
+            <article>
+              <span></span>
+              <small>需求来源证明</small>
+              <div>
+                <span class="material-symbols-outlined">description</span>
+                <p><strong>对应预测需求单 #YQ-001</strong>AI 预测近期销量将提升，建议补足核心件库存。</p>
               </div>
             </article>
-
-            <article class="detail-card">
-              <p class="eyebrow">入库记录</p>
-              <div v-if="receipts.length" class="mini-list">
-                <div v-for="receipt in receipts" :key="receipt.id">
-                  <strong>{{ receipt.receiptNo }}</strong>
-                  <span>{{ formatCurrency(receipt.totalAmount) }} / {{ purchaseReceiptFlowStatus(receipt.status) }}</span>
-                  <span>{{ formatDateTime(receipt.createdAt) }}</span>
-                </div>
+            <article>
+              <span></span>
+              <small>系统库存映射</small>
+              <div>
+                <span class="material-symbols-outlined">schema</span>
+                <p><strong>关联 SKU 库存映射</strong>入库时自动衔接商品主数据与库存流水。</p>
               </div>
-              <p v-else class="muted">当前采购单还没有真实入库记录。</p>
             </article>
-
-            <article class="detail-card">
-              <p class="eyebrow">能力边界</p>
-              <p class="muted">当前详情页已接真实采购单与入库记录；采购付款与退货提交仍以独立专页和后端能力为准。</p>
+            <article class="pending">
+              <span></span>
+              <small>待执行</small>
+              <div>
+                <p>等待入库单生成后捕获物流凭证...</p>
+              </div>
             </article>
           </div>
-        </aside>
+        </article>
       </section>
     </template>
 

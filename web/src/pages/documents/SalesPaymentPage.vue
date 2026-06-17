@@ -22,6 +22,8 @@ import {
   salePaymentStatus,
   saleShippingStatus,
 } from '@/shared/utils/business'
+import PageEmptyState from '@/shared/ui/PageEmptyState.vue'
+import PageStatusBanner from '@/shared/ui/PageStatusBanner.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -44,7 +46,7 @@ const paymentForm = reactive({
 
 const queryOrderId = computed(() => readQueryId(route.query.id))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
-const canWrite = computed(() => session.hasPermission(['sales:write', 'finance:write']))
+const canWrite = computed(() => session.hasAnyPermission(['sales:write', 'finance:write']))
 const selectedOrder = computed(() => orders.value.find((item) => sameEntityId(item.id, selectedOrderId.value)) ?? null)
 const remainingAmount = computed(() => {
   if (!selectedOrder.value) return 0
@@ -161,7 +163,7 @@ async function handleCollectPayment() {
 </script>
 
 <template>
-  <section class="business-page">
+  <section class="business-page sales-payment-page stitch-inspired-page">
     <section class="screen-hero">
       <div>
         <p class="eyebrow">销售收款 / Sales Payment</p>
@@ -181,12 +183,24 @@ async function handleCollectPayment() {
       </div>
     </section>
 
-    <p v-if="!isApiSource" class="form-error">当前是演示模式。这一页只在真实登录后读取待收款销售单。</p>
-    <p v-else-if="error" class="form-error">{{ error }}</p>
-    <p v-else-if="success" class="form-success">{{ success }}</p>
-    <p v-if="loading" class="form-success">正在加载待收款销售单...</p>
+    <PageStatusBanner
+      v-if="!isApiSource"
+      tone="warning"
+      title="演示模式"
+      message="当前是演示模式。这一页只在真实登录后读取待收款销售单。"
+    />
+    <PageStatusBanner
+      v-else-if="error"
+      tone="error"
+      title="页面加载异常"
+      :message="error"
+      action-label="重新加载"
+      @action="loadPage"
+    />
+    <PageStatusBanner v-else-if="success" tone="success" title="操作成功" :message="success" />
+    <PageStatusBanner v-if="loading" tone="info" title="正在同步" message="正在加载待收款销售单..." />
 
-    <section class="metrics-grid compact">
+    <section class="metrics-grid compact stitch-kpis">
       <article class="metric-card" data-tone="blue">
         <span>待收款订单</span>
         <strong>{{ orders.length }}</strong>
@@ -248,11 +262,17 @@ async function handleCollectPayment() {
         </div>
       </article>
 
-      <aside class="panel detail-panel">
+      <aside class="panel detail-panel sales-payment-detail">
         <p class="eyebrow">订单详情</p>
         <h3>{{ selectedOrder?.orderNo || '请选择销售单' }}</h3>
 
         <div v-if="selectedOrder" class="detail-stack">
+          <article class="detail-card sales-payment-amount-card">
+            <span>待收金额 (CNY)</span>
+            <strong>{{ formatCurrency(remainingAmount) }}</strong>
+            <p>{{ selectedOrder.customerName || '散客' }} / {{ selectedOrder.orderNo }}</p>
+          </article>
+
           <article class="detail-card">
             <dl class="detail-list">
               <div>
@@ -287,14 +307,27 @@ async function handleCollectPayment() {
             <div class="detail-stack">
               <label class="compact-field">
                 <span>本次收款金额</span>
-                <input v-model="paymentForm.amount" class="table-input" type="number" min="0" step="0.01" />
+                <div class="amount-input-shell">
+                  <input v-model="paymentForm.amount" class="table-input" type="number" min="0" step="0.01" />
+                  <button type="button" class="ghost-action" @click="paymentForm.amount = remainingAmount.toFixed(2)">全额</button>
+                </div>
               </label>
-              <label class="compact-field">
+              <div class="compact-field">
                 <span>收款方式</span>
-                <select v-model="paymentForm.method">
-                  <option v-for="[value, label] in paymentMethods" :key="value" :value="String(value)">{{ label }}</option>
-                </select>
-              </label>
+                <div class="payment-method-grid">
+                  <button
+                    v-for="[value, label] in paymentMethods"
+                    :key="value"
+                    type="button"
+                    class="payment-method-card"
+                    :class="{ active: paymentForm.method === String(value) }"
+                    @click="paymentForm.method = String(value)"
+                  >
+                    <strong>{{ label }}</strong>
+                    <small>{{ value === METHOD_CASH ? '当面收现' : value === METHOD_WECHAT ? '扫码收款' : value === METHOD_ALIPAY ? '线上到账' : value === METHOD_BANK ? '对公转账' : '其他方式' }}</small>
+                  </button>
+                </div>
+              </div>
               <label class="compact-field">
                 <span>参考流水号</span>
                 <input v-model="paymentForm.referenceNo" class="table-input" placeholder="可选" />
@@ -309,21 +342,18 @@ async function handleCollectPayment() {
 
           <article class="detail-card">
             <p class="eyebrow">历史收款记录</p>
-            <div v-if="paymentsLoading" class="form-success">正在加载收款记录...</div>
+            <PageStatusBanner v-if="paymentsLoading" tone="info" title="正在加载" message="正在加载收款记录..." />
             <div v-else-if="payments.length" class="mini-list">
               <div v-for="payment in payments" :key="payment.id">
                 <strong>{{ formatCurrency(payment.amount) }}</strong>
                 <span>{{ formatDateTime(payment.createdAt) }} / {{ payment.referenceNo || '无参考号' }}</span>
               </div>
             </div>
-            <p v-else class="muted">当前销售单还没有收款记录。</p>
+            <PageEmptyState v-else title="暂无收款记录" message="当前销售单还没有收款记录。" />
           </article>
         </div>
 
-        <div v-else class="empty-preview">
-          <strong>暂无可处理订单</strong>
-          <p>当前未找到待收款销售单。</p>
-        </div>
+        <PageEmptyState v-else title="暂无可处理订单" message="当前未找到待收款销售单。" />
       </aside>
     </section>
   </section>

@@ -4,6 +4,7 @@ import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.api.dto.v2.purchase.V2PurchaseReturnDtos;
 import com.zhihuiji.backend.application.service.v2.V2PurchaseReturnService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v2/purchase-returns")
+@RequireStorePermission("purchase:view")
 public class V2PurchaseReturnController {
     private final V2PurchaseReturnService v2PurchaseReturnService;
 
@@ -25,6 +27,7 @@ public class V2PurchaseReturnController {
     }
 
     @PostMapping
+    @RequireStorePermission("purchase:write")
     public ApiResponse<V2PurchaseReturnDtos.PurchaseReturnResponse> create(
         @Valid @RequestBody V2PurchaseReturnDtos.CreateRequest request
     ) {
@@ -52,6 +55,7 @@ public class V2PurchaseReturnController {
     }
 
     @PutMapping("/{id}/draft")
+    @RequireStorePermission("purchase:write")
     public ApiResponse<V2PurchaseReturnDtos.PurchaseReturnResponse> updateDraft(
         @PathVariable Long id,
         @Valid @RequestBody V2PurchaseReturnDtos.UpdateDraftRequest request
@@ -60,6 +64,7 @@ public class V2PurchaseReturnController {
     }
 
     @PutMapping("/{id}/confirm")
+    @RequireStorePermission("purchase:write")
     public ApiResponse<V2PurchaseReturnDtos.PurchaseReturnResponse> confirm(
         @PathVariable Long id,
         @Valid @RequestBody V2PurchaseReturnDtos.ConfirmRequest request
@@ -68,6 +73,7 @@ public class V2PurchaseReturnController {
     }
 
     @PostMapping("/{id}/refunds")
+    @RequireStorePermission("finance:write")
     public ApiResponse<V2PurchaseReturnDtos.PurchaseReturnResponse> addRefund(
         @PathVariable Long id,
         @Valid @RequestBody V2PurchaseReturnDtos.RefundRequest request
@@ -76,6 +82,7 @@ public class V2PurchaseReturnController {
     }
 
     @PutMapping("/{id}/cancel")
+    @RequireStorePermission("purchase:write")
     public ApiResponse<V2PurchaseReturnDtos.PurchaseReturnResponse> cancel(@PathVariable Long id) {
         return ApiResponse.success(v2PurchaseReturnService.cancel(id));
     }

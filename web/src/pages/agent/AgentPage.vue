@@ -41,6 +41,8 @@ import {
 } from '@/shared/api/agent-stream'
 import { readQueryId, sameEntityId, type EntityId } from '@/shared/utils/id'
 import { formatDateTime, formatDuration, riskLevelLabel } from '@/shared/utils/business'
+import PageEmptyState from '@/shared/ui/PageEmptyState.vue'
+import PageStatusBanner from '@/shared/ui/PageStatusBanner.vue'
 
 type UiRole = 'user' | 'assistant' | 'system'
 
@@ -527,6 +529,10 @@ async function refreshSidePanel() {
   }
 }
 
+async function retryPage() {
+  await loadPage()
+}
+
 async function openAudit(runId: string) {
   if (!session.token.value) return
   auditLoading.value = true
@@ -579,7 +585,7 @@ function localId(prefix: string) {
 </script>
 
 <template>
-  <section class="business-page agent-page">
+  <section class="business-page agent-page stitch-inspired-page stitch-agent-page">
     <section class="screen-hero">
       <div>
         <p class="eyebrow">AI 助手 / Agent</p>
@@ -591,10 +597,27 @@ function localId(prefix: string) {
       </div>
     </section>
 
-    <p v-if="!isApiSource" class="form-error">当前是演示模式。这一页只在真实登录后使用 AI 助手。</p>
-    <p v-else-if="error" class="form-error">{{ error }}</p>
-    <p v-if="loading" class="form-success">正在加载 AI 工作台...</p>
-    <p v-if="!canView && isApiSource" class="form-error">当前角色没有 AI 助手查看权限。</p>
+    <PageStatusBanner
+      v-if="!isApiSource"
+      tone="warning"
+      title="演示模式"
+      message="当前是演示模式。这一页只在真实登录后使用 AI 助手。"
+    />
+    <PageStatusBanner
+      v-else-if="error"
+      tone="error"
+      title="页面加载异常"
+      :message="error"
+      action-label="重新加载"
+      @action="retryPage"
+    />
+    <PageStatusBanner v-if="loading" tone="info" title="正在同步" message="正在加载 AI 工作台..." />
+    <PageStatusBanner
+      v-if="!canView && isApiSource"
+      tone="warning"
+      title="无查看权限"
+      message="当前角色没有 AI 助手查看权限。"
+    />
 
     <section class="agent-layout" v-if="canView">
       <aside class="panel agent-sidebar">
@@ -633,6 +656,11 @@ function localId(prefix: string) {
         </div>
 
         <div class="agent-message-stream">
+          <PageEmptyState
+            v-if="!loading && messages.length === 0"
+            title="暂无对话消息"
+            message="先发一句问题，AI 会在这里返回流式回答。"
+          />
           <article v-for="message in messages" :key="message.id" class="agent-message" :data-role="message.role">
             <header>
               <strong>{{ message.role === 'user' ? '你' : message.role === 'assistant' ? '智慧记 AI' : '系统' }}</strong>
@@ -771,7 +799,7 @@ function localId(prefix: string) {
                 <span>{{ draft.draftType }} / {{ draft.status }}</span>
               </div>
             </div>
-            <p v-else class="muted">暂无草稿。</p>
+            <PageEmptyState v-else title="暂无草稿" message="当前没有待处理草稿。" />
           </article>
 
           <article class="detail-card">

@@ -13,6 +13,7 @@ export interface StitchScreen {
   width?: number
   height?: number
   priority?: 'primary' | 'planned' | 'reference'
+  permissionMode?: 'all' | 'any'
 }
 
 const mobileReferenceRoot = '/stitch_exports/visual-design_system_framework_14840154594131085259'
@@ -20,22 +21,22 @@ const pcMcpRoot = '/stitch_exports/zhihuiji_web_pc_admin_mcp_1798984546230311606
 
 export const pcDesktopScreens: StitchScreen[] = [
   pcScreen('05', 'fd733d8a7ada48cea2f3f567417ce9e2', '经营首页 Dashboard', '/dashboard', '首页', ['dashboard:view'], 2560, 2048),
-  plannedPcScreen('P01', 'documents-center', '单据中心', '/documents', '单据', ['sales:view', 'purchase:view'], mobileImage('10', '851bba4950bc4f1385ade2cce0668d2f')),
+  plannedPcScreen('P01', 'documents-center', '单据中心', '/documents', '单据', ['sales:view', 'purchase:view', 'inventory:view', 'finance:view'], mobileImage('10', '851bba4950bc4f1385ade2cce0668d2f'), 'any'),
   pcScreen('10', '778c9991ab44444d978da4b2a28bd2a3', '销售单列表', '/documents/sales', '销售', ['sales:view'], 2560, 2048),
   pcScreen('09', '6d40c074a1284479a453f5a32a603618', '销售单新建/编辑', '/documents/sales/edit', '销售', ['sales:write'], 2560, 2048),
   pcScreen('08', 'a3f41bc2a6e5494f8538d16bb739d8e4', '销售单详情', '/documents/sales/detail', '销售', ['sales:view'], 2560, 2048),
-  plannedPcScreen('P02', 'sales-payment', '销售收款', '/documents/sales/payment', '销售', ['sales:write', 'finance:write'], mobileImage('13', '3f9b69dd02ad4f6cb092ed93b91f77af')),
+  plannedPcScreen('P02', 'sales-payment', '销售收款', '/documents/sales/payment', '销售', ['sales:write', 'finance:write'], mobileImage('13', '3f9b69dd02ad4f6cb092ed93b91f77af'), 'any'),
   plannedPcScreen('P03', 'sales-returns', '销售退货', '/documents/sales-returns', '销售', ['sales:view'], mobileImage('04', 'c9feeec36d6742f8adf33a5c8ee2168b')),
   pcScreen('06', '595ffe36f46b4d478103fd4b63280706', '采购单列表', '/documents/purchases', '采购', ['purchase:view'], 2560, 2048),
   pcScreen('04', 'debb39738a0d4034affe3dbb4dd048de', '采购单新建/编辑', '/documents/purchases/edit', '采购', ['purchase:write'], 2560, 2048),
   pcScreen('01', '73ac0e15f5df49249ac2197064adeb46', '采购单详情', '/documents/purchases/detail', '采购', ['purchase:view'], 2560, 2352),
-  plannedPcScreen('P04', 'purchase-receipts', '采购入库', '/documents/purchase-receipts', '采购', ['purchase:write', 'inventory:write'], mobileImage('18', '8c0d2379aca145efbc7997554ea63c36')),
+  plannedPcScreen('P04', 'purchase-receipts', '采购入库', '/documents/purchase-receipts', '采购', ['purchase:write', 'inventory:write'], mobileImage('18', '8c0d2379aca145efbc7997554ea63c36'), 'any'),
   plannedPcScreen('P05', 'purchase-returns', '采购退货', '/documents/purchase-returns', '采购', ['purchase:view'], mobileImage('25', '546176a5ad574e5282033dee6b8148d4')),
   plannedPcScreen('P06', 'pay-order-detail', '付款单详情', '/documents/pay-orders/detail', '财务', ['finance:view'], mobileImage('05', '624955bd91ed45fa9d4093c2fe7259fa')),
   pcScreen('07', 'a5aaaa8f7f04438d84d1fdc749d6a5cb', '商品列表', '/archives/products', '档案', ['archives:view'], 2560, 2048),
   plannedPcScreen('P07', 'product-edit', '商品编辑', '/archives/products/edit', '档案', ['archives:write'], mobileImage('11', '71bd8f9c60234565aadd7fd505d9bc16')),
-  plannedPcScreen('P08', 'suppliers', '供应商档案', '/archives/suppliers', '档案', ['archives:view'], mobileImage('02', '670a28679b57420d8c75e670f964b58c')),
-  plannedPcScreen('P09', 'customers', '客户档案', '/archives/customers', '档案', ['archives:view'], mobileImage('03', 'd750377ad8d04dbfb8e502c0092798fc')),
+  plannedPcScreen('P08', 'suppliers', '供应商档案', '/archives/suppliers', '档案', ['purchase:view'], mobileImage('02', '670a28679b57420d8c75e670f964b58c')),
+  plannedPcScreen('P09', 'customers', '客户档案', '/archives/customers', '档案', ['sales:view'], mobileImage('03', 'd750377ad8d04dbfb8e502c0092798fc')),
   plannedPcScreen('P10', 'inventory-adjust', '库存调整', '/inventory/adjust', '库存', ['inventory:write'], mobileImage('12', '13620e8ea5ec47a08a93ee4ec4c6c331')),
   plannedPcScreen('P11', 'inventory-ledger', '商品库存流水', '/inventory/product-ledger', '库存', ['inventory:view'], mobileImage('24', 'd97470c943fa4c79980bd71c9e412727')),
   plannedPcScreen('P12', 'inventory-snapshots', '库存盘点', '/inventory/snapshots', '库存', ['inventory:view'], mobileImage('31', 'a952abd4ba2a411aa3f5372b44ee932b')),
@@ -43,14 +44,14 @@ export const pcDesktopScreens: StitchScreen[] = [
   plannedPcScreen('P14', 'daily-expense', '日常支出', '/finance/daily-expense', '财务', ['finance:write'], mobileImage('29', '5119f452001d4b5794457c2d99bce892')),
   plannedPcScreen('P15', 'reports', '经营报表', '/reports', '报表', ['reports:view'], mobileImage('28', '32d2d1d993a84090b927b119cceb6675')),
   plannedPcScreen('P16', 'agent', 'AI 智能助手', '/agent', 'AI', ['agent:view'], mobileImage('32', 'bb4cfaeb86aa4862ba26a7eca264b4e6')),
-  plannedPcScreen('P17', 'settings', '系统设置', '/settings', '系统', ['settings:manage'], mobileImage('01', '67429855c01c456d984034f3cb0b8ec4')),
+  plannedPcScreen('P17', 'settings', '系统设置', '/settings', '系统', ['users:manage', 'database:manage', 'settings:manage'], mobileImage('01', '67429855c01c456d984034f3cb0b8ec4'), 'any'),
   pcScreen('02', 'e8d81fc900d54197ba485cb076d1205c', '智慧记 Web PC 管理端产品规划', '/planning', '系统', ['settings:manage'], 0, 0),
 ]
 
 export const mobileReferenceScreens: StitchScreen[] = [
   mobileScreen('01', '67429855c01c456d984034f3cb0b8ec4', '系统设置', '/references/mobile/settings', '移动参考', ['settings:manage']),
-  mobileScreen('02', '670a28679b57420d8c75e670f964b58c', '供应商档案', '/references/mobile/archives/suppliers', '移动参考', ['archives:view']),
-  mobileScreen('03', 'd750377ad8d04dbfb8e502c0092798fc', '客户档案', '/references/mobile/archives/customers', '移动参考', ['archives:view']),
+  mobileScreen('02', '670a28679b57420d8c75e670f964b58c', '供应商档案', '/references/mobile/archives/suppliers', '移动参考', ['purchase:view']),
+  mobileScreen('03', 'd750377ad8d04dbfb8e502c0092798fc', '客户档案', '/references/mobile/archives/customers', '移动参考', ['sales:view']),
   mobileScreen('04', 'c9feeec36d6742f8adf33a5c8ee2168b', '销售退货', '/references/mobile/documents/sales-returns', '移动参考', ['sales:view']),
   mobileScreen('05', '624955bd91ed45fa9d4093c2fe7259fa', '付款单详情', '/references/mobile/documents/pay-orders/detail', '移动参考', ['finance:view']),
   mobileScreen('06', '790e9c9b67f74e29a312d5f9f333873c', 'AI 助手思考中', '/references/mobile/agent/thinking', '移动参考', ['agent:view']),
@@ -118,6 +119,7 @@ function plannedPcScreen(
   module: string,
   permission: Permission[],
   referenceImagePath: string,
+  permissionMode: 'all' | 'any' = 'all',
 ): StitchScreen {
   return {
     order,
@@ -128,6 +130,7 @@ function plannedPcScreen(
     permission,
     source: 'pc-planned',
     priority: 'planned',
+    permissionMode,
     imagePath: referenceImagePath,
     htmlPath: '',
   }

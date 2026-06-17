@@ -24,8 +24,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,9 +44,23 @@ import com.zhihuiji.feature.purchases.PurchaseOrderListScreen
 import com.zhihuiji.feature.sales.SaleOrderListScreen
 import kotlinx.coroutines.launch
 
+private enum class DocumentsTabKey {
+    SALES,
+    PURCHASES,
+    PAYMENTS,
+    FINANCE,
+}
+
+private data class DocumentsTabSpec(
+    val key: DocumentsTabKey,
+    val label: String,
+    val sourceIndex: Int,
+)
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DocumentsScreen(
+    accessState: MainAccessUiState,
     initialTab: Int = 0,
     onNavigateToSaleOrderDetail: (Long) -> Unit,
     onNavigateToSaleOrderCreate: () -> Unit,
@@ -60,16 +74,39 @@ fun DocumentsScreen(
     onNavigateToDailyExpense: () -> Unit,
     onNavigateToInventorySnapshot: () -> Unit,
 ) {
-    val tabs = listOf("销售单", "采购单", "付款单", "资金流水")
+    val tabs = buildList {
+        if (!accessState.isResolved || accessState.hasPermission("sales:view")) {
+            add(DocumentsTabSpec(DocumentsTabKey.SALES, "销售单", 0))
+        }
+        if (!accessState.isResolved || accessState.hasPermission("purchase:view")) {
+            add(DocumentsTabSpec(DocumentsTabKey.PURCHASES, "采购单", 1))
+        }
+        if (!accessState.isResolved || accessState.hasPermission("finance:view")) {
+            add(DocumentsTabSpec(DocumentsTabKey.PAYMENTS, "付款单", 2))
+            add(DocumentsTabSpec(DocumentsTabKey.FINANCE, "资金流水", 3))
+        }
+    }
+    if (tabs.isEmpty()) {
+        PermissionDeniedScreen(onBack = {})
+        return
+    }
+    val initialPage = tabs.indexOfFirst { it.sourceIndex == initialTab }
+        .takeIf { it >= 0 } ?: 0
     val pagerState = rememberPagerState(
-        initialPage = initialTab.coerceIn(tabs.indices),
+        initialPage = initialPage,
         pageCount = { tabs.size },
     )
+
+    LaunchedEffect(tabs.size) {
+        if (pagerState.currentPage > tabs.lastIndex) {
+            pagerState.scrollToPage(tabs.lastIndex)
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         DocumentsTopAppBar()
         DocumentsTabBar(
-            tabs = tabs,
+            tabs = tabs.map(DocumentsTabSpec::label),
             pagerState = pagerState,
         )
         HorizontalPager(
@@ -79,7 +116,7 @@ fun DocumentsScreen(
         ) { page ->
             Box(modifier = Modifier.fillMaxSize()) {
                 DocumentsPageContent(
-                    page = page,
+                    tab = tabs[page].key,
                     onNavigateToSaleOrderDetail = onNavigateToSaleOrderDetail,
                     onNavigateToSaleOrderCreate = onNavigateToSaleOrderCreate,
                     onNavigateToPurchaseOrderDetail = onNavigateToPurchaseOrderDetail,
@@ -96,7 +133,7 @@ fun DocumentsScreen(
 
 @Composable
 private fun DocumentsPageContent(
-    page: Int,
+    tab: DocumentsTabKey,
     onNavigateToSaleOrderDetail: (Long) -> Unit,
     onNavigateToSaleOrderCreate: () -> Unit,
     onNavigateToPurchaseOrderDetail: (Long) -> Unit,
@@ -105,19 +142,19 @@ private fun DocumentsPageContent(
     onNavigateToFinanceRecordDetail: (Long) -> Unit,
     onNavigateToDailyExpense: () -> Unit,
 ) {
-    when (page) {
-        0 -> SaleOrderListScreen(
+    when (tab) {
+        DocumentsTabKey.SALES -> SaleOrderListScreen(
             onNavigateToDetail = onNavigateToSaleOrderDetail,
             onNavigateToCreate = onNavigateToSaleOrderCreate,
         )
-        1 -> PurchaseOrderListScreen(
+        DocumentsTabKey.PURCHASES -> PurchaseOrderListScreen(
             onNavigateToDetail = onNavigateToPurchaseOrderDetail,
             onNavigateToCreate = onNavigateToPurchaseOrderCreate,
         )
-        2 -> PayOrderListScreen(
+        DocumentsTabKey.PAYMENTS -> PayOrderListScreen(
             onNavigateToDetail = onNavigateToPayOrderDetail,
         )
-        3 -> FinanceRecordListScreen(
+        DocumentsTabKey.FINANCE -> FinanceRecordListScreen(
             onNavigateToDetail = onNavigateToFinanceRecordDetail,
             onNavigateToDailyExpense = onNavigateToDailyExpense,
         )

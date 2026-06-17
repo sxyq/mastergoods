@@ -17,7 +17,11 @@ router.beforeEach((to) => {
   }
   if (!session.hasAppSession.value) return '/login'
   const permissions = to.meta.permissions as Parameters<typeof session.hasPermission>[0]
-  if (!session.hasPermission(permissions)) return '/403'
+  const permissionMode = to.meta.permissionMode as 'all' | 'any' | undefined
+  const allowed = permissionMode === 'any'
+    ? session.hasAnyPermission(permissions)
+    : session.hasPermission(permissions)
+  if (!allowed) return '/403'
   return true
 })
 

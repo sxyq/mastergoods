@@ -6,6 +6,7 @@ import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.api.dto.PayOrderDto;
 import com.zhihuiji.backend.application.service.PayOrderService;
 import com.zhihuiji.backend.domain.entity.PayOrderEntity;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import java.util.List;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v1/pay-orders")
+@RequireStorePermission("finance:view")
 public class PayOrderController {
     private final PayOrderService payOrderService;
 
@@ -53,6 +55,7 @@ public class PayOrderController {
     }
 
     @PostMapping
+    @RequireStorePermission("finance:write")
     public ApiResponse<PayOrderDto> create(@Valid @RequestBody CreateRequest request) {
         PayOrderEntity created = payOrderService.create(
             new PayOrderService.CreateCommand(
@@ -69,6 +72,7 @@ public class PayOrderController {
     }
 
     @PutMapping("/{id}/status")
+    @RequireStorePermission("finance:write")
     public ApiResponse<PayOrderDto> updateStatus(@PathVariable Long id, @Valid @RequestBody StatusRequest request) {
         return ApiResponse.success(toDto(payOrderService.updateStatus(id, request.status())));
     }

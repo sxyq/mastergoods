@@ -35,6 +35,7 @@ const success = ref('')
 
 const queryOrderId = computed(() => readQueryId(route.query.orderId))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
+const canWrite = computed(() => session.hasAnyPermission(['purchase:write', 'inventory:write']))
 const selectedOrder = computed(() => sourceOrders.value.find((item) => sameEntityId(item.id, selectedOrderId.value)) ?? sourceOrders.value[0] ?? null)
 const selectedReceipt = computed(() => receipts.value.find((item) => sameEntityId(item.id, selectedReceiptId.value)) ?? receipts.value[0] ?? null)
 
@@ -163,7 +164,7 @@ async function chooseSourceOrder(orderId: EntityId) {
             <p class="eyebrow">来源采购单</p>
             <h3>{{ selectedOrder?.orderNo || '请选择采购单' }}</h3>
           </div>
-          <button type="button" :disabled="!selectedOrder || submitting || !isApiSource" @click="createReceiptFromOrder">
+          <button type="button" :disabled="!selectedOrder || submitting || !isApiSource || !canWrite" @click="createReceiptFromOrder">
             {{ submitting ? '处理中...' : '生成入库单' }}
           </button>
         </div>
@@ -216,7 +217,7 @@ async function chooseSourceOrder(orderId: EntityId) {
             <p class="eyebrow">入库单详情</p>
             <h3>{{ selectedReceipt?.receiptNo || '暂无入库单' }}</h3>
           </div>
-          <button type="button" :disabled="!selectedReceipt || submitting || !isApiSource" @click="confirmReceipt">确认入库</button>
+          <button type="button" :disabled="!selectedReceipt || submitting || !isApiSource || !canWrite" @click="confirmReceipt">确认入库</button>
         </div>
 
         <div v-if="selectedReceipt" class="detail-stack">

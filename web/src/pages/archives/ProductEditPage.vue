@@ -34,6 +34,7 @@ const productId = computed(() => {
 })
 const isEditMode = computed(() => productId.value != null)
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
+const canWrite = computed(() => session.hasPermission(['archives:write']))
 
 const form = reactive({
   code: '',
@@ -49,6 +50,7 @@ const form = reactive({
 
 const canSubmit = computed(() => {
   return isApiSource.value
+    && canWrite.value
     && !saving.value
     && form.code.trim()
     && form.name.trim()

@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from '@/app/stores/session'
 import {
+  cancelSaleOrder,
   confirmSaleOrder,
   createSaleOrderPayment,
   fetchSaleOrder,
@@ -20,9 +21,11 @@ import {
   formatCurrency,
   formatDateTime,
   financeMethodLabel,
+  saleOrderStatusLabel,
   salePaymentStatus,
   saleShippingStatus,
   SALE_CANCELLED,
+  SALE_COMPLETED,
   SALE_DRAFT,
 } from '@/shared/utils/business'
 
@@ -50,7 +53,9 @@ const remainingAmount = computed(() => {
   if (!order.value) return 0
   return Math.max(order.value.totalAmount - order.value.paidAmount, 0)
 })
+const subtotalAmount = computed(() => order.value?.items.reduce((sum, item) => sum + item.amount, 0) ?? 0)
 const canConfirm = computed(() => order.value?.status === SALE_DRAFT && canWrite.value)
+const canCancel = computed(() => Boolean(order.value) && order.value?.status !== SALE_CANCELLED && canWrite.value)
 const canCollectPayment = computed(() => {
   return Boolean(order.value) && order.value?.status !== SALE_CANCELLED && remainingAmount.value > 0
 })
@@ -61,6 +66,18 @@ const paymentMethods = [
   [METHOD_BANK, '银行卡'],
   [METHOD_OTHER, '其他'],
 ]
+
+const progressSteps = computed(() => {
+  const current = order.value?.status ?? SALE_DRAFT
+  const paid = order.value ? order.value.paidAmount >= order.value.totalAmount && order.value.totalAmount > 0 : false
+  return [
+    { label: '下单', icon: 'shopping_cart', done: true, time: order.value ? formatDateTime(order.value.createdAt).slice(5) : '-' },
+    { label: '审核', icon: 'fact_check', done: current !== SALE_DRAFT && current !== SALE_CANCELLED, time: current !== SALE_DRAFT ? '已确认' : '待处理' },
+    { label: '出库', icon: 'inventory_2', done: current === SALE_COMPLETED, time: current === SALE_COMPLETED ? '已出库' : '待出库' },
+    { label: '收款', icon: 'payments', done: paid, time: paid ? '已结清' : '待收款' },
+    { label: '完成', icon: 'done_all', done: current === SALE_COMPLETED && paid, time: current === SALE_COMPLETED && paid ? '完成' : '进行中' },
+  ]
+})
 
 watch(
   [() => session.source.value, () => session.token.value, orderId],
@@ -113,6 +130,21 @@ async function handleConfirm() {
   }
 }
 
+async function handleCancel() {
+  if (!session.token.value || !order.value) return
+  submitting.value = true
+  error.value = ''
+  success.value = ''
+  try {
+    order.value = await cancelSaleOrder(session.token.value, order.value.id)
+    success.value = '销售单已作废'
+  } catch (submitErr) {
+    error.value = submitErr instanceof Error ? submitErr.message : '销售单作废失败'
+  } finally {
+    submitting.value = false
+  }
+}
+
 async function handleCollectPayment() {
   if (!session.token.value || !order.value) return
   submitting.value = true
@@ -135,154 +167,190 @@ async function handleCollectPayment() {
 </script>
 
 <template>
-  <section class="business-page">
-    <section class="screen-hero">
-      <div>
-        <p class="eyebrow">销售详情 / Sale Order Detail</p>
-        <h2>销售单详情专页</h2>
-        <p>对齐安卓端销售详情与收款流程，可确认草稿订单并写入真实收款记录。</p>
+  <section class="pc-detail-page sales-detail-page">
+    <header class="pc-list-titlebar">
+      <div class="pc-breadcrumb">
+        <span>销售管理</span>
+        <span class="material-symbols-outlined">chevron_right</span>
+        <span>销售单列表</span>
+        <span class="material-symbols-outlined">chevron_right</span>
+        <h1>销售单 {{ order?.orderNo || '' }}</h1>
       </div>
-      <div class="hero-actions">
-        <button type="button" class="ghost-action" @click="router.push('/documents/sales')">返回列表</button>
-        <button
-          type="button"
-          class="ghost-action"
-          :disabled="!order || order.status !== SALE_DRAFT || !canWrite"
-          @click="router.push({ path: '/documents/sales/edit', query: { id: String(order?.id) } })"
-        >
-          编辑草稿
+      <div class="pc-title-actions">
+        <button type="button" class="pc-secondary-action" @click="router.push('/documents/sales')">
+          <span class="material-symbols-outlined">arrow_back</span>
+          返回
+        </button>
+        <button type="button" class="pc-secondary-action">
+          <span class="material-symbols-outlined">print</span>
+          打印
         </button>
         <button
           v-if="order"
           type="button"
-          class="ghost-action"
-          @click="router.push({ path: '/documents/sales/payment', query: { id: String(order.id) } })"
+          class="pc-secondary-action"
+          :disabled="order.status !== SALE_DRAFT || !canWrite"
+          @click="router.push({ path: '/documents/sales/edit', query: { id: String(order.id) } })"
         >
-          专页收款
+          编辑
         </button>
+        <button type="button" class="pc-dark-action" :disabled="!canConfirm || submitting" @click="handleConfirm">确认</button>
+        <button type="button" class="pc-danger-action" :disabled="!canCancel || submitting" @click="handleCancel">作废</button>
       </div>
-    </section>
+    </header>
 
     <p v-if="!isApiSource" class="form-error">当前是演示模式。这一页只在真实登录后读取销售详情。</p>
     <p v-else-if="error" class="form-error">{{ error }}</p>
     <p v-else-if="success" class="form-success">{{ success }}</p>
     <p v-if="loading" class="form-success">正在加载销售单详情...</p>
 
-    <section v-if="order" class="business-split">
-      <article class="panel">
-        <div class="panel-head">
+    <section v-if="order" class="pc-detail-grid">
+      <main class="pc-detail-main">
+        <section class="pc-detail-hero-card">
           <div>
-            <p class="eyebrow">订单主信息</p>
-            <h3>{{ order.orderNo }}</h3>
+            <span class="pc-status-chip" :data-tone="order.status === SALE_COMPLETED ? 'done' : order.status === SALE_CANCELLED ? 'cancelled' : order.status === SALE_DRAFT ? 'draft' : 'running'">
+              {{ saleOrderStatusLabel(order.status) }}
+            </span>
+            <h2>{{ order.orderNo }}</h2>
+            <p>{{ order.notes || '暂无单据备注' }}</p>
           </div>
-          <span class="session-source">{{ saleShippingStatus(order.status) }} / {{ salePaymentStatus(order.totalAmount, order.paidAmount, order.status) }}</span>
-        </div>
+          <div class="pc-detail-amount">
+            <span>应收总额</span>
+            <strong>{{ formatCurrency(order.totalAmount) }}</strong>
+            <small>{{ saleShippingStatus(order.status) }} / {{ salePaymentStatus(order.totalAmount, order.paidAmount, order.status) }}</small>
+          </div>
+        </section>
 
-        <div class="detail-card">
-          <dl class="detail-list">
-            <div>
-              <dt>客户名称</dt>
-              <dd>{{ order.customerName || '散客' }}</dd>
-            </div>
-            <div>
-              <dt>创建时间</dt>
-              <dd>{{ formatDateTime(order.createdAt) }}</dd>
-            </div>
-            <div>
-              <dt>商品行数</dt>
-              <dd>{{ order.items.length }}</dd>
-            </div>
-            <div>
-              <dt>订单金额</dt>
-              <dd>{{ formatCurrency(order.totalAmount) }}</dd>
-            </div>
-            <div>
-              <dt>已付金额</dt>
-              <dd>{{ formatCurrency(order.paidAmount) }}</dd>
-            </div>
-            <div>
-              <dt>待收金额</dt>
-              <dd>{{ formatCurrency(remainingAmount) }}</dd>
-            </div>
+        <section class="pc-detail-card">
+          <div class="pc-section-title">
+            <h2>客户与单据信息</h2>
+          </div>
+          <div class="pc-info-grid">
+            <div><span>客户名称</span><strong>{{ order.customerName || '散客' }}</strong></div>
+            <div><span>联系人</span><strong>未登记</strong></div>
+            <div><span>销售员</span><strong>{{ session.member.value.name }}</strong></div>
+            <div><span>创建时间</span><strong>{{ formatDateTime(order.createdAt) }}</strong></div>
+            <div><span>结算方式</span><strong>按单结算</strong></div>
+            <div><span>更新时间</span><strong>{{ formatDateTime(order.updatedAt) }}</strong></div>
+          </div>
+        </section>
+
+        <section class="pc-detail-card">
+          <div class="pc-section-title">
+            <span class="material-symbols-outlined">timeline</span>
+            <h2>业务进度</h2>
+          </div>
+          <div class="pc-progress-line">
+            <article v-for="step in progressSteps" :key="step.label" :class="{ done: step.done }">
+              <div><span class="material-symbols-outlined">{{ step.icon }}</span></div>
+              <strong>{{ step.label }}</strong>
+              <small>{{ step.time }}</small>
+            </article>
+          </div>
+        </section>
+
+        <section class="pc-detail-card pc-detail-table-card">
+          <div class="pc-section-title">
+            <span class="material-symbols-outlined">list_alt</span>
+            <h2>商品明细</h2>
+          </div>
+          <div class="pc-table-scroll">
+            <table class="pc-data-table">
+              <thead>
+                <tr>
+                  <th>SKU / 商品名称</th>
+                  <th>规格型号</th>
+                  <th class="align-right">单价 (¥)</th>
+                  <th class="align-right">数量</th>
+                  <th class="align-right">折扣</th>
+                  <th class="align-right">小计 (¥)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in order.items" :key="item.id || `${item.productId}-${item.productName}`">
+                  <td>
+                    <div class="pc-doc-cell">
+                      <strong>{{ item.productName || item.productCode }}</strong>
+                      <small>SKU: {{ item.productCode }}</small>
+                    </div>
+                  </td>
+                  <td class="muted">-</td>
+                  <td class="align-right">{{ formatCurrency(item.unitPrice) }}</td>
+                  <td class="align-right">{{ item.quantity }}</td>
+                  <td class="align-right">-</td>
+                  <td class="align-right amount-strong">{{ formatCurrency(item.amount) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+
+      <aside class="pc-detail-side">
+        <section class="pc-detail-card">
+          <div class="pc-section-title">
+            <span class="material-symbols-outlined">account_balance_wallet</span>
+            <h2>财务汇总</h2>
+          </div>
+          <dl class="pc-finance-list">
+            <div><dt>商品总额</dt><dd>{{ formatCurrency(subtotalAmount) }}</dd></div>
+            <div><dt>整单折扣</dt><dd class="danger">- {{ formatCurrency(order.discountAmount) }}</dd></div>
+            <div><dt>已收金额</dt><dd>{{ formatCurrency(order.paidAmount) }}</dd></div>
+            <div class="total"><dt>待收金额</dt><dd>{{ formatCurrency(remainingAmount) }}</dd></div>
           </dl>
-        </div>
-
-        <div class="panel-head section-head">
-          <div>
-            <p class="eyebrow">商品明细</p>
-            <h3>订单行项目</h3>
-          </div>
-        </div>
-        <div class="table-shell">
-          <table>
-            <thead>
-              <tr>
-                <th>商品</th>
-                <th>数量</th>
-                <th>单价</th>
-                <th>小计</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in order.items" :key="item.id || `${item.productId}-${item.productName}`">
-                <td>{{ item.productName || item.productCode }}</td>
-                <td>{{ item.quantity }}</td>
-                <td>{{ formatCurrency(item.unitPrice) }}</td>
-                <td>{{ formatCurrency(item.amount) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="form-actions">
-          <button type="button" :disabled="!canConfirm || submitting" @click="handleConfirm">{{ submitting ? '处理中...' : '确认销售单' }}</button>
-        </div>
-      </article>
-
-      <aside class="panel detail-panel">
-        <p class="eyebrow">收款管理</p>
-        <h3>销售收款</h3>
-
-        <div class="detail-stack">
-          <article class="detail-card">
-            <label class="compact-field">
+          <div class="pc-payment-box">
+            <label class="pc-field">
               <span>本次收款金额</span>
-              <input v-model="paymentForm.amount" class="table-input" type="number" min="0" step="0.01" />
+              <input v-model="paymentForm.amount" type="number" min="0" step="0.01" />
             </label>
-            <label class="compact-field">
+            <label class="pc-field">
               <span>收款方式</span>
               <select v-model="paymentForm.method">
                 <option v-for="[value, label] in paymentMethods" :key="value" :value="String(value)">{{ label }}</option>
               </select>
             </label>
-            <label class="compact-field">
+            <label class="pc-field">
               <span>参考流水号</span>
-              <input v-model="paymentForm.referenceNo" class="table-input" placeholder="可选" />
+              <input v-model="paymentForm.referenceNo" placeholder="可选" />
             </label>
-            <div class="form-actions">
-              <button type="button" :disabled="!canCollectPayment || submitting" @click="handleCollectPayment">登记收款</button>
-              <button
-                type="button"
-                class="ghost-action"
-                :disabled="!order"
-                @click="router.push({ path: '/documents/sales-returns', query: { orderId: String(order?.id) } })"
-              >
-                去做退货
-              </button>
-            </div>
-          </article>
+            <button type="button" class="pc-dark-action" :disabled="!canCollectPayment || submitting" @click="handleCollectPayment">登记收款</button>
+          </div>
+        </section>
 
-          <article class="detail-card">
-            <p class="eyebrow">收款记录</p>
-            <div v-if="payments.length" class="mini-list">
-              <div v-for="payment in payments" :key="payment.id">
-                <strong>{{ formatCurrency(payment.amount) }}</strong>
-                <span>{{ financeMethodLabel(payment.method) }} / {{ formatDateTime(payment.createdAt) }}</span>
+        <section class="pc-detail-card">
+          <div class="pc-section-title">
+            <span class="material-symbols-outlined">local_shipping</span>
+            <h2>物流配送</h2>
+          </div>
+          <div class="pc-logistics-list">
+            <div><span></span><p>当前状态：{{ saleShippingStatus(order.status) }}</p><small>{{ formatDateTime(order.updatedAt) }}</small></div>
+            <div><span></span><p>收款状态：{{ salePaymentStatus(order.totalAmount, order.paidAmount, order.status) }}</p><small>{{ payments.length }} 条收款记录</small></div>
+          </div>
+        </section>
+
+        <section class="pc-detail-card pc-runtrace-card">
+          <div class="pc-section-title">
+            <span class="material-symbols-outlined">hub</span>
+            <h2>AI RunTrace 溯源</h2>
+          </div>
+          <p>智能系统已关联该销售单的收款、出库与库存影响记录。</p>
+          <ul>
+            <li v-for="payment in payments.slice(0, 3)" :key="payment.id">
+              <span class="material-symbols-outlined">account_balance</span>
+              <div>
+                <small>对应资金流水</small>
+                <strong>{{ financeMethodLabel(payment.method) }} · {{ formatCurrency(payment.amount) }}</strong>
               </div>
-            </div>
-            <p v-else class="muted">当前还没有收款记录。</p>
-          </article>
-        </div>
+            </li>
+            <li>
+              <span class="material-symbols-outlined">inventory</span>
+              <div>
+                <small>出库状态</small>
+                <strong>{{ saleShippingStatus(order.status) }}</strong>
+              </div>
+            </li>
+          </ul>
+        </section>
       </aside>
     </section>
 

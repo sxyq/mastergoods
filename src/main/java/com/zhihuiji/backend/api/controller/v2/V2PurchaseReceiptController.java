@@ -4,6 +4,7 @@ import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.api.dto.v2.purchase.V2PurchaseReceiptDtos;
 import com.zhihuiji.backend.application.service.v2.V2PurchaseReceiptService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import java.util.List;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v2/purchase-receipts")
+@RequireStorePermission("inventory:view")
 public class V2PurchaseReceiptController {
     private final V2PurchaseReceiptService v2PurchaseReceiptService;
 
@@ -25,6 +27,7 @@ public class V2PurchaseReceiptController {
     }
 
     @PostMapping
+    @RequireStorePermission("inventory:write")
     public ApiResponse<V2PurchaseReceiptDtos.PurchaseReceiptResponse> create(
         @Valid @RequestBody V2PurchaseReceiptDtos.CreateRequest request
     ) {
@@ -52,6 +55,7 @@ public class V2PurchaseReceiptController {
     }
 
     @PutMapping("/{id}/draft")
+    @RequireStorePermission("inventory:write")
     public ApiResponse<V2PurchaseReceiptDtos.PurchaseReceiptResponse> updateDraft(
         @PathVariable Long id,
         @Valid @RequestBody V2PurchaseReceiptDtos.UpdateDraftRequest request
@@ -60,11 +64,13 @@ public class V2PurchaseReceiptController {
     }
 
     @PutMapping("/{id}/confirm")
+    @RequireStorePermission("inventory:write")
     public ApiResponse<V2PurchaseReceiptDtos.PurchaseReceiptResponse> confirm(@PathVariable Long id) {
         return ApiResponse.success(v2PurchaseReceiptService.confirm(id));
     }
 
     @PutMapping("/{id}/cancel")
+    @RequireStorePermission("inventory:write")
     public ApiResponse<V2PurchaseReceiptDtos.PurchaseReceiptResponse> cancel(@PathVariable Long id) {
         return ApiResponse.success(v2PurchaseReceiptService.cancel(id));
     }

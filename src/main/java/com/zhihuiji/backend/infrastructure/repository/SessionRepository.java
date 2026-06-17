@@ -8,5 +8,6 @@ public interface SessionRepository extends JpaRepository<SessionEntity, Long> {
     Optional<SessionEntity> findByTokenAndIsActiveTrue(String token);
 
     Optional<SessionEntity> findByRefreshTokenAndIsActiveTrue(String refreshToken);
-}
 
+    long countByUserIdAndIsActiveTrue(Long userId);
+}

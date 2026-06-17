@@ -3,6 +3,7 @@ package com.zhihuiji.backend.api.controller.v2;
 import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.dto.v2.product.V2ProductDtos;
 import com.zhihuiji.backend.application.service.v2.V2ProductCategoryService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v2/product-categories")
+@RequireStorePermission("archives:view")
 public class V2ProductCategoryController {
     private final V2ProductCategoryService v2ProductCategoryService;
 
@@ -29,11 +31,13 @@ public class V2ProductCategoryController {
     }
 
     @PostMapping
+    @RequireStorePermission("archives:write")
     public ApiResponse<V2ProductDtos.CategoryResponse> create(@Valid @RequestBody V2ProductDtos.CategoryWriteRequest request) {
         return ApiResponse.success(v2ProductCategoryService.create(request));
     }
 
     @PutMapping("/{id}")
+    @RequireStorePermission("archives:write")
     public ApiResponse<V2ProductDtos.CategoryResponse> update(
         @PathVariable Long id,
         @Valid @RequestBody V2ProductDtos.CategoryWriteRequest request
@@ -42,6 +46,7 @@ public class V2ProductCategoryController {
     }
 
     @DeleteMapping("/{id}")
+    @RequireStorePermission("archives:write")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         v2ProductCategoryService.delete(id);
         return ApiResponse.success(null);

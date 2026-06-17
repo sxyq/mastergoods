@@ -3,6 +3,7 @@ package com.zhihuiji.backend.api.controller;
 import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.dto.report.ReportDto;
 import com.zhihuiji.backend.application.service.ReportService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v1/reports")
+@RequireStorePermission("reports:view")
 public class ReportController {
     private final ReportService reportService;
 

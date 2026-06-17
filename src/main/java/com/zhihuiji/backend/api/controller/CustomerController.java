@@ -4,6 +4,7 @@ import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.application.service.CustomerService;
 import com.zhihuiji.backend.domain.entity.CustomerEntity;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v1/customers")
+@RequireStorePermission("archives:view")
 public class CustomerController {
     private final CustomerService customerService;
 
@@ -40,16 +42,19 @@ public class CustomerController {
     }
 
     @PostMapping
+    @RequireStorePermission("archives:write")
     public ApiResponse<CustomerEntity> create(@Valid @RequestBody CustomerEntity payload) {
         return ApiResponse.success(customerService.create(payload));
     }
 
     @PutMapping("/{id}")
+    @RequireStorePermission("archives:write")
     public ApiResponse<CustomerEntity> update(@PathVariable Long id, @Valid @RequestBody CustomerEntity payload) {
         return ApiResponse.success(customerService.update(id, payload));
     }
 
     @DeleteMapping("/{id}")
+    @RequireStorePermission("archives:write")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         customerService.delete(id);
         return ApiResponse.success(null);

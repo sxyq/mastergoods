@@ -4,6 +4,7 @@ import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.application.service.SupplierService;
 import com.zhihuiji.backend.domain.entity.SupplierEntity;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v1/suppliers")
+@RequireStorePermission("archives:view")
 public class SupplierController {
     private final SupplierService supplierService;
 
@@ -41,16 +43,19 @@ public class SupplierController {
     }
 
     @PostMapping
+    @RequireStorePermission("archives:write")
     public ApiResponse<SupplierEntity> create(@Valid @RequestBody SupplierEntity payload) {
         return ApiResponse.success(supplierService.create(payload));
     }
 
     @PutMapping("/{id}")
+    @RequireStorePermission("archives:write")
     public ApiResponse<SupplierEntity> update(@PathVariable Long id, @Valid @RequestBody SupplierEntity payload) {
         return ApiResponse.success(supplierService.update(id, payload));
     }
 
     @DeleteMapping("/{id}")
+    @RequireStorePermission("archives:write")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         supplierService.delete(id);
         return ApiResponse.success(null);

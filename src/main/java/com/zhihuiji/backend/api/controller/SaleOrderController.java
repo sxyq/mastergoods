@@ -10,6 +10,7 @@ import com.zhihuiji.backend.application.service.SaleOrderService;
 import com.zhihuiji.backend.domain.entity.PaymentEntity;
 import com.zhihuiji.backend.domain.entity.SaleOrderEntity;
 import com.zhihuiji.backend.domain.entity.SaleOrderItemEntity;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import java.util.List;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
@@ -26,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v1/sale-orders")
+@RequireStorePermission("sales:view")
 public class SaleOrderController {
     private final SaleOrderService saleOrderService;
 
@@ -34,6 +36,7 @@ public class SaleOrderController {
     }
 
     @PostMapping
+    @RequireStorePermission("sales:write")
     public ApiResponse<SaleOrderDto> create(@Valid @RequestBody CreateRequest request) {
         List<SaleOrderService.SaleItemDraft> items = request.items().stream()
             .map(row -> new SaleOrderService.SaleItemDraft(row.productId(), row.quantity(), row.unitPrice()))
@@ -84,11 +87,13 @@ public class SaleOrderController {
     }
 
     @PutMapping({"/{id}", "/{id}/draft"})
+    @RequireStorePermission("sales:write")
     public ApiResponse<SaleOrderDto> updateDraft(@PathVariable Long id, @Valid @RequestBody UpdateDraftRequest request) {
         return ApiResponse.success(toDto(saleOrderService.updateDraft(id, request.discountAmount(), request.notes())));
     }
 
     @PostMapping("/{id}/payments")
+    @RequireStorePermission({"sales:write", "finance:write"})
     public ApiResponse<PaymentEntity> addPayment(@PathVariable Long id, @Valid @RequestBody PaymentRequest request) {
         return ApiResponse.success(saleOrderService.addPayment(id, request.amount(), request.method(), request.referenceNo()));
     }
@@ -99,6 +104,7 @@ public class SaleOrderController {
     }
 
     @PutMapping("/{id}/status")
+    @RequireStorePermission("sales:write")
     public ApiResponse<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody SaleOrderStatusRequest request) {
         saleOrderService.updateStatus(id, request.status());
         return ApiResponse.success(null);
@@ -114,6 +120,7 @@ public class SaleOrderController {
     }
 
     @PutMapping("/{id}/cancel")
+    @RequireStorePermission("sales:write")
     public ApiResponse<SaleOrderDto> cancel(@PathVariable Long id) {
         return ApiResponse.success(toDto(saleOrderService.cancel(id)));
     }

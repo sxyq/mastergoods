@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { roleDescriptions, roleLabels, rolePermissions, type StoreRole } from '@/entities/auth/roles'
-import { createAdminUser, fetchAdminUsers, updateAdminUser, type AdminUser } from '@/shared/api/client'
+import { createStoreMember, fetchStoreMembers, updateStoreMember, type StoreMemberRecord } from '@/shared/api/client'
 import { useSession } from '@/app/stores/session'
 
 interface AdminUserDraft {
@@ -23,15 +23,25 @@ const canManageApi = computed(() => isApiSource.value && session.hasPermission([
 const displayMembers = computed(() => session.localMembers.value)
 const enabledEmployees = computed(() => displayMembers.value.filter((member) => member.role !== 'OWNER' && member.status === 1).length)
 const disabledEmployees = computed(() => displayMembers.value.filter((member) => member.status === 0).length)
-const apiUsers = ref<AdminUser[]>([])
+const apiMembers = ref<StoreMemberRecord[]>([])
 const apiLoading = ref(false)
 const apiSearch = ref('')
 const apiDrafts = reactive<Record<number, AdminUserDraft>>({})
-const apiEnabledUsers = computed(() => apiUsers.value.filter((user) => user.status === 1).length)
-const apiDisabledUsers = computed(() => apiUsers.value.filter((user) => user.status !== 1).length)
-const apiActiveSessions = computed(() => apiUsers.value.reduce((sum, user) => sum + user.activeSessions, 0))
-const apiBoundUsers = computed(() => apiUsers.value.filter((user) => Boolean(session.getApiRoleBinding(user.id)) || user.id === session.userId.value).length)
-const apiUnboundUsers = computed(() => Math.max(apiUsers.value.length - apiBoundUsers.value, 0))
+const filteredApiMembers = computed(() => {
+  const keyword = apiSearch.value.trim()
+  if (!keyword) return apiMembers.value
+  return apiMembers.value.filter((member) =>
+    member.phone.includes(keyword)
+    || member.nickname.includes(keyword)
+    || member.title.includes(keyword)
+    || roleLabels[member.role].includes(keyword),
+  )
+})
+const apiEnabledUsers = computed(() => apiMembers.value.filter((user) => user.status === 1).length)
+const apiDisabledUsers = computed(() => apiMembers.value.filter((user) => user.status !== 1).length)
+const apiActiveSessions = computed(() => apiMembers.value.reduce((sum, user) => sum + user.activeSessions, 0))
+const apiManagerCount = computed(() => apiMembers.value.filter((user) => user.role === 'MANAGER').length)
+const apiStoreName = computed(() => session.member.value.storeName)
 const demoForm = reactive({
   phone: '13800000008',
   name: '新员工',
@@ -53,28 +63,24 @@ watch(
   async ([nextIsApi]) => {
     resetFeedback()
     if (!nextIsApi) {
-      apiUsers.value = []
+      apiMembers.value = []
       return
     }
-    await loadApiUsers()
+    await loadApiMembers()
   },
   { immediate: true },
 )
 
-async function loadApiUsers() {
+async function loadApiMembers() {
   if (!session.token.value) return
   apiLoading.value = true
   resetFeedback()
   try {
-    const users = await fetchAdminUsers(session.token.value, {
-      keyword: apiSearch.value.trim() || undefined,
-      page: 0,
-      size: 200,
-    })
-    apiUsers.value = [...users].sort((a, b) => b.updatedAt - a.updatedAt)
+    const users = await fetchStoreMembers(session.token.value)
+    apiMembers.value = [...users].sort((a, b) => b.updatedAt - a.updatedAt)
     syncApiDrafts()
   } catch (loadError) {
-    error.value = loadError instanceof Error ? loadError.message : '真实店员账号列表加载失败'
+    error.value = loadError instanceof Error ? loadError.message : '真实门店成员列表加载失败'
   } finally {
     apiLoading.value = false
   }
@@ -85,27 +91,25 @@ async function submitApiUser() {
   apiLoading.value = true
   resetFeedback()
   try {
-    const created = await createAdminUser(session.token.value, {
+    await createStoreMember(session.token.value, {
       phone: apiForm.phone.trim(),
       nickname: apiForm.nickname.trim(),
       password: apiForm.password.trim(),
-      status: apiForm.status,
-    })
-    session.updateApiRoleBinding(created.id, {
+      status: apiForm.status === 0 ? 0 : 1,
       role: apiForm.role,
       title: apiForm.title.trim() || roleLabels[apiForm.role],
-      status: apiForm.status === 1 ? 1 : 0,
     })
-    success.value = `真实店员账号「${apiForm.nickname}」已创建`
+    success.value = `门店成员「${apiForm.nickname}」已创建`
     apiForm.phone = nextApiPhone()
     apiForm.nickname = '新店员账号'
     apiForm.password = '123456'
     apiForm.status = 1
     apiForm.role = 'SALES'
     apiForm.title = '销售员工'
-    await loadApiUsers()
+    await loadApiMembers()
+    await session.refreshStoreContext()
   } catch (submitError) {
-    error.value = submitError instanceof Error ? submitError.message : '真实店员账号创建失败'
+    error.value = submitError instanceof Error ? submitError.message : '门店成员创建失败'
   } finally {
     apiLoading.value = false
   }
@@ -113,58 +117,55 @@ async function submitApiUser() {
 
 async function saveApiUser(userId: number) {
   if (!session.token.value) return
-  const user = apiUsers.value.find((item) => item.id === userId)
+  const user = apiMembers.value.find((item) => item.userId === userId)
   const draft = apiDrafts[userId]
   if (!user || !draft) return
   apiLoading.value = true
   resetFeedback()
   try {
-    await updateAdminUser(session.token.value, userId, {
+    await updateStoreMember(session.token.value, userId, {
       nickname: draft.nickname.trim() || user.nickname,
       password: draft.password.trim() || undefined,
       keepSessions: draft.keepSessions,
       status: user.status,
+      role: draft.role,
+      title: draft.title.trim() || roleLabels[draft.role],
     })
-    if (!isCurrentApiUser(user)) {
-      session.updateApiRoleBinding(userId, {
-        role: draft.role,
-        title: draft.title.trim() || roleLabels[draft.role],
-        status: user.status === 1 ? 1 : 0,
-      })
-    }
     draft.password = ''
     draft.keepSessions = false
-    success.value = `店员账号「${draft.nickname.trim() || user.nickname}」已更新`
-    await loadApiUsers()
+    success.value = `门店成员「${draft.nickname.trim() || user.nickname}」已更新`
+    await loadApiMembers()
+    if (userId === session.userId.value) {
+      await session.refreshStoreContext()
+    }
   } catch (submitError) {
-    error.value = submitError instanceof Error ? submitError.message : '真实店员账号更新失败'
+    error.value = submitError instanceof Error ? submitError.message : '门店成员更新失败'
   } finally {
     apiLoading.value = false
   }
 }
 
-async function toggleApiUserStatus(user: AdminUser) {
+async function toggleApiUserStatus(user: StoreMemberRecord) {
   if (!session.token.value) return
-  const draft = apiDrafts[user.id]
+  const draft = apiDrafts[user.userId]
   const nextStatus = user.status === 1 ? 0 : 1
   apiLoading.value = true
   resetFeedback()
   try {
-    await updateAdminUser(session.token.value, user.id, {
+    await updateStoreMember(session.token.value, user.userId, {
       nickname: draft?.nickname.trim() || user.nickname,
       status: nextStatus,
+      role: draft?.role ?? user.role,
+      title: draft?.title.trim() || user.title,
+      keepSessions: true,
     })
-    if (!isCurrentApiUser(user)) {
-      session.updateApiRoleBinding(user.id, {
-        role: draft?.role ?? apiRoleForUser(user).role,
-        title: draft?.title.trim() || apiRoleForUser(user).title,
-        status: nextStatus,
-      })
+    success.value = `成员「${user.nickname}」已${user.status === 1 ? '停用' : '启用'}`
+    await loadApiMembers()
+    if (user.userId === session.userId.value) {
+      await session.refreshStoreContext()
     }
-    success.value = `账号「${user.nickname}」已${user.status === 1 ? '停用' : '启用'}`
-    await loadApiUsers()
   } catch (submitError) {
-    error.value = submitError instanceof Error ? submitError.message : '账号状态更新失败'
+    error.value = submitError instanceof Error ? submitError.message : '成员状态更新失败'
   } finally {
     apiLoading.value = false
   }
@@ -215,41 +216,28 @@ function nextDemoPhone() {
 }
 
 function nextApiPhone() {
-  const maxSuffix = Math.max(...apiUsers.value.map((user) => Number(user.phone.slice(-2))).filter(Number.isFinite), 7)
+  const maxSuffix = Math.max(...apiMembers.value.map((user) => Number(user.phone.slice(-2))).filter(Number.isFinite), 7)
   return `138000000${String(maxSuffix + 1).padStart(2, '0')}`
 }
 
 function syncApiDrafts() {
-  const activeIds = new Set(apiUsers.value.map((user) => user.id))
+  const activeIds = new Set(apiMembers.value.map((user) => user.userId))
   Object.keys(apiDrafts).forEach((id) => {
     if (!activeIds.has(Number(id))) delete apiDrafts[Number(id)]
   })
-  apiUsers.value.forEach((user) => {
-    const binding = apiRoleForUser(user)
-    apiDrafts[user.id] = {
+  apiMembers.value.forEach((user) => {
+    apiDrafts[user.userId] = {
       nickname: user.nickname,
       password: '',
-      keepSessions: apiDrafts[user.id]?.keepSessions ?? false,
-      role: binding.role,
-      title: binding.title,
+      keepSessions: apiDrafts[user.userId]?.keepSessions ?? false,
+      role: user.role,
+      title: user.title,
     }
   })
 }
 
-function apiRoleForUser(user: AdminUser) {
-  if (isCurrentApiUser(user)) {
-    return { role: 'OWNER' as StoreRole, title: roleLabels.OWNER, status: 1 as 0 | 1 }
-  }
-  const binding = session.getApiRoleBinding(user.id)
-  return {
-    role: binding?.role ?? 'ASSISTANT',
-    title: binding?.title ?? roleLabels.ASSISTANT,
-    status: binding?.status ?? (user.status === 1 ? 1 : 0),
-  }
-}
-
-function isCurrentApiUser(user: AdminUser) {
-  return user.id === session.userId.value
+function isCurrentApiUser(user: StoreMemberRecord) {
+  return user.userId === session.userId.value
 }
 
 function resetFeedback() {
@@ -275,16 +263,16 @@ function formatDateTime(timestamp?: number | null) {
     <h2>店员与权限</h2>
     <p class="muted">
       {{ isApiSource
-        ? '当前已切到真实后端模式：本页已接上真实店员账号管理，底层对应 `/v1/admin/users`。账号启停与密码走后端，PC 角色先在 Web 侧绑定，用来控制菜单、页面和按钮权限；后端仍缺 store/member 级角色接口。'
+        ? '当前已切到真实后端模式：本页直接读写 `/v2/stores/current` 与 `/v2/stores/current/members`，店员、角色、岗位和权限都由后端统一保存。'
         : '当前 Web 提供完整 PC 端角色规划：一个店铺固定一个店长（总），多个员工按职责拥有不同菜单、页面和操作权限。' }}
     </p>
 
     <div class="rbac-summary">
       <template v-if="isApiSource">
         <article>
-          <span>真实店员账号</span>
-          <strong>{{ apiUsers.length }}</strong>
-          <small>来自 `/v1/admin/users`</small>
+          <span>门店成员</span>
+          <strong>{{ apiMembers.length }}</strong>
+          <small>{{ apiStoreName }}</small>
         </article>
         <article>
           <span>启用账号</span>
@@ -302,14 +290,9 @@ function formatDateTime(timestamp?: number | null) {
           <small>正在生效的登录会话</small>
         </article>
         <article>
-          <span>已绑定 PC 角色</span>
-          <strong>{{ apiBoundUsers }}</strong>
-          <small>含当前店长（总）账号</small>
-        </article>
-        <article>
-          <span>未绑定账号</span>
-          <strong>{{ apiUnboundUsers }}</strong>
-          <small>默认按只读助理展示</small>
+          <span>店长助理</span>
+          <strong>{{ apiManagerCount }}</strong>
+          <small>拥有用户管理权限的协同成员</small>
         </article>
       </template>
       <template v-else>
@@ -377,9 +360,9 @@ function formatDateTime(timestamp?: number | null) {
         <div class="member-toolbar">
           <label class="member-search">
             <span>搜索店员账号</span>
-            <input v-model="apiSearch" autocomplete="off" placeholder="手机号 / 昵称" @keyup.enter="loadApiUsers" />
+            <input v-model="apiSearch" autocomplete="off" placeholder="手机号 / 昵称 / 岗位 / 角色" />
           </label>
-          <button type="button" class="ghost-action" :disabled="apiLoading" @click="loadApiUsers">
+          <button type="button" class="ghost-action" :disabled="apiLoading" @click="loadApiMembers">
             {{ apiLoading ? '刷新中' : '刷新列表' }}
           </button>
         </div>
@@ -389,11 +372,11 @@ function formatDateTime(timestamp?: number | null) {
         <table>
           <thead>
             <tr>
-              <th>ID</th>
+              <th>用户ID</th>
               <th>手机号</th>
               <th>昵称</th>
               <th>状态</th>
-              <th>PC 角色</th>
+              <th>门店角色</th>
               <th>岗位</th>
               <th>活跃会话</th>
               <th>最近更新时间</th>
@@ -401,12 +384,12 @@ function formatDateTime(timestamp?: number | null) {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="user in apiUsers" :key="`api-${user.id}`">
-              <td>{{ user.id }}</td>
+            <tr v-for="user in filteredApiMembers" :key="`api-${user.userId}`">
+              <td>{{ user.userId }}</td>
               <td>{{ user.phone }}</td>
               <td>
                 <input
-                  v-model="apiDrafts[user.id].nickname"
+                  v-model="apiDrafts[user.userId].nickname"
                   class="table-input"
                   autocomplete="off"
                   :disabled="apiLoading || !canManageApi"
@@ -421,7 +404,7 @@ function formatDateTime(timestamp?: number | null) {
                 <strong v-if="isCurrentApiUser(user)">{{ roleLabels.OWNER }}</strong>
                 <select
                   v-else
-                  v-model="apiDrafts[user.id].role"
+                  v-model="apiDrafts[user.userId].role"
                   class="role-select"
                   :disabled="apiLoading || !canManageApi"
                 >
@@ -431,44 +414,44 @@ function formatDateTime(timestamp?: number | null) {
               <td>
                 <input
                   v-if="!isCurrentApiUser(user)"
-                  v-model="apiDrafts[user.id].title"
+                  v-model="apiDrafts[user.userId].title"
                   class="table-input"
                   autocomplete="off"
                   :disabled="apiLoading || !canManageApi"
                 />
-                <span v-else>{{ roleLabels.OWNER }}</span>
+                <span v-else>{{ user.title }}</span>
               </td>
               <td>{{ user.activeSessions }}</td>
               <td>{{ formatDateTime(user.updatedAt) }}</td>
               <td class="member-actions">
                 <input
-                  v-model="apiDrafts[user.id].password"
+                  v-model="apiDrafts[user.userId].password"
                   class="table-input"
                   autocomplete="new-password"
                   placeholder="留空不改密码"
                   :disabled="apiLoading || !canManageApi"
                 />
                 <label class="inline-check">
-                  <input v-model="apiDrafts[user.id].keepSessions" type="checkbox" :disabled="apiLoading || !canManageApi" />
+                  <input v-model="apiDrafts[user.userId].keepSessions" type="checkbox" :disabled="apiLoading || !canManageApi" />
                   <span>保留现有会话</span>
                 </label>
                 <div class="member-action-buttons">
-                  <button type="button" class="ghost-action" :disabled="apiLoading || !canManageApi" @click="saveApiUser(user.id)">保存</button>
-                  <button type="button" class="ghost-action" :disabled="apiLoading || !canManageApi" @click="toggleApiUserStatus(user)">
+                  <button type="button" class="ghost-action" :disabled="apiLoading || !canManageApi" @click="saveApiUser(user.userId)">保存</button>
+                  <button type="button" class="ghost-action" :disabled="apiLoading || !canManageApi || isCurrentApiUser(user)" @click="toggleApiUserStatus(user)">
                     {{ user.status === 1 ? '停用' : '启用' }}
                   </button>
                 </div>
               </td>
             </tr>
-            <tr v-if="apiUsers.length === 0">
-              <td colspan="9" class="empty-cell">当前没有符合条件的真实店员账号</td>
+            <tr v-if="filteredApiMembers.length === 0">
+              <td colspan="9" class="empty-cell">当前没有符合条件的真实门店成员</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <div class="form-success">
-        当前这张表已经把真实账号和 PC 角色权限联动起来；角色绑定保存在 Web 本地，用于当前 PC 管理端权限体验。真正跨设备、不可篡改的员工权限还需要后端补 store_memberships / permissions 接口。
+        当前这张表已经完全切到真实门店成员模型：角色、岗位、账号启停和密码重置都走后端，Web 与 Android 会共享同一份店员权限数据。
       </div>
     </template>
 

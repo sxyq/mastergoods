@@ -65,6 +65,8 @@ import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
+    canManageUsers: Boolean = true,
+    canManageDatabase: Boolean = true,
     onNavigateBack: () -> Unit = {},
     onNavigateToStaffManagement: () -> Unit = {},
 ) {
@@ -110,7 +112,12 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = Icons.Default.SupervisorAccount,
                         title = "店员与权限",
-                        trailing = if (uiState.isLoggedIn) "真实接口" else "待登录",
+                        trailing = when {
+                            !uiState.isLoggedIn -> "待登录"
+                            canManageUsers -> "真实接口"
+                            else -> "无权限"
+                        },
+                        enabled = uiState.isLoggedIn && canManageUsers,
                         onClick = onNavigateToStaffManagement,
                     )
                 }
@@ -121,15 +128,21 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = Icons.Default.CloudSync,
                         title = "同步设置",
-                        trailing = uiState.syncBadge.ifBlank { if (uiState.isSyncing) "同步中" else "实时同步" },
+                        trailing = if (canManageDatabase) {
+                            uiState.syncBadge.ifBlank { if (uiState.isSyncing) "同步中" else "实时同步" }
+                        } else {
+                            "无权限"
+                        },
                         isLoading = uiState.isSyncing,
+                        enabled = uiState.isLoggedIn && canManageDatabase,
                         onClick = viewModel::runSync,
                     )
                     GroupDivider()
                     SettingsRow(
                         icon = Icons.Default.ImportExport,
                         title = "数据导入导出",
-                        trailing = uiState.importStatus.shortSettingStatus(),
+                        trailing = if (canManageDatabase) uiState.importStatus.shortSettingStatus() else "无权限",
+                        enabled = uiState.isLoggedIn && canManageDatabase,
                         onClick = viewModel::refreshSyncStatus,
                     )
                 }
@@ -323,12 +336,13 @@ private fun SettingsRow(
     title: String,
     trailing: String? = null,
     isLoading: Boolean = false,
+    enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
-        onClick = onClick,
+        onClick = if (enabled) onClick else null,
         shape = RoundedCornerShape(0.dp),
         surfaceColor = Color.Transparent,
         contentPadding = 0.dp,
@@ -345,13 +359,13 @@ private fun SettingsRow(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(StatusBlueLight.copy(alpha = 0.52f)),
+                    .background(StatusBlueLight.copy(alpha = if (enabled) 0.52f else 0.22f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = ZhihuijiPrimary,
+                    tint = if (enabled) ZhihuijiPrimary else TextTertiary,
                     modifier = Modifier.size(18.dp),
                 )
             }
@@ -362,7 +376,7 @@ private fun SettingsRow(
                 fontSize = 16.sp,
                 lineHeight = 24.sp,
                 fontWeight = FontWeight.Medium,
-                color = TextPrimary,
+                color = if (enabled) TextPrimary else TextTertiary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -379,7 +393,7 @@ private fun SettingsRow(
                     fontSize = 12.sp,
                     lineHeight = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextTertiary,
+                    color = TextTertiary.copy(alpha = if (enabled) 1f else 0.72f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
@@ -392,7 +406,7 @@ private fun SettingsRow(
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = TextTertiary,
+                tint = TextTertiary.copy(alpha = if (enabled && onClick != null) 1f else 0.34f),
                 modifier = Modifier.size(22.dp),
             )
         }

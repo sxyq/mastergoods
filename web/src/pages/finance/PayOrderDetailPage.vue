@@ -28,6 +28,8 @@ import {
   formatDateTime,
   payOrderStatusLabel,
 } from '@/shared/utils/business'
+import PageEmptyState from '@/shared/ui/PageEmptyState.vue'
+import PageStatusBanner from '@/shared/ui/PageStatusBanner.vue'
 
 const route = useRoute()
 const session = useSession()
@@ -192,10 +194,14 @@ async function handleStatusChange(status: number) {
     submitting.value = false
   }
 }
+
+async function retryPage() {
+  await loadPage()
+}
 </script>
 
 <template>
-  <section class="business-page">
+  <section class="business-page pay-order-page stitch-inspired-page">
     <section class="screen-hero">
       <div>
         <p class="eyebrow">付款单 / Pay Orders</p>
@@ -204,11 +210,24 @@ async function handleStatusChange(status: number) {
       </div>
     </section>
 
-    <p v-if="!isApiSource" class="form-error">当前是演示模式。这一页只在真实登录后读取和写入付款单。</p>
-    <p v-else-if="error" class="form-error">{{ error }}</p>
-    <p v-else-if="success" class="form-success">{{ success }}</p>
+    <PageStatusBanner
+      v-if="!isApiSource"
+      tone="warning"
+      title="演示模式"
+      message="当前是演示模式。这一页只在真实登录后读取和写入付款单。"
+    />
+    <PageStatusBanner
+      v-else-if="error"
+      tone="error"
+      title="页面加载异常"
+      :message="error"
+      action-label="重新加载"
+      @action="retryPage"
+    />
+    <PageStatusBanner v-else-if="success" tone="success" title="操作成功" :message="success" />
+    <PageStatusBanner v-if="loading" tone="info" title="正在同步" message="正在加载付款单..." />
 
-    <section class="metrics-grid compact">
+    <section class="metrics-grid compact stitch-kpis">
       <article class="metric-card" data-tone="blue">
         <span>付款单数</span>
         <strong>{{ orders.length }}</strong>
@@ -296,12 +315,17 @@ async function handleStatusChange(status: number) {
         </div>
       </article>
 
-      <aside class="panel detail-panel">
+      <aside class="panel detail-panel pay-order-detail-panel">
         <p class="eyebrow">付款单详情</p>
         <h3>{{ selectedOrder?.orderNo || '请选择付款单' }}</h3>
 
         <div class="detail-stack">
           <article v-if="selectedOrder" class="detail-card">
+            <div class="pay-order-hero-card">
+              <span>付款金额 (CNY)</span>
+              <strong>{{ formatCurrency(selectedOrder.amount) }}</strong>
+              <p>{{ payOrderStatusLabel(selectedOrder.status) }} / {{ selectedOrder.orderNo }}</p>
+            </div>
             <dl class="detail-list">
               <div>
                 <dt>供应商</dt>
@@ -352,6 +376,8 @@ async function handleStatusChange(status: number) {
               </button>
             </div>
           </article>
+
+          <PageEmptyState v-else title="暂无付款单详情" message="请从左侧选择一张付款单。" />
 
           <article class="detail-card">
             <p class="eyebrow">新建付款单</p>

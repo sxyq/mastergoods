@@ -122,12 +122,13 @@ export const endpointCatalog = {
     api('POST', '/v1/admin/migration/import-legacy', '管理员触发旧库导入', 'database:manage', ['import_jobs']),
   ],
   rbac: [
-    api('GET', '/v1/admin/users', '当前已接入：读取真实登录账号列表；PC 角色暂由 Web 本地绑定', 'users:manage', ['users', 'sessions']),
-    api('POST', '/v1/admin/users', '当前已接入：创建真实店员登录账号', 'users:manage', ['users']),
-    api('PUT', '/v1/admin/users/{id}', '当前已接入：修改昵称、密码、启停状态和会话保留策略', 'users:manage', ['users', 'sessions']),
-    api('GET', '/v2/stores/current/members', '后端待补：读取店铺成员、角色和权限，实现跨设备 RBAC', 'users:manage', ['store_memberships', 'users']),
-    api('POST', '/v2/stores/current/members', '后端待补：邀请或创建员工并绑定门店角色', 'users:manage', ['store_memberships', 'users']),
-    api('PUT', '/v2/stores/current/members/{id}', '后端待补：调整员工角色、状态和数据权限', 'users:manage', ['store_memberships']),
+    api('GET', '/v1/admin/users', '兼容旧的真实登录账号管理入口；当前门店成员主入口已切到 /v2/stores/current/members', 'users:manage', ['users', 'sessions']),
+    api('POST', '/v1/admin/users', '兼容旧的真实登录账号创建入口', 'users:manage', ['users']),
+    api('PUT', '/v1/admin/users/{id}', '兼容旧的昵称、密码、启停状态与会话保留策略更新入口', 'users:manage', ['users', 'sessions']),
+    api('GET', '/v2/stores/current', '读取当前门店、当前成员身份、角色和权限', 'users:manage', ['stores', 'store_memberships']),
+    api('GET', '/v2/stores/current/members', '读取店铺成员、角色、岗位、权限与会话数量', 'users:manage', ['stores', 'store_memberships', 'users']),
+    api('POST', '/v2/stores/current/members', '创建员工账号并绑定门店角色', 'users:manage', ['stores', 'store_memberships', 'users']),
+    api('PUT', '/v2/stores/current/members/{id}', '调整员工昵称、角色、状态、密码与会话保留策略', 'users:manage', ['stores', 'store_memberships', 'users']),
   ],
 }
 

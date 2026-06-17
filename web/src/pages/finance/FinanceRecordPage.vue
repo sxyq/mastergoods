@@ -36,6 +36,7 @@ const queryRecordId = computed(() => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null
 })
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
+const canWrite = computed(() => session.hasPermission(['finance:write']))
 const selectedRecord = computed(() => records.value.find((item) => item.id === selectedRecordId.value) ?? records.value[0] ?? null)
 const totalIncome = computed(() => records.value.filter((item) => item.type === FINANCE_INCOME).reduce((sum, item) => sum + item.amount, 0))
 const totalExpense = computed(() => records.value.filter((item) => item.type === FINANCE_EXPENSE).reduce((sum, item) => sum + item.amount, 0))
@@ -88,7 +89,7 @@ async function loadPage() {
         <p>对齐安卓端资金流水页，读取真实财务记录与资金账户，并承接日常支出录入入口。</p>
       </div>
       <div class="hero-actions">
-        <button type="button" :disabled="!isApiSource" @click="router.push('/finance/daily-expense')">记录支出</button>
+        <button type="button" :disabled="!isApiSource || !canWrite" @click="router.push('/finance/daily-expense')">记录支出</button>
       </div>
     </section>
 

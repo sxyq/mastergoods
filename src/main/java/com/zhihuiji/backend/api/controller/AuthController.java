@@ -2,6 +2,7 @@ package com.zhihuiji.backend.api.controller;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.application.service.AuthService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.validation.annotation.Validated;
@@ -53,6 +54,7 @@ public class AuthController {
     }
 
     @GetMapping("/users/me")
+    @RequireStorePermission("dashboard:view")
     public ApiResponse<AuthService.UserProfile> me(@RequestHeader("Authorization") String authorization) {
         return ApiResponse.success(authService.me(extractBearerToken(authorization)));
     }

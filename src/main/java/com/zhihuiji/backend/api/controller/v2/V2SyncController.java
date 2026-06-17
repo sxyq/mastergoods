@@ -3,6 +3,7 @@ package com.zhihuiji.backend.api.controller.v2;
 import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.dto.v2.sync.V2SyncDtos;
 import com.zhihuiji.backend.application.service.v2.V2SyncService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v2/sync")
+@RequireStorePermission("database:manage")
 public class V2SyncController {
     private final V2SyncService v2SyncService;
 

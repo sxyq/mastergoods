@@ -43,7 +43,12 @@ const amountLabel = computed(() => (isCustomer.value ? '应收余额' : '应付�
 const partnerLabel = computed(() => (isCustomer.value ? '客户' : '供应商'))
 const statusLabel = computed(() => (isCustomer.value ? '待跟进客户' : '待跟进供应商'))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
-const canWrite = computed(() => session.hasPermission(['archives:write']))
+const canWrite = computed(() => {
+  if (session.hasPermission(['archives:write'])) return true
+  return isCustomer.value
+    ? session.hasPermission(['sales:write'])
+    : session.hasPermission(['purchase:write'])
+})
 
 const records = ref<DirectoryRecord[]>([])
 const groups = ref<PartnerGroupRecord[]>([])

@@ -2,7 +2,8 @@ package com.zhihuiji.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.zhihuiji.core.model.AdminUser
+import com.zhihuiji.core.model.CurrentStoreProfile
+import com.zhihuiji.core.model.StoreStaffMember
 import com.zhihuiji.data.auth.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,12 +19,15 @@ data class StaffManagementUiState(
     val error: String? = null,
     val success: String? = null,
     val searchKeyword: String = "",
-    val staffMembers: List<AdminUser> = emptyList(),
+    val currentStore: CurrentStoreProfile? = null,
+    val staffMembers: List<StoreStaffMember> = emptyList(),
     val createPhone: String = "",
     val createNickname: String = "",
     val createPassword: String = "",
+    val createRole: String = "SALES",
+    val createTitle: String = "销售员工",
     val createStatus: Int = 1,
-    val backendModeNote: String = "当前真实接口对应 `/v1/admin/users`，先承接真实账号/店员管理；store/member 级角色绑定仍待后端补齐。",
+    val backendModeNote: String = "当前真实接口已切到 `/v2/stores/current` 与 `/v2/stores/current/members`，店员、角色、岗位与权限拦截统一由后端保存并执行。",
 )
 
 @HiltViewModel
@@ -54,6 +58,23 @@ class StaffManagementViewModel @Inject constructor(
         _uiState.update { it.copy(createPassword = value) }
     }
 
+    fun updateCreateRole(value: String) {
+        _uiState.update {
+            it.copy(
+                createRole = value,
+                createTitle = if (it.createTitle.isBlank() || it.createTitle == defaultTitleForRole(it.createRole)) {
+                    defaultTitleForRole(value)
+                } else {
+                    it.createTitle
+                },
+            )
+        }
+    }
+
+    fun updateCreateTitle(value: String) {
+        _uiState.update { it.copy(createTitle = value) }
+    }
+
     fun updateCreateStatus(value: Int) {
         _uiState.update { it.copy(createStatus = value) }
     }
@@ -62,17 +83,27 @@ class StaffManagementViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, success = null) }
             val state = _uiState.value
-            authRepository.fetchAdminUsers(
-                keyword = state.searchKeyword.trim().ifBlank { null },
-                page = 0,
-                size = 200,
-            ).fold(
+            val storeResult = authRepository.fetchCurrentStore()
+            val membersResult = authRepository.fetchStoreMembers()
+            val currentStore = storeResult.getOrNull()
+            membersResult.fold(
                 onSuccess = { users ->
+                    val filtered = users
+                        .sortedByDescending(StoreStaffMember::updatedAt)
+                        .filter { member ->
+                            val keyword = state.searchKeyword.trim()
+                            keyword.isBlank()
+                                || member.phone.contains(keyword)
+                                || member.nickname.contains(keyword)
+                                || member.title.contains(keyword)
+                                || member.role.contains(keyword, ignoreCase = true)
+                        }
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            staffMembers = users.sortedByDescending(AdminUser::updatedAt),
-                            error = null,
+                            currentStore = currentStore,
+                            staffMembers = filtered,
+                            error = storeResult.exceptionOrNull()?.message,
                         )
                     }
                 },
@@ -80,6 +111,7 @@ class StaffManagementViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
+                            currentStore = currentStore,
                             error = throwable.message ?: "真实店员列表读取失败",
                         )
                     }
@@ -99,10 +131,12 @@ class StaffManagementViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null, success = null) }
-            authRepository.createAdminUser(
+            authRepository.createStoreMember(
                 phone = phone,
                 nickname = nickname,
                 password = password,
+                role = state.createRole,
+                title = state.createTitle.trim().ifBlank { defaultTitleForRole(state.createRole) },
                 status = state.createStatus,
             ).fold(
                 onSuccess = { user ->
@@ -112,6 +146,8 @@ class StaffManagementViewModel @Inject constructor(
                             createPhone = nextPhone(it.staffMembers),
                             createNickname = "",
                             createPassword = "",
+                            createRole = "SALES",
+                            createTitle = "销售员工",
                             createStatus = 1,
                             success = "真实店员“${user.nickname}”已创建",
                             error = null,
@@ -131,13 +167,15 @@ class StaffManagementViewModel @Inject constructor(
         }
     }
 
-    fun saveUser(user: AdminUser, nickname: String, password: String, keepSessions: Boolean) {
+    fun saveUser(user: StoreStaffMember, nickname: String, password: String, role: String, title: String, keepSessions: Boolean) {
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null, success = null) }
-            authRepository.updateAdminUser(
+            authRepository.updateStoreMember(
                 userId = user.id,
                 nickname = nickname.trim().ifBlank { user.nickname },
                 password = password.trim().ifBlank { null },
+                role = role,
+                title = title.trim().ifBlank { defaultTitleForRole(role) },
                 status = user.status,
                 keepSessions = keepSessions,
             ).fold(
@@ -163,14 +201,16 @@ class StaffManagementViewModel @Inject constructor(
         }
     }
 
-    fun toggleUserStatus(user: AdminUser, nickname: String? = null) {
+    fun toggleUserStatus(user: StoreStaffMember, nickname: String? = null, role: String = user.role, title: String = user.title) {
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null, success = null) }
             val nextStatus = if (user.status == 1) 0 else 1
-            authRepository.updateAdminUser(
+            authRepository.updateStoreMember(
                 userId = user.id,
                 nickname = nickname?.trim().takeUnless { it.isNullOrBlank() } ?: user.nickname,
                 password = null,
+                role = role,
+                title = title,
                 status = nextStatus,
                 keepSessions = true,
             ).fold(
@@ -200,7 +240,7 @@ class StaffManagementViewModel @Inject constructor(
         _uiState.update { it.copy(error = null, success = null) }
     }
 
-    private fun nextPhone(users: List<AdminUser>): String {
+    private fun nextPhone(users: List<StoreStaffMember>): String {
         val maxSuffix = users
             .mapNotNull { user -> user.phone.takeLast(2).toIntOrNull() }
             .maxOrNull()
@@ -208,3 +248,14 @@ class StaffManagementViewModel @Inject constructor(
         return "138000000${(maxSuffix + 1).toString().padStart(2, '0')}"
     }
 }
+
+internal fun defaultTitleForRole(role: String): String =
+    when (role) {
+        "MANAGER" -> "店长助理"
+        "SALES" -> "销售员工"
+        "PURCHASING" -> "采购员工"
+        "WAREHOUSE" -> "仓库员工"
+        "FINANCE" -> "财务员工"
+        "ASSISTANT" -> "AI/只读助理"
+        else -> "店员"
+    }

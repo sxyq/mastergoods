@@ -38,6 +38,21 @@ interface ZhihuijiApi {
         @Body body: UpdateAdminUserRequest,
     ): ApiResponse<AdminUser>
 
+    @GET("v2/stores/current")
+    suspend fun currentStore(): ApiResponse<CurrentStoreProfile>
+
+    @GET("v2/stores/current/members")
+    suspend fun storeMembers(): ApiResponse<List<StoreStaffMember>>
+
+    @POST("v2/stores/current/members")
+    suspend fun createStoreMember(@Body body: CreateStoreStaffMemberRequest): ApiResponse<StoreStaffMember>
+
+    @PUT("v2/stores/current/members/{userId}")
+    suspend fun updateStoreMember(
+        @Path("userId") userId: Long,
+        @Body body: UpdateStoreStaffMemberRequest,
+    ): ApiResponse<StoreStaffMember>
+
     @GET("v1/products")
     suspend fun products(@Query("keyword") keyword: String? = null): ApiResponse<List<ProductDto>>
 

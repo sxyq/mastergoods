@@ -6,6 +6,7 @@ import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.api.dto.FinanceRecordDto;
 import com.zhihuiji.backend.application.service.FinanceRecordService;
 import com.zhihuiji.backend.domain.entity.FinanceRecordEntity;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import java.util.List;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v1/finance-records")
+@RequireStorePermission("finance:view")
 public class FinanceRecordController {
     private final FinanceRecordService financeRecordService;
 
@@ -42,6 +44,7 @@ public class FinanceRecordController {
     }
 
     @PostMapping
+    @RequireStorePermission("finance:write")
     public ApiResponse<FinanceRecordDto> create(@Valid @RequestBody CreateRequest request) {
         FinanceRecordEntity created = financeRecordService.create(
             new FinanceRecordService.CreateCommand(

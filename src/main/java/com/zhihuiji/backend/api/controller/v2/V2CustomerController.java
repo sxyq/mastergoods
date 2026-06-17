@@ -4,6 +4,7 @@ import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.api.dto.v2.partner.V2PartnerDtos;
 import com.zhihuiji.backend.application.service.v2.V2CustomerService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v2/customers")
+@RequireStorePermission("archives:view")
 public class V2CustomerController {
     private final V2CustomerService v2CustomerService;
 
@@ -46,11 +48,13 @@ public class V2CustomerController {
     }
 
     @PostMapping
+    @RequireStorePermission("archives:write")
     public ApiResponse<V2PartnerDtos.CustomerResponse> create(@Valid @RequestBody V2PartnerDtos.CustomerWriteRequest request) {
         return ApiResponse.success(v2CustomerService.create(request));
     }
 
     @PutMapping("/{id}")
+    @RequireStorePermission("archives:write")
     public ApiResponse<V2PartnerDtos.CustomerResponse> update(
         @PathVariable Long id,
         @Valid @RequestBody V2PartnerDtos.CustomerWriteRequest request
@@ -59,6 +63,7 @@ public class V2CustomerController {
     }
 
     @DeleteMapping("/{id}")
+    @RequireStorePermission("archives:write")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         v2CustomerService.delete(id);
         return ApiResponse.success(null);

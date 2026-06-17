@@ -27,6 +27,7 @@ const success = ref('')
 const searchKeyword = ref('')
 
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
+const canWrite = computed(() => session.hasPermission(['inventory:write']))
 const snapshotDate = todayStartAt()
 const snapshotMap = computed(() => new Map(snapshots.value.map((item) => [item.productId, item])))
 const filteredProducts = computed(() => {
@@ -121,7 +122,7 @@ async function createAllSnapshots() {
         <p>基于真实商品与 `/v2/inventory/snapshots` 生成当日库存快照，作为 PC 端盘点结果基线。</p>
       </div>
       <div class="hero-actions">
-        <button type="button" :disabled="!isApiSource || submitting" @click="createAllSnapshots">批量生成今日快照</button>
+        <button type="button" :disabled="!isApiSource || !canWrite || submitting" @click="createAllSnapshots">批量生成今日快照</button>
       </div>
     </section>
 
@@ -186,7 +187,7 @@ async function createAllSnapshots() {
                 <button
                   type="button"
                   class="ghost-action"
-                  :disabled="submitting || !isApiSource"
+                  :disabled="submitting || !isApiSource || !canWrite"
                   @click="createSnapshotForProduct(product.id)"
                 >
                   {{ snapshotMap.has(product.id) ? '刷新快照' : '生成快照' }}

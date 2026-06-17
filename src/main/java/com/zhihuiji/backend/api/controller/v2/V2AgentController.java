@@ -4,6 +4,7 @@ import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
 import com.zhihuiji.backend.application.service.v2.V2AgentAiService;
 import com.zhihuiji.backend.application.service.v2.V2AgentConversationService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -32,6 +33,7 @@ public class V2AgentController {
     }
 
     @GetMapping("/conversations")
+    @RequireStorePermission("agent:view")
     public ApiResponse<List<V2AgentDtos.AgentConversationResponse>> listConversations(
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "limit", required = false) Integer limit
@@ -40,11 +42,13 @@ public class V2AgentController {
     }
 
     @GetMapping("/conversations/{id}")
+    @RequireStorePermission("agent:view")
     public ApiResponse<V2AgentDtos.AgentConversationResponse> getConversation(@PathVariable Long id) {
         return ApiResponse.success(v2AgentConversationService.getConversation(id));
     }
 
     @PostMapping("/conversations")
+    @RequireStorePermission("agent:write")
     public ApiResponse<V2AgentDtos.AgentConversationResponse> createConversation(
         @Valid @RequestBody V2AgentDtos.AgentConversationCreateRequest request
     ) {
@@ -52,6 +56,7 @@ public class V2AgentController {
     }
 
     @PutMapping("/conversations/{id}")
+    @RequireStorePermission("agent:write")
     public ApiResponse<V2AgentDtos.AgentConversationResponse> updateConversation(
         @PathVariable Long id,
         @Valid @RequestBody V2AgentDtos.AgentConversationUpdateRequest request
@@ -60,12 +65,14 @@ public class V2AgentController {
     }
 
     @DeleteMapping("/conversations/{id}")
+    @RequireStorePermission("agent:write")
     public ApiResponse<Void> deleteConversation(@PathVariable Long id) {
         v2AgentConversationService.deleteConversation(id);
         return ApiResponse.success(null);
     }
 
     @GetMapping("/conversations/{conversationId}/messages")
+    @RequireStorePermission("agent:view")
     public ApiResponse<List<V2AgentDtos.AgentMessageResponse>> listMessages(
         @PathVariable Long conversationId,
         @RequestParam(value = "page", required = false) Integer page,
@@ -75,6 +82,7 @@ public class V2AgentController {
     }
 
     @PostMapping("/conversations/{conversationId}/messages")
+    @RequireStorePermission("agent:write")
     public ApiResponse<V2AgentDtos.AgentMessageResponse> createMessage(
         @PathVariable Long conversationId,
         @Valid @RequestBody V2AgentDtos.AgentMessageCreateRequest request
@@ -83,6 +91,7 @@ public class V2AgentController {
     }
 
     @GetMapping("/drafts")
+    @RequireStorePermission("agent:view")
     public ApiResponse<List<V2AgentDtos.AgentDraftResponse>> listDrafts(
         @RequestParam(value = "conversation_id", required = false) Long conversationId,
         @RequestParam(value = "page", required = false) Integer page,
@@ -92,11 +101,13 @@ public class V2AgentController {
     }
 
     @PostMapping("/drafts")
+    @RequireStorePermission("agent:write")
     public ApiResponse<V2AgentDtos.AgentDraftResponse> createDraft(@Valid @RequestBody V2AgentDtos.AgentDraftCreateRequest request) {
         return ApiResponse.success(v2AgentConversationService.createDraft(request));
     }
 
     @PutMapping("/drafts/{id}")
+    @RequireStorePermission("agent:write")
     public ApiResponse<V2AgentDtos.AgentDraftResponse> updateDraft(
         @PathVariable Long id,
         @Valid @RequestBody V2AgentDtos.AgentDraftUpdateRequest request
@@ -105,22 +116,26 @@ public class V2AgentController {
     }
 
     @DeleteMapping("/drafts/{id}")
+    @RequireStorePermission("agent:write")
     public ApiResponse<Void> deleteDraft(@PathVariable Long id) {
         v2AgentConversationService.deleteDraft(id);
         return ApiResponse.success(null);
     }
 
     @GetMapping("/workbench")
+    @RequireStorePermission("agent:view")
     public ApiResponse<V2AgentDtos.AgentWorkbenchResponse> getWorkbench() {
         return ApiResponse.success(v2AgentAiService.getWorkbench());
     }
 
     @GetMapping("/tasks")
+    @RequireStorePermission("agent:view")
     public ApiResponse<List<V2AgentDtos.AgentTaskResponse>> listTasks() {
         return ApiResponse.success(v2AgentAiService.listTasks());
     }
 
     @GetMapping("/notifications")
+    @RequireStorePermission("agent:view")
     public ApiResponse<List<V2AgentDtos.AgentNotificationResponse>> listNotifications(
         @RequestParam(value = "unread_only", required = false) Boolean unreadOnly
     ) {
@@ -128,26 +143,31 @@ public class V2AgentController {
     }
 
     @PostMapping("/notifications/{id}/read")
+    @RequireStorePermission("agent:write")
     public ApiResponse<V2AgentDtos.AgentNotificationResponse> markNotificationRead(@PathVariable Long id) {
         return ApiResponse.success(v2AgentAiService.markNotificationRead(id));
     }
 
     @PostMapping("/chat")
+    @RequireStorePermission("agent:write")
     public ApiResponse<V2AgentDtos.AgentChatResponse> chat(@Valid @RequestBody V2AgentDtos.AgentChatRequest request) {
         return ApiResponse.success(v2AgentAiService.chat(request));
     }
 
     @PostMapping(value = "/chat/stream", produces = "text/event-stream")
+    @RequireStorePermission("agent:write")
     public SseEmitter chatStream(@Valid @RequestBody V2AgentDtos.AgentChatRequest request) {
         return v2AgentAiService.chatStream(request);
     }
 
     @PostMapping("/runs/{runId}/cancel")
+    @RequireStorePermission("agent:write")
     public ApiResponse<V2AgentDtos.AgentRunCancelResponse> cancelRun(@PathVariable String runId) {
         return ApiResponse.success(v2AgentAiService.cancelRun(runId));
     }
 
     @GetMapping("/runs/{runId}/audit")
+    @RequireStorePermission("agent:view")
     public ApiResponse<V2AgentDtos.AgentRunAuditResponse> getRunAudit(@PathVariable String runId) {
         return ApiResponse.success(v2AgentAiService.getRunAudit(runId));
     }

@@ -3,38 +3,59 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSession } from '@/app/stores/session'
 import { fetchPurchaseOrders, type PurchaseOrder } from '@/shared/api/client'
-import { sameEntityId, type EntityId } from '@/shared/utils/id'
+import { type EntityId } from '@/shared/utils/id'
 import {
   formatCurrency,
   formatDateTime,
   purchaseOrderStatusLabel,
   purchasePaymentStatus,
   purchaseReceiptStatus,
+  SALE_CANCELLED,
+  SALE_COMPLETED,
   SALE_DRAFT,
 } from '@/shared/utils/business'
+
+type PurchaseListTab = 'all' | 'draft' | 'receipt' | 'pay' | 'completed' | 'cancelled'
 
 const router = useRouter()
 const session = useSession()
 
-const orders = ref<PurchaseOrder[]>([])
+const rawOrders = ref<PurchaseOrder[]>([])
 const loading = ref(false)
 const error = ref('')
 const searchKeyword = ref('')
-const statusFilter = ref('all')
-const selectedOrderId = ref<EntityId | null>(null)
+const activeTab = ref<PurchaseListTab>('all')
+const pageSize = ref(10)
+const currentPage = ref(1)
 
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canWrite = computed(() => session.hasPermission(['purchase:write']))
-const selectedOrder = computed(() => orders.value.find((item) => sameEntityId(item.id, selectedOrderId.value)) ?? orders.value[0] ?? null)
-const pendingReceiptCount = computed(() => orders.value.filter((item) => purchaseReceiptStatus(item.totalAmount, item.receivedAmount, item.status) !== '已入库').length)
-const payableAmount = computed(() => orders.value.reduce((sum, item) => sum + Math.max(item.totalAmount - item.paidAmount, 0), 0))
-const totalAmount = computed(() => orders.value.reduce((sum, item) => sum + item.totalAmount, 0))
+const displayedOrders = computed(() => rawOrders.value.filter(matchesActiveTab))
+const payableAmount = computed(() => displayedOrders.value.reduce((sum, item) => sum + Math.max(item.totalAmount - item.paidAmount, 0), 0))
+const totalAmount = computed(() => displayedOrders.value.reduce((sum, item) => sum + item.totalAmount, 0))
+const totalPages = computed(() => Math.max(1, Math.ceil(displayedOrders.value.length / pageSize.value)))
+const pagedOrders = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return displayedOrders.value.slice(start, start + pageSize.value)
+})
+const pageStart = computed(() => (displayedOrders.value.length === 0 ? 0 : (currentPage.value - 1) * pageSize.value + 1))
+const pageEnd = computed(() => Math.min(currentPage.value * pageSize.value, displayedOrders.value.length))
+
+const statusTabs = computed(() => [
+  { key: 'all' as const, label: '全部', count: rawOrders.value.length },
+  { key: 'draft' as const, label: '待审核', count: rawOrders.value.filter((item) => item.status === SALE_DRAFT).length },
+  { key: 'receipt' as const, label: '待入库', count: rawOrders.value.filter(isPendingReceipt).length },
+  { key: 'pay' as const, label: '待付款', count: rawOrders.value.filter(isPendingPay).length },
+  { key: 'completed' as const, label: '已完成', count: rawOrders.value.filter(isCompleted).length },
+  { key: 'cancelled' as const, label: '已作废', count: rawOrders.value.filter((item) => item.status === SALE_CANCELLED).length },
+])
 
 watch(
-  [() => session.source.value, () => session.token.value, searchKeyword, statusFilter],
+  [() => session.source.value, () => session.token.value, searchKeyword],
   async () => {
+    currentPage.value = 1
     if (!isApiSource.value || !session.token.value) {
-      orders.value = []
+      rawOrders.value = []
       error.value = ''
       return
     }
@@ -43,25 +64,46 @@ watch(
   { immediate: true },
 )
 
+watch([activeTab, pageSize], () => {
+  currentPage.value = 1
+})
+
 async function loadOrders() {
   if (!session.token.value) return
   loading.value = true
   error.value = ''
   try {
-    orders.value = await fetchPurchaseOrders(session.token.value, {
+    rawOrders.value = await fetchPurchaseOrders(session.token.value, {
       keyword: searchKeyword.value.trim() || undefined,
-      status: statusFilter.value === 'all' ? undefined : Number(statusFilter.value),
       page: 0,
       size: 200,
     })
-    if (!orders.value.some((item) => sameEntityId(item.id, selectedOrderId.value))) {
-      selectedOrderId.value = orders.value[0]?.id ?? null
-    }
   } catch (loadErr) {
     error.value = loadErr instanceof Error ? loadErr.message : '采购单加载失败'
   } finally {
     loading.value = false
   }
+}
+
+function matchesActiveTab(order: PurchaseOrder) {
+  if (activeTab.value === 'draft') return order.status === SALE_DRAFT
+  if (activeTab.value === 'receipt') return isPendingReceipt(order)
+  if (activeTab.value === 'pay') return isPendingPay(order)
+  if (activeTab.value === 'completed') return isCompleted(order)
+  if (activeTab.value === 'cancelled') return order.status === SALE_CANCELLED
+  return true
+}
+
+function isPendingReceipt(order: PurchaseOrder) {
+  return order.status !== SALE_CANCELLED && order.receivedAmount < order.totalAmount
+}
+
+function isPendingPay(order: PurchaseOrder) {
+  return order.status !== SALE_CANCELLED && order.paidAmount < order.totalAmount
+}
+
+function isCompleted(order: PurchaseOrder) {
+  return order.status === SALE_COMPLETED || (order.totalAmount > 0 && order.receivedAmount >= order.totalAmount && order.paidAmount >= order.totalAmount)
 }
 
 function openCreate() {
@@ -80,181 +122,171 @@ function openReceipts(orderId?: EntityId) {
   router.push({ path: '/documents/purchase-receipts', query: orderId ? { orderId: String(orderId) } : undefined })
 }
 
-function openReturns(orderId?: EntityId) {
-  router.push({ path: '/documents/purchase-returns', query: orderId ? { orderId: String(orderId) } : undefined })
+function openPayOrders(orderId?: EntityId) {
+  router.push({ path: '/documents/pay-orders/detail', query: orderId ? { purchaseOrderId: String(orderId) } : undefined })
 }
 
-function openPayOrders() {
-  router.push('/documents/pay-orders/detail')
+function orderTone(order: PurchaseOrder) {
+  if (order.status === SALE_CANCELLED) return 'cancelled'
+  if (order.status === SALE_DRAFT) return 'draft'
+  if (isCompleted(order)) return 'done'
+  return 'running'
+}
+
+function payTone(order: PurchaseOrder) {
+  if (order.status === SALE_CANCELLED) return 'cancelled'
+  if (order.paidAmount <= 0) return 'pending'
+  if (order.paidAmount < order.totalAmount) return 'running'
+  return 'done'
+}
+
+function setPage(page: number) {
+  currentPage.value = Math.min(Math.max(page, 1), totalPages.value)
 }
 </script>
 
 <template>
-  <section class="business-page">
-    <section class="screen-hero">
-      <div>
-        <p class="eyebrow">采购单 / Purchase Orders</p>
-        <h2>采购单列表专页</h2>
-        <p>按真实采购单、入库进度与付款进度组织列表，承接采购入库与采购退货专页入口。</p>
+  <section class="pc-list-page purchase-list-page">
+    <header class="pc-list-titlebar">
+      <div class="pc-breadcrumb">
+        <span>采购管理</span>
+        <span class="material-symbols-outlined">chevron_right</span>
+        <h1>采购单</h1>
       </div>
-      <div class="hero-actions">
-        <button type="button" :disabled="!canWrite || !isApiSource" @click="openCreate">新建采购单</button>
-        <button type="button" :disabled="!isApiSource" @click="openReceipts(selectedOrder?.id)">采购入库</button>
-        <button type="button" class="ghost-action" :disabled="!isApiSource" @click="openReturns(selectedOrder?.id)">采购退货</button>
-        <button type="button" class="ghost-action" :disabled="!isApiSource" @click="openPayOrders">处理付款</button>
+      <div class="pc-title-actions">
+        <button type="button" class="pc-icon-action" aria-label="通知">
+          <span class="material-symbols-outlined">notifications</span>
+          <i></i>
+        </button>
+        <button type="button" class="pc-primary-action" :disabled="!canWrite || !isApiSource" @click="openCreate">
+          <span class="material-symbols-outlined">add</span>
+          新建采购单
+        </button>
       </div>
-    </section>
+    </header>
 
     <p v-if="!isApiSource" class="form-error">当前是演示模式。这一页只在真实登录后加载采购单。</p>
     <p v-else-if="error" class="form-error">{{ error }}</p>
     <p v-else-if="loading" class="form-success">正在加载真实采购单...</p>
 
-    <section class="metrics-grid compact">
-      <article class="metric-card" data-tone="blue">
-        <span>采购单数</span>
-        <strong>{{ orders.length }}</strong>
-        <p>{{ orders.filter((item) => item.status === SALE_DRAFT).length }} 单草稿</p>
-      </article>
-      <article class="metric-card" data-tone="orange">
-        <span>待入库</span>
-        <strong>{{ pendingReceiptCount }}</strong>
-        <p>仍未完成入库的采购单</p>
-      </article>
-      <article class="metric-card" data-tone="green">
-        <span>待付款</span>
-        <strong>{{ formatCurrency(payableAmount) }}</strong>
-        <p>累计采购金额 {{ formatCurrency(totalAmount) }}</p>
-      </article>
-    </section>
-
-    <section class="panel">
-      <div class="business-toolbar">
-        <label class="search-box">
-          <span>搜索采购单</span>
-          <input v-model="searchKeyword" placeholder="采购单号 / 供应商" />
+    <section class="pc-list-toolbar">
+      <div class="pc-filter-row">
+        <label class="pc-search-field">
+          <span class="material-symbols-outlined">search</span>
+          <input v-model="searchKeyword" placeholder="单据号 / 供应商" />
         </label>
-        <label class="compact-field">
-          <span>状态</span>
-          <select v-model="statusFilter">
-            <option value="all">全部状态</option>
-            <option value="0">草稿</option>
-            <option value="1">已完成</option>
-          </select>
-        </label>
+        <label class="pc-date-field"><input type="date" /></label>
+        <span class="pc-date-separator">-</span>
+        <label class="pc-date-field"><input type="date" /></label>
+        <button type="button" class="pc-secondary-action" @click="loadOrders">
+          <span class="material-symbols-outlined">tune</span>
+          更多筛选
+        </button>
+      </div>
+      <div class="pc-list-summary">
+        <span>采购金额 {{ formatCurrency(totalAmount) }}</span>
+        <span>待付款 {{ formatCurrency(payableAmount) }}</span>
       </div>
     </section>
 
-    <section class="business-split">
-      <article class="panel">
-        <div class="panel-head">
-          <div>
-            <p class="eyebrow">采购列表</p>
-            <h3>真实采购单</h3>
-          </div>
-          <span class="session-source">{{ orders.length }} 条</span>
+    <section class="pc-data-card">
+      <nav class="pc-table-tabs" aria-label="采购单状态">
+        <button
+          v-for="tab in statusTabs"
+          :key="tab.key"
+          type="button"
+          :class="{ active: activeTab === tab.key }"
+          @click="activeTab = tab.key"
+        >
+          {{ tab.label }}
+          <span v-if="tab.count > 0">{{ tab.count }}</span>
+        </button>
+      </nav>
+
+      <div class="pc-table-scroll">
+        <table class="pc-data-table">
+          <thead>
+            <tr>
+              <th class="pc-check-cell"><input type="checkbox" /></th>
+              <th>单据信息</th>
+              <th>供应商</th>
+              <th class="align-right">采购金额</th>
+              <th class="align-right">已付款</th>
+              <th class="align-center">入库状态</th>
+              <th class="align-center">付款状态</th>
+              <th class="align-right">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="order in pagedOrders" :key="order.id" @dblclick="openDetail(order.id)">
+              <td class="pc-check-cell"><input type="checkbox" /></td>
+              <td>
+                <div class="pc-doc-cell">
+                  <div>
+                    <strong>{{ order.orderNo }}</strong>
+                    <span class="pc-status-chip" :data-tone="orderTone(order)">
+                      {{ purchaseOrderStatusLabel(order.totalAmount, order.paidAmount, order.receivedAmount, order.status) }}
+                    </span>
+                  </div>
+                  <small>{{ formatDateTime(order.createdAt) }}</small>
+                </div>
+              </td>
+              <td>{{ order.supplierName || '未命名供应商' }}</td>
+              <td class="align-right amount-strong">{{ formatCurrency(order.totalAmount) }}</td>
+              <td class="align-right" :class="{ muted: order.paidAmount <= 0 }">{{ formatCurrency(order.paidAmount) }}</td>
+              <td class="align-center">
+                <span class="pc-inline-status" :data-tone="orderTone(order)">
+                  <span class="material-symbols-outlined">{{ isCompleted(order) ? 'check_circle' : isPendingReceipt(order) ? 'inventory_2' : 'pending' }}</span>
+                  {{ purchaseReceiptStatus(order.totalAmount, order.receivedAmount, order.status) }}
+                </span>
+              </td>
+              <td class="align-center">
+                <span class="pc-inline-status" :data-tone="payTone(order)">
+                  <span class="material-symbols-outlined">{{ payTone(order) === 'done' ? 'task_alt' : payTone(order) === 'running' ? 'payments' : 'pending_actions' }}</span>
+                  {{ purchasePaymentStatus(order.totalAmount, order.paidAmount, order.status) }}
+                </span>
+              </td>
+              <td class="align-right">
+                <div class="pc-row-actions">
+                  <button type="button" title="详情" @click="openDetail(order.id)">
+                    <span class="material-symbols-outlined">visibility</span>
+                  </button>
+                  <button type="button" title="入库" :disabled="!isApiSource" @click="openReceipts(order.id)">
+                    <span class="material-symbols-outlined">inventory_2</span>
+                  </button>
+                  <button type="button" title="付款" :disabled="!isApiSource" @click="openPayOrders(order.id)">
+                    <span class="material-symbols-outlined">payments</span>
+                  </button>
+                  <button type="button" title="编辑" :disabled="order.status !== SALE_DRAFT || !canWrite || !isApiSource" @click="openEdit(order.id)">
+                    <span class="material-symbols-outlined">edit</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="!loading && pagedOrders.length === 0">
+              <td colspan="8" class="empty-cell">暂无采购单</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <footer class="pc-pagination">
+        <span>共 <b>{{ displayedOrders.length }}</b> 条记录，当前显示 {{ pageStart }}-{{ pageEnd }} 条</span>
+        <div>
+          <select v-model.number="pageSize">
+            <option :value="10">10 条/页</option>
+            <option :value="20">20 条/页</option>
+            <option :value="50">50 条/页</option>
+          </select>
+          <button type="button" :disabled="currentPage === 1" @click="setPage(currentPage - 1)">
+            <span class="material-symbols-outlined">chevron_left</span>
+          </button>
+          <button type="button" class="active">{{ currentPage }}</button>
+          <button type="button" :disabled="currentPage >= totalPages" @click="setPage(currentPage + 1)">
+            <span class="material-symbols-outlined">chevron_right</span>
+          </button>
         </div>
-
-        <div class="table-shell">
-          <table>
-            <thead>
-              <tr>
-                <th>采购单号</th>
-                <th>供应商</th>
-                <th>商品数</th>
-                <th>采购金额</th>
-                <th>入库状态</th>
-                <th>付款状态</th>
-                <th>创建时间</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="order in orders"
-                :key="order.id"
-                :class="{ selected: order.id === selectedOrder?.id }"
-                @click="selectedOrderId = order.id"
-              >
-                <td>{{ order.orderNo }}</td>
-                <td>{{ order.supplierName || '未命名供应商' }}</td>
-                <td>{{ order.items.length }}</td>
-                <td>{{ formatCurrency(order.totalAmount) }}</td>
-                <td>{{ purchaseReceiptStatus(order.totalAmount, order.receivedAmount, order.status) }}</td>
-                <td>{{ purchasePaymentStatus(order.totalAmount, order.paidAmount, order.status) }}</td>
-                <td>{{ formatDateTime(order.createdAt) }}</td>
-              </tr>
-              <tr v-if="!loading && orders.length === 0">
-                <td colspan="7" class="empty-cell">暂无采购单</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </article>
-
-      <aside class="panel detail-panel">
-        <div class="panel-head">
-          <div>
-            <p class="eyebrow">采购摘要</p>
-            <h3>{{ selectedOrder?.orderNo || '请选择采购单' }}</h3>
-          </div>
-        </div>
-
-        <div v-if="selectedOrder" class="detail-stack">
-          <article class="detail-card">
-            <dl class="detail-list">
-              <div>
-                <dt>供应商</dt>
-                <dd>{{ selectedOrder.supplierName || '未命名供应商' }}</dd>
-              </div>
-              <div>
-                <dt>采购金额</dt>
-                <dd>{{ formatCurrency(selectedOrder.totalAmount) }}</dd>
-              </div>
-              <div>
-                <dt>已入库金额</dt>
-                <dd>{{ formatCurrency(selectedOrder.receivedAmount) }}</dd>
-              </div>
-              <div>
-                <dt>已付款金额</dt>
-                <dd>{{ formatCurrency(selectedOrder.paidAmount) }}</dd>
-              </div>
-              <div>
-                <dt>主状态</dt>
-                <dd>{{ purchaseOrderStatusLabel(selectedOrder.totalAmount, selectedOrder.paidAmount, selectedOrder.receivedAmount, selectedOrder.status) }}</dd>
-              </div>
-            </dl>
-          </article>
-
-          <article class="detail-card">
-            <p class="eyebrow">商品明细</p>
-            <div class="mini-list">
-              <div v-for="item in selectedOrder.items.slice(0, 5)" :key="item.id || `${item.productCode}-${item.productName}`">
-                <strong>{{ item.productName || item.productCode }}</strong>
-                <span>{{ item.quantity }} x {{ formatCurrency(item.unitCost) }}</span>
-              </div>
-            </div>
-          </article>
-
-          <div class="form-actions">
-            <button type="button" class="ghost-action" :disabled="!isApiSource" @click="openDetail(selectedOrder.id)">查看详情</button>
-            <button
-              type="button"
-              class="ghost-action"
-              :disabled="!canWrite || !isApiSource || selectedOrder.status !== SALE_DRAFT"
-              @click="openEdit(selectedOrder.id)"
-            >
-              编辑草稿
-            </button>
-            <button type="button" :disabled="!isApiSource" @click="openReceipts(selectedOrder.id)">去做入库</button>
-            <button type="button" class="ghost-action" :disabled="!isApiSource" @click="openReturns(selectedOrder.id)">去做退货</button>
-            <button type="button" class="ghost-action" :disabled="!isApiSource" @click="openPayOrders">去做付款</button>
-          </div>
-        </div>
-
-        <div v-else class="empty-preview">
-          <strong>暂无可查看采购单</strong>
-          <p>请先选择一张采购单。</p>
-        </div>
-      </aside>
+      </footer>
     </section>
   </section>
 </template>

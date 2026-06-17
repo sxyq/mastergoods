@@ -37,6 +37,7 @@ const queryProductId = computed(() => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null
 })
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
+const canAdjust = computed(() => session.hasPermission(['inventory:write']))
 const selectedProduct = computed(() => products.value.find((item) => item.id === selectedProductId.value) ?? products.value[0] ?? null)
 const filteredProducts = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
@@ -130,7 +131,7 @@ function quantityLabel(value: number) {
         <button type="button" class="ghost-action" @click="router.push('/archives/products')">返回商品档案</button>
         <button
           type="button"
-          :disabled="!selectedProduct"
+          :disabled="!selectedProduct || !canAdjust"
           @click="router.push({ path: '/inventory/adjust', query: selectedProduct ? { productId: String(selectedProduct.id) } : undefined })"
         >
           库存调整

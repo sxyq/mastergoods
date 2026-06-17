@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.navigation.NamedNavArgument
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -112,6 +115,7 @@ fun MainNavGraph(
     selectedIndex: Int,
     homeBottomBarScrollEvents: Flow<Float>,
     onNavigateToSettings: () -> Unit,
+    accessState: MainAccessUiState,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -120,88 +124,102 @@ fun MainNavGraph(
             startDestination = TabRoutes.HOME
         ) {
             // 顶级页面
-            composable(TabRoutes.HOME) {
+            permissionComposable(TabRoutes.HOME, accessState, navController) {
                 DashboardScreen(
                     bottomBarScrollEvents = homeBottomBarScrollEvents,
                     onNavigateToSettings = onNavigateToSettings,
                     onNavigateToSales = {
-                        navController.navigate("${TabRoutes.DOCUMENTS}?initialTab=0") { launchSingleTop = true }
+                        navController.navigateIfAllowed(accessState, "${TabRoutes.DOCUMENTS}?initialTab=0")
                     },
                     onNavigateToProducts = {
-                        navController.navigate("${TabRoutes.ARCHIVES}?initialTab=0") { launchSingleTop = true }
+                        navController.navigateIfAllowed(accessState, "${TabRoutes.ARCHIVES}?initialTab=0")
                     },
                     onNavigateToCustomers = {
-                        navController.navigate("${TabRoutes.ARCHIVES}?initialTab=1") { launchSingleTop = true }
+                        navController.navigateIfAllowed(accessState, "${TabRoutes.ARCHIVES}?initialTab=1")
                     },
                     onNavigateToAgent = {
-                        navController.navigate(TabRoutes.AGENT) { launchSingleTop = true }
+                        navController.navigateIfAllowed(accessState, TabRoutes.AGENT)
                     },
                     onNavigateToNotifications = {
-                        navController.navigate(taskNotificationRoute(initialTab = 1)) { launchSingleTop = true }
+                        navController.navigateIfAllowed(accessState, taskNotificationRoute(initialTab = 1))
                     },
+                    canOpenProducts = accessState.hasPermission("archives:view"),
+                    canOpenCustomers = accessState.hasPermission("sales:view"),
+                    canOpenAgent = accessState.hasPermission("agent:view"),
                 )
             }
-            composable(
+            permissionComposable(
                 route = "${TabRoutes.DOCUMENTS}?initialTab={initialTab}",
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("initialTab") { type = NavType.IntType; defaultValue = 0 })
             ) { backStackEntry ->
                 DocumentsScreen(
+                    accessState = accessState,
                     initialTab = backStackEntry.arguments?.getInt("initialTab") ?: 0,
-                    onNavigateToSaleOrderDetail = { navController.navigate(saleOrderDetailRoute(it)) },
-                    onNavigateToSaleOrderCreate = { navController.navigate(DetailRoutes.SALE_ORDER_CREATE) },
-                    onNavigateToSalesReturns = { navController.navigate(DetailRoutes.SALES_RETURNS) },
-                    onNavigateToPurchaseOrderDetail = { navController.navigate(purchaseOrderDetailRoute(it)) },
-                    onNavigateToPurchaseOrderCreate = { navController.navigate(DetailRoutes.PURCHASE_ORDER_CREATE) },
-                    onNavigateToPurchaseReceipts = { navController.navigate(DetailRoutes.PURCHASE_RECEIPTS) },
-                    onNavigateToPurchaseReturns = { navController.navigate(DetailRoutes.PURCHASE_RETURNS) },
-                    onNavigateToPayOrderDetail = { navController.navigate(payOrderDetailRoute(it)) },
-                    onNavigateToFinanceRecordDetail = { navController.navigate(financeRecordDetailRoute(it)) },
-                    onNavigateToDailyExpense = { navController.navigate(DetailRoutes.DAILY_EXPENSE) },
-                    onNavigateToInventorySnapshot = { navController.navigate(DetailRoutes.INVENTORY_SNAPSHOT) },
+                    onNavigateToSaleOrderDetail = { navController.navigateIfAllowed(accessState, saleOrderDetailRoute(it)) },
+                    onNavigateToSaleOrderCreate = { navController.navigateIfAllowed(accessState, DetailRoutes.SALE_ORDER_CREATE) },
+                    onNavigateToSalesReturns = { navController.navigateIfAllowed(accessState, DetailRoutes.SALES_RETURNS) },
+                    onNavigateToPurchaseOrderDetail = { navController.navigateIfAllowed(accessState, purchaseOrderDetailRoute(it)) },
+                    onNavigateToPurchaseOrderCreate = { navController.navigateIfAllowed(accessState, DetailRoutes.PURCHASE_ORDER_CREATE) },
+                    onNavigateToPurchaseReceipts = { navController.navigateIfAllowed(accessState, DetailRoutes.PURCHASE_RECEIPTS) },
+                    onNavigateToPurchaseReturns = { navController.navigateIfAllowed(accessState, DetailRoutes.PURCHASE_RETURNS) },
+                    onNavigateToPayOrderDetail = { navController.navigateIfAllowed(accessState, payOrderDetailRoute(it)) },
+                    onNavigateToFinanceRecordDetail = { navController.navigateIfAllowed(accessState, financeRecordDetailRoute(it)) },
+                    onNavigateToDailyExpense = { navController.navigateIfAllowed(accessState, DetailRoutes.DAILY_EXPENSE) },
+                    onNavigateToInventorySnapshot = { navController.navigateIfAllowed(accessState, DetailRoutes.INVENTORY_SNAPSHOT) },
                 )
             }
-            composable(
+            permissionComposable(
                 route = "${TabRoutes.ARCHIVES}?initialTab={initialTab}",
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("initialTab") { type = NavType.IntType; defaultValue = 0 })
             ) { backStackEntry ->
                 ArchivesScreen(
+                    accessState = accessState,
+                    canCreate = accessState.hasPermission("archives:write"),
                     initialTab = backStackEntry.arguments?.getInt("initialTab") ?: 0,
-                    onNavigateToProductDetail = { navController.navigate(productDetailRoute(it)) },
-                    onNavigateToProductCreate = { navController.navigate(DetailRoutes.PRODUCT_CREATE) },
-                    onNavigateToCustomerDetail = { navController.navigate(customerDetailRoute(it)) },
-                    onNavigateToCustomerCreate = { navController.navigate(DetailRoutes.CUSTOMER_CREATE) },
-                    onNavigateToSupplierDetail = { navController.navigate(supplierDetailRoute(it)) },
-                    onNavigateToSupplierCreate = { navController.navigate(DetailRoutes.SUPPLIER_CREATE) },
+                    onNavigateToProductDetail = { navController.navigateIfAllowed(accessState, productDetailRoute(it)) },
+                    onNavigateToProductCreate = { navController.navigateIfAllowed(accessState, DetailRoutes.PRODUCT_CREATE) },
+                    onNavigateToCustomerDetail = { navController.navigateIfAllowed(accessState, customerDetailRoute(it)) },
+                    onNavigateToCustomerCreate = { navController.navigateIfAllowed(accessState, DetailRoutes.CUSTOMER_CREATE) },
+                    onNavigateToSupplierDetail = { navController.navigateIfAllowed(accessState, supplierDetailRoute(it)) },
+                    onNavigateToSupplierCreate = { navController.navigateIfAllowed(accessState, DetailRoutes.SUPPLIER_CREATE) },
                 )
             }
-            composable(TabRoutes.REPORTS) {
+            permissionComposable(TabRoutes.REPORTS, accessState, navController) {
                 ReportScreen()
             }
-            composable(TabRoutes.AGENT) {
+            permissionComposable(TabRoutes.AGENT, accessState, navController) {
                 AgentWorkbenchScreen(
                     onNavigateToChat = { question ->
-                        navController.navigate(agentChatRoute(question))
+                        navController.navigateIfAllowed(accessState, agentChatRoute(question))
                     },
-                    onNavigateToTasks = { navController.navigate(taskNotificationRoute()) },
+                    onNavigateToTasks = { navController.navigateIfAllowed(accessState, taskNotificationRoute()) },
                 )
             }
 
             // 商品详情/编辑
-            composable(
+            permissionComposable(
                 route = DetailRoutes.PRODUCT_DETAIL,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("productId") { type = NavType.LongType })
             ) { backStackEntry ->
                 val productId = backStackEntry.arguments?.getLong("productId") ?: 0L
                 ProductDetailScreen(
                     productId = productId,
                     onNavigateBack = { navController.popBackStack() },
-                    onNavigateToEdit = { navController.navigate(productEditRoute(it)) },
-                    onNavigateToStockAdjust = { navController.navigate(stockAdjustRoute(it)) },
-                    onNavigateToInventoryLedger = { navController.navigate(inventoryLedgerRoute(it)) }
+                    onNavigateToEdit = { navController.navigateIfAllowed(accessState, productEditRoute(it)) },
+                    onNavigateToStockAdjust = { navController.navigateIfAllowed(accessState, stockAdjustRoute(it)) },
+                    onNavigateToInventoryLedger = { navController.navigateIfAllowed(accessState, inventoryLedgerRoute(it)) }
                 )
             }
-            composable(
+            permissionComposable(
                 route = DetailRoutes.PRODUCT_EDIT,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("productId") { type = NavType.LongType })
             ) { backStackEntry ->
                 val productId = backStackEntry.arguments?.getLong("productId")
@@ -211,15 +229,17 @@ fun MainNavGraph(
                     onSaveSuccess = { navController.popBackStack() }
                 )
             }
-            composable(DetailRoutes.PRODUCT_CREATE) {
+            permissionComposable(DetailRoutes.PRODUCT_CREATE, accessState, navController) {
                 ProductEditScreen(
                     productId = null,
                     onNavigateBack = { navController.popBackStack() },
                     onSaveSuccess = { navController.popBackStack() }
                 )
             }
-            composable(
+            permissionComposable(
                 route = DetailRoutes.STOCK_ADJUST,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("productId") { type = NavType.LongType })
             ) { backStackEntry ->
                 val productId = backStackEntry.arguments?.getLong("productId") ?: 0L
@@ -229,8 +249,10 @@ fun MainNavGraph(
                     onAdjustSuccess = { navController.popBackStack() }
                 )
             }
-            composable(
+            permissionComposable(
                 route = DetailRoutes.INVENTORY_LEDGER,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("productId") { type = NavType.LongType })
             ) { backStackEntry ->
                 val productId = backStackEntry.arguments?.getLong("productId") ?: 0L
@@ -239,26 +261,30 @@ fun MainNavGraph(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
-            composable(DetailRoutes.INVENTORY_SNAPSHOT) {
+            permissionComposable(DetailRoutes.INVENTORY_SNAPSHOT, accessState, navController) {
                 InventorySnapshotScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
 
             // 客户详情/编辑
-            composable(
+            permissionComposable(
                 route = DetailRoutes.CUSTOMER_DETAIL,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("customerId") { type = NavType.LongType })
             ) { backStackEntry ->
                 val customerId = backStackEntry.arguments?.getLong("customerId") ?: 0L
                 CustomerDetailScreen(
                     customerId = customerId,
                     onNavigateBack = { navController.popBackStack() },
-                    onNavigateToEdit = { navController.navigate(customerEditRoute(it)) }
+                    onNavigateToEdit = { navController.navigateIfAllowed(accessState, customerEditRoute(it)) }
                 )
             }
-            composable(
+            permissionComposable(
                 route = DetailRoutes.CUSTOMER_EDIT,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("customerId") { type = NavType.LongType })
             ) { backStackEntry ->
                 val customerId = backStackEntry.arguments?.getLong("customerId")
@@ -268,7 +294,7 @@ fun MainNavGraph(
                     onSaveSuccess = { navController.popBackStack() }
                 )
             }
-            composable(DetailRoutes.CUSTOMER_CREATE) {
+            permissionComposable(DetailRoutes.CUSTOMER_CREATE, accessState, navController) {
                 CustomerEditScreen(
                     customerId = null,
                     onNavigateBack = { navController.popBackStack() },
@@ -277,20 +303,24 @@ fun MainNavGraph(
             }
 
             // 供应商详情/编辑
-            composable(
+            permissionComposable(
                 route = DetailRoutes.SUPPLIER_DETAIL,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("supplierId") { type = NavType.LongType })
             ) { backStackEntry ->
                 val supplierId = backStackEntry.arguments?.getLong("supplierId") ?: 0L
                 SupplierDetailScreen(
                     supplierId = supplierId,
                     onNavigateBack = { navController.popBackStack() },
-                    onNavigateToEdit = { navController.navigate(supplierEditRoute(it)) },
-                    onNavigateToStatement = { navController.navigate(supplierStatementRoute(it)) }
+                    onNavigateToEdit = { navController.navigateIfAllowed(accessState, supplierEditRoute(it)) },
+                    onNavigateToStatement = { navController.navigateIfAllowed(accessState, supplierStatementRoute(it)) }
                 )
             }
-            composable(
+            permissionComposable(
                 route = DetailRoutes.SUPPLIER_STATEMENT,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("supplierId") { type = NavType.LongType })
             ) { backStackEntry ->
                 val supplierId = backStackEntry.arguments?.getLong("supplierId") ?: 0L
@@ -299,8 +329,10 @@ fun MainNavGraph(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
-            composable(
+            permissionComposable(
                 route = DetailRoutes.SUPPLIER_EDIT,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("supplierId") { type = NavType.LongType })
             ) { backStackEntry ->
                 val supplierId = backStackEntry.arguments?.getLong("supplierId")
@@ -310,7 +342,7 @@ fun MainNavGraph(
                     onSaveSuccess = { navController.popBackStack() }
                 )
             }
-            composable(DetailRoutes.SUPPLIER_CREATE) {
+            permissionComposable(DetailRoutes.SUPPLIER_CREATE, accessState, navController) {
                 SupplierEditScreen(
                     supplierId = null,
                     onNavigateBack = { navController.popBackStack() },
@@ -319,18 +351,22 @@ fun MainNavGraph(
             }
 
             // 销售单详情/编辑/收款
-            composable(
+            permissionComposable(
                 route = DetailRoutes.SALE_ORDER_DETAIL,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("orderId") { type = NavType.LongType })
             ) {
                 SaleOrderDetailScreen(
                     onBackClick = { navController.popBackStack() },
-                    onEditClick = { navController.navigate(saleOrderEditRoute(it)) },
-                    onPaymentClick = { navController.navigate(paymentRoute(it)) }
+                    onEditClick = { navController.navigateIfAllowed(accessState, saleOrderEditRoute(it)) },
+                    onPaymentClick = { navController.navigateIfAllowed(accessState, paymentRoute(it)) }
                 )
             }
-            composable(
+            permissionComposable(
                 route = DetailRoutes.SALE_ORDER_EDIT,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("orderId") { type = NavType.LongType })
             ) {
                 SaleOrderEditScreen(
@@ -338,14 +374,16 @@ fun MainNavGraph(
                     onSaveSuccess = { navController.popBackStack() }
                 )
             }
-            composable(DetailRoutes.SALE_ORDER_CREATE) {
+            permissionComposable(DetailRoutes.SALE_ORDER_CREATE, accessState, navController) {
                 SaleOrderEditScreen(
                     onBackClick = { navController.popBackStack() },
                     onSaveSuccess = { navController.popBackStack() }
                 )
             }
-            composable(
+            permissionComposable(
                 route = DetailRoutes.PAYMENT,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("orderId") { type = NavType.LongType })
             ) {
                 PaymentScreen(
@@ -353,25 +391,29 @@ fun MainNavGraph(
                     onPaySuccess = { navController.popBackStack() }
                 )
             }
-            composable(DetailRoutes.SALES_RETURNS) {
+            permissionComposable(DetailRoutes.SALES_RETURNS, accessState, navController) {
                 SalesReturnScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
 
             // 采购单详情/编辑
-            composable(
+            permissionComposable(
                 route = DetailRoutes.PURCHASE_ORDER_DETAIL,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("orderId") { type = NavType.LongType })
             ) {
                 PurchaseOrderDetailScreen(
                     onBackClick = { navController.popBackStack() },
-                    onEditClick = { navController.navigate(purchaseOrderEditRoute(it)) },
+                    onEditClick = { navController.navigateIfAllowed(accessState, purchaseOrderEditRoute(it)) },
                     onDeleteSuccess = { navController.popBackStack() }
                 )
             }
-            composable(
+            permissionComposable(
                 route = DetailRoutes.PURCHASE_ORDER_EDIT,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("orderId") { type = NavType.LongType })
             ) {
                 PurchaseOrderEditScreen(
@@ -379,26 +421,28 @@ fun MainNavGraph(
                     onSaveSuccess = { navController.popBackStack() }
                 )
             }
-            composable(DetailRoutes.PURCHASE_ORDER_CREATE) {
+            permissionComposable(DetailRoutes.PURCHASE_ORDER_CREATE, accessState, navController) {
                 PurchaseOrderEditScreen(
                     onBackClick = { navController.popBackStack() },
                     onSaveSuccess = { navController.popBackStack() }
                 )
             }
-            composable(DetailRoutes.PURCHASE_RECEIPTS) {
+            permissionComposable(DetailRoutes.PURCHASE_RECEIPTS, accessState, navController) {
                 PurchaseReceiptScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
-            composable(DetailRoutes.PURCHASE_RETURNS) {
+            permissionComposable(DetailRoutes.PURCHASE_RETURNS, accessState, navController) {
                 PurchaseReturnScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
 
             // 付款单详情
-            composable(
+            permissionComposable(
                 route = DetailRoutes.PAY_ORDER_DETAIL,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("orderId") { type = NavType.LongType })
             ) {
                 PayOrderDetailScreen(
@@ -407,8 +451,10 @@ fun MainNavGraph(
             }
 
             // 资金流水详情
-            composable(
+            permissionComposable(
                 route = DetailRoutes.FINANCE_RECORD_DETAIL,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("recordId") { type = NavType.LongType })
             ) { backStackEntry ->
                 val recordId = backStackEntry.arguments?.getLong("recordId") ?: 0L
@@ -419,13 +465,15 @@ fun MainNavGraph(
             }
 
             // 日常支出
-            composable(DetailRoutes.DAILY_EXPENSE) {
+            permissionComposable(DetailRoutes.DAILY_EXPENSE, accessState, navController) {
                 DailyExpenseScreen(
                     onNavigateBack = { navController.popBackStack() },
                     onExpenseCreated = { recordId ->
-                        navController.navigate(financeRecordDetailRoute(recordId)) {
-                            popUpTo(DetailRoutes.DAILY_EXPENSE) {
-                                inclusive = true
+                        if (accessState.canAccessRoute(financeRecordDetailRoute(recordId))) {
+                            navController.navigate(financeRecordDetailRoute(recordId)) {
+                                popUpTo(DetailRoutes.DAILY_EXPENSE) {
+                                    inclusive = true
+                                }
                             }
                         }
                     }
@@ -433,15 +481,17 @@ fun MainNavGraph(
             }
 
             // 草稿列表
-            composable(DetailRoutes.DRAFT_LIST) {
+            permissionComposable(DetailRoutes.DRAFT_LIST, accessState, navController) {
                 DraftListScreen(
                     onBackClick = { navController.popBackStack() }
                 )
             }
 
             // 任务与通知
-            composable(
+            permissionComposable(
                 route = "${DetailRoutes.TASK_NOTIFICATION}?initialTab={initialTab}",
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(navArgument("initialTab") { type = NavType.IntType; defaultValue = 0 })
             ) { backStackEntry ->
                 TaskNotificationScreen(
@@ -451,8 +501,10 @@ fun MainNavGraph(
             }
 
             // AI 聊天页
-            composable(
+            permissionComposable(
                 route = DetailRoutes.AGENT_CHAT,
+                accessState = accessState,
+                navController = navController,
                 arguments = listOf(
                     navArgument("initialQuestion") {
                         type = NavType.StringType
@@ -473,5 +525,44 @@ fun MainNavGraph(
                 )
             }
         }
+    }
+}
+
+private fun NavGraphBuilder.permissionComposable(
+    route: String,
+    accessState: MainAccessUiState,
+    navController: NavHostController,
+    arguments: List<NamedNavArgument> = emptyList(),
+    content: @Composable (NavBackStackEntry) -> Unit,
+) {
+    composable(
+        route = route,
+        arguments = arguments,
+    ) { backStackEntry ->
+        if (accessState.canAccessRoute(route)) {
+            content(backStackEntry)
+        } else {
+            PermissionDeniedScreen(
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navController.navigate(accessState.firstAllowedTopLevelRoute()) {
+                            launchSingleTop = true
+                        }
+                    }
+                },
+            )
+        }
+    }
+}
+
+private fun NavHostController.navigateIfAllowed(
+    accessState: MainAccessUiState,
+    route: String,
+) {
+    if (!accessState.canAccessRoute(route)) {
+        return
+    }
+    navigate(route) {
+        launchSingleTop = true
     }
 }

@@ -2,6 +2,7 @@ package com.zhihuiji.backend.api.controller;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.application.service.SyncService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import java.util.List;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v1/sync")
+@RequireStorePermission("database:manage")
 public class SyncController {
     private final SyncService syncService;
 

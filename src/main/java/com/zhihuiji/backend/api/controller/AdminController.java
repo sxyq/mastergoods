@@ -5,6 +5,7 @@ import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.application.service.AdminService;
 import com.zhihuiji.backend.application.service.DemoDataService;
 import com.zhihuiji.backend.application.service.LegacySQLiteImportService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import java.util.List;
 import jakarta.validation.Valid;
 import org.springframework.context.annotation.Profile;
@@ -35,11 +36,13 @@ public class AdminController {
     }
 
     @GetMapping("/summary")
+    @RequireStorePermission("dashboard:view")
     public ApiResponse<AdminService.AdminSummary> summary() {
         return ApiResponse.success(adminService.summary());
     }
 
     @GetMapping("/users")
+    @RequireStorePermission("users:manage")
     public ApiResponse<List<AdminService.UserItem>> users(
         @RequestParam(value = "keyword", required = false) String keyword,
         @RequestParam(value = "page", required = false) Integer page,
@@ -49,11 +52,13 @@ public class AdminController {
     }
 
     @PostMapping("/users")
+    @RequireStorePermission("users:manage")
     public ApiResponse<AdminService.UserItem> createUser(@Valid @RequestBody AdminService.CreateUserRequest request) {
         return ApiResponse.success(adminService.createUser(request));
     }
 
     @PutMapping("/users/{userId}")
+    @RequireStorePermission("users:manage")
     public ApiResponse<AdminService.UserItem> updateUser(
         @PathVariable Long userId,
         @Valid @RequestBody AdminService.UpdateUserRequest request
@@ -62,6 +67,7 @@ public class AdminController {
     }
 
     @PostMapping("/demo/seed")
+    @RequireStorePermission("settings:manage")
     public ApiResponse<DemoDataService.SeedResult> seedDemo(
         @RequestParam(value = "reset", defaultValue = "false") boolean reset
     ) {
@@ -69,6 +75,7 @@ public class AdminController {
     }
 
     @PostMapping("/agent/smoke")
+    @RequireStorePermission("agent:write")
     public ResponseEntity<ApiResponse<AdminService.AgentSmokeResult>> runAgentSmoke() {
         AdminService.AgentSmokeResult result = adminService.runAgentSmoke();
         return ResponseEntity
@@ -77,6 +84,7 @@ public class AdminController {
     }
 
     @PostMapping("/migration/import-legacy")
+    @RequireStorePermission("database:manage")
     public ApiResponse<LegacySQLiteImportService.ImportResult> importLegacy(
         @Valid @RequestBody LegacySQLiteImportService.ImportRequest request
     ) {

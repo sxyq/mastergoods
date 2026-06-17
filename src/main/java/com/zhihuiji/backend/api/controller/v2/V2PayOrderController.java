@@ -5,6 +5,7 @@ import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.api.common.ParseUtils;
 import com.zhihuiji.backend.api.dto.v2.pay.V2PayOrderDtos;
 import com.zhihuiji.backend.application.service.v2.V2PayOrderService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import java.util.List;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v2/pay-orders")
+@RequireStorePermission("finance:view")
 public class V2PayOrderController {
     private final V2PayOrderService v2PayOrderService;
 
@@ -52,11 +54,13 @@ public class V2PayOrderController {
     }
 
     @PostMapping
+    @RequireStorePermission("finance:write")
     public ApiResponse<V2PayOrderDtos.PayOrderResponse> create(@Valid @RequestBody V2PayOrderDtos.CreateRequest request) {
         return ApiResponse.success(v2PayOrderService.create(request));
     }
 
     @PutMapping("/{id}/status")
+    @RequireStorePermission("finance:write")
     public ApiResponse<V2PayOrderDtos.PayOrderResponse> updateStatus(
         @PathVariable Long id,
         @Valid @RequestBody V2PayOrderDtos.StatusRequest request

@@ -66,7 +66,7 @@ import com.zhihuiji.core.designsystem.TextPrimary
 import com.zhihuiji.core.designsystem.TextSecondary
 import com.zhihuiji.core.designsystem.TextTertiary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
-import com.zhihuiji.core.model.AdminUser
+import com.zhihuiji.core.model.StoreStaffMember
 
 @Composable
 fun StaffManagementScreen(
@@ -112,6 +112,8 @@ fun StaffManagementScreen(
                     onPhoneChange = viewModel::updateCreatePhone,
                     onNicknameChange = viewModel::updateCreateNickname,
                     onPasswordChange = viewModel::updateCreatePassword,
+                    onRoleChange = viewModel::updateCreateRole,
+                    onTitleChange = viewModel::updateCreateTitle,
                     onStatusChange = viewModel::updateCreateStatus,
                     onSubmit = viewModel::createUser,
                 )
@@ -261,7 +263,7 @@ private fun StaffHeroCard(
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = "真实店员管理",
+                        text = uiState.currentStore?.storeName ?: "真实店员管理",
                         style = MaterialTheme.typography.titleMedium,
                         color = TextPrimary,
                     )
@@ -281,6 +283,10 @@ private fun StaffHeroCard(
                 SummaryChip(label = "启用", value = enabledCount.toString())
                 SummaryChip(label = "停用", value = disabledCount.toString())
                 SummaryChip(label = "活跃会话", value = activeSessions.toString())
+                uiState.currentStore?.let {
+                    SummaryChip(label = "当前角色", value = roleLabel(it.role))
+                    SummaryChip(label = "我的权限", value = it.permissions.size.toString())
+                }
             }
         }
     }
@@ -327,7 +333,7 @@ private fun StaffSearchCard(
             GlassTextField(
                 value = keyword,
                 onValueChange = onKeywordChange,
-                label = "手机号 / 昵称关键词",
+                label = "手机号 / 昵称 / 岗位 / 角色",
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -347,6 +353,8 @@ private fun CreateStaffCard(
     onPhoneChange: (String) -> Unit,
     onNicknameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
+    onRoleChange: (String) -> Unit,
+    onTitleChange: (String) -> Unit,
     onStatusChange: (Int) -> Unit,
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
@@ -398,6 +406,25 @@ private fun CreateStaffCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                StoreRoleOptions.forEach { role ->
+                    FilterStatusChip(
+                        label = roleLabel(role),
+                        selected = uiState.createRole == role,
+                        onClick = { onRoleChange(role) },
+                    )
+                }
+            }
+            GlassTextField(
+                value = uiState.createTitle,
+                onValueChange = onTitleChange,
+                label = "岗位",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 FilterStatusChip(
                     label = "默认启用",
                     selected = uiState.createStatus == 1,
@@ -443,15 +470,18 @@ private fun FilterStatusChip(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StaffMemberCard(
-    member: AdminUser,
+    member: StoreStaffMember,
     isSaving: Boolean,
-    onSave: (AdminUser, String, String, Boolean) -> Unit,
-    onToggleStatus: (AdminUser, String?) -> Unit,
+    onSave: (StoreStaffMember, String, String, String, String, Boolean) -> Unit,
+    onToggleStatus: (StoreStaffMember, String?, String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var nickname by remember(member.id, member.nickname) { mutableStateOf(member.nickname) }
     var password by remember(member.id, member.updatedAt) { mutableStateOf("") }
+    var role by remember(member.id, member.role) { mutableStateOf(member.role) }
+    var title by remember(member.id, member.title) { mutableStateOf(member.title) }
     var keepSessions by remember(member.id) { mutableStateOf(true) }
+    val ownerLocked = member.role == "OWNER"
 
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
@@ -492,8 +522,25 @@ private fun StaffMemberCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                SummaryTag(text = roleLabel(member.role))
+                SummaryTag(text = title.ifBlank { member.title })
+                SummaryTag(text = "权限 ${member.permissions.size}")
                 SummaryTag(text = "活跃会话 ${member.activeSessions}")
                 SummaryTag(text = "更新 ${formatTimestamp(member.updatedAt)}")
+            }
+
+            if (member.permissions.isNotEmpty()) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    member.permissions.take(6).forEach { permission ->
+                        SummaryTag(text = permission)
+                    }
+                    if (member.permissions.size > 6) {
+                        SummaryTag(text = "+${member.permissions.size - 6}")
+                    }
+                }
             }
 
             GlassTextField(
@@ -509,6 +556,39 @@ private fun StaffMemberCard(
                 label = "重置密码（留空则不改）",
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (ownerLocked) {
+                    FilterStatusChip(
+                        label = roleLabel("OWNER"),
+                        selected = true,
+                        onClick = {},
+                    )
+                } else {
+                    StoreRoleOptions.forEach { option ->
+                        FilterStatusChip(
+                            label = roleLabel(option),
+                            selected = role == option,
+                            onClick = {
+                                role = option
+                                if (title.isBlank() || title == defaultTitleForRole(member.role)) {
+                                    title = defaultTitleForRole(option)
+                                }
+                            },
+                            modifier = Modifier,
+                        )
+                    }
+                }
+            }
+            GlassTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = "岗位",
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -533,27 +613,41 @@ private fun StaffMemberCard(
                     modifier = Modifier.weight(1f),
                     text = if (isSaving) "保存中..." else "保存资料",
                     enabled = !isSaving,
-                    onClick = { onSave(member, nickname, password, keepSessions) },
+                    onClick = { onSave(member, nickname, password, role, title, keepSessions) },
                 )
                 if (member.status == 1) {
                     DangerOutlineButton(
                         modifier = Modifier.weight(1f),
-                        text = "停用店员",
-                        enabled = !isSaving,
-                        onClick = { onToggleStatus(member, nickname) },
+                        text = if (ownerLocked) "店长固定启用" else "停用店员",
+                        enabled = !isSaving && !ownerLocked,
+                        onClick = { onToggleStatus(member, nickname, role, title) },
                     )
                 } else {
                     PrimaryButton(
                         modifier = Modifier.weight(1f),
                         text = "重新启用",
                         enabled = !isSaving,
-                        onClick = { onToggleStatus(member, nickname) },
+                        onClick = { onToggleStatus(member, nickname, role, title) },
                     )
                 }
             }
         }
     }
 }
+
+private val StoreRoleOptions = listOf("MANAGER", "SALES", "PURCHASING", "WAREHOUSE", "FINANCE", "ASSISTANT")
+
+private fun roleLabel(role: String): String =
+    when (role) {
+        "OWNER" -> "店长（总）"
+        "MANAGER" -> "店长助理"
+        "SALES" -> "销售员工"
+        "PURCHASING" -> "采购员工"
+        "WAREHOUSE" -> "仓库员工"
+        "FINANCE" -> "财务员工"
+        "ASSISTANT" -> "AI/只读助理"
+        else -> role
+    }
 
 @Composable
 private fun SummaryTag(

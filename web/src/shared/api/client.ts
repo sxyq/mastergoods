@@ -1,3 +1,4 @@
+import type { Permission, StoreRole } from '@/entities/auth/roles'
 import type { EntityId } from '@/shared/utils/id'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:18080'
@@ -41,6 +42,55 @@ export interface UserProfile {
   phone: string
   nickname: string
   status: number
+}
+
+export interface CurrentStoreProfile {
+  storeId: EntityId
+  storeName: string
+  ownerUserId: number
+  currentUserId: number
+  currentUserName: string
+  currentUserPhone: string
+  role: StoreRole
+  title: string
+  status: 0 | 1
+  permissions: Permission[]
+  memberCount: number
+  enabledMemberCount: number
+  disabledMemberCount: number
+}
+
+export interface StoreMemberRecord {
+  userId: number
+  phone: string
+  nickname: string
+  role: StoreRole
+  title: string
+  status: 0 | 1
+  permissions: Permission[]
+  createdAt: number
+  updatedAt: number
+  activeSessions: number
+  storeId: EntityId
+  storeName: string
+}
+
+export interface StoreMemberCreatePayload {
+  phone: string
+  password: string
+  nickname: string
+  role: Exclude<StoreRole, 'OWNER'>
+  title?: string | null
+  status?: 0 | 1
+}
+
+export interface StoreMemberUpdatePayload {
+  nickname?: string
+  password?: string | null
+  role?: StoreRole
+  title?: string | null
+  status?: 0 | 1
+  keepSessions?: boolean
 }
 
 export interface AdminSummary {
@@ -1072,6 +1122,37 @@ export async function logout(token?: string) {
 export async function fetchCurrentUser(token: string) {
   return request<UserProfile>('/v1/auth/users/me', {
     headers: authHeaders(token),
+  })
+}
+
+export async function fetchCurrentStore(token: string) {
+  return request<CurrentStoreProfile>('/v2/stores/current', {
+    headers: authHeaders(token),
+  })
+}
+
+export async function fetchStoreMembers(token: string) {
+  return request<StoreMemberRecord[]>('/v2/stores/current/members', {
+    headers: authHeaders(token),
+  })
+}
+
+export async function createStoreMember(token: string, payload: StoreMemberCreatePayload) {
+  return request<StoreMemberRecord>('/v2/stores/current/members', {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function updateStoreMember(token: string, userId: number, payload: StoreMemberUpdatePayload) {
+  return request<StoreMemberRecord>(`/v2/stores/current/members/${userId}`, {
+    method: 'PUT',
+    headers: authHeaders(token),
+    body: JSON.stringify({
+      ...payload,
+      keepSessions: payload.keepSessions ?? false,
+    }),
   })
 }
 

@@ -72,6 +72,9 @@ public class AuthService {
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             throw new IllegalArgumentException("phone or password is incorrect");
         }
+        if (user.getStatus() == null || user.getStatus() != 1) {
+            throw new IllegalArgumentException("account is disabled");
+        }
         SessionEntity session = createSession(user.getId(), System.currentTimeMillis());
         return new AuthResult(user.getId(), session.getToken(), session.getRefreshToken(), (int) (EXPIRE_MILLIS / 1000L));
     }
@@ -80,6 +83,11 @@ public class AuthService {
     public AuthResult refresh(String refreshToken) {
         SessionEntity old = sessionAccessService.findActiveSessionByRefreshToken(refreshToken)
             .orElseThrow(() -> new IllegalArgumentException("refresh token is invalid"));
+        UserEntity user = userRepository.findById(old.getUserId())
+            .orElseThrow(() -> new IllegalArgumentException("user not found"));
+        if (user.getStatus() == null || user.getStatus() != 1) {
+            throw new IllegalArgumentException("account is disabled");
+        }
         old.setIsActive(false);
         sessionRepository.save(old);
         sessionAccessService.invalidateSession(old);
@@ -105,6 +113,9 @@ public class AuthService {
         }
         UserEntity user = userRepository.findById(session.getUserId())
             .orElseThrow(() -> new IllegalArgumentException("user not found"));
+        if (user.getStatus() == null || user.getStatus() != 1) {
+            throw new IllegalArgumentException("account is disabled");
+        }
         return new UserProfile(user.getId(), user.getPhone(), user.getNickname(), user.getStatus());
     }
 

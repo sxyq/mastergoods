@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.zhihuiji.backend.api.controller.v2.V2ImportJobController;
 import com.zhihuiji.backend.api.controller.v2.V2SyncController;
+import com.zhihuiji.backend.application.service.CurrentOwnerService;
+import com.zhihuiji.backend.application.service.LegacySQLiteImportService;
 import com.zhihuiji.backend.application.service.SessionAccessService;
 import com.zhihuiji.backend.application.service.v2.V2ImportJobService;
 import com.zhihuiji.backend.application.service.v2.V2SyncService;
@@ -37,6 +39,10 @@ class V2SyncImportControllerTest {
     private V2ImportJobService v2ImportJobService;
     @MockBean
     private SessionAccessService sessionAccessService;
+    @MockBean
+    private LegacySQLiteImportService legacySQLiteImportService;
+    @MockBean
+    private CurrentOwnerService currentOwnerService;
 
     @Test
     void syncHealthReturnsOwnerScopedContract() throws Exception {

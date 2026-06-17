@@ -4,6 +4,7 @@ import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.api.dto.v2.purchase.V2PurchaseOrderDtos;
 import com.zhihuiji.backend.application.service.v2.V2PurchaseOrderService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import java.util.List;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v2/purchase-orders")
+@RequireStorePermission("purchase:view")
 public class V2PurchaseOrderController {
     private final V2PurchaseOrderService v2PurchaseOrderService;
 
@@ -26,6 +28,7 @@ public class V2PurchaseOrderController {
     }
 
     @PostMapping
+    @RequireStorePermission("purchase:write")
     public ApiResponse<V2PurchaseOrderDtos.PurchaseOrderResponse> create(
         @Valid @RequestBody V2PurchaseOrderDtos.CreateRequest request
     ) {
@@ -48,6 +51,7 @@ public class V2PurchaseOrderController {
     }
 
     @PutMapping("/{id}")
+    @RequireStorePermission("purchase:write")
     public ApiResponse<V2PurchaseOrderDtos.PurchaseOrderResponse> update(
         @PathVariable Long id,
         @Valid @RequestBody V2PurchaseOrderDtos.CreateRequest request
@@ -56,6 +60,7 @@ public class V2PurchaseOrderController {
     }
 
     @DeleteMapping("/{id}")
+    @RequireStorePermission("purchase:write")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         v2PurchaseOrderService.delete(id);
         return ApiResponse.success(null);

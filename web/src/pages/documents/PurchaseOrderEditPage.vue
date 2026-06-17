@@ -22,6 +22,7 @@ interface LineItemForm {
   productName: string
   quantity: string
   unitCost: string
+  discountPercent: string
 }
 
 const route = useRoute()
@@ -34,21 +35,22 @@ const lines = ref<LineItemForm[]>([createEmptyLine()])
 const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
+const extraFee = ref('0')
 
 const form = reactive({
   supplierId: '',
   supplierName: '',
+  purchaseDate: new Date().toISOString().slice(0, 10),
+  expectedArrivalDate: '',
+  warehouse: '主仓库 (深圳)',
+  purchaser: 'Admin User',
   notes: '',
 })
 
 const orderId = computed(() => readQueryId(route.query.id))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const isEditMode = computed(() => orderId.value != null)
-const canSubmit = computed(() => {
-  const filledLines = normalizedItems.value
-  return isApiSource.value && !saving.value && filledLines.length > 0
-})
-const orderAmount = computed(() => normalizedItems.value.reduce((sum, item) => sum + item.quantity * item.unitCost, 0))
+const canWrite = computed(() => session.hasPermission(['purchase:write']))
 const normalizedItems = computed(() => {
   return lines.value
     .filter((line) => Number(line.quantity) > 0 && (line.productId || line.productCode.trim() || line.productName.trim()))
@@ -57,9 +59,13 @@ const normalizedItems = computed(() => {
       productCode: line.productCode.trim() || null,
       productName: line.productName.trim() || null,
       quantity: Number(line.quantity || 0),
-      unitCost: Number(line.unitCost || 0),
+      unitCost: lineUnitCost(line),
     }))
 })
+const canSubmit = computed(() => canWrite.value && isApiSource.value && !saving.value && normalizedItems.value.length > 0)
+const goodsQuantity = computed(() => normalizedItems.value.reduce((sum, item) => sum + item.quantity, 0))
+const goodsAmount = computed(() => normalizedItems.value.reduce((sum, item) => sum + item.quantity * item.unitCost, 0))
+const payableAmount = computed(() => goodsAmount.value + (Number(extraFee.value) || 0))
 
 watch(
   [() => session.source.value, () => session.token.value, orderId],
@@ -90,6 +96,7 @@ async function loadPage() {
       form.supplierId = order.supplierId ? String(order.supplierId) : ''
       form.supplierName = order.supplierName || ''
       form.notes = order.notes || ''
+      form.purchaseDate = new Date(order.createdAt).toISOString().slice(0, 10)
       lines.value = order.items.length > 0 ? order.items.map((item) => toLineItem(item, nextProducts)) : [createEmptyLine()]
     } else {
       resetForm()
@@ -130,7 +137,20 @@ function syncProduct(index: number, productId: string) {
   }
 }
 
-async function submitForm() {
+function productFor(line: LineItemForm) {
+  return products.value.find((item) => item.id === Number(line.productId))
+}
+
+function lineUnitCost(line: LineItemForm) {
+  const discount = Math.max(0, Number(line.discountPercent || 100)) / 100
+  return (Number(line.unitCost) || 0) * discount
+}
+
+function lineAmount(line: LineItemForm) {
+  return (Number(line.quantity) || 0) * lineUnitCost(line)
+}
+
+async function submitForm(next: 'detail' | 'receipt' = 'detail') {
   if (!session.token.value) return
   saving.value = true
   error.value = ''
@@ -150,6 +170,10 @@ async function submitForm() {
       ? await updatePurchaseOrder(session.token.value, orderId.value, payload)
       : await createPurchaseOrder(session.token.value, payload)
 
+    if (next === 'receipt') {
+      await router.push({ path: '/documents/purchase-receipts', query: { orderId: String(saved.id) } })
+      return
+    }
     await router.push({ path: '/documents/purchases/detail', query: { id: String(saved.id) } })
   } catch (saveErr) {
     error.value = saveErr instanceof Error ? saveErr.message : '采购单保存失败'
@@ -161,7 +185,12 @@ async function submitForm() {
 function resetForm() {
   form.supplierId = ''
   form.supplierName = ''
+  form.purchaseDate = new Date().toISOString().slice(0, 10)
+  form.expectedArrivalDate = ''
+  form.warehouse = '主仓库 (深圳)'
+  form.purchaser = session.member.value.name || 'Admin User'
   form.notes = ''
+  extraFee.value = '0'
   lines.value = [createEmptyLine()]
 }
 
@@ -172,6 +201,7 @@ function createEmptyLine(): LineItemForm {
     productName: '',
     quantity: '1',
     unitCost: '0',
+    discountPercent: '100',
   }
 }
 
@@ -188,154 +218,205 @@ function toLineItem(item: PurchaseOrderItem, sourceProducts: ProductRecord[]): L
     productName: item.productName || matchedProduct?.name || '',
     quantity: String(item.quantity),
     unitCost: String(item.unitCost),
+    discountPercent: '100',
   }
 }
 </script>
 
 <template>
-  <section class="business-page">
-    <section class="screen-hero">
-      <div>
-        <p class="eyebrow">采购开单 / Purchase Draft</p>
-        <h2>{{ isEditMode ? '编辑采购单' : '新建采购单' }}</h2>
-        <p>对齐安卓端采购开单字段，按真实供应商、商品、数量和进货价保存采购单。</p>
+  <section class="pc-form-page purchase-edit-page">
+    <header class="pc-list-titlebar">
+      <div class="pc-breadcrumb">
+        <span>采购管理</span>
+        <span class="material-symbols-outlined">chevron_right</span>
+        <h1>{{ isEditMode ? '编辑采购单' : '新建采购单' }}</h1>
       </div>
-      <div class="hero-actions">
-        <button type="button" class="ghost-action" @click="router.push('/documents/purchases')">返回列表</button>
-        <button
-          v-if="isEditMode && orderId"
-          type="button"
-          class="ghost-action"
-          @click="router.push({ path: '/documents/purchases/detail', query: { id: String(orderId) } })"
-        >
-          查看详情
+      <div class="pc-title-actions">
+        <button type="button" class="pc-icon-action" aria-label="历史记录">
+          <span class="material-symbols-outlined">history</span>
+        </button>
+        <button type="button" class="pc-icon-action" aria-label="帮助">
+          <span class="material-symbols-outlined">help_outline</span>
+        </button>
+        <button type="button" class="pc-secondary-action">
+          <span class="material-symbols-outlined">upload_file</span>
+          导入外部单据
         </button>
       </div>
-    </section>
+    </header>
 
     <p v-if="!isApiSource" class="form-error">当前是演示模式。这一页只在真实登录后保存采购单。</p>
     <p v-else-if="error" class="form-error">{{ error }}</p>
     <p v-else-if="loading" class="form-success">正在加载采购单资料...</p>
 
-    <section class="business-split">
-      <article class="panel">
-        <div class="panel-head">
-          <div>
-            <p class="eyebrow">采购表单</p>
-            <h3>供应商与商品明细</h3>
-          </div>
-          <span class="session-source">采购合计 {{ formatCurrency(orderAmount) }}</span>
+    <section class="pc-form-card">
+      <div class="pc-form-card-head pc-form-card-head--bordered">
+        <div class="pc-section-title">
+          <span class="material-symbols-outlined">info</span>
+          <h2>基本信息</h2>
         </div>
-
-        <form class="partner-form product-form" @submit.prevent="submitForm">
-          <label>
-            <span>快捷选择供应商</span>
-            <select :value="form.supplierId" @change="syncSupplier(($event.target as HTMLSelectElement).value)">
-              <option value="">手动录入供应商</option>
-              <option v-for="supplier in suppliers" :key="supplier.id" :value="String(supplier.id)">
-                {{ supplier.name }}
-              </option>
-            </select>
-          </label>
-          <label>
-            <span>供应商名称</span>
-            <input v-model="form.supplierName" placeholder="供应商名称" />
-          </label>
-          <label class="wide-field">
-            <span>备注</span>
-            <textarea v-model="form.notes" rows="3" placeholder="采购备注、交付说明等" />
-          </label>
-        </form>
-
-        <div class="document-lines">
-          <div class="panel-head">
-            <div>
-              <p class="eyebrow">商品明细</p>
-              <h3>{{ lines.length }} 行商品</h3>
-            </div>
-            <button type="button" class="ghost-action" @click="addLine">新增一行</button>
-          </div>
-
-          <div class="table-shell">
-            <table>
-              <thead>
-                <tr>
-                  <th>商品</th>
-                  <th>编码</th>
-                  <th>名称</th>
-                  <th>数量</th>
-                  <th>进货价</th>
-                  <th>小计</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(line, index) in lines" :key="index">
-                  <td>
-                    <select class="table-input" :value="line.productId" @change="syncProduct(index, ($event.target as HTMLSelectElement).value)">
-                      <option value="">手动录入商品</option>
-                      <option v-for="product in products" :key="product.id" :value="String(product.id)">
-                        {{ product.name }} / {{ product.code }}
-                      </option>
-                    </select>
-                  </td>
-                  <td><input v-model="line.productCode" class="table-input" placeholder="商品编码" /></td>
-                  <td><input v-model="line.productName" class="table-input" placeholder="商品名称" /></td>
-                  <td><input v-model="line.quantity" class="table-input" type="number" min="0" step="0.01" /></td>
-                  <td><input v-model="line.unitCost" class="table-input" type="number" min="0" step="0.01" /></td>
-                  <td>{{ formatCurrency((Number(line.quantity) || 0) * (Number(line.unitCost) || 0)) }}</td>
-                  <td><button type="button" class="ghost-action" @click="removeLine(index)">删除</button></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        <div>
+          <span>单号</span>
+          <strong>{{ isEditMode ? String(orderId) : 'PO-自动生成' }}</strong>
         </div>
-
-        <div class="form-actions">
-          <button type="button" :disabled="!canSubmit" @click="submitForm">{{ saving ? '保存中...' : '保存采购单' }}</button>
-          <button type="button" class="ghost-action" :disabled="saving" @click="resetForm">重置表单</button>
-        </div>
-      </article>
-
-      <aside class="panel detail-panel">
-        <p class="eyebrow">采购摘要</p>
-        <h3>当前草稿总览</h3>
-
-        <div class="detail-stack">
-          <article class="detail-card">
-            <dl class="detail-list">
-              <div>
-                <dt>供应商</dt>
-                <dd>{{ form.supplierName || '未填写' }}</dd>
-              </div>
-              <div>
-                <dt>商品行数</dt>
-                <dd>{{ normalizedItems.length }}</dd>
-              </div>
-              <div>
-                <dt>采购合计</dt>
-                <dd>{{ formatCurrency(orderAmount) }}</dd>
-              </div>
-            </dl>
-          </article>
-
-          <article class="detail-card">
-            <p class="eyebrow">待保存商品</p>
-            <div v-if="normalizedItems.length" class="mini-list">
-              <div v-for="(item, index) in normalizedItems.slice(0, 6)" :key="`${item.productId}-${item.productCode}-${index}`">
-                <strong>{{ item.productName || item.productCode || '未命名商品' }}</strong>
-                <span>{{ item.quantity }} x {{ formatCurrency(item.unitCost) }}</span>
-              </div>
-            </div>
-            <p v-else class="muted">请至少补充一行采购商品。</p>
-          </article>
-
-          <article class="detail-card">
-            <p class="eyebrow">保存说明</p>
-            <p class="muted">当前专页按真实采购单接口保存，不额外模拟审批、付款或退货流程。</p>
-          </article>
-        </div>
-      </aside>
+      </div>
+      <div class="pc-form-grid purchase-form-grid">
+        <label class="pc-field">
+          <span>供应商 <b>*</b></span>
+          <select :value="form.supplierId" @change="syncSupplier(($event.target as HTMLSelectElement).value)">
+            <option value="">手动录入供应商</option>
+            <option v-for="supplier in suppliers" :key="supplier.id" :value="String(supplier.id)">{{ supplier.name }}</option>
+          </select>
+        </label>
+        <label class="pc-field">
+          <span>采购日期 <b>*</b></span>
+          <input v-model="form.purchaseDate" type="date" />
+        </label>
+        <label class="pc-field">
+          <span>预计到货时间</span>
+          <input v-model="form.expectedArrivalDate" type="date" />
+        </label>
+        <label class="pc-field">
+          <span>收货仓库 <b>*</b></span>
+          <select v-model="form.warehouse">
+            <option>主仓库 (深圳)</option>
+            <option>次仓库 (广州)</option>
+          </select>
+        </label>
+        <label class="pc-field">
+          <span>采购员</span>
+          <select v-model="form.purchaser">
+            <option>{{ session.member.value.name }}</option>
+            <option>Admin User</option>
+          </select>
+        </label>
+        <label class="pc-field">
+          <span>备注</span>
+          <input v-model="form.notes" placeholder="添加备注信息" />
+        </label>
+        <label class="pc-field span-3">
+          <span>供应商名称</span>
+          <input v-model="form.supplierName" placeholder="搜索供应商名称/拼音首字母" />
+        </label>
+      </div>
     </section>
+
+    <section class="pc-form-card pc-lines-card">
+      <div class="pc-lines-head">
+        <div class="pc-section-title">
+          <span class="material-symbols-outlined">list_alt</span>
+          <h2>商品明细</h2>
+        </div>
+        <div>
+          <button type="button" class="pc-secondary-action">
+            <span class="material-symbols-outlined">barcode_scanner</span>
+            扫码录入
+          </button>
+          <button type="button" class="pc-primary-soft-action" @click="addLine">
+            <span class="material-symbols-outlined">add</span>
+            添加商品
+          </button>
+        </div>
+      </div>
+
+      <div class="pc-table-scroll">
+        <table class="pc-data-table pc-edit-table purchase-edit-table">
+          <thead>
+            <tr>
+              <th class="align-center">序号</th>
+              <th>商品名称/编码</th>
+              <th>规格</th>
+              <th>单位</th>
+              <th class="align-right">数量</th>
+              <th class="align-right">单价 (含税)</th>
+              <th class="align-right">折扣 (%)</th>
+              <th class="align-right">总额</th>
+              <th class="align-center">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(line, index) in lines" :key="index">
+              <td class="align-center muted">{{ index + 1 }}</td>
+              <td>
+                <select class="pc-line-input" :value="line.productId" @change="syncProduct(index, ($event.target as HTMLSelectElement).value)">
+                  <option value="">点击选择或手动录入商品</option>
+                  <option v-for="product in products" :key="product.id" :value="String(product.id)">{{ product.name }} / {{ product.code }}</option>
+                </select>
+                <input v-model="line.productName" class="pc-line-input pc-line-input--sub" placeholder="商品名称" />
+              </td>
+              <td class="muted">{{ productFor(line)?.categoryName || '-' }}</td>
+              <td>{{ productFor(line)?.unitName || '-' }}</td>
+              <td><input v-model="line.quantity" class="pc-line-input align-right" type="number" min="0" step="0.01" /></td>
+              <td><input v-model="line.unitCost" class="pc-line-input align-right" type="number" min="0" step="0.01" /></td>
+              <td><input v-model="line.discountPercent" class="pc-line-input align-right" type="number" min="0" max="100" step="1" /></td>
+              <td class="align-right amount-strong">{{ formatCurrency(lineAmount(line)) }}</td>
+              <td class="align-center">
+                <button type="button" class="pc-delete-line" @click="removeLine(index)">
+                  <span class="material-symbols-outlined">delete</span>
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="9">
+                <button type="button" class="pc-dashed-add-line" @click="addLine">
+                  <span class="material-symbols-outlined">add_circle</span>
+                  点击添加新行，或直接输入商品名称/条码搜索
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="pc-extra-grid">
+      <section class="pc-form-card pc-extra-card">
+        <h2>附加费用</h2>
+        <div class="pc-extra-row">
+          <select>
+            <option>运费</option>
+            <option>装卸费</option>
+            <option>其他</option>
+          </select>
+          <input v-model="extraFee" type="number" min="0" step="0.01" placeholder="0.00" />
+          <button type="button" class="pc-delete-line"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <button type="button" class="pc-inline-add"><span class="material-symbols-outlined">add</span> 添加费用项</button>
+      </section>
+
+      <section class="pc-form-card pc-extra-card">
+        <h2>附件</h2>
+        <div class="pc-upload-box">
+          <span class="material-symbols-outlined">cloud_upload</span>
+          <strong>点击或拖拽文件到此处上传</strong>
+          <p>支持 PDF, JPG, PNG 格式，单个最大 10MB</p>
+        </div>
+      </section>
+    </div>
+
+    <footer class="pc-form-totalbar">
+      <div class="pc-total-items">
+        <div>
+          <span>商品总数</span>
+          <strong>{{ goodsQuantity }} 件</strong>
+        </div>
+        <div>
+          <span>附加费用</span>
+          <strong>{{ formatCurrency(Number(extraFee || 0)) }}</strong>
+        </div>
+        <div class="pc-total-receivable">
+          <span>本单应付总额</span>
+          <strong>{{ formatCurrency(payableAmount) }}</strong>
+        </div>
+      </div>
+      <div class="pc-total-actions">
+        <button type="button" class="pc-secondary-action" :disabled="!canSubmit" @click="submitForm('detail')">暂存为草稿</button>
+        <button type="button" class="pc-secondary-emphasis-action" :disabled="!canSubmit" @click="submitForm('receipt')">直接入库</button>
+        <button type="button" class="pc-dark-action" :disabled="!canSubmit" @click="submitForm('detail')">
+          <span class="material-symbols-outlined">send</span>
+          {{ saving ? '保存中...' : '提交审批' }}
+        </button>
+      </div>
+    </footer>
   </section>
 </template>

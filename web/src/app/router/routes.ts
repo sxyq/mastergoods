@@ -7,6 +7,7 @@ import PartnerArchivePage from '@/pages/archives/PartnerArchivePage.vue'
 import ProductArchivePage from '@/pages/archives/ProductArchivePage.vue'
 import ProductEditPage from '@/pages/archives/ProductEditPage.vue'
 import SalesOrderListPage from '@/pages/documents/SalesOrderListPage.vue'
+import DocumentsOverviewPage from '@/pages/documents/DocumentsOverviewPage.vue'
 import SalesOrderEditPage from '@/pages/documents/SalesOrderEditPage.vue'
 import SalesOrderDetailPage from '@/pages/documents/SalesOrderDetailPage.vue'
 import SalesPaymentPage from '@/pages/documents/SalesPaymentPage.vue'
@@ -25,15 +26,19 @@ import DailyExpensePage from '@/pages/finance/DailyExpensePage.vue'
 import ReportsPage from '@/pages/reports/ReportsPage.vue'
 import AgentPage from '@/pages/agent/AgentPage.vue'
 import StitchScreenPage from '@/pages/StitchScreenPage.vue'
+import PlanningOverviewPage from '@/pages/planning/PlanningOverviewPage.vue'
 import RoleAccessPage from '@/pages/settings/RoleAccessPage.vue'
 import DatabasePage from '@/pages/settings/DatabasePage.vue'
+import SettingsOverviewPage from '@/pages/settings/SettingsOverviewPage.vue'
 import { mobileReferenceScreens, pcDesktopScreens } from './stitch-screens'
 
 function resolveScreenComponent(route: string) {
   if (route === '/dashboard') return DashboardPage
+  if (route === '/documents') return DocumentsOverviewPage
   if (route === '/archives/products') return ProductArchivePage
   if (route === '/archives/products/edit') return ProductEditPage
-  if (route === '/archives/customers' || route === '/archives/suppliers') return PartnerArchivePage
+  if (route === '/archives/customers') return PartnerArchivePage
+  if (route === '/archives/suppliers') return PartnerArchivePage
   if (route === '/documents/sales') return SalesOrderListPage
   if (route === '/documents/sales/edit') return SalesOrderEditPage
   if (route === '/documents/sales/detail') return SalesOrderDetailPage
@@ -52,6 +57,8 @@ function resolveScreenComponent(route: string) {
   if (route === '/finance/daily-expense') return DailyExpensePage
   if (route === '/reports') return ReportsPage
   if (route === '/agent') return AgentPage
+  if (route === '/planning') return PlanningOverviewPage
+  if (route === '/settings') return SettingsOverviewPage
   return StitchScreenPage
 }
 
@@ -63,6 +70,7 @@ const stitchRoutes: RouteRecordRaw[] = [...pcDesktopScreens, ...mobileReferenceS
     title: screen.title,
     screen,
     permissions: screen.permission,
+    permissionMode: screen.permissionMode,
   },
 }))
 

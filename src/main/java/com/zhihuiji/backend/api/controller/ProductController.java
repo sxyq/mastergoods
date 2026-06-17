@@ -5,6 +5,7 @@ import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.api.dto.ProductAdjustStockRequest;
 import com.zhihuiji.backend.application.service.ProductService;
 import com.zhihuiji.backend.domain.entity.ProductEntity;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import java.util.List;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v1/products")
+@RequireStorePermission("archives:view")
 public class ProductController {
     private final ProductService productService;
 
@@ -46,21 +48,25 @@ public class ProductController {
     }
 
     @PostMapping
+    @RequireStorePermission("archives:write")
     public ApiResponse<ProductEntity> create(@Valid @RequestBody ProductEntity payload) {
         return ApiResponse.success(productService.create(payload));
     }
 
     @PutMapping("/{id}")
+    @RequireStorePermission("archives:write")
     public ApiResponse<ProductEntity> update(@PathVariable Long id, @Valid @RequestBody ProductEntity payload) {
         return ApiResponse.success(productService.update(id, payload));
     }
 
     @PostMapping("/{id}/adjust-stock")
+    @RequireStorePermission("inventory:write")
     public ApiResponse<ProductEntity> adjustStock(@PathVariable Long id, @Valid @RequestBody ProductAdjustStockRequest request) {
         return ApiResponse.success(productService.adjustStock(id, request.delta(), request.reason(), request.operator()));
     }
 
     @DeleteMapping("/{id}")
+    @RequireStorePermission("archives:write")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         productService.delete(id);
         return ApiResponse.success(null);

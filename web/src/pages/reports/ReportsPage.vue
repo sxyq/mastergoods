@@ -43,6 +43,8 @@ import {
   salesTrendBucket,
   type ReportPeriodKey,
 } from '@/shared/utils/business'
+import PageEmptyState from '@/shared/ui/PageEmptyState.vue'
+import PageStatusBanner from '@/shared/ui/PageStatusBanner.vue'
 
 const session = useSession()
 const loading = ref(false)
@@ -171,6 +173,10 @@ function setPeriod(next: ReportPeriodKey) {
   period.value = next
 }
 
+async function refreshReports() {
+  await loadReports()
+}
+
 function exportCsv() {
   const sections = [
     ['经营总览', [
@@ -227,7 +233,7 @@ function percent(value: number | null | undefined) {
 </script>
 
 <template>
-  <section class="business-page reports-page">
+  <section class="business-page reports-page stitch-inspired-page stitch-reports-page">
     <section class="screen-hero">
       <div>
         <p class="eyebrow">经营报表 / Reports</p>
@@ -235,14 +241,27 @@ function percent(value: number | null | undefined) {
         <p>按真实销售、库存、财务数据生成 PC 经营分析，支持打印与 CSV 导出。</p>
       </div>
       <div class="hero-actions">
+        <button type="button" class="ghost-action" @click="refreshReports">刷新数据</button>
         <button type="button" class="ghost-action" @click="printPage">打印当前页</button>
         <button type="button" @click="exportCsv">导出 CSV</button>
       </div>
     </section>
 
-    <p v-if="!isApiSource" class="form-error">当前是演示模式。这一页只在真实登录后读取经营报表。</p>
-    <p v-else-if="error" class="form-error">{{ error }}</p>
-    <p v-if="loading" class="form-success">正在加载经营报表...</p>
+    <PageStatusBanner
+      v-if="!isApiSource"
+      tone="warning"
+      title="演示模式"
+      message="当前是演示模式。这一页只在真实登录后读取经营报表。"
+    />
+    <PageStatusBanner
+      v-else-if="error"
+      tone="error"
+      title="部分区块加载失败"
+      :message="error"
+      action-label="重新加载"
+      @action="refreshReports"
+    />
+    <PageStatusBanner v-if="loading" tone="info" title="正在同步" message="正在加载经营报表..." />
 
     <section class="panel">
       <div class="business-toolbar">
@@ -263,7 +282,7 @@ function percent(value: number | null | undefined) {
       </div>
     </section>
 
-    <section class="metrics-grid">
+    <section class="metrics-grid stitch-kpis">
       <article class="metric-card" data-tone="blue">
         <span>销售额</span>
         <strong>{{ formatCurrency(salesSummary?.totalSalesAmount || 0) }}</strong>
@@ -294,7 +313,7 @@ function percent(value: number | null | undefined) {
         </div>
         <span class="session-source">{{ trendPoints.length }} 个时间桶</span>
       </div>
-      <div class="report-chart-card">
+      <div v-if="trendPoints.length" class="report-chart-card">
         <svg viewBox="0 0 620 220" class="report-chart">
           <g v-for="(bar, index) in trendBars" :key="index">
             <rect
@@ -314,6 +333,7 @@ function percent(value: number | null | undefined) {
           </span>
         </div>
       </div>
+      <PageEmptyState v-else title="暂无趋势数据" message="当前时间范围内没有销售趋势数据。" />
       <p v-if="sectionErrors.trend" class="muted">{{ sectionErrors.trend }}</p>
     </section>
 

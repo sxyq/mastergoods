@@ -74,6 +74,60 @@ class AuthRepository @Inject constructor(
         }
     }
 
+    suspend fun fetchCurrentStore(): Result<CurrentStoreProfile> {
+        return safeApiCall { api.currentStore() }
+    }
+
+    suspend fun fetchStoreMembers(): Result<List<StoreStaffMember>> {
+        return safeApiCall { api.storeMembers() }
+    }
+
+    suspend fun createStoreMember(
+        phone: String,
+        nickname: String,
+        password: String,
+        role: String,
+        title: String? = null,
+        status: Int = 1,
+    ): Result<StoreStaffMember> {
+        return safeApiCall {
+            api.createStoreMember(
+                CreateStoreStaffMemberRequest(
+                    phone = phone,
+                    password = password,
+                    nickname = nickname,
+                    role = role,
+                    title = title,
+                    status = status,
+                )
+            )
+        }
+    }
+
+    suspend fun updateStoreMember(
+        userId: Long,
+        nickname: String? = null,
+        password: String? = null,
+        role: String? = null,
+        title: String? = null,
+        status: Int? = null,
+        keepSessions: Boolean = false,
+    ): Result<StoreStaffMember> {
+        return safeApiCall {
+            api.updateStoreMember(
+                userId = userId,
+                body = UpdateStoreStaffMemberRequest(
+                    nickname = nickname,
+                    password = password,
+                    role = role,
+                    title = title,
+                    status = status,
+                    keepSessions = keepSessions,
+                )
+            )
+        }
+    }
+
     suspend fun updateAdminUser(
         userId: Long,
         nickname: String? = null,

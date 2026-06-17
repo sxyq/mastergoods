@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
@@ -37,6 +38,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.Icon
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -63,6 +66,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -130,12 +135,23 @@ fun MainScreen(
     startupAgentLaunch: AgentLaunchRequest? = null,
 ) {
     val navController = rememberNavController()
+    val accessViewModel: MainAccessViewModel = hiltViewModel()
+    val accessState by accessViewModel.uiState.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val bottomBarBackdrop = rememberLayerBackdrop()
     val density = LocalDensity.current
 
-    val selectedIndex = bottomBarDestinations.indexOfFirst { currentRoute.matchesTopLevelRoute(it.route) }
+    if (!accessState.isResolved && accessState.isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        }
+        return
+    }
+
+    val visibleBottomBarDestinations = bottomBarDestinations
+        .filter { accessState.canAccessRoute(it.route) }
+    val selectedIndex = visibleBottomBarDestinations.indexOfFirst { currentRoute.matchesTopLevelRoute(it.route) }
         .takeIf { it >= 0 } ?: 0
     val bottomBarScrollEvents = remember {
         MutableSharedFlow<Float>(extraBufferCapacity = 64)
@@ -148,8 +164,34 @@ fun MainScreen(
         )
     }
 
-    LaunchedEffect(pendingStartupAgentLaunch) {
+    LaunchedEffect(accessState.isResolved, accessState.permissions, currentRoute) {
+        if (!accessState.isResolved || currentRoute == null || accessState.canAccessRoute(currentRoute)) {
+            return@LaunchedEffect
+        }
+        val isTopLevelRoute = bottomBarDestinations.any { currentRoute.matchesTopLevelRoute(it.route) }
+        if (isTopLevelRoute) {
+            val fallbackRoute = accessState.firstAllowedTopLevelRoute()
+            if (!currentRoute.matchesTopLevelRoute(fallbackRoute)) {
+                navController.navigate(fallbackRoute) {
+                    popUpTo(navController.graph.findStartDestination().id) {
+                        saveState = true
+                    }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(pendingStartupAgentLaunch, accessState.isResolved, accessState.permissions) {
         val request = pendingStartupAgentLaunch ?: return@LaunchedEffect
+        if (!accessState.isResolved) {
+            return@LaunchedEffect
+        }
+        if (!accessState.canAccessRoute(TabRoutes.AGENT)) {
+            pendingStartupAgentLaunch = null
+            return@LaunchedEffect
+        }
         navController.navigate(agentChatRoute(request.initialQuestion, request.conversationId)) {
             launchSingleTop = true
         }
@@ -159,6 +201,7 @@ fun MainScreen(
     GlassScaffold(
         bottomBar = {
             MainBottomBar(
+                destinations = visibleBottomBarDestinations,
                 currentRoute = currentRoute,
                 selectedIndex = selectedIndex,
                 density = density,
@@ -181,6 +224,7 @@ fun MainScreen(
             selectedIndex = selectedIndex,
             homeBottomBarScrollEvents = bottomBarScrollEvents,
             onNavigateToSettings = onNavigateToSettings,
+            accessState = accessState,
             modifier = Modifier
                 .padding(paddingValues)
                 .layerBackdrop(bottomBarBackdrop)
@@ -190,6 +234,7 @@ fun MainScreen(
 
 @Composable
 private fun MainBottomBar(
+    destinations: List<BottomNavItem>,
     currentRoute: String?,
     selectedIndex: Int,
     density: androidx.compose.ui.unit.Density,
@@ -197,7 +242,7 @@ private fun MainBottomBar(
     bottomBarScrollEvents: MutableSharedFlow<Float>,
     onNavigate: (Int, String) -> Unit,
 ) {
-    if (!bottomBarDestinations.any { currentRoute.matchesTopLevelRoute(it.route) }) {
+    if (destinations.isEmpty() || !destinations.any { currentRoute.matchesTopLevelRoute(it.route) }) {
         return
     }
 
@@ -271,7 +316,7 @@ private fun MainBottomBar(
                             vertical = BottomBarContentVerticalPadding
                         )
                 ) {
-                    val itemCount = bottomBarDestinations.size.coerceAtLeast(1)
+                    val itemCount = destinations.size.coerceAtLeast(1)
                     val slotWidth = maxWidth / itemCount
                     val slotWidthPx = with(density) { slotWidth.toPx() }.coerceAtLeast(1f)
                     val indicatorWidth = slotWidth
@@ -369,7 +414,7 @@ private fun MainBottomBar(
                                     }
                                 },
                                 onSelected = { index ->
-                                    bottomBarDestinations.getOrNull(index)?.let { dest ->
+                                    destinations.getOrNull(index)?.let { dest ->
                                         bottomBarNavigationStartIndex = selectedIndex
                                         navigateTopLevel(index, dest.route)
                                     }
@@ -378,7 +423,7 @@ private fun MainBottomBar(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        bottomBarDestinations.forEachIndexed { index, dest ->
+                        destinations.forEachIndexed { index, dest ->
                             BottomNavTab(
                                 destination = dest,
                                 selected = index == selectedIndex,

@@ -4,6 +4,7 @@ import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.common.PaginationUtils;
 import com.zhihuiji.backend.api.dto.v2.partner.V2PartnerDtos;
 import com.zhihuiji.backend.application.service.v2.V2SupplierService;
+import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v2/suppliers")
+@RequireStorePermission("archives:view")
 public class V2SupplierController {
     private final V2SupplierService v2SupplierService;
 
@@ -46,11 +48,13 @@ public class V2SupplierController {
     }
 
     @PostMapping
+    @RequireStorePermission("archives:write")
     public ApiResponse<V2PartnerDtos.SupplierResponse> create(@Valid @RequestBody V2PartnerDtos.SupplierWriteRequest request) {
         return ApiResponse.success(v2SupplierService.create(request));
     }
 
     @PutMapping("/{id}")
+    @RequireStorePermission("archives:write")
     public ApiResponse<V2PartnerDtos.SupplierResponse> update(
         @PathVariable Long id,
         @Valid @RequestBody V2PartnerDtos.SupplierWriteRequest request
@@ -59,6 +63,7 @@ public class V2SupplierController {
     }
 
     @DeleteMapping("/{id}")
+    @RequireStorePermission("archives:write")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         v2SupplierService.delete(id);
         return ApiResponse.success(null);

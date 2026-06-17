@@ -101,15 +101,41 @@ fun AppNavGraph(
                     )
                 }
                 composable(MainRoutes.SETTINGS) {
+                    val accessViewModel: MainAccessViewModel = hiltViewModel()
+                    val accessState by accessViewModel.uiState.collectAsStateWithLifecycle()
+                    val canManageUsers = accessState.isResolved && accessState.hasPermission("users:manage")
+                    val canManageDatabase = accessState.isResolved && accessState.hasPermission("database:manage")
                     SettingsScreen(
+                        canManageUsers = canManageUsers,
+                        canManageDatabase = canManageDatabase,
                         onNavigateBack = { navController.popBackStack() },
-                        onNavigateToStaffManagement = { navController.navigate(MainRoutes.STAFF_MANAGEMENT) },
+                        onNavigateToStaffManagement = {
+                            if (canManageUsers) {
+                                navController.navigate(MainRoutes.STAFF_MANAGEMENT)
+                            }
+                        },
                     )
                 }
                 composable(MainRoutes.STAFF_MANAGEMENT) {
-                    StaffManagementScreen(
-                        onNavigateBack = { navController.popBackStack() },
-                    )
+                    val accessViewModel: MainAccessViewModel = hiltViewModel()
+                    val accessState by accessViewModel.uiState.collectAsStateWithLifecycle()
+                    when {
+                        !accessState.isResolved && accessState.isLoading -> {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        accessState.hasPermission("users:manage") -> {
+                            StaffManagementScreen(
+                                onNavigateBack = { navController.popBackStack() },
+                            )
+                        }
+                        else -> {
+                            PermissionDeniedScreen(
+                                onBack = { navController.popBackStack() },
+                            )
+                        }
+                    }
                 }
             }
         }
