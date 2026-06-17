@@ -49,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
@@ -127,6 +128,8 @@ fun DashboardScreen(
         WindowInsets.navigationBars.getBottom(this).toDp()
     }
     val bottomBarContentInset = MainBottomBarHeight + navigationBarPadding
+    val selectedSalesRange = uiState.selectedSalesRange
+    val selectedSalesDate = uiState.selectedSalesDate
 
     LaunchedEffect(bottomBarScrollEvents) {
         bottomBarScrollEvents.collect { scrollDeltaPx ->
@@ -155,7 +158,19 @@ fun DashboardScreen(
         ) {
             item(key = "business_overview") {
                 BusinessOverviewSection(
-                    uiState = uiState,
+                    title = uiState.salesOverviewTitle,
+                    scopeHint = uiState.salesScopeHint,
+                    isLoading = uiState.isLoading,
+                    selectedRange = selectedSalesRange,
+                    calendarChipLabel = uiState.calendarChipLabel,
+                    isDateSelected = selectedSalesDate != null,
+                    salesAmount = uiState.salesAmount,
+                    salesOrderCount = uiState.salesOrderCount,
+                    salesPeriodLabel = uiState.salesPeriodLabel,
+                    receivableAmount = uiState.receivableAmount,
+                    receivableCustomerCount = uiState.receivableCustomerCount,
+                    lowStockCount = uiState.lowStockCount,
+                    netCashFlow = uiState.netCashFlow,
                     onSalesRangeSelected = viewModel::selectSalesRange,
                     onSalesDateClick = { showSalesDatePicker = true }
                 )
@@ -170,8 +185,10 @@ fun DashboardScreen(
 
             item(key = "pending_tasks") {
                 PendingTasksSection(
-                    uiState = uiState,
-                    onSalesClick = onNavigateToSales,
+                    lowStockCount = uiState.lowStockCount,
+                    lowStockProducts = uiState.lowStockProducts,
+                    receivableCustomerCount = uiState.receivableCustomerCount,
+                    pendingReminders = uiState.pendingReminders,
                     onProductsClick = onNavigateToProducts,
                     onCustomersClick = onNavigateToCustomers,
                     onAgentClick = onNavigateToAgent
@@ -293,7 +310,19 @@ private fun DashboardTopIconButton(
 
 @Composable
 private fun BusinessOverviewSection(
-    uiState: DashboardUiState,
+    title: String,
+    scopeHint: String,
+    isLoading: Boolean,
+    selectedRange: DashboardSalesRange?,
+    calendarChipLabel: String,
+    isDateSelected: Boolean,
+    salesAmount: String,
+    salesOrderCount: Int,
+    salesPeriodLabel: String,
+    receivableAmount: String,
+    receivableCustomerCount: Int,
+    lowStockCount: Int,
+    netCashFlow: String,
     onSalesRangeSelected: (DashboardSalesRange) -> Unit,
     onSalesDateClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -303,12 +332,12 @@ private fun BusinessOverviewSection(
         verticalArrangement = Arrangement.spacedBy(DashboardInnerSectionGap)
     ) {
         SalesRangeHeader(
-            title = uiState.salesOverviewTitle,
-            scopeHint = uiState.salesScopeHint,
-            isLoading = uiState.isLoading,
-            selectedRange = uiState.selectedSalesRange,
-            calendarChipLabel = uiState.calendarChipLabel,
-            isDateSelected = uiState.selectedSalesDate != null,
+            title = title,
+            scopeHint = scopeHint,
+            isLoading = isLoading,
+            selectedRange = selectedRange,
+            calendarChipLabel = calendarChipLabel,
+            isDateSelected = isDateSelected,
             onRangeSelected = onSalesRangeSelected,
             onDateClick = onSalesDateClick
         )
@@ -319,8 +348,8 @@ private fun BusinessOverviewSection(
             DashboardKpiCard(
                 modifier = Modifier.weight(1f),
                 title = "销售额 (元)",
-                value = formatCurrencyText(uiState.salesAmount),
-                caption = "${uiState.salesPeriodLabel} ${uiState.salesOrderCount} 张真实订单",
+                value = formatCurrencyText(salesAmount),
+                caption = "$salesPeriodLabel $salesOrderCount 张真实订单",
                 icon = Icons.Outlined.Payments,
                 accent = ZhihuijiPrimary,
                 valueColor = DataTextPrimary,
@@ -330,8 +359,8 @@ private fun BusinessOverviewSection(
             DashboardKpiCard(
                 modifier = Modifier.weight(1f),
                 title = "待收款",
-                value = formatCurrencyText(uiState.receivableAmount),
-                caption = "${uiState.receivableCustomerCount} 位客户待跟进",
+                value = formatCurrencyText(receivableAmount),
+                caption = "$receivableCustomerCount 位客户待跟进",
                 icon = Icons.Outlined.AccountBalanceWallet,
                 accent = WarningOrange,
                 valueColor = WarningOrange,
@@ -346,7 +375,7 @@ private fun BusinessOverviewSection(
             DashboardKpiCard(
                 modifier = Modifier.weight(1f),
                 title = "低库存预警",
-                value = "${uiState.lowStockCount}",
+                value = "$lowStockCount",
                 caption = "需立即补货",
                 icon = Icons.Outlined.Inventory,
                 accent = DangerRed,
@@ -358,11 +387,11 @@ private fun BusinessOverviewSection(
             DashboardKpiCard(
                 modifier = Modifier.weight(1f),
                 title = "净现金流",
-                value = signedCurrency(uiState.netCashFlow),
-                caption = "${uiState.salesPeriodLabel}资金流水净额",
+                value = signedCurrency(netCashFlow),
+                caption = "${salesPeriodLabel}资金流水净额",
                 icon = Icons.Outlined.AccountBalance,
-                accent = if (uiState.netCashFlow.startsWith("-")) DangerRed else SuccessGreen,
-                valueColor = if (uiState.netCashFlow.startsWith("-")) DangerRed else SuccessGreen,
+                accent = if (netCashFlow.startsWith("-")) DangerRed else SuccessGreen,
+                valueColor = if (netCashFlow.startsWith("-")) DangerRed else SuccessGreen,
                 glow = SuccessGreen.copy(alpha = 0.07f)
             )
         }
@@ -765,14 +794,34 @@ private fun TrendAxisLabels(
 
 @Composable
 private fun PendingTasksSection(
-    uiState: DashboardUiState,
-    onSalesClick: () -> Unit,
+    lowStockCount: Int,
+    lowStockProducts: List<LowStockProductItem>,
+    receivableCustomerCount: Int,
+    pendingReminders: List<String>,
     onProductsClick: () -> Unit,
     onCustomersClick: () -> Unit,
     onAgentClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val reminders = buildDashboardReminderItems(uiState, onProductsClick, onCustomersClick, onAgentClick)
+    val reminders = remember(
+        lowStockCount,
+        lowStockProducts,
+        receivableCustomerCount,
+        pendingReminders,
+        onProductsClick,
+        onCustomersClick,
+        onAgentClick,
+    ) {
+        buildDashboardReminderItems(
+            lowStockCount = lowStockCount,
+            lowStockProducts = lowStockProducts,
+            receivableCustomerCount = receivableCustomerCount,
+            pendingReminders = pendingReminders,
+            onProductsClick = onProductsClick,
+            onCustomersClick = onCustomersClick,
+            onAgentClick = onAgentClick,
+        )
+    }
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(DashboardInnerSectionGap)
@@ -1237,6 +1286,7 @@ private fun DashboardContractNotice(
     }
 }
 
+@Immutable
 private data class DashboardReminderItem(
     val title: String,
     val subtitle: String,
@@ -1247,42 +1297,45 @@ private data class DashboardReminderItem(
 )
 
 private fun buildDashboardReminderItems(
-    uiState: DashboardUiState,
+    lowStockCount: Int,
+    lowStockProducts: List<LowStockProductItem>,
+    receivableCustomerCount: Int,
+    pendingReminders: List<String>,
     onProductsClick: () -> Unit,
     onCustomersClick: () -> Unit,
     onAgentClick: () -> Unit,
 ): List<DashboardReminderItem> = buildList {
-    if (uiState.lowStockCount > 0) {
+    if (lowStockCount > 0) {
         add(
             DashboardReminderItem(
                 title = "低库存商品",
-                subtitle = uiState.lowStockProducts.firstOrNull()?.let { "${it.name} 等商品需补货" }
-                    ?: "${uiState.lowStockCount} 个商品库存低于安全线",
-                count = uiState.lowStockCount,
+                subtitle = lowStockProducts.firstOrNull()?.let { "${it.name} 等商品需补货" }
+                    ?: "$lowStockCount 个商品库存低于安全线",
+                count = lowStockCount,
                 icon = Icons.Outlined.Inventory,
                 tint = DangerRed,
                 onClick = onProductsClick
             )
         )
     }
-    if (uiState.receivableCustomerCount > 0) {
+    if (receivableCustomerCount > 0) {
         add(
             DashboardReminderItem(
                 title = "待收款客户",
-                subtitle = "${uiState.receivableCustomerCount} 位客户账款需要跟进",
-                count = uiState.receivableCustomerCount,
+                subtitle = "$receivableCustomerCount 位客户账款需要跟进",
+                count = receivableCustomerCount,
                 icon = Icons.Outlined.People,
                 tint = ZhihuijiPrimary,
                 onClick = onCustomersClick
             )
         )
     }
-    if (isEmpty() && uiState.pendingReminders.isNotEmpty()) {
+    if (isEmpty() && pendingReminders.isNotEmpty()) {
         add(
             DashboardReminderItem(
                 title = "AI 经营提醒",
-                subtitle = uiState.pendingReminders.first(),
-                count = uiState.pendingReminders.size,
+                subtitle = pendingReminders.first(),
+                count = pendingReminders.size,
                 icon = Icons.Outlined.SmartToy,
                 tint = WarningOrange,
                 onClick = onAgentClick

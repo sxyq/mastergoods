@@ -62,16 +62,16 @@ public class AgentRunAuditEntity {
     @Column(name = "event_count", nullable = false)
     private Integer eventCount;
 
-    @Column(name = "audit_write_dropped_count", nullable = false)
+    @Column(name = "audit_write_dropped_count", nullable = false, columnDefinition = "integer default 0")
     private Integer auditWriteDroppedCount;
 
-    @Column(name = "audit_write_failed_count", nullable = false)
+    @Column(name = "audit_write_failed_count", nullable = false, columnDefinition = "integer default 0")
     private Integer auditWriteFailedCount;
 
-    @Column(name = "audit_lossy", nullable = false)
+    @Column(name = "audit_lossy", nullable = false, columnDefinition = "boolean default false")
     private Boolean auditLossy;
 
-    @Column(name = "emitted_event_count", nullable = false)
+    @Column(name = "emitted_event_count", nullable = false, columnDefinition = "integer default 0")
     private Integer emittedEventCount;
 
     public Long getId() { return id; }

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.SupervisorAccount
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -65,6 +66,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit = {},
+    onNavigateToStaffManagement: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -103,6 +105,13 @@ fun SettingsScreen(
                         title = "账号安全",
                         trailing = if (uiState.isLoggedIn) "会话有效" else "待登录",
                         onClick = viewModel::loadAccount,
+                    )
+                    GroupDivider()
+                    SettingsRow(
+                        icon = Icons.Default.SupervisorAccount,
+                        title = "店员与权限",
+                        trailing = if (uiState.isLoggedIn) "真实接口" else "待登录",
+                        onClick = onNavigateToStaffManagement,
                     )
                 }
             }

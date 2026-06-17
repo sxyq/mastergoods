@@ -28,6 +28,8 @@ DEFAULT_PACKAGE = "com.zhihuiji.app"
 DEFAULT_ACTIVITY = "com.zhihuiji.app/.MainActivity"
 DEFAULT_BACKEND_PORT = 18080
 DEFAULT_QUESTION = "客户应收情况"
+EXTRA_AGENT_OPEN_CHAT = "com.zhihuiji.app.extra.AGENT_OPEN_CHAT"
+EXTRA_AGENT_INITIAL_QUESTION = "com.zhihuiji.app.extra.AGENT_INITIAL_QUESTION"
 
 LOCKSCREEN_TERMS = (
     "手电筒",
@@ -39,6 +41,13 @@ LOCKSCREEN_TERMS = (
 CHAT_REQUIRED_ANCHORS = (
     "AI 对话",
     "智慧记 AI",
+)
+CHAT_SHELL_ANCHORS = (
+    "服务端问答与结果块",
+    "输入经营问题",
+    "服务端查询",
+    "模型流",
+    "图表结果",
 )
 ANSWER_ANCHORS = (
     "真实",
@@ -95,6 +104,14 @@ HOME_ONLY_ANCHORS = (
     "主屏保持干净",
     "开始一次真实 Agent 对话",
 )
+STATIC_SHELL_TEXTS = {
+    "AI",
+    "从一个问题开始",
+    "发送问题后，服务端会基于当前账号权限选择可用工具，并返回 Markdown、表格或统计图。",
+    "服务端查询",
+    "模型流",
+    "图表结果",
+}
 
 
 @dataclass
@@ -107,6 +124,34 @@ class CommandResult:
     @property
     def text(self) -> str:
         return (self.stdout + self.stderr).decode("utf-8", errors="replace")
+
+
+@dataclass
+class UiNode:
+    text: str
+    content_desc: str
+    resource_id: str
+    class_name: str
+    package: str
+    bounds: tuple[int, int, int, int] | None
+    clickable: bool
+    enabled: bool
+
+    @property
+    def combined_text(self) -> str:
+        joined = " ".join(part for part in (self.text, self.content_desc) if part).strip()
+        return joined or self.resource_id
+
+
+@dataclass
+class UiSnapshot:
+    window_state: str
+    raw_xml: str
+    clean_xml: str
+    texts: list[str]
+    nodes: list[UiNode]
+    package_seen: bool
+    device_locked: bool
 
 
 def utc_now() -> str:
@@ -151,10 +196,101 @@ def extract_ui_texts(xml_text: str) -> list[str]:
     return texts
 
 
+def parse_bounds(raw_bounds: str) -> tuple[int, int, int, int] | None:
+    match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", raw_bounds.strip())
+    if not match:
+        return None
+    left, top, right, bottom = (int(value) for value in match.groups())
+    if right <= left or bottom <= top:
+        return None
+    return left, top, right, bottom
+
+
+def extract_ui_nodes(xml_text: str) -> list[UiNode]:
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return []
+    nodes: list[UiNode] = []
+    for node in root.iter("node"):
+        nodes.append(
+            UiNode(
+                text=(node.attrib.get("text") or "").strip(),
+                content_desc=(node.attrib.get("content-desc") or "").strip(),
+                resource_id=(node.attrib.get("resource-id") or "").strip(),
+                class_name=(node.attrib.get("class") or "").strip(),
+                package=(node.attrib.get("package") or "").strip(),
+                bounds=parse_bounds(node.attrib.get("bounds") or ""),
+                clickable=(node.attrib.get("clickable") or "").lower() == "true",
+                enabled=(node.attrib.get("enabled") or "").lower() != "false",
+            )
+        )
+    return nodes
+
+
 def matching_terms(texts: list[str], terms: tuple[str, ...]) -> list[str]:
     joined = "\n".join(texts)
     lowered = joined.lower()
     return [term for term in terms if term.lower() in lowered]
+
+
+def text_for_evidence(node: UiNode, input_bounds: list[tuple[int, int, int, int]]) -> list[str]:
+    if node.bounds and any(bounds_contains(bounds, node.bounds) for bounds in input_bounds):
+        return []
+    values = []
+    for value in (node.text, node.content_desc):
+        stripped = value.strip()
+        if not stripped or stripped in STATIC_SHELL_TEXTS:
+            continue
+        values.append(stripped)
+    return values
+
+
+def node_matches_terms(node: UiNode, terms: tuple[str, ...] | list[str]) -> bool:
+    haystack = normalize_visibility_text(" ".join(
+        part for part in (node.text, node.content_desc, node.resource_id) if part
+    ))
+    return any(normalize_visibility_text(term) in haystack for term in terms if term)
+
+
+def find_node(nodes: list[UiNode], terms: tuple[str, ...] | list[str], *, clickable_only: bool = False) -> UiNode | None:
+    for node in nodes:
+        if clickable_only and (not node.clickable or not node.enabled):
+            continue
+        if node_matches_terms(node, terms):
+            return node
+    return None
+
+
+def node_center(node: UiNode) -> tuple[int, int] | None:
+    if node.bounds is None:
+        return None
+    left, top, right, bottom = node.bounds
+    return (left + right) // 2, (top + bottom) // 2
+
+
+def bounds_contains(outer: tuple[int, int, int, int] | None, inner: tuple[int, int, int, int] | None) -> bool:
+    if outer is None or inner is None:
+        return False
+    left, top, right, bottom = outer
+    inner_left, inner_top, inner_right, inner_bottom = inner
+    return left <= inner_left and top <= inner_top and right >= inner_right and bottom >= inner_bottom
+
+
+def clickable_container_for(nodes: list[UiNode], target: UiNode | None, *, require_enabled: bool = True) -> UiNode | None:
+    if target is None or target.bounds is None:
+        return None
+    candidates = [
+        node
+        for node in nodes
+        if node.clickable and (node.enabled or not require_enabled) and bounds_contains(node.bounds, target.bounds)
+    ]
+    if not candidates:
+        return None
+    return min(
+        candidates,
+        key=lambda node: (node.bounds[2] - node.bounds[0]) * (node.bounds[3] - node.bounds[1]) if node.bounds else 10**12,
+    )
 
 
 def parse_raw_sse_events(raw: str) -> list[dict[str, object]]:
@@ -309,23 +445,230 @@ def scenario_guidance(scenario: str) -> list[str]:
     ]
 
 
+def looks_like_chat_input(node: UiNode) -> bool:
+    if not node.enabled:
+        return False
+    haystack = normalize_visibility_text(" ".join(
+        part for part in (node.text, node.content_desc, node.resource_id, node.class_name) if part
+    ))
+    return (
+        "edittext" in haystack
+        or "input" in haystack
+        or "message" in haystack
+        or "question" in haystack
+        or "输入" in haystack
+        or "提问" in haystack
+        or "请输入" in haystack
+    )
+
+
+def looks_like_login_input(node: UiNode, label: str) -> bool:
+    if not node.enabled:
+        return False
+    haystack = normalize_visibility_text(" ".join(
+        part for part in (node.text, node.content_desc, node.resource_id, node.class_name) if part
+    ))
+    return "edittext" in haystack and normalize_visibility_text(label) in haystack
+
+
+def capture_ui_snapshot(adb: Path, serial: str, package_name: str) -> UiSnapshot:
+    window_state = collect_window_state(adb, serial)
+    raw_tree = run(adb_cmd(adb, serial, "exec-out", "uiautomator", "dump", "/dev/tty"), check=False, timeout=20)
+    raw_xml = raw_tree.text
+    clean_xml = clean_ui_xml(raw_xml)
+    texts = extract_ui_texts(clean_xml)
+    nodes = extract_ui_nodes(clean_xml)
+    device_locked = is_device_locked(window_state)
+    return UiSnapshot(
+        window_state=window_state,
+        raw_xml=raw_xml,
+        clean_xml=clean_xml,
+        texts=texts,
+        nodes=nodes,
+        package_seen=package_visible(package_name, clean_xml, window_state, device_locked=device_locked),
+        device_locked=device_locked,
+    )
+
+
+def evidence_texts_from_nodes(nodes: list[UiNode]) -> list[str]:
+    input_bounds = [node.bounds for node in nodes if looks_like_chat_input(node) and node.bounds]
+    texts: list[str] = []
+    for node in nodes:
+        texts.extend(text_for_evidence(node, input_bounds))
+    return texts
+
+
+def classify_ui_state(texts: list[str], hits: dict[str, list[str]]) -> str:
+    if hits["lockscreen"]:
+        return "locked"
+    if hits["home_only"] and not hits["answer"] and not hits["result_block"]:
+        return "ai_home"
+    if hits["chat_required"] and not hits["answer"] and not hits["result_block"]:
+        return "chat_idle"
+    if hits["chat_required"] and hits["answer"] and not hits["result_block"]:
+        return "chat_answer_visible"
+    if hits["chat_required"] and hits["answer"] and hits["result_block"]:
+        return "chat_result_visible"
+    if texts:
+        return "unknown_visible"
+    return "unknown_empty"
+
+
+def tap_screen(adb: Path, serial: str, point: tuple[int, int]) -> None:
+    x, y = point
+    run(adb_cmd(adb, serial, "shell", "input", "tap", str(x), str(y)), check=False)
+
+
+def focus_chat_input(adb: Path, serial: str, nodes: list[UiNode]) -> bool:
+    input_node = next((node for node in nodes if looks_like_chat_input(node) and node.bounds), None)
+    if input_node is None:
+        return False
+    center = node_center(input_node)
+    if center is None:
+        return False
+    tap_screen(adb, serial, center)
+    time.sleep(0.4)
+    return True
+
+
+def fill_text_input(adb: Path, serial: str, node: UiNode, text: str) -> bool:
+    center = node_center(node)
+    if center is None:
+        return False
+    tap_screen(adb, serial, center)
+    time.sleep(0.3)
+    send_text_to_device(adb, serial, text)
+    time.sleep(0.6)
+    return True
+
+
+def clear_chat_input(adb: Path, serial: str, nodes: list[UiNode]) -> None:
+    input_node = next((node for node in nodes if looks_like_chat_input(node)), None)
+    existing_text = input_node.text if input_node else ""
+    if not existing_text:
+        return
+    for _ in range(max(len(existing_text), 24)):
+        run(adb_cmd(adb, serial, "shell", "input", "keyevent", "KEYCODE_DEL"), check=False)
+    time.sleep(0.2)
+
+
+def maybe_login(adb: Path, serial: str, package_name: str, nodes: list[UiNode], phone: str, password: str) -> bool:
+    if not phone or not password:
+        return False
+    phone_label = find_node(nodes, ("手机号",))
+    password_label = find_node(nodes, ("密码",))
+    phone_field = clickable_container_for(nodes, phone_label, require_enabled=False) or phone_label
+    password_field = clickable_container_for(nodes, password_label, require_enabled=False) or password_label
+    login_label = find_node(nodes, ("登录",))
+    login_button = clickable_container_for(nodes, login_label) or login_label
+    if phone_field is None or password_field is None or login_button is None:
+        return False
+    if not fill_text_input(adb, serial, phone_field, phone):
+        return False
+    if not fill_text_input(adb, serial, password_field, password):
+        return False
+    refreshed_nodes = capture_ui_snapshot(adb, serial, package_name).nodes
+    refreshed_label = find_node(refreshed_nodes, ("登录",))
+    refreshed_button = clickable_container_for(refreshed_nodes, refreshed_label, require_enabled=False) or refreshed_label
+    if refreshed_button is None or refreshed_button.bounds is None:
+        return False
+    center = node_center(refreshed_button)
+    if center is None:
+        return False
+    tap_screen(adb, serial, center)
+    time.sleep(1.2)
+    return True
+
+
+def send_text_to_device(adb: Path, serial: str, text: str) -> None:
+    if text.isascii():
+        run(adb_cmd(adb, serial, "shell", "input", "text", shell_input_text(text)), check=False)
+        return
+    clipboard_result = run(adb_cmd(adb, serial, "shell", "cmd", "clipboard", "set", "text", text), check=False)
+    if clipboard_result.returncode == 0:
+        run(adb_cmd(adb, serial, "shell", "input", "keyevent", "KEYCODE_PASTE"), check=False)
+        return
+    run(adb_cmd(adb, serial, "shell", "input", "text", shell_input_text(text)), check=False)
+
+
+def send_chat_message(adb: Path, serial: str, package_name: str, nodes: list[UiNode], question: str) -> bool:
+    if not focus_chat_input(adb, serial, nodes):
+        return False
+    clear_chat_input(adb, serial, nodes)
+    send_text_to_device(adb, serial, question)
+    time.sleep(0.8)
+    run(adb_cmd(adb, serial, "shell", "input", "keyevent", "KEYCODE_BACK"), check=False)
+    time.sleep(0.4)
+    refreshed_nodes = capture_ui_snapshot(adb, serial, package_name).nodes
+    raw_send_node = find_node(refreshed_nodes, ("发送", "send"))
+    send_node = (
+        find_node(refreshed_nodes, ("发送", "send"), clickable_only=True)
+        or clickable_container_for(refreshed_nodes, raw_send_node)
+        or clickable_container_for(refreshed_nodes, raw_send_node, require_enabled=False)
+        or raw_send_node
+    )
+    if send_node and send_node.bounds:
+        center = node_center(send_node)
+        if center is not None:
+            tap_screen(adb, serial, center)
+            time.sleep(0.4)
+            tap_screen(adb, serial, center)
+            time.sleep(0.3)
+            return True
+    run(adb_cmd(adb, serial, "shell", "input", "keyevent", "KEYCODE_ENTER"), check=False)
+    return True
+
+
+def maybe_open_chat_from_home(
+    adb: Path,
+    serial: str,
+    nodes: list[UiNode],
+    chat_entry_text: str,
+) -> bool:
+    entry_terms = tuple(filter(None, [chat_entry_text, "开始一次真实 Agent 对话", "真实 Agent 对话"]))
+    entry = find_node(nodes, entry_terms, clickable_only=True) or find_node(nodes, entry_terms)
+    entry = clickable_container_for(nodes, entry) or entry
+    if entry is None or entry.bounds is None:
+        return False
+    center = node_center(entry)
+    if center is None:
+        return False
+    tap_screen(adb, serial, center)
+    return True
+
+
+def maybe_open_assistant_tab(adb: Path, serial: str, nodes: list[UiNode]) -> bool:
+    assistant_tab = find_node(nodes, ("助手",), clickable_only=True) or find_node(nodes, ("助手",))
+    assistant_tab = clickable_container_for(nodes, assistant_tab) or assistant_tab
+    if assistant_tab is None or assistant_tab.bounds is None:
+        return False
+    center = node_center(assistant_tab)
+    if center is None:
+        return False
+    tap_screen(adb, serial, center)
+    return True
+
+
 def status_from_texts(
     texts: list[str],
     package_seen: bool,
     *,
+    evidence_texts: list[str] | None = None,
     screenshot_bytes: int = 1,
     device_locked: bool = False,
     scenario: str = "chat",
 ) -> tuple[str, str, dict[str, list[str]]]:
+    evidence_texts = evidence_texts or texts
     hits = {
         "lockscreen": matching_terms(texts, LOCKSCREEN_TERMS),
         "chat_required": matching_terms(texts, CHAT_REQUIRED_ANCHORS),
-        "answer": matching_terms(texts, ANSWER_ANCHORS),
-        "result_block": matching_terms(texts, RESULT_BLOCK_ANCHORS),
-        "tool": matching_terms(texts, TOOL_ANCHORS),
-        "safety_block": matching_terms(texts, SAFETY_BLOCK_ANCHORS),
-        "stop_cancel": matching_terms(texts, STOP_CANCEL_ANCHORS),
-        "clear_chat": matching_terms(texts, CLEAR_CHAT_ANCHORS),
+        "chat_shell": matching_terms(texts, CHAT_SHELL_ANCHORS),
+        "answer": matching_terms(evidence_texts, ANSWER_ANCHORS),
+        "result_block": matching_terms(evidence_texts, RESULT_BLOCK_ANCHORS),
+        "tool": matching_terms(evidence_texts, TOOL_ANCHORS),
+        "safety_block": matching_terms(evidence_texts, SAFETY_BLOCK_ANCHORS),
+        "stop_cancel": matching_terms(evidence_texts, STOP_CANCEL_ANCHORS),
+        "clear_chat": matching_terms(evidence_texts, CLEAR_CHAT_ANCHORS),
         "home_only": matching_terms(texts, HOME_ONLY_ANCHORS),
     }
     if device_locked or hits["lockscreen"]:
@@ -346,7 +689,16 @@ def status_from_texts(
             "The app/window checks ran, but the screenshot file is empty.",
             hits,
         )
-    if len(hits["chat_required"]) < len(CHAT_REQUIRED_ANCHORS):
+    if hits["home_only"] and not hits["answer"] and not hits["result_block"]:
+        return (
+            "partial-still-on-ai-home",
+            "The UI appears to be the AI home entry instead of a completed or streaming chat.",
+            hits,
+        )
+    chat_detected = len(hits["chat_required"]) >= len(CHAT_REQUIRED_ANCHORS) or (
+        "AI 对话" in hits["chat_required"] and bool(hits["chat_shell"])
+    )
+    if not chat_detected:
         return (
             "partial-ai-chat-not-detected",
             "App content was captured, but AI chat title and assistant identity were not both detected.",
@@ -392,12 +744,6 @@ def status_from_texts(
         return (
             "pass-for-device-clear-chat-evidence",
             "UI tree contains AI chat and clear-chat or clean-entry anchors. Pair this with cancel HTTP/SSE evidence before full pass.",
-            hits,
-        )
-    if hits["home_only"] and not hits["answer"] and not hits["result_block"]:
-        return (
-            "partial-still-on-ai-home",
-            "The UI appears to be the AI home entry instead of a completed or streaming chat.",
             hits,
         )
     if not hits["answer"]:
@@ -449,7 +795,11 @@ def capture(args: argparse.Namespace) -> Path:
                 f"- Question hint: `{args.question}`",
                 f"- Raw SSE for non-model delta visibility: `{args.raw_sse or 'not provided'}`",
                 f"- Wake before capture: `{args.wake}`",
+                f"- Auto open chat: `{args.auto_open_chat}`",
+                f"- Chat entry text: `{args.chat_entry_text}`",
                 f"- Send question automatically: `{args.send_question}`",
+                f"- Launch question via intent: `{args.launch_intent_question}`",
+                f"- Poll timeout seconds: `{args.poll_timeout_seconds}`",
                 "",
                 "This package proves only the visible device state captured here.",
                 "It does not prove provider model streaming unless logcat/SSE evidence in the same package shows `delta_source=model_stream`.",
@@ -465,7 +815,17 @@ def capture(args: argparse.Namespace) -> Path:
     (output_dir / "01-adb-devices.txt").write_bytes(devices.stdout)
     serial = args.serial or infer_single_device(devices.text)
     if not serial:
-        write_verdict(output_dir, "blocked-no-device", "No single adb device could be inferred.", [], {}, False, 0, False)
+        write_verdict(
+            output_dir,
+            "blocked-no-device",
+            "No single adb device could be inferred.",
+            [],
+            {},
+            False,
+            0,
+            False,
+            args.scenario,
+        )
         return output_dir
 
     window_before = collect_window_state(adb, serial)
@@ -482,25 +842,92 @@ def capture(args: argparse.Namespace) -> Path:
         time.sleep(args.settle_seconds)
 
     run(adb_cmd(adb, serial, "logcat", "-c"), check=False)
-    start = run(adb_cmd(adb, serial, "shell", "am", "start", "-n", args.activity), check=False)
+    start_args = ["shell", "am", "start", "-n", args.activity]
+    if args.launch_intent_question and args.question.strip():
+        start_args.extend(
+            [
+                "--ez",
+                EXTRA_AGENT_OPEN_CHAT,
+                "true",
+                "--es",
+                EXTRA_AGENT_INITIAL_QUESTION,
+                args.question.strip(),
+            ]
+        )
+    start = run(adb_cmd(adb, serial, *start_args), check=False)
     (output_dir / "04-am-start.txt").write_bytes(start.stdout + start.stderr)
     time.sleep(args.settle_seconds)
+    poll_history: list[dict[str, object]] = []
+    sent_question = False
+    opened_chat = False
+    opened_assistant_tab = False
+    attempted_login = False
+    deadline = time.time() + max(args.poll_timeout_seconds, args.chat_wait_seconds, 1)
+    latest_snapshot = capture_ui_snapshot(adb, serial, args.package)
+    latest_status = "partial-ai-chat-not-detected"
+    latest_reason = "Initial snapshot not evaluated yet."
+    latest_hits: dict[str, list[str]] = {}
+    latest_evidence_texts: list[str] = []
 
-    if args.send_question:
-        # Best effort only. The verdict remains partial unless the UI tree proves
-        # chat/result/tool anchors after input.
-        run(adb_cmd(adb, serial, "shell", "input", "text", shell_input_text(args.question)), check=False)
-        run(adb_cmd(adb, serial, "shell", "input", "keyevent", "KEYCODE_ENTER"), check=False)
-        time.sleep(args.chat_wait_seconds)
+    while True:
+        latest_snapshot = capture_ui_snapshot(adb, serial, args.package)
+        latest_evidence_texts = evidence_texts_from_nodes(latest_snapshot.nodes)
+        screenshot_probe = run(adb_cmd(adb, serial, "exec-out", "screencap", "-p"), check=False, timeout=20)
+        screenshot_bytes = len(screenshot_probe.stdout)
+        latest_status, latest_reason, latest_hits = status_from_texts(
+            latest_snapshot.texts,
+            latest_snapshot.package_seen,
+            evidence_texts=latest_evidence_texts,
+            screenshot_bytes=screenshot_bytes,
+            device_locked=latest_snapshot.device_locked,
+            scenario=args.scenario,
+        )
+        poll_history.append(
+            {
+                "timestamp_utc": utc_now(),
+                "status": latest_status,
+                "reason": latest_reason,
+                "ui_state": classify_ui_state(latest_snapshot.texts, latest_hits),
+                "device_locked": latest_snapshot.device_locked,
+                "package_seen": latest_snapshot.package_seen,
+                "login_attempted": attempted_login,
+                "assistant_tab_attempted": opened_assistant_tab,
+                "chat_open_attempted": opened_chat,
+                "question_send_attempted": sent_question,
+            }
+        )
+        if latest_status.startswith("pass-for-device-"):
+            break
+        if latest_status == "blocked-by-locked-device":
+            break
+        if args.login_phone and args.login_password and not attempted_login:
+            attempted_login = True
+            if maybe_login(adb, serial, args.package, latest_snapshot.nodes, args.login_phone, args.login_password):
+                time.sleep(args.settle_seconds)
+                continue
+        if args.auto_open_chat and not opened_assistant_tab and not latest_hits.get("chat_required"):
+            if maybe_open_assistant_tab(adb, serial, latest_snapshot.nodes):
+                opened_assistant_tab = True
+                time.sleep(args.settle_seconds)
+                continue
+        if args.auto_open_chat and not opened_chat:
+            if maybe_open_chat_from_home(adb, serial, latest_snapshot.nodes, args.chat_entry_text):
+                opened_chat = True
+                time.sleep(args.settle_seconds)
+                continue
+        if args.send_question and not args.launch_intent_question and not sent_question and latest_hits.get("chat_required"):
+            if send_chat_message(adb, serial, args.package, latest_snapshot.nodes, args.question):
+                sent_question = True
+                time.sleep(args.chat_wait_seconds)
+                continue
+        if time.time() >= deadline:
+            break
+        time.sleep(min(args.settle_seconds, 1.5))
 
-    window_after = collect_window_state(adb, serial)
-    write_text(output_dir / "05-window-state-after.txt", window_after)
-
-    raw_tree = run(adb_cmd(adb, serial, "exec-out", "uiautomator", "dump", "/dev/tty"), check=False, timeout=20)
-    raw_text = raw_tree.text
-    clean_xml = clean_ui_xml(raw_text)
-    write_text(output_dir / "06-ui-tree-ai-chat.xml", raw_text)
-    write_text(output_dir / "06-ui-tree-ai-chat-clean.xml", clean_xml)
+    write_json(output_dir / "05-state-poll.json", poll_history)
+    write_text(output_dir / "05-window-state-after.txt", latest_snapshot.window_state)
+    write_text(output_dir / "06-ui-tree-ai-chat.xml", latest_snapshot.raw_xml)
+    write_text(output_dir / "06-ui-tree-ai-chat-clean.xml", latest_snapshot.clean_xml)
 
     screenshot = run(adb_cmd(adb, serial, "exec-out", "screencap", "-p"), check=False, timeout=20)
     screenshot_path = output_dir / "07-screenshot-ai-chat.png"
@@ -517,19 +944,20 @@ def capture(args: argparse.Namespace) -> Path:
     gfxinfo = run(adb_cmd(adb, serial, "shell", "dumpsys", "gfxinfo", args.package), check=False, timeout=20)
     write_text(output_dir / "09-gfxinfo.txt", gfxinfo.text)
 
-    texts = extract_ui_texts(clean_xml)
+    texts = latest_snapshot.texts
     write_text(output_dir / "10-ui-texts.txt", "\n".join(texts))
-    device_locked = is_device_locked(window_after)
-    package_seen = package_visible(args.package, clean_xml, window_after, device_locked=device_locked)
+    device_locked = latest_snapshot.device_locked
+    package_seen = latest_snapshot.package_seen
     screenshot_bytes = screenshot_path.stat().st_size if screenshot_path.exists() else 0
     status, reason, hits = status_from_texts(
         texts,
         package_seen,
+        evidence_texts=latest_evidence_texts,
         screenshot_bytes=screenshot_bytes,
         device_locked=device_locked,
         scenario=args.scenario,
     )
-    non_model_visible, visible_non_model_deltas = non_model_delta_visibility(texts, args.raw_sse)
+    non_model_visible, visible_non_model_deltas = non_model_delta_visibility(latest_evidence_texts, args.raw_sse)
     write_verdict(
         output_dir,
         status,
@@ -568,7 +996,6 @@ def is_device_locked(window_state: str) -> bool:
         r"KeyguardShowing=true",
         r"mDreamingLockscreen=true",
         r"NotificationShade",
-        r"MiuiKeyguard",
     )
     return any(re.search(pattern, window_state) for pattern in lock_patterns)
 
@@ -624,6 +1051,7 @@ def write_verdict(
             "device_locked": device_locked,
             "screenshot_bytes": screenshot_bytes,
             "required_chat_anchors": list(CHAT_REQUIRED_ANCHORS),
+            "chat_shell_anchors_any": list(CHAT_SHELL_ANCHORS),
             "answer_anchors_any": list(ANSWER_ANCHORS),
             "result_block_anchors_any": list(RESULT_BLOCK_ANCHORS),
             "tool_anchors_any": list(TOOL_ANCHORS),
@@ -673,7 +1101,7 @@ def conclusion_md(
         "Captured checks:",
         "",
     ]
-    for key in ("lockscreen", "chat_required", "answer", "result_block", "tool", "safety_block", "stop_cancel", "clear_chat", "home_only"):
+    for key in ("lockscreen", "chat_required", "chat_shell", "answer", "result_block", "tool", "safety_block", "stop_cancel", "clear_chat", "home_only"):
         values = hits.get(key, [])
         lines.append(f"- {key}: `{', '.join(values) if values else 'none'}`")
     lines.extend(
@@ -737,6 +1165,14 @@ def self_test() -> None:
     assert not package_visible("com.zhihuiji.app", "", locked_window, device_locked=True)
     unlocked_window = "mCurrentFocus=Window{... com.zhihuiji.app/com.zhihuiji.app.MainActivity}"
     assert package_visible("com.zhihuiji.app", "", unlocked_window, device_locked=False)
+    miui_wallpaper_residue = "\n".join(
+        [
+            "WindowStateAnimator{4e54161 com.miui.miwallpaper.wallpaperservice.MiuiKeyguardPictorialWallpaper}",
+            "mCurrentFocus=Window{... com.zhihuiji.app/com.zhihuiji.app.MainActivity}",
+            "isKeyguardShowing=false",
+        ]
+    )
+    assert not is_device_locked(miui_wallpaper_residue)
     raw = "ignored\n<?xml version='1.0'?><hierarchy><node text='AI 对话'/></hierarchy>\nUI hierchary dumped"
     assert clean_ui_xml(raw).startswith("<?xml")
     assert extract_ui_texts(clean_ui_xml(raw)) == ["AI 对话"]
@@ -786,6 +1222,11 @@ def main() -> int:
     parser.add_argument("--output-root", default=os.environ.get("EVIDENCE_ROOT", str(DEFAULT_OUTPUT_ROOT)))
     parser.add_argument("--question", default=os.environ.get("AI_CHAT_QUESTION", DEFAULT_QUESTION))
     parser.add_argument("--raw-sse", default=os.environ.get("AI_CHAT_RAW_SSE"))
+    parser.add_argument("--auto-open-chat", action="store_true", default=os.environ.get("AUTO_OPEN_CHAT") == "1")
+    parser.add_argument("--chat-entry-text", default=os.environ.get("CHAT_ENTRY_TEXT", "开始一次真实 Agent 对话"))
+    parser.add_argument("--launch-intent-question", action="store_true", default=os.environ.get("LAUNCH_INTENT_QUESTION") == "1")
+    parser.add_argument("--login-phone", default=os.environ.get("LOGIN_PHONE", ""))
+    parser.add_argument("--login-password", default=os.environ.get("LOGIN_PASSWORD", ""))
     parser.add_argument(
         "--scenario",
         choices=("chat", "safety-block", "stop", "clear"),
@@ -794,6 +1235,7 @@ def main() -> int:
     )
     parser.add_argument("--settle-seconds", type=float, default=float(os.environ.get("SETTLE_SECONDS", "3")))
     parser.add_argument("--chat-wait-seconds", type=float, default=float(os.environ.get("CHAT_WAIT_SECONDS", "8")))
+    parser.add_argument("--poll-timeout-seconds", type=float, default=float(os.environ.get("POLL_TIMEOUT_SECONDS", "20")))
     parser.add_argument("--wake", action="store_true", default=os.environ.get("WAKE_DEVICE") == "1")
     parser.add_argument("--send-question", action="store_true", default=os.environ.get("SEND_QUESTION") == "1")
     parser.add_argument("--self-test", action="store_true")

@@ -160,10 +160,10 @@ class AgentChatScreenToolStatusTest {
     }
 
     @Test
-    fun onlyModelStreamDeltasAreVisibleAssistantText() {
+    fun modelAndRuleSummaryDeltasAreVisibleAssistantText() {
         assertEquals(true, null.isVisibleAnswerDeltaSource())
         assertEquals(true, DeltaSourceModelStream.isVisibleAnswerDeltaSource())
-        assertFalse(DeltaSourceRuleSummary.isVisibleAnswerDeltaSource())
+        assertEquals(true, DeltaSourceRuleSummary.isVisibleAnswerDeltaSource())
         assertFalse(DeltaSourceServerNotice.isVisibleAnswerDeltaSource())
     }
 

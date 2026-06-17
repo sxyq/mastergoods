@@ -22,6 +22,22 @@ interface ZhihuijiApi {
     @GET("v1/auth/users/me")
     suspend fun me(): ApiResponse<UserProfile>
 
+    @GET("v1/admin/users")
+    suspend fun adminUsers(
+        @Query("keyword") keyword: String? = null,
+        @Query("page") page: Int? = null,
+        @Query("size") size: Int? = null,
+    ): ApiResponse<List<AdminUser>>
+
+    @POST("v1/admin/users")
+    suspend fun createAdminUser(@Body body: CreateAdminUserRequest): ApiResponse<AdminUser>
+
+    @PUT("v1/admin/users/{userId}")
+    suspend fun updateAdminUser(
+        @Path("userId") userId: Long,
+        @Body body: UpdateAdminUserRequest,
+    ): ApiResponse<AdminUser>
+
     @GET("v1/products")
     suspend fun products(@Query("keyword") keyword: String? = null): ApiResponse<List<ProductDto>>
 

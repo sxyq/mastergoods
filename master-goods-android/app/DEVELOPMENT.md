@@ -1,6 +1,6 @@
 # app 模块开发说明
 
-- 当前状态：应用入口、主壳导航、档案/单据容器页和子路由首轮已落地；本轮已把 `DocumentsScreen` / `ArchivesScreen` 统一到 `GlassTopBar` 母版、移除壳层伪动作图标，并接入商品 `列表 -> 详情 -> 编辑` 导航链；底栏重复点击当前主导航时也会保留当前子 Tab，仅触发所在列表回到顶部。
+- 当前状态：应用入口、主壳导航、档案/单据容器页和子路由首轮已落地；本轮已把 `DocumentsScreen` / `ArchivesScreen` 统一到 `GlassTopBar` 母版、移除壳层伪动作图标，并接入商品 `列表 -> 详情 -> 编辑` 导航链；底栏重复点击当前主导航时也会保留当前子 Tab，仅触发所在列表回到顶部。设置页现已新增“店员与权限”子路由，进入真实店员账号管理专页。
 - 实际源码目录：`app/src/main/java/com/zhihuiji/app`
 - 目标：承载应用入口、全局导航、登录态切换、底部导航和全局错误提示。
 
@@ -21,7 +21,7 @@
 - `AppState.shouldShowAuth()`
   - 根据本地 token 和当前用户信息判断进入登录流还是主流程。
 - `AppNavGraph.buildGraph()`
-  - 注册 `auth`、`dashboard`、`documents`、`master-data`、`reports`、`agent`、`settings` 路由。
+  - 注册 `auth`、`dashboard`、`documents`、`master-data`、`reports`、`agent`、`settings` 路由，并承接设置页下的店员管理子路由。
 - `AppNavGraph.navigateAfterLogin()`
   - 登录成功后进入首页并清空认证栈。
 - `AppNavGraph.logoutAndReset()`

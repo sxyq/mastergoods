@@ -1,5 +1,6 @@
 package com.zhihuiji.feature.reports
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.model.TopSellingProductReportDto
@@ -18,6 +19,7 @@ import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 
+@Immutable
 enum class ReportPeriod(
     val tabLabel: String,
     val periodLabel: String,
@@ -34,6 +36,7 @@ fun TopSellingProductReportDto.toTopProductItem(): TopProductItem = TopProductIt
     salesCount = totalQuantity.toInt()
 )
 
+@Immutable
 data class TopProductItem(
     val id: Long,
     val name: String,
@@ -41,6 +44,7 @@ data class TopProductItem(
     val salesCount: Int
 )
 
+@Immutable
 data class ReportUiState(
     val isLoading: Boolean = false,
     val error: String? = null,

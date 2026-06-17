@@ -1,6 +1,6 @@
 # data/auth 模块开发说明
 
-- 当前状态：脚手架已创建，仓储未开始。
+- 当前状态：认证仓储已接入登录、注册、刷新、退出、当前用户读取；本轮补入 `/v1/admin/users` 真实店员账号查询、创建与更新能力，供设置页“店员与权限”专页使用。
 - 实际源码目录：`data/auth/src/main/java/com/zhihuiji/data/auth`
 - 目标：封装认证接口和会话管理。
 
@@ -16,6 +16,9 @@
 - `refresh(refreshToken: String): AuthResult`
 - `logout()`
 - `fetchCurrentUser(): UserProfile`
+- `fetchAdminUsers(keyword, page, size): List<AdminUser>`
+- `createAdminUser(phone, nickname, password, status): AdminUser`
+- `updateAdminUser(userId, nickname, password, status, keepSessions): AdminUser`
 - `restoreSessionIfNeeded(): Boolean`
 - `clearSessionAndCache()`
 
@@ -28,6 +31,7 @@
 
 - 认证接口错误要保留后端 message，登录页和注册页直接展示短错误提示。
 - `fetchCurrentUser()` 返回结果要支撑设置页的账号安全卡片。
+- 店员管理当前严格对齐真实 `admin users` 能力，不伪装成已经存在 `store/member` 级角色体系。
 
 ## 验收标准
 

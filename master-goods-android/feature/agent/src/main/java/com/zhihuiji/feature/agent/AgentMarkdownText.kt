@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,25 +53,45 @@ fun AgentMarkdownText(
     markdown: String,
     modifier: Modifier = Modifier,
     contentColor: Color = TextPrimary,
+    renderIdentity: Any? = markdown,
 ) {
-    val blocks = remember(markdown) { parseMarkdown(markdown) }
-    SelectionContainer {
-        Column(
-            modifier = modifier,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            blocks.forEach { block ->
+    val blocks = remember(renderIdentity, markdown) { parseMarkdown(markdown) }
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        blocks.forEachIndexed { index, block ->
+            key(block.stableKey(index)) {
                 when (block) {
-                    is MarkdownBlock.Heading -> MarkdownHeading(block, contentColor)
-                    is MarkdownBlock.Paragraph -> MarkdownParagraph(block.text, contentColor)
-                    is MarkdownBlock.ListBlock -> MarkdownList(block, contentColor)
-                    is MarkdownBlock.CodeBlock -> MarkdownCodeBlock(block)
-                    is MarkdownBlock.Quote -> MarkdownQuote(block, contentColor)
+                    is MarkdownBlock.Heading -> MarkdownSelectableBlock {
+                        MarkdownHeading(block, contentColor)
+                    }
+                    is MarkdownBlock.Paragraph -> MarkdownSelectableBlock {
+                        MarkdownParagraph(block.text, contentColor)
+                    }
+                    is MarkdownBlock.ListBlock -> MarkdownSelectableBlock {
+                        MarkdownList(block, contentColor)
+                    }
+                    is MarkdownBlock.CodeBlock -> MarkdownSelectableBlock {
+                        MarkdownCodeBlock(block)
+                    }
+                    is MarkdownBlock.Quote -> MarkdownSelectableBlock {
+                        MarkdownQuote(block, contentColor)
+                    }
                     is MarkdownBlock.Divider -> MarkdownDivider()
-                    is MarkdownBlock.Table -> MarkdownTable(block)
+                    is MarkdownBlock.Table -> MarkdownSelectableBlock {
+                        MarkdownTable(block)
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MarkdownSelectableBlock(content: @Composable () -> Unit) {
+    SelectionContainer {
+        content()
     }
 }
 
@@ -81,9 +102,7 @@ private fun MarkdownHeading(block: MarkdownBlock.Heading, contentColor: Color) {
         2 -> MaterialTheme.typography.titleMedium
         else -> MaterialTheme.typography.titleSmall
     }
-    val inlineText = remember(block.text, contentColor) {
-        inlineMarkdown(block.text, contentColor)
-    }
+    val inlineText = rememberInlineMarkdown(block.text, contentColor)
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
@@ -108,9 +127,7 @@ private fun MarkdownHeading(block: MarkdownBlock.Heading, contentColor: Color) {
 
 @Composable
 private fun MarkdownParagraph(text: String, contentColor: Color) {
-    val inlineText = remember(text, contentColor) {
-        inlineMarkdown(text, contentColor)
-    }
+    val inlineText = rememberInlineMarkdown(text, contentColor)
     MarkdownInlineText(
         text = inlineText,
         style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
@@ -122,9 +139,7 @@ private fun MarkdownParagraph(text: String, contentColor: Color) {
 private fun MarkdownList(block: MarkdownBlock.ListBlock, contentColor: Color) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         block.items.forEachIndexed { index, item ->
-            val inlineText = remember(item.text, contentColor) {
-                inlineMarkdown(item.text, contentColor)
-            }
+            val inlineText = rememberInlineMarkdown(item.text, contentColor)
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = when {
@@ -203,9 +218,7 @@ private fun MarkdownCodeBlock(block: MarkdownBlock.CodeBlock) {
 @Composable
 private fun MarkdownQuote(block: MarkdownBlock.Quote, contentColor: Color) {
     val quoteColor = contentColor.copy(alpha = 0.86f)
-    val inlineText = remember(block.text, quoteColor) {
-        inlineMarkdown(block.text, quoteColor)
-    }
+    val inlineText = rememberInlineMarkdown(block.text, quoteColor)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -272,9 +285,7 @@ private fun MarkdownTableRow(cells: List<String>, isHeader: Boolean) {
     Row {
         cells.forEach { cell ->
             val cellColor = if (isHeader) TextPrimary else TextSecondary
-            val inlineText = remember(cell, cellColor) {
-                inlineMarkdown(cell, cellColor)
-            }
+            val inlineText = rememberInlineMarkdown(cell, cellColor)
             MarkdownInlineText(
                 text = inlineText,
                 style = if (isHeader) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall,
@@ -310,6 +321,14 @@ private fun MarkdownInlineText(
     )
 }
 
+@Composable
+private fun rememberInlineMarkdown(
+    text: String,
+    contentColor: Color,
+): AnnotatedString = remember(text, contentColor) {
+    inlineMarkdown(text, contentColor)
+}
+
 private sealed interface MarkdownBlock {
     data class Heading(val level: Int, val text: String) : MarkdownBlock
     data class Paragraph(val text: String) : MarkdownBlock
@@ -324,6 +343,17 @@ private data class MarkdownListItem(
     val text: String,
     val checked: Boolean? = null,
 )
+
+private fun MarkdownBlock.stableKey(index: Int): String =
+    when (this) {
+        is MarkdownBlock.Heading -> "heading-$index-$level-${text.hashCode()}"
+        is MarkdownBlock.Paragraph -> "paragraph-$index-${text.hashCode()}"
+        is MarkdownBlock.ListBlock -> "list-$index-${ordered}-${items.hashCode()}"
+        is MarkdownBlock.CodeBlock -> "code-$index-${language.hashCode()}-${code.hashCode()}"
+        is MarkdownBlock.Quote -> "quote-$index-${text.hashCode()}"
+        MarkdownBlock.Divider -> "divider-$index"
+        is MarkdownBlock.Table -> "table-$index-${headers.hashCode()}-${rows.hashCode()}"
+    }
 
 private val HeadingRegex = Regex("^(#{1,6})\\s+(.+)$")
 private val UnorderedListRegex = Regex("^[-*+]\\s+(.+)$")

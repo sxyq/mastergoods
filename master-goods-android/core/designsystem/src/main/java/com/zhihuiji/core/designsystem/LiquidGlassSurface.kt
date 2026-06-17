@@ -6,8 +6,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -63,6 +65,30 @@ fun LiquidGlassSurface(
     backdrop: Backdrop? = null,
     content: @Composable () -> Unit
 ) {
+    val staticSurfaceBrush = remember(surfaceColor) {
+        Brush.verticalGradient(
+            colors = listOf(
+                surfaceColor.copy(alpha = (surfaceColor.alpha + 0.14f).coerceAtMost(0.82f)),
+                surfaceColor
+            )
+        )
+    }
+    val dynamicSurfaceBrush = remember(surfaceColor) {
+        val topAlpha = (surfaceColor.alpha + 0.20f).coerceAtMost(0.96f)
+        val bottomAlpha = (surfaceColor.alpha + 0.32f).coerceAtMost(0.99f)
+        Brush.verticalGradient(
+            colors = listOf(
+                surfaceColor.copy(alpha = topAlpha),
+                surfaceColor.copy(alpha = bottomAlpha),
+            )
+        )
+    }
+    val radialHighlightColors = remember {
+        listOf(
+            Color.White.copy(alpha = 0.32f),
+            Color.Transparent
+        )
+    }
     Box(
         modifier = if (backdrop != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             modifier.dynamicLiquidGlass(
@@ -70,12 +96,14 @@ fun LiquidGlassSurface(
                 blurRadius = blurRadius,
                 shape = shape,
                 enableVibrancy = enableVibrancy,
-                surfaceColor = surfaceColor
+                surfaceBrush = dynamicSurfaceBrush,
+                radialHighlightColors = radialHighlightColors,
             )
         } else {
             modifier.staticLiquidGlass(
                 shape = shape,
-                surfaceColor = surfaceColor
+                surfaceBrush = staticSurfaceBrush,
+                radialHighlightColors = radialHighlightColors,
             )
         }
     ) {
@@ -85,7 +113,8 @@ fun LiquidGlassSurface(
 
 private fun Modifier.staticLiquidGlass(
     shape: RoundedCornerShape,
-    surfaceColor: Color
+    surfaceBrush: Brush,
+    radialHighlightColors: List<Color>,
 ): Modifier =
     this
         .shadow(
@@ -96,15 +125,8 @@ private fun Modifier.staticLiquidGlass(
             spotColor = GlassShadow
         )
         .clip(shape)
-        .background(
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    surfaceColor.copy(alpha = (surfaceColor.alpha + 0.14f).coerceAtMost(0.82f)),
-                    surfaceColor
-                )
-            ),
-            shape = shape
-        )
+        .background(brush = surfaceBrush, shape = shape)
+        .glassHighlightOverlay(radialHighlightColors)
         .border(width = 0.5.dp, color = GlassBorder, shape = shape)
 
 private fun Modifier.dynamicLiquidGlass(
@@ -112,7 +134,8 @@ private fun Modifier.dynamicLiquidGlass(
     blurRadius: Dp,
     shape: RoundedCornerShape,
     enableVibrancy: Boolean,
-    surfaceColor: Color
+    surfaceBrush: Brush,
+    radialHighlightColors: List<Color>,
 ): Modifier =
     this
         .shadow(
@@ -149,30 +172,28 @@ private fun Modifier.dynamicLiquidGlass(
                 )
             },
             onDrawSurface = {
-                val topAlpha = (surfaceColor.alpha + 0.20f).coerceAtMost(0.96f)
-                val bottomAlpha = (surfaceColor.alpha + 0.32f).coerceAtMost(0.99f)
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            surfaceColor.copy(alpha = topAlpha),
-                            surfaceColor.copy(alpha = bottomAlpha)
-                        ),
-                        startY = 0f,
-                        endY = size.height
-                    )
-                )
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.32f),
-                            Color.Transparent
-                        ),
-                        center = Offset(size.width * 0.18f, size.height * 0.08f),
-                        radius = size.width * 0.72f
-                    ),
-                    radius = size.width * 0.72f,
-                    center = Offset(size.width * 0.18f, size.height * 0.08f)
-                )
+                drawRect(brush = surfaceBrush)
             }
         )
+        .glassHighlightOverlay(radialHighlightColors)
         .border(width = 0.5.dp, color = GlassBorder, shape = shape)
+
+private fun Modifier.glassHighlightOverlay(
+    radialHighlightColors: List<Color>,
+): Modifier = drawWithCache {
+    val highlightCenter = Offset(size.width * 0.18f, size.height * 0.08f)
+    val highlightRadius = size.width * 0.72f
+    val highlightBrush = Brush.radialGradient(
+        colors = radialHighlightColors,
+        center = highlightCenter,
+        radius = highlightRadius
+    )
+    onDrawWithContent {
+        drawContent()
+        drawCircle(
+            brush = highlightBrush,
+            radius = highlightRadius,
+            center = highlightCenter
+        )
+    }
+}

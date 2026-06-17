@@ -42,6 +42,7 @@ class GateResult:
     has_stream_order_risk: bool
     non_model_delta_sources: list[str]
     non_model_delta_visible_as_reply: bool | None
+    visible_non_model_delta_sources: list[str]
 
 
 def read_text(path: Path) -> str:
@@ -76,6 +77,29 @@ def device_non_model_delta_visible_as_reply(device_dir: Path) -> bool | None:
         return None
     value = payload.get("non_model_delta_visible_as_reply")
     return value if isinstance(value, bool) else None
+
+
+def device_visible_non_model_delta_sources(device_dir: Path) -> list[str]:
+    evidence_file = device_dir / "11-chat-evidence.json"
+    if not evidence_file.exists():
+        return []
+    try:
+        payload = json.loads(evidence_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    visible = payload.get("visible_non_model_deltas")
+    if not isinstance(visible, list):
+        return []
+    sources: list[str] = []
+    for item in visible:
+        if not isinstance(item, dict):
+            continue
+        source = item.get("source")
+        if not isinstance(source, str):
+            continue
+        if source not in sources:
+            sources.append(source)
+    return sources
 
 
 def interface_status(interface_dir: Path, scenario: str) -> str:
@@ -196,6 +220,7 @@ def stream_order_risks(interface_dir: Path) -> list[str]:
         return ["raw SSE is missing or contains no parseable events"]
 
     first_model_stream_index: int | None = None
+    first_visible_non_model_answer_index: int | None = None
     first_answer_completed_index: int | None = None
     first_result_block_index: int | None = None
     first_server_notice_index: int | None = None
@@ -211,6 +236,8 @@ def stream_order_risks(interface_dir: Path) -> list[str]:
                 model_stream_count += 1
                 if first_model_stream_index is None:
                     first_model_stream_index = index
+            elif source != "server_notice" and first_visible_non_model_answer_index is None:
+                first_visible_non_model_answer_index = index
             elif source == "server_notice" and first_server_notice_index is None:
                 first_server_notice_index = index
         elif event_name == "answer_completed" and first_answer_completed_index is None:
@@ -228,10 +255,18 @@ def stream_order_risks(interface_dir: Path) -> list[str]:
     if (
         first_result_block_index is not None
         and model_stream_count == 0
+        and first_visible_non_model_answer_index is not None
+        and first_result_block_index < first_visible_non_model_answer_index
+    ):
+        risks.append("result_block appeared before the first visible non-model answer delta")
+    if (
+        first_result_block_index is not None
+        and model_stream_count == 0
+        and first_visible_non_model_answer_index is None
         and first_answer_completed_index is not None
         and first_result_block_index < first_answer_completed_index
     ):
-        risks.append("result_block appeared before answer_completed on a non-provider stream path")
+        risks.append("result_block appeared before answer_completed on a non-model run without any visible answer delta")
     return risks
 
 
@@ -242,6 +277,7 @@ def evaluate(interface_dir: Path, device_dir: Path, scenario: str) -> GateResult
     model_stream = has_provider_model_stream(interface_dir)
     non_model_sources = non_model_delta_sources(interface_dir) if scenario == "chat" else []
     non_model_visible = device_non_model_delta_visible_as_reply(device_dir) if scenario == "chat" else None
+    visible_non_model_sources = device_visible_non_model_delta_sources(device_dir) if scenario == "chat" else []
     order_risks = stream_order_risks(interface_dir) if scenario == "chat" else []
 
     if not interface_dir.exists():
@@ -254,21 +290,33 @@ def evaluate(interface_dir: Path, device_dir: Path, scenario: str) -> GateResult
         reasons.append(f"device status is `{d_status}`, expected `{expected_device}`")
 
     if scenario == "chat":
+        allowed_visible_non_model_sources = {"rule_summary"}
+        suspicious_non_model_sources = [
+            source for source in non_model_sources if source not in allowed_visible_non_model_sources and source != "server_notice"
+        ]
+        visible_reply_risk_sources = [
+            source for source in visible_non_model_sources if source not in allowed_visible_non_model_sources
+        ]
         if i_status != "pass-for-interface":
             reasons.append(f"chat interface status is `{i_status}`, expected `pass-for-interface`")
         if not model_stream:
             reasons.append("provider `model_stream` was not observed; ChatGPT-like streaming remains partial")
-        if non_model_sources and non_model_visible is not False:
+        if suspicious_non_model_sources:
             reasons.append(
-                "raw SSE includes non-model answer_delta sources "
-                f"`{', '.join(non_model_sources)}` without Android proof that they were not shown as reply text"
+                "raw SSE includes unsupported non-model answer_delta sources "
+                f"`{', '.join(suspicious_non_model_sources)}`"
+            )
+        if visible_reply_risk_sources:
+            reasons.append(
+                "Android UI appears to show non-rule-summary non-model answer_delta sources as reply text "
+                f"`{', '.join(visible_reply_risk_sources)}`"
             )
         reasons.extend(order_risks)
         if not reasons:
             status = "pass-for-combined-provider-chat-evidence"
         elif d_status == expected_device and i_status == "pass-for-interface" and order_risks:
             status = "partial-combined-chat-stream-order-risk"
-        elif d_status == expected_device and i_status == "pass-for-interface" and model_stream and non_model_sources:
+        elif d_status == expected_device and i_status == "pass-for-interface" and model_stream and visible_reply_risk_sources:
             status = "partial-combined-chat-non-model-delta-visibility-unknown"
         elif d_status == expected_device and i_status == "pass-for-interface":
             status = "partial-combined-chat-missing-provider-stream"
@@ -287,7 +335,17 @@ def evaluate(interface_dir: Path, device_dir: Path, scenario: str) -> GateResult
 
     if not reasons:
         reasons.append("interface evidence and Android device evidence both satisfy this scenario gate")
-    return GateResult(status, reasons, i_status, d_status, model_stream, bool(order_risks), non_model_sources, non_model_visible)
+    return GateResult(
+        status,
+        reasons,
+        i_status,
+        d_status,
+        model_stream,
+        bool(order_risks),
+        non_model_sources,
+        non_model_visible,
+        visible_non_model_sources,
+    )
 
 
 def render_markdown(result: GateResult, interface_dir: Path, device_dir: Path, scenario: str) -> str:
@@ -305,6 +363,7 @@ def render_markdown(result: GateResult, interface_dir: Path, device_dir: Path, s
         f"- Stream ordering risk observed: `{str(result.has_stream_order_risk).lower()}`",
         f"- Non-model answer_delta sources: `{', '.join(result.non_model_delta_sources) if result.non_model_delta_sources else 'none'}`",
         f"- Non-model delta visible as reply: `{str(result.non_model_delta_visible_as_reply).lower() if result.non_model_delta_visible_as_reply is not None else 'unknown'}`",
+        f"- Visible non-model delta sources in Android UI: `{', '.join(result.visible_non_model_delta_sources) if result.visible_non_model_delta_sources else 'none'}`",
         "",
         "Reasons:",
         "",
@@ -379,9 +438,9 @@ def self_test() -> None:
             ),
         )
         result = evaluate(interface, device, "chat")
-        assert result.status == "partial-combined-chat-non-model-delta-visibility-unknown", result
+        assert result.status == "pass-for-combined-provider-chat-evidence", result
         assert result.non_model_delta_sources == ["server_notice"], result
-        assert any("non-model answer_delta" in reason for reason in result.reasons), result
+        assert result.visible_non_model_delta_sources == [], result
 
         write_file(
             device / "11-chat-evidence.json",
@@ -389,6 +448,7 @@ def self_test() -> None:
                 {
                     "status": "pass-for-device-ai-chat-evidence",
                     "non_model_delta_visible_as_reply": False,
+                    "visible_non_model_deltas": [{"source": "rule_summary", "text": "规则摘要"}],
                 }
             ),
         )

@@ -1515,9 +1515,11 @@ public class V2AgentAiService {
         if (payload.toolFailures() != null && !payload.toolFailures().isEmpty()
             && (payload.toolResults() == null || payload.toolResults().isEmpty())) {
             String failedAnswer = appendFailureNotice(payload.answer(), payload.toolFailures());
+            emitDeterministicAnswerDeltas(emitter, runId, failedAnswer, "rule_summary", onFirstModelDelta);
             return new FinalAnswer(failedAnswer, "tool_query_failed", "not_requested", false);
         }
         if (payload.toolResults() == null || payload.toolResults().isEmpty()) {
+            emitDeterministicAnswerDeltas(emitter, runId, payload.answer(), "rule_summary", onFirstModelDelta);
             return new FinalAnswer(payload.answer(), "unsupported_intent", "not_requested", false);
         }
         String synthesized = synthesizeAnswer(userMessage, payload.toolResults(), payload.answer());
@@ -1527,6 +1529,7 @@ public class V2AgentAiService {
         );
         if (!longCatAnthropicClient.isConfigured()) {
             String ruleSummaryAnswer = withRuleSummaryNotice(synthesizedWithFailures);
+            emitDeterministicAnswerDeltas(emitter, runId, ruleSummaryAnswer, "rule_summary", onFirstModelDelta);
             return new FinalAnswer(
                 ruleSummaryAnswer,
                 "tool_query_rule_summary",
@@ -1536,6 +1539,7 @@ public class V2AgentAiService {
         }
         if (!longCatAnthropicClient.supportsStreaming()) {
             String ruleSummaryAnswer = withRuleSummaryNotice(synthesizedWithFailures);
+            emitDeterministicAnswerDeltas(emitter, runId, ruleSummaryAnswer, "rule_summary", onFirstModelDelta);
             return new FinalAnswer(
                 ruleSummaryAnswer,
                 "tool_query_rule_summary",
@@ -1563,7 +1567,14 @@ public class V2AgentAiService {
             .map(answer -> appendQueryBoundaryNotice(answer, payload.toolResults()))
             .map(answer -> emitServerNoticeTailIfNeeded(emitter, runId, streamedAnswer.toString(), answer))
             .map(answer -> new FinalAnswer(answer, "tool_query_llm_streamed", "streaming", true))
-            .orElseGet(() -> streamFallbackFinalAnswer(emitter, runId, streamedAnswer, synthesizedWithFailures, payload));
+            .orElseGet(() -> streamFallbackFinalAnswer(
+                emitter,
+                runId,
+                streamedAnswer,
+                synthesizedWithFailures,
+                payload,
+                onFirstModelDelta
+            ));
     }
 
     private String emitServerNoticeTailIfNeeded(
@@ -1592,13 +1603,15 @@ public class V2AgentAiService {
         String runId,
         StringBuilder streamedAnswer,
         String synthesizedWithFailures,
-        ResponsePayload payload
+        ResponsePayload payload,
+        Runnable onFirstVisibleDelta
     ) {
         if (streamedAnswer != null && StringUtils.hasText(streamedAnswer.toString())) {
             String partialAnswer = appendFailureNotice(streamedAnswer.toString().trim(), payload.toolFailures());
             return new FinalAnswer(partialAnswer, "tool_query_llm_stream_interrupted", "stream_interrupted", true);
         }
         String ruleSummaryAnswer = withRuleSummaryNotice(synthesizedWithFailures);
+        emitDeterministicAnswerDeltas(emitter, runId, ruleSummaryAnswer, "rule_summary", onFirstVisibleDelta);
         return new FinalAnswer(ruleSummaryAnswer, "tool_query_rule_summary", "stream_failed_or_empty", true);
     }
 
@@ -1608,6 +1621,56 @@ public class V2AgentAiService {
             return normalized;
         }
         return RULE_SUMMARY_NOTICE + "\n\n" + normalized;
+    }
+
+    private void emitDeterministicAnswerDeltas(
+        SseEmitter emitter,
+        String runId,
+        String answer,
+        String deltaSource,
+        Runnable onFirstVisibleDelta
+    ) {
+        if (emitter == null || runId == null || !StringUtils.hasText(answer)) {
+            return;
+        }
+        boolean emittedVisibleDelta = false;
+        for (String chunk : chunkAnswerForVisibleStream(answer)) {
+            emitAnswerDeltaUnchecked(emitter, runId, chunk, deltaSource);
+            if (!emittedVisibleDelta) {
+                emittedVisibleDelta = true;
+                onFirstVisibleDelta.run();
+            }
+        }
+    }
+
+    private List<String> chunkAnswerForVisibleStream(String answer) {
+        if (!StringUtils.hasText(answer)) {
+            return List.of();
+        }
+        List<String> chunks = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        for (int index = 0; index < answer.length(); index++) {
+            char ch = answer.charAt(index);
+            current.append(ch);
+            boolean hardBreak = ch == '\n' && current.length() > 0;
+            boolean naturalBreak = "。！？；;!?".indexOf(ch) >= 0;
+            boolean softLimitReached = current.length() >= 48 && Character.isWhitespace(ch);
+            boolean maxLimitReached = current.length() >= 72;
+            if (hardBreak || naturalBreak || softLimitReached || maxLimitReached) {
+                addChunk(chunks, current);
+            }
+        }
+        addChunk(chunks, current);
+        return chunks;
+    }
+
+    private void addChunk(List<String> chunks, StringBuilder current) {
+        String chunk = current.toString();
+        current.setLength(0);
+        if (!StringUtils.hasText(chunk)) {
+            return;
+        }
+        chunks.add(chunk);
     }
 
     private String finalAnswerSystemPrompt() {

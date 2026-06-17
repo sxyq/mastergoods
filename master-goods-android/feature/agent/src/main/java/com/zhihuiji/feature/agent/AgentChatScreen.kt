@@ -46,6 +46,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -97,25 +98,27 @@ fun AgentChatScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
-    val lastMessageId = uiState.messages.lastOrNull()?.id
-    val lastMessageContentLength = uiState.messages.lastOrNull()?.content?.length ?: 0
-    val lastMessagePartCount = uiState.messages.lastOrNull()?.parts?.size ?: 0
-    val streamingScrollBucket = if (uiState.isStreaming) {
-        (lastMessageContentLength / 80) + lastMessagePartCount
+    val activeStreamingMessage = uiState.messages.lastOrNull { message ->
+        message.role == MessageRole.ASSISTANT && message.isStreaming
+    }
+    val activeStreamingMessageId = activeStreamingMessage?.id
+    val streamingScrollBucket = if (uiState.isStreaming && activeStreamingMessage != null) {
+        activeStreamingMessage.streamingAutoFollowBucket()
     } else {
         0
     }
     // 新消息进入时使用动画；流式增量只做轻量贴底，避免每个 token 排队滚动动画。
-    LaunchedEffect(uiState.messages.size, lastMessageId) {
+    LaunchedEffect(uiState.messages.size, uiState.messages.lastOrNull()?.id) {
         if (uiState.messages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.messages.size - 1)
         }
     }
 
-    LaunchedEffect(uiState.isStreaming, streamingScrollBucket) {
+    LaunchedEffect(uiState.isStreaming, activeStreamingMessageId, streamingScrollBucket) {
         if (
             uiState.isStreaming &&
-            uiState.messages.isNotEmpty() &&
+            activeStreamingMessageId != null &&
+            uiState.messages.lastOrNull()?.id == activeStreamingMessageId &&
             listState.shouldAutoFollowStreamingContent(uiState.messages.size)
         ) {
             listState.scrollToItem(uiState.messages.lastIndex)
@@ -200,6 +203,7 @@ fun AgentChatScreen(
                         ) { message ->
                             ChatMessageItem(
                                 message = message,
+                                allowActiveAnimations = message.id == activeStreamingMessageId,
                                 onToggleRunTrace = { viewModel.toggleRunTrace(message.id) },
                             )
                         }
@@ -253,6 +257,7 @@ fun AgentChatScreen(
 @Composable
 private fun ChatMessageItem(
     message: ChatMessage,
+    allowActiveAnimations: Boolean,
     onToggleRunTrace: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -288,7 +293,9 @@ private fun ChatMessageItem(
             },
             horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
         ) {
-            val displayParts = message.displayParts()
+            val displayParts = remember(message.id, message.parts, message.content, message.blocks) {
+                message.displayParts()
+            }
             if (message.isError && displayParts.isEmpty()) {
                 AssistantErrorCard(message = message.errorMessage ?: "出错了")
             } else {
@@ -356,10 +363,11 @@ private fun ChatMessageItem(
                     AssistantMessageTimeline(
                         message = message,
                         parts = displayParts,
+                        allowActiveAnimations = allowActiveAnimations,
                     )
                 }
 
-                if (!isUser && message.isStreaming) {
+                if (!isUser && message.isStreaming && allowActiveAnimations) {
                     StreamingToolActivityPill(toolCalls = message.runTrace?.toolCalls.orEmpty())
                 }
 
@@ -416,6 +424,9 @@ private fun ChatMessage.displayParts(): List<ChatMessagePart> =
             }
         }
     }
+
+private fun ChatMessage.streamingAutoFollowBucket(): Int =
+    (content.length / 80) + parts.size
 
 private fun LazyListState.shouldAutoFollowStreamingContent(messageCount: Int): Boolean =
     shouldAutoFollowStream(
@@ -550,6 +561,7 @@ private fun AssistantHeaderBadge(
 private fun AssistantMessageTimeline(
     message: ChatMessage,
     parts: List<ChatMessagePart>,
+    allowActiveAnimations: Boolean,
     modifier: Modifier = Modifier,
 ) {
     LiquidGlassSurface(
@@ -579,47 +591,109 @@ private fun AssistantMessageTimeline(
             }
             if (parts.isEmpty()) {
                 InlineStreamingStatus(
-                    if (message.isStreaming) {
+                    text = if (message.isStreaming) {
                         "正在分析问题并等待真实结果"
                     } else {
                         "暂无可展示回答"
-                    }
+                    },
+                    animate = message.isStreaming && allowActiveAnimations,
                 )
             } else {
-                parts.forEach { part ->
-                    when (part) {
-                        is ChatMessagePart.Text -> {
-                            if (part.markdown.isNotBlank()) {
-                                AssistantTextSourceLabel()
-                                AgentMarkdownText(
+                parts.forEachIndexed { index, part ->
+                    key(part.stableKey(message.id, index)) {
+                        when (part) {
+                            is ChatMessagePart.Text -> {
+                                AssistantTextPart(
                                     markdown = part.markdown,
-                                    contentColor = TextPrimary,
+                                    renderIdentity = part.renderIdentity(message.id, index),
                                 )
                             }
-                        }
-                        is ChatMessagePart.ResultBlock -> {
-                            TimelineResultBlock(
-                                block = part.block,
-                                isStreaming = message.isStreaming,
-                            )
-                        }
-                        is ChatMessagePart.PendingResultBlock -> {
-                            PendingResultBlockNotice(
-                                block = part.block,
-                                isStreaming = message.isStreaming,
-                            )
+                            is ChatMessagePart.ResultBlock -> {
+                                AssistantResultBlockPart(
+                                    block = part.block,
+                                    isStreaming = message.isStreaming,
+                                    renderIdentity = part.renderIdentity(message.id, index),
+                                )
+                            }
+                            is ChatMessagePart.PendingResultBlock -> {
+                                AssistantPendingResultBlockPart(
+                                    block = part.block,
+                                    isStreaming = message.isStreaming,
+                                )
+                            }
                         }
                     }
                 }
                 if (message.shouldShowInlineStreamingStatus()) {
                     InlineStreamingStatus(
-                        message.answerDeltaSource?.inlineStreamingLabel()
-                            ?: "正在分析问题并等待真实结果"
+                        text = message.answerDeltaSource?.inlineStreamingLabel()
+                            ?: "正在分析问题并等待真实结果",
+                        animate = message.isStreaming && allowActiveAnimations,
                     )
                 }
             }
         }
     }
+}
+
+private fun ChatMessagePart.stableKey(messageId: String, index: Int): String =
+    when (this) {
+        is ChatMessagePart.Text -> "text-$messageId-$index-${markdown.hashCode()}"
+        is ChatMessagePart.ResultBlock ->
+            "result-$messageId-$index-${block.renderCacheIdentity()}"
+        is ChatMessagePart.PendingResultBlock ->
+            "pending-$messageId-$index-${block.renderCacheIdentity()}"
+    }
+
+private fun ChatMessagePart.renderIdentity(messageId: String, index: Int): String =
+    stableKey(messageId, index)
+
+@Composable
+private fun AssistantTextPart(
+    markdown: String,
+    renderIdentity: Any,
+    modifier: Modifier = Modifier,
+) {
+    if (markdown.isBlank()) return
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        AssistantTextSourceLabel()
+        AgentMarkdownText(
+            markdown = markdown,
+            contentColor = TextPrimary,
+            renderIdentity = renderIdentity,
+        )
+    }
+}
+
+@Composable
+private fun AssistantResultBlockPart(
+    block: ResultBlockDto,
+    isStreaming: Boolean,
+    renderIdentity: Any,
+    modifier: Modifier = Modifier,
+) {
+    TimelineResultBlock(
+        block = block,
+        isStreaming = isStreaming,
+        renderIdentity = renderIdentity,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun AssistantPendingResultBlockPart(
+    block: ResultBlockDto,
+    isStreaming: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    PendingResultBlockNotice(
+        block = block,
+        isStreaming = isStreaming,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -700,6 +774,7 @@ internal fun pendingResultBlockNoticeText(isStreaming: Boolean): String =
 private fun TimelineResultBlock(
     block: ResultBlockDto,
     isStreaming: Boolean,
+    renderIdentity: Any,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -735,7 +810,10 @@ private fun TimelineResultBlock(
                 color = Color.White.copy(alpha = 0.72f),
             )
         }
-        ResultBlockRenderer(block = block)
+        ResultBlockRenderer(
+            block = block,
+            renderIdentity = renderIdentity,
+        )
     }
 }
 
@@ -770,18 +848,42 @@ private fun StreamingToolActivityPill(
 ) {
     if (toolCalls.isEmpty()) return
 
-    var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
-        while (true) {
+    val activeTool = remember(toolCalls) { toolCalls.latestActiveToolCall() }
+    if (activeTool != null) {
+        Spacer(modifier = Modifier.height(8.dp))
+        InlineToolActivityPill(
+            toolCall = activeTool,
+            modifier = modifier,
+        )
+        return
+    }
+
+    val latestFinishedTool = remember(toolCalls) { toolCalls.latestFinishedToolCallCandidate() } ?: return
+    var nowMs by remember(
+        latestFinishedTool.toolName,
+        latestFinishedTool.status,
+        latestFinishedTool.completedAt,
+        latestFinishedTool.timestamp,
+    ) {
+        mutableStateOf(System.currentTimeMillis())
+    }
+    val isVisible = latestFinishedTool.isRecentlyFinished(nowMs)
+    LaunchedEffect(
+        latestFinishedTool.toolName,
+        latestFinishedTool.status,
+        latestFinishedTool.completedAt,
+        latestFinishedTool.timestamp,
+    ) {
+        while (latestFinishedTool.isRecentlyFinished(nowMs)) {
+            delay(120)
             nowMs = System.currentTimeMillis()
-            delay(300)
         }
     }
 
-    val liveTool = toolCalls.latestVisibleToolCall(nowMs) ?: return
+    if (!isVisible) return
     Spacer(modifier = Modifier.height(8.dp))
     InlineToolActivityPill(
-        toolCall = liveTool,
+        toolCall = latestFinishedTool,
         modifier = modifier,
     )
 }
@@ -852,19 +954,24 @@ private fun String?.shortToolActivityLabel(): String? =
     this?.trim()?.take(34)?.ifBlank { null }
 
 internal fun List<ToolCallRecord>.latestVisibleToolCall(nowMs: Long = System.currentTimeMillis()): ToolCallRecord? {
-    val activeCall = asReversed().firstOrNull { call ->
-        call.status == ToolCallStatus.RUNNING || call.status == ToolCallStatus.PENDING
-    }
+    val activeCall = latestActiveToolCall()
     if (activeCall != null) {
         return activeCall
     }
-    return asReversed().firstOrNull { call ->
-        (call.status == ToolCallStatus.FAILED && call.isRecentlyFinished(nowMs)) ||
-            (call.status == ToolCallStatus.COMPLETED && call.isRecentlyFinished(nowMs))
-    }
+    return latestFinishedToolCallCandidate()?.takeIf { it.isRecentlyFinished(nowMs) }
 }
 
-private fun ToolCallRecord.isRecentlyFinished(nowMs: Long): Boolean {
+internal fun List<ToolCallRecord>.latestActiveToolCall(): ToolCallRecord? =
+    asReversed().firstOrNull { call ->
+        call.status == ToolCallStatus.RUNNING || call.status == ToolCallStatus.PENDING
+    }
+
+internal fun List<ToolCallRecord>.latestFinishedToolCallCandidate(): ToolCallRecord? =
+    asReversed().firstOrNull { call ->
+        call.status == ToolCallStatus.FAILED || call.status == ToolCallStatus.COMPLETED
+    }
+
+internal fun ToolCallRecord.isRecentlyFinished(nowMs: Long): Boolean {
     val completedAt = completedAt ?: timestamp
     return nowMs - completedAt in 0..CompletedToolPillVisibleMs
 }
@@ -892,18 +999,23 @@ internal fun String.readableToolName(): String =
 @Composable
 private fun InlineStreamingStatus(
     text: String,
+    animate: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    val transition = rememberInfiniteTransition(label = "agent_inline_streaming")
-    val cursorAlpha by transition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 520),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "agent_inline_streaming_alpha",
-    )
+    val cursorAlpha = if (animate) {
+        val transition = rememberInfiniteTransition(label = "agent_inline_streaming")
+        transition.animateFloat(
+            initialValue = 0.35f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 520),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "agent_inline_streaming_alpha",
+        ).value
+    } else {
+        1f
+    }
 
     Row(
         modifier = modifier.alpha(cursorAlpha),

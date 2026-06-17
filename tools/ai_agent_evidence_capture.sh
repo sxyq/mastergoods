@@ -342,6 +342,7 @@ EOF
       ($sse.delta_source // $audit.delta_source // "") as $deltaSource |
       ($sse.event_type // "") as $eventType |
       ($eventType == "answer_delta" and $deltaSource == "model_stream") as $isModelDelta |
+      ($eventType == "answer_delta" and $deltaSource == "rule_summary") as $isRuleSummaryDelta |
       ($eventType == "answer_delta" and $deltaSource == "server_notice") as $isServerNoticeDelta |
       .rows += [{
         seq: $sse.seq,
@@ -365,7 +366,7 @@ EOF
           (if ($audit | length) == 0 then "fail"
           elif $sse.event_id != ($audit.event_id // null) then "fail"
           elif $sse.event_type != ($audit.event_type // null) then "fail"
-          elif $eventType == "answer_delta" and ($deltaSource != "model_stream" and $deltaSource != "server_notice") then "fail"
+          elif $eventType == "answer_delta" and ($deltaSource != "model_stream" and $deltaSource != "server_notice" and $deltaSource != "rule_summary") then "fail"
           elif $isServerNoticeDelta and (.seen_model_stream | not) then "fail"
           else "pass"
           end)
@@ -393,7 +394,7 @@ EOF
       echo
       echo "Status: pass-for-interface"
       echo
-      echo "SSE and server audit events match by seq, event_id, event_type. answer_delta events are limited to model_stream or post-model server_notice. Android UI evidence is still required before full P0 pass."
+      echo "SSE and server audit events match by seq, event_id, event_type. answer_delta events are limited to model_stream, rule_summary, or post-model server_notice. Android UI evidence is still required before full P0 pass."
     fi
   } > "${output_file}"
 
@@ -1442,7 +1443,9 @@ write_latency_file() {
       nums($events | map(select(event_type == "tool_completed") | created_at)) as $toolCompletedTimes |
       nums($events | map(select(event_type == "result_block") | created_at)) as $resultBlockTimes |
       nums($events | map(select(event_type == "answer_delta") | created_at)) as $answerDeltaTimes |
+      nums($events | map(select(event_type == "answer_delta" and ((payload.delta_source // payload.deltaSource // payload.data.delta_source // payload.data.deltaSource // "") != "server_notice")) | created_at)) as $visibleAnswerTimes |
       nums($events | map(select(event_type == "answer_delta" and ((payload.delta_source // payload.deltaSource // payload.data.delta_source // payload.data.deltaSource // "") == "model_stream")) | created_at)) as $modelDeltaTimes |
+      nums($events | map(select(event_type == "answer_delta" and ((payload.delta_source // payload.deltaSource // payload.data.delta_source // payload.data.deltaSource // "") == "rule_summary")) | created_at)) as $ruleSummaryDeltaTimes |
       nums($events | map(select(event_type == "answer_delta" and ((payload.delta_source // payload.deltaSource // payload.data.delta_source // payload.data.deltaSource // "") == "server_notice")) | created_at)) as $serverNoticeTimes |
       nums($events | map(select(event_type == "answer_completed") | created_at)) as $answerCompletedTimes |
       ($events | map(select(event_type == "answer_completed" and ((payload.llm_status // payload.llmStatus // payload.data.llm_status // payload.data.llmStatus // "") == "stream_interrupted")))) as $streamInterruptedCompletions |
@@ -1480,10 +1483,20 @@ write_latency_file() {
           (if ($started | type) == "number" and (($answerDeltaTimes | min) | type) == "number"
            then (($answerDeltaTimes | min) - $started)
            else null end),
+        first_visible_answer_at: ($visibleAnswerTimes | min),
+        first_visible_answer_latency_ms:
+          (if ($started | type) == "number" and (($visibleAnswerTimes | min) | type) == "number"
+           then (($visibleAnswerTimes | min) - $started)
+           else null end),
         first_model_stream_delta_at: ($modelDeltaTimes | min),
         first_model_stream_delta_latency_ms:
           (if ($started | type) == "number" and (($modelDeltaTimes | min) | type) == "number"
            then (($modelDeltaTimes | min) - $started)
+           else null end),
+        first_rule_summary_delta_at: ($ruleSummaryDeltaTimes | min),
+        first_rule_summary_delta_latency_ms:
+          (if ($started | type) == "number" and (($ruleSummaryDeltaTimes | min) | type) == "number"
+           then (($ruleSummaryDeltaTimes | min) - $started)
            else null end),
         first_server_notice_delta_at: ($serverNoticeTimes | min),
         first_server_notice_delta_latency_ms:
@@ -1508,6 +1521,7 @@ write_latency_file() {
         result_block_count: ($events | map(select(event_type == "result_block")) | length),
         answer_delta_count: ($events | map(select(event_type == "answer_delta")) | length),
         model_stream_delta_count: ($modelDeltaTimes | length),
+        rule_summary_delta_count: ($ruleSummaryDeltaTimes | length),
         server_notice_delta_count: ($serverNoticeTimes | length),
         answer_completed_count: ($events | map(select(event_type == "answer_completed")) | length),
         stream_interrupted_count: ($streamInterruptedCompletions | length),
@@ -1549,7 +1563,9 @@ EOF
           ["first_tool_completed_latency_ms", .first_tool_completed_latency_ms],
           ["first_result_block_latency_ms", .first_result_block_latency_ms],
           ["first_answer_delta_latency_ms", .first_answer_delta_latency_ms],
+          ["first_visible_answer_latency_ms", .first_visible_answer_latency_ms],
           ["first_model_stream_delta_latency_ms", .first_model_stream_delta_latency_ms],
+          ["first_rule_summary_delta_latency_ms", .first_rule_summary_delta_latency_ms],
           ["first_server_notice_delta_latency_ms", .first_server_notice_delta_latency_ms],
           ["answer_completed_latency_ms", .answer_completed_latency_ms],
           ["run_completed_latency_ms", .run_completed_latency_ms],
@@ -1562,6 +1578,7 @@ EOF
           ["result_block_count", .result_block_count],
           ["answer_delta_count", .answer_delta_count],
           ["model_stream_delta_count", .model_stream_delta_count],
+          ["rule_summary_delta_count", .rule_summary_delta_count],
           ["server_notice_delta_count", .server_notice_delta_count],
           ["answer_completed_count", .answer_completed_count],
           ["stream_interrupted_count", .stream_interrupted_count],
@@ -1580,10 +1597,14 @@ EOF
         end,
         if (.first_result_block_at != null and (.model_stream_delta_count // 0) > 0 and (.first_model_stream_delta_at == null or .first_result_block_at < .first_model_stream_delta_at)) then
           "- Result blocks arrived before the first provider-backed `model_stream` delta; this can recreate a data-before-answer inversion and must be reconciled with Android pending-block evidence."
-        elif (.first_result_block_at != null and (.model_stream_delta_count // 0) == 0 and (.answer_completed_at == null or .first_result_block_at < .answer_completed_at)) then
-          "- Result blocks arrived before `answer_completed` in a non-model-stream run; rule-summary / non-streaming-provider paths must not show data blocks before answer text."
+        elif (.first_result_block_at != null and (.model_stream_delta_count // 0) == 0 and (.first_visible_answer_at != null) and .first_result_block_at < .first_visible_answer_at) then
+          "- Result blocks arrived before the first visible non-model answer delta; rule-summary / non-streaming-provider paths must not show data blocks before answer text."
+        elif (.first_result_block_at != null and (.model_stream_delta_count // 0) == 0 and (.first_visible_answer_at == null) and (.answer_completed_at == null or .first_result_block_at < .answer_completed_at)) then
+          "- Result blocks arrived before `answer_completed` in a non-model-stream run with no visible answer delta; this can recreate a data-before-answer inversion and must be reconciled with Android evidence."
         elif (.first_result_block_at != null and (.model_stream_delta_count // 0) > 0) then
           "- Result blocks followed the first provider-backed `model_stream` delta; verify Android shows the answer text before structured data."
+        elif (.first_result_block_at != null and (.rule_summary_delta_count // 0) > 0) then
+          "- Result blocks followed the first visible `rule_summary` delta; verify Android shows the rule-summary answer text before structured data."
         elif (.first_result_block_at != null) then
           "- Result blocks followed `answer_completed`; verify Android shows the completed answer before structured data."
         else

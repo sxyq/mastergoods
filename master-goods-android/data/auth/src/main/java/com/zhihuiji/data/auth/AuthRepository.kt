@@ -48,6 +48,52 @@ class AuthRepository @Inject constructor(
         return safeApiCall { api.me() }
     }
 
+    suspend fun fetchAdminUsers(
+        keyword: String? = null,
+        page: Int? = null,
+        size: Int? = null,
+    ): Result<List<AdminUser>> {
+        return safeApiCall { api.adminUsers(keyword = keyword, page = page, size = size) }
+    }
+
+    suspend fun createAdminUser(
+        phone: String,
+        nickname: String,
+        password: String,
+        status: Int = 1,
+    ): Result<AdminUser> {
+        return safeApiCall {
+            api.createAdminUser(
+                CreateAdminUserRequest(
+                    phone = phone,
+                    password = password,
+                    nickname = nickname,
+                    status = status,
+                )
+            )
+        }
+    }
+
+    suspend fun updateAdminUser(
+        userId: Long,
+        nickname: String? = null,
+        password: String? = null,
+        status: Int? = null,
+        keepSessions: Boolean = false,
+    ): Result<AdminUser> {
+        return safeApiCall {
+            api.updateAdminUser(
+                userId = userId,
+                body = UpdateAdminUserRequest(
+                    nickname = nickname,
+                    status = status,
+                    password = password,
+                    keepSessions = keepSessions,
+                )
+            )
+        }
+    }
+
     suspend fun restoreSessionIfNeeded(): Boolean {
         return try {
             val token = sessionStore.requireAccessToken()

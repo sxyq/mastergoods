@@ -1,5 +1,6 @@
 package com.zhihuiji.feature.dashboard
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.model.ReconciliationSummaryReportDto
@@ -32,11 +33,13 @@ private val SINGLE_DAY_CHART_SLOTS = listOf(
     3 to "18-24"
 )
 
+@Immutable
 data class SalesTrendPoint(
     val label: String,
     val value: Double
 )
 
+@Immutable
 data class LowStockProductItem(
     val id: Long,
     val name: String,
@@ -44,6 +47,7 @@ data class LowStockProductItem(
     val safeStock: Double
 )
 
+@Immutable
 enum class DashboardSalesRange(
     val days: Int,
     val buttonLabel: String,
@@ -55,13 +59,16 @@ enum class DashboardSalesRange(
     LAST_365(365, "1年", "近1年")
 }
 
+@Immutable
 sealed interface DashboardSalesScope {
     val periodLabel: String
 
+    @Immutable
     data class Range(val range: DashboardSalesRange) : DashboardSalesScope {
         override val periodLabel: String = range.periodLabel
     }
 
+    @Immutable
     data class SingleDay(val date: LocalDate) : DashboardSalesScope {
         override val periodLabel: String = DAY_PERIOD_FORMATTER.format(date)
     }
@@ -281,6 +288,7 @@ class DashboardViewModel @Inject constructor(
 
 }
 
+@Immutable
 data class DashboardUiState(
     val isLoading: Boolean = false,
     val error: String? = null,

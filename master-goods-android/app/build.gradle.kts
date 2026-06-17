@@ -7,6 +7,8 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+apply(plugin = "androidx.baselineprofile")
+
 val debugSigningSha256 = "8910A440E3C0D107E2B250D559DEF2AB7F02B5A1911556CA8154D9C9B4C77FD8"
 val releaseSigningSha256 = providers.gradleProperty("ZHIHUIJI_RELEASE_SIGNING_SHA256")
     .orElse(debugSigningSha256)
@@ -108,6 +110,15 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
 
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.profileinstaller)
 
     debugImplementation(libs.compose.ui.tooling)
+
+    add("baselineProfile", project(":benchmark"))
+    testImplementation(libs.junit)
+}
+
+configure<androidx.baselineprofile.gradle.consumer.BaselineProfileConsumerExtension> {
+    automaticGenerationDuringBuild = false
+    dexLayoutOptimization = true
 }

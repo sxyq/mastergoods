@@ -53,7 +53,7 @@ import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimaryLight
 
 private const val PurchaseReturnUnavailableMessage =
-    "后端尚未提供采购退货合同、可退商品、退款方式和提交接口，当前页面只展示真实能力边界。"
+    "采购退货后端合同已经补齐；当前移动端页面仍以来源预览为主，完整的新建、确认、退款和取消交互待继续接入。"
 
 @Composable
 fun PurchaseReturnScreen(
@@ -512,7 +512,7 @@ private fun PurchaseReturnSourceLineCard(
                 }
 
                 Text(
-                    text = "来源金额 ${line.amountText}；采购退货可退数量待后端合同返回",
+                    text = "来源金额 ${line.amountText}；当前移动端仍按来源采购数量展示，后续补齐已退数量与可退数量联动。",
                     style = MaterialTheme.typography.labelLarge,
                     color = TextTertiary,
                     maxLines = 2,

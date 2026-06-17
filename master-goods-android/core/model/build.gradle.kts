@@ -26,6 +26,8 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.runtime)
     implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)

@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -81,45 +82,54 @@ import kotlinx.serialization.json.jsonPrimitive
 fun ResultBlockRenderer(
     block: ResultBlockDto,
     modifier: Modifier = Modifier,
+    renderIdentity: Any = block.renderCacheIdentity(),
 ) {
     when (block.blockType) {
-        "text", "markdown" -> block.renderParsedTextBlock(modifier) {
-            TextResultBlock(markdown = it, title = block.title, modifier = modifier)
+        "text", "markdown" -> block.renderParsedTextBlock(
+            modifier = modifier,
+            renderIdentity = renderIdentity,
+        ) {
+            TextResultBlock(
+                markdown = it,
+                title = block.title,
+                modifier = modifier,
+                renderIdentity = renderIdentity,
+            )
         }
 
-        "kpi_grid" -> block.renderParsedBlock<KpiGridBlockData>(modifier) {
+        "kpi_grid" -> block.renderParsedBlock<KpiGridBlockData>(modifier, renderIdentity) {
             KpiGridBlock(data = it, title = block.title, modifier = modifier)
         }
 
-        "table" -> block.renderParsedBlock<TableBlockData>(modifier) {
+        "table" -> block.renderParsedBlock<TableBlockData>(modifier, renderIdentity) {
             TableBlock(data = it, title = block.title, modifier = modifier)
         }
 
-        "rank_list" -> block.renderParsedBlock<RankListBlockData>(modifier) {
+        "rank_list" -> block.renderParsedBlock<RankListBlockData>(modifier, renderIdentity) {
             RankListBlock(data = it, title = block.title, modifier = modifier)
         }
 
-        "line_chart", "area_chart", "trend_chart" -> block.renderParsedBlock<LineChartBlockData>(modifier) {
+        "line_chart", "area_chart", "trend_chart" -> block.renderParsedBlock<LineChartBlockData>(modifier, renderIdentity) {
             LineChartBlock(data = it, title = block.title, modifier = modifier)
         }
 
-        "bar_chart", "column_chart", "horizontal_bar_chart" -> block.renderParsedBlock<BarChartBlockData>(modifier) {
+        "bar_chart", "column_chart", "horizontal_bar_chart" -> block.renderParsedBlock<BarChartBlockData>(modifier, renderIdentity) {
             BarChartBlock(data = it, title = block.title, modifier = modifier)
         }
 
-        "donut_chart", "pie_chart" -> block.renderParsedBlock<DonutChartBlockData>(modifier) {
+        "donut_chart", "pie_chart" -> block.renderParsedBlock<DonutChartBlockData>(modifier, renderIdentity) {
             DonutChartBlock(data = it, title = block.title, modifier = modifier)
         }
 
-        "risk_card" -> block.renderParsedBlock<RiskCardBlockData>(modifier) {
+        "risk_card" -> block.renderParsedBlock<RiskCardBlockData>(modifier, renderIdentity) {
             RiskCardBlock(data = it, modifier = modifier)
         }
 
-        "evidence_card" -> block.renderParsedBlock<EvidenceCardBlockData>(modifier) {
+        "evidence_card" -> block.renderParsedBlock<EvidenceCardBlockData>(modifier, renderIdentity) {
             EvidenceCardBlock(data = it, modifier = modifier)
         }
 
-        "draft_card" -> block.renderParsedBlock<DraftCardBlockData>(modifier) {
+        "draft_card" -> block.renderParsedBlock<DraftCardBlockData>(modifier, renderIdentity) {
             DraftCardBlock(data = it, modifier = modifier)
         }
 
@@ -132,9 +142,10 @@ fun ResultBlockRenderer(
 @Composable
 private inline fun <reified T> ResultBlockDto.renderParsedBlock(
     modifier: Modifier,
+    renderIdentity: Any,
     content: @Composable (T) -> Unit,
 ) {
-    val parsed = remember(blockType, data) { parseData<T>() }
+    val parsed = remember(renderIdentity, blockType, data) { parseData<T>() }
     if (parsed == null) {
         BlockParseFailed(block = this, modifier = modifier)
     } else {
@@ -159,9 +170,10 @@ private val ResultBlockJson = Json {
 @Composable
 private fun ResultBlockDto.renderParsedTextBlock(
     modifier: Modifier,
+    renderIdentity: Any,
     content: @Composable (String) -> Unit,
 ) {
-    val parsed = remember(blockType, data) { parseTextBlockMarkdown() }
+    val parsed = remember(renderIdentity, blockType, data) { parseTextBlockMarkdown() }
     if (parsed == null) {
         BlockParseFailed(block = this, modifier = modifier)
     } else {
@@ -180,6 +192,7 @@ private fun TextResultBlock(
     markdown: String,
     title: String?,
     modifier: Modifier = Modifier,
+    renderIdentity: Any,
 ) {
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
@@ -195,7 +208,11 @@ private fun TextResultBlock(
                     fontWeight = FontWeight.SemiBold,
                 )
             }
-            AgentMarkdownText(markdown = markdown, contentColor = TextPrimary)
+            AgentMarkdownText(
+                markdown = markdown,
+                contentColor = TextPrimary,
+                renderIdentity = renderIdentity,
+            )
         }
     }
 }
@@ -289,6 +306,9 @@ private fun TableBlock(
     title: String?,
     modifier: Modifier = Modifier,
 ) {
+    val contractError = remember(data.headers, data.rows) {
+        validateTableContract(data.headers, data.rows)
+    }
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -315,7 +335,6 @@ private fun TableBlock(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            val contractError = validateTableContract(data.headers, data.rows)
             if (contractError != null) {
                 ChartContractErrorMessage(contractError)
             } else {
@@ -483,15 +502,19 @@ private fun LineChartBlock(
     title: String?,
     modifier: Modifier = Modifier,
 ) {
-    val renderSeries = data.series.mapIndexed { index, series ->
-        ChartSeriesUi(
-            name = series.name,
-            values = series.data,
-            color = chartColor(series.color, index),
-        )
+    val renderSeries = remember(data.series) {
+        data.series.mapIndexed { index, series ->
+            ChartSeriesUi(
+                name = series.name,
+                values = series.data,
+                color = chartColor(series.color, index),
+            )
+        }
     }
-    val labels = data.labels
-    val contractError = validateChartContract(labels = labels, series = renderSeries)
+    val labels = remember(data.labels) { data.labels }
+    val contractError = remember(labels, renderSeries) {
+        validateChartContract(labels = labels, series = renderSeries)
+    }
 
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
@@ -523,15 +546,19 @@ private fun BarChartBlock(
     title: String?,
     modifier: Modifier = Modifier,
 ) {
-    val renderSeries = data.series.mapIndexed { index, series ->
-        ChartSeriesUi(
-            name = series.name,
-            values = series.data,
-            color = chartColor(series.color, index),
-        )
+    val renderSeries = remember(data.series) {
+        data.series.mapIndexed { index, series ->
+            ChartSeriesUi(
+                name = series.name,
+                values = series.data,
+                color = chartColor(series.color, index),
+            )
+        }
     }
-    val labels = data.labels
-    val contractError = validateChartContract(labels = labels, series = renderSeries)
+    val labels = remember(data.labels) { data.labels }
+    val contractError = remember(labels, renderSeries) {
+        validateChartContract(labels = labels, series = renderSeries)
+    }
 
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
@@ -563,7 +590,9 @@ private fun DonutChartBlock(
     title: String?,
     modifier: Modifier = Modifier,
 ) {
-    val segmentResult = donutChartSegments(data.segments)
+    val segmentResult = remember(data.segments) {
+        donutChartSegments(data.segments)
+    }
     val segments = segmentResult.segments
 
     LiquidGlassCard(
@@ -578,7 +607,7 @@ private fun DonutChartBlock(
             if (segments.isEmpty()) {
                 EmptyChartMessage("本轮查询没有返回可绘制的分组数据")
             } else {
-                val total = segments.sumOf { it.value }
+                val total = remember(segments) { segments.sumOf { it.value } }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -609,12 +638,6 @@ private fun LineChartCanvas(
     series: List<ChartSeriesUi>,
     modifier: Modifier = Modifier,
 ) {
-    val chartValues = series.flatMap { it.values.take(labels.size) }
-        .filter { it.isUsableChartValue() }
-    val minValue = minOf(0.0, chartValues.minOrNull() ?: 0.0)
-    val maxValue = maxOf(0.0, chartValues.maxOrNull() ?: 1.0)
-    val range = (maxValue - minValue).takeIf { it > 0.000001 } ?: 1.0
-
     Canvas(
         modifier = modifier
             .fillMaxWidth()
@@ -622,88 +645,113 @@ private fun LineChartCanvas(
             .clip(RoundedCornerShape(14.dp))
             .background(Color.White.copy(alpha = 0.72f))
             .padding(horizontal = 8.dp, vertical = 8.dp)
-    ) {
-        val left = 10.dp.toPx()
-        val right = 10.dp.toPx()
-        val top = 12.dp.toPx()
-        val bottom = size.height - 16.dp.toPx()
-        val graphWidth = (size.width - left - right).coerceAtLeast(1f)
-        val graphHeight = (bottom - top).coerceAtLeast(1f)
+            .drawWithCache {
+                val chartValues = series.flatMap { it.values.take(labels.size) }
+                    .filter { it.isUsableChartValue() }
+                val minValue = minOf(0.0, chartValues.minOrNull() ?: 0.0)
+                val maxValue = maxOf(0.0, chartValues.maxOrNull() ?: 1.0)
+                val range = (maxValue - minValue).takeIf { it > 0.000001 } ?: 1.0
 
-        repeat(4) { index ->
-            val y = top + graphHeight * index / 3f
-            drawLine(
-                color = TextTertiary.copy(alpha = if (index == 3) 0.18f else 0.10f),
-                start = Offset(left, y),
-                end = Offset(left + graphWidth, y),
-                strokeWidth = 1.dp.toPx(),
-            )
-        }
+                val left = 10.dp.toPx()
+                val right = 10.dp.toPx()
+                val top = 12.dp.toPx()
+                val bottom = size.height - 16.dp.toPx()
+                val graphWidth = (size.width - left - right).coerceAtLeast(1f)
+                val graphHeight = (bottom - top).coerceAtLeast(1f)
+                val zeroY = top + ((maxValue - 0.0) / range).toFloat().coerceIn(0f, 1f) * graphHeight
 
-        val zeroY = top + ((maxValue - 0.0) / range).toFloat().coerceIn(0f, 1f) * graphHeight
-        drawLine(
-            color = ZhihuijiPrimary.copy(alpha = 0.12f),
-            start = Offset(left, zeroY),
-            end = Offset(left + graphWidth, zeroY),
-            strokeWidth = 1.2.dp.toPx(),
-        )
+                val lineStroke = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                val outerPointRadius = 5.dp.toPx()
+                val innerPointRadius = 3.2.dp.toPx()
 
-        series.forEachIndexed { seriesIndex, item ->
-            val points = item.values.take(labels.size).mapIndexedNotNull { index, value ->
-                if (!value.isUsableChartValue()) {
-                    null
-                } else {
-                    val x = left + if (labels.size <= 1) {
-                        graphWidth / 2f
+                val paths = series.mapIndexed { seriesIndex, item ->
+                    val points = item.values.take(labels.size).mapIndexedNotNull { index, value ->
+                        if (!value.isUsableChartValue()) {
+                            null
+                        } else {
+                            val x = left + if (labels.size <= 1) {
+                                graphWidth / 2f
+                            } else {
+                                graphWidth * index / (labels.size - 1).coerceAtLeast(1)
+                            }
+                            val ratio = ((maxValue - value) / range).toFloat().coerceIn(0f, 1f)
+                            Offset(x, top + ratio * graphHeight)
+                        }
+                    }
+                    val linePath = if (points.size >= 2) {
+                        Path().apply {
+                            moveTo(points.first().x, points.first().y)
+                            points.drop(1).forEach { lineTo(it.x, it.y) }
+                        }
                     } else {
-                        graphWidth * index / (labels.size - 1).coerceAtLeast(1)
+                        null
                     }
-                    val ratio = ((maxValue - value) / range).toFloat().coerceIn(0f, 1f)
-                    Offset(x, top + ratio * graphHeight)
+                    val areaPath = if (seriesIndex == 0 && points.size >= 2) {
+                        Path().apply {
+                            moveTo(points.first().x, bottom)
+                            points.forEach { lineTo(it.x, it.y) }
+                            lineTo(points.last().x, bottom)
+                            close()
+                        }
+                    } else {
+                        null
+                    }
+                    Triple(item, linePath, areaPath) to points
                 }
-            }
 
-            if (points.size >= 2) {
-                val path = Path().apply {
-                    moveTo(points.first().x, points.first().y)
-                    points.drop(1).forEach { lineTo(it.x, it.y) }
-                }
-                if (seriesIndex == 0) {
-                    val areaPath = Path().apply {
-                        moveTo(points.first().x, bottom)
-                        points.forEach { lineTo(it.x, it.y) }
-                        lineTo(points.last().x, bottom)
-                        close()
-                    }
-                    drawPath(
-                        path = areaPath,
-                        brush = Brush.verticalGradient(
-                            colors = listOf(item.color.copy(alpha = 0.22f), Color.Transparent),
-                            startY = top,
-                            endY = bottom,
+                onDrawBehind {
+                    repeat(4) { index ->
+                        val y = top + graphHeight * index / 3f
+                        drawLine(
+                            color = TextTertiary.copy(alpha = if (index == 3) 0.18f else 0.10f),
+                            start = Offset(left, y),
+                            end = Offset(left + graphWidth, y),
+                            strokeWidth = 1.dp.toPx(),
                         )
-                    )
-                }
-                drawPath(
-                    path = path,
-                    color = item.color,
-                    style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round),
-                )
-            }
+                    }
 
-            points.forEach { point ->
-                drawCircle(
-                    color = Color.White.copy(alpha = 0.92f),
-                    radius = 5.dp.toPx(),
-                    center = point,
-                )
-                drawCircle(
-                    color = item.color,
-                    radius = 3.2.dp.toPx(),
-                    center = point,
-                )
+                    drawLine(
+                        color = ZhihuijiPrimary.copy(alpha = 0.12f),
+                        start = Offset(left, zeroY),
+                        end = Offset(left + graphWidth, zeroY),
+                        strokeWidth = 1.2.dp.toPx(),
+                    )
+
+                    paths.forEach { (seriesPath, points) ->
+                        val (item, linePath, areaPath) = seriesPath
+                        if (areaPath != null) {
+                            drawPath(
+                                path = areaPath,
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(item.color.copy(alpha = 0.22f), Color.Transparent),
+                                    startY = top,
+                                    endY = bottom,
+                                )
+                            )
+                        }
+                        if (linePath != null) {
+                            drawPath(
+                                path = linePath,
+                                color = item.color,
+                                style = lineStroke,
+                            )
+                        }
+                        points.forEach { point ->
+                            drawCircle(
+                                color = Color.White.copy(alpha = 0.92f),
+                                radius = outerPointRadius,
+                                center = point,
+                            )
+                            drawCircle(
+                                color = item.color,
+                                radius = innerPointRadius,
+                                center = point,
+                            )
+                        }
+                    }
+                }
             }
-        }
+    ) {
     }
 }
 
@@ -713,10 +761,6 @@ private fun BarChartCanvas(
     series: List<ChartSeriesUi>,
     modifier: Modifier = Modifier,
 ) {
-    val chartValues = series.flatMap { it.values.take(labels.size) }
-        .filter { it.isUsableChartValue() }
-    val chartScale = barChartScale(chartValues)
-
     Canvas(
         modifier = modifier
             .fillMaxWidth()
@@ -724,64 +768,72 @@ private fun BarChartCanvas(
             .clip(RoundedCornerShape(14.dp))
             .background(Color.White.copy(alpha = 0.72f))
             .padding(horizontal = 8.dp, vertical = 8.dp)
-    ) {
-        val left = 10.dp.toPx()
-        val right = 10.dp.toPx()
-        val top = 12.dp.toPx()
-        val bottom = size.height - 16.dp.toPx()
-        val graphWidth = (size.width - left - right).coerceAtLeast(1f)
-        val graphHeight = (bottom - top).coerceAtLeast(1f)
-        val groupCount = labels.size.coerceAtLeast(1)
+            .drawWithCache {
+                val chartValues = series.flatMap { it.values.take(labels.size) }
+                    .filter { it.isUsableChartValue() }
+                val chartScale = barChartScale(chartValues)
 
-        repeat(4) { index ->
-            val y = top + graphHeight * index / 3f
-            drawLine(
-                color = TextTertiary.copy(alpha = if (index == 3) 0.18f else 0.10f),
-                start = Offset(left, y),
-                end = Offset(left + graphWidth, y),
-                strokeWidth = 1.dp.toPx(),
-            )
-        }
+                val left = 10.dp.toPx()
+                val right = 10.dp.toPx()
+                val top = 12.dp.toPx()
+                val bottom = size.height - 16.dp.toPx()
+                val graphWidth = (size.width - left - right).coerceAtLeast(1f)
+                val graphHeight = (bottom - top).coerceAtLeast(1f)
+                val groupCount = labels.size.coerceAtLeast(1)
+                val groupWidth = graphWidth / groupCount
+                val barGap = 3.dp.toPx()
+                val maxBarWidth = 22.dp.toPx()
+                val candidateBarWidth = groupWidth / (series.size.coerceAtLeast(1) + 1.2f)
+                val barWidth = candidateBarWidth.coerceAtLeast(4.dp.toPx()).coerceAtMost(maxBarWidth)
+                val groupBarsWidth = barWidth * series.size + barGap * (series.size - 1).coerceAtLeast(0)
+                val zeroY = top + ((chartScale.maxValue - 0.0) / chartScale.range).toFloat().coerceIn(0f, 1f) * graphHeight
 
-        val groupWidth = graphWidth / groupCount
-        val barGap = 3.dp.toPx()
-        val maxBarWidth = 22.dp.toPx()
-        val candidateBarWidth = groupWidth / (series.size.coerceAtLeast(1) + 1.2f)
-        val barWidth = candidateBarWidth.coerceAtLeast(4.dp.toPx()).coerceAtMost(maxBarWidth)
-        val groupBarsWidth = barWidth * series.size + barGap * (series.size - 1).coerceAtLeast(0)
-        val zeroY = top + ((chartScale.maxValue - 0.0) / chartScale.range).toFloat().coerceIn(0f, 1f) * graphHeight
-        drawLine(
-            color = TextTertiary.copy(alpha = 0.22f),
-            start = Offset(left, zeroY),
-            end = Offset(left + graphWidth, zeroY),
-            strokeWidth = 1.2.dp.toPx(),
-        )
+                onDrawBehind {
+                    repeat(4) { index ->
+                        val y = top + graphHeight * index / 3f
+                        drawLine(
+                            color = TextTertiary.copy(alpha = if (index == 3) 0.18f else 0.10f),
+                            start = Offset(left, y),
+                            end = Offset(left + graphWidth, y),
+                            strokeWidth = 1.dp.toPx(),
+                        )
+                    }
 
-        repeat(groupCount) { labelIndex ->
-            val groupStart = left + groupWidth * labelIndex + (groupWidth - groupBarsWidth) / 2f
-            series.forEachIndexed { seriesIndex, item ->
-                val value = item.values[labelIndex]
-                val valueY = top + ((chartScale.maxValue - value) / chartScale.range).toFloat().coerceIn(0f, 1f) * graphHeight
-                val rawBarHeight = kotlin.math.abs(valueY - zeroY)
-                val barHeight = rawBarHeight.coerceAtLeast(if (value != 0.0) 3.dp.toPx() else 0f)
-                val x = groupStart + seriesIndex * (barWidth + barGap)
-                val y = if (value >= 0.0) {
-                    zeroY - barHeight
-                } else {
-                    zeroY
+                    drawLine(
+                        color = TextTertiary.copy(alpha = 0.22f),
+                        start = Offset(left, zeroY),
+                        end = Offset(left + graphWidth, zeroY),
+                        strokeWidth = 1.2.dp.toPx(),
+                    )
+
+                    repeat(groupCount) { labelIndex ->
+                        val groupStart = left + groupWidth * labelIndex + (groupWidth - groupBarsWidth) / 2f
+                        series.forEachIndexed { seriesIndex, item ->
+                            val value = item.values[labelIndex]
+                            val valueY = top + ((chartScale.maxValue - value) / chartScale.range).toFloat().coerceIn(0f, 1f) * graphHeight
+                            val rawBarHeight = kotlin.math.abs(valueY - zeroY)
+                            val barHeight = rawBarHeight.coerceAtLeast(if (value != 0.0) 3.dp.toPx() else 0f)
+                            val x = groupStart + seriesIndex * (barWidth + barGap)
+                            val y = if (value >= 0.0) {
+                                zeroY - barHeight
+                            } else {
+                                zeroY
+                            }
+                            drawRoundRect(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(item.color.copy(alpha = 0.88f), item.color.copy(alpha = 0.48f)),
+                                    startY = y,
+                                    endY = y + barHeight,
+                                ),
+                                topLeft = Offset(x, y),
+                                size = Size(barWidth, barHeight),
+                                cornerRadius = CornerRadius(5.dp.toPx(), 5.dp.toPx()),
+                            )
+                        }
+                    }
                 }
-                drawRoundRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(item.color.copy(alpha = 0.88f), item.color.copy(alpha = 0.48f)),
-                        startY = y,
-                        endY = y + barHeight,
-                    ),
-                    topLeft = Offset(x, y),
-                    size = Size(barWidth, barHeight),
-                    cornerRadius = CornerRadius(5.dp.toPx(), 5.dp.toPx()),
-                )
             }
-        }
+    ) {
     }
 }
 
@@ -833,41 +885,47 @@ private fun DonutChartCanvas(
     segments: List<ChartSegmentUi>,
     modifier: Modifier = Modifier,
 ) {
-    val total = segments.sumOf { it.value }.takeIf { it > 0.0 } ?: 1.0
-    Canvas(modifier = modifier) {
-        val strokeWidth = 22.dp.toPx()
-        val diameter = (size.minDimension - strokeWidth).coerceAtLeast(1f)
-        val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
-        val arcSize = Size(diameter, diameter)
-        var startAngle = -90f
+    val total = remember(segments) { segments.sumOf { it.value }.takeIf { it > 0.0 } ?: 1.0 }
+    Canvas(
+        modifier = modifier.drawWithCache {
+            val strokeWidth = 22.dp.toPx()
+            val diameter = (size.minDimension - strokeWidth).coerceAtLeast(1f)
+            val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
+            val arcSize = Size(diameter, diameter)
+            val innerRadius = (diameter - strokeWidth) / 2.4f
+            val center = Offset(size.width / 2f, size.height / 2f)
+            val sweeps = segments.map { segment ->
+                segment to (segment.value / total * 360.0).toFloat().coerceAtLeast(1.2f)
+            }
 
-        drawCircle(
-            color = TextTertiary.copy(alpha = 0.10f),
-            radius = diameter / 2f,
-            center = Offset(size.width / 2f, size.height / 2f),
-            style = Stroke(width = strokeWidth)
-        )
-
-        segments.forEach { segment ->
-            val sweep = (segment.value / total * 360.0).toFloat().coerceAtLeast(1.2f)
-            drawArc(
-                color = segment.color,
-                startAngle = startAngle,
-                sweepAngle = sweep,
-                useCenter = false,
-                topLeft = topLeft,
-                size = arcSize,
-                style = Stroke(width = strokeWidth, cap = StrokeCap.Butt),
-            )
-            startAngle += sweep
+            onDrawBehind {
+                var startAngle = -90f
+                drawCircle(
+                    color = TextTertiary.copy(alpha = 0.10f),
+                    radius = diameter / 2f,
+                    center = center,
+                    style = Stroke(width = strokeWidth)
+                )
+                sweeps.forEach { (segment, sweep) ->
+                    drawArc(
+                        color = segment.color,
+                        startAngle = startAngle,
+                        sweepAngle = sweep,
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = arcSize,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Butt),
+                    )
+                    startAngle += sweep
+                }
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.70f),
+                    radius = innerRadius,
+                    center = center,
+                )
+            }
         }
-
-        drawCircle(
-            color = Color.White.copy(alpha = 0.70f),
-            radius = (diameter - strokeWidth) / 2.4f,
-            center = Offset(size.width / 2f, size.height / 2f),
-        )
-    }
+    ) {}
 }
 
 @Composable
@@ -1093,6 +1151,9 @@ private val ChartPalette = listOf(
     Color(0xFF7C3AED),
     Color(0xFF0891B2),
 )
+
+internal fun ResultBlockDto.renderCacheIdentity(): String =
+    "$blockType|${title.orEmpty()}|${data?.toString()?.hashCode() ?: 0}"
 
 private fun chartColor(rawColor: String?, index: Int): Color {
     if (!rawColor.isNullOrBlank()) {

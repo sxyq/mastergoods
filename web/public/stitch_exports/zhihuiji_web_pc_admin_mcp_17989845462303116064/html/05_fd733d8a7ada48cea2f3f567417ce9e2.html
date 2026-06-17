@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>智慧记 - 经营首页 Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#45474b",
+                        "error-container": "#ffdad6",
+                        "outline-variant": "#c6c6cb",
+                        "on-secondary-fixed": "#002108",
+                        "secondary-fixed-dim": "#3ce36a",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-low": "#f2f4f6",
+                        "on-primary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed-dim": "#ffb4a9",
+                        "inverse-surface": "#2d3133",
+                        "inverse-on-surface": "#eff1f3",
+                        "tertiary-fixed": "#ffdad5",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-container": "#00732c",
+                        "surface-container-highest": "#e0e3e5",
+                        "surface": "#f7f9fb",
+                        "surface-dim": "#d8dadc",
+                        "on-background": "#191c1e",
+                        "on-tertiary-fixed-variant": "#930005",
+                        "background": "#f7f9fb",
+                        "tertiary-container": "#410001",
+                        "tertiary": "#000000",
+                        "surface-container-high": "#e6e8ea",
+                        "surface-container": "#eceef0",
+                        "on-tertiary-fixed": "#410001",
+                        "on-tertiary-container": "#f24135",
+                        "secondary-fixed": "#69ff87",
+                        "primary-fixed": "#dfe2eb",
+                        "on-primary-fixed-variant": "#43474e",
+                        "inverse-primary": "#c3c6cf",
+                        "surface-bright": "#f7f9fb",
+                        "surface-tint": "#5b5e66",
+                        "surface-container-lowest": "#ffffff",
+                        "primary": "#000000",
+                        "error": "#ba1a1a",
+                        "on-surface": "#191c1e",
+                        "primary-fixed-dim": "#c3c6cf",
+                        "on-secondary-fixed-variant": "#00531e",
+                        "primary-container": "#181c22",
+                        "secondary": "#006e2a",
+                        "on-primary-fixed": "#181c22",
+                        "secondary-container": "#5cfd80",
+                        "outline": "#76777b",
+                        "surface-variant": "#e0e3e5",
+                        "on-primary-container": "#80848c",
+                        "on-error": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-md": "16px",
+                        "nav-width": "240px",
+                        "card-gap": "20px",
+                        "stack-lg": "24px",
+                        "stack-sm": "8px",
+                        "container-padding": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "data-num": ["Hanken Grotesk"],
+                        "label-md": ["Inter"],
+                        "label-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "data-num": ["28px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "label-md": ["13px", { "lineHeight": "18px", "letterSpacing": "0.02em", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: theme('colors.background'); color: theme('colors.on-background'); }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .fill-icon { font-variation-settings: 'FILL' 1; }
+        
+        /* Custom Scrollbar for sidebar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: theme('colors.outline-variant'); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: theme('colors.outline'); }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden font-body-md text-body-md">
+<!-- SideNavBar Component -->
+<aside class="fixed h-full w-[240px] left-0 top-0 bg-surface-container-lowest dark:bg-primary-container border-r border-outline-variant dark:border-on-surface-variant flex flex-col h-screen py-container-padding px-4 z-20">
+<!-- Header -->
+<div class="flex items-center gap-3 mb-8 px-2">
+<div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined text-[20px]">bolt</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">智慧记</h1>
+</div>
+</div>
+<!-- Search -->
+<div class="mb-6">
+<div class="relative flex items-center w-full h-10 rounded-lg bg-surface-container-low px-3">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px] mr-2">search</span>
+<input class="w-full bg-transparent border-none focus:ring-0 p-0 text-body-md text-on-surface placeholder-on-surface-variant/50" placeholder="搜索单据..." type="text"/>
+<div class="ml-2 px-1.5 py-0.5 rounded bg-surface border border-outline-variant text-[10px] text-outline font-medium">/</div>
+</div>
+</div>
+<!-- Navigation Tabs -->
+<nav class="flex-1 overflow-y-auto space-y-1">
+<div class="text-[11px] font-semibold text-outline tracking-wider uppercase mb-2 px-3 mt-4">常用功能</div>
+<a class="flex items-center justify-between px-3 py-2 rounded-lg bg-primary text-on-primary font-bold" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span>经营首页</span>
+</div>
+</a>
+<a class="flex items-center justify-between px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px]">receipt_long</span>
+<span>销售开单</span>
+</div>
+</a>
+<a class="flex items-center justify-between px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px]">inventory_2</span>
+<span>采购入库</span>
+</div>
+</a>
+<div class="text-[11px] font-semibold text-outline tracking-wider uppercase mb-2 px-3 mt-6">报表分析</div>
+<a class="flex items-center justify-between px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px]">bar_chart</span>
+<span>营业报表</span>
+</div>
+</a>
+<a class="flex items-center justify-between px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px]">group</span>
+<span>客户管理</span>
+</div>
+</a>
+<a class="flex items-center justify-between px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px]">inventory</span>
+<span>商品管理</span>
+</div>
+<span class="bg-error-container text-on-error-container text-[11px] font-bold px-2 py-0.5 rounded-full">12</span>
+</a>
+<a class="flex items-center justify-between px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+<span>资金账户</span>
+</div>
+</a>
+</nav>
+<!-- Footer Actions -->
+<div class="mt-auto pt-4 border-t border-outline-variant/50 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span>系统设置</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<img alt="Profile" class="w-6 h-6 rounded-full" data-alt="A small circular avatar placeholder image showing a professional headshot." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDbYcT-sglef6iBTy39pp6Dok0HmNDyMZO9CbkruFLN48gn6LOhgYZ1mXrIm0ih84_aR2h_FHANbJxzl17sgSK7agLRsFKJ4cyVfvdSQTa7AMTiH_k4qBkYBJiadHMA-V8vtyVFFkpFnaaCMLL3n4zQ2CVadQWVcNKlCEr5q876wpPhJCKAf_yqyOzCo6HNgLv3Ip_7dHnxIxkW0nkO72-MNLO0MTJFsElYOnDX-4UPzcLtBNNUo2420VlBOf29CiE21Sq_rKC5Fw-W"/>
+<span>张经理</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 ml-[240px] flex flex-col h-screen overflow-hidden">
+<!-- TopAppBar Component -->
+<header class="flex justify-between items-center h-20 px-container-padding bg-surface dark:bg-background z-10 shrink-0">
+<div class="flex items-center gap-6">
+<h2 class="font-headline-lg text-headline-lg text-primary dark:text-primary-fixed">经营首页 Dashboard</h2>
+<div class="hidden lg:flex items-center gap-1 border-b border-outline-variant/30">
+<a class="px-4 py-4 text-primary font-bold border-b-2 border-primary -mb-[1px]" href="#">今日</a>
+<a class="px-4 py-4 text-on-surface-variant hover:text-primary transition-colors -mb-[1px]" href="#">本周</a>
+<a class="px-4 py-4 text-on-surface-variant hover:text-primary transition-colors -mb-[1px]" href="#">本月</a>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg text-on-surface hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px]">calendar_today</span>
+<span class="font-label-sm text-label-sm">2024年3月15日</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg text-on-surface hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px]">refresh</span>
+<span class="font-label-sm text-label-sm">刷新</span>
+</button>
+<div class="w-px h-6 bg-outline-variant/50 mx-2"></div>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors relative">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-error"></span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2 bg-error text-on-error rounded-lg hover:bg-error/90 transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[18px]">add</span>
+<span class="font-label-md text-label-md">新建单据</span>
+</button>
+</div>
+</header>
+<!-- Scrollable Workspace -->
+<div class="flex-1 overflow-y-auto p-container-padding bg-background">
+<!-- Metric Cards Row -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-card-gap mb-card-gap">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest rounded-xl p-5 border border-outline-variant/50 shadow-[0_4px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between h-[120px]">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">今日销售额</span>
+<div class="flex items-center gap-1 bg-secondary-container/20 text-secondary-fixed-dim px-2 py-0.5 rounded font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+<span>+12.5%</span>
+</div>
+</div>
+<div class="font-data-num text-data-num text-primary">¥ 45,280.00</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest rounded-xl p-5 border border-outline-variant/50 shadow-[0_4px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between h-[120px]">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">待发货订单</span>
+<div class="flex items-center gap-1 bg-surface-container-highest text-on-surface-variant px-2 py-0.5 rounded font-label-sm text-label-sm">
+<span>同比持平</span>
+</div>
+</div>
+<div class="flex items-baseline gap-2">
+<div class="font-data-num text-data-num text-primary">28</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">笔</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest rounded-xl p-5 border border-outline-variant/50 shadow-[0_4px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between h-[120px]">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">库存预警数</span>
+<div class="flex items-center gap-1 bg-error-container text-on-error-container px-2 py-0.5 rounded font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+<span>需要关注</span>
+</div>
+</div>
+<div class="flex items-baseline gap-2">
+<div class="font-data-num text-data-num text-error">12</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">件商品</div>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="bg-surface-container-lowest rounded-xl p-5 border border-outline-variant/50 shadow-[0_4px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between h-[120px]">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">账户总余额</span>
+<div class="flex items-center gap-1 bg-secondary-container/20 text-secondary-fixed-dim px-2 py-0.5 rounded font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[14px]">account_balance</span>
+</div>
+</div>
+<div class="font-data-num text-data-num text-primary">¥ 342,105.50</div>
+</div>
+</div>
+<!-- Main Middle Section (Charts) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-card-gap mb-card-gap">
+<!-- Left Chart: Sales Trend -->
+<div class="lg:col-span-8 bg-surface-container-lowest rounded-xl p-6 border border-outline-variant/50 shadow-[0_4px_12px_rgba(0,0,0,0.03)]">
+<div class="flex justify-between items-center mb-6">
+<div>
+<h3 class="font-headline-md text-headline-md text-primary">销售趋势分析</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">近30天日销售额变化</p>
+</div>
+<div class="flex items-center gap-2 bg-secondary-container/10 px-3 py-1.5 rounded-full">
+<span class="w-2 h-2 rounded-full bg-secondary-fixed-dim"></span>
+<span class="font-label-sm text-label-sm text-secondary">稳步增长中</span>
+</div>
+</div>
+<!-- Chart Placeholder Area -->
+<div class="w-full h-[280px] relative mt-4 border-b border-l border-outline-variant/30 flex items-end pb-4 pl-4">
+<!-- Y Axis labels -->
+<div class="absolute left-[-30px] top-0 bottom-0 flex flex-col justify-between text-[10px] text-on-surface-variant py-4 h-[280px]">
+<span>10k</span>
+<span>8k</span>
+<span>6k</span>
+<span>4k</span>
+<span>2k</span>
+<span>0</span>
+</div>
+<!-- Grid lines -->
+<div class="absolute left-0 right-0 top-0 bottom-0 flex flex-col justify-between pointer-events-none pb-4 pl-4 h-[280px]">
+<div class="w-full border-b border-dashed border-outline-variant/20"></div>
+<div class="w-full border-b border-dashed border-outline-variant/20"></div>
+<div class="w-full border-b border-dashed border-outline-variant/20"></div>
+<div class="w-full border-b border-dashed border-outline-variant/20"></div>
+<div class="w-full border-b border-dashed border-outline-variant/20"></div>
+<div class="w-full border-b border-dashed border-outline-variant/20"></div>
+</div>
+<!-- X Axis labels -->
+<div class="absolute left-4 right-0 bottom-[-20px] flex justify-between text-[10px] text-on-surface-variant px-2">
+<span>03-01</span>
+<span>03-05</span>
+<span>03-10</span>
+<span>03-15</span>
+</div>
+<!-- SVG Line Chart Mockup -->
+<svg class="w-full h-full overflow-visible z-10" preserveaspectratio="none" viewbox="0 0 100 100">
+<!-- Gradient for area under curve -->
+<defs>
+<lineargradient id="chart-gradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="theme('colors.secondary-fixed-dim')" stop-opacity="0.2"></stop>
+<stop offset="100%" stop-color="theme('colors.secondary-fixed-dim')" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<!-- Area -->
+<path d="M0,80 Q10,75 20,60 T40,40 T60,50 T80,20 T100,10 L100,100 L0,100 Z" fill="url(#chart-gradient)"></path>
+<!-- Line -->
+<path d="M0,80 Q10,75 20,60 T40,40 T60,50 T80,20 T100,10" fill="none" stroke="theme('colors.secondary-fixed-dim')" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Right Chart: Inventory Status -->
+<div class="lg:col-span-4 bg-surface-container-lowest rounded-xl p-6 border border-outline-variant/50 shadow-[0_4px_12px_rgba(0,0,0,0.03)] flex flex-col">
+<h3 class="font-headline-md text-headline-md text-primary mb-1">库存状态概览</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-6">当前库存健康度分析</p>
+<div class="flex-1 flex flex-col items-center justify-center relative">
+<!-- Donut Chart Mockup -->
+<div class="w-40 h-40 rounded-full border-[16px] border-surface-container relative flex items-center justify-center">
+<!-- Fake segments using conic-gradient (inline style just for this mockup shape) -->
+<div class="absolute inset-[-16px] rounded-full border-[16px] border-transparent" style="border-top-color: theme('colors.secondary-fixed-dim'); border-right-color: theme('colors.secondary-fixed-dim'); border-bottom-color: theme('colors.outline-variant'); transform: rotate(-45deg);"></div>
+<div class="absolute inset-[-16px] rounded-full border-[16px] border-transparent" style="border-left-color: theme('colors.error'); transform: rotate(15deg);"></div>
+<div class="text-center z-10">
+<div class="font-data-num text-[20px] text-primary">85%</div>
+<div class="font-label-sm text-[10px] text-on-surface-variant">健康度</div>
+</div>
+</div>
+</div>
+<!-- Legend -->
+<div class="mt-6 space-y-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded bg-secondary-fixed-dim"></div>
+<span class="font-body-md text-body-md">正常库存</span>
+</div>
+<span class="font-label-md text-label-md">65%</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded bg-outline-variant"></div>
+<span class="font-body-md text-body-md">积压预警</span>
+</div>
+<span class="font-label-md text-label-md">25%</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded bg-error"></div>
+<span class="font-body-md text-body-md">缺货告警</span>
+</div>
+<span class="font-label-md text-label-md text-error">10%</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Section (Lists) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-card-gap">
+<!-- Left List: Recent Transactions -->
+<div class="lg:col-span-7 bg-surface-container-lowest rounded-xl border border-outline-variant/50 shadow-[0_4px_12px_rgba(0,0,0,0.03)] overflow-hidden">
+<div class="p-5 border-b border-outline-variant/30 flex justify-between items-center">
+<h3 class="font-headline-md text-headline-md text-primary">实时业务动态</h3>
+<button class="text-on-surface-variant hover:text-primary font-label-md text-label-md">查看全部</button>
+</div>
+<div class="p-0">
+<!-- List Item 1 -->
+<div class="flex items-start gap-4 p-4 border-b border-outline-variant/20 hover:bg-surface/50 transition-colors">
+<div class="w-10 h-10 rounded-full bg-secondary-container/20 text-secondary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">receipt_long</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<div class="font-label-md text-label-md text-primary">销售单 <span class="text-on-surface-variant font-normal">#XS-20240315-001</span></div>
+<div class="font-label-md text-label-md text-primary">¥ 3,250.00</div>
+</div>
+<div class="flex justify-between items-center">
+<div class="font-body-md text-[13px] text-on-surface-variant">客户: 华南科技贸易公司</div>
+<div class="font-label-sm text-[11px] text-outline">刚刚</div>
+</div>
+</div>
+</div>
+<!-- List Item 2 -->
+<div class="flex items-start gap-4 p-4 border-b border-outline-variant/20 hover:bg-surface/50 transition-colors">
+<div class="w-10 h-10 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">inventory_2</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<div class="font-label-md text-label-md text-primary">采购入库 <span class="text-on-surface-variant font-normal">#RK-20240315-012</span></div>
+<div class="font-label-md text-label-md text-primary">¥ 12,800.00</div>
+</div>
+<div class="flex justify-between items-center">
+<div class="font-body-md text-[13px] text-on-surface-variant">供应商: 深圳电子元器件一厂</div>
+<div class="font-label-sm text-[11px] text-outline">15分钟前</div>
+</div>
+</div>
+</div>
+<!-- List Item 3 -->
+<div class="flex items-start gap-4 p-4 border-b border-outline-variant/20 hover:bg-surface/50 transition-colors">
+<div class="w-10 h-10 rounded-full bg-secondary-container/20 text-secondary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">receipt_long</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<div class="font-label-md text-label-md text-primary">销售单 <span class="text-on-surface-variant font-normal">#XS-20240315-002</span></div>
+<div class="font-label-md text-label-md text-primary">¥ 850.00</div>
+</div>
+<div class="flex justify-between items-center">
+<div class="font-body-md text-[13px] text-on-surface-variant">客户: 零售散客</div>
+<div class="font-label-sm text-[11px] text-outline">1小时前</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right List: AI Assistant Alerts -->
+<div class="lg:col-span-5 bg-surface-container-lowest rounded-xl border border-outline-variant/50 shadow-[0_4px_12px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col">
+<div class="p-5 border-b border-outline-variant/30 flex items-center gap-2 bg-gradient-to-r from-surface-container-lowest to-surface">
+<span class="material-symbols-outlined text-[20px] text-primary fill-icon">smart_toy</span>
+<h3 class="font-headline-md text-headline-md text-primary">RunTrace 智能助手</h3>
+</div>
+<div class="p-5 space-y-4 flex-1">
+<!-- Alert 1 -->
+<div class="bg-error-container/30 border border-error-container rounded-lg p-4">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-[20px] text-error mt-0.5">warning</span>
+<div>
+<h4 class="font-label-md text-label-md text-on-surface mb-1">库存不足提醒</h4>
+<p class="font-body-md text-[13px] text-on-surface-variant">"ThinkPad T14 笔记本" 当前库存仅剩 2 台，低于预警线，预计将在 3 天内售罄。</p>
+<button class="mt-2 text-error text-[12px] font-semibold hover:underline">立即发起采购单</button>
+</div>
+</div>
+</div>
+<!-- Alert 2 -->
+<div class="bg-surface-variant/30 border border-outline-variant/50 rounded-lg p-4">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-[20px] text-outline mt-0.5">account_balance_wallet</span>
+<div>
+<h4 class="font-label-md text-label-md text-on-surface mb-1">应收账款到期预警</h4>
+<p class="font-body-md text-[13px] text-on-surface-variant">"星锐网络科技有限公司" 有一笔 ¥45,000.00 的账款将于明天到期。</p>
+<button class="mt-2 text-primary text-[12px] font-semibold hover:underline">发送催款提醒</button>
+</div>
+</div>
+</div>
+<!-- Alert 3 -->
+<div class="bg-secondary-container/10 border border-secondary-fixed-dim/30 rounded-lg p-4">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-[20px] text-secondary mt-0.5">tips_and_updates</span>
+<div>
+<h4 class="font-label-md text-label-md text-on-surface mb-1">智能优化建议</h4>
+<p class="font-body-md text-[13px] text-on-surface-variant">根据本月销售数据，"罗技无线鼠标" 销量环比增长 40%，建议适当提高安全库存水位以防断货。</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer spacing -->
+<div class="h-8"></div>
+</div>
+</main>
+</body></html>

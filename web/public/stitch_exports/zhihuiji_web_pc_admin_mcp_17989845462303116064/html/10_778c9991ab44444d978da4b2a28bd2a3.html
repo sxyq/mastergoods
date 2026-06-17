@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>智慧记 - 销售单列表</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-surface-variant": "#45474b",
+                      "error-container": "#ffdad6",
+                      "outline-variant": "#c6c6cb",
+                      "on-secondary-fixed": "#002108",
+                      "secondary-fixed-dim": "#3ce36a",
+                      "on-tertiary": "#ffffff",
+                      "surface-container-low": "#f2f4f6",
+                      "on-primary": "#ffffff",
+                      "on-error-container": "#93000a",
+                      "tertiary-fixed-dim": "#ffb4a9",
+                      "inverse-surface": "#2d3133",
+                      "inverse-on-surface": "#eff1f3",
+                      "tertiary-fixed": "#ffdad5",
+                      "on-secondary": "#ffffff",
+                      "on-secondary-container": "#00732c",
+                      "surface-container-highest": "#e0e3e5",
+                      "surface": "#f7f9fb",
+                      "surface-dim": "#d8dadc",
+                      "on-background": "#191c1e",
+                      "on-tertiary-fixed-variant": "#930005",
+                      "background": "#f7f9fb",
+                      "tertiary-container": "#410001",
+                      "tertiary": "#000000",
+                      "surface-container-high": "#e6e8ea",
+                      "surface-container": "#eceef0",
+                      "on-tertiary-fixed": "#410001",
+                      "on-tertiary-container": "#f24135",
+                      "secondary-fixed": "#69ff87",
+                      "primary-fixed": "#dfe2eb",
+                      "on-primary-fixed-variant": "#43474e",
+                      "inverse-primary": "#c3c6cf",
+                      "surface-bright": "#f7f9fb",
+                      "surface-tint": "#5b5e66",
+                      "surface-container-lowest": "#ffffff",
+                      "primary": "#000000",
+                      "error": "#ba1a1a",
+                      "on-surface": "#191c1e",
+                      "primary-fixed-dim": "#c3c6cf",
+                      "on-secondary-fixed-variant": "#00531e",
+                      "primary-container": "#181c22",
+                      "secondary": "#006e2a",
+                      "on-primary-fixed": "#181c22",
+                      "secondary-container": "#5cfd80",
+                      "outline": "#76777b",
+                      "surface-variant": "#e0e3e5",
+                      "on-primary-container": "#80848c",
+                      "on-error": "#ffffff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "stack-md": "16px",
+                      "nav-width": "240px",
+                      "card-gap": "20px",
+                      "stack-lg": "24px",
+                      "stack-sm": "8px",
+                      "container-padding": "24px"
+              },
+              "fontFamily": {
+                      "headline-lg": [
+                              "Hanken Grotesk"
+                      ],
+                      "headline-md": [
+                              "Hanken Grotesk"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "data-num": [
+                              "Hanken Grotesk"
+                      ],
+                      "label-md": [
+                              "Inter"
+                      ],
+                      "label-sm": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "headline-lg": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "data-num": [
+                              "28px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-md": [
+                              "13px",
+                              {
+                                      "lineHeight": "18px",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "500"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: theme('colors.outline-variant');
+            border-radius: theme('borderRadius.full');
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: theme('colors.outline');
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex overflow-hidden">
+<!-- SideNavBar -->
+<nav class="fixed h-full w-[240px] left-0 top-0 bg-surface-container-lowest dark:bg-primary-container border-r border-outline-variant dark:border-on-surface-variant flex flex-col py-container-padding px-4 z-20">
+<!-- Brand -->
+<div class="flex items-center gap-3 px-3 mb-8">
+<div class="w-8 h-8 bg-secondary-container rounded flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">view_cozy</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">智慧记</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant">专业版</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<div class="flex-1 overflow-y-auto pr-2 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+                工作台
+            </a>
+<div class="pt-4 pb-2 px-3">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">业务</span>
+</div>
+<!-- Active Section -->
+<div>
+<button class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-primary font-bold hover:bg-surface-container-high transition-colors font-label-md text-label-md group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">shopping_cart</span>
+                        销售管理
+                    </div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">expand_less</span>
+</button>
+<div class="ml-9 mt-1 space-y-1">
+<a class="block px-3 py-2 rounded-lg bg-primary text-on-primary font-bold font-label-md text-label-md" href="#">销售单</a>
+<a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md" href="#">销售退货单</a>
+<a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md" href="#">客户管理</a>
+</div>
+</div>
+<a class="flex items-center gap-3 px-3 py-2 mt-1 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+                采购管理
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">warehouse</span>
+                库存管理
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+                财务管理
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+                报表分析
+            </a>
+</div>
+<!-- Footer Actions -->
+<div class="mt-auto pt-4 border-t border-outline-variant dark:border-on-surface-variant space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">settings</span>
+                系统设置
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">help</span>
+                帮助中心
+            </a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 ml-[240px] flex flex-col h-screen overflow-hidden bg-surface dark:bg-background">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center h-20 px-container-padding bg-surface dark:bg-background border-b border-outline-variant shrink-0 z-10">
+<!-- Breadcrumb / Title -->
+<div class="flex items-center gap-2">
+<span class="text-on-surface-variant font-body-md text-body-md">销售管理</span>
+<span class="material-symbols-outlined text-outline text-sm">chevron_right</span>
+<h2 class="font-headline-lg text-headline-lg text-primary dark:text-primary-fixed">销售单</h2>
+</div>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full hover:bg-surface-container-high transition-colors flex items-center justify-center text-on-surface-variant relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<div class="h-6 w-px bg-outline-variant"></div>
+<button class="flex items-center gap-2 hover:bg-surface-container-high px-2 py-1 rounded-lg transition-colors">
+<img alt="User Profile Avatar" class="w-8 h-8 rounded-full border border-outline-variant" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaWLSZc0CZsxG2l2flgJV5n4gLreIX_R46me7mgD1FxClAh8xeWJlHEDyqwlXF6FifLqN7JfXmLspHuXE6JpyQOSBRZwyRzZ2Jvs-_Ni1aIcaLTFDby2oX198VHf6fHgW0RpvCupNE3vgxCSp4ycoWprSuss8MRBR_0cMVdE91j1iIu5_S2e4mks5caYI0ScAAxTBqPK0N0NrNJpri5Ng1Vp2qYcbuwW9jK7j9b9NWukqu1UaQSJW3_QGVLmYhMEs3D0kKmBp2ivWm"/>
+<span class="font-label-md text-label-md text-on-surface">张经理</span>
+<span class="material-symbols-outlined text-outline">arrow_drop_down</span>
+</button>
+</div>
+</header>
+<!-- Page Content Canvas -->
+<main class="flex-1 overflow-auto p-container-padding space-y-stack-lg">
+<!-- Toolbar: Search, Filters & Actions -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-[0px_4px_12px_rgba(0,0,0,0.03)] border border-surface-container-high flex flex-col gap-4">
+<div class="flex justify-between items-center flex-wrap gap-4">
+<!-- Search & Quick Filters -->
+<div class="flex items-center gap-3 flex-1 min-w-[300px]">
+<div class="relative w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-low border-transparent focus:border-primary focus:bg-surface-container-lowest focus:ring-0 rounded-lg font-body-md text-body-md transition-all" placeholder="按订单号/客户名称搜索..." type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<input class="py-2 px-3 bg-surface-container-low border-transparent focus:border-primary rounded-lg font-body-md text-body-md text-on-surface-variant" type="date"/>
+<span class="text-on-surface-variant">-</span>
+<input class="py-2 px-3 bg-surface-container-low border-transparent focus:border-primary rounded-lg font-body-md text-body-md text-on-surface-variant" type="date"/>
+</div>
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container-low hover:bg-surface-container-high rounded-lg font-label-md text-label-md text-on-surface transition-colors border border-outline-variant">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                            高级筛选
+                        </button>
+</div>
+<!-- Primary Action -->
+<button class="flex items-center gap-2 px-5 py-2.5 bg-secondary text-on-secondary rounded-lg font-label-md text-label-md hover:bg-secondary-fixed-dim hover:text-on-secondary-fixed transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                        新增销售单
+                    </button>
+</div>
+</div>
+<!-- Data Table Card -->
+<div class="bg-surface-container-lowest rounded-xl shadow-[0px_4px_12px_rgba(0,0,0,0.03)] border border-surface-container-high flex flex-col h-full overflow-hidden">
+<!-- Tabs -->
+<div class="flex px-4 border-b border-outline-variant overflow-x-auto hide-scrollbar">
+<button class="px-6 py-4 font-label-md text-label-md text-primary font-bold border-b-2 border-primary whitespace-nowrap">全部</button>
+<button class="px-6 py-4 font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors border-b-2 border-transparent whitespace-nowrap">
+                        待审核 <span class="ml-1 bg-error-container text-on-error-container px-1.5 py-0.5 rounded-full text-[10px]">12</span>
+</button>
+<button class="px-6 py-4 font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors border-b-2 border-transparent whitespace-nowrap">待出库</button>
+<button class="px-6 py-4 font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors border-b-2 border-transparent whitespace-nowrap">待结算</button>
+<button class="px-6 py-4 font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors border-b-2 border-transparent whitespace-nowrap">已完成</button>
+<button class="px-6 py-4 font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors border-b-2 border-transparent whitespace-nowrap">已作废</button>
+</div>
+<!-- Table -->
+<div class="flex-1 overflow-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container sticky top-0 z-10">
+<tr>
+<th class="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant font-medium whitespace-nowrap w-12 text-center">
+<input class="rounded text-secondary focus:ring-secondary border-outline-variant" type="checkbox"/>
+</th>
+<th class="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant font-medium whitespace-nowrap">单据信息</th>
+<th class="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant font-medium whitespace-nowrap">客户名称</th>
+<th class="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant font-medium whitespace-nowrap text-right">销售金额</th>
+<th class="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant font-medium whitespace-nowrap text-right">已付金额</th>
+<th class="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant font-medium whitespace-nowrap text-center">出库状态</th>
+<th class="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant font-medium whitespace-nowrap text-center">收款状态</th>
+<th class="py-3 px-4 font-label-sm text-label-sm text-on-surface-variant font-medium whitespace-nowrap text-right">操作</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant font-body-md text-body-md text-on-surface">
+<!-- Row 1: Completed -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-4 px-4 text-center">
+<input class="rounded text-secondary focus:ring-secondary border-outline-variant" type="checkbox"/>
+</td>
+<td class="py-4 px-4">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="font-medium">XS-20231024-001</span>
+<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-secondary-container text-on-secondary-container">已完成</span>
+</div>
+<span class="text-on-surface-variant text-label-sm">2023-10-24 10:30</span>
+</div>
+</td>
+<td class="py-4 px-4">深圳市创科未来实业有限公司</td>
+<td class="py-4 px-4 text-right font-data-num text-[16px] text-primary">¥45,600.00</td>
+<td class="py-4 px-4 text-right font-data-num text-[16px] text-primary">¥45,600.00</td>
+<td class="py-4 px-4 text-center">
+<span class="inline-flex items-center gap-1 text-secondary">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+<span class="text-label-sm">已出库</span>
+</span>
+</td>
+<td class="py-4 px-4 text-center">
+<span class="inline-flex items-center gap-1 text-secondary">
+<span class="material-symbols-outlined text-[16px]">task_alt</span>
+<span class="text-label-sm">已结清</span>
+</span>
+</td>
+<td class="py-4 px-4 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded" title="详情">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded" title="打印">
+<span class="material-symbols-outlined text-[20px]">print</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2: Pending Approval -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-4 px-4 text-center">
+<input class="rounded text-secondary focus:ring-secondary border-outline-variant" type="checkbox"/>
+</td>
+<td class="py-4 px-4">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="font-medium">XS-20231024-002</span>
+<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-error-container text-on-error-container">待审核</span>
+</div>
+<span class="text-on-surface-variant text-label-sm">2023-10-24 11:15</span>
+</div>
+</td>
+<td class="py-4 px-4">广州汇智商贸行</td>
+<td class="py-4 px-4 text-right font-data-num text-[16px] text-primary">¥12,850.00</td>
+<td class="py-4 px-4 text-right font-data-num text-[16px] text-on-surface-variant">¥0.00</td>
+<td class="py-4 px-4 text-center">
+<span class="inline-flex items-center gap-1 text-outline">
+<span class="material-symbols-outlined text-[16px]">pending</span>
+<span class="text-label-sm">未出库</span>
+</span>
+</td>
+<td class="py-4 px-4 text-center">
+<span class="inline-flex items-center gap-1 text-outline">
+<span class="material-symbols-outlined text-[16px]">pending_actions</span>
+<span class="text-label-sm">未收款</span>
+</span>
+</td>
+<td class="py-4 px-4 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-primary hover:text-primary-container font-label-sm font-medium px-2 py-1">审核</button>
+<button class="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded" title="编辑">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3: Partial Payment / Pending Delivery -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-4 px-4 text-center">
+<input class="rounded text-secondary focus:ring-secondary border-outline-variant" type="checkbox"/>
+</td>
+<td class="py-4 px-4">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="font-medium">XS-20231024-003</span>
+<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-primary-fixed text-on-primary-fixed">执行中</span>
+</div>
+<span class="text-on-surface-variant text-label-sm">2023-10-24 14:20</span>
+</div>
+</td>
+<td class="py-4 px-4">北京东方建材批发部</td>
+<td class="py-4 px-4 text-right font-data-num text-[16px] text-primary">¥89,000.00</td>
+<td class="py-4 px-4 text-right font-data-num text-[16px] text-primary">¥30,000.00</td>
+<td class="py-4 px-4 text-center">
+<span class="inline-flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[16px]">local_shipping</span>
+<span class="text-label-sm">部分出库</span>
+</span>
+</td>
+<td class="py-4 px-4 text-center">
+<span class="inline-flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[16px]">payments</span>
+<span class="text-label-sm">部分收款</span>
+</span>
+</td>
+<td class="py-4 px-4 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-secondary hover:text-on-secondary-container font-label-sm font-medium px-2 py-1">收款</button>
+<button class="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded" title="详情">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="border-t border-outline-variant px-4 py-3 flex items-center justify-between bg-surface-container-lowest">
+<div class="text-label-sm text-on-surface-variant">
+                        共 <span class="font-medium text-on-surface">128</span> 条记录，当前显示 1-3 条
+                    </div>
+<div class="flex items-center gap-2">
+<select class="py-1 px-2 pr-8 bg-surface-container-low border-transparent focus:border-primary rounded font-label-sm text-label-sm text-on-surface-variant">
+<option>10 条/页</option>
+<option>20 条/页</option>
+<option>50 条/页</option>
+</select>
+<div class="flex items-center gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container-high text-outline disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-[20px]">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded bg-primary text-on-primary font-label-sm font-medium">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container-high text-on-surface font-label-sm font-medium">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container-high text-on-surface font-label-sm font-medium">3</button>
+<span class="text-outline mx-1">...</span>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container-high text-on-surface font-label-sm font-medium">13</button>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container-high text-on-surface">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

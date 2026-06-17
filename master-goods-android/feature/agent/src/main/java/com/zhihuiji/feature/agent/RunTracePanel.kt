@@ -27,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -393,6 +394,25 @@ private fun ToolCallItem(call: com.zhihuiji.core.model.v2.agent.ToolCallRecord) 
         ToolCallStatus.COMPLETED -> Icons.Default.CheckCircle to SuccessGreen
         ToolCallStatus.FAILED -> Icons.Default.Error to DangerRed
     }
+    val queryWindowSummary = remember(call.queryWindow) { call.queryWindow?.toQueryWindowSummary() }
+    val evidenceSummary = remember(call.evidence) { call.evidence?.toEvidenceSummary() }
+    val auditSummary = remember(
+        call.seq,
+        call.conversationId,
+        call.eventId,
+        call.auditId,
+        call.traceId,
+        call.startedAt,
+        call.completedAt,
+        call.durationMs,
+        call.returnedCount,
+        call.totalCount,
+        call.limit,
+        call.isTruncated,
+        call.nextCursor,
+    ) {
+        call.auditSummary()
+    }
 
     Column(
         modifier = Modifier
@@ -435,7 +455,7 @@ private fun ToolCallItem(call: com.zhihuiji.core.model.v2.agent.ToolCallRecord) 
                 color = TextTertiary,
             )
         }
-        call.queryWindow?.toQueryWindowSummary()?.let { scope ->
+        queryWindowSummary?.let { scope ->
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = "范围: $scope",
@@ -459,7 +479,7 @@ private fun ToolCallItem(call: com.zhihuiji.core.model.v2.agent.ToolCallRecord) 
                 color = if (call.status == ToolCallStatus.FAILED) DangerRed else TextSecondary,
             )
         }
-        call.evidence?.toEvidenceSummary()?.let { evidence ->
+        evidenceSummary?.let { evidence ->
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = "依据: $evidence",
@@ -467,7 +487,7 @@ private fun ToolCallItem(call: com.zhihuiji.core.model.v2.agent.ToolCallRecord) 
                 color = TextSecondary,
             )
         }
-        call.auditSummary()?.let { audit ->
+        auditSummary?.let { audit ->
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = audit,

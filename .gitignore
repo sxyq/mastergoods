@@ -8,6 +8,8 @@
 .codegraph/
 .gradle-local/
 .vscode/
+.ssh-check/
+.trae/
 bin/
 migration_output/
 migration_source_zhihuiji/
@@ -15,3 +17,7 @@ migration_source_zhihuiji/
 android-test-screenshots/
 docs/android-117-test-artifacts/
 12_workspace/
+
+web/node_modules/
+web/dist/
+web/vite.config.js

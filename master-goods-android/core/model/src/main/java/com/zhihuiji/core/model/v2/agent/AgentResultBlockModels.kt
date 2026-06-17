@@ -1,5 +1,6 @@
 package com.zhihuiji.core.model.v2.agent
 
+import androidx.compose.runtime.Immutable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -9,6 +10,7 @@ import kotlinx.serialization.json.JsonElement
  * 后端必须按此结构输出，Android 端按 block_type 分发渲染。
  */
 @Serializable
+@Immutable
 data class ResultBlockDto(
     @SerialName("block_type") val blockType: String,
     val title: String? = null,
@@ -17,6 +19,7 @@ data class ResultBlockDto(
 
 /** 纯文本块（兜底） */
 @Serializable
+@Immutable
 data class TextBlockData(
     val text: String? = null,
     val markdown: String? = null,
@@ -24,10 +27,12 @@ data class TextBlockData(
 
 /** KPI 网格块：一组关键指标卡片 */
 @Serializable
+@Immutable
 data class KpiGridBlockData(
     val kpis: List<KpiItem>,
 ) {
     @Serializable
+    @Immutable
     data class KpiItem(
         val label: String,
         val value: String,
@@ -39,6 +44,7 @@ data class KpiGridBlockData(
 
 /** 表格块 */
 @Serializable
+@Immutable
 data class TableBlockData(
     val headers: List<String>,
     val rows: List<List<String>>,
@@ -47,10 +53,12 @@ data class TableBlockData(
 
 /** 排行列表块 */
 @Serializable
+@Immutable
 data class RankListBlockData(
     val items: List<RankItem>,
 ) {
     @Serializable
+    @Immutable
     data class RankItem(
         val rank: Int,
         val name: String,
@@ -61,12 +69,14 @@ data class RankListBlockData(
 
 /** 折线图块 */
 @Serializable
+@Immutable
 data class LineChartBlockData(
     val title: String? = null,
     val labels: List<String>,
     val series: List<ChartSeries>,
 ) {
     @Serializable
+    @Immutable
     data class ChartSeries(
         val name: String,
         val data: List<Double>,
@@ -76,12 +86,14 @@ data class LineChartBlockData(
 
 /** 柱状图块 */
 @Serializable
+@Immutable
 data class BarChartBlockData(
     val title: String? = null,
     val labels: List<String>,
     val series: List<ChartSeries>,
 ) {
     @Serializable
+    @Immutable
     data class ChartSeries(
         val name: String,
         val data: List<Double>,
@@ -91,11 +103,13 @@ data class BarChartBlockData(
 
 /** 环形/饼图块 */
 @Serializable
+@Immutable
 data class DonutChartBlockData(
     val title: String? = null,
     val segments: List<Segment>,
 ) {
     @Serializable
+    @Immutable
     data class Segment(
         val name: String,
         val value: Double,
@@ -105,6 +119,7 @@ data class DonutChartBlockData(
 
 /** 风险卡片块 */
 @Serializable
+@Immutable
 data class RiskCardBlockData(
     val level: String, // high / medium / low
     val title: String,
@@ -115,11 +130,13 @@ data class RiskCardBlockData(
 
 /** 证据/依据卡片块 */
 @Serializable
+@Immutable
 data class EvidenceCardBlockData(
     val title: String? = null,
     val items: List<EvidenceItem>,
 ) {
     @Serializable
+    @Immutable
     data class EvidenceItem(
         val label: String,
         val value: String,
@@ -132,6 +149,7 @@ data class EvidenceCardBlockData(
 
 /** 草稿卡片块：展示 AI 生成的业务草稿，供用户确认 */
 @Serializable
+@Immutable
 data class DraftCardBlockData(
     @SerialName("draft_id") val draftId: Long,
     @SerialName("draft_type") val draftType: String,

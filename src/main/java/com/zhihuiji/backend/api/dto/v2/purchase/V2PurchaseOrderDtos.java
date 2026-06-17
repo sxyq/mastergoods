@@ -27,6 +27,7 @@ public final class V2PurchaseOrderDtos {
     public record PurchaseOrderItemResponse(
         Long id,
         Long orderId,
+        Long productId,
         String productCode,
         String productName,
         Double quantity,

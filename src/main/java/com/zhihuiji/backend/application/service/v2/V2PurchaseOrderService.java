@@ -96,6 +96,7 @@ public class V2PurchaseOrderService {
         return new V2PurchaseOrderDtos.PurchaseOrderItemResponse(
             item.getId(),
             item.getOrderId(),
+            item.getProductId(),
             item.getProductCode(),
             item.getProductName(),
             item.getQuantity(),

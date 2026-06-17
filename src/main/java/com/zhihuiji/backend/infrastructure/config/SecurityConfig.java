@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.infrastructure.config;
 
 import jakarta.servlet.DispatcherType;
+import java.util.Arrays;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -24,7 +25,7 @@ public class SecurityConfig {
     private final TokenAuthenticationFilter tokenAuthenticationFilter;
     private final Environment environment;
 
-    @Value("${cors.origin-patterns:localhost:*}")
+    @Value("${cors.origin-patterns:http://localhost:*,http://127.0.0.1:*}")
     private String corsOriginPatterns;
 
     public SecurityConfig(TokenAuthenticationFilter tokenAuthenticationFilter, Environment environment) {
@@ -57,7 +58,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of(corsOriginPatterns.split(",")));
+        configuration.setAllowedOriginPatterns(Arrays.stream(corsOriginPatterns.split(","))
+            .map(String::trim)
+            .filter(pattern -> !pattern.isEmpty())
+            .toList());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("*"));

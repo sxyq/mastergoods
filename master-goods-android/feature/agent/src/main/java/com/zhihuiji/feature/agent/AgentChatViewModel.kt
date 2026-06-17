@@ -669,7 +669,11 @@ class AgentChatViewModel @Inject constructor(
         transform: (ChatMessage) -> ChatMessage,
     ) {
         _uiState.update { state ->
-            val index = state.messages.indexOfFirst { it.id == assistantMessageId }
+            val lastIndex = state.messages.lastIndex
+            val index = when {
+                lastIndex >= 0 && state.messages[lastIndex].id == assistantMessageId -> lastIndex
+                else -> state.messages.indexOfFirst { it.id == assistantMessageId }
+            }
             if (index == -1) {
                 return@update state
             }
@@ -942,37 +946,43 @@ private fun List<ToolCallRecord>.updateToolCall(
             timestamp = timestamp,
         )
     }
-    val updated = toMutableList()
-    updated[index] = updated[index].copy(
+    val existing = this[index]
+    val updatedRecord = existing.copy(
         status = status,
-        eventId = eventId ?: updated[index].eventId,
-        seq = seq ?: updated[index].seq,
-        conversationId = conversationId ?: updated[index].conversationId,
-        toolCallId = toolCallId ?: updated[index].toolCallId,
-        auditId = auditId ?: updated[index].auditId,
-        traceId = traceId ?: updated[index].traceId,
-        inputSummary = inputSummary ?: updated[index].inputSummary,
-        queryWindow = queryWindow ?: updated[index].queryWindow,
+        eventId = eventId ?: existing.eventId,
+        seq = seq ?: existing.seq,
+        conversationId = conversationId ?: existing.conversationId,
+        toolCallId = toolCallId ?: existing.toolCallId,
+        auditId = auditId ?: existing.auditId,
+        traceId = traceId ?: existing.traceId,
+        inputSummary = inputSummary ?: existing.inputSummary,
+        queryWindow = queryWindow ?: existing.queryWindow,
         resultSummary = resultSummary,
-        startedAt = startedAt ?: updated[index].startedAt,
-        completedAt = completedAt ?: updated[index].completedAt,
-        durationMs = durationMs ?: updated[index].durationMs,
-        returnedCount = returnedCount ?: updated[index].returnedCount,
-        totalCount = totalCount ?: updated[index].totalCount,
-        limit = limit ?: updated[index].limit,
-        isTruncated = isTruncated ?: updated[index].isTruncated,
-        evidence = evidence ?: updated[index].evidence,
-        nextCursor = nextCursor ?: updated[index].nextCursor,
+        startedAt = startedAt ?: existing.startedAt,
+        completedAt = completedAt ?: existing.completedAt,
+        durationMs = durationMs ?: existing.durationMs,
+        returnedCount = returnedCount ?: existing.returnedCount,
+        totalCount = totalCount ?: existing.totalCount,
+        limit = limit ?: existing.limit,
+        isTruncated = isTruncated ?: existing.isTruncated,
+        evidence = evidence ?: existing.evidence,
+        nextCursor = nextCursor ?: existing.nextCursor,
         timestamp = timestamp,
     )
+    if (updatedRecord == existing) return this
+    val updated = toMutableList()
+    updated[index] = updatedRecord
     return updated
 }
 
 internal fun List<ToolCallRecord>.closeOpenToolCalls(
     resultSummary: String,
     completedAt: Long = System.currentTimeMillis(),
-): List<ToolCallRecord> =
-    map { call ->
+): List<ToolCallRecord> {
+    if (none { it.status == ToolCallStatus.RUNNING || it.status == ToolCallStatus.PENDING }) {
+        return this
+    }
+    return map { call ->
         if (call.status == ToolCallStatus.RUNNING || call.status == ToolCallStatus.PENDING) {
             call.copy(
                 status = ToolCallStatus.FAILED,
@@ -984,6 +994,7 @@ internal fun List<ToolCallRecord>.closeOpenToolCalls(
             call
         }
     }
+}
 
 internal fun RunTrace.withAnswerDeltaSourceIfChanged(deltaSource: String?): RunTrace {
     val nextSource = deltaSource ?: answerDeltaSource
@@ -995,7 +1006,7 @@ internal fun RunTrace.withAnswerDeltaSourceIfChanged(deltaSource: String?): RunT
 }
 
 internal fun String?.isVisibleAnswerDeltaSource(): Boolean =
-    this == null || this == DeltaSourceModelStream
+    this == null || this == DeltaSourceModelStream || this == DeltaSourceRuleSummary
 
 private fun AgentMessageDto.toChatMessage(): ChatMessage {
     val parsedBlocks = parseStoredResultBlocks(structuredDataJson)
@@ -1209,13 +1220,15 @@ private fun List<ChatMessagePart>.containsResultBlock(block: ResultBlockDto): Bo
         }
     }
 
-private fun List<ChatMessagePart>.promotePendingResultBlocks(): List<ChatMessagePart> =
-    map { part ->
+private fun List<ChatMessagePart>.promotePendingResultBlocks(): List<ChatMessagePart> {
+    if (none { it is ChatMessagePart.PendingResultBlock }) return this
+    return map { part ->
         when (part) {
             is ChatMessagePart.PendingResultBlock -> ChatMessagePart.ResultBlock(part.block)
             else -> part
         }
     }.distinctResultBlocks()
+}
 
 private fun List<ChatMessagePart>.distinctResultBlocks(): List<ChatMessagePart> {
     val seenBlocks = mutableSetOf<ResultBlockDto>()

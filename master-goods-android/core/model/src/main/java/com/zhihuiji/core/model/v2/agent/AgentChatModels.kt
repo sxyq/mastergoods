@@ -1,5 +1,6 @@
 package com.zhihuiji.core.model.v2.agent
 
+import androidx.compose.runtime.Immutable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -8,6 +9,7 @@ import kotlinx.serialization.json.JsonElement
  * 聊天消息领域模型，用于 UI 层展示。
  * 与 AgentMessageDto 的区别：本模型包含流式过程中的临时状态（如 isStreaming、runTrace 等）。
  */
+@Immutable
 data class ChatMessage(
     val id: String, // 本地生成 UUID，或后端返回的消息 ID
     val conversationId: Long,
@@ -25,21 +27,27 @@ data class ChatMessage(
     val createdAt: Long = System.currentTimeMillis(),
 )
 
+@Immutable
 enum class MessageRole {
     USER,
     ASSISTANT,
     SYSTEM,
 }
 
+@Immutable
 sealed interface ChatMessagePart {
+    @Immutable
     data class Text(val markdown: String) : ChatMessagePart
+    @Immutable
     data class ResultBlock(val block: ResultBlockDto) : ChatMessagePart
+    @Immutable
     data class PendingResultBlock(val block: ResultBlockDto) : ChatMessagePart
 }
 
 /**
  * 单次运行的过程轨迹，展示在助手消息中，可折叠。
  */
+@Immutable
 data class RunTrace(
     val runId: String,
     val auditId: String? = null,
@@ -55,11 +63,13 @@ data class RunTrace(
     val isExpanded: Boolean = false,
 )
 
+@Immutable
 data class PlanStep(
     val content: String,
     val timestamp: Long,
 )
 
+@Immutable
 data class ToolCallRecord(
     val toolName: String,
     val eventId: String? = null,
@@ -84,6 +94,7 @@ data class ToolCallRecord(
     val timestamp: Long,
 )
 
+@Immutable
 enum class ToolCallStatus {
     PENDING,
     RUNNING,
@@ -91,6 +102,7 @@ enum class ToolCallStatus {
     FAILED,
 }
 
+@Immutable
 data class SafetyResult(
     val passed: Boolean,
     val reason: String? = null,

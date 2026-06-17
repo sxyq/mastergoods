@@ -1,5 +1,6 @@
 package com.zhihuiji.feature.agent
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.data.agent.AgentV2Repository
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@Immutable
 data class AgentWorkbenchUiState(
     val greeting: String = "你好，我是智慧记 AI 助手",
     val isLoading: Boolean = false,

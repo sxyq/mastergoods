@@ -18,6 +18,7 @@ rootProject.name = "master-goods-android"
 
 include(":app")
 include(":backdrop")
+include(":benchmark")
 
 include(":core:common")
 include(":core:model")

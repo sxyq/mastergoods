@@ -36,17 +36,22 @@ import com.zhihuiji.core.model.v2.order.ConfirmSalesReturnV2Request
 import com.zhihuiji.core.model.v2.order.CreatePayOrderV2Request
 import com.zhihuiji.core.model.v2.order.CreatePurchaseOrderV2Request
 import com.zhihuiji.core.model.v2.order.CreatePurchaseReceiptV2Request
+import com.zhihuiji.core.model.v2.order.CreatePurchaseReturnV2Request
 import com.zhihuiji.core.model.v2.order.CreateSaleOrderV2Request
 import com.zhihuiji.core.model.v2.order.CreateSalesReturnV2Request
+import com.zhihuiji.core.model.v2.order.ConfirmPurchaseReturnV2Request
 import com.zhihuiji.core.model.v2.order.PayOrderV2Dto
 import com.zhihuiji.core.model.v2.order.PurchaseOrderV2Dto
 import com.zhihuiji.core.model.v2.order.PurchaseReceiptV2Dto
+import com.zhihuiji.core.model.v2.order.PurchaseReturnRefundV2Request
+import com.zhihuiji.core.model.v2.order.PurchaseReturnV2Dto
 import com.zhihuiji.core.model.v2.order.SaleOrderV2Dto
 import com.zhihuiji.core.model.v2.order.SalePaymentV2Dto
 import com.zhihuiji.core.model.v2.order.SalePaymentV2Request
 import com.zhihuiji.core.model.v2.order.SalesReturnRefundV2Request
 import com.zhihuiji.core.model.v2.order.SalesReturnV2Dto
 import com.zhihuiji.core.model.v2.order.UpdatePurchaseReceiptDraftV2Request
+import com.zhihuiji.core.model.v2.order.UpdatePurchaseReturnDraftV2Request
 import com.zhihuiji.core.model.v2.order.UpdateSaleDraftV2Request
 import com.zhihuiji.core.model.v2.order.UpdateSalesReturnDraftV2Request
 import com.zhihuiji.core.model.v2.partner.CustomerV2Dto
@@ -365,6 +370,42 @@ interface ZhihuijiV2Api {
 
     @PUT("v2/purchase-receipts/{id}/cancel")
     suspend fun cancelPurchaseReceiptV2(@Path("id") id: Long): ApiResponse<PurchaseReceiptV2Dto>
+
+    @GET("v2/purchase-returns")
+    suspend fun purchaseReturnsV2(
+        @Query("keyword") keyword: String? = null,
+        @Query("status") status: Int? = null,
+    ): ApiResponse<List<PurchaseReturnV2Dto>>
+
+    @GET("v2/purchase-returns/{id}")
+    suspend fun purchaseReturnV2(@Path("id") id: Long): ApiResponse<PurchaseReturnV2Dto>
+
+    @GET("v2/purchase-returns/by-order/{orderId}")
+    suspend fun purchaseReturnsByOrderV2(@Path("orderId") orderId: Long): ApiResponse<List<PurchaseReturnV2Dto>>
+
+    @POST("v2/purchase-returns")
+    suspend fun createPurchaseReturnV2(@Body body: CreatePurchaseReturnV2Request): ApiResponse<PurchaseReturnV2Dto>
+
+    @PUT("v2/purchase-returns/{id}/draft")
+    suspend fun updatePurchaseReturnDraftV2(
+        @Path("id") id: Long,
+        @Body body: UpdatePurchaseReturnDraftV2Request,
+    ): ApiResponse<PurchaseReturnV2Dto>
+
+    @PUT("v2/purchase-returns/{id}/confirm")
+    suspend fun confirmPurchaseReturnV2(
+        @Path("id") id: Long,
+        @Body body: ConfirmPurchaseReturnV2Request,
+    ): ApiResponse<PurchaseReturnV2Dto>
+
+    @POST("v2/purchase-returns/{id}/refunds")
+    suspend fun addPurchaseReturnRefundV2(
+        @Path("id") id: Long,
+        @Body body: PurchaseReturnRefundV2Request,
+    ): ApiResponse<PurchaseReturnV2Dto>
+
+    @PUT("v2/purchase-returns/{id}/cancel")
+    suspend fun cancelPurchaseReturnV2(@Path("id") id: Long): ApiResponse<PurchaseReturnV2Dto>
 
     @GET("v2/pay-orders")
     suspend fun payOrdersV2(

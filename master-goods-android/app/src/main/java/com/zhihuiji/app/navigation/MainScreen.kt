@@ -43,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
@@ -104,6 +105,13 @@ private val BottomBarBlurRadius = 52.dp
 private val BottomBarIndicatorBlurRadius = 42.dp
 private val BottomBarContentHorizontalPadding = 3.dp
 private val BottomBarContentVerticalPadding = 3.dp
+private val BottomBarIndicatorBrush = Brush.verticalGradient(
+    colors = listOf(
+        Color.White.copy(alpha = 0.92f),
+        Color(0xFFF6FAFF).copy(alpha = 0.84f),
+        Color(0xFFDCE8F7).copy(alpha = 0.78f),
+    )
+)
 
 private const val BottomBarAnimationDurationMillis = 240
 private const val BottomBarClickPulseDurationMillis = 180
@@ -119,6 +127,7 @@ private const val BottomBarVerticalIntentRatio = 1.08f
 @Composable
 fun MainScreen(
     onNavigateToSettings: () -> Unit,
+    startupAgentLaunch: AgentLaunchRequest? = null,
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -128,12 +137,77 @@ fun MainScreen(
 
     val selectedIndex = bottomBarDestinations.indexOfFirst { currentRoute.matchesTopLevelRoute(it.route) }
         .takeIf { it >= 0 } ?: 0
-    var pendingTapIndex by remember { mutableStateOf<Int?>(null) }
-    var lastBottomBarTapIndex by remember { mutableStateOf<Int?>(null) }
-    var lastBottomBarTapTime by remember { mutableStateOf(0L) }
     val bottomBarScrollEvents = remember {
         MutableSharedFlow<Float>(extraBufferCapacity = 64)
     }
+    var pendingStartupAgentLaunch by remember(startupAgentLaunch) {
+        mutableStateOf(
+            startupAgentLaunch?.takeIf {
+                it.openChat || !it.initialQuestion.isNullOrBlank() || it.conversationId != null
+            }
+        )
+    }
+
+    LaunchedEffect(pendingStartupAgentLaunch) {
+        val request = pendingStartupAgentLaunch ?: return@LaunchedEffect
+        navController.navigate(agentChatRoute(request.initialQuestion, request.conversationId)) {
+            launchSingleTop = true
+        }
+        pendingStartupAgentLaunch = null
+    }
+
+    GlassScaffold(
+        bottomBar = {
+            MainBottomBar(
+                currentRoute = currentRoute,
+                selectedIndex = selectedIndex,
+                density = density,
+                backdrop = bottomBarBackdrop,
+                bottomBarScrollEvents = bottomBarScrollEvents,
+                onNavigate = { index, route ->
+                    navController.navigate(route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+            )
+        }
+    ) { paddingValues ->
+        MainNavGraph(
+            navController = navController,
+            selectedIndex = selectedIndex,
+            homeBottomBarScrollEvents = bottomBarScrollEvents,
+            onNavigateToSettings = onNavigateToSettings,
+            modifier = Modifier
+                .padding(paddingValues)
+                .layerBackdrop(bottomBarBackdrop)
+        )
+    }
+}
+
+@Composable
+private fun MainBottomBar(
+    currentRoute: String?,
+    selectedIndex: Int,
+    density: androidx.compose.ui.unit.Density,
+    backdrop: Backdrop,
+    bottomBarScrollEvents: MutableSharedFlow<Float>,
+    onNavigate: (Int, String) -> Unit,
+) {
+    if (!bottomBarDestinations.any { currentRoute.matchesTopLevelRoute(it.route) }) {
+        return
+    }
+
+    var pendingTapIndex by remember { mutableStateOf<Int?>(null) }
+    var lastBottomBarTapIndex by remember { mutableStateOf<Int?>(null) }
+    var lastBottomBarTapTime by remember { mutableStateOf(0L) }
+    var isBottomBarDragging by remember { mutableStateOf(false) }
+    var bottomBarDragPosition by remember { mutableFloatStateOf(selectedIndex.toFloat()) }
+    var bottomBarDragVelocity by remember { mutableFloatStateOf(0f) }
+    var bottomBarNavigationStartIndex by remember { mutableStateOf(selectedIndex) }
 
     fun navigateTopLevel(index: Int, route: String) {
         val now = android.os.SystemClock.uptimeMillis()
@@ -146,206 +220,180 @@ fun MainScreen(
         lastBottomBarTapIndex = index
         lastBottomBarTapTime = now
         pendingTapIndex = index
-        navController.navigate(route) {
-            popUpTo(navController.graph.findStartDestination().id) {
-                saveState = true
-            }
-            launchSingleTop = true
-            restoreState = true
+        onNavigate(index, route)
+    }
+
+    val targetIndicatorIndex = pendingTapIndex ?: selectedIndex
+    val bottomBarNavigationDistance = abs(targetIndicatorIndex - bottomBarNavigationStartIndex)
+    val bottomBarNavigationDuration = resolveBottomBarNavigationDurationMillis(
+        currentIndex = bottomBarNavigationStartIndex,
+        targetIndex = targetIndicatorIndex
+    )
+
+    LaunchedEffect(selectedIndex, pendingTapIndex) {
+        if (!isBottomBarDragging) {
+            bottomBarDragPosition = (pendingTapIndex ?: selectedIndex).toFloat()
+        }
+        if (pendingTapIndex == selectedIndex) {
+            pendingTapIndex = null
         }
     }
 
-    GlassScaffold(
-        bottomBar = {
-            // Only show bottom bar on top-level destinations
-            if (bottomBarDestinations.any { currentRoute.matchesTopLevelRoute(it.route) }) {
-                Box(
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 0.dp, vertical = 0.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            LiquidGlassSurface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = BottomBarHorizontalMargin,
+                        end = BottomBarHorizontalMargin,
+                        bottom = BottomBarFloatingBottomGap
+                    ),
+                blurRadius = BottomBarBlurRadius,
+                shape = BottomBarContainerShape,
+                surfaceColor = BottomBarGlassSurface,
+                backdrop = backdrop
+            ) {
+                BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 0.dp, vertical = 0.dp),
-                    contentAlignment = Alignment.Center
+                        .height(MainBottomBarHeight - BottomBarFloatingBottomGap)
+                        .padding(
+                            horizontal = BottomBarContentHorizontalPadding,
+                            vertical = BottomBarContentVerticalPadding
+                        )
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        LiquidGlassSurface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(
-                                    start = BottomBarHorizontalMargin,
-                                    end = BottomBarHorizontalMargin,
-                                    bottom = BottomBarFloatingBottomGap
-                                ),
-                            blurRadius = BottomBarBlurRadius,
-                            shape = BottomBarContainerShape,
-                            surfaceColor = BottomBarGlassSurface,
-                            backdrop = bottomBarBackdrop
-                        ) {
-                            BoxWithConstraints(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(MainBottomBarHeight - BottomBarFloatingBottomGap)
-                                    .padding(
-                                        horizontal = BottomBarContentHorizontalPadding,
-                                        vertical = BottomBarContentVerticalPadding
-                                    )
-                            ) {
-                                val itemCount = bottomBarDestinations.size.coerceAtLeast(1)
-                                val slotWidth = maxWidth / itemCount
-                                val slotWidthPx = with(density) { slotWidth.toPx() }.coerceAtLeast(1f)
-                                val indicatorWidth = slotWidth
-                                val indicatorHeight = (
-                                    MainBottomBarHeight -
-                                        BottomBarFloatingBottomGap -
-                                        (BottomBarContentVerticalPadding * 2)
-                                    ).coerceAtMost(slotWidth / 1.6f)
-                                var isBottomBarDragging by remember { mutableStateOf(false) }
-                                var bottomBarDragPosition by remember { mutableFloatStateOf(selectedIndex.toFloat()) }
-                                var bottomBarDragVelocity by remember { mutableFloatStateOf(0f) }
-                                var bottomBarNavigationStartIndex by remember { mutableStateOf(selectedIndex) }
-                                val targetIndicatorIndex = pendingTapIndex ?: selectedIndex
-                                val bottomBarNavigationDistance = abs(targetIndicatorIndex - bottomBarNavigationStartIndex)
-                                val bottomBarNavigationDuration = resolveBottomBarNavigationDurationMillis(
-                                    currentIndex = bottomBarNavigationStartIndex,
-                                    targetIndex = targetIndicatorIndex
-                                )
-                                LaunchedEffect(selectedIndex, pendingTapIndex) {
-                                    if (!isBottomBarDragging) {
-                                        bottomBarDragPosition = (pendingTapIndex ?: selectedIndex).toFloat()
-                                    }
-                                    if (pendingTapIndex == selectedIndex) {
-                                        pendingTapIndex = null
-                                    }
-                                }
-                                val indicatorPosition by animateFloatAsState(
-                                    targetValue = if (isBottomBarDragging) {
-                                        bottomBarDragPosition
-                                    } else {
-                                        (pendingTapIndex ?: selectedIndex).toFloat()
-                                    },
-                                    animationSpec = spring(
-                                        dampingRatio = if (bottomBarNavigationDistance > 1) {
-                                            BottomBarSelectionSpringDamping + 0.04f
-                                        } else {
-                                            BottomBarSelectionSpringDamping
-                                        },
-                                        stiffness = if (bottomBarNavigationDistance > 1) {
-                                            BottomBarSelectionFarSpringStiffness
-                                        } else {
-                                            BottomBarSelectionSpringStiffness
-                                        },
-                                        visibilityThreshold = 0.01f
-                                    ),
-                                    label = "bottom_bar_indicator_position"
-                                )
-                                val velocityScaleTarget = (
-                                    abs(bottomBarDragVelocity) / BottomBarVelocityNormalization
-                                    ).coerceAtMost(BottomBarVelocityScaleClamp)
-                                val indicatorVelocityScale by animateFloatAsState(
-                                    targetValue = if (isBottomBarDragging) velocityScaleTarget else 0f,
-                                    animationSpec = tween(
-                                        durationMillis = BottomBarAnimationDurationMillis,
-                                        easing = LinearOutSlowInEasing
-                                    ),
-                                    label = "bottom_bar_velocity_scale"
-                                )
-                                val tapPulseTarget = if (pendingTapIndex != null && !isBottomBarDragging) 1f else 0f
-                                val tapPulse by animateFloatAsState(
-                                    targetValue = tapPulseTarget,
-                                    animationSpec = tween(
-                                        durationMillis = if (tapPulseTarget > 0f) {
-                                            bottomBarNavigationDuration.coerceAtMost(420)
-                                        } else {
-                                            BottomBarClickPulseDurationMillis
-                                        },
-                                        easing = LinearOutSlowInEasing
-                                    ),
-                                    label = "bottom_bar_click_pulse"
-                                )
-                                val indicatorOffsetPx = with(density) { (slotWidth * indicatorPosition).toPx() }
+                    val itemCount = bottomBarDestinations.size.coerceAtLeast(1)
+                    val slotWidth = maxWidth / itemCount
+                    val slotWidthPx = with(density) { slotWidth.toPx() }.coerceAtLeast(1f)
+                    val indicatorWidth = slotWidth
+                    val indicatorHeight = (
+                        MainBottomBarHeight -
+                            BottomBarFloatingBottomGap -
+                            (BottomBarContentVerticalPadding * 2)
+                        ).coerceAtMost(slotWidth / 1.6f)
+                    val indicatorPosition by animateFloatAsState(
+                        targetValue = if (isBottomBarDragging) {
+                            bottomBarDragPosition
+                        } else {
+                            (pendingTapIndex ?: selectedIndex).toFloat()
+                        },
+                        animationSpec = spring(
+                            dampingRatio = if (bottomBarNavigationDistance > 1) {
+                                BottomBarSelectionSpringDamping + 0.04f
+                            } else {
+                                BottomBarSelectionSpringDamping
+                            },
+                            stiffness = if (bottomBarNavigationDistance > 1) {
+                                BottomBarSelectionFarSpringStiffness
+                            } else {
+                                BottomBarSelectionSpringStiffness
+                            },
+                            visibilityThreshold = 0.01f
+                        ),
+                        label = "bottom_bar_indicator_position"
+                    )
+                    val velocityScaleTarget = (
+                        abs(bottomBarDragVelocity) / BottomBarVelocityNormalization
+                        ).coerceAtMost(BottomBarVelocityScaleClamp)
+                    val indicatorVelocityScale by animateFloatAsState(
+                        targetValue = if (isBottomBarDragging) velocityScaleTarget else 0f,
+                        animationSpec = tween(
+                            durationMillis = BottomBarAnimationDurationMillis,
+                            easing = LinearOutSlowInEasing
+                        ),
+                        label = "bottom_bar_velocity_scale"
+                    )
+                    val tapPulseTarget = if (pendingTapIndex != null && !isBottomBarDragging) 1f else 0f
+                    val tapPulse by animateFloatAsState(
+                        targetValue = tapPulseTarget,
+                        animationSpec = tween(
+                            durationMillis = if (tapPulseTarget > 0f) {
+                                bottomBarNavigationDuration.coerceAtMost(420)
+                            } else {
+                                BottomBarClickPulseDurationMillis
+                            },
+                            easing = LinearOutSlowInEasing
+                        ),
+                        label = "bottom_bar_click_pulse"
+                    )
+                    val indicatorOffsetPx = with(density) { (slotWidth * indicatorPosition).toPx() }
 
-                                Box(
-                                    modifier = Modifier
-                                        .width(indicatorWidth)
-                                        .height(indicatorHeight)
-                                        .align(Alignment.CenterStart)
-                                        .graphicsLayer {
-                                            translationX = indicatorOffsetPx
-                                            scaleX = 1f + indicatorVelocityScale * 0.46f + tapPulse * 0.04f
-                                            scaleY = 1f - indicatorVelocityScale * 0.16f + tapPulse * 0.02f
-                                        }
-                                        .bottomNavGlassIndicator(
-                                            backdrop = bottomBarBackdrop,
-                                            shape = BottomBarIndicatorShape
-                                        )
-                                )
-
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .fillMaxHeight()
-                                        .bottomNavSweepGesture(
-                                            itemWidthPx = slotWidthPx,
-                                            itemCount = itemCount,
-                                            selectedIndex = selectedIndex,
-                                            currentIndicatorPosition = indicatorPosition,
-                                            onDragPositionChange = { position ->
-                                                bottomBarDragPosition = position
-                                            },
-                                            onDragStateChange = { dragging ->
-                                                isBottomBarDragging = dragging
-                                                if (!dragging) {
-                                                    bottomBarDragVelocity = 0f
-                                                }
-                                            },
-                                            onVelocityChange = { velocity ->
-                                                bottomBarDragVelocity = velocity
-                                            },
-                                            onVerticalDrag = {
-                                                if (selectedIndex == 0 && it != 0f) {
-                                                    bottomBarScrollEvents.tryEmit(it)
-                                                }
-                                            },
-                                            onSelected = { index ->
-                                                bottomBarDestinations.getOrNull(index)?.let { dest ->
-                                                    bottomBarNavigationStartIndex = selectedIndex
-                                                    navigateTopLevel(index, dest.route)
-                                                }
-                                            }
-                                        ),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    bottomBarDestinations.forEachIndexed { index, dest ->
-                                        BottomNavTab(
-                                            destination = dest,
-                                            selected = index == selectedIndex,
-                                            modifier = Modifier.weight(1f),
-                                            onClick = {
-                                                bottomBarNavigationStartIndex = selectedIndex
-                                                navigateTopLevel(index, dest.route)
-                                            }
-                                        )
-                                    }
-                                }
+                    Box(
+                        modifier = Modifier
+                            .width(indicatorWidth)
+                            .height(indicatorHeight)
+                            .align(Alignment.CenterStart)
+                            .graphicsLayer {
+                                translationX = indicatorOffsetPx
+                                scaleX = 1f + indicatorVelocityScale * 0.46f + tapPulse * 0.04f
+                                scaleY = 1f - indicatorVelocityScale * 0.16f + tapPulse * 0.02f
                             }
+                            .bottomNavGlassIndicator(
+                                backdrop = backdrop,
+                                shape = BottomBarIndicatorShape
+                            )
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight()
+                            .bottomNavSweepGesture(
+                                itemWidthPx = slotWidthPx,
+                                itemCount = itemCount,
+                                currentIndicatorPosition = indicatorPosition,
+                                onDragPositionChange = { position ->
+                                    bottomBarDragPosition = position
+                                },
+                                onDragStateChange = { dragging ->
+                                    isBottomBarDragging = dragging
+                                    if (!dragging) {
+                                        bottomBarDragVelocity = 0f
+                                    }
+                                },
+                                onVelocityChange = { velocity ->
+                                    bottomBarDragVelocity = velocity
+                                },
+                                onVerticalDrag = {
+                                    if (selectedIndex == 0 && it != 0f) {
+                                        bottomBarScrollEvents.tryEmit(it)
+                                    }
+                                },
+                                onSelected = { index ->
+                                    bottomBarDestinations.getOrNull(index)?.let { dest ->
+                                        bottomBarNavigationStartIndex = selectedIndex
+                                        navigateTopLevel(index, dest.route)
+                                    }
+                                }
+                            ),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        bottomBarDestinations.forEachIndexed { index, dest ->
+                            BottomNavTab(
+                                destination = dest,
+                                selected = index == selectedIndex,
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    bottomBarNavigationStartIndex = selectedIndex
+                                    navigateTopLevel(index, dest.route)
+                                }
+                            )
                         }
-                        Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
                     }
                 }
             }
+            Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
-    ) { paddingValues ->
-        MainNavGraph(
-            navController = navController,
-            selectedIndex = selectedIndex,
-            homeBottomBarScrollEvents = bottomBarScrollEvents,
-            onNavigateToSettings = onNavigateToSettings,
-            modifier = Modifier
-                .padding(paddingValues)
-                .layerBackdrop(bottomBarBackdrop)
-        )
     }
 }
 
@@ -469,15 +517,7 @@ private fun Modifier.bottomNavGlassIndicator(
                     )
                 },
                 onDrawSurface = {
-                    drawRect(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = 0.92f),
-                                Color(0xFFF6FAFF).copy(alpha = 0.84f),
-                                Color(0xFFDCE8F7).copy(alpha = 0.78f)
-                            )
-                        )
-                    )
+                    drawRect(brush = BottomBarIndicatorBrush)
                 }
             )
             .border(
@@ -488,13 +528,7 @@ private fun Modifier.bottomNavGlassIndicator(
     } else {
         chrome
             .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color.White.copy(alpha = 0.92f),
-                        Color(0xFFF6FAFF).copy(alpha = 0.84f),
-                        Color(0xFFDCE8F7).copy(alpha = 0.78f)
-                    )
-                ),
+                brush = BottomBarIndicatorBrush,
                 shape = shape
             )
             .border(
@@ -505,17 +539,25 @@ private fun Modifier.bottomNavGlassIndicator(
     }
 }
 
+@Composable
 private fun Modifier.bottomNavSweepGesture(
     itemWidthPx: Float,
     itemCount: Int,
-    selectedIndex: Int,
     currentIndicatorPosition: Float,
     onDragPositionChange: (Float) -> Unit,
     onDragStateChange: (Boolean) -> Unit,
     onVelocityChange: (Float) -> Unit,
     onVerticalDrag: (Float) -> Unit,
     onSelected: (Int) -> Unit
-): Modifier = pointerInput(itemWidthPx, itemCount, selectedIndex, currentIndicatorPosition) {
+): Modifier {
+    val currentIndicatorPositionState = rememberUpdatedState(currentIndicatorPosition)
+    val onDragPositionChangeState = rememberUpdatedState(onDragPositionChange)
+    val onDragStateChangeState = rememberUpdatedState(onDragStateChange)
+    val onVelocityChangeState = rememberUpdatedState(onVelocityChange)
+    val onVerticalDragState = rememberUpdatedState(onVerticalDrag)
+    val onSelectedState = rememberUpdatedState(onSelected)
+
+    return pointerInput(itemWidthPx, itemCount) {
     if (itemWidthPx <= 0f || itemCount <= 1) return@pointerInput
 
     val velocityTracker = VelocityTracker()
@@ -525,7 +567,7 @@ private fun Modifier.bottomNavSweepGesture(
             val down = awaitFirstDown(requireUnconsumed = false)
             var latestPositionX = down.position.x
             var latestVelocityX = 0f
-            val startIndicatorPosition = currentIndicatorPosition
+            val startIndicatorPosition = currentIndicatorPositionState.value
             val shouldFollowIndicator = down.position.x in
                 (startIndicatorPosition * itemWidthPx)..((startIndicatorPosition + 1f) * itemWidthPx)
 
@@ -553,9 +595,9 @@ private fun Modifier.bottomNavSweepGesture(
                         )
                 if (hasVerticalIntent) {
                     hasVerticalDrag = true
-                    onDragStateChange(false)
+                    onDragStateChangeState.value(false)
                     if (verticalStep != 0f) {
-                        onVerticalDrag(-verticalStep)
+                        onVerticalDragState.value(-verticalStep)
                     }
                     lastVerticalPositionY = change.position.y
                     continue
@@ -569,19 +611,19 @@ private fun Modifier.bottomNavSweepGesture(
                 dragStart = change
                 latestPositionX = change.position.x
                 velocityTracker.addPosition(change.uptimeMillis, change.position)
-                onDragStateChange(true)
+                onDragStateChangeState.value(true)
 
                 val initialPosition = if (shouldFollowIndicator) {
                     startIndicatorPosition + horizontalTravel / itemWidthPx
                 } else {
                     change.position.x / itemWidthPx
                 }
-                onDragPositionChange(initialPosition.coerceIn(0f, (itemCount - 1).toFloat()))
+                onDragPositionChangeState.value(initialPosition.coerceIn(0f, (itemCount - 1).toFloat()))
                 hasHorizontalDrag = true
             }
 
             if (!hasHorizontalDrag) {
-                onDragStateChange(false)
+                onDragStateChangeState.value(false)
                 continue
             }
 
@@ -597,7 +639,7 @@ private fun Modifier.bottomNavSweepGesture(
                     } else {
                         change.position.x / itemWidthPx
                     }
-                    onDragPositionChange(dragPosition.coerceIn(0f, (itemCount - 1).toFloat()))
+                    onDragPositionChangeState.value(dragPosition.coerceIn(0f, (itemCount - 1).toFloat()))
                     latestVelocityX = velocityTracker.calculateVelocity().x
                 }
             } catch (_: Exception) {
@@ -605,15 +647,16 @@ private fun Modifier.bottomNavSweepGesture(
             }
 
             if (!wasCancelled) {
-                onVelocityChange(latestVelocityX)
+                onVelocityChangeState.value(latestVelocityX)
                 val velocityNudge = (latestVelocityX / BottomBarVelocityNormalization)
                     .coerceIn(-0.36f, 0.36f)
                 val releaseIndex = ((latestPositionX / itemWidthPx) + velocityNudge)
                     .roundToInt()
                     .coerceIn(0, itemCount - 1)
-                onSelected(releaseIndex)
+                onSelectedState.value(releaseIndex)
             }
-            onDragStateChange(false)
+            onDragStateChangeState.value(false)
         }
     }
+}
 }

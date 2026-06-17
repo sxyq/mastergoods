@@ -241,7 +241,7 @@ class V2AgentAiServiceTest {
     }
 
     @Test
-    void streamFallbackAnswerCompletesRuleSummaryWithoutFakeDeltas() throws Exception {
+    void streamFallbackAnswerEmitsVisibleRuleSummaryDeltas() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
@@ -251,19 +251,21 @@ class V2AgentAiServiceTest {
 
         service.runChatStream(1L, conversation, "客户应收情况", "run-test", emitter);
 
-        assertEquals(0, answerDeltaPayloads(emitter).size(), String.join("\n", emitter.payloads));
+        List<String> deltaPayloads = answerDeltaPayloads(emitter);
+        assertFalse(deltaPayloads.isEmpty(), String.join("\n", emitter.payloads));
+        assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"delta_source\":\"rule_summary\"")));
         assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"delta_source\":\"model_stream\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_rule_summary\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"stream_failed_or_empty\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")), String.join("\n", emitter.payloads));
         String answerCompleted = firstPayload(emitter, "\"event_type\":\"answer_completed\"");
         assertTrue(answerCompleted.contains("\"plan_source\":\"keyword_fallback\""), answerCompleted);
-        assertFalse(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())));
+        assertTrue(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())));
         assertTrue(emitter.completed);
     }
 
     @Test
-    void streamDisabledModelAnswerCompletesRuleSummaryWithoutFakeDeltas() throws Exception {
+    void streamDisabledModelAnswerEmitsVisibleRuleSummaryDeltas() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(false);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of());
@@ -272,7 +274,9 @@ class V2AgentAiServiceTest {
 
         service.runChatStream(1L, conversation, "客户应收情况", "run-disabled", emitter);
 
-        assertEquals(0, answerDeltaPayloads(emitter).size(), String.join("\n", emitter.payloads));
+        List<String> deltaPayloads = answerDeltaPayloads(emitter);
+        assertFalse(deltaPayloads.isEmpty(), String.join("\n", emitter.payloads));
+        assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"delta_source\":\"rule_summary\"")));
         assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"delta_source\":\"model_stream\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_rule_summary\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"disabled\"")));
@@ -282,7 +286,7 @@ class V2AgentAiServiceTest {
         assertTrue(answerCompleted.contains("\"audit_id\":\"run-disabled:audit\""), answerCompleted);
         assertTrue(answerCompleted.contains("\"trace_id\":\"run-disabled:trace\""), answerCompleted);
         assertTrue(answerCompleted.contains("\"log_ref\":\"agent-run:run-disabled\""), answerCompleted);
-        assertFalse(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())));
+        assertTrue(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())));
         assertTrue(emitter.completed);
     }
 
@@ -514,10 +518,14 @@ class V2AgentAiServiceTest {
 
         assertTrue(inventoryCompleted < receivableCompleted, String.join("\n", emitter.payloads));
         assertTrue(receivableCompleted < answerCompleted, String.join("\n", emitter.payloads));
-        assertTrue(answerCompleted < firstResultBlock, String.join("\n", emitter.payloads));
-        assertTrue(firstPayloadIndex(emitter, "\"title\":\"库存风险\"") > answerCompleted, String.join("\n", emitter.payloads));
+        assertTrue(receivableCompleted < firstResultBlock, String.join("\n", emitter.payloads));
+        assertTrue(firstResultBlock < answerCompleted, String.join("\n", emitter.payloads));
+        assertTrue(firstPayloadIndex(emitter, "\"title\":\"库存风险\"") > receivableCompleted, String.join("\n", emitter.payloads));
+        assertTrue(firstPayloadIndex(emitter, "\"title\":\"库存风险\"") < answerCompleted, String.join("\n", emitter.payloads));
         assertTrue(firstPayloadIndex(emitter, "\"title\":\"应收概览\"") > receivableCompleted, String.join("\n", emitter.payloads));
-        assertTrue(firstPayloadIndex(emitter, "\"title\":\"本次回答依据\"") > answerCompleted, String.join("\n", emitter.payloads));
+        assertTrue(firstPayloadIndex(emitter, "\"title\":\"应收概览\"") < answerCompleted, String.join("\n", emitter.payloads));
+        assertTrue(firstPayloadIndex(emitter, "\"title\":\"本次回答依据\"") > receivableCompleted, String.join("\n", emitter.payloads));
+        assertTrue(firstPayloadIndex(emitter, "\"title\":\"本次回答依据\"") < answerCompleted, String.join("\n", emitter.payloads));
     }
 
     @Test
@@ -548,8 +556,8 @@ class V2AgentAiServiceTest {
         assertFalse(answerCompleted.contains("欠款客户总数 0 个"), answerCompleted);
         assertFalse(answerCompleted.contains("应收总额 ¥0.00"), answerCompleted);
 
-        assertTrue(firstPayloadIndex(emitter, "\"title\":\"库存风险\"") > firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""));
-        assertTrue(firstPayloadIndex(emitter, "\"title\":\"本次回答依据\"") > firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""));
+        assertTrue(firstPayloadIndex(emitter, "\"title\":\"库存风险\"") < firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""));
+        assertTrue(firstPayloadIndex(emitter, "\"title\":\"本次回答依据\"") < firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""));
         assertEquals(-1, payloadIndexContaining(emitter, "\"title\":\"应收概览\""));
     }
 
@@ -1057,17 +1065,19 @@ class V2AgentAiServiceTest {
 
         service.runChatStream(1L, conversation(108L), "客户应收情况", "run-no-stream-provider", emitter);
 
-        assertEquals(0, answerDeltaPayloads(emitter).size(), String.join("\n", emitter.payloads));
+        List<String> deltaPayloads = answerDeltaPayloads(emitter);
+        assertFalse(deltaPayloads.isEmpty(), String.join("\n", emitter.payloads));
+        assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"delta_source\":\"rule_summary\"")));
         assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"delta_source\":\"model_stream\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_rule_summary\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"stream_not_supported\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")), String.join("\n", emitter.payloads));
         assertTrue(
-            firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\"")
+            firstPayloadIndex(emitter, "\"event_type\":\"answer_delta\"")
                 < firstPayloadIndex(emitter, "\"event_type\":\"result_block\""),
             String.join("\n", emitter.payloads)
         );
-        assertFalse(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())));
+        assertTrue(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())));
         assertTrue(emitter.completed);
     }
 

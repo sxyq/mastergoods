@@ -31,9 +31,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -79,6 +82,7 @@ fun ReportScreen(
     val navigationBarPadding = with(density) {
         WindowInsets.navigationBars.getBottom(this).toDp()
     }
+    val periodLabel = uiState.selectedPeriodLabel
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -92,7 +96,7 @@ fun ReportScreen(
             )
         ) {
             item {
-                ReportsPageTitle(periodLabel = uiState.selectedPeriodLabel)
+                ReportsPageTitle(periodLabel = periodLabel)
             }
             item {
                 SegmentedTabs(
@@ -118,16 +122,33 @@ fun ReportScreen(
                 }
             } else {
                 item {
-                    ReportKpiSection(uiState = uiState)
+                    ReportKpiSection(
+                        salesAmount = uiState.salesAmount,
+                        profitAmount = uiState.profitAmount,
+                        profitRate = uiState.profitRate,
+                        orderCount = uiState.orderCount,
+                    )
                 }
                 item {
-                    SalesCompositionCard(uiState = uiState)
+                    SalesCompositionCard(
+                        salesAmount = uiState.salesAmount,
+                        profitAmount = uiState.profitAmount,
+                    )
                 }
                 item {
-                    ProfitDistributionCard(uiState = uiState)
+                    ProfitDistributionCard(
+                        salesAmount = uiState.salesAmount,
+                        profitAmount = uiState.profitAmount,
+                        selectedPeriodLabel = periodLabel,
+                    )
                 }
                 item {
-                    FinanceCompositionCard(uiState = uiState)
+                    FinanceCompositionCard(
+                        salesAmount = uiState.salesAmount,
+                        profitAmount = uiState.profitAmount,
+                        receivableAmount = uiState.receivableAmount,
+                        payableAmount = uiState.payableAmount,
+                    )
                 }
                 item {
                     TopProductsCard(products = uiState.topProducts)
@@ -136,7 +157,7 @@ fun ReportScreen(
         }
 
         ReportsTopBar(
-            periodLabel = uiState.selectedPeriodLabel,
+            periodLabel = periodLabel,
             modifier = Modifier.align(Alignment.TopCenter)
         )
     }
@@ -184,14 +205,20 @@ private fun ReportsPageTitle(
 
 @Composable
 private fun ReportKpiSection(
-    uiState: ReportUiState,
+    salesAmount: String,
+    profitAmount: String,
+    profitRate: String,
+    orderCount: Int,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        SalesTotalHeroCard(uiState = uiState)
+        SalesTotalHeroCard(
+            salesAmount = salesAmount,
+            profitRate = profitRate,
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -199,14 +226,14 @@ private fun ReportKpiSection(
             CompactMetricCard(
                 modifier = Modifier.weight(1f),
                 label = "预估利润",
-                value = "¥${uiState.profitAmount}",
+                value = "¥$profitAmount",
                 accent = SuccessGreen,
-                trendText = "${uiState.profitRate}%",
+                trendText = "$profitRate%",
             )
             CompactMetricCard(
                 modifier = Modifier.weight(1f),
                 label = "成交单量",
-                value = "${uiState.orderCount}",
+                value = "$orderCount",
                 accent = ZhihuijiPrimary,
                 trendText = "真实订单",
             )
@@ -216,7 +243,8 @@ private fun ReportKpiSection(
 
 @Composable
 private fun SalesTotalHeroCard(
-    uiState: ReportUiState,
+    salesAmount: String,
+    profitRate: String,
     modifier: Modifier = Modifier
 ) {
     LiquidGlassCard(
@@ -262,7 +290,7 @@ private fun SalesTotalHeroCard(
                         )
                     }
                     Text(
-                        text = uiState.salesAmount,
+                        text = salesAmount,
                         fontSize = 32.sp,
                         lineHeight = 38.sp,
                         fontWeight = FontWeight.Bold,
@@ -278,7 +306,7 @@ private fun SalesTotalHeroCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "利润率 ${uiState.profitRate}%",
+                        text = "利润率 $profitRate%",
                         fontSize = 12.sp,
                         lineHeight = 16.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -353,11 +381,12 @@ private fun CompactMetricCard(
 
 @Composable
 private fun SalesCompositionCard(
-    uiState: ReportUiState,
+    salesAmount: String,
+    profitAmount: String,
     modifier: Modifier = Modifier
 ) {
-    val sales = uiState.salesAmount.toMoneyDouble()
-    val profit = uiState.profitAmount.toMoneyDouble()
+    val sales = remember(salesAmount) { salesAmount.toMoneyDouble() }
+    val profit = remember(profitAmount) { profitAmount.toMoneyDouble() }
     GlassChartCard(
         modifier = modifier,
         title = "销售趋势",
@@ -394,20 +423,24 @@ private fun SalesCompositionCard(
 
 @Composable
 private fun ProfitDistributionCard(
-    uiState: ReportUiState,
+    salesAmount: String,
+    profitAmount: String,
+    selectedPeriodLabel: String,
     modifier: Modifier = Modifier
 ) {
-    val sales = uiState.salesAmount.toMoneyDouble()
-    val profit = uiState.profitAmount.toMoneyDouble()
-    val cost = (sales - profit).coerceAtLeast(0.0)
-    val items = listOf(
-        FinanceSlice("销售额", sales, ZhihuijiPrimary),
-        FinanceSlice("预估成本", cost, StatusBlueLight),
-        FinanceSlice("预估利润", profit, SuccessGreen)
-    )
+    val sales = remember(salesAmount) { salesAmount.toMoneyDouble() }
+    val profit = remember(profitAmount) { profitAmount.toMoneyDouble() }
+    val items = remember(sales, profit) {
+        val cost = (sales - profit).coerceAtLeast(0.0)
+        listOf(
+            FinanceSlice("销售额", sales, ZhihuijiPrimary),
+            FinanceSlice("预估成本", cost, StatusBlueLight),
+            FinanceSlice("预估利润", profit, SuccessGreen)
+        )
+    }
     GlassChartCard(
         modifier = modifier,
-        title = "利润分布（${uiState.selectedPeriodLabel}）",
+        title = "利润分布（$selectedPeriodLabel）",
         icon = Icons.Outlined.Leaderboard
     ) {
         Column(
@@ -430,15 +463,20 @@ private fun ProfitDistributionCard(
 
 @Composable
 private fun FinanceCompositionCard(
-    uiState: ReportUiState,
+    salesAmount: String,
+    profitAmount: String,
+    receivableAmount: String,
+    payableAmount: String,
     modifier: Modifier = Modifier
 ) {
-    val items = listOf(
-        FinanceSlice("销售额", uiState.salesAmount.toMoneyDouble(), ZhihuijiPrimary),
-        FinanceSlice("预估利润", uiState.profitAmount.toMoneyDouble(), SuccessGreen),
-        FinanceSlice("应收", uiState.receivableAmount.toMoneyDouble(), WarningOrange),
-        FinanceSlice("应付", uiState.payableAmount.toMoneyDouble(), DangerRed)
-    )
+    val items = remember(salesAmount, profitAmount, receivableAmount, payableAmount) {
+        listOf(
+            FinanceSlice("销售额", salesAmount.toMoneyDouble(), ZhihuijiPrimary),
+            FinanceSlice("预估利润", profitAmount.toMoneyDouble(), SuccessGreen),
+            FinanceSlice("应收", receivableAmount.toMoneyDouble(), WarningOrange),
+            FinanceSlice("应付", payableAmount.toMoneyDouble(), DangerRed)
+        )
+    }
     GlassChartCard(
         modifier = modifier,
         title = "往来余额构成",
@@ -513,33 +551,45 @@ private fun SummaryLineChart(
     profit: Double,
     modifier: Modifier = Modifier
 ) {
-    val maxValue = listOf(sales, profit).maxOrNull()?.takeIf { it > 0.0 } ?: 1.0
-    Canvas(modifier = modifier) {
-        val width = size.width
-        val height = size.height
-        val start = Offset(0f, height * 0.78f)
-        val mid = Offset(width * 0.46f, height * (0.78f - 0.56f * (profit / maxValue).toFloat()))
-        val end = Offset(width, height * (0.78f - 0.62f * (sales / maxValue).toFloat()))
-        drawLine(
-            color = GlassBorderSoft,
-            start = Offset(0f, height * 0.78f),
-            end = Offset(width, height * 0.78f),
-            strokeWidth = 1.dp.toPx()
-        )
-        drawPath(
-            path = Path().apply {
+    val maxValue = remember(sales, profit) {
+        listOf(sales, profit).maxOrNull()?.takeIf { it > 0.0 } ?: 1.0
+    }
+    Canvas(
+        modifier = modifier.drawWithCache {
+            val width = size.width
+            val height = size.height
+            val start = Offset(0f, height * 0.78f)
+            val mid = Offset(width * 0.46f, height * (0.78f - 0.56f * (profit / maxValue).toFloat()))
+            val end = Offset(width, height * (0.78f - 0.62f * (sales / maxValue).toFloat()))
+            val curvePath = Path().apply {
                 moveTo(start.x, start.y)
                 quadraticTo(width * 0.24f, height * 0.48f, mid.x, mid.y)
                 quadraticTo(width * 0.72f, height * 0.08f, end.x, end.y)
-            },
-            brush = Brush.linearGradient(listOf(ZhihuijiPrimary, StatusBlueLight)),
-            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
-        )
-        listOf(start, mid, end).forEach { point ->
-            drawCircle(color = Color.White, radius = 5.dp.toPx(), center = point)
-            drawCircle(color = ZhihuijiPrimary, radius = 3.dp.toPx(), center = point)
+            }
+            val baselineStrokeWidth = 1.dp.toPx()
+            val lineStroke = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+            val outerRadius = 5.dp.toPx()
+            val innerRadius = 3.dp.toPx()
+
+            onDrawBehind {
+                drawLine(
+                    color = GlassBorderSoft,
+                    start = Offset(0f, height * 0.78f),
+                    end = Offset(width, height * 0.78f),
+                    strokeWidth = baselineStrokeWidth
+                )
+                drawPath(
+                    path = curvePath,
+                    brush = Brush.linearGradient(listOf(ZhihuijiPrimary, StatusBlueLight)),
+                    style = lineStroke
+                )
+                listOf(start, mid, end).forEach { point ->
+                    drawCircle(color = Color.White, radius = outerRadius, center = point)
+                    drawCircle(color = ZhihuijiPrimary, radius = innerRadius, center = point)
+                }
+            }
         }
-    }
+    ) {}
 }
 
 @Composable
@@ -597,31 +647,39 @@ private fun DonutSummaryChart(
     items: List<FinanceSlice>,
     modifier: Modifier = Modifier
 ) {
-    val positiveItems = items.filter { it.value > 0.0 }
-    val total = positiveItems.sumOf { it.value }
-    Canvas(modifier = modifier) {
-        val strokeWidth = 18.dp.toPx()
-        if (total <= 0.0) {
-            drawCircle(
-                color = SurfaceGray,
-                radius = (size.minDimension - strokeWidth) / 2f,
-                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-            )
-            return@Canvas
+    val positiveItems = remember(items) { items.filter { it.value > 0.0 } }
+    val total = remember(positiveItems) { positiveItems.sumOf { it.value } }
+    Canvas(
+        modifier = modifier.drawWithCache {
+            val strokeWidth = 18.dp.toPx()
+            val radius = (size.minDimension - strokeWidth) / 2f
+            val arcSweeps = positiveItems.map { item ->
+                item to ((item.value / total) * 360f).toFloat()
+            }
+
+            onDrawBehind {
+                if (total <= 0.0) {
+                    drawCircle(
+                        color = SurfaceGray,
+                        radius = radius,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
+                    return@onDrawBehind
+                }
+                var startAngle = -90f
+                arcSweeps.forEach { (item, sweep) ->
+                    drawArc(
+                        color = item.color,
+                        startAngle = startAngle,
+                        sweepAngle = sweep,
+                        useCenter = false,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
+                    startAngle += sweep
+                }
+            }
         }
-        var startAngle = -90f
-        positiveItems.forEach { item ->
-            val sweep = ((item.value / total) * 360f).toFloat()
-            drawArc(
-                color = item.color,
-                startAngle = startAngle,
-                sweepAngle = sweep,
-                useCenter = false,
-                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-            )
-            startAngle += sweep
-        }
-    }
+    ) {}
 }
 
 @Composable
@@ -912,6 +970,7 @@ private fun ReportDataStatusStrip(
     }
 }
 
+@Immutable
 private data class FinanceSlice(
     val label: String,
     val value: Double,

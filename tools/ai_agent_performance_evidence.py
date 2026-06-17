@@ -362,9 +362,17 @@ def summarize_sample(
     first_tool_completed_ms = first_arrival(events, lambda event: event_type(event) == "tool_completed")
     first_tool_failed_ms = first_arrival(events, lambda event: event_type(event) == "tool_failed")
     first_answer_delta_ms = first_arrival(events, lambda event: event_type(event) == "answer_delta")
+    first_visible_answer_ms = first_arrival(
+        events,
+        lambda event: event_type(event) == "answer_delta" and delta_source(event) != "server_notice",
+    )
     first_model_stream_ms = first_arrival(
         events,
         lambda event: event_type(event) == "answer_delta" and delta_source(event) == "model_stream",
+    )
+    first_rule_summary_ms = first_arrival(
+        events,
+        lambda event: event_type(event) == "answer_delta" and delta_source(event) == "rule_summary",
     )
     first_server_notice_ms = first_arrival(
         events,
@@ -395,6 +403,9 @@ def summarize_sample(
     model_stream_count = sum(
         1 for event in events if event_type(event) == "answer_delta" and delta_source(event) == "model_stream"
     )
+    rule_summary_count = sum(
+        1 for event in events if event_type(event) == "answer_delta" and delta_source(event) == "rule_summary"
+    )
     server_notice_count = sum(
         1 for event in events if event_type(event) == "answer_delta" and delta_source(event) == "server_notice"
     )
@@ -406,8 +417,15 @@ def summarize_sample(
     result_before_answer_completed_without_model = (
         first_result_block_ms is not None
         and model_stream_count == 0
+        and first_visible_answer_ms is None
         and answer_completed_ms is not None
         and first_result_block_ms < answer_completed_ms
+    )
+    result_before_visible_non_model_answer = (
+        first_result_block_ms is not None
+        and model_stream_count == 0
+        and first_visible_answer_ms is not None
+        and first_result_block_ms < first_visible_answer_ms
     )
     server_notice_before_model = (
         first_server_notice_ms is not None
@@ -431,7 +449,9 @@ def summarize_sample(
         "first_tool_completed_latency_ms": first_tool_completed_ms,
         "first_tool_failed_latency_ms": first_tool_failed_ms,
         "first_answer_delta_latency_ms": first_answer_delta_ms,
+        "first_visible_answer_latency_ms": first_visible_answer_ms,
         "first_model_stream_delta_latency_ms": first_model_stream_ms,
+        "first_rule_summary_delta_latency_ms": first_rule_summary_ms,
         "first_server_notice_delta_latency_ms": first_server_notice_ms,
         "answer_completed_latency_ms": answer_completed_ms,
         "first_result_block_latency_ms": first_result_block_ms,
@@ -440,8 +460,10 @@ def summarize_sample(
         "tool_duration_sum_ms": round_ms(sum(tool_durations)) if tool_durations else None,
         "tool_duration_max_ms": round_ms(max(tool_durations)) if tool_durations else None,
         "model_stream_delta_count": model_stream_count,
+        "rule_summary_delta_count": rule_summary_count,
         "server_notice_delta_count": server_notice_count,
         "result_before_model_delta": result_before_model_delta,
+        "result_before_visible_non_model_answer": result_before_visible_non_model_answer,
         "result_before_answer_completed_without_model": result_before_answer_completed_without_model,
         "server_notice_before_model": server_notice_before_model,
         "audit_status": nested(audit, "data", "status") if audit else None,
@@ -466,7 +488,9 @@ def summarize_all(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "first_tool_started_latency_ms",
         "first_tool_completed_latency_ms",
         "first_answer_delta_latency_ms",
+        "first_visible_answer_latency_ms",
         "first_model_stream_delta_latency_ms",
+        "first_rule_summary_delta_latency_ms",
         "answer_completed_latency_ms",
         "first_result_block_latency_ms",
         "run_completed_latency_ms",
@@ -492,6 +516,9 @@ def summarize_all(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "model_stream_samples": sum(1 for sample in samples if (sample.get("model_stream_delta_count") or 0) > 0),
         "tool_failed_samples": sum(1 for sample in samples if sample.get("event_counts", {}).get("tool_failed")),
         "result_before_model_delta_samples": sum(1 for sample in samples if sample.get("result_before_model_delta")),
+        "result_before_visible_non_model_answer_samples": sum(
+            1 for sample in samples if sample.get("result_before_visible_non_model_answer")
+        ),
         "result_before_answer_completed_without_model_samples": sum(
             1 for sample in samples if sample.get("result_before_answer_completed_without_model")
         ),
@@ -603,6 +630,7 @@ def write_summary_markdown(output_dir: Path, samples: list[dict[str, Any]], summ
             f"- Completed samples: `{summary.get('completed')}/{summary.get('sample_count')}`.",
             f"- Provider `model_stream` samples: `{summary.get('model_stream_samples')}/{summary.get('sample_count')}`.",
             f"- Result-before-model-delta samples: `{summary.get('result_before_model_delta_samples')}`.",
+            f"- Result-before-visible-non-model-answer samples: `{summary.get('result_before_visible_non_model_answer_samples')}`.",
             f"- Result-before-answer-completed non-model samples: `{summary.get('result_before_answer_completed_without_model_samples')}`.",
             f"- Server-notice-before-model samples: `{summary.get('server_notice_before_model_samples')}`.",
             f"- Audit lossy samples: `{summary.get('audit_lossy_samples')}`.",
@@ -655,6 +683,8 @@ def status_for_summary(summary: dict[str, Any]) -> str:
         return "partial-incomplete-runs"
     if int(summary.get("result_before_model_delta_samples") or 0) > 0:
         return "partial-result-before-model-risk"
+    if int(summary.get("result_before_visible_non_model_answer_samples") or 0) > 0:
+        return "partial-result-before-answer-risk"
     if int(summary.get("result_before_answer_completed_without_model_samples") or 0) > 0:
         return "partial-result-before-answer-risk"
     if int(summary.get("model_stream_samples") or 0) == 0:
