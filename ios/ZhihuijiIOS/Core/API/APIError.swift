@@ -28,3 +28,8 @@ enum APIError: LocalizedError, Equatable {
         }
     }
 }
+
+extension Notification.Name {
+    static let zhihuijiUnauthorized = Notification.Name("zhihuiji.api.unauthorized")
+    static let zhihuijiForbidden = Notification.Name("zhihuiji.api.forbidden")
+}

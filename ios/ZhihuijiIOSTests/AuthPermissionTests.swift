@@ -5,5 +5,40 @@ final class AuthPermissionTests: XCTestCase {
     func testPermissionRawValue() {
         XCTAssertEqual(Permission.usersManage.rawValue, "users:manage")
         XCTAssertEqual(Permission.agentView.rawValue, "agent:view")
+        XCTAssertEqual(Permission.financeWrite.rawValue, "finance:write")
+    }
+
+    func testStoreRoleLabelsMatchMobileSemantics() {
+        XCTAssertEqual(StoreRole.owner.label, "店长（总）")
+        XCTAssertEqual(StoreRole.manager.label, "店长助理")
+        XCTAssertEqual(StoreRole.assistant.label, "AI/只读助理")
+    }
+
+    func testUserProfileDecodesStringBackedID() throws {
+        let data = Data(
+            """
+            {
+              "id": "70001",
+              "phone": "13800000001",
+              "nickname": "测试账号",
+              "status": 1
+            }
+            """.utf8
+        )
+
+        let profile = try JSONDecoder().decode(UserProfile.self, from: data)
+        XCTAssertEqual(profile.id.rawValue, "70001")
+        XCTAssertEqual(profile.nickname, "测试账号")
+    }
+
+    func testAccessIssueCarriesMessage() {
+        let issue = AccessIssue(title: "权限不足", message: "当前账号没有权限访问该数据。")
+        XCTAssertEqual(issue.title, "权限不足")
+        XCTAssertEqual(issue.message, "当前账号没有权限访问该数据。")
+    }
+
+    func testAuthNotificationNamesAreStable() {
+        XCTAssertEqual(Notification.Name.zhihuijiUnauthorized.rawValue, "zhihuiji.api.unauthorized")
+        XCTAssertEqual(Notification.Name.zhihuijiForbidden.rawValue, "zhihuiji.api.forbidden")
     }
 }

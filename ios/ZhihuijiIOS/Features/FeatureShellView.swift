@@ -22,7 +22,7 @@ struct FeatureShellView: View {
                     }
                 }
 
-                EmptyStateView(title: "页面骨架已就位", message: "下一步将接入真实 API、状态流转和表单交互。")
+                EmptyStateView(title: "当前暂无明细内容", message: "这个通用容器仍可承接少量权限页或说明页，但主业务模块应优先落到专页实现。")
             }
             .padding(20)
         }

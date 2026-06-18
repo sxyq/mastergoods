@@ -5,6 +5,7 @@ final class APIClient {
     private let tokenStore: AuthTokenStore
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
+    private let refreshCoordinator = TokenRefreshCoordinator()
 
     init(baseURL: URL, tokenStore: AuthTokenStore) {
         self.baseURL = baseURL
@@ -22,15 +23,13 @@ final class APIClient {
         authorized: Bool = true,
         queryItems: [URLQueryItem] = []
     ) async throws -> Response {
-        let request = try makeRequest(
+        try await send(
             path: endpoint.path,
             method: method,
             body: body,
             authorized: authorized,
             queryItems: queryItems
         )
-        let (data, response) = try await URLSession.shared.data(for: request)
-        return try decodeEnvelope(response: response, data: data)
     }
 
     func send<Response: Codable>(
@@ -40,14 +39,14 @@ final class APIClient {
         authorized: Bool = true,
         queryItems: [URLQueryItem] = []
     ) async throws -> Response {
-        let request = try makeRequest(
+        let (data, response) = try await performRequest(
             path: path,
             method: method,
             body: body,
             authorized: authorized,
-            queryItems: queryItems
+            queryItems: queryItems,
+            retryOnAuthFailure: authorized
         )
-        let (data, response) = try await URLSession.shared.data(for: request)
         return try decodeEnvelope(response: response, data: data)
     }
 
@@ -314,22 +313,56 @@ final class APIClient {
         try await send(path: "/v2/product-price-levels")
     }
 
-    func fetchCustomers(keyword: String? = nil, status: Int? = nil, page: Int? = nil, size: Int? = nil) async throws -> [CustomerRecord] {
+    func fetchCustomers(keyword: String? = nil, status: Int? = nil, groupId: EntityID? = nil, page: Int? = nil, size: Int? = nil) async throws -> [CustomerRecord] {
         var queryItems: [URLQueryItem] = []
         if let keyword, !keyword.isEmpty { queryItems.append(URLQueryItem(name: "keyword", value: keyword)) }
         if let status { queryItems.append(URLQueryItem(name: "status", value: String(status))) }
+        if let groupId { queryItems.append(URLQueryItem(name: "group_id", value: groupId.rawValue)) }
         if let page { queryItems.append(URLQueryItem(name: "page", value: String(page))) }
         if let size { queryItems.append(URLQueryItem(name: "size", value: String(size))) }
         return try await send(path: "/v2/customers", queryItems: queryItems)
     }
 
-    func fetchSuppliers(keyword: String? = nil, status: Int? = nil, page: Int? = nil, size: Int? = nil) async throws -> [SupplierRecord] {
+    func fetchCustomer(id: EntityID) async throws -> CustomerRecord {
+        try await send(path: "/v2/customers/\(id.rawValue)")
+    }
+
+    func createCustomer(payload: CustomerWritePayload) async throws -> CustomerRecord {
+        try await send(path: "/v2/customers", method: "POST", body: payload)
+    }
+
+    func updateCustomer(id: EntityID, payload: CustomerWritePayload) async throws -> CustomerRecord {
+        try await send(path: "/v2/customers/\(id.rawValue)", method: "PUT", body: payload)
+    }
+
+    func fetchCustomerGroups() async throws -> [PartnerGroupRecord] {
+        try await send(path: "/v2/customer-groups")
+    }
+
+    func fetchSuppliers(keyword: String? = nil, status: Int? = nil, groupId: EntityID? = nil, page: Int? = nil, size: Int? = nil) async throws -> [SupplierRecord] {
         var queryItems: [URLQueryItem] = []
         if let keyword, !keyword.isEmpty { queryItems.append(URLQueryItem(name: "keyword", value: keyword)) }
         if let status { queryItems.append(URLQueryItem(name: "status", value: String(status))) }
+        if let groupId { queryItems.append(URLQueryItem(name: "group_id", value: groupId.rawValue)) }
         if let page { queryItems.append(URLQueryItem(name: "page", value: String(page))) }
         if let size { queryItems.append(URLQueryItem(name: "size", value: String(size))) }
         return try await send(path: "/v2/suppliers", queryItems: queryItems)
+    }
+
+    func fetchSupplier(id: EntityID) async throws -> SupplierRecord {
+        try await send(path: "/v2/suppliers/\(id.rawValue)")
+    }
+
+    func createSupplier(payload: SupplierWritePayload) async throws -> SupplierRecord {
+        try await send(path: "/v2/suppliers", method: "POST", body: payload)
+    }
+
+    func updateSupplier(id: EntityID, payload: SupplierWritePayload) async throws -> SupplierRecord {
+        try await send(path: "/v2/suppliers/\(id.rawValue)", method: "PUT", body: payload)
+    }
+
+    func fetchSupplierGroups() async throws -> [PartnerGroupRecord] {
+        try await send(path: "/v2/supplier-groups")
     }
 
     func fetchFinanceRecords(keyword: String? = nil, type: Int? = nil, page: Int? = nil, size: Int? = nil) async throws -> [FinanceRecord] {
@@ -408,10 +441,56 @@ final class APIClient {
         ])
     }
 
+    func fetchStockOutRecords(startAt: Int64, endAt: Int64, limit: Int = 10) async throws -> [StockOutRecordReport] {
+        try await send(path: "/v1/reports/stock-out-records", queryItems: [
+            URLQueryItem(name: "start_at", value: String(startAt)),
+            URLQueryItem(name: "end_at", value: String(endAt)),
+            URLQueryItem(name: "limit", value: String(limit)),
+        ])
+    }
+
     func fetchTopProducts(startAt: Int64, endAt: Int64, limit: Int = 10) async throws -> [TopSellingProductReport] {
         try await send(path: "/v1/reports/top-products", queryItems: [
             URLQueryItem(name: "start_at", value: String(startAt)),
             URLQueryItem(name: "end_at", value: String(endAt)),
+            URLQueryItem(name: "limit", value: String(limit)),
+        ])
+    }
+
+    func fetchProfitByProducts(startAt: Int64, endAt: Int64, limit: Int = 10) async throws -> [ProfitByProductReport] {
+        try await send(path: "/v1/reports/profit-by-products", queryItems: [
+            URLQueryItem(name: "start_at", value: String(startAt)),
+            URLQueryItem(name: "end_at", value: String(endAt)),
+            URLQueryItem(name: "limit", value: String(limit)),
+        ])
+    }
+
+    func fetchProfitByCustomers(startAt: Int64, endAt: Int64, limit: Int = 10) async throws -> [ProfitByCustomerReport] {
+        try await send(path: "/v1/reports/profit-by-customers", queryItems: [
+            URLQueryItem(name: "start_at", value: String(startAt)),
+            URLQueryItem(name: "end_at", value: String(endAt)),
+            URLQueryItem(name: "limit", value: String(limit)),
+        ])
+    }
+
+    func fetchInventoryFlowReport(startAt: Int64, endAt: Int64, limit: Int = 10) async throws -> [InventoryFlowRecordReport] {
+        try await send(path: "/v1/reports/inventory-flow", queryItems: [
+            URLQueryItem(name: "start_at", value: String(startAt)),
+            URLQueryItem(name: "end_at", value: String(endAt)),
+            URLQueryItem(name: "limit", value: String(limit)),
+        ])
+    }
+
+    func fetchCustomerSalesReport(startAt: Int64, endAt: Int64, limit: Int = 10) async throws -> [CustomerSalesReport] {
+        try await send(path: "/v1/reports/customer-sales", queryItems: [
+            URLQueryItem(name: "start_at", value: String(startAt)),
+            URLQueryItem(name: "end_at", value: String(endAt)),
+            URLQueryItem(name: "limit", value: String(limit)),
+        ])
+    }
+
+    func fetchTopReceivableCustomers(limit: Int = 10) async throws -> [CustomerReceivableReport] {
+        try await send(path: "/v1/reports/top-receivable-customers", queryItems: [
             URLQueryItem(name: "limit", value: String(limit)),
         ])
     }
@@ -496,6 +575,18 @@ final class APIClient {
         return try await send(path: "/v2/agent/conversations", method: "POST", body: Payload(title: title, status: status))
     }
 
+    func updateAgentConversation(id: EntityID, title: String? = nil, status: String? = nil) async throws -> AgentConversationSummary {
+        struct Payload: Codable {
+            let title: String?
+            let status: String?
+        }
+        return try await send(path: "/v2/agent/conversations/\(id.rawValue)", method: "PUT", body: Payload(title: title, status: status))
+    }
+
+    func deleteAgentConversation(id: EntityID) async throws {
+        let _: EmptyPayload = try await send(path: "/v2/agent/conversations/\(id.rawValue)", method: "DELETE")
+    }
+
     func fetchAgentMessages(conversationId: EntityID, page: Int? = nil, limit: Int? = nil) async throws -> [AgentMessage] {
         var queryItems: [URLQueryItem] = []
         if let page {
@@ -505,6 +596,32 @@ final class APIClient {
             queryItems.append(URLQueryItem(name: "limit", value: String(limit)))
         }
         return try await send(path: "/v2/agent/conversations/\(conversationId.rawValue)/messages", queryItems: queryItems)
+    }
+
+    func fetchAgentDrafts(conversationId: EntityID? = nil, page: Int? = nil, limit: Int? = nil) async throws -> [AgentDraft] {
+        var queryItems: [URLQueryItem] = []
+        if let conversationId {
+            queryItems.append(URLQueryItem(name: "conversation_id", value: conversationId.rawValue))
+        }
+        if let page {
+            queryItems.append(URLQueryItem(name: "page", value: String(page)))
+        }
+        if let limit {
+            queryItems.append(URLQueryItem(name: "limit", value: String(limit)))
+        }
+        return try await send(path: "/v2/agent/drafts", queryItems: queryItems)
+    }
+
+    func createAgentDraft(payload: AgentDraftCreatePayload) async throws -> AgentDraft {
+        try await send(path: "/v2/agent/drafts", method: "POST", body: payload)
+    }
+
+    func updateAgentDraft(id: EntityID, payload: AgentDraftUpdatePayload) async throws -> AgentDraft {
+        try await send(path: "/v2/agent/drafts/\(id.rawValue)", method: "PUT", body: payload)
+    }
+
+    func deleteAgentDraft(id: EntityID) async throws {
+        let _: EmptyPayload = try await send(path: "/v2/agent/drafts/\(id.rawValue)", method: "DELETE")
     }
 
     func fetchAgentTasks() async throws -> [AgentTask] {
@@ -614,6 +731,64 @@ final class APIClient {
         return payload.data
     }
 
+    private func performRequest(
+        path: String,
+        method: String,
+        body: Encodable?,
+        authorized: Bool,
+        queryItems: [URLQueryItem],
+        retryOnAuthFailure: Bool
+    ) async throws -> (Data, URLResponse) {
+        let request = try makeRequest(
+            path: path,
+            method: method,
+            body: body,
+            authorized: authorized,
+            queryItems: queryItems
+        )
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        if retryOnAuthFailure,
+           authorized,
+           let http = response as? HTTPURLResponse,
+           http.statusCode == 401 {
+            try await refreshAccessTokenIfNeeded()
+            let retriedRequest = try makeRequest(
+                path: path,
+                method: method,
+                body: body,
+                authorized: authorized,
+                queryItems: queryItems
+            )
+            return try await URLSession.shared.data(for: retriedRequest)
+        }
+
+        return (data, response)
+    }
+
+    private func refreshAccessTokenIfNeeded() async throws {
+        guard let refreshToken = tokenStore.readRefreshToken()?.nilIfBlank else {
+            NotificationCenter.default.post(name: .zhihuijiUnauthorized, object: nil)
+            throw APIError.unauthorized
+        }
+
+        let payload = try await refreshCoordinator.refresh { [self] in
+            let request = try makeRequest(
+                path: APIEndpoint.refresh.path,
+                method: "POST",
+                body: RefreshRequest(refreshToken: refreshToken),
+                authorized: false,
+                queryItems: []
+            )
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let payload: AuthPayload = try decodeEnvelope(response: response, data: data)
+            tokenStore.save(accessToken: payload.token, refreshToken: payload.refreshToken ?? refreshToken)
+            return payload
+        }
+
+        tokenStore.save(accessToken: payload.token, refreshToken: payload.refreshToken ?? refreshToken)
+    }
+
     private func makeRequest(
         path: String,
         method: String,
@@ -661,8 +836,14 @@ final class APIClient {
         case 200 ..< 300:
             return
         case 401:
+            NotificationCenter.default.post(name: .zhihuijiUnauthorized, object: nil)
             throw APIError.unauthorized
         case 403:
+            NotificationCenter.default.post(
+                name: .zhihuijiForbidden,
+                object: nil,
+                userInfo: ["message": String(data: data, encoding: .utf8) ?? APIError.forbidden.errorDescription ?? "当前账号没有权限访问该数据"]
+            )
             throw APIError.forbidden
         default:
             let message = String(data: data, encoding: .utf8) ?? "服务端返回错误"
@@ -688,3 +869,18 @@ private struct AnyEncodable: Encodable {
 }
 
 private struct EmptyPayload: Codable {}
+
+private actor TokenRefreshCoordinator {
+    private var currentTask: Task<AuthPayload, Error>?
+
+    func refresh(using operation: @escaping @Sendable () async throws -> AuthPayload) async throws -> AuthPayload {
+        if let currentTask {
+            return try await currentTask.value
+        }
+
+        let task = Task { try await operation() }
+        currentTask = task
+        defer { currentTask = nil }
+        return try await task.value
+    }
+}

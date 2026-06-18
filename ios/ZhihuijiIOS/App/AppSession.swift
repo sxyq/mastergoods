@@ -6,8 +6,11 @@ final class AppSession: ObservableObject {
     @Published private(set) var phase: SessionPhase = .booting
     @Published private(set) var auth: AuthState = .loggedOut
     @Published private(set) var currentStore: CurrentStoreProfile?
+    @Published var accessIssue: AccessIssue?
 
     private let tokenStore = AuthTokenStore()
+    private var unauthorizedObserverTask: Task<Void, Never>?
+    private var forbiddenObserverTask: Task<Void, Never>?
 
     enum SessionPhase {
         case booting
@@ -23,6 +26,22 @@ final class AppSession: ObservableObject {
         Set(currentStore?.permissions ?? [])
     }
 
+    var isAuthenticated: Bool {
+        if case .loggedIn = auth {
+            return true
+        }
+        return false
+    }
+
+    init() {
+        bindAuthNotifications()
+    }
+
+    deinit {
+        unauthorizedObserverTask?.cancel()
+        forbiddenObserverTask?.cancel()
+    }
+
     func bootstrap() async {
         let token = tokenStore.readAccessToken()
         if let token, !token.isEmpty {
@@ -36,15 +55,18 @@ final class AppSession: ObservableObject {
     func updateAuth(_ payload: AuthPayload) {
         tokenStore.save(accessToken: payload.token, refreshToken: payload.refreshToken)
         auth = .loggedIn(UserSession(token: payload.token, refreshToken: payload.refreshToken))
+        accessIssue = nil
     }
 
     func updateStore(_ profile: CurrentStoreProfile) {
         currentStore = profile
+        accessIssue = nil
     }
 
     func logout() {
         tokenStore.clear()
         currentStore = nil
+        accessIssue = nil
         auth = .loggedOut
     }
 
@@ -69,9 +91,43 @@ final class AppSession: ObservableObject {
     func hasAnyPermission(_ values: [Permission]) -> Bool {
         values.contains(where: permissions.contains)
     }
+
+    func clearAccessIssue() {
+        accessIssue = nil
+    }
+
+    private func bindAuthNotifications() {
+        unauthorizedObserverTask = Task { [weak self] in
+            guard let self else { return }
+            for await _ in NotificationCenter.default.notifications(named: .zhihuijiUnauthorized) {
+                await MainActor.run {
+                    self.logout()
+                }
+            }
+        }
+
+        forbiddenObserverTask = Task { [weak self] in
+            guard let self else { return }
+            for await note in NotificationCenter.default.notifications(named: .zhihuijiForbidden) {
+                let message = note.userInfo?["message"] as? String
+                await MainActor.run {
+                    self.accessIssue = AccessIssue(
+                        title: "权限不足",
+                        message: message?.nilIfBlank ?? "当前账号没有权限访问该数据或执行该操作。"
+                    )
+                }
+            }
+        }
+    }
 }
 
 struct UserSession: Equatable {
     let token: String
     let refreshToken: String?
+}
+
+struct AccessIssue: Identifiable, Equatable {
+    let id = UUID()
+    let title: String
+    let message: String
 }

@@ -30,9 +30,13 @@ struct ReportsView: View {
                     EmptyStateView(title: "部分报表加载失败", message: errorMessage)
                 }
 
+                actionRow
+                summaryStrip
                 overviewSection
                 trendSection
                 topProductsSection
+                productProfitSection
+                customerSection
                 riskSection
             }
             .padding(20)
@@ -44,6 +48,65 @@ struct ReportsView: View {
         .onChange(of: viewModel.range) { _, _ in
             Task { await viewModel.load(client: env.apiClient) }
         }
+    }
+
+    private var actionRow: some View {
+        HStack(spacing: 10) {
+            SecondaryReportActionButton(
+                title: "刷新",
+                systemImage: "arrow.clockwise",
+                tint: ZhihuijiTheme.ColorToken.primary,
+                disabled: viewModel.isLoading
+            ) {
+                Task { await viewModel.load(client: env.apiClient) }
+            }
+
+            SecondaryReportActionButton(
+                title: "导出 CSV",
+                systemImage: "square.and.arrow.up",
+                tint: ZhihuijiTheme.ColorToken.success,
+                disabled: viewModel.isLoading
+            ) {
+                viewModel.exportStatus = "当前导出仅在页面内准备了结构，后续可接系统分享或文件写出。"
+            }
+
+            SecondaryReportActionButton(
+                title: "打印",
+                systemImage: "printer.fill",
+                tint: ZhihuijiTheme.ColorToken.warning,
+                disabled: viewModel.isLoading
+            ) {
+                viewModel.exportStatus = "当前打印入口已保留，后续可直连系统打印面板。"
+            }
+        }
+    }
+
+    private var summaryStrip: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("报表状态")
+                    .font(.system(size: 18, weight: .semibold))
+                Spacer()
+                StatusChip(title: viewModel.range.title, tint: ZhihuijiTheme.ColorToken.primary)
+            }
+
+            if let exportStatus = viewModel.exportStatus {
+                Text(exportStatus)
+                    .font(.system(size: 12))
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(12)
+                    .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+
+            HStack(spacing: 10) {
+                reportChip(title: "销售趋势 \(viewModel.salesTrend.count)", tint: ZhihuijiTheme.ColorToken.primary)
+                reportChip(title: "热销商品 \(viewModel.topProducts.count)", tint: ZhihuijiTheme.ColorToken.success)
+                reportChip(title: "风险项 \(viewModel.refunds.count + viewModel.stockOutRecords.count + viewModel.lowStockProducts.count)", tint: ZhihuijiTheme.ColorToken.warning)
+            }
+        }
+        .padding(16)
+        .glassCard()
     }
 
     private var overviewSection: some View {
@@ -61,8 +124,8 @@ struct ReportsView: View {
 
     private var trendSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("销售趋势")
-                .font(.system(size: 18, weight: .semibold))
+                Text("销售趋势")
+                    .font(.system(size: 18, weight: .semibold))
             if viewModel.salesTrend.isEmpty {
                 EmptyStateView(title: "暂无趋势数据", message: "当前时间范围没有可用的趋势点。")
             } else {
@@ -133,12 +196,109 @@ struct ReportsView: View {
         }
     }
 
+    private var productProfitSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("商品利润")
+                .font(.system(size: 18, weight: .semibold))
+            if viewModel.productProfits.isEmpty {
+                EmptyStateView(title: "暂无商品利润数据", message: "当前时间范围没有可分析的商品利润记录。")
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(viewModel.productProfits.prefix(5)) { item in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(item.productName)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                                Text(item.productCode)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                            }
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 4) {
+                                Text(item.totalProfitAmount.currencyText)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.success)
+                                Text("利润率 \(String(format: "%.1f%%", item.profitRate * 100))")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                            }
+                        }
+                        .padding(14)
+                        .glassCard(cornerRadius: 12)
+                    }
+                }
+            }
+        }
+    }
+
+    private var customerSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("客户分析")
+                .font(.system(size: 18, weight: .semibold))
+
+            if viewModel.customerSales.isEmpty, viewModel.receivableCustomers.isEmpty {
+                EmptyStateView(title: "暂无客户分析", message: "当前时间范围没有可展示的客户经营数据。")
+            } else {
+                if !viewModel.customerSales.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("客户销售")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                        ForEach(viewModel.customerSales.prefix(4)) { item in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(item.customerName)
+                                        .font(.system(size: 15, weight: .semibold))
+                                    Text("订单 \(item.totalOrders)")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                                }
+                                Spacer()
+                                Text(item.totalAmount.currencyText)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
+                            }
+                            .padding(14)
+                            .glassCard(cornerRadius: 12)
+                        }
+                    }
+                }
+
+                if !viewModel.receivableCustomers.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("应收排行")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                        ForEach(viewModel.receivableCustomers.prefix(4)) { item in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(item.customerName)
+                                        .font(.system(size: 15, weight: .semibold))
+                                    Text(item.phone?.nilIfBlank ?? "无联系电话")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                                }
+                                Spacer()
+                                Text(item.balance.currencyText)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
+                            }
+                            .padding(14)
+                            .glassCard(cornerRadius: 12)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private var riskSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("风险提醒")
                 .font(.system(size: 18, weight: .semibold))
 
-            if viewModel.refunds.isEmpty, viewModel.lowStockProducts.isEmpty {
+            if viewModel.refunds.isEmpty, viewModel.stockOutRecords.isEmpty, viewModel.lowStockProducts.isEmpty {
                 EmptyStateView(title: "暂无风险项", message: "退款和低库存指标当前都比较平稳。")
             } else {
                 VStack(spacing: 10) {
@@ -157,6 +317,29 @@ struct ReportsView: View {
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.danger)
                                 Text(refund.createdAt.dateText)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                            }
+                        }
+                        .padding(14)
+                        .glassCard(cornerRadius: 12)
+                    }
+
+                    ForEach(viewModel.stockOutRecords.prefix(3)) { item in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(item.productName)
+                                    .font(.system(size: 15, weight: .semibold))
+                                Text(item.customerName?.nilIfBlank ?? item.orderNo)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                            }
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 4) {
+                                Text("-" + String(format: "%.2f", item.quantity))
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
+                                Text(item.amount.currencyText)
                                     .font(.system(size: 12))
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                             }
@@ -198,24 +381,72 @@ struct ReportsView: View {
         case .month: return "本月"
         }
     }
+
+private func reportChip(title: String, tint: Color) -> some View {
+        Text(title)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(tint.opacity(0.12), in: Capsule())
+            .overlay(
+                Capsule().stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+            )
+    }
+}
+
+private struct SecondaryReportActionButton: View {
+    let title: String
+    let systemImage: String
+    let tint: Color
+    var disabled = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 13, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundStyle(disabled ? ZhihuijiTheme.ColorToken.textTertiary : tint)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 11)
+            .background((disabled ? Color.white.opacity(0.38) : tint.opacity(0.10)), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.7 : 1)
+    }
 }
 
 @MainActor
 final class ReportsViewModel: ObservableObject {
     @Published var range: ReportRange = .today
     @Published var isLoading = false
+    @Published var exportStatus: String?
     @Published var salesSummary: SalesSummaryReport?
     @Published var salesTrend: [SalesTrendPoint] = []
     @Published var profitSummary: ProfitSummaryReport?
     @Published var cashflowSummary: CashflowSummaryReport?
     @Published var reconciliation: ReconciliationSummaryReport?
     @Published var topProducts: [TopSellingProductReport] = []
+    @Published var productProfits: [ProfitByProductReport] = []
+    @Published var customerSales: [CustomerSalesReport] = []
+    @Published var receivableCustomers: [CustomerReceivableReport] = []
     @Published var refunds: [RefundRecordReport] = []
+    @Published var stockOutRecords: [StockOutRecordReport] = []
     @Published var lowStockProducts: [LowStockProductReport] = []
     @Published var errorMessage: String?
 
     func load(client: APIClient) async {
         isLoading = true
+        exportStatus = nil
         defer { isLoading = false }
 
         let dateRange = range.dateRange
@@ -226,7 +457,11 @@ final class ReportsViewModel: ObservableObject {
         async let cashflowTask = capture { try await client.fetchCashflowSummary(startAt: dateRange.startAt, endAt: dateRange.endAt) }
         async let reconciliationTask = capture { try await client.fetchReconciliationSummary(startAt: dateRange.startAt, endAt: dateRange.endAt) }
         async let productsTask = capture { try await client.fetchTopProducts(startAt: dateRange.startAt, endAt: dateRange.endAt, limit: 8) }
+        async let productProfitsTask = capture { try await client.fetchProfitByProducts(startAt: dateRange.startAt, endAt: dateRange.endAt, limit: 8) }
+        async let customerSalesTask = capture { try await client.fetchCustomerSalesReport(startAt: dateRange.startAt, endAt: dateRange.endAt, limit: 8) }
+        async let receivableCustomersTask = capture { try await client.fetchTopReceivableCustomers(limit: 8) }
         async let refundsTask = capture { try await client.fetchRefundRecords(startAt: dateRange.startAt, endAt: dateRange.endAt, limit: 6) }
+        async let stockOutTask = capture { try await client.fetchStockOutRecords(startAt: dateRange.startAt, endAt: dateRange.endAt, limit: 6) }
         async let stockTask = capture { try await client.fetchLowStockProducts(limit: 6) }
 
         let salesSummaryResult = await salesSummaryTask
@@ -235,7 +470,11 @@ final class ReportsViewModel: ObservableObject {
         let cashflowResult = await cashflowTask
         let reconciliationResult = await reconciliationTask
         let productsResult = await productsTask
+        let productProfitsResult = await productProfitsTask
+        let customerSalesResult = await customerSalesTask
+        let receivableCustomersResult = await receivableCustomersTask
         let refundsResult = await refundsTask
+        let stockOutResult = await stockOutTask
         let stockResult = await stockTask
 
         var failedSections: [String] = []
@@ -264,9 +503,25 @@ final class ReportsViewModel: ObservableObject {
         case let .success(value): topProducts = value
         case .failure: failedSections.append("热销商品")
         }
+        switch productProfitsResult {
+        case let .success(value): productProfits = value
+        case .failure: failedSections.append("商品利润")
+        }
+        switch customerSalesResult {
+        case let .success(value): customerSales = value
+        case .failure: failedSections.append("客户销售")
+        }
+        switch receivableCustomersResult {
+        case let .success(value): receivableCustomers = value
+        case .failure: failedSections.append("应收排行")
+        }
         switch refundsResult {
         case let .success(value): refunds = value
         case .failure: failedSections.append("退款记录")
+        }
+        switch stockOutResult {
+        case let .success(value): stockOutRecords = value
+        case .failure: failedSections.append("出库记录")
         }
         switch stockResult {
         case let .success(value): lowStockProducts = value

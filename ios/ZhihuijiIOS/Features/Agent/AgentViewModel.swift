@@ -5,11 +5,14 @@ final class AgentViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var isSending = false
     @Published var isStopping = false
+    @Published var isDraftSaving = false
+    @Published var isConversationSaving = false
     @Published var draftQuestion = ""
     @Published var workbench: AgentWorkbench?
     @Published var conversations: [AgentConversationSummary] = []
     @Published var selectedConversationId: EntityID?
     @Published var messages: [AgentMessage] = []
+    @Published var drafts: [AgentDraft] = []
     @Published var tasks: [AgentTask] = []
     @Published var notifications: [AgentNotification] = []
     @Published var errorMessage: String?
@@ -18,6 +21,10 @@ final class AgentViewModel: ObservableObject {
     @Published var auditDetail: AgentRunAudit?
     @Published var isAuditLoading = false
     @Published var isAuditPresented = false
+    @Published var editingDraft: AgentDraft?
+    @Published var draftEditorTitle = ""
+    @Published var draftEditorContent = ""
+    @Published var draftEditorStatus = "open"
 
     private var streamTask: Task<Void, Never>?
 
@@ -27,11 +34,13 @@ final class AgentViewModel: ObservableObject {
 
         async let workbenchTask = capture { try await client.fetchAgentWorkbench() }
         async let conversationsTask = capture { try await client.fetchAgentConversations(limit: 20) }
+        async let draftsTask = capture { try await client.fetchAgentDrafts(limit: 50) }
         async let tasksTask = capture { try await client.fetchAgentTasks() }
         async let notificationsTask = capture { try await client.fetchAgentNotifications(unreadOnly: false) }
 
         let workbenchResult = await workbenchTask
         let conversationsResult = await conversationsTask
+        let draftsResult = await draftsTask
         let tasksResult = await tasksTask
         let notificationsResult = await notificationsTask
 
@@ -54,6 +63,13 @@ final class AgentViewModel: ObservableObject {
             }
         case .failure:
             failures.append("会话列表")
+        }
+
+        switch draftsResult {
+        case let .success(value):
+            drafts = value
+        case .failure:
+            failures.append("草稿")
         }
 
         switch tasksResult {
@@ -80,6 +96,48 @@ final class AgentViewModel: ObservableObject {
     func selectConversation(_ conversationId: EntityID, client: APIClient) async {
         selectedConversationId = conversationId
         await loadMessages(conversationId: conversationId, client: client)
+        await refreshDrafts(conversationId: conversationId, client: client)
+    }
+
+    func createConversation(using client: APIClient) async {
+        guard !isConversationSaving else { return }
+        isConversationSaving = true
+        defer { isConversationSaving = false }
+
+        do {
+            let created = try await client.createAgentConversation(title: "新的经营问题", status: "open")
+            await refreshConversationsIfNeeded(using: client)
+            selectedConversationId = created.id
+            messages = []
+            await refreshDrafts(conversationId: created.id, client: client)
+            errorMessage = nil
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func deleteConversation(_ conversation: AgentConversationSummary, client: APIClient) async {
+        guard !isConversationSaving else { return }
+        isConversationSaving = true
+        defer { isConversationSaving = false }
+
+        do {
+            try await client.deleteAgentConversation(id: conversation.id)
+            conversations.removeAll { $0.id == conversation.id }
+            messages = []
+            drafts.removeAll { $0.conversationId == conversation.id }
+            if selectedConversationId == conversation.id {
+                selectedConversationId = conversations.first?.id
+                if let next = selectedConversationId {
+                    await loadMessages(conversationId: next, client: client)
+                    await refreshDrafts(conversationId: next, client: client)
+                }
+            }
+            await refreshWorkbenchIfNeeded(using: client)
+            errorMessage = nil
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
     }
 
     func send(using client: APIClient) async {
@@ -101,7 +159,7 @@ final class AgentViewModel: ObservableObject {
                 guard let self else { return }
                 do {
                     for try await event in stream {
-                        await self.consume(event)
+                        self.consume(event)
                     }
                     await self.finishStreaming(using: client)
                 } catch is CancellationError {
@@ -161,6 +219,121 @@ final class AgentViewModel: ObservableObject {
         }
     }
 
+    func saveQuestionAsDraft(using client: APIClient) async {
+        guard let question = draftQuestion.nilIfBlank else {
+            errorMessage = "先输入问题，再存成草稿"
+            return
+        }
+        guard !isDraftSaving else { return }
+
+        isDraftSaving = true
+        defer { isDraftSaving = false }
+
+        do {
+            let draft = try await client.createAgentDraft(
+                payload: AgentDraftCreatePayload(
+                    conversationId: selectedConversationId,
+                    draftType: "question",
+                    title: question.draftTitle,
+                    contentJson: makeDraftContentJSON(question),
+                    status: "open"
+                )
+            )
+            drafts.insert(draft, at: 0)
+            await refreshWorkbenchIfNeeded(using: client)
+            errorMessage = nil
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func openDraft(_ pendingDraft: AgentPendingDraft, client: APIClient) async {
+        if let local = drafts.first(where: { $0.id == pendingDraft.id }) {
+            beginEditingDraft(local)
+            return
+        }
+        do {
+            let fetched = try await client.fetchAgentDrafts(limit: 50)
+            drafts = fetched
+            if let matched = fetched.first(where: { $0.id == pendingDraft.id }) {
+                beginEditingDraft(matched)
+            } else {
+                errorMessage = "没有找到这条草稿详情"
+            }
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func beginEditingDraft(_ draft: AgentDraft) {
+        editingDraft = draft
+        draftEditorTitle = draft.title
+        draftEditorContent = decodeDraftContent(draft.contentJson)
+        draftEditorStatus = draft.status ?? "open"
+        errorMessage = nil
+    }
+
+    func applyDraftToComposer() {
+        guard editingDraft != nil else { return }
+        draftQuestion = draftEditorContent.nilIfBlank ?? draftEditorTitle
+        editingDraft = nil
+    }
+
+    func saveEditingDraft(using client: APIClient) async {
+        guard let draft = editingDraft else { return }
+        let title = draftEditorTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let content = draftEditorContent.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty, !content.isEmpty else {
+            errorMessage = "草稿标题和内容都不能为空"
+            return
+        }
+        guard !isDraftSaving else { return }
+
+        isDraftSaving = true
+        defer { isDraftSaving = false }
+
+        do {
+            let updated = try await client.updateAgentDraft(
+                id: draft.id,
+                payload: AgentDraftUpdatePayload(
+                    conversationId: draft.conversationId,
+                    draftType: draft.draftType,
+                    title: title,
+                    contentJson: makeDraftContentJSON(content),
+                    status: draftEditorStatus.nilIfBlank ?? "open"
+                )
+            )
+            if let index = drafts.firstIndex(where: { $0.id == updated.id }) {
+                drafts[index] = updated
+            } else {
+                drafts.insert(updated, at: 0)
+            }
+            await refreshWorkbenchIfNeeded(using: client)
+            editingDraft = nil
+            errorMessage = nil
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func deleteEditingDraft(using client: APIClient) async {
+        guard let draft = editingDraft else { return }
+        guard !isDraftSaving else { return }
+
+        isDraftSaving = true
+        defer { isDraftSaving = false }
+
+        do {
+            try await client.deleteAgentDraft(id: draft.id)
+            drafts.removeAll { $0.id == draft.id }
+            await refreshWorkbenchIfNeeded(using: client)
+            editingDraft = nil
+            errorMessage = nil
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
     private func appendLocalUserMessage(_ question: String) {
         let message = AgentMessage(
             id: EntityID(rawValue: "local-user-\(UUID().uuidString)"),
@@ -177,6 +350,14 @@ final class AgentViewModel: ObservableObject {
     private func loadMessages(conversationId: EntityID, client: APIClient) async {
         do {
             messages = try await client.fetchAgentMessages(conversationId: conversationId, limit: 80)
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func refreshDrafts(conversationId: EntityID?, client: APIClient) async {
+        do {
+            drafts = try await client.fetchAgentDrafts(conversationId: conversationId, limit: 50)
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -389,8 +570,43 @@ final class AgentViewModel: ObservableObject {
             return .failure(error)
         }
     }
+
+    private func makeDraftContentJSON(_ question: String) -> String {
+        let payload: [String: String] = ["question": question]
+        if let data = try? JSONSerialization.data(withJSONObject: payload, options: []),
+           let text = String(data: data, encoding: .utf8) {
+            return text
+        }
+        return question
+    }
+
+    private func decodeDraftContent(_ contentJson: String) -> String {
+        guard let data = contentJson.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            return contentJson
+        }
+        if let question = object["question"] as? String, !question.isEmpty {
+            return question
+        }
+        if let content = object["content"] as? String, !content.isEmpty {
+            return content
+        }
+        if let title = object["title"] as? String, !title.isEmpty {
+            return title
+        }
+        return contentJson
+    }
 }
 
 private extension Optional where Wrapped == String {
     var orEmpty: String { self ?? "" }
+}
+
+private extension String {
+    var draftTitle: String {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "未命名草稿" }
+        return String(trimmed.prefix(18))
+    }
 }

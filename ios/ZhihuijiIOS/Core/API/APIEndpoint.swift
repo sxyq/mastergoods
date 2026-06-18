@@ -11,6 +11,9 @@ enum APIEndpoint {
     case saleOrders
     case purchaseOrders
     case products
+    case inventorySnapshots
+    case inventoryMonthlyStats
+    case inventoryLedger
     case reports
     case agentWorkbench
 
@@ -36,6 +39,12 @@ enum APIEndpoint {
             return "/v2/purchase-orders"
         case .products:
             return "/v2/products"
+        case .inventorySnapshots:
+            return "/v2/inventory/snapshots"
+        case .inventoryMonthlyStats:
+            return "/v2/inventory/monthly-stats"
+        case .inventoryLedger:
+            return "/v2/inventory/ledger"
         case .reports:
             return "/v1/reports/sales-trend"
         case .agentWorkbench:

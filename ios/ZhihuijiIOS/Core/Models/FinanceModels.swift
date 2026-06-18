@@ -75,6 +75,10 @@ extension FinanceRecordSummary {
     var typeTint: Color {
         FinanceRecordType(rawValue: type) == .income ? ZhihuijiTheme.ColorToken.success : ZhihuijiTheme.ColorToken.warning
     }
+
+    var methodLabel: String {
+        SalePaymentMethod(rawValue: method)?.label ?? "其他"
+    }
 }
 
 extension PayOrder {

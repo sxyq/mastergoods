@@ -4,6 +4,7 @@ struct ProductEditView: View {
     @Environment(\.appEnvironment) private var env
     let productId: EntityID?
     @StateObject private var viewModel = ProductEditViewModel()
+    @State private var isSupplierSheetPresented = false
 
     init(productId: EntityID? = nil) {
         self.productId = productId
@@ -29,6 +30,15 @@ struct ProductEditView: View {
         .navigationTitle("商品编辑")
         .task {
             await viewModel.load(productId: productId, client: env.apiClient)
+        }
+        .sheet(isPresented: $isSupplierSheetPresented) {
+            SupplierPickerSheet(
+                suppliers: viewModel.availableSupplierOptions,
+                onSelect: { supplier in
+                    viewModel.addSupplierRelation(from: supplier)
+                    isSupplierSheetPresented = false
+                }
+            )
         }
     }
 
@@ -116,30 +126,115 @@ struct ProductEditView: View {
 
     private var relationSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("供应关系预览")
-                .font(.system(size: 18, weight: .semibold))
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("供应关系")
+                        .font(.system(size: 18, weight: .semibold))
+                    Text("沿用 Android 移动端表单语义，保存商品时一并同步默认供应商、优先级和最近进货价。")
+                        .font(.system(size: 12))
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                }
+                Spacer()
+                Button {
+                    isSupplierSheetPresented = true
+                } label: {
+                    StatusChip(title: "添加供应商", tint: ZhihuijiTheme.ColorToken.primary)
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.availableSupplierOptions.isEmpty)
+                .opacity(viewModel.availableSupplierOptions.isEmpty ? 0.5 : 1)
+            }
+
+            if let relationMessage = viewModel.relationMessage {
+                infoBanner(text: relationMessage, tint: ZhihuijiTheme.ColorToken.primaryBright)
+            }
+
+            if let relationErrorMessage = viewModel.relationErrorMessage {
+                infoBanner(text: relationErrorMessage, tint: ZhihuijiTheme.ColorToken.warning)
+            }
+
             if viewModel.supplierRelations.isEmpty {
-                EmptyStateView(title: "暂无供应关系", message: "当前页面先保留已有供应关系，不在这里新增。")
+                EmptyStateView(
+                    title: "暂无供应关系",
+                    message: viewModel.availableSupplierOptions.isEmpty
+                        ? "当前没有可选供应商，请先在供应商档案中补充数据。"
+                        : "还没有绑定供应商，可以先添加候选供应商并在首次保存后自动同步。"
+                )
             } else {
-                ForEach(viewModel.supplierRelations, id: \.stableId) { relation in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(relation.supplierName)
-                                .font(.system(size: 14, weight: .semibold))
-                            Text(relation.supplierPhone ?? "无联系电话")
-                                .font(.system(size: 12))
-                                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                ForEach($viewModel.supplierRelations, id: \.id) { $relation in
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(relation.supplierName)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                                Text(relation.supplierPhone.nilIfBlank ?? "无联系电话")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                            }
+                            Spacer()
+                            if relation.isDefault {
+                                StatusChip(title: "默认", tint: ZhihuijiTheme.ColorToken.primary)
+                            }
+                            Button(role: .destructive) {
+                                viewModel.removeSupplierRelation(id: relation.id)
+                            } label: {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.danger)
+                                    .padding(8)
+                                    .background(ZhihuijiTheme.ColorToken.danger.opacity(0.10), in: Circle())
+                            }
+                            .buttonStyle(.plain)
                         }
-                        Spacer()
-                        if relation.isDefault == true {
-                            StatusChip(title: "默认", tint: ZhihuijiTheme.ColorToken.primary)
+
+                        Toggle(
+                            "设为默认供应商",
+                            isOn: Binding(
+                                get: { relation.isDefault },
+                                set: { viewModel.setDefaultSupplier(id: relation.id, enabled: $0) }
+                            )
+                        )
+                        .tint(ZhihuijiTheme.ColorToken.primary)
+
+                        HStack(spacing: 12) {
+                            TextField("采购优先级", text: $relation.purchasePriorityText)
+                                .fieldBackground()
+                            TextField("最近进货价", text: $relation.lastPurchasePriceText)
+                                .fieldBackground()
                         }
+
+                        TextField("备注", text: $relation.notes, axis: .vertical)
+                            .lineLimit(2...4)
+                            .fieldBackground()
                     }
-                    .padding(12)
+                    .padding(14)
                     .glassCard(cornerRadius: 12)
                 }
             }
         }
+        .padding(16)
+        .glassCard()
+    }
+
+    private func infoBanner(text: String, tint: Color) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Circle()
+                .fill(tint.opacity(0.14))
+                .frame(width: 26, height: 26)
+                .overlay(
+                    Image(systemName: "info.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(tint)
+                )
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+        }
+        .padding(12)
+        .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -159,17 +254,36 @@ final class ProductEditViewModel: ObservableObject {
     @Published var categories: [ProductCategoryRecord] = []
     @Published var units: [ProductUnitRecord] = []
     @Published var priceLevels: [EditablePriceLevel] = []
-    @Published var supplierRelations: [ProductSupplierRelation] = []
+    @Published var supplierDirectory: [SupplierRecord] = []
+    @Published var supplierRelations: [EditableSupplierRelation] = []
     @Published var loadedProductId: EntityID?
+    @Published var relationErrorMessage: String?
+
+    var availableSupplierOptions: [SupplierRecord] {
+        let selectedIds = Set(supplierRelations.map(\.supplierId))
+        return supplierDirectory.filter { !selectedIds.contains($0.id) }
+    }
+
+    var relationMessage: String? {
+        if loadedProductId == nil {
+            return "新建商品时可先配置供应商，首次保存成功后会自动补绑这些关系。"
+        }
+        if supplierRelations.isEmpty {
+            return "当前商品还没有绑定供应商，至少建议保留一个默认供应商。"
+        }
+        return nil
+    }
 
     func load(productId: EntityID?, client: APIClient) async {
         do {
             async let categoriesTask = client.fetchProductCategories()
             async let unitsTask = client.fetchProductUnits()
             async let levelsTask = client.fetchProductPriceLevels()
+            async let suppliersTask = client.fetchSuppliers(page: 1, size: 100)
             categories = try await categoriesTask
             units = try await unitsTask
             let masterLevels = try await levelsTask
+            supplierDirectory = try await suppliersTask
 
             if let productId {
                 let product = try await client.fetchProduct(id: productId)
@@ -183,7 +297,7 @@ final class ProductEditViewModel: ObservableObject {
                 stockText = String(format: "%.2f", product.stock)
                 safeStockText = String(format: "%.2f", product.safeStock)
                 status = product.status
-                supplierRelations = product.supplierRelations ?? []
+                supplierRelations = (product.supplierRelations ?? []).map(EditableSupplierRelation.init)
                 priceLevels = masterLevels.map { level in
                     let existing = product.priceLevels?.first(where: { $0.levelId == level.id })
                     return EditablePriceLevel(
@@ -199,8 +313,10 @@ final class ProductEditViewModel: ObservableObject {
                 priceLevels = masterLevels.map {
                     EditablePriceLevel(levelId: $0.id, code: $0.code, name: $0.name, priceText: "0.00")
                 }
+                supplierRelations = []
             }
             errorMessage = nil
+            relationErrorMessage = nil
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -223,46 +339,165 @@ final class ProductEditViewModel: ObservableObject {
             return
         }
 
-        let payload = ProductWritePayload(
-            code: code,
-            name: name,
-            categoryId: categoryId,
-            unitId: unitId,
-            salePrice: salePrice,
-            purchasePrice: purchasePrice,
-            priceLevels: priceLevels.compactMap { level in
-                guard let price = Double(level.priceText) else { return nil }
-                return ProductPriceLevelWritePayload(levelId: level.levelId, price: price)
-            },
-            supplierRelations: supplierRelations.compactMap { relation in
-                guard let loadedProductId = loadedProductId ?? productId else { return nil }
-                return ProductSupplierRelationWritePayload(
-                    productId: loadedProductId,
-                    supplierId: relation.supplierId,
-                    isDefault: relation.isDefault,
-                    purchasePriority: relation.purchasePriority,
-                    lastPurchasePrice: relation.lastPurchasePrice,
-                    notes: relation.notes
-                )
-            },
-            stock: stock,
-            safeStock: safeStock,
-            status: status
-        )
-
         isSubmitting = true
         defer { isSubmitting = false }
         do {
+            relationErrorMessage = nil
+            let baseContext = ProductFormContext(
+                code: code,
+                name: name,
+                categoryId: categoryId,
+                unitId: unitId,
+                salePrice: salePrice,
+                purchasePrice: purchasePrice,
+                stock: stock,
+                safeStock: safeStock,
+                status: status
+            )
             if let productId {
-                let updated = try await client.updateProduct(id: productId, payload: payload)
+                let updated = try await client.updateProduct(
+                    id: productId,
+                    payload: try makePayload(context: baseContext, relationProductId: productId, includeRelations: true)
+                )
                 loadedProductId = updated.id
             } else {
-                let created = try await client.createProduct(payload: payload)
+                let created = try await client.createProduct(
+                    payload: try makePayload(context: baseContext, relationProductId: nil, includeRelations: false)
+                )
                 loadedProductId = created.id
+                if !supplierRelations.isEmpty {
+                    _ = try await client.updateProduct(
+                        id: created.id,
+                        payload: try makePayload(context: baseContext, relationProductId: created.id, includeRelations: true)
+                    )
+                }
             }
             errorMessage = nil
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func addSupplierRelation(from supplier: SupplierRecord) {
+        guard supplierRelations.contains(where: { $0.supplierId == supplier.id }) == false else {
+            relationErrorMessage = "该供应商已经加入当前商品。"
+            return
+        }
+        supplierRelations.append(
+            EditableSupplierRelation(
+                supplierId: supplier.id,
+                supplierName: supplier.name,
+                supplierPhone: supplier.phone,
+                isDefault: supplierRelations.isEmpty,
+                purchasePriorityText: String(supplierRelations.count + 1),
+                lastPurchasePriceText: purchasePriceText.nilIfBlank ?? "",
+                notes: ""
+            )
+        )
+        ensureSingleDefault()
+        relationErrorMessage = nil
+    }
+
+    func removeSupplierRelation(id: UUID) {
+        supplierRelations.removeAll { $0.id == id }
+        ensureSingleDefault()
+    }
+
+    func setDefaultSupplier(id: UUID, enabled: Bool) {
+        guard enabled else {
+            if supplierRelations.count == 1 {
+                supplierRelations[0].isDefault = true
+            } else if let index = supplierRelations.firstIndex(where: { $0.id == id }) {
+                supplierRelations[index].isDefault = false
+                ensureSingleDefault()
+            }
+            return
+        }
+        for index in supplierRelations.indices {
+            supplierRelations[index].isDefault = supplierRelations[index].id == id
+        }
+    }
+
+    private func ensureSingleDefault() {
+        guard supplierRelations.isEmpty == false else { return }
+        if supplierRelations.contains(where: \.isDefault) == false {
+            supplierRelations[0].isDefault = true
+        }
+        var foundDefault = false
+        for index in supplierRelations.indices {
+            if supplierRelations[index].isDefault, foundDefault {
+                supplierRelations[index].isDefault = false
+            } else if supplierRelations[index].isDefault {
+                foundDefault = true
+            }
+        }
+    }
+
+    private func makePayload(
+        context: ProductFormContext,
+        relationProductId: EntityID?,
+        includeRelations: Bool
+    ) throws -> ProductWritePayload {
+        let pricePayloads = try priceLevels.map { level -> ProductPriceLevelWritePayload in
+            guard let price = Double(level.priceText) else {
+                throw ProductEditValidationError.message("价格层级 \(level.name) 的金额格式不正确。")
+            }
+            return ProductPriceLevelWritePayload(levelId: level.levelId, price: price)
+        }
+
+        let relationPayloads: [ProductSupplierRelationWritePayload]?
+        if includeRelations, let relationProductId {
+            relationPayloads = try normalizedRelations(productId: relationProductId)
+        } else {
+            relationPayloads = nil
+        }
+
+        return ProductWritePayload(
+            code: context.code,
+            name: context.name,
+            categoryId: context.categoryId,
+            unitId: context.unitId,
+            salePrice: context.salePrice,
+            purchasePrice: context.purchasePrice,
+            priceLevels: pricePayloads,
+            supplierRelations: relationPayloads,
+            stock: context.stock,
+            safeStock: context.safeStock,
+            status: context.status
+        )
+    }
+
+    private func normalizedRelations(productId: EntityID) throws -> [ProductSupplierRelationWritePayload] {
+        ensureSingleDefault()
+        return try supplierRelations.map { relation in
+            let priority: Int?
+            if let text = relation.purchasePriorityText.nilIfBlank {
+                guard let parsed = Int(text) else {
+                    throw ProductEditValidationError.message("供应商 \(relation.supplierName) 的采购优先级必须是整数。")
+                }
+                priority = parsed
+            } else {
+                priority = nil
+            }
+
+            let lastPurchasePrice: Double?
+            if let text = relation.lastPurchasePriceText.nilIfBlank {
+                guard let parsed = Double(text) else {
+                    throw ProductEditValidationError.message("供应商 \(relation.supplierName) 的最近进货价格式不正确。")
+                }
+                lastPurchasePrice = parsed
+            } else {
+                lastPurchasePrice = nil
+            }
+
+            return ProductSupplierRelationWritePayload(
+                productId: productId,
+                supplierId: relation.supplierId,
+                isDefault: relation.isDefault,
+                purchasePriority: priority,
+                lastPurchasePrice: lastPurchasePrice,
+                notes: relation.notes.nilIfBlank
+            )
         }
     }
 }
@@ -274,4 +509,137 @@ struct EditablePriceLevel: Identifiable {
     var priceText: String
 
     var id: EntityID { levelId }
+}
+
+struct EditableSupplierRelation: Identifiable, Equatable {
+    let id = UUID()
+    let supplierId: EntityID
+    let supplierName: String
+    let supplierPhone: String
+    var isDefault: Bool
+    var purchasePriorityText: String
+    var lastPurchasePriceText: String
+    var notes: String
+
+    init(
+        supplierId: EntityID,
+        supplierName: String,
+        supplierPhone: String,
+        isDefault: Bool,
+        purchasePriorityText: String,
+        lastPurchasePriceText: String,
+        notes: String
+    ) {
+        self.supplierId = supplierId
+        self.supplierName = supplierName
+        self.supplierPhone = supplierPhone
+        self.isDefault = isDefault
+        self.purchasePriorityText = purchasePriorityText
+        self.lastPurchasePriceText = lastPurchasePriceText
+        self.notes = notes
+    }
+
+    init(from relation: ProductSupplierRelation) {
+        self.supplierId = relation.supplierId
+        self.supplierName = relation.supplierName
+        self.supplierPhone = relation.supplierPhone ?? ""
+        self.isDefault = relation.isDefault ?? false
+        self.purchasePriorityText = relation.purchasePriority.map(String.init) ?? ""
+        self.lastPurchasePriceText = relation.lastPurchasePrice.map { String(format: "%.2f", $0) } ?? ""
+        self.notes = relation.notes ?? ""
+    }
+}
+
+private struct ProductFormContext {
+    let code: String
+    let name: String
+    let categoryId: EntityID
+    let unitId: EntityID
+    let salePrice: Double
+    let purchasePrice: Double
+    let stock: Double
+    let safeStock: Double
+    let status: Int
+}
+
+private enum ProductEditValidationError: LocalizedError {
+    case message(String)
+
+    var errorDescription: String? {
+        switch self {
+        case let .message(message):
+            return message
+        }
+    }
+}
+
+private struct SupplierPickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let suppliers: [SupplierRecord]
+    let onSelect: (SupplierRecord) -> Void
+    @State private var keyword = ""
+
+    private var filteredSuppliers: [SupplierRecord] {
+        guard let keyword = keyword.nilIfBlank?.lowercased() else {
+            return suppliers
+        }
+        return suppliers.filter { supplier in
+            supplier.name.lowercased().contains(keyword) || supplier.phone.lowercased().contains(keyword)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    TextField("搜索供应商名称 / 电话", text: $keyword)
+                        .fieldBackground()
+
+                    if filteredSuppliers.isEmpty {
+                        EmptyStateView(title: "没有可选供应商", message: "当前筛选结果为空，或者这些供应商已经全部绑定。")
+                    } else {
+                        LazyVStack(spacing: 10) {
+                            ForEach(filteredSuppliers) { supplier in
+                                Button {
+                                    onSelect(supplier)
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Circle()
+                                            .fill(ZhihuijiTheme.ColorToken.warning.opacity(0.14))
+                                            .frame(width: 40, height: 40)
+                                            .overlay(
+                                                Image(systemName: "shippingbox.fill")
+                                                    .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
+                                            )
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(supplier.name)
+                                                .font(.system(size: 15, weight: .semibold))
+                                                .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                                            Text(supplier.phone)
+                                                .font(.system(size: 12))
+                                                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                                        }
+                                        Spacer()
+                                        Image(systemName: "plus.circle.fill")
+                                            .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
+                                    }
+                                    .padding(14)
+                                    .glassCard(cornerRadius: 12)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+                .padding(20)
+            }
+            .navigationTitle("选择供应商")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("关闭") { dismiss() }
+                }
+            }
+        }
+        .zhihuijiBackground()
+    }
 }

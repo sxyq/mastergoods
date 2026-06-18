@@ -5,6 +5,7 @@ struct PayOrderDetailView: View {
     let initialOrderId: EntityID?
     let initialKeyword: String
     @StateObject private var viewModel = PayOrderDetailViewModel()
+    @State private var isSupplierSheetPresented = false
 
     init(initialOrderId: EntityID? = nil, initialKeyword: String = "") {
         self.initialOrderId = initialOrderId
@@ -20,6 +21,9 @@ struct PayOrderDetailView: View {
 
                 TextField("搜索付款单号 / 供应商", text: $viewModel.keyword)
                     .fieldBackground()
+                    .onSubmit {
+                        Task { await viewModel.load(client: env.apiClient, preferredId: initialOrderId) }
+                    }
 
                 Picker("状态", selection: $viewModel.statusFilter) {
                     ForEach(PayOrderStatusFilter.allCases) { filter in
@@ -40,14 +44,19 @@ struct PayOrderDetailView: View {
                     EmptyStateView(title: "付款单加载失败", message: errorMessage)
                 }
 
+                if let infoMessage = viewModel.infoMessage {
+                    infoBanner(text: infoMessage, tint: ZhihuijiTheme.ColorToken.primaryBright)
+                }
+
                 if viewModel.orders.isEmpty, !viewModel.isLoading {
                     EmptyStateView(title: "暂无付款单", message: "可以直接在下面新建一张付款单。")
                 } else {
                     ForEach(viewModel.orders.prefix(10)) { order in
+                        let isSelected = viewModel.selectedOrder?.id == order.id
                         Button {
                             Task { await viewModel.select(id: order.id, client: env.apiClient) }
                         } label: {
-                            PayOrderCard(order: order, isSelected: viewModel.selectedOrder?.id == order.id)
+                            PayOrderCard(order: order, isSelected: isSelected)
                         }
                         .buttonStyle(.plain)
                     }
@@ -70,6 +79,11 @@ struct PayOrderDetailView: View {
                             metric("金额", order.amount.currencyText)
                             metric("方式", SalePaymentMethod(rawValue: order.method)?.label ?? "其他")
                             metric("创建", order.createdAt.dateText)
+                        }
+                        HStack {
+                            metric("参考号", order.referenceNo?.nilIfBlank ?? "-")
+                            metric("账户", order.accountId?.rawValue ?? "-")
+                            metric("更新", order.updatedAt.dateText)
                         }
                         if let notes = order.notes, !notes.isEmpty {
                             Text(notes)
@@ -99,12 +113,51 @@ struct PayOrderDetailView: View {
         .onChange(of: viewModel.statusFilter) { _, _ in
             Task { await viewModel.load(client: env.apiClient, preferredId: initialOrderId) }
         }
+        .onChange(of: viewModel.createSupplierName) { _, newValue in
+            viewModel.syncManualSupplierName(newValue)
+        }
+        .sheet(isPresented: $isSupplierSheetPresented) {
+            PayOrderSupplierSheet(
+                suppliers: viewModel.suppliers,
+                onSelect: { supplier in
+                    viewModel.selectSupplierForCreate(supplier)
+                    isSupplierSheetPresented = false
+                }
+            )
+        }
     }
 
     private var createForm: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("新建付款单")
                 .font(.system(size: 18, weight: .semibold))
+            Button {
+                isSupplierSheetPresented = true
+            } label: {
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(ZhihuijiTheme.ColorToken.warning.opacity(0.14))
+                        .frame(width: 38, height: 38)
+                        .overlay(
+                            Image(systemName: "shippingbox.fill")
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
+                        )
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(viewModel.selectedSupplier?.name ?? "选择供应商")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                        Text(viewModel.selectedSupplier?.phone ?? "优先从真实供应商档案中选择，可保留手动补录。")
+                            .font(.system(size: 12))
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                }
+                .padding(14)
+                .glassCard(cornerRadius: 12)
+            }
+            .buttonStyle(.plain)
             TextField("供应商名称", text: $viewModel.createSupplierName)
                 .fieldBackground()
             TextField("金额", text: $viewModel.createAmountText)
@@ -142,6 +195,26 @@ struct PayOrderDetailView: View {
         .glassCard()
     }
 
+    private func infoBanner(text: String, tint: Color) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Circle()
+                .fill(tint.opacity(0.14))
+                .frame(width: 26, height: 26)
+                .overlay(
+                    Image(systemName: "info.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(tint)
+                )
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+        }
+        .padding(12)
+        .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
     private func actionButton(title: String, status: Int) -> some View {
         Button {
             Task { await viewModel.updateStatus(client: env.apiClient, status: status) }
@@ -177,6 +250,8 @@ final class PayOrderDetailViewModel: ObservableObject {
     @Published var isSubmitting = false
     @Published var orders: [PayOrder] = []
     @Published var selectedOrder: PayOrder?
+    @Published var suppliers: [SupplierRecord] = []
+    @Published var selectedSupplier: SupplierRecord?
     @Published var createSupplierName = ""
     @Published var createAmountText = ""
     @Published var createMethod: SalePaymentMethod = .bank
@@ -185,22 +260,27 @@ final class PayOrderDetailViewModel: ObservableObject {
     @Published var createAccountId = ""
     @Published var createStatus: PayOrderStatusFilter = .draft
     @Published var errorMessage: String?
+    @Published var infoMessage: String?
 
     func load(client: APIClient, preferredId: EntityID?) async {
         isLoading = true
         defer { isLoading = false }
         do {
-            orders = try await client.fetchPayOrders(
+            async let payOrdersTask = client.fetchPayOrders(
                 keyword: keyword.nilIfBlank,
                 status: statusFilter.apiValue,
                 page: 1,
                 size: 20
             )
+            async let suppliersTask = client.fetchSuppliers(page: 1, size: 60)
+            orders = try await payOrdersTask
+            suppliers = try await suppliersTask
             let targetId = preferredId ?? selectedOrder?.id ?? orders.first?.id
             if let targetId {
                 await select(id: targetId, client: client)
             }
             errorMessage = nil
+            infoMessage = suppliers.isEmpty ? "当前还没有同步到供应商档案，新建付款单时将回退为手动录入名称。" : nil
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -220,7 +300,8 @@ final class PayOrderDetailViewModel: ObservableObject {
             errorMessage = "请输入正确的付款金额"
             return
         }
-        guard let supplierName = createSupplierName.nilIfBlank else {
+        let supplierName = selectedSupplier?.name ?? createSupplierName.nilIfBlank
+        guard let supplierName else {
             errorMessage = "请输入供应商名称"
             return
         }
@@ -229,7 +310,7 @@ final class PayOrderDetailViewModel: ObservableObject {
         do {
             let created = try await client.createPayOrder(
                 payload: PayOrderCreatePayload(
-                    supplierId: nil,
+                    supplierId: selectedSupplier?.id,
                     supplierName: supplierName,
                     amount: amount,
                     method: createMethod.rawValue,
@@ -246,6 +327,7 @@ final class PayOrderDetailViewModel: ObservableObject {
             createReferenceNo = ""
             createNotes = ""
             createAccountId = ""
+            selectedSupplier = nil
             errorMessage = nil
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -265,6 +347,18 @@ final class PayOrderDetailViewModel: ObservableObject {
             errorMessage = nil
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func selectSupplierForCreate(_ supplier: SupplierRecord) {
+        selectedSupplier = supplier
+        createSupplierName = supplier.name
+    }
+
+    func syncManualSupplierName(_ name: String) {
+        guard let selectedSupplier else { return }
+        if name != selectedSupplier.name {
+            self.selectedSupplier = nil
         }
     }
 }
@@ -327,5 +421,76 @@ enum PayOrderStatusFilter: String, CaseIterable, Identifiable {
         case .paid: return 1
         case .cancelled: return 2
         }
+    }
+}
+
+private struct PayOrderSupplierSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let suppliers: [SupplierRecord]
+    let onSelect: (SupplierRecord) -> Void
+    @State private var keyword = ""
+
+    private var filteredSuppliers: [SupplierRecord] {
+        guard let keyword = keyword.nilIfBlank?.lowercased() else {
+            return suppliers
+        }
+        return suppliers.filter { supplier in
+            supplier.name.lowercased().contains(keyword) || supplier.phone.lowercased().contains(keyword)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    TextField("搜索供应商名称 / 电话", text: $keyword)
+                        .fieldBackground()
+
+                    if filteredSuppliers.isEmpty {
+                        EmptyStateView(title: "没有可选供应商", message: "当前门店还没有可用供应商，或者筛选结果为空。")
+                    } else {
+                        LazyVStack(spacing: 10) {
+                            ForEach(filteredSuppliers) { supplier in
+                                Button {
+                                    onSelect(supplier)
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Circle()
+                                            .fill(ZhihuijiTheme.ColorToken.warning.opacity(0.14))
+                                            .frame(width: 40, height: 40)
+                                            .overlay(
+                                                Image(systemName: "shippingbox.fill")
+                                                    .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
+                                            )
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(supplier.name)
+                                                .font(.system(size: 15, weight: .semibold))
+                                                .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                                            Text(supplier.phone)
+                                                .font(.system(size: 12))
+                                                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                                        }
+                                        Spacer()
+                                        Image(systemName: "checkmark.circle")
+                                            .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
+                                    }
+                                    .padding(14)
+                                    .glassCard(cornerRadius: 12)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+                .padding(20)
+            }
+            .navigationTitle("选择供应商")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("关闭") { dismiss() }
+                }
+            }
+        }
+        .zhihuijiBackground()
     }
 }

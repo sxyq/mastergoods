@@ -3,12 +3,14 @@ import SwiftUI
 @main
 struct ZhihuijiIOSApp: App {
     @StateObject private var session = AppSession()
+    @StateObject private var environmentStore = AppEnvironmentStore()
 
     var body: some Scene {
         WindowGroup {
             AppRouter()
                 .environmentObject(session)
-                .environment(\.appEnvironment, .live)
+                .environmentObject(environmentStore)
+                .environment(\.appEnvironment, environmentStore.current)
                 .task {
                     await session.bootstrap()
                 }

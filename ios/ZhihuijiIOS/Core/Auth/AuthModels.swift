@@ -10,14 +10,14 @@ struct RefreshRequest: Codable {
 }
 
 struct AuthPayload: Codable, Equatable {
-    let userId: Int64
+    let userId: EntityID
     let token: String
     let refreshToken: String?
     let expiresIn: Int?
 }
 
 struct UserProfile: Codable, Equatable {
-    let id: Int64
+    let id: EntityID
     let phone: String
     let nickname: String
     let status: Int

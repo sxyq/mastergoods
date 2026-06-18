@@ -63,6 +63,17 @@ struct AgentPendingDraft: Identifiable, Codable, Equatable {
     let createdAt: Int64
 }
 
+struct AgentDraft: Identifiable, Codable, Equatable {
+    let id: EntityID
+    let conversationId: EntityID?
+    let draftType: String
+    let title: String
+    let contentJson: String
+    let status: String?
+    let createdAt: Int64
+    let updatedAt: Int64
+}
+
 struct AgentRiskAlert: Identifiable, Codable, Equatable {
     var id: String { level + title }
     let level: String
@@ -100,6 +111,22 @@ struct AgentChatPayload: Codable {
     let conversationId: EntityID?
     let message: String
     let stream: Bool
+}
+
+struct AgentDraftCreatePayload: Codable {
+    let conversationId: EntityID?
+    let draftType: String
+    let title: String
+    let contentJson: String
+    let status: String?
+}
+
+struct AgentDraftUpdatePayload: Codable {
+    let conversationId: EntityID?
+    let draftType: String
+    let title: String
+    let contentJson: String
+    let status: String?
 }
 
 struct AgentChatResponse: Codable, Equatable {

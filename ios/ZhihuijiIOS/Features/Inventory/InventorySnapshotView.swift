@@ -2,6 +2,7 @@ import SwiftUI
 
 struct InventorySnapshotView: View {
     @Environment(\.appEnvironment) private var env
+    @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = InventorySnapshotViewModel()
 
     var body: some View {
@@ -21,6 +22,10 @@ struct InventorySnapshotView: View {
                     disabled: viewModel.isLoading
                 ) {
                     Task { await viewModel.load(client: env.apiClient) }
+                }
+
+                if let statusMessage = viewModel.statusMessage {
+                    statusBanner(text: statusMessage, tint: ZhihuijiTheme.ColorToken.primaryBright)
                 }
 
                 NavigationLink {
@@ -48,6 +53,8 @@ struct InventorySnapshotView: View {
                     EmptyStateView(title: "库存数据加载失败", message: errorMessage)
                 }
 
+                summarySection
+                pendingSnapshotsSection
                 lowStockSection
                 snapshotsSection
                 monthlyStatsSection
@@ -55,8 +62,93 @@ struct InventorySnapshotView: View {
             .padding(20)
         }
         .navigationTitle("库存")
+        .safeAreaInset(edge: .bottom) {
+            bottomActionBar
+        }
         .task {
             await viewModel.load(client: env.apiClient)
+        }
+    }
+
+    private var summarySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("盘点摘要")
+                .font(.system(size: 18, weight: .semibold))
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                MetricCard(
+                    title: "今日快照",
+                    value: "\(viewModel.todaySnapshots.count)",
+                    subtitle: "已生成",
+                    tint: ZhihuijiTheme.ColorToken.primary
+                )
+                MetricCard(
+                    title: "待生成",
+                    value: "\(viewModel.pendingSnapshotProducts.count)",
+                    subtitle: "今日未盘",
+                    tint: viewModel.pendingSnapshotProducts.isEmpty ? ZhihuijiTheme.ColorToken.success : ZhihuijiTheme.ColorToken.warning
+                )
+                MetricCard(
+                    title: "低库存",
+                    value: "\(viewModel.lowStockProducts.count)",
+                    subtitle: "当前预警",
+                    tint: ZhihuijiTheme.ColorToken.danger
+                )
+                MetricCard(
+                    title: "快照货值",
+                    value: viewModel.todaySnapshotValue.currencyText,
+                    subtitle: "今日库存",
+                    tint: ZhihuijiTheme.ColorToken.primaryBright
+                )
+            }
+        }
+    }
+
+    private var pendingSnapshotsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("今日待盘商品")
+                        .font(.system(size: 18, weight: .semibold))
+                    Text("先补齐今天还没生成快照的商品，再去做库存调整或复核。")
+                        .font(.system(size: 12))
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                }
+                Spacer()
+            }
+
+            PrimaryGlassButton(
+                title: viewModel.isSubmitting ? "生成中..." : "一键生成今日快照",
+                systemImage: "checklist.checked",
+                disabled: viewModel.isSubmitting || viewModel.pendingSnapshotProducts.isEmpty || !session.hasPermission(.inventoryWrite)
+            ) {
+                Task { await viewModel.createTodaySnapshots(client: env.apiClient) }
+            }
+
+            if viewModel.pendingSnapshotProducts.isEmpty {
+                EmptyStateView(title: "今日快照已齐", message: "当前商品都已有今日盘点快照。")
+            } else {
+                ForEach(viewModel.pendingSnapshotProducts.prefix(6)) { product in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(product.name)
+                                .font(.system(size: 15, weight: .semibold))
+                            Text(product.code)
+                                .font(.system(size: 12))
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text("库存 \(String(format: "%.2f", product.stock))")
+                                .font(.system(size: 14, weight: .semibold))
+                            Text(product.categoryName ?? "未分组")
+                                .font(.system(size: 12))
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                        }
+                    }
+                    .padding(14)
+                    .glassCard(cornerRadius: 12)
+                }
+            }
         }
     }
 
@@ -161,40 +253,151 @@ struct InventorySnapshotView: View {
             }
         }
     }
+
+    private var bottomActionBar: some View {
+        HStack(spacing: 12) {
+            InventorySecondaryActionButton(
+                title: viewModel.isLoading ? "刷新中..." : "刷新",
+                systemImage: "arrow.clockwise",
+                tint: ZhihuijiTheme.ColorToken.primary,
+                disabled: viewModel.isLoading
+            ) {
+                Task { await viewModel.load(client: env.apiClient) }
+            }
+
+            PrimaryGlassButton(
+                title: viewModel.isSubmitting ? "生成中..." : "一键生成今日快照",
+                systemImage: "checklist.checked",
+                disabled: viewModel.isSubmitting || viewModel.pendingSnapshotProducts.isEmpty || !session.hasPermission(.inventoryWrite)
+            ) {
+                Task { await viewModel.createTodaySnapshots(client: env.apiClient) }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 12)
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color.white.opacity(0.42))
+                .frame(height: 0.5)
+        }
+    }
+
+    private func statusBanner(text: String, tint: Color) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Circle()
+                .fill(tint.opacity(0.14))
+                .frame(width: 26, height: 26)
+                .overlay(
+                    Image(systemName: "info.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(tint)
+                )
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+        }
+        .padding(12)
+        .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private struct InventorySecondaryActionButton: View {
+    let title: String
+    let systemImage: String
+    let tint: Color
+    var disabled = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 14, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .foregroundStyle(disabled ? ZhihuijiTheme.ColorToken.textTertiary : tint)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                (disabled ? Color.white.opacity(0.38) : tint.opacity(0.10)),
+                in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                    .stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.7 : 1)
+    }
 }
 
 @MainActor
 final class InventorySnapshotViewModel: ObservableObject {
     @Published var isLoading = false
+    @Published var isSubmitting = false
+    @Published var products: [ProductRecord] = []
     @Published var lowStockProducts: [LowStockProductReport] = []
+    @Published var todaySnapshots: [InventorySnapshotSummary] = []
     @Published var snapshots: [InventorySnapshotSummary] = []
     @Published var monthlyStats: [InventoryMonthlyStats] = []
+    @Published var statusMessage: String?
     @Published var errorMessage: String?
+
+    var pendingSnapshotProducts: [ProductRecord] {
+        let snapshottedIds = Set(todaySnapshots.map(\.productId))
+        return products.filter { !snapshottedIds.contains($0.id) }
+    }
+
+    var todaySnapshotValue: Double {
+        todaySnapshots.compactMap(\.totalValue).reduce(0, +)
+    }
 
     func load(client: APIClient) async {
         isLoading = true
+        statusMessage = nil
+        errorMessage = nil
         defer { isLoading = false }
 
         let calendar = Calendar.current
         let now = Date()
         let month = calendar.component(.month, from: now)
         let year = calendar.component(.year, from: now)
+        let todayStart = Int64(calendar.startOfDay(for: now).timeIntervalSince1970 * 1000)
         let endAt = Int64(now.timeIntervalSince1970 * 1000)
         let startAt = Int64((calendar.date(byAdding: .day, value: -30, to: now) ?? now).timeIntervalSince1970 * 1000)
 
+        async let productsTask = capture { try await client.fetchProducts(page: 1, size: 60) }
         async let lowStockTask = capture { try await client.fetchLowStockProducts(limit: 10) }
+        async let todaySnapshotsTask = capture { try await client.fetchInventorySnapshots(snapshotDate: todayStart) }
         async let snapshotsTask = capture { try await client.fetchInventorySnapshots(startDate: startAt, endDate: endAt) }
         async let monthlyStatsTask = capture { try await client.fetchInventoryMonthlyStats(year: year, month: month) }
 
+        let productsResult = await productsTask
         let lowStockResult = await lowStockTask
+        let todaySnapshotsResult = await todaySnapshotsTask
         let snapshotsResult = await snapshotsTask
         let monthlyStatsResult = await monthlyStatsTask
 
         var failures: [String] = []
 
+        switch productsResult {
+        case let .success(value): products = value
+        case .failure: failures.append("商品档案")
+        }
         switch lowStockResult {
         case let .success(value): lowStockProducts = value
         case .failure: failures.append("低库存")
+        }
+        switch todaySnapshotsResult {
+        case let .success(value): todaySnapshots = value.sorted(by: { $0.productName.localizedCompare($1.productName) == .orderedAscending })
+        case .failure: failures.append("今日快照")
         }
         switch snapshotsResult {
         case let .success(value): snapshots = value.sorted(by: { $0.snapshotDate > $1.snapshotDate })
@@ -206,6 +409,43 @@ final class InventorySnapshotViewModel: ObservableObject {
         }
 
         errorMessage = failures.isEmpty ? nil : "以下分区暂未成功拉取：\(failures.joined(separator: "、"))"
+    }
+
+    func createTodaySnapshots(client: APIClient) async {
+        guard !pendingSnapshotProducts.isEmpty else {
+            statusMessage = "今日快照已经齐全，无需重复生成。"
+            return
+        }
+
+        isSubmitting = true
+        defer { isSubmitting = false }
+
+        let todayStart = Int64(Calendar.current.startOfDay(for: Date()).timeIntervalSince1970 * 1000)
+        var successCount = 0
+        var failedCount = 0
+
+        for product in pendingSnapshotProducts {
+            do {
+                _ = try await client.createInventorySnapshot(
+                    payload: InventorySnapshotCreatePayload(
+                        productId: product.id,
+                        snapshotDate: todayStart,
+                        warehouseId: nil
+                    )
+                )
+                successCount += 1
+            } catch {
+                failedCount += 1
+            }
+        }
+
+        if failedCount == 0 {
+            statusMessage = "已生成 \(successCount) 条今日盘点快照。"
+        } else {
+            statusMessage = "已生成 \(successCount) 条今日盘点快照，另有 \(failedCount) 条失败。"
+        }
+
+        await load(client: client)
     }
 
     private func capture<T>(_ operation: @escaping () async throws -> T) async -> Result<T, Error> {

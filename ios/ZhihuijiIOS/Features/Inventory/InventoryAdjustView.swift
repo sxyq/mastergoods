@@ -8,14 +8,7 @@ struct InventoryAdjustView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("库存调整")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
-
-                Text("直接做真实库存流水调整，同时能顺手生成盘点快照。")
-                    .font(.system(size: 14))
-                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
-
+                headerSection
                 formSection
                 productSection
                 ledgerSection
@@ -23,8 +16,58 @@ struct InventoryAdjustView: View {
             .padding(20)
         }
         .navigationTitle("库存调整")
+        .safeAreaInset(edge: .bottom) {
+            bottomActionBar
+        }
         .task {
             await viewModel.load(client: env.apiClient)
+        }
+    }
+
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("库存调整")
+                .font(.system(size: 28, weight: .bold))
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+
+            Text("直接做真实库存流水调整，同时能顺手生成盘点快照。")
+                .font(.system(size: 14))
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+
+            if let statusMessage = viewModel.statusMessage {
+                inventoryBanner(text: statusMessage, tint: ZhihuijiTheme.ColorToken.success, isError: false)
+            }
+
+            if let errorMessage = viewModel.errorMessage {
+                inventoryBanner(text: errorMessage, tint: ZhihuijiTheme.ColorToken.danger, isError: true)
+            }
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                MetricCard(
+                    title: "可选商品",
+                    value: "\(viewModel.products.count)",
+                    subtitle: "真实档案",
+                    tint: ZhihuijiTheme.ColorToken.primary
+                )
+                MetricCard(
+                    title: "最近流水",
+                    value: "\(viewModel.ledgerEntries.count)",
+                    subtitle: "当前商品",
+                    tint: ZhihuijiTheme.ColorToken.primaryBright
+                )
+                MetricCard(
+                    title: "当前库存",
+                    value: viewModel.selectedProduct.map { String(format: "%.2f", $0.stock) } ?? "--",
+                    subtitle: viewModel.selectedProduct?.name ?? "未选商品",
+                    tint: ZhihuijiTheme.ColorToken.success
+                )
+                MetricCard(
+                    title: "调整后",
+                    value: viewModel.previewStockText,
+                    subtitle: viewModel.sourceType.title,
+                    tint: viewModel.previewDeltaIsNegative ? ZhihuijiTheme.ColorToken.warning : ZhihuijiTheme.ColorToken.primary
+                )
+            }
         }
     }
 
@@ -40,6 +83,9 @@ struct InventoryAdjustView: View {
                 }
             }
             .pickerStyle(.segmented)
+            Text(viewModel.sourceType.helperText)
+                .font(.system(size: 12))
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
             TextField("数量变更（负数表示扣减）", text: $viewModel.quantityChangeText)
                 .fieldBackground()
             TextField("单价（可选）", text: $viewModel.unitCostText)
@@ -48,6 +94,19 @@ struct InventoryAdjustView: View {
                 .fieldBackground()
             TextField("备注", text: $viewModel.notes, axis: .vertical)
                 .fieldBackground()
+            if let selectedProduct = viewModel.selectedProduct {
+                HStack {
+                    Text("当前商品：\(selectedProduct.name)")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                    Spacer()
+                    Text("预计结存 \(viewModel.previewStockText)")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(viewModel.previewDeltaIsNegative ? ZhihuijiTheme.ColorToken.warning : ZhihuijiTheme.ColorToken.primary)
+                }
+                .padding(12)
+                .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
             HStack(spacing: 12) {
                 PrimaryGlassButton(title: viewModel.isSubmitting ? "提交中..." : "提交调整", systemImage: "arrow.left.arrow.right.circle.fill", disabled: viewModel.isSubmitting || !session.hasPermission(.inventoryWrite) || viewModel.selectedProduct == nil) {
                     Task { await viewModel.createAdjustment(client: env.apiClient) }
@@ -55,11 +114,6 @@ struct InventoryAdjustView: View {
                 PrimaryGlassButton(title: viewModel.isSubmitting ? "处理中..." : "创建快照", systemImage: "camera.metering.center.weighted", disabled: viewModel.isSubmitting || !session.hasPermission(.inventoryWrite) || viewModel.selectedProduct == nil) {
                     Task { await viewModel.createSnapshot(client: env.apiClient) }
                 }
-            }
-            if let errorMessage = viewModel.errorMessage {
-                Text(errorMessage)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(ZhihuijiTheme.ColorToken.danger)
             }
         }
         .padding(16)
@@ -70,6 +124,9 @@ struct InventoryAdjustView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("选择商品")
                 .font(.system(size: 18, weight: .semibold))
+            if viewModel.filteredProducts.isEmpty, !viewModel.isLoading {
+                EmptyStateView(title: "没有找到匹配商品", message: "换个关键词，或者先刷新商品档案。")
+            }
             ForEach(viewModel.filteredProducts.prefix(8)) { product in
                 Button {
                     Task { await viewModel.selectProduct(product, client: env.apiClient) }
@@ -135,6 +192,56 @@ struct InventoryAdjustView: View {
             }
         }
     }
+
+    private var bottomActionBar: some View {
+        HStack(spacing: 12) {
+            InventorySecondaryActionButton(
+                title: viewModel.isLoading ? "刷新中..." : "刷新",
+                systemImage: "arrow.clockwise",
+                tint: ZhihuijiTheme.ColorToken.primary,
+                disabled: viewModel.isLoading
+            ) {
+                Task { await viewModel.load(client: env.apiClient) }
+            }
+
+            PrimaryGlassButton(
+                title: viewModel.isSubmitting ? "提交中..." : "提交调整",
+                systemImage: "arrow.left.arrow.right.circle.fill",
+                disabled: viewModel.isSubmitting || !session.hasPermission(.inventoryWrite) || viewModel.selectedProduct == nil || viewModel.quantityChangeText.nilIfBlank == nil
+            ) {
+                Task { await viewModel.createAdjustment(client: env.apiClient) }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 12)
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color.white.opacity(0.42))
+                .frame(height: 0.5)
+        }
+    }
+
+    private func inventoryBanner(text: String, tint: Color, isError: Bool) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Circle()
+                .fill(tint.opacity(0.15))
+                .frame(width: 26, height: 26)
+                .overlay(
+                    Image(systemName: isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(tint)
+                )
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+        }
+        .padding(12)
+        .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
 }
 
 @MainActor
@@ -150,6 +257,7 @@ final class InventoryAdjustViewModel: ObservableObject {
     @Published var unitCostText = ""
     @Published var sourceNo = ""
     @Published var notes = ""
+    @Published var statusMessage: String?
     @Published var errorMessage: String?
 
     var filteredProducts: [ProductRecord] {
@@ -159,8 +267,23 @@ final class InventoryAdjustViewModel: ObservableObject {
         }
     }
 
+    var previewDelta: Double {
+        Double(quantityChangeText) ?? 0
+    }
+
+    var previewStockText: String {
+        guard let selectedProduct else { return "--" }
+        return String(format: "%.2f", selectedProduct.stock + previewDelta)
+    }
+
+    var previewDeltaIsNegative: Bool {
+        previewDelta < 0
+    }
+
     func load(client: APIClient) async {
         isLoading = true
+        statusMessage = nil
+        errorMessage = nil
         defer { isLoading = false }
         do {
             products = try await client.fetchProducts(page: 1, size: 40)
@@ -218,9 +341,11 @@ final class InventoryAdjustViewModel: ObservableObject {
             if let refreshed = products.first(where: { $0.id == selectedProduct.id }) {
                 self.selectedProduct = refreshed
             }
+            statusMessage = "已完成一条\(sourceType.title)流水，最新库存已刷新。"
             errorMessage = nil
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            statusMessage = nil
         }
     }
 
@@ -239,10 +364,45 @@ final class InventoryAdjustViewModel: ObservableObject {
                     warehouseId: nil
                 )
             )
+            statusMessage = "已为 \(selectedProduct.name) 生成实时库存快照。"
             errorMessage = nil
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            statusMessage = nil
         }
+    }
+}
+
+private struct InventorySecondaryActionButton: View {
+    let title: String
+    let systemImage: String
+    let tint: Color
+    var disabled = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 14, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .foregroundStyle(disabled ? ZhihuijiTheme.ColorToken.textTertiary : tint)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                (disabled ? Color.white.opacity(0.38) : tint.opacity(0.10)),
+                in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                    .stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.7 : 1)
     }
 }
 
@@ -257,6 +417,13 @@ enum InventorySourceType: String, CaseIterable, Identifiable {
         case .adjust: return "调整"
         case .receipt: return "入库"
         case .returnOut: return "退货"
+        }
+    }
+    var helperText: String {
+        switch self {
+        case .adjust: return "适合盘盈盘亏、破损、更正库存等人工调整。"
+        case .receipt: return "适合补录采购入库带来的数量增加。"
+        case .returnOut: return "适合补录采购退货导致的数量扣减。"
         }
     }
     var apiValue: String {

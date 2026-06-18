@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		04B83644F3DAF87BB0077432 /* AgentChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5DE235436FC54D8CBCA0ED0 /* AgentChatView.swift */; };
 		04D5F7D53D65A9C1C434500B /* FinanceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FFB7B72398EFBE3259FE513 /* FinanceModels.swift */; };
+		0864A8C1A3F54A6E9F3B2D71 /* ArchivesHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C1E9F53B7D849A99EAC4A24 /* ArchivesHomeView.swift */; };
 		0923714E4E9ADEB02D16690D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F9101C7CE3C4E86876BDF3 /* SettingsView.swift */; };
 		09D72BBBBFB89507A2D9469E /* SalesModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 580FAFCD787C2B17061AB167 /* SalesModels.swift */; };
 		105F016DDFC6D896C6656E25 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E339EF25959FE2AE01AF37E2 /* Foundation.framework */; };
@@ -108,6 +109,7 @@
 		5FC5E81A43B0D57D6C5D7882 /* PurchaseModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PurchaseModels.swift; path = ZhihuijiIOS/Core/Models/PurchaseModels.swift; sourceTree = "<group>"; };
 		6AE089CC574B0E7C74DEC2EF /* ZhihuijiTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ZhihuijiTheme.swift; path = ZhihuijiIOS/Core/Design/ZhihuijiTheme.swift; sourceTree = "<group>"; };
 		6C3C55A480CF783E7DAC31AC /* SalesEditView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SalesEditView.swift; path = ZhihuijiIOS/Features/Sales/SalesEditView.swift; sourceTree = "<group>"; };
+		7C1E9F53B7D849A99EAC4A24 /* ArchivesHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ArchivesHomeView.swift; path = ZhihuijiIOS/Features/ArchivesHomeView.swift; sourceTree = "<group>"; };
 		7BFFEED1418B41BAEEAB166E /* FeatureShellView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FeatureShellView.swift; path = ZhihuijiIOS/Features/FeatureShellView.swift; sourceTree = "<group>"; };
 		7D60BFF1ECC9DB1758411161 /* DocumentsHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DocumentsHomeView.swift; path = ZhihuijiIOS/Features/DocumentsHomeView.swift; sourceTree = "<group>"; };
 		82863F588C48E11E5E6F24BD /* AgentModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AgentModels.swift; path = ZhihuijiIOS/Core/Models/AgentModels.swift; sourceTree = "<group>"; };
@@ -226,6 +228,7 @@
 				B2B0674587A9B76676193883 /* ReportModels.swift */,
 				580FAFCD787C2B17061AB167 /* SalesModels.swift */,
 				4917D16A6CDB909CC90C3AD0 /* StoreModels.swift */,
+				7C1E9F53B7D849A99EAC4A24 /* ArchivesHomeView.swift */,
 				C5DE235436FC54D8CBCA0ED0 /* AgentChatView.swift */,
 				BB9C07160C96659BA9E0C308 /* AgentViewModel.swift */,
 				A32DE64D886359776FC7C343 /* LoginView.swift */,
@@ -378,6 +381,7 @@
 				AC4C366E454629BB7A06B3E4 /* ReportModels.swift in Sources */,
 				09D72BBBBFB89507A2D9469E /* SalesModels.swift in Sources */,
 				26158CE4DF930917C5BF6DC8 /* StoreModels.swift in Sources */,
+				0864A8C1A3F54A6E9F3B2D71 /* ArchivesHomeView.swift in Sources */,
 				04B83644F3DAF87BB0077432 /* AgentChatView.swift in Sources */,
 				9415656DF33AE8E7CF1A6F3F /* AgentViewModel.swift in Sources */,
 				C3AE0F0CB81CA2A20260ED41 /* LoginView.swift in Sources */,

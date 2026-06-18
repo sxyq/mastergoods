@@ -13,6 +13,9 @@ struct FinanceRecordView: View {
 
                 TextField("搜索流水号 / 分类 / 往来方", text: $viewModel.keyword)
                     .fieldBackground()
+                    .onSubmit {
+                        Task { await viewModel.load(client: env.apiClient) }
+                    }
 
                 Picker("类型", selection: $viewModel.typeFilter) {
                     ForEach(FinanceTypeFilter.allCases) { filter in
@@ -20,6 +23,8 @@ struct FinanceRecordView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+
+                summarySection
 
                 NavigationLink {
                     PayOrderDetailView()
@@ -85,6 +90,9 @@ struct FinanceRecordView: View {
                 }
             }
             .pickerStyle(.segmented)
+
+            quickCategorySection
+
             TextField("分类", text: $viewModel.category)
                 .fieldBackground()
             TextField("往来方", text: $viewModel.partnerName)
@@ -113,6 +121,75 @@ struct FinanceRecordView: View {
         .padding(16)
         .glassCard()
     }
+
+    private var summarySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("经营摘要")
+                .font(.system(size: 18, weight: .semibold))
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                MetricCard(
+                    title: "收入",
+                    value: viewModel.incomeTotal.currencyText,
+                    subtitle: viewModel.summarySubtitle,
+                    tint: ZhihuijiTheme.ColorToken.success
+                )
+                MetricCard(
+                    title: "支出",
+                    value: viewModel.expenseTotal.currencyText,
+                    subtitle: viewModel.summarySubtitle,
+                    tint: ZhihuijiTheme.ColorToken.warning
+                )
+                MetricCard(
+                    title: "净额",
+                    value: viewModel.netTotal.currencyText,
+                    subtitle: "当前筛选",
+                    tint: viewModel.netTotal >= 0 ? ZhihuijiTheme.ColorToken.primary : ZhihuijiTheme.ColorToken.danger
+                )
+                MetricCard(
+                    title: "笔数",
+                    value: "\(viewModel.records.count)",
+                    subtitle: "可见流水",
+                    tint: ZhihuijiTheme.ColorToken.primaryBright
+                )
+            }
+        }
+    }
+
+    private var quickCategorySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("常用分类")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(viewModel.quickCategories, id: \.self) { item in
+                        Button {
+                            viewModel.category = item
+                        } label: {
+                            Text(item)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(viewModel.category == item ? .white : ZhihuijiTheme.ColorToken.textPrimary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(
+                                    (viewModel.category == item
+                                        ? LinearGradient(colors: [ZhihuijiTheme.ColorToken.primaryBright, ZhihuijiTheme.ColorToken.primary], startPoint: .leading, endPoint: .trailing)
+                                        : LinearGradient(colors: [Color.white.opacity(0.58), Color.white.opacity(0.58)], startPoint: .leading, endPoint: .trailing)
+                                    ),
+                                    in: Capsule()
+                                )
+                                .overlay(
+                                    Capsule()
+                                        .stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
 }
 
 @MainActor
@@ -129,6 +206,38 @@ final class FinanceRecordViewModel: ObservableObject {
     @Published var isSubmitting = false
     @Published var records: [FinanceRecord] = []
     @Published var errorMessage: String?
+
+    var incomeTotal: Double {
+        records.filter { $0.type == FinanceRecordType.income.rawValue }.reduce(0) { $0 + $1.amount }
+    }
+
+    var expenseTotal: Double {
+        records.filter { $0.type == FinanceRecordType.expense.rawValue }.reduce(0) { $0 + $1.amount }
+    }
+
+    var netTotal: Double {
+        incomeTotal - expenseTotal
+    }
+
+    var summarySubtitle: String {
+        switch typeFilter {
+        case .all:
+            return "当前全部"
+        case .income:
+            return "当前收入"
+        case .expense:
+            return "当前支出"
+        }
+    }
+
+    var quickCategories: [String] {
+        switch createType {
+        case .income:
+            return ["销售回款", "其他收入", "退款回冲", "预收款"]
+        case .expense:
+            return ["房租水电", "办公采购", "工资福利", "物流运费", "营销支出"]
+        }
+    }
 
     func load(client: APIClient) async {
         isLoading = true
@@ -214,6 +323,19 @@ private struct FinanceRecordCard: View {
                 }
                 .font(.system(size: 12))
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                HStack {
+                    Text(record.methodLabel)
+                    Spacer()
+                    Text(record.updatedAt.dateText)
+                }
+                .font(.system(size: 12))
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                if let notes = record.notes?.nilIfBlank {
+                    Text(notes)
+                        .font(.system(size: 12))
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                        .lineLimit(2)
+                }
             }
         }
         .padding(16)
