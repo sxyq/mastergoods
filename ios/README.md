@@ -1,5 +1,21 @@
 # Zhihuiji iOS
 
+## Current status
+
+- SwiftUI native iOS app shell is in place.
+- Real backend API reuse is the default path.
+- Android-style mobile design tokens and page structure are the target.
+- First-batch closure focuses on login, home, dashboard, AI chat, archives, settings, and core business list/detail flows.
+- This is not a full parity claim. Missing capabilities stay listed below and must be completed later.
+
+## Remaining gaps
+
+- Media upload and binding are still client-surface only.
+- Sync upload / pull / import-job lifecycle still needs full end-to-end proof.
+- Cash-change records are blocked on a backend controller/service; iOS must not present this as an available flow yet.
+- AI result blocks still need richer chart rendering coverage.
+- Xcode build, simulator, and real-device screenshots are not yet available on this machine.
+
 智慧记 iOS 原生端，基于 `SwiftUI + async/await + URLSession`。
 
 ## 当前目标
@@ -80,7 +96,7 @@
 
 目标：
 
-- 维持 `swiftc` 静态检查持续可过
+- 维持 Swift 源文件、Xcode target 引用与测试清单可审计；本机没有 `swiftc` 时不宣称已通过编译
 - 补充大 ID、snake_case、权限模型、SSE 事件、关键 payload 测试
 - 若本机补齐完整 `Xcode.app`，再跑 `xcodebuild` 模拟器 build/test
 
@@ -158,7 +174,7 @@
 
 交付标准：
 
-- `swiftc` 持续通过
+- Swift 源文件均加入 Xcode target，且本机具备 Swift/Xcode 工具链时可运行编译检查
 - 大 ID、snake_case、权限模型、SSE 事件、关键业务 payload 全部有测试覆盖
 - 若环境允许，再补 `xcodebuild` build/test
 
@@ -177,7 +193,7 @@
 - 已完成 Wave A 与 Wave B 主体
 - Wave C 已基本可用，仍在继续加细员工管理与权限边界
 - Wave D 已完成大部分首版页面，当前优先收口库存、档案、报表、AI 的真实业务细节
-- Wave E 持续进行中；当前以 `swiftc` 为准，因为本机仍缺完整 `Xcode.app`
+- Wave E 持续进行中；当前机器缺 `xcodebuild`、`swift` 与 `swiftc`，只能做源码结构、target 引用和 Git 静态检查
 
 ## Android 视觉对齐规则
 
@@ -212,11 +228,23 @@
 ## 当前进度
 
 - 已完成 SwiftUI 原生工程骨架、设计令牌、Keychain token、权限化 Tab Router、主要业务 API 客户端
-- 已完成登录、首页、单据中心、销售、采购、商品、库存、财务、报表、AI、员工管理首批闭环
-- AI 已接入真实 SSE 流式事件、停止生成、结构化结果块与运行审计面板
-- AI 已补上显式新建会话、删除会话、问题存草稿、草稿编辑与回填输入框的移动端工作流
-- 当前正在补“收口层”工作：把还偏薄的页面从演示态收成真实业务页，优先处理商品供应关系、细节文案、Android 风格一致性
-- 当前机器未安装完整 `Xcode.app`，因此 `xcodebuild` / 模拟器构建仍被环境阻塞；源码层使用 `swiftc` 持续做静态类型检查
+- 已完成登录、首页、单据中心、销售、采购、商品、库存、财务、报表、AI、员工管理的 iOS 首批闭环
+- AI 已接入 SSE 事件读取、停止生成请求、结构化结果块展示与运行审计面板；最终生产通过仍需要真实 provider 抓包、真机 UI 截图和 cancel 断流证据
+- AI 已补上显式新建会话、删除会话、问题存草稿、草稿编辑与回填输入框的移动端工作流；会话状态按后端合同使用 `active / closed / archived`，草稿状态使用 `active / archived`
+- iOS 测试已覆盖 AI 会话/草稿状态合同与关键 payload 编码，避免再回退到 `open`
+- iOS 已接入 `/v2/media/*`、`/v2/sync/*`、`/v2/import-jobs/*` 客户端基础层，并在设置页提供同步/导入与媒体管理入口；这些能力仍以客户端可调用为主，后端导入 worker 与真机验收还没收口
+- 当前正在补“收口层”工作：把还偏薄的页面从首批闭环收成真实业务页，优先处理商品供应关系、采购/销售退货、财务单据、Android 风格一致性
+- 近期已继续统一基础组件、入口壳、销售/采购/库存/财务/报表/设置/商品详情编辑/退货页的字号、圆角和卡片层级，整体更接近 Android 移动端语义
+- 当前机器未安装完整 Xcode/Swift 命令行工具，`xcodebuild`、`swift` 与 `swiftc` 都不可用；本轮只能完成源码结构、Xcode target 引用和 Git 静态检查，不能声称已通过编译
+
+## 尚未完成 / 尚未验证
+
+- API 覆盖：已补上 media 读写与 `/v2/sync`、`/v2/import-jobs` 的客户端基础层；`cash_change_records` 当前只有后端表/DTO/Repository 线索，未发现可复用 Controller/Service，iOS 不应声明已可用；仍缺完整库存同步与导入任务后台生命周期
+- 页面字段：部分商品、采购、库存、报表字段仍是首批移动端闭环，后续需要继续对齐 Android 已落地的完整字段、筛选和批量操作
+- AI 展示：当前已支持 Markdown、表格、KPI、排行、风险卡、证据卡、草稿卡、折线/柱状/环形图和未知块降级；但仍缺真实 provider 抓包、cancel 断流证据、逐块截图和坏数据回归样例
+- Android 等价交互：移动端玻璃卡片、底部 Tab、权限裁剪和表单流已对齐；仍需逐页对照 Android 截图做视觉偏差清单
+- 构建与真机：当前机器缺完整 Xcode/Swift 命令行工具，尚未完成 `xcodebuild`、`swiftc`、模拟器启动、真机截图、UI tree、log 证据
+- 后端依赖：cash-change、完整库存同步、导入 worker 与真实对象存储上传链仍需要后端或运行时环境继续补齐，本轮 iOS 不修改后端合同或实现
 
 ## 约束
 

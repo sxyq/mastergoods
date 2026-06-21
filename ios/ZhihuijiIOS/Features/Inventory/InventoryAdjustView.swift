@@ -27,11 +27,11 @@ struct InventoryAdjustView: View {
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("库存调整")
-                .font(.system(size: 28, weight: .bold))
+                .font(ZhihuijiTheme.Typography.pageTitle)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
 
             Text("直接做真实库存流水调整，同时能顺手生成盘点快照。")
-                .font(.system(size: 14))
+                .font(ZhihuijiTheme.Typography.body)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
 
             if let statusMessage = viewModel.statusMessage {
@@ -74,7 +74,7 @@ struct InventoryAdjustView: View {
     private var formSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("新增调整")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             TextField("搜索商品", text: $viewModel.keyword)
                 .fieldBackground()
             Picker("来源类型", selection: $viewModel.sourceType) {
@@ -84,7 +84,7 @@ struct InventoryAdjustView: View {
             }
             .pickerStyle(.segmented)
             Text(viewModel.sourceType.helperText)
-                .font(.system(size: 12))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
             TextField("数量变更（负数表示扣减）", text: $viewModel.quantityChangeText)
                 .fieldBackground()
@@ -97,15 +97,15 @@ struct InventoryAdjustView: View {
             if let selectedProduct = viewModel.selectedProduct {
                 HStack {
                     Text("当前商品：\(selectedProduct.name)")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(ZhihuijiTheme.Typography.bodyMedium)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                     Spacer()
                     Text("预计结存 \(viewModel.previewStockText)")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.bodyMedium)
                         .foregroundStyle(viewModel.previewDeltaIsNegative ? ZhihuijiTheme.ColorToken.warning : ZhihuijiTheme.ColorToken.primary)
                 }
                 .padding(12)
-                .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
             }
             HStack(spacing: 12) {
                 PrimaryGlassButton(title: viewModel.isSubmitting ? "提交中..." : "提交调整", systemImage: "arrow.left.arrow.right.circle.fill", disabled: viewModel.isSubmitting || !session.hasPermission(.inventoryWrite) || viewModel.selectedProduct == nil) {
@@ -123,7 +123,7 @@ struct InventoryAdjustView: View {
     private var productSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("选择商品")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             if viewModel.filteredProducts.isEmpty, !viewModel.isLoading {
                 EmptyStateView(title: "没有找到匹配商品", message: "换个关键词，或者先刷新商品档案。")
             }
@@ -134,16 +134,16 @@ struct InventoryAdjustView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(product.name)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.cardTitle)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                             Text(product.code)
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 4) {
                             Text("库存 \(String(format: "%.2f", product.stock))")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                             if let selected = viewModel.selectedProduct, selected.id == product.id {
                                 StatusChip(title: "已选", tint: ZhihuijiTheme.ColorToken.primary)
                             }
@@ -160,7 +160,7 @@ struct InventoryAdjustView: View {
     private var ledgerSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("最近库存流水")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             if viewModel.ledgerEntries.isEmpty {
                 EmptyStateView(title: "暂无库存流水", message: "选中商品后可以查看它的最近库存变化。")
             } else {
@@ -168,26 +168,26 @@ struct InventoryAdjustView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(entry.productName)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.cardTitle)
                             Text(entry.sourceType)
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             Text(entry.createdAt.dateTimeText)
-                                .font(.system(size: 11))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 4) {
                             Text((entry.quantityChange >= 0 ? "+" : "") + String(format: "%.2f", entry.quantityChange))
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                                 .foregroundStyle(entry.quantityChange >= 0 ? ZhihuijiTheme.ColorToken.success : ZhihuijiTheme.ColorToken.danger)
                             Text("结存 \(String(format: "%.2f", entry.quantityAfter ?? 0))")
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         }
                     }
                     .padding(14)
-                    .glassCard(cornerRadius: 12)
+                    .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                 }
             }
         }
@@ -230,17 +230,17 @@ struct InventoryAdjustView: View {
                 .frame(width: 26, height: 26)
                 .overlay(
                     Image(systemName: isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(tint)
                 )
             Text(text)
-                .font(.system(size: 12))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
         }
         .padding(12)
-        .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
     }
 }
 
@@ -289,9 +289,15 @@ final class InventoryAdjustViewModel: ObservableObject {
             products = try await client.fetchProducts(page: 1, size: 40)
             if let first = products.first {
                 await selectProduct(first, client: client)
+            } else {
+                selectedProduct = nil
+                ledgerEntries = []
             }
             errorMessage = nil
         } catch {
+            products = []
+            selectedProduct = nil
+            ledgerEntries = []
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
@@ -301,10 +307,11 @@ final class InventoryAdjustViewModel: ObservableObject {
         do {
             let now = Int64(Date().timeIntervalSince1970 * 1000)
             let monthAgo = now - 30 * 24 * 60 * 60 * 1000
-            ledgerEntries = try await client.fetchInventoryLedger(productId: product.id, startAt: monthAgo, endAt: now)
+            ledgerEntries = try await client.fetchInventoryLedger(productId: product.id, startAt: monthAgo, endAt: now, page: 1, size: 50)
             unitCostText = String(format: "%.2f", product.purchasePrice)
             errorMessage = nil
         } catch {
+            ledgerEntries = []
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
@@ -384,9 +391,9 @@ private struct InventorySecondaryActionButton: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
             }
             .foregroundStyle(disabled ? ZhihuijiTheme.ColorToken.textTertiary : tint)
             .frame(maxWidth: .infinity)
@@ -397,7 +404,7 @@ private struct InventorySecondaryActionButton: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
-                    .stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+                    .stroke(Color.white.opacity(0.45), lineWidth: ZhihuijiTheme.Stroke.hairline)
             )
         }
         .buttonStyle(.plain)

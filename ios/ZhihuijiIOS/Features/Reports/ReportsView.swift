@@ -8,7 +8,7 @@ struct ReportsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("经营报表")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(ZhihuijiTheme.Typography.pageTitle)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
 
                 Picker("时间范围", selection: $viewModel.range) {
@@ -85,18 +85,21 @@ struct ReportsView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("报表状态")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.sectionTitle)
                 Spacer()
                 StatusChip(title: viewModel.range.title, tint: ZhihuijiTheme.ColorToken.primary)
             }
 
             if let exportStatus = viewModel.exportStatus {
                 Text(exportStatus)
-                    .font(.system(size: 12))
+                    .font(ZhihuijiTheme.Typography.caption)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(12)
-                    .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(
+                        Color.white.opacity(0.42),
+                        in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                    )
             }
 
             HStack(spacing: 10) {
@@ -112,7 +115,7 @@ struct ReportsView: View {
     private var overviewSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("经营总览")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 MetricCard(title: "销售额", value: viewModel.salesSummary?.totalSalesAmount.currencyText ?? "--", subtitle: rangeSubtitle, tint: ZhihuijiTheme.ColorToken.primary)
                 MetricCard(title: "毛利", value: viewModel.profitSummary?.estimatedProfitAmount.currencyText ?? "--", subtitle: "估算利润", tint: ZhihuijiTheme.ColorToken.success)
@@ -125,7 +128,7 @@ struct ReportsView: View {
     private var trendSection: some View {
         VStack(alignment: .leading, spacing: 12) {
                 Text("销售趋势")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.sectionTitle)
             if viewModel.salesTrend.isEmpty {
                 EmptyStateView(title: "暂无趋势数据", message: "当前时间范围没有可用的趋势点。")
             } else {
@@ -134,23 +137,23 @@ struct ReportsView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
                                 Text(point.startAt.dateText)
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                                 Spacer()
                                 Text(point.totalSalesAmount.currencyText)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.captionSemibold)
                             }
                             GeometryReader { proxy in
                                 let width = max(proxy.size.width * viewModel.widthRatio(for: point), 6)
                                 ZStack(alignment: .leading) {
-                                    Capsule().fill(Color.white.opacity(0.35))
-                                    Capsule().fill(ZhihuijiTheme.ColorToken.primary)
+                                    RoundedRectangle(cornerRadius: 999, style: .continuous).fill(Color.white.opacity(0.35))
+                                    RoundedRectangle(cornerRadius: 999, style: .continuous).fill(ZhihuijiTheme.ColorToken.primary)
                                         .frame(width: width)
                                 }
                             }
                             .frame(height: 8)
                             Text("订单 \(point.totalOrderCount)")
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         }
                     }
@@ -164,7 +167,7 @@ struct ReportsView: View {
     private var topProductsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("热销商品")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             if viewModel.topProducts.isEmpty {
                 EmptyStateView(title: "暂无商品分析", message: "当前时间范围没有热销商品数据。")
             } else {
@@ -173,23 +176,23 @@ struct ReportsView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(product.productName)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.cardTitle)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                                 Text(product.productCode)
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 4) {
                                 Text(product.totalAmount.currencyText)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.bodyMedium)
                                 Text("销量 \(String(format: "%.0f", product.totalQuantity))")
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                         }
                         .padding(14)
-                        .glassCard(cornerRadius: 12)
+                        .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                     }
                 }
             }
@@ -199,7 +202,7 @@ struct ReportsView: View {
     private var productProfitSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("商品利润")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             if viewModel.productProfits.isEmpty {
                 EmptyStateView(title: "暂无商品利润数据", message: "当前时间范围没有可分析的商品利润记录。")
             } else {
@@ -208,24 +211,24 @@ struct ReportsView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(item.productName)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.cardTitle)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                                 Text(item.productCode)
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 4) {
                                 Text(item.totalProfitAmount.currencyText)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.bodyMedium)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.success)
                                 Text("利润率 \(String(format: "%.1f%%", item.profitRate * 100))")
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                         }
                         .padding(14)
-                        .glassCard(cornerRadius: 12)
+                        .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                     }
                 }
             }
@@ -235,7 +238,7 @@ struct ReportsView: View {
     private var customerSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("客户分析")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             if viewModel.customerSales.isEmpty, viewModel.receivableCustomers.isEmpty {
                 EmptyStateView(title: "暂无客户分析", message: "当前时间范围没有可展示的客户经营数据。")
@@ -243,24 +246,24 @@ struct ReportsView: View {
                 if !viewModel.customerSales.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("客户销售")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.bodyMedium)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         ForEach(viewModel.customerSales.prefix(4)) { item in
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(item.customerName)
-                                        .font(.system(size: 15, weight: .semibold))
+                                        .font(ZhihuijiTheme.Typography.cardTitle)
                                     Text("订单 \(item.totalOrders)")
-                                        .font(.system(size: 12))
+                                        .font(ZhihuijiTheme.Typography.caption)
                                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                                 }
                                 Spacer()
                                 Text(item.totalAmount.currencyText)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.bodyMedium)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                             }
                             .padding(14)
-                            .glassCard(cornerRadius: 12)
+                            .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                         }
                     }
                 }
@@ -268,24 +271,24 @@ struct ReportsView: View {
                 if !viewModel.receivableCustomers.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("应收排行")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.bodyMedium)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         ForEach(viewModel.receivableCustomers.prefix(4)) { item in
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(item.customerName)
-                                        .font(.system(size: 15, weight: .semibold))
+                                        .font(ZhihuijiTheme.Typography.cardTitle)
                                     Text(item.phone?.nilIfBlank ?? "无联系电话")
-                                        .font(.system(size: 12))
+                                        .font(ZhihuijiTheme.Typography.caption)
                                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                                 }
                                 Spacer()
                                 Text(item.balance.currencyText)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.bodyMedium)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
                             }
                             .padding(14)
-                            .glassCard(cornerRadius: 12)
+                            .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                         }
                     }
                 }
@@ -296,7 +299,7 @@ struct ReportsView: View {
     private var riskSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("风险提醒")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             if viewModel.refunds.isEmpty, viewModel.stockOutRecords.isEmpty, viewModel.lowStockProducts.isEmpty {
                 EmptyStateView(title: "暂无风险项", message: "退款和低库存指标当前都比较平稳。")
@@ -306,68 +309,68 @@ struct ReportsView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(refund.orderNo)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.cardTitle)
                                 Text(refund.customerName ?? "散客")
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 4) {
                                 Text(refund.refundAmount.currencyText)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.bodyMedium)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.danger)
                                 Text(refund.createdAt.dateText)
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                             }
                         }
                         .padding(14)
-                        .glassCard(cornerRadius: 12)
+                        .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                     }
 
                     ForEach(viewModel.stockOutRecords.prefix(3)) { item in
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(item.productName)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.cardTitle)
                                 Text(item.customerName?.nilIfBlank ?? item.orderNo)
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 4) {
                                 Text("-" + String(format: "%.2f", item.quantity))
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.bodyMedium)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
                                 Text(item.amount.currencyText)
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                             }
                         }
                         .padding(14)
-                        .glassCard(cornerRadius: 12)
+                        .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                     }
 
                     ForEach(viewModel.lowStockProducts.prefix(3)) { product in
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(product.productName)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.cardTitle)
                                 Text(product.productCode)
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 4) {
                                 Text("库存 \(String(format: "%.2f", product.stock))")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.bodyMedium)
                                 Text("安全库存 \(String(format: "%.2f", product.safeStock))")
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                         }
                         .padding(14)
-                        .glassCard(cornerRadius: 12)
+                        .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                     }
                 }
             }
@@ -384,13 +387,17 @@ struct ReportsView: View {
 
 private func reportChip(title: String, tint: Color) -> some View {
         Text(title)
-            .font(.system(size: 12, weight: .semibold))
+            .font(ZhihuijiTheme.Typography.captionSemibold)
             .foregroundStyle(tint)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(tint.opacity(0.12), in: Capsule())
+            .background(
+                tint.opacity(0.12),
+                in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+            )
             .overlay(
-                Capsule().stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                    .stroke(Color.white.opacity(0.45), lineWidth: ZhihuijiTheme.Stroke.hairline)
             )
     }
 }
@@ -406,17 +413,20 @@ private struct SecondaryReportActionButton: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.captionSemibold)
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.captionSemibold)
             }
             .foregroundStyle(disabled ? ZhihuijiTheme.ColorToken.textTertiary : tint)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 11)
-            .background((disabled ? Color.white.opacity(0.38) : tint.opacity(0.10)), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(
+                (disabled ? Color.white.opacity(0.38) : tint.opacity(0.10)),
+                in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+            )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                    .stroke(Color.white.opacity(0.45), lineWidth: ZhihuijiTheme.Stroke.hairline)
             )
         }
         .buttonStyle(.plain)
@@ -481,51 +491,75 @@ final class ReportsViewModel: ObservableObject {
 
         switch salesSummaryResult {
         case let .success(value): salesSummary = value
-        case .failure: failedSections.append("销售汇总")
+        case .failure:
+            salesSummary = nil
+            failedSections.append("销售汇总")
         }
         switch salesTrendResult {
         case let .success(value): salesTrend = value
-        case .failure: failedSections.append("销售趋势")
+        case .failure:
+            salesTrend = []
+            failedSections.append("销售趋势")
         }
         switch profitResult {
         case let .success(value): profitSummary = value
-        case .failure: failedSections.append("利润汇总")
+        case .failure:
+            profitSummary = nil
+            failedSections.append("利润汇总")
         }
         switch cashflowResult {
         case let .success(value): cashflowSummary = value
-        case .failure: failedSections.append("现金流")
+        case .failure:
+            cashflowSummary = nil
+            failedSections.append("现金流")
         }
         switch reconciliationResult {
         case let .success(value): reconciliation = value
-        case .failure: failedSections.append("对账")
+        case .failure:
+            reconciliation = nil
+            failedSections.append("对账")
         }
         switch productsResult {
         case let .success(value): topProducts = value
-        case .failure: failedSections.append("热销商品")
+        case .failure:
+            topProducts = []
+            failedSections.append("热销商品")
         }
         switch productProfitsResult {
         case let .success(value): productProfits = value
-        case .failure: failedSections.append("商品利润")
+        case .failure:
+            productProfits = []
+            failedSections.append("商品利润")
         }
         switch customerSalesResult {
         case let .success(value): customerSales = value
-        case .failure: failedSections.append("客户销售")
+        case .failure:
+            customerSales = []
+            failedSections.append("客户销售")
         }
         switch receivableCustomersResult {
         case let .success(value): receivableCustomers = value
-        case .failure: failedSections.append("应收排行")
+        case .failure:
+            receivableCustomers = []
+            failedSections.append("应收排行")
         }
         switch refundsResult {
         case let .success(value): refunds = value
-        case .failure: failedSections.append("退款记录")
+        case .failure:
+            refunds = []
+            failedSections.append("退款记录")
         }
         switch stockOutResult {
         case let .success(value): stockOutRecords = value
-        case .failure: failedSections.append("出库记录")
+        case .failure:
+            stockOutRecords = []
+            failedSections.append("出库记录")
         }
         switch stockResult {
         case let .success(value): lowStockProducts = value
-        case .failure: failedSections.append("低库存")
+        case .failure:
+            lowStockProducts = []
+            failedSections.append("低库存")
         }
         errorMessage = failedSections.isEmpty ? nil : "以下分区暂未成功拉取：\(failedSections.joined(separator: "、"))"
     }

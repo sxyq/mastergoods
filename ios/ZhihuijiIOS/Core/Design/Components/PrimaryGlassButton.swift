@@ -11,14 +11,14 @@ struct PrimaryGlassButton: View {
             HStack(spacing: 8) {
                 if let systemImage {
                     Image(systemName: systemImage)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.bodyMedium)
                 }
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
+            .padding(.vertical, ZhihuijiTheme.Spacing.md + 2)
             .background(
                 LinearGradient(
                     colors: [ZhihuijiTheme.ColorToken.primaryBright, ZhihuijiTheme.ColorToken.primary],

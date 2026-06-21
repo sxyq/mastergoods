@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProductListView: View {
     @Environment(\.appEnvironment) private var env
+    @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = ProductListViewModel()
 
     var body: some View {
@@ -9,24 +10,20 @@ struct ProductListView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Text("商品档案")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(ZhihuijiTheme.Typography.pageTitle)
                     Spacer()
-                    NavigationLink {
-                        ProductEditView()
-                    } label: {
-                        StatusChip(title: "新建", tint: ZhihuijiTheme.ColorToken.primary)
+                    if session.hasPermission(.archivesWrite) {
+                        NavigationLink {
+                            ProductEditView()
+                        } label: {
+                            StatusChip(title: "新建", tint: ZhihuijiTheme.ColorToken.primary)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
 
                 TextField("搜索商品名称 / 编码", text: $viewModel.keyword)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 14)
-                    .background(Color.white.opacity(0.58), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.field, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.field, style: .continuous)
-                            .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
-                    )
+                    .fieldBackground()
 
                 if let errorMessage = viewModel.errorMessage {
                     EmptyStateView(title: "商品读取失败", message: errorMessage)
@@ -40,24 +37,20 @@ struct ProductListView: View {
                             } label: {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text(product.name)
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .font(ZhihuijiTheme.Typography.bodyMedium)
                                     Text(product.code)
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(ZhihuijiTheme.Typography.captionSemibold)
                                         .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                                     HStack {
                                         Text("库存 \(String(format: "%.2f", product.stock))")
                                         Spacer()
                                         Text("售价 \(product.salePrice.currencyText)")
                                     }
-                                    .font(.system(size: 13))
+                                    .font(ZhihuijiTheme.Typography.body)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                                 }
                                 .padding(16)
-                                .background(Color.white.opacity(0.58), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous)
-                                        .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
-                                )
+                                .glassCard()
                             }
                             .buttonStyle(.plain)
                         }
@@ -87,6 +80,7 @@ final class ProductListViewModel: ObservableObject {
             products = try await client.fetchProducts(keyword: keyword, page: 1, size: 20)
             errorMessage = nil
         } catch {
+            products = []
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }

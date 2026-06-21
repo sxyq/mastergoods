@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PurchaseDetailView: View {
     @Environment(\.appEnvironment) private var env
+    @EnvironmentObject private var session: AppSession
     let orderId: EntityID
     @StateObject private var viewModel = PurchaseDetailViewModel()
 
@@ -13,49 +14,57 @@ struct PurchaseDetailView: View {
                 } else if let order = viewModel.order {
                     header(order: order)
 
-                    HStack(spacing: 12) {
-                        NavigationLink {
-                            PurchaseReceiptView(initialOrderId: order.id)
-                        } label: {
-                            StatusChip(title: "去入库", tint: ZhihuijiTheme.ColorToken.success)
-                        }
-                        .buttonStyle(.plain)
+                    if session.hasAnyPermission([.inventoryWrite, .purchaseWrite, .financeView]) {
+                        HStack(spacing: 12) {
+                            if session.hasPermission(.inventoryWrite) {
+                                NavigationLink {
+                                    PurchaseReceiptView(initialOrderId: order.id)
+                                } label: {
+                                    StatusChip(title: "去入库", tint: ZhihuijiTheme.ColorToken.success)
+                                }
+                                .buttonStyle(.plain)
+                            }
 
-                        NavigationLink {
-                            PurchaseReturnView(initialOrderId: order.id)
-                        } label: {
-                            StatusChip(title: "采购退货", tint: ZhihuijiTheme.ColorToken.warning)
-                        }
-                        .buttonStyle(.plain)
+                            if session.hasPermission(.purchaseWrite) {
+                                NavigationLink {
+                                    PurchaseReturnView(initialOrderId: order.id)
+                                } label: {
+                                    StatusChip(title: "采购退货", tint: ZhihuijiTheme.ColorToken.warning)
+                                }
+                                .buttonStyle(.plain)
+                            }
 
-                        NavigationLink {
-                            PayOrderDetailView(initialOrderId: nil, initialKeyword: order.supplierName ?? "")
-                        } label: {
-                            StatusChip(title: "查看付款单", tint: ZhihuijiTheme.ColorToken.primary)
+                            if session.hasPermission(.financeView) {
+                                NavigationLink {
+                                    PayOrderDetailView(initialOrderId: nil, initialKeyword: order.supplierName ?? "")
+                                } label: {
+                                    StatusChip(title: "查看付款单", tint: ZhihuijiTheme.ColorToken.primary)
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
-                        .buttonStyle(.plain)
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
                         Text("商品明细")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.sectionTitle)
                         ForEach(order.items) { item in
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(item.productName)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.cardTitle)
                                 Text(item.productCode ?? "")
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                                 HStack {
                                     Text("数量 \(String(format: "%.2f", item.quantity))")
                                     Spacer()
                                     Text(item.amount.currencyText)
                                 }
-                                .font(.system(size: 13))
+                                .font(ZhihuijiTheme.Typography.body)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                             .padding(14)
-                            .glassCard(cornerRadius: 12)
+                            .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                         }
                     }
                 } else {
@@ -75,9 +84,9 @@ struct PurchaseDetailView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(order.orderNo)
-                        .font(.system(size: 20, weight: .bold))
+                        .font(ZhihuijiTheme.Typography.pageTitle)
                     Text(order.supplierName ?? "未命名供应商")
-                        .font(.system(size: 14))
+                        .font(ZhihuijiTheme.Typography.body)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
                 Spacer()
@@ -91,7 +100,7 @@ struct PurchaseDetailView: View {
             }
             if let notes = order.notes, !notes.isEmpty {
                 Text(notes)
-                    .font(.system(size: 13))
+                    .font(ZhihuijiTheme.Typography.caption)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
             }
         }
@@ -102,10 +111,10 @@ struct PurchaseDetailView: View {
     private func metric(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 12))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
             Text(value)
-                .font(.system(size: 14, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.bodyMedium)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -122,6 +131,7 @@ final class PurchaseDetailViewModel: ObservableObject {
             order = try await client.fetchPurchaseOrder(id: orderId)
             errorMessage = nil
         } catch {
+            order = nil
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }

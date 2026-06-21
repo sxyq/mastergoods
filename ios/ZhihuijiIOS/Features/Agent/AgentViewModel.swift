@@ -24,7 +24,7 @@ final class AgentViewModel: ObservableObject {
     @Published var editingDraft: AgentDraft?
     @Published var draftEditorTitle = ""
     @Published var draftEditorContent = ""
-    @Published var draftEditorStatus = "open"
+    @Published var draftEditorStatus = AgentContractStatus.active
 
     private var streamTask: Task<Void, Never>?
 
@@ -50,6 +50,7 @@ final class AgentViewModel: ObservableObject {
         case let .success(value):
             workbench = value
         case .failure:
+            workbench = nil
             failures.append("工作台")
         }
 
@@ -62,6 +63,9 @@ final class AgentViewModel: ObservableObject {
                 selectedConversationId = value.first?.id
             }
         case .failure:
+            conversations = []
+            selectedConversationId = nil
+            messages = []
             failures.append("会话列表")
         }
 
@@ -69,6 +73,8 @@ final class AgentViewModel: ObservableObject {
         case let .success(value):
             drafts = value
         case .failure:
+            drafts = []
+            editingDraft = nil
             failures.append("草稿")
         }
 
@@ -76,6 +82,7 @@ final class AgentViewModel: ObservableObject {
         case let .success(value):
             tasks = value
         case .failure:
+            tasks = []
             failures.append("任务")
         }
 
@@ -83,6 +90,7 @@ final class AgentViewModel: ObservableObject {
         case let .success(value):
             notifications = value
         case .failure:
+            notifications = []
             failures.append("通知")
         }
 
@@ -105,7 +113,7 @@ final class AgentViewModel: ObservableObject {
         defer { isConversationSaving = false }
 
         do {
-            let created = try await client.createAgentConversation(title: "新的经营问题", status: "open")
+            let created = try await client.createAgentConversation(title: "新的经营问题", status: AgentContractStatus.active)
             await refreshConversationsIfNeeded(using: client)
             selectedConversationId = created.id
             messages = []
@@ -179,6 +187,7 @@ final class AgentViewModel: ObservableObject {
         guard isSending, let runId = liveRun?.runId else { return }
         isStopping = true
         defer { isStopping = false }
+        streamTask?.cancel()
         do {
             _ = try await client.cancelAgentRun(runId: runId)
         } catch {
@@ -236,7 +245,7 @@ final class AgentViewModel: ObservableObject {
                     draftType: "question",
                     title: question.draftTitle,
                     contentJson: makeDraftContentJSON(question),
-                    status: "open"
+                    status: AgentContractStatus.active
                 )
             )
             drafts.insert(draft, at: 0)
@@ -269,7 +278,7 @@ final class AgentViewModel: ObservableObject {
         editingDraft = draft
         draftEditorTitle = draft.title
         draftEditorContent = decodeDraftContent(draft.contentJson)
-        draftEditorStatus = draft.status ?? "open"
+        draftEditorStatus = draft.status ?? AgentContractStatus.active
         errorMessage = nil
     }
 
@@ -300,7 +309,7 @@ final class AgentViewModel: ObservableObject {
                     draftType: draft.draftType,
                     title: title,
                     contentJson: makeDraftContentJSON(content),
-                    status: draftEditorStatus.nilIfBlank ?? "open"
+                    status: draftEditorStatus.nilIfBlank ?? AgentContractStatus.active
                 )
             )
             if let index = drafts.firstIndex(where: { $0.id == updated.id }) {
@@ -351,6 +360,7 @@ final class AgentViewModel: ObservableObject {
         do {
             messages = try await client.fetchAgentMessages(conversationId: conversationId, limit: 80)
         } catch {
+            messages = []
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
@@ -359,6 +369,8 @@ final class AgentViewModel: ObservableObject {
         do {
             drafts = try await client.fetchAgentDrafts(conversationId: conversationId, limit: 50)
         } catch {
+            drafts = []
+            editingDraft = nil
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }

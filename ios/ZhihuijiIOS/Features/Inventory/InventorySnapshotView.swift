@@ -9,11 +9,11 @@ struct InventorySnapshotView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("库存盘点")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(ZhihuijiTheme.Typography.pageTitle)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
 
                 Text("按安卓移动端习惯先看风险，再看最近盘点和月度变化。")
-                    .font(.system(size: 14))
+                    .font(ZhihuijiTheme.Typography.body)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
 
                 PrimaryGlassButton(
@@ -28,26 +28,28 @@ struct InventorySnapshotView: View {
                     statusBanner(text: statusMessage, tint: ZhihuijiTheme.ColorToken.primaryBright)
                 }
 
-                NavigationLink {
-                    InventoryAdjustView()
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("库存调整与快照")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
-                            Text("做真实库存流水调整，并为选中商品生成盘点快照。")
-                                .font(.system(size: 13))
-                                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                if session.hasPermission(.inventoryWrite) {
+                    NavigationLink {
+                        InventoryAdjustView()
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("库存调整与快照")
+                                    .font(ZhihuijiTheme.Typography.bodyMedium)
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                                Text("做真实库存流水调整，并为选中商品生成盘点快照。")
+                                    .font(ZhihuijiTheme.Typography.body)
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                         }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                        .padding(16)
+                        .glassCard()
                     }
-                    .padding(16)
-                    .glassCard()
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
                 if let errorMessage = viewModel.errorMessage {
                     EmptyStateView(title: "库存数据加载失败", message: errorMessage)
@@ -73,7 +75,7 @@ struct InventorySnapshotView: View {
     private var summarySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("盘点摘要")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 MetricCard(
                     title: "今日快照",
@@ -108,9 +110,9 @@ struct InventorySnapshotView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("今日待盘商品")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.sectionTitle)
                     Text("先补齐今天还没生成快照的商品，再去做库存调整或复核。")
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
                 Spacer()
@@ -131,22 +133,22 @@ struct InventorySnapshotView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(product.name)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.cardTitle)
                             Text(product.code)
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 4) {
                             Text("库存 \(String(format: "%.2f", product.stock))")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                             Text(product.categoryName ?? "未分组")
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         }
                     }
                     .padding(14)
-                    .glassCard(cornerRadius: 12)
+                    .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                 }
             }
         }
@@ -155,7 +157,7 @@ struct InventorySnapshotView: View {
     private var lowStockSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("低库存提醒")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             if viewModel.lowStockProducts.isEmpty {
                 EmptyStateView(title: "暂无低库存商品", message: "当前安全库存指标看起来比较平稳。")
             } else {
@@ -163,23 +165,23 @@ struct InventorySnapshotView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(product.productName)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.cardTitle)
                             Text(product.productCode)
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 4) {
                             Text("库存 \(String(format: "%.2f", product.stock))")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.danger)
                             Text("安全库存 \(String(format: "%.2f", product.safeStock))")
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         }
                     }
                     .padding(14)
-                    .glassCard(cornerRadius: 12)
+                    .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                 }
             }
         }
@@ -188,7 +190,7 @@ struct InventorySnapshotView: View {
     private var snapshotsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("最近盘点快照")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             if viewModel.snapshots.isEmpty {
                 EmptyStateView(title: "暂无盘点快照", message: "当前没有可用的库存快照记录。")
             } else {
@@ -196,27 +198,27 @@ struct InventorySnapshotView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(snapshot.productName)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.cardTitle)
                             Text(snapshot.productCode)
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                             Text(snapshot.snapshotDate.dateText)
-                                .font(.system(size: 11))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 4) {
                             Text("数量 \(String(format: "%.2f", snapshot.quantity))")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                             if let totalValue = snapshot.totalValue {
                                 Text(totalValue.currencyText)
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                         }
                     }
                     .padding(14)
-                    .glassCard(cornerRadius: 12)
+                    .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                 }
             }
         }
@@ -225,7 +227,7 @@ struct InventorySnapshotView: View {
     private var monthlyStatsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("本月进出概览")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             if viewModel.monthlyStats.isEmpty {
                 EmptyStateView(title: "暂无月度统计", message: "当前月份还没有月度库存统计数据。")
             } else {
@@ -233,22 +235,22 @@ struct InventorySnapshotView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(item.productName)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.cardTitle)
                             Text(item.productCode ?? "")
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 4) {
                             Text("入 \(String(format: "%.2f", item.quantityIn ?? 0)) / 出 \(String(format: "%.2f", item.quantityOut ?? 0))")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(ZhihuijiTheme.Typography.captionSemibold)
                             Text("结余 \(String(format: "%.2f", item.quantityEnd ?? 0))")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                         }
                     }
                     .padding(14)
-                    .glassCard(cornerRadius: 12)
+                    .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                 }
             }
         }
@@ -280,7 +282,7 @@ struct InventorySnapshotView: View {
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(Color.white.opacity(0.42))
-                .frame(height: 0.5)
+                    .frame(height: ZhihuijiTheme.Stroke.hairline)
         }
     }
 
@@ -291,17 +293,17 @@ struct InventorySnapshotView: View {
                 .frame(width: 26, height: 26)
                 .overlay(
                     Image(systemName: "info.circle.fill")
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(tint)
                 )
             Text(text)
-                .font(.system(size: 12))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
         }
         .padding(12)
-        .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
     }
 }
 
@@ -316,9 +318,9 @@ private struct InventorySecondaryActionButton: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
             }
             .foregroundStyle(disabled ? ZhihuijiTheme.ColorToken.textTertiary : tint)
             .frame(maxWidth: .infinity)
@@ -329,7 +331,7 @@ private struct InventorySecondaryActionButton: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
-                    .stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+                    .stroke(Color.white.opacity(0.45), lineWidth: ZhihuijiTheme.Stroke.hairline)
             )
         }
         .buttonStyle(.plain)
@@ -375,9 +377,9 @@ final class InventorySnapshotViewModel: ObservableObject {
 
         async let productsTask = capture { try await client.fetchProducts(page: 1, size: 60) }
         async let lowStockTask = capture { try await client.fetchLowStockProducts(limit: 10) }
-        async let todaySnapshotsTask = capture { try await client.fetchInventorySnapshots(snapshotDate: todayStart) }
-        async let snapshotsTask = capture { try await client.fetchInventorySnapshots(startDate: startAt, endDate: endAt) }
-        async let monthlyStatsTask = capture { try await client.fetchInventoryMonthlyStats(year: year, month: month) }
+        async let todaySnapshotsTask = capture { try await client.fetchInventorySnapshots(snapshotDate: todayStart, page: 1, size: 100) }
+        async let snapshotsTask = capture { try await client.fetchInventorySnapshots(startDate: startAt, endDate: endAt, page: 1, size: 60) }
+        async let monthlyStatsTask = capture { try await client.fetchInventoryMonthlyStats(year: year, month: month, page: 1, size: 60) }
 
         let productsResult = await productsTask
         let lowStockResult = await lowStockTask
@@ -389,23 +391,33 @@ final class InventorySnapshotViewModel: ObservableObject {
 
         switch productsResult {
         case let .success(value): products = value
-        case .failure: failures.append("商品档案")
+        case .failure:
+            products = []
+            failures.append("商品档案")
         }
         switch lowStockResult {
         case let .success(value): lowStockProducts = value
-        case .failure: failures.append("低库存")
+        case .failure:
+            lowStockProducts = []
+            failures.append("低库存")
         }
         switch todaySnapshotsResult {
         case let .success(value): todaySnapshots = value.sorted(by: { $0.productName.localizedCompare($1.productName) == .orderedAscending })
-        case .failure: failures.append("今日快照")
+        case .failure:
+            todaySnapshots = []
+            failures.append("今日快照")
         }
         switch snapshotsResult {
         case let .success(value): snapshots = value.sorted(by: { $0.snapshotDate > $1.snapshotDate })
-        case .failure: failures.append("盘点快照")
+        case .failure:
+            snapshots = []
+            failures.append("盘点快照")
         }
         switch monthlyStatsResult {
         case let .success(value): monthlyStats = value
-        case .failure: failures.append("月度统计")
+        case .failure:
+            monthlyStats = []
+            failures.append("月度统计")
         }
 
         errorMessage = failures.isEmpty ? nil : "以下分区暂未成功拉取：\(failures.joined(separator: "、"))"

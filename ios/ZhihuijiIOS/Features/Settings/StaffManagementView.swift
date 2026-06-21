@@ -52,6 +52,7 @@ struct StaffManagementView: View {
                 StaffEditSheet(
                     viewModel: viewModel,
                     member: member,
+                    canManage: session.hasPermission(.usersManage),
                     onSave: {
                         Task { await viewModel.saveEditingMember(using: env.apiClient) }
                     }
@@ -73,10 +74,10 @@ struct StaffManagementView: View {
     private var headerCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("店员与权限")
-                .font(.system(size: 28, weight: .bold))
+                .font(ZhihuijiTheme.Typography.pageTitle)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
             Text("门店端员工账号、角色、状态和会话策略都在这里集中管理。")
-                .font(.system(size: 14))
+                .font(ZhihuijiTheme.Typography.body)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
 
             HStack(spacing: 10) {
@@ -105,7 +106,7 @@ struct StaffManagementView: View {
                         viewModel.statusFilter = filter
                     } label: {
                         Text(filter.title)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.captionSemibold)
                             .foregroundStyle(viewModel.statusFilter == filter ? .white : ZhihuijiTheme.ColorToken.textSecondary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 9)
@@ -114,7 +115,7 @@ struct StaffManagementView: View {
                                     ? LinearGradient(colors: [ZhihuijiTheme.ColorToken.primaryBright, ZhihuijiTheme.ColorToken.primary], startPoint: .leading, endPoint: .trailing)
                                     : LinearGradient(colors: [Color.white.opacity(0.54), Color.white.opacity(0.54)], startPoint: .leading, endPoint: .trailing)
                                 ),
-                                in: Capsule()
+                                in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
                             )
                     }
                     .buttonStyle(.plain)
@@ -129,12 +130,15 @@ struct StaffManagementView: View {
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(ZhihuijiTheme.ColorToken.success)
             Text(text)
-                .font(.system(size: 13, weight: .medium))
+                .font(ZhihuijiTheme.Typography.bodyMedium)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
             Spacer()
         }
         .padding(14)
-        .background(ZhihuijiTheme.ColorToken.success.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(
+            ZhihuijiTheme.ColorToken.success.opacity(0.10),
+            in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+        )
     }
 
     private func memberCard(_ member: StoreStaffMember) -> some View {
@@ -142,10 +146,10 @@ struct StaffManagementView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(member.nickname)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.cardTitle)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                     Text(member.phone)
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                 }
                 Spacer()
@@ -159,7 +163,7 @@ struct StaffManagementView: View {
             }
 
             Text("\(member.title) · 活跃会话 \(member.activeSessions)")
-                .font(.system(size: 13))
+                .font(ZhihuijiTheme.Typography.body)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
 
             if !member.permissions.isEmpty {
@@ -167,11 +171,14 @@ struct StaffManagementView: View {
                     HStack(spacing: 8) {
                         ForEach(member.permissions.map(\.rawValue).sorted().prefix(6), id: \.self) { permission in
                             Text(permission)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
-                                .background(Color.white.opacity(0.42), in: Capsule())
+                                .background(
+                                    Color.white.opacity(0.42),
+                                    in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                                )
                         }
                     }
                 }
@@ -226,13 +233,17 @@ struct StaffManagementView: View {
 
     private func statChip(title: String, tint: Color) -> some View {
         Text(title)
-            .font(.system(size: 12, weight: .semibold))
+            .font(ZhihuijiTheme.Typography.captionSemibold)
             .foregroundStyle(tint)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(tint.opacity(0.12), in: Capsule())
+            .background(
+                tint.opacity(0.12),
+                in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+            )
             .overlay(
-                Capsule().stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                    .stroke(Color.white.opacity(0.45), lineWidth: ZhihuijiTheme.Stroke.hairline)
             )
     }
 
@@ -314,6 +325,9 @@ final class StaffManagementViewModel: ObservableObject {
             members = try await client.fetchStoreMembers()
             errorMessage = nil
         } catch {
+            members = []
+            editingMember = nil
+            successMessage = nil
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
@@ -482,7 +496,7 @@ private struct StaffCreateCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("新建店员")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             TextField("手机号", text: $phone)
                 .fieldBackground()
@@ -511,6 +525,7 @@ private struct StaffCreateCard: View {
 private struct StaffEditSheet: View {
     @ObservedObject var viewModel: StaffManagementViewModel
     let member: StoreStaffMember
+    let canManage: Bool
     let onSave: () -> Void
 
     var body: some View {
@@ -518,7 +533,7 @@ private struct StaffEditSheet: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(member.phone)
-                        .font(.system(size: 13))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                     HStack(spacing: 10) {
                         StatusChip(
@@ -533,7 +548,7 @@ private struct StaffEditSheet: View {
 
                 VStack(alignment: .leading, spacing: 12) {
                     Text("基础信息")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.sectionTitle)
                     TextField("昵称", text: $viewModel.editNickname)
                         .fieldBackground()
                     TextField("岗位名称", text: $viewModel.editTitle)
@@ -546,7 +561,7 @@ private struct StaffEditSheet: View {
 
                 VStack(alignment: .leading, spacing: 12) {
                     Text("角色与状态")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.sectionTitle)
                     rolePicker(selection: $viewModel.editRole, includesOwner: false)
                         .disabled(member.role == .owner)
                         .opacity(member.role == .owner ? 0.55 : 1)
@@ -562,9 +577,9 @@ private struct StaffEditSheet: View {
                     Toggle(isOn: $viewModel.editKeepSessions) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("保留当前会话")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                             Text("关闭后会让该账号重新登录，适合角色或密码变更后立即生效。")
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         }
                     }
@@ -576,7 +591,7 @@ private struct StaffEditSheet: View {
                 PrimaryGlassButton(
                     title: viewModel.isSaving ? "保存中..." : "保存修改",
                     systemImage: "square.and.arrow.down.fill",
-                    disabled: viewModel.isSaving,
+                    disabled: viewModel.isSaving || !canManage,
                     action: onSave
                 )
             }
@@ -613,18 +628,18 @@ private struct SecondaryActionButton: View {
             HStack(spacing: 8) {
                 Image(systemName: systemImage)
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.captionSemibold)
             }
             .foregroundStyle(disabled ? ZhihuijiTheme.ColorToken.textTertiary : tint)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 11)
             .background(
                 (disabled ? Color.white.opacity(0.38) : tint.opacity(0.10)),
-                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                    .stroke(Color.white.opacity(0.45), lineWidth: ZhihuijiTheme.Stroke.hairline)
             )
         }
         .buttonStyle(.plain)
@@ -645,6 +660,6 @@ private func rolePicker(selection: Binding<StoreRole>, includesOwner: Bool) -> s
     .background(Color.white.opacity(0.58), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.field, style: .continuous))
     .overlay(
         RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.field, style: .continuous)
-            .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
+            .stroke(Color.white.opacity(0.5), lineWidth: ZhihuijiTheme.Stroke.hairline)
     )
 }

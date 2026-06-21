@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SalesPaymentView: View {
     @Environment(\.appEnvironment) private var env
+    @EnvironmentObject private var session: AppSession
     let initialOrderId: EntityID?
     @StateObject private var viewModel = SalesPaymentViewModel()
 
@@ -13,7 +14,7 @@ struct SalesPaymentView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("销售收款")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(ZhihuijiTheme.Typography.pageTitle)
 
                 if let errorMessage = viewModel.errorMessage {
                     EmptyStateView(title: "销售收款读取失败", message: errorMessage)
@@ -41,7 +42,7 @@ struct SalesPaymentView: View {
     private var orderPicker: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("待收款订单")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             ForEach(viewModel.orders.prefix(6)) { order in
                 Button {
@@ -52,14 +53,14 @@ struct SalesPaymentView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(order.orderNo)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.cardTitle)
                             Text(order.customerName ?? "散客")
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                         }
                         Spacer()
                         Text(order.outstandingAmount.currencyText)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.bodyMedium)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                     }
                     .padding(14)
@@ -76,9 +77,9 @@ struct SalesPaymentView: View {
     private func orderSummary(_ order: SalesOrder) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("订单信息")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             Text(order.orderNo)
-                .font(.system(size: 16, weight: .bold))
+                .font(ZhihuijiTheme.Typography.cardTitle)
             HStack {
                 metric("总额", order.totalAmount.currencyText)
                 metric("已收", order.paidAmount.currencyText)
@@ -89,14 +90,14 @@ struct SalesPaymentView: View {
         .background(Color.white.opacity(0.58), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous)
-                .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
+                .stroke(Color.white.opacity(0.5), lineWidth: ZhihuijiTheme.Stroke.hairline)
         )
     }
 
     private func paymentForm(_ order: SalesOrder) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("收款表单")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             TextField("收款金额", text: $viewModel.amountText)
                 .fieldBackground()
@@ -114,14 +115,14 @@ struct SalesPaymentView: View {
 
             if let successMessage = viewModel.successMessage {
                 Text(successMessage)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.success)
             }
 
             PrimaryGlassButton(
                 title: viewModel.isSubmitting ? "提交中..." : "确认收款",
                 systemImage: "checkmark.circle.fill",
-                disabled: viewModel.isSubmitting
+                disabled: viewModel.isSubmitting || !session.hasPermission(.financeWrite)
             ) {
                 Task {
                     await viewModel.submit(client: env.apiClient)
@@ -132,7 +133,7 @@ struct SalesPaymentView: View {
         .background(Color.white.opacity(0.58), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous)
-                .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
+                .stroke(Color.white.opacity(0.5), lineWidth: ZhihuijiTheme.Stroke.hairline)
         )
         .onChange(of: order.id) { _, _ in
             viewModel.amountText = String(format: "%.2f", order.outstandingAmount)
@@ -142,7 +143,7 @@ struct SalesPaymentView: View {
     private var paymentsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("历史收款记录")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             if viewModel.payments.isEmpty {
                 EmptyStateView(title: "暂无收款记录", message: "当前销售单还没有收款记录。")
@@ -151,14 +152,14 @@ struct SalesPaymentView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(payment.amount.currencyText)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.cardTitle)
                             Text(payment.createdAt.dateTimeText)
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                         }
                         Spacer()
                         Text(SalePaymentMethod(rawValue: payment.method)?.label ?? "其他")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(ZhihuijiTheme.Typography.bodyMedium)
                     }
                     .padding(14)
                     .background(Color.white.opacity(0.58), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous))
@@ -170,10 +171,10 @@ struct SalesPaymentView: View {
     private func metric(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 12))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
             Text(value)
-                .font(.system(size: 14, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.bodyMedium)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -1,4 +1,4 @@
-import SwiftUI
+﻿import SwiftUI
 
 struct DashboardView: View {
     @EnvironmentObject private var session: AppSession
@@ -26,13 +26,13 @@ struct DashboardView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("智慧记")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(ZhihuijiTheme.Typography.pageTitle)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                     Text(session.currentStore?.storeName ?? "当前门店")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(ZhihuijiTheme.Typography.bodyMedium)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                     Text("\(session.currentStore?.role.label ?? "当前角色") · \(session.currentStore?.currentUserName ?? "当前账号")")
-                        .font(.system(size: 13))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
                 Spacer()
@@ -41,14 +41,17 @@ struct DashboardView: View {
 
             if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(ZhihuijiTheme.Typography.captionSemibold)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
-                    .background(ZhihuijiTheme.ColorToken.warning.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(
+                        ZhihuijiTheme.ColorToken.warning.opacity(0.10),
+                        in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                    )
             } else {
                 Text("今天的销售、到账、退款和库存提醒已经聚合到同一个移动工作台里。")
-                    .font(.system(size: 13))
+                    .font(ZhihuijiTheme.Typography.body)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
             }
         }
@@ -60,7 +63,7 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("经营概览")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.sectionTitle)
                 Spacer()
                 if viewModel.isLoading {
                     ProgressView()
@@ -69,14 +72,23 @@ struct DashboardView: View {
                 }
             }
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                ForEach(Array(viewModel.kpis.enumerated()), id: \.element.id) { index, item in
-                    MetricCard(
-                        title: item.title,
-                        value: item.value,
-                        subtitle: item.subtitle,
-                        tint: metricTint(for: index)
-                    )
+            if viewModel.kpis.isEmpty {
+                EmptyStateView(
+                    title: viewModel.isLoading ? "正在拉取经营数据" : "暂无经营概览",
+                    message: viewModel.isLoading
+                        ? "正在从后端读取今日销售和库存提醒。"
+                        : "当前账号还没有拉到可展示的经营指标。"
+                )
+            } else {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(Array(viewModel.kpis.enumerated()), id: \.element.id) { index, item in
+                        MetricCard(
+                            title: item.title,
+                            value: item.value,
+                            subtitle: item.subtitle,
+                            tint: metricTint(for: index)
+                        )
+                    }
                 }
             }
         }
@@ -85,7 +97,7 @@ struct DashboardView: View {
     private var reminderSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("库存提醒")
-                .font(.system(size: 20, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             if viewModel.lowStockProducts.isEmpty {
                 EmptyStateView(title: "暂无低库存预警", message: "当前没有商品低于安全库存，补货压力比较平稳。")
@@ -98,29 +110,29 @@ struct DashboardView: View {
                                 .frame(width: 34, height: 34)
                                 .overlay(
                                     Image(systemName: "shippingbox.fill")
-                                        .font(.system(size: 14))
+                                        .font(ZhihuijiTheme.Typography.caption)
                                         .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
                                 )
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(product.productName)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.bodyMedium)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                                 Text(product.productCode)
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 4) {
                                 Text("库存 \(formattedQuantity(product.stock))")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.captionSemibold)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.danger)
                                 Text("安全线 \(formattedQuantity(product.safeStock))")
-                                    .font(.system(size: 11))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                             }
                         }
                         .padding(14)
-                        .glassCard(cornerRadius: 12)
+                        .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                     }
                 }
             }
@@ -130,7 +142,7 @@ struct DashboardView: View {
     private var quickEntrySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("快捷入口")
-                .font(.system(size: 20, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             if session.hasPermission(.salesView) {
                 NavigationLink {
@@ -188,10 +200,10 @@ struct DashboardView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                 Text(subtitle)
-                    .font(.system(size: 13))
+                    .font(ZhihuijiTheme.Typography.body)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
             }
 

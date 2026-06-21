@@ -9,11 +9,11 @@ struct FeatureShellView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text(title)
-                    .font(.system(size: 28, weight: .bold))
+                    .font(ZhihuijiTheme.Typography.pageTitle)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
 
                 Text(subtitle)
-                    .font(.system(size: 14))
+                    .font(ZhihuijiTheme.Typography.body)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
 
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {

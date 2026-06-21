@@ -20,10 +20,10 @@ struct DocumentsHomeView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("单据中心")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(ZhihuijiTheme.Typography.pageTitle)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                     Text("销售、采购、收款、退货都按移动端工作流聚合在这里。")
-                        .font(.system(size: 14))
+                        .font(ZhihuijiTheme.Typography.body)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
                 Spacer()
@@ -45,7 +45,7 @@ struct DocumentsHomeView: View {
     private var documentFlowSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("业务入口")
-                .font(.system(size: 20, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             if session.hasPermission(.salesView) {
                 NavigationLink {
@@ -82,7 +82,7 @@ struct DocumentsHomeView: View {
     private var shortcutSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("能力联动")
-                .font(.system(size: 20, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             if session.hasPermission(.financeView) {
                 NavigationLink {
@@ -132,13 +132,13 @@ struct DocumentsHomeView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                 Text(subtitle)
-                    .font(.system(size: 13))
+                    .font(ZhihuijiTheme.Typography.body)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 Text(detail)
-                    .font(.system(size: 12))
+                    .font(ZhihuijiTheme.Typography.caption)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -158,16 +158,16 @@ struct DocumentsHomeView: View {
                 .frame(width: 38, height: 38)
                 .overlay(
                     Image(systemName: icon)
-                        .font(.system(size: 14))
+                        .font(ZhihuijiTheme.Typography.body)
                         .foregroundStyle(tint)
                 )
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                 Text(subtitle)
-                    .font(.system(size: 12))
+                    .font(ZhihuijiTheme.Typography.caption)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
             }
 
@@ -176,22 +176,22 @@ struct DocumentsHomeView: View {
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
         }
         .padding(14)
-        .glassCard(cornerRadius: 14)
+        .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
     }
 
     private func documentBadge(title: String, enabled: Bool, tint: Color) -> some View {
         Text(title)
-            .font(.system(size: 12, weight: .semibold))
+            .font(ZhihuijiTheme.Typography.captionSemibold)
             .foregroundStyle(enabled ? tint : ZhihuijiTheme.ColorToken.textTertiary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(
                 (enabled ? tint.opacity(0.12) : Color.white.opacity(0.40)),
-                in: Capsule()
+                in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
             )
             .overlay(
-                Capsule()
-                    .stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                    .stroke(Color.white.opacity(0.45), lineWidth: ZhihuijiTheme.Stroke.hairline)
             )
     }
 }

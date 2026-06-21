@@ -2,8 +2,8 @@ import Foundation
 
 @MainActor
 final class LoginViewModel: ObservableObject {
-    @Published var phone = "13800000001"
-    @Published var password = "123456"
+    @Published var phone = ""
+    @Published var password = ""
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
 

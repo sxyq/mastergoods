@@ -43,10 +43,10 @@ struct PurchaseReceiptView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("采购入库")
-                .font(.system(size: 28, weight: .bold))
+                .font(ZhihuijiTheme.Typography.pageTitle)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
             Text("对齐安卓的移动工作流：先选采购单，再确认入库明细与状态。")
-                .font(.system(size: 14))
+                .font(ZhihuijiTheme.Typography.body)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
         }
     }
@@ -86,7 +86,7 @@ struct PurchaseReceiptView: View {
                 if selected.canEditDraft, session.hasPermission(.inventoryWrite) {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("草稿处理")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.sectionTitle)
                         TextField("备注", text: $viewModel.notesDraft, axis: .vertical)
                             .fieldBackground()
                         HStack(spacing: 12) {
@@ -117,7 +117,7 @@ struct PurchaseReceiptView: View {
     private var createSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("来源采购单")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             if viewModel.purchaseOrders.isEmpty {
                 EmptyStateView(title: "暂无可选采购单", message: "请先确保采购单已同步。")
             } else {
@@ -128,15 +128,15 @@ struct PurchaseReceiptView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(order.orderNo)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.cardTitle)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                                 Text(order.supplierName ?? "未命名供应商")
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                             }
                             Spacer()
                             Text(order.totalAmount.currencyText)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                         }
                         .padding(14)
@@ -149,27 +149,27 @@ struct PurchaseReceiptView: View {
             if let order = viewModel.sourceOrder {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("入库明细")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.sectionTitle)
                     Text(order.orderNo)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(ZhihuijiTheme.Typography.body)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                     ForEach($viewModel.draftItems) { $item in
                         VStack(alignment: .leading, spacing: 10) {
                             Text(item.productName)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.cardTitle)
                             Text(item.productCode)
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                             Stepper(value: $item.quantity, in: 0 ... item.maxQuantity, step: 1) {
                                 Text("入库数量 \(String(format: "%.0f", item.quantity)) / \(String(format: "%.0f", item.maxQuantity))")
-                                    .font(.system(size: 13))
+                                    .font(ZhihuijiTheme.Typography.body)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                             TextField("入库单价", text: $item.unitCostText)
                                 .fieldBackground()
                         }
                         .padding(14)
-                        .glassCard(cornerRadius: 12)
+                        .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                     }
                     TextField("备注", text: $viewModel.createNotes, axis: .vertical)
                         .fieldBackground()
@@ -362,22 +362,22 @@ private struct PurchaseReceiptCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.receiptNo)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.cardTitle)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                     Text(item.supplierName ?? "未命名供应商")
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                 }
                 Spacer()
                 StatusChip(title: item.statusLabel, tint: item.statusTint)
             }
             Text(item.totalAmount.currencyText)
-                .font(.system(size: 13, weight: .medium))
+                .font(ZhihuijiTheme.Typography.bodyMedium)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
         }
         .padding(16)
         .background((isSelected ? ZhihuijiTheme.ColorToken.primary.opacity(0.12) : ZhihuijiTheme.ColorToken.glassHigh), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous).stroke(ZhihuijiTheme.ColorToken.glassBorder, lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous).stroke(ZhihuijiTheme.ColorToken.glassBorder, lineWidth: ZhihuijiTheme.Stroke.hairline))
     }
 }
 
@@ -389,9 +389,9 @@ private struct PurchaseReceiptDetailCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.receiptNo)
-                        .font(.system(size: 18, weight: .bold))
+                        .font(ZhihuijiTheme.Typography.pageTitle)
                     Text("来源单 \(item.purchaseOrderId?.rawValue ?? "-")")
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                 }
                 Spacer()
@@ -399,31 +399,31 @@ private struct PurchaseReceiptDetailCard: View {
             }
 
             Text(item.totalAmount.currencyText)
-                .font(.system(size: 16, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.bodyMedium)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
 
             ForEach(item.items) { detail in
                 VStack(alignment: .leading, spacing: 6) {
                     Text(detail.productName)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.cardTitle)
                     Text(detail.productCode ?? "")
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                     HStack {
                         Text("数量 \(String(format: "%.0f", detail.quantity))")
                         Spacer()
                         Text(detail.amount.currencyText)
                     }
-                    .font(.system(size: 13))
+                    .font(ZhihuijiTheme.Typography.body)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
                 .padding(12)
-                .background(Color.white.opacity(0.4), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(Color.white.opacity(0.4), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
             }
 
             if let notes = item.notes, !notes.isEmpty {
                 Text(notes)
-                    .font(.system(size: 13))
+                    .font(ZhihuijiTheme.Typography.body)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
             }
         }

@@ -8,7 +8,7 @@ struct LoadingStateView: View {
             ProgressView()
                 .tint(ZhihuijiTheme.ColorToken.primary)
             Text(message)
-                .font(.system(size: 14, weight: .medium))
+                .font(ZhihuijiTheme.Typography.body)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

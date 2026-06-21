@@ -3,19 +3,19 @@ import Foundation
 @MainActor
 final class DashboardViewModel: ObservableObject {
     @Published var isLoading = false
-    @Published var kpis: [KPIBlock] = [
-        KPIBlock(id: "sales", title: "销售额", value: "¥0.00", subtitle: "今日经营"),
-        KPIBlock(id: "receivable", title: "已收款", value: "¥0.00", subtitle: "待同步摘要"),
-        KPIBlock(id: "stock", title: "退款", value: "¥0.00", subtitle: "待同步摘要"),
-        KPIBlock(id: "cash", title: "订单数", value: "0", subtitle: "待同步摘要"),
-    ]
+    @Published var kpis: [KPIBlock] = []
     @Published var lowStockProducts: [LowStockProductReport] = []
     @Published var errorMessage: String?
     @Published var scopeLabel = "今日经营"
 
+    var hasKpis: Bool {
+        !kpis.isEmpty
+    }
+
     func load(using client: APIClient) async {
         isLoading = true
         defer { isLoading = false }
+
         let range = DateRange.today
         async let summaryTask = capture {
             try await client.fetchSalesSummary(startAt: range.startAt, endAt: range.endAt)
@@ -37,6 +37,7 @@ final class DashboardViewModel: ObservableObject {
                 KPIBlock(id: "orders", title: "订单数", value: "\(summary.totalOrderCount)", subtitle: "今日成交"),
             ]
         case .failure:
+            kpis = []
             failures.append("经营汇总")
         }
 
@@ -44,6 +45,7 @@ final class DashboardViewModel: ObservableObject {
         case let .success(products):
             lowStockProducts = products
         case .failure:
+            lowStockProducts = []
             failures.append("库存提醒")
         }
 

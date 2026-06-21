@@ -2,13 +2,14 @@ import SwiftUI
 
 struct SalesEditView: View {
     @Environment(\.appEnvironment) private var env
+    @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = SalesEditViewModel()
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("销售开单")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(ZhihuijiTheme.Typography.pageTitle)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
 
                 if let errorMessage = viewModel.errorMessage {
@@ -30,7 +31,7 @@ struct SalesEditView: View {
     private var customerSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("客户")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             TextField("搜索客户", text: $viewModel.customerKeyword)
                 .fieldBackground()
             ForEach(viewModel.filteredCustomers.prefix(6)) { customer in
@@ -40,10 +41,10 @@ struct SalesEditView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(customer.name)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.cardTitle)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                             Text(customer.phone)
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                         }
                         Spacer()
@@ -64,7 +65,7 @@ struct SalesEditView: View {
     private var productSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("商品")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             TextField("搜索商品", text: $viewModel.productKeyword)
                 .fieldBackground()
             ForEach(viewModel.filteredProducts.prefix(8)) { product in
@@ -74,52 +75,52 @@ struct SalesEditView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(product.name)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.cardTitle)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                             Text(product.code)
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 4) {
                             Text(product.salePrice.currencyText)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.captionSemibold)
                             Text("库存 \(String(format: "%.2f", product.stock))")
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         }
                     }
                     .padding(14)
-                    .glassCard(cornerRadius: 12)
+                    .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                 }
                 .buttonStyle(.plain)
             }
 
             if !viewModel.items.isEmpty {
                 Text("开单明细")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
                 ForEach($viewModel.items) { $item in
                     VStack(alignment: .leading, spacing: 10) {
                         Text(item.productName)
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.cardTitle)
                         HStack {
                             Stepper(value: $item.quantity, in: 1 ... 999, step: 1) {
                                 Text("数量 \(String(format: "%.0f", item.quantity))")
-                                    .font(.system(size: 13))
+                                    .font(ZhihuijiTheme.Typography.body)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                             Spacer()
                             Button("移除") {
                                 viewModel.removeItem(id: item.id)
                             }
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.captionSemibold)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.danger)
                         }
                         TextField("单价", text: $item.unitPriceText)
                             .fieldBackground()
                     }
                     .padding(14)
-                    .glassCard(cornerRadius: 12)
+                    .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                 }
             }
         }
@@ -130,7 +131,7 @@ struct SalesEditView: View {
     private var summarySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("金额与备注")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             HStack {
                 metric("小计", viewModel.subtotal.currencyText)
                 metric("优惠", viewModel.discountAmount.currencyText)
@@ -140,7 +141,7 @@ struct SalesEditView: View {
                 .fieldBackground()
             TextField("备注", text: $viewModel.notes, axis: .vertical)
                 .fieldBackground()
-            PrimaryGlassButton(title: viewModel.isSubmitting ? "创建中..." : "创建销售单", systemImage: "plus.circle.fill", disabled: viewModel.isSubmitting || viewModel.items.isEmpty) {
+            PrimaryGlassButton(title: viewModel.isSubmitting ? "创建中..." : "创建销售单", systemImage: "plus.circle.fill", disabled: viewModel.isSubmitting || viewModel.items.isEmpty || !session.hasPermission(.salesWrite)) {
                 Task { await viewModel.submit(client: env.apiClient) }
             }
         }
@@ -151,10 +152,10 @@ struct SalesEditView: View {
     private func metric(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 12))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
             Text(value)
-                .font(.system(size: 14, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.bodyMedium)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -11,9 +11,15 @@ enum ZhihuijiTheme {
         static let textPrimary = Color(hex: 0x181C20)
         static let textSecondary = Color(hex: 0x414754)
         static let textTertiary = Color(hex: 0x6B7280)
+        static let textQuaternary = Color(hex: 0x9BA3AF)
+        static let dataTextPrimary = Color(hex: 0x1F2937)
+        static let dataTextSecondary = Color(hex: 0x6B7280)
         static let backgroundStart = Color(hex: 0xE8F1FF)
         static let backgroundMid = Color(hex: 0xF5F8FF)
         static let backgroundEnd = Color.white
+        static let surfaceWhite = Color.white
+        static let surfaceGray = Color(hex: 0xF1F4F9)
+        static let surfaceSoft = Color(hex: 0xECEEF3)
         static let auroraBlue = Color(hex: 0x93C5FD)
         static let auroraIndigo = Color(hex: 0xA5B4FC)
         static let auroraCyan = Color(hex: 0xBAE6FD)
@@ -21,13 +27,48 @@ enum ZhihuijiTheme {
         static let glassMedium = Color.white.opacity(0.40)
         static let glassHigh = Color.white.opacity(0.58)
         static let glassBorder = Color.white.opacity(0.50)
+        static let glassBorderSoft = Color.white.opacity(0.40)
         static let divider = Color(hex: 0xC1C6D6)
+    }
+
+    enum Typography {
+        static let pageTitle = Font.system(size: 28, weight: .bold)
+        static let sectionTitle = Font.system(size: 18, weight: .semibold)
+        static let cardTitle = Font.system(size: 15, weight: .semibold)
+        static let body = Font.system(size: 14)
+        static let bodyMedium = Font.system(size: 14, weight: .medium)
+        static let caption = Font.system(size: 12)
+        static let captionSemibold = Font.system(size: 12, weight: .semibold)
+        static let amount = Font.system(size: 22, weight: .bold)
+        static let tabularAmount = Font.system(size: 22, weight: .bold, design: .rounded)
+    }
+
+    enum Spacing {
+        static let xs: CGFloat = 4
+        static let sm: CGFloat = 8
+        static let md: CGFloat = 12
+        static let lg: CGFloat = 16
+        static let xl: CGFloat = 20
+        static let xxl: CGFloat = 24
     }
 
     enum Radius {
         static let field: CGFloat = 14
         static let card: CGFloat = 16
+        static let cardSmall: CGFloat = 12
         static let pill: CGFloat = 24
+    }
+
+    enum Stroke {
+        static let hairline: CGFloat = 0.5
+        static let control: CGFloat = 0.8
+    }
+
+    enum Status {
+        static let enabled = ColorToken.success
+        static let attention = ColorToken.warning
+        static let danger = ColorToken.danger
+        static let information = ColorToken.primaryBright
     }
 
     enum ShadowToken {

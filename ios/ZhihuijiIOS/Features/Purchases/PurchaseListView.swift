@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PurchaseListView: View {
     @Environment(\.appEnvironment) private var env
+    @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = PurchaseListViewModel()
 
     var body: some View {
@@ -9,15 +10,17 @@ struct PurchaseListView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Text("采购单")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(ZhihuijiTheme.Typography.pageTitle)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                     Spacer()
-                    NavigationLink {
-                        PurchaseEditView()
-                    } label: {
-                        StatusChip(title: "开单", tint: ZhihuijiTheme.ColorToken.primary)
+                    if session.hasPermission(.purchaseWrite) {
+                        NavigationLink {
+                            PurchaseEditView()
+                        } label: {
+                            StatusChip(title: "开单", tint: ZhihuijiTheme.ColorToken.primary)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
 
                 TextField("搜索采购单号 / 供应商", text: $viewModel.keyword)
@@ -87,6 +90,7 @@ final class PurchaseListViewModel: ObservableObject {
             )
             errorMessage = nil
         } catch {
+            orders = []
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
@@ -96,30 +100,32 @@ private struct PurchaseOrderCard: View {
     let order: PurchaseOrderSummary
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(order.orderNo)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
-                    Text(order.supplierName ?? "未命名供应商")
-                        .font(.system(size: 13))
+        GlassListRow {
+            VStack(alignment: .leading, spacing: ZhihuijiTheme.Spacing.sm) {
+                HStack {
+                    VStack(alignment: .leading, spacing: ZhihuijiTheme.Spacing.xs) {
+                        Text(order.orderNo)
+                            .font(ZhihuijiTheme.Typography.cardTitle)
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                        Text(order.supplierName ?? "未命名供应商")
+                            .font(ZhihuijiTheme.Typography.body)
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                    }
+                    Spacer()
+                    StatusChip(title: order.statusLabel, tint: order.statusTint)
+                }
+
+                HStack(alignment: .center) {
+                    AmountText(value: order.totalAmount.currencyText, tint: ZhihuijiTheme.ColorToken.dataTextPrimary)
+                    Spacer()
+                    Text("已付 \(order.paidAmount.currencyText)")
+                        .font(ZhihuijiTheme.Typography.captionSemibold)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
-                Spacer()
-                StatusChip(title: order.statusLabel, tint: order.statusTint)
-            }
 
-            HStack {
-                Text("总额 \(order.totalAmount.currencyText)")
-                Spacer()
-                Text("已付 \(order.paidAmount.currencyText)")
+                TimestampText(value: order.createdAt)
             }
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
         }
-        .padding(16)
-        .glassCard()
     }
 }
 

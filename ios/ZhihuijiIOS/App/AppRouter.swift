@@ -14,7 +14,15 @@ struct AppRouter: View {
                 case .loggedOut:
                     LoginView()
                 case .loggedIn:
-                    if session.currentStore == nil {
+                    if let errorMessage = session.storeLoadError {
+                        StoreHydrationErrorView(message: errorMessage) {
+                            Task {
+                                await session.hydrateStore(using: env.apiClient)
+                            }
+                        } onLogout: {
+                            session.logout()
+                        }
+                    } else if session.currentStore == nil {
                         LoadingStateView(message: "正在同步门店与权限...")
                     } else {
                         RootTabView()
@@ -32,6 +40,45 @@ struct AppRouter: View {
                 session.clearAccessIssue()
             }
         }
+    }
+}
+
+private struct StoreHydrationErrorView: View {
+    let message: String
+    let onRetry: () -> Void
+    let onLogout: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            EmptyStateView(
+                title: "门店与权限同步失败",
+                message: message
+            )
+
+            PrimaryGlassButton(
+                title: "重试同步",
+                systemImage: "arrow.clockwise",
+                action: onRetry
+            )
+
+            Button(action: onLogout) {
+                Text("退出登录")
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        Color.white.opacity(0.56),
+                        in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                            .stroke(Color.white.opacity(0.48), lineWidth: ZhihuijiTheme.Stroke.hairline)
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(20)
     }
 }
 
@@ -89,23 +136,23 @@ private struct AccessIssueView: View {
                     .frame(width: 72, height: 72)
                     .overlay(
                         Image(systemName: "lock.shield.fill")
-                            .font(.system(size: 28))
+                            .font(ZhihuijiTheme.Typography.pageTitle)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
                     )
 
                 VStack(spacing: 8) {
                     Text(issue.title)
-                        .font(.system(size: 24, weight: .bold))
+                        .font(ZhihuijiTheme.Typography.pageTitle)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                     Text(issue.message)
-                        .font(.system(size: 14))
+                        .font(ZhihuijiTheme.Typography.body)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         .multilineTextAlignment(.center)
                 }
 
                 Button(action: onDismiss) {
                     Text("我知道了")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.bodyMedium)
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)

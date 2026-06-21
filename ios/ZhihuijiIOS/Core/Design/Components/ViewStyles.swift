@@ -7,7 +7,7 @@ extension View {
             .background(Color.white.opacity(0.58), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.field, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.field, style: .continuous)
-                    .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
+                    .stroke(Color.white.opacity(0.5), lineWidth: ZhihuijiTheme.Stroke.hairline)
             )
     }
 
@@ -18,9 +18,84 @@ extension View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(ZhihuijiTheme.ColorToken.glassBorder, lineWidth: 0.5)
+                .stroke(ZhihuijiTheme.ColorToken.glassBorder, lineWidth: ZhihuijiTheme.Stroke.hairline)
         )
         .shadow(color: ZhihuijiTheme.ShadowToken.glass, radius: 14, x: 0, y: 8)
+    }
+}
+
+struct AmountText: View {
+    let value: String
+    var tint: Color = ZhihuijiTheme.ColorToken.dataTextPrimary
+
+    var body: some View {
+        Text(value)
+            .font(ZhihuijiTheme.Typography.tabularAmount)
+            .foregroundStyle(tint)
+            .monospacedDigit()
+    }
+}
+
+struct TimestampText: View {
+    let value: Int64?
+
+    var body: some View {
+        Text(value?.dateTimeText ?? "--")
+            .font(ZhihuijiTheme.Typography.caption)
+            .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+    }
+}
+
+struct GlassListRow<Leading: View, Trailing: View>: View {
+    let leading: Leading
+    let trailing: Trailing
+    var action: (() -> Void)?
+
+    init(
+        action: (() -> Void)? = nil,
+        @ViewBuilder leading: () -> Leading,
+        @ViewBuilder trailing: () -> Trailing
+    ) {
+        self.action = action
+        self.leading = leading()
+        self.trailing = trailing()
+    }
+
+    var body: some View {
+        rowContent
+            .padding(14)
+            .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
+    }
+
+    @ViewBuilder
+    private var rowContent: some View {
+        if let action {
+            Button(action: action) {
+                content
+            }
+            .buttonStyle(.plain)
+        } else {
+            content
+        }
+    }
+
+    private var content: some View {
+        HStack(alignment: .center, spacing: ZhihuijiTheme.Spacing.md) {
+            leading
+            Spacer(minLength: ZhihuijiTheme.Spacing.sm)
+            trailing
+        }
+    }
+}
+
+extension GlassListRow where Trailing == EmptyView {
+    init(
+        action: (() -> Void)? = nil,
+        @ViewBuilder leading: () -> Leading
+    ) {
+        self.action = action
+        self.leading = leading()
+        self.trailing = EmptyView()
     }
 }
 

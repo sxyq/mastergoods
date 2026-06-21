@@ -3,13 +3,15 @@ import Foundation
 final class APIClient {
     private let baseURL: URL
     private let tokenStore: AuthTokenStore
+    private let session: URLSession
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
     private let refreshCoordinator = TokenRefreshCoordinator()
 
-    init(baseURL: URL, tokenStore: AuthTokenStore) {
+    init(baseURL: URL, tokenStore: AuthTokenStore, session: URLSession = .shared) {
         self.baseURL = baseURL
         self.tokenStore = tokenStore
+        self.session = session
         self.decoder = JSONDecoder()
         self.encoder = JSONEncoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
@@ -515,7 +517,7 @@ final class APIClient {
         ])
     }
 
-    func fetchInventorySnapshots(snapshotDate: Int64? = nil, startDate: Int64? = nil, endDate: Int64? = nil) async throws -> [InventorySnapshotSummary] {
+    func fetchInventorySnapshots(snapshotDate: Int64? = nil, startDate: Int64? = nil, endDate: Int64? = nil, page: Int? = nil, size: Int? = nil) async throws -> [InventorySnapshotSummary] {
         var queryItems: [URLQueryItem] = []
         if let snapshotDate {
             queryItems.append(URLQueryItem(name: "snapshotDate", value: String(snapshotDate)))
@@ -526,21 +528,36 @@ final class APIClient {
         if let endDate {
             queryItems.append(URLQueryItem(name: "endDate", value: String(endDate)))
         }
+        if let page {
+            queryItems.append(URLQueryItem(name: "page", value: String(page)))
+        }
+        if let size {
+            queryItems.append(URLQueryItem(name: "size", value: String(size)))
+        }
         return try await send(path: "/v2/inventory/snapshots", queryItems: queryItems)
     }
 
-    func fetchInventoryMonthlyStats(year: Int, month: Int) async throws -> [InventoryMonthlyStats] {
-        try await send(path: "/v2/inventory/monthly-stats", queryItems: [
+    func fetchInventoryMonthlyStats(year: Int, month: Int, page: Int? = nil, size: Int? = nil) async throws -> [InventoryMonthlyStats] {
+        var queryItems = [
             URLQueryItem(name: "year", value: String(year)),
             URLQueryItem(name: "month", value: String(month)),
-        ])
+        ]
+        if let page {
+            queryItems.append(URLQueryItem(name: "page", value: String(page)))
+        }
+        if let size {
+            queryItems.append(URLQueryItem(name: "size", value: String(size)))
+        }
+        return try await send(path: "/v2/inventory/monthly-stats", queryItems: queryItems)
     }
 
-    func fetchInventoryLedger(productId: EntityID? = nil, startAt: Int64? = nil, endAt: Int64? = nil) async throws -> [InventoryLedgerEntry] {
+    func fetchInventoryLedger(productId: EntityID? = nil, startAt: Int64? = nil, endAt: Int64? = nil, page: Int? = nil, size: Int? = nil) async throws -> [InventoryLedgerEntry] {
         var queryItems: [URLQueryItem] = []
         if let productId { queryItems.append(URLQueryItem(name: "productId", value: productId.rawValue)) }
         if let startAt { queryItems.append(URLQueryItem(name: "startAt", value: String(startAt))) }
         if let endAt { queryItems.append(URLQueryItem(name: "endAt", value: String(endAt))) }
+        if let page { queryItems.append(URLQueryItem(name: "page", value: String(page))) }
+        if let size { queryItems.append(URLQueryItem(name: "size", value: String(size))) }
         return try await send(path: "/v2/inventory/ledger", queryItems: queryItems)
     }
 
@@ -550,6 +567,91 @@ final class APIClient {
 
     func createInventorySnapshot(payload: InventorySnapshotCreatePayload) async throws -> InventorySnapshotSummary {
         try await send(path: "/v2/inventory/snapshots", method: "POST", body: payload)
+    }
+
+    func fetchMediaAssets() async throws -> [MediaAssetRecord] {
+        try await send(.mediaAssets)
+    }
+
+    func fetchMediaAsset(id: EntityID) async throws -> MediaAssetRecord {
+        try await send(path: "/v2/media/assets/\(id.rawValue)")
+    }
+
+    func createMediaAsset(payload: MediaAssetCreatePayload) async throws -> MediaAssetRecord {
+        try await send(path: "/v2/media/assets", method: "POST", body: payload)
+    }
+
+    func deleteMediaAsset(id: EntityID) async throws {
+        let _: EmptyPayload = try await send(path: "/v2/media/assets/\(id.rawValue)", method: "DELETE")
+    }
+
+    func fetchMediaBindings(targetType: String, targetId: EntityID) async throws -> [MediaBindingRecord] {
+        try await send(
+            .mediaBindings,
+            queryItems: [
+                URLQueryItem(name: "target_type", value: targetType),
+                URLQueryItem(name: "target_id", value: targetId.rawValue),
+            ]
+        )
+    }
+
+    func createMediaBinding(payload: MediaBindingCreatePayload) async throws -> MediaBindingRecord {
+        try await send(path: "/v2/media/bindings", method: "POST", body: payload)
+    }
+
+    func deleteMediaBinding(id: EntityID) async throws {
+        let _: EmptyPayload = try await send(path: "/v2/media/bindings/\(id.rawValue)", method: "DELETE")
+    }
+
+    func fetchSyncHealth() async throws -> SyncHealthRecord {
+        try await send(.syncHealth)
+    }
+
+    func fetchSyncCursor(clientId: String) async throws -> SyncCursorRecord {
+        try await send(path: "/v2/sync/cursor/\(clientId)")
+    }
+
+    func acknowledgeSyncCursor(payload: SyncCursorAckPayload) async throws -> SyncCursorRecord {
+        try await send(path: "/v2/sync/cursor/ack", method: "POST", body: payload)
+    }
+
+    func uploadSyncChanges(payload: SyncUploadPayload) async throws -> SyncUploadResponse {
+        try await send(path: "/v2/sync/upload", method: "POST", body: payload)
+    }
+
+    func pullSyncChanges(payload: SyncPullPayload) async throws -> SyncPullResponse {
+        try await send(path: "/v2/sync/pull", method: "POST", body: payload)
+    }
+
+    func fetchImportJobs(status: String? = nil) async throws -> [ImportJobRecord] {
+        var queryItems: [URLQueryItem] = []
+        if let status, !status.isEmpty {
+            queryItems.append(URLQueryItem(name: "status", value: status))
+        }
+        return try await send(.importJobs, queryItems: queryItems)
+    }
+
+    func fetchImportJob(id: EntityID) async throws -> ImportJobRecord {
+        try await send(path: "/v2/import-jobs/\(id.rawValue)")
+    }
+
+    func createImportJob(payload: ImportJobCreatePayload) async throws -> ImportJobRecord {
+        try await send(path: "/v2/import-jobs", method: "POST", body: payload)
+    }
+
+    func retryImportJob(id: EntityID, payload: ImportJobRetryPayload? = nil) async throws -> ImportJobRecord {
+        if let payload {
+            return try await send(path: "/v2/import-jobs/\(id.rawValue)/retry", method: "POST", body: payload)
+        }
+        return try await send(path: "/v2/import-jobs/\(id.rawValue)/retry", method: "POST")
+    }
+
+    func cancelImportJob(id: EntityID) async throws -> ImportJobRecord {
+        try await send(path: "/v2/import-jobs/\(id.rawValue)/cancel", method: "POST")
+    }
+
+    func importLegacySQLite(payload: LegacySQLiteImportPayload) async throws -> LegacySQLiteImportResult {
+        try await send(path: "/v2/import-jobs/legacy-sqlite", method: "POST", body: payload)
     }
 
     func fetchAgentWorkbench() async throws -> AgentWorkbench {
@@ -670,7 +772,7 @@ final class APIClient {
                 do {
                     var request = request
                     request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                    let (bytes, response) = try await session.bytes(for: request)
                     try self.validate(response: response, data: Data())
 
                     var dataLines: [String] = []
@@ -746,7 +848,7 @@ final class APIClient {
             authorized: authorized,
             queryItems: queryItems
         )
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
 
         if retryOnAuthFailure,
            authorized,
@@ -760,7 +862,7 @@ final class APIClient {
                 authorized: authorized,
                 queryItems: queryItems
             )
-            return try await URLSession.shared.data(for: retriedRequest)
+            return try await session.data(for: retriedRequest)
         }
 
         return (data, response)
@@ -780,7 +882,7 @@ final class APIClient {
                 authorized: false,
                 queryItems: []
             )
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await session.data(for: request)
             let payload: AuthPayload = try decodeEnvelope(response: response, data: data)
             tokenStore.save(accessToken: payload.token, refreshToken: payload.refreshToken ?? refreshToken)
             return payload
@@ -842,13 +944,21 @@ final class APIClient {
             NotificationCenter.default.post(
                 name: .zhihuijiForbidden,
                 object: nil,
-                userInfo: ["message": String(data: data, encoding: .utf8) ?? APIError.forbidden.errorDescription ?? "当前账号没有权限访问该数据"]
+                userInfo: ["message": errorMessage(from: data) ?? APIError.forbidden.errorDescription ?? "当前账号没有权限访问该数据"]
             )
             throw APIError.forbidden
         default:
-            let message = String(data: data, encoding: .utf8) ?? "服务端返回错误"
+            let message = errorMessage(from: data) ?? String(data: data, encoding: .utf8) ?? "服务端返回错误"
             throw APIError.server(status: http.statusCode, message: message)
         }
+    }
+
+    private func errorMessage(from data: Data) -> String? {
+        struct ErrorEnvelope: Decodable {
+            let message: String?
+        }
+
+        return try? decoder.decode(ErrorEnvelope.self, from: data).message?.nilIfBlank
     }
 }
 

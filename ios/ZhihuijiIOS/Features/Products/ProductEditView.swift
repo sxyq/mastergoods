@@ -2,9 +2,11 @@ import SwiftUI
 
 struct ProductEditView: View {
     @Environment(\.appEnvironment) private var env
+    @EnvironmentObject private var session: AppSession
     let productId: EntityID?
     @StateObject private var viewModel = ProductEditViewModel()
     @State private var isSupplierSheetPresented = false
+    @State private var isScanBoundaryPresented = false
 
     init(productId: EntityID? = nil) {
         self.productId = productId
@@ -14,7 +16,7 @@ struct ProductEditView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text(productId == nil ? "新建商品" : "编辑商品")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(ZhihuijiTheme.Typography.pageTitle)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
 
                 if let errorMessage = viewModel.errorMessage {
@@ -22,6 +24,7 @@ struct ProductEditView: View {
                 }
 
                 formSection
+                productMediaSection
                 pricingSection
                 relationSection
             }
@@ -40,12 +43,17 @@ struct ProductEditView: View {
                 }
             )
         }
+        .alert("扫码待接入", isPresented: $isScanBoundaryPresented) {
+            Button("知道了", role: .cancel) {}
+        } message: {
+            Text(ProductEditViewModel.scanBoundaryNotice)
+        }
     }
 
     private var formSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("基础信息")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             TextField("商品编码", text: $viewModel.code)
                 .fieldBackground()
             TextField("商品名称", text: $viewModel.name)
@@ -78,10 +86,86 @@ struct ProductEditView: View {
         .glassCard()
     }
 
+    private var productMediaSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("商品图片")
+                        .font(ZhihuijiTheme.Typography.sectionTitle)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                    Text(ProductEditViewModel.mediaBoundaryNotice)
+                        .font(ZhihuijiTheme.Typography.caption)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                StatusChip(
+                    title: productId == nil ? "先保存商品" : "可绑定媒体",
+                    tint: productId == nil ? ZhihuijiTheme.ColorToken.warning : ZhihuijiTheme.ColorToken.primary
+                )
+            }
+
+            HStack(spacing: 14) {
+                Circle()
+                    .fill(ZhihuijiTheme.ColorToken.primary.opacity(0.12))
+                    .frame(width: 64, height: 64)
+                    .overlay(
+                        Image(systemName: "photo.badge.plus")
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
+                    )
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(productId == nil ? "保存商品后再绑定已上传对象" : "登记已上传对象并绑定到当前商品")
+                        .font(ZhihuijiTheme.Typography.bodyMedium)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                    Text("当前不伪造本地图片上传；只复用现有 /v2/media/assets 与 /v2/media/bindings。")
+                        .font(ZhihuijiTheme.Typography.caption)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    isScanBoundaryPresented = true
+                } label: {
+                    Label("扫码商品编码", systemImage: "qrcode.viewfinder")
+                        .font(ZhihuijiTheme.Typography.captionSemibold)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(Color.white.opacity(0.54), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
+
+                if let productId {
+                    NavigationLink {
+                        MediaAssetsView(initialTargetType: "product", initialTargetId: productId.rawValue)
+                    } label: {
+                        Label("管理商品图片", systemImage: "link")
+                            .font(ZhihuijiTheme.Typography.captionSemibold)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(Color.white.opacity(0.54), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
+                } else {
+                    Text("新建商品保存成功后开放图片绑定")
+                        .font(ZhihuijiTheme.Typography.captionSemibold)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                }
+            }
+        }
+        .padding(16)
+        .glassCard()
+    }
+
     private var pricingSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("价格与库存")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             TextField("零售价", text: $viewModel.salePriceText)
                 .fieldBackground()
             TextField("进货价", text: $viewModel.purchasePriceText)
@@ -93,14 +177,14 @@ struct ProductEditView: View {
 
             if !viewModel.priceLevels.isEmpty {
                 Text("价格层级")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
                 ForEach($viewModel.priceLevels) { $level in
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(level.name)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                             Text(level.code)
-                                .font(.system(size: 11))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                         }
                         Spacer()
@@ -115,7 +199,7 @@ struct ProductEditView: View {
             PrimaryGlassButton(
                 title: viewModel.isSubmitting ? "保存中..." : (productId == nil ? "创建商品" : "保存商品"),
                 systemImage: "square.and.arrow.down.fill",
-                disabled: viewModel.isSubmitting
+                disabled: viewModel.isSubmitting || !session.hasPermission(.archivesWrite)
             ) {
                 Task { await viewModel.submit(productId: productId, client: env.apiClient) }
             }
@@ -129,9 +213,9 @@ struct ProductEditView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("供应关系")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.sectionTitle)
                     Text("沿用 Android 移动端表单语义，保存商品时一并同步默认供应商、优先级和最近进货价。")
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
                 Spacer()
@@ -166,10 +250,10 @@ struct ProductEditView: View {
                         HStack(alignment: .top) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(relation.supplierName)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.bodyMedium)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                                 Text(relation.supplierPhone.nilIfBlank ?? "无联系电话")
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                             Spacer()
@@ -180,7 +264,7 @@ struct ProductEditView: View {
                                 viewModel.removeSupplierRelation(id: relation.id)
                             } label: {
                                 Image(systemName: "trash")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.captionSemibold)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.danger)
                                     .padding(8)
                                     .background(ZhihuijiTheme.ColorToken.danger.opacity(0.10), in: Circle())
@@ -209,7 +293,7 @@ struct ProductEditView: View {
                             .fieldBackground()
                     }
                     .padding(14)
-                    .glassCard(cornerRadius: 12)
+                    .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                 }
             }
         }
@@ -224,22 +308,25 @@ struct ProductEditView: View {
                 .frame(width: 26, height: 26)
                 .overlay(
                     Image(systemName: "info.circle.fill")
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(tint)
                 )
             Text(text)
-                .font(.system(size: 12))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
         }
         .padding(12)
-        .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
     }
 }
 
 @MainActor
 final class ProductEditViewModel: ObservableObject {
+    nonisolated static let scanBoundaryNotice = "iOS 原生扫码入口已保留，但当前尚未接入相机权限、扫码解析与回填流程；现阶段请手动填写商品编码。"
+    nonisolated static let mediaBoundaryNotice = "商品图片复用现有媒体 API。当前只登记已上传对象并绑定商品，不执行本地文件上传或生成假图片。"
+
     @Published var isSubmitting = false
     @Published var errorMessage: String?
     @Published var code = ""
@@ -318,8 +405,21 @@ final class ProductEditViewModel: ObservableObject {
             errorMessage = nil
             relationErrorMessage = nil
         } catch {
+            clearLoadedReferenceData()
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
+    }
+
+    private func clearLoadedReferenceData() {
+        categories = []
+        units = []
+        priceLevels = []
+        supplierDirectory = []
+        supplierRelations = []
+        selectedCategoryId = nil
+        selectedUnitId = nil
+        loadedProductId = nil
+        relationErrorMessage = nil
     }
 
     func submit(productId: EntityID?, client: APIClient) async {
@@ -613,10 +713,10 @@ private struct SupplierPickerSheet: View {
                                             )
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(supplier.name)
-                                                .font(.system(size: 15, weight: .semibold))
+                                                .font(ZhihuijiTheme.Typography.bodyMedium)
                                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                                             Text(supplier.phone)
-                                                .font(.system(size: 12))
+                                                .font(ZhihuijiTheme.Typography.caption)
                                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                                         }
                                         Spacer()
@@ -624,7 +724,7 @@ private struct SupplierPickerSheet: View {
                                             .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                                     }
                                     .padding(14)
-                                    .glassCard(cornerRadius: 12)
+                                    .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                                 }
                                 .buttonStyle(.plain)
                             }

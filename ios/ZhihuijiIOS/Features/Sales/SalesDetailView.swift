@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SalesDetailView: View {
     @Environment(\.appEnvironment) private var env
+    @EnvironmentObject private var session: AppSession
     let orderId: EntityID
     @StateObject private var viewModel = SalesDetailViewModel()
 
@@ -15,20 +16,20 @@ struct SalesDetailView: View {
 
                     VStack(alignment: .leading, spacing: 12) {
                         Text("商品明细")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.sectionTitle)
                         ForEach(order.items) { item in
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(item.productName)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.cardTitle)
                                 Text(item.productCode)
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                                 HStack {
                                     Text("数量 \(String(format: "%.2f", item.quantity))")
                                     Spacer()
                                     Text(item.amount.currencyText)
                                 }
-                                .font(.system(size: 13))
+                                .font(ZhihuijiTheme.Typography.body)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                             .padding(14)
@@ -39,14 +40,16 @@ struct SalesDetailView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Text("收款记录")
-                                .font(.system(size: 18, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.sectionTitle)
                             Spacer()
-                            NavigationLink {
-                                SalesPaymentView(initialOrderId: order.id)
-                            } label: {
-                                StatusChip(title: "去收款", tint: ZhihuijiTheme.ColorToken.primary)
+                            if session.hasPermission(.financeWrite) {
+                                NavigationLink {
+                                    SalesPaymentView(initialOrderId: order.id)
+                                } label: {
+                                    StatusChip(title: "去收款", tint: ZhihuijiTheme.ColorToken.primary)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
 
                         if viewModel.payments.isEmpty {
@@ -56,18 +59,18 @@ struct SalesDetailView: View {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(payment.amount.currencyText)
-                                            .font(.system(size: 15, weight: .semibold))
+                                            .font(ZhihuijiTheme.Typography.cardTitle)
                                         Text(payment.createdAt.dateTimeText)
-                                            .font(.system(size: 12))
+                                            .font(ZhihuijiTheme.Typography.caption)
                                             .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                                     }
                                     Spacer()
                                     VStack(alignment: .trailing, spacing: 4) {
                                         Text(SalePaymentMethod(rawValue: payment.method)?.label ?? "其他")
-                                            .font(.system(size: 13, weight: .medium))
+                                            .font(ZhihuijiTheme.Typography.bodyMedium)
                                         if let referenceNo = payment.referenceNo, !referenceNo.isEmpty {
                                             Text(referenceNo)
-                                                .font(.system(size: 12))
+                                                .font(ZhihuijiTheme.Typography.caption)
                                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                                         }
                                     }
@@ -95,9 +98,9 @@ struct SalesDetailView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(order.orderNo)
-                        .font(.system(size: 20, weight: .bold))
+                        .font(ZhihuijiTheme.Typography.pageTitle)
                     Text(order.customerName ?? "散客")
-                        .font(.system(size: 14))
+                        .font(ZhihuijiTheme.Typography.body)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
                 Spacer()
@@ -111,7 +114,7 @@ struct SalesDetailView: View {
             }
             if let notes = order.notes, !notes.isEmpty {
                 Text(notes)
-                    .font(.system(size: 13))
+                    .font(ZhihuijiTheme.Typography.caption)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
             }
         }
@@ -119,17 +122,17 @@ struct SalesDetailView: View {
         .background(Color.white.opacity(0.58), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous)
-                .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
+                .stroke(Color.white.opacity(0.5), lineWidth: ZhihuijiTheme.Stroke.hairline)
         )
     }
 
     private func metric(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 12))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
             Text(value)
-                .font(.system(size: 14, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.bodyMedium)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -150,6 +153,8 @@ final class SalesDetailViewModel: ObservableObject {
             self.payments = try await payments
             errorMessage = nil
         } catch {
+            self.order = nil
+            self.payments = []
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }

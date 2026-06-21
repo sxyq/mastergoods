@@ -1,4 +1,4 @@
-import SwiftUI
+﻿import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var session: AppSession
@@ -11,6 +11,8 @@ struct SettingsView: View {
                 headerCard
                 statusOverview
                 managementSection
+                syncSection
+                mediaSection
                 permissionSection
                 securitySection
                 PrimaryGlassButton(title: "退出登录", systemImage: "rectangle.portrait.and.arrow.right") {
@@ -28,7 +30,7 @@ struct SettingsView: View {
     private var statusOverview: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("状态概览")
-                .font(.system(size: 20, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 MetricCard(
@@ -46,7 +48,7 @@ struct SettingsView: View {
                 MetricCard(
                     title: "门店成员",
                     value: session.currentStore.map { "\($0.memberCount)" } ?? "--",
-                    subtitle: "已同步账号",
+                    subtitle: "已同步到本地",
                     tint: ZhihuijiTheme.ColorToken.primaryBright
                 )
                 MetricCard(
@@ -62,19 +64,19 @@ struct SettingsView: View {
     private var headerCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("系统设置")
-                .font(.system(size: 28, weight: .bold))
+                .font(ZhihuijiTheme.Typography.pageTitle)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
 
             if let store = session.currentStore {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(store.storeName)
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.cardTitle)
                         Text(store.currentUserName)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(ZhihuijiTheme.Typography.bodyMedium)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                         Text(store.role.label)
-                            .font(.system(size: 12))
+                            .font(ZhihuijiTheme.Typography.caption)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                     }
                     Spacer()
@@ -82,7 +84,7 @@ struct SettingsView: View {
                 }
             } else {
                 Text("正在同步当前门店与成员信息。")
-                    .font(.system(size: 14))
+                    .font(ZhihuijiTheme.Typography.body)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
             }
         }
@@ -93,7 +95,7 @@ struct SettingsView: View {
     private var managementSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("门店管理")
-                .font(.system(size: 20, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             if session.hasPermission(.usersManage) {
                 NavigationLink {
@@ -117,10 +119,64 @@ struct SettingsView: View {
         }
     }
 
+    private var syncSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("同步与导入")
+                .font(ZhihuijiTheme.Typography.sectionTitle)
+
+            if session.hasPermission(.databaseManage) {
+                NavigationLink {
+                    SyncImportView()
+                } label: {
+                    settingsEntryCard(
+                        title: "同步状态 / 导入任务",
+                        subtitle: "查看 `/v2/sync/*` 与 `/v2/import-jobs/*` 的客户端状态",
+                        icon: "arrow.triangle.2.circlepath",
+                        tint: ZhihuijiTheme.ColorToken.primaryBright
+                    )
+                }
+                .buttonStyle(.plain)
+            } else {
+                settingsInfoCard(
+                    title: "同步与导入受限",
+                    subtitle: "当前账号没有 `database:manage` 权限，因此这里不显示同步与导入入口。",
+                    tint: ZhihuijiTheme.ColorToken.textTertiary
+                )
+            }
+        }
+    }
+
+    private var mediaSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("媒体资产")
+                .font(ZhihuijiTheme.Typography.sectionTitle)
+
+            if session.hasPermission(.databaseManage) {
+                NavigationLink {
+                    MediaAssetsView()
+                } label: {
+                    settingsEntryCard(
+                        title: "媒体对象与绑定",
+                        subtitle: "查看 /v2/media/* 的真实对象、绑定和删除链路，不伪造本地上传。",
+                        icon: "photo.on.rectangle.angled",
+                        tint: ZhihuijiTheme.ColorToken.primaryBright
+                    )
+                }
+                .buttonStyle(.plain)
+            } else {
+                settingsInfoCard(
+                    title: "媒体入口受限",
+                    subtitle: "当前账号没有 database:manage 权限，因此这里不显示媒体对象管理入口。",
+                    tint: ZhihuijiTheme.ColorToken.textTertiary
+                )
+            }
+        }
+    }
+
     private var permissionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("当前权限")
-                .font(.system(size: 20, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             if session.permissions.isEmpty {
                 EmptyStateView(title: "暂无权限数据", message: "当前账号还没有同步到门店权限信息。")
@@ -131,7 +187,7 @@ struct SettingsView: View {
                     }
                 }
                 .padding(14)
-                .glassCard(cornerRadius: 12)
+                .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
             }
         }
     }
@@ -139,7 +195,7 @@ struct SettingsView: View {
     private var securitySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("账号与安全")
-                .font(.system(size: 20, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             settingsInfoCard(
                 title: "登录态管理",
@@ -148,10 +204,10 @@ struct SettingsView: View {
             )
 
             settingsInfoCard(
-                title: "数据库与系统权限",
+                title: "数据权限",
                 subtitle: session.hasPermission(.databaseManage)
-                    ? "当前账号具备数据库管理权限；移动端当前仅同步权限状态，数据库运维仍建议在受控管理端处理。"
-                    : "当前账号没有数据库管理权限，因此这里仅保留业务相关设置与安全信息。",
+                    ? "当前账号具备数据库管理权限；同步与导入入口可见。"
+                    : "当前账号没有数据库管理权限，因此这里只保留业务相关设置与安全信息。",
                 tint: session.hasPermission(.databaseManage) ? ZhihuijiTheme.ColorToken.primaryBright : ZhihuijiTheme.ColorToken.textTertiary
             )
 
@@ -175,10 +231,10 @@ struct SettingsView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                 Text(subtitle)
-                    .font(.system(size: 13))
+                    .font(ZhihuijiTheme.Typography.body)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
             }
 
@@ -197,16 +253,16 @@ struct SettingsView: View {
                 .frame(width: 34, height: 34)
                 .overlay(
                     Image(systemName: "checkmark.shield.fill")
-                        .font(.system(size: 14))
+                        .font(ZhihuijiTheme.Typography.body)
                         .foregroundStyle(tint)
                 )
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                 Text(subtitle)
-                    .font(.system(size: 13))
+                    .font(ZhihuijiTheme.Typography.body)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

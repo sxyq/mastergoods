@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PayOrderDetailView: View {
     @Environment(\.appEnvironment) private var env
+    @EnvironmentObject private var session: AppSession
     let initialOrderId: EntityID?
     let initialKeyword: String
     @StateObject private var viewModel = PayOrderDetailViewModel()
@@ -16,7 +17,7 @@ struct PayOrderDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("付款单")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(ZhihuijiTheme.Typography.pageTitle)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
 
                 TextField("搜索付款单号 / 供应商", text: $viewModel.keyword)
@@ -49,7 +50,12 @@ struct PayOrderDetailView: View {
                 }
 
                 if viewModel.orders.isEmpty, !viewModel.isLoading {
-                    EmptyStateView(title: "暂无付款单", message: "可以直接在下面新建一张付款单。")
+                    EmptyStateView(
+                        title: "暂无付款单",
+                        message: session.hasPermission(.financeWrite)
+                            ? "可以直接在下面新建一张付款单。"
+                            : "当前账号没有新建付款单权限。"
+                    )
                 } else {
                     ForEach(viewModel.orders.prefix(10)) { order in
                         let isSelected = viewModel.selectedOrder?.id == order.id
@@ -67,9 +73,9 @@ struct PayOrderDetailView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(order.orderNo)
-                                    .font(.system(size: 18, weight: .bold))
+                                    .font(ZhihuijiTheme.Typography.pageTitle)
                                 Text(order.supplierName ?? "未命名供应商")
-                                    .font(.system(size: 13))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                             Spacer()
@@ -87,21 +93,25 @@ struct PayOrderDetailView: View {
                         }
                         if let notes = order.notes, !notes.isEmpty {
                             Text(notes)
-                                .font(.system(size: 13))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         }
 
-                        HStack(spacing: 12) {
-                            actionButton(title: "设草稿", status: 0)
-                            actionButton(title: "设已付", status: 1)
-                            actionButton(title: "设取消", status: 2)
+                        if session.hasPermission(.financeWrite) {
+                            HStack(spacing: 12) {
+                                actionButton(title: "设草稿", status: 0)
+                                actionButton(title: "设已付", status: 1)
+                                actionButton(title: "设取消", status: 2)
+                            }
                         }
                     }
                     .padding(16)
                     .glassCard()
                 }
 
-                createForm
+                if session.hasPermission(.financeWrite) {
+                    createForm
+                }
             }
             .padding(20)
         }
@@ -130,7 +140,7 @@ struct PayOrderDetailView: View {
     private var createForm: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("新建付款单")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             Button {
                 isSupplierSheetPresented = true
             } label: {
@@ -144,10 +154,10 @@ struct PayOrderDetailView: View {
                         )
                     VStack(alignment: .leading, spacing: 4) {
                         Text(viewModel.selectedSupplier?.name ?? "选择供应商")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.cardTitle)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                         Text(viewModel.selectedSupplier?.phone ?? "优先从真实供应商档案中选择，可保留手动补录。")
-                            .font(.system(size: 12))
+                            .font(ZhihuijiTheme.Typography.caption)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                     }
                     Spacer()
@@ -155,7 +165,7 @@ struct PayOrderDetailView: View {
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                 }
                 .padding(14)
-                .glassCard(cornerRadius: 12)
+                .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
             }
             .buttonStyle(.plain)
             TextField("供应商名称", text: $viewModel.createSupplierName)
@@ -186,7 +196,7 @@ struct PayOrderDetailView: View {
             PrimaryGlassButton(
                 title: viewModel.isSubmitting ? "创建中..." : "创建付款单",
                 systemImage: "plus.circle.fill",
-                disabled: viewModel.isSubmitting
+                disabled: viewModel.isSubmitting || !session.hasPermission(.financeWrite)
             ) {
                 Task { await viewModel.create(client: env.apiClient) }
             }
@@ -202,17 +212,17 @@ struct PayOrderDetailView: View {
                 .frame(width: 26, height: 26)
                 .overlay(
                     Image(systemName: "info.circle.fill")
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(tint)
                 )
             Text(text)
-                .font(.system(size: 12))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
         }
         .padding(12)
-        .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
     }
 
     private func actionButton(title: String, status: Int) -> some View {
@@ -220,11 +230,11 @@ struct PayOrderDetailView: View {
             Task { await viewModel.updateStatus(client: env.apiClient, status: status) }
         } label: {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.captionSemibold)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(Color.white.opacity(0.56), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(Color.white.opacity(0.56), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -232,10 +242,10 @@ struct PayOrderDetailView: View {
     private func metric(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 12))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
             Text(value)
-                .font(.system(size: 14, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.bodyMedium)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -371,13 +381,13 @@ private struct PayOrderCard: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(order.orderNo)
-                    .font(.system(size: 15, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.cardTitle)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                 Text(order.supplierName ?? "未命名供应商")
-                    .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                 Text(order.amount.currencyText)
-                    .font(.system(size: 13, weight: .medium))
+                        .font(ZhihuijiTheme.Typography.bodyMedium)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
             }
             Spacer()
@@ -390,7 +400,7 @@ private struct PayOrderCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous)
-                .stroke(ZhihuijiTheme.ColorToken.glassBorder, lineWidth: 0.5)
+                .stroke(ZhihuijiTheme.ColorToken.glassBorder, lineWidth: ZhihuijiTheme.Stroke.hairline)
         )
     }
 }
@@ -464,10 +474,10 @@ private struct PayOrderSupplierSheet: View {
                                             )
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(supplier.name)
-                                                .font(.system(size: 15, weight: .semibold))
+                                                .font(ZhihuijiTheme.Typography.cardTitle)
                                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                                             Text(supplier.phone)
-                                                .font(.system(size: 12))
+                                                .font(ZhihuijiTheme.Typography.caption)
                                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                                         }
                                         Spacer()
@@ -475,7 +485,7 @@ private struct PayOrderSupplierSheet: View {
                                             .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                                     }
                                     .padding(14)
-                                    .glassCard(cornerRadius: 12)
+                                    .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                                 }
                                 .buttonStyle(.plain)
                             }

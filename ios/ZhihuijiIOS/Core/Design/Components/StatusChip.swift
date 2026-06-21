@@ -6,13 +6,17 @@ struct StatusChip: View {
 
     var body: some View {
         Text(title)
-            .font(.system(size: 12, weight: .semibold))
+            .font(ZhihuijiTheme.Typography.captionSemibold)
             .foregroundStyle(tint)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(tint.opacity(0.12), in: Capsule())
+            .background(
+                tint.opacity(0.12),
+                in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+            )
             .overlay(
-                Capsule().strokeBorder(.white.opacity(0.4), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                    .strokeBorder(.white.opacity(0.4), lineWidth: ZhihuijiTheme.Stroke.hairline)
             )
     }
 }

@@ -38,10 +38,10 @@ struct SalesReturnView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("销售退货")
-                .font(.system(size: 28, weight: .bold))
+                .font(ZhihuijiTheme.Typography.pageTitle)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
             Text("保持与安卓一致的移动工作流：上面筛选，下面列表与详情分层展开。")
-                .font(.system(size: 14))
+                .font(ZhihuijiTheme.Typography.body)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
         }
     }
@@ -87,7 +87,7 @@ struct SalesReturnView: View {
                 if selected.canEditDraft, session.hasPermission(.salesWrite) {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("草稿处理")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.sectionTitle)
                         TextField("备注", text: $viewModel.notesDraft, axis: .vertical)
                             .fieldBackground()
 
@@ -115,7 +115,7 @@ struct SalesReturnView: View {
                 if selected.canRefund, session.hasPermission(.financeWrite) {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("退款处理")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.sectionTitle)
                         TextField("退款金额", text: $viewModel.refundAmountText)
                             .fieldBackground()
                         Picker("退款方式", selection: $viewModel.refundMethod) {
@@ -160,7 +160,7 @@ struct SalesReturnView: View {
     private var createSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("来源销售单")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             if viewModel.saleOrders.isEmpty {
                 EmptyStateView(title: "暂无可选销售单", message: "请先确保销售单已经同步到当前账号。")
@@ -172,15 +172,15 @@ struct SalesReturnView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(order.orderNo)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.cardTitle)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                                 Text(order.customerName ?? "散客")
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                             }
                             Spacer()
                             Text(order.totalAmount.currencyText)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                         }
                         .padding(14)
@@ -196,18 +196,18 @@ struct SalesReturnView: View {
             if let sourceOrder = viewModel.sourceOrder {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("退货商品")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.sectionTitle)
                     Text(sourceOrder.orderNo)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(ZhihuijiTheme.Typography.body)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
 
                     ForEach($viewModel.draftItems) { $item in
                         VStack(alignment: .leading, spacing: 10) {
                             Text(item.productName)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.cardTitle)
                             if !item.productCode.isEmpty {
                                 Text(item.productCode)
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                             }
                             Stepper(
@@ -216,7 +216,7 @@ struct SalesReturnView: View {
                                 step: 1
                             ) {
                                 Text("退货数量 \(String(format: "%.0f", item.quantity)) / \(String(format: "%.0f", item.maxQuantity))")
-                                    .font(.system(size: 13))
+                                    .font(ZhihuijiTheme.Typography.body)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                             TextField("退货单价", text: $item.unitPriceText)
@@ -457,10 +457,10 @@ private struct SalesReturnCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.returnNo)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.cardTitle)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                     Text(item.customerName ?? "散客")
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                 }
                 Spacer()
@@ -471,7 +471,7 @@ private struct SalesReturnCard: View {
                 Spacer()
                 Text("已退 \(item.refundAmount.currencyText)")
             }
-            .font(.system(size: 13, weight: .medium))
+            .font(ZhihuijiTheme.Typography.bodyMedium)
             .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
         }
         .padding(16)
@@ -481,7 +481,7 @@ private struct SalesReturnCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous)
-                .stroke(ZhihuijiTheme.ColorToken.glassBorder, lineWidth: 0.5)
+                .stroke(ZhihuijiTheme.ColorToken.glassBorder, lineWidth: ZhihuijiTheme.Stroke.hairline)
         )
     }
 }
@@ -494,9 +494,9 @@ private struct SalesReturnDetailCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.returnNo)
-                        .font(.system(size: 18, weight: .bold))
+                        .font(ZhihuijiTheme.Typography.pageTitle)
                     Text("来源单 \(item.originalOrderId.rawValue)")
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                 }
                 Spacer()
@@ -514,25 +514,25 @@ private struct SalesReturnDetailCard: View {
             ForEach(item.items) { detail in
                 VStack(alignment: .leading, spacing: 6) {
                     Text(detail.productName)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.cardTitle)
                     Text(detail.productCode)
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                     HStack {
                         Text("数量 \(String(format: "%.0f", detail.quantity))")
                         Spacer()
                         Text(detail.amount.currencyText)
                     }
-                    .font(.system(size: 13))
+                    .font(ZhihuijiTheme.Typography.body)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
                 .padding(12)
-                .background(Color.white.opacity(0.4), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(Color.white.opacity(0.4), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
             }
 
             if let notes = item.notes, !notes.isEmpty {
                 Text(notes)
-                    .font(.system(size: 13))
+                    .font(ZhihuijiTheme.Typography.body)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
             }
         }
@@ -543,10 +543,10 @@ private struct SalesReturnDetailCard: View {
     private func metric(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 12))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
             Text(value)
-                .font(.system(size: 14, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.bodyMedium)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

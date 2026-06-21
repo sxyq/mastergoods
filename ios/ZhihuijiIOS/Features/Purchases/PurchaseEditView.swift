@@ -2,13 +2,14 @@ import SwiftUI
 
 struct PurchaseEditView: View {
     @Environment(\.appEnvironment) private var env
+    @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = PurchaseEditViewModel()
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("采购开单")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(ZhihuijiTheme.Typography.pageTitle)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
 
                 if let errorMessage = viewModel.errorMessage {
@@ -16,6 +17,7 @@ struct PurchaseEditView: View {
                 }
 
                 supplierSection
+                purchaseContractBoundarySection
                 productSection
                 summarySection
             }
@@ -30,7 +32,7 @@ struct PurchaseEditView: View {
     private var supplierSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("供应商")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             TextField("搜索供应商", text: $viewModel.supplierKeyword)
                 .fieldBackground()
             ForEach(viewModel.filteredSuppliers.prefix(6)) { supplier in
@@ -40,10 +42,10 @@ struct PurchaseEditView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(supplier.name)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.cardTitle)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                             Text(supplier.phone)
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                         }
                         Spacer()
@@ -61,10 +63,29 @@ struct PurchaseEditView: View {
         .glassCard()
     }
 
+    private var purchaseContractBoundarySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("结算与入库")
+                .font(ZhihuijiTheme.Typography.sectionTitle)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+            Text(PurchaseEditViewModel.contractBoundaryNotice)
+                .font(ZhihuijiTheme.Typography.caption)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 12) {
+                disabledSelectField(title: "结算方式", value: "待接入真实字段")
+                disabledSelectField(title: "入库仓库", value: "默认仓库")
+            }
+        }
+        .padding(16)
+        .glassCard()
+    }
+
     private var productSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("商品")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             TextField("搜索商品", text: $viewModel.productKeyword)
                 .fieldBackground()
             ForEach(viewModel.filteredProducts.prefix(8)) { product in
@@ -74,52 +95,52 @@ struct PurchaseEditView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(product.name)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.cardTitle)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                             Text(product.code)
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 4) {
                             Text(product.purchasePrice.currencyText)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.captionSemibold)
                             Text("库存 \(String(format: "%.2f", product.stock))")
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         }
                     }
                     .padding(14)
-                    .glassCard(cornerRadius: 12)
+                    .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                 }
                 .buttonStyle(.plain)
             }
 
             if !viewModel.items.isEmpty {
                 Text("采购明细")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
                 ForEach($viewModel.items) { $item in
                     VStack(alignment: .leading, spacing: 10) {
                         Text(item.productName)
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.cardTitle)
                         HStack {
                             Stepper(value: $item.quantity, in: 1 ... 999, step: 1) {
                                 Text("数量 \(String(format: "%.0f", item.quantity))")
-                                    .font(.system(size: 13))
+                                    .font(ZhihuijiTheme.Typography.body)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                             Spacer()
                             Button("移除") {
                                 viewModel.removeItem(id: item.id)
                             }
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.captionSemibold)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.danger)
                         }
                         TextField("单价", text: $item.unitCostText)
                             .fieldBackground()
                     }
                     .padding(14)
-                    .glassCard(cornerRadius: 12)
+                    .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                 }
             }
         }
@@ -130,10 +151,17 @@ struct PurchaseEditView: View {
     private var summarySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("金额与备注")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             HStack {
                 metric("合计", viewModel.total.currencyText)
                 metric("供应商", viewModel.selectedSupplier?.name ?? "未选")
+            }
+            HStack(alignment: .top, spacing: 10) {
+                metric("整单折扣", "未接入")
+                Text(PurchaseEditViewModel.discountBoundaryNotice)
+                    .font(ZhihuijiTheme.Typography.caption)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             TextField("备注", text: $viewModel.notes, axis: .vertical)
                 .fieldBackground()
@@ -142,7 +170,7 @@ struct PurchaseEditView: View {
                 Text("已入库").tag(1)
             }
             .pickerStyle(.segmented)
-            PrimaryGlassButton(title: viewModel.isSubmitting ? "创建中..." : "创建采购单", systemImage: "plus.circle.fill", disabled: viewModel.isSubmitting || viewModel.items.isEmpty) {
+            PrimaryGlassButton(title: viewModel.isSubmitting ? "创建中..." : "创建采购单", systemImage: "plus.circle.fill", disabled: viewModel.isSubmitting || viewModel.items.isEmpty || !session.hasPermission(.purchaseWrite)) {
                 Task { await viewModel.submit(client: env.apiClient) }
             }
         }
@@ -153,11 +181,37 @@ struct PurchaseEditView: View {
     private func metric(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 12))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
             Text(value)
-                .font(.system(size: 14, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.bodyMedium)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func disabledSelectField(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(ZhihuijiTheme.Typography.captionSemibold)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+            HStack(spacing: 8) {
+                Text(value)
+                    .font(ZhihuijiTheme.Typography.caption)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                    .lineLimit(1)
+                Spacer()
+                Image(systemName: "chevron.down")
+                    .font(ZhihuijiTheme.Typography.caption)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 10)
+            .background(Color.white.opacity(0.34), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                    .stroke(Color.white.opacity(0.52), lineWidth: ZhihuijiTheme.Stroke.hairline)
+            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -165,6 +219,9 @@ struct PurchaseEditView: View {
 
 @MainActor
 final class PurchaseEditViewModel: ObservableObject {
+    nonisolated static let contractBoundaryNotice = "采购单创建复用现有 /v2/purchase-orders。当前后端创建合同没有结算方式和入库仓库字段，iOS 按 Android 移动端语义展示禁用选择，不写入不存在的 DTO 字段。"
+    nonisolated static let discountBoundaryNotice = "整单折扣当前未进入采购单创建请求；本页只展示未接入状态，不在本地扣减或伪造后端金额。"
+
     @Published var isSubmitting = false
     @Published var errorMessage: String?
     @Published var suppliers: [SupplierRecord] = []

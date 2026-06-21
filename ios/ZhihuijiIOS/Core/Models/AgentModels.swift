@@ -1,5 +1,11 @@
 import Foundation
 
+enum AgentContractStatus {
+    static let active = "active"
+    static let closed = "closed"
+    static let archived = "archived"
+}
+
 struct AgentConversationSummary: Identifiable, Codable, Equatable {
     let id: EntityID
     let title: String
@@ -290,6 +296,91 @@ struct AgentLiveRunPreview: Equatable {
     var planSource: String?
 }
 
+struct AgentTextBlockData: Codable, Equatable {
+    let text: String?
+    let markdown: String?
+}
+
+struct AgentLineChartBlockData: Codable, Equatable {
+    let title: String?
+    let labels: [String]
+    let series: [AgentChartSeries]
+}
+
+struct AgentBarChartBlockData: Codable, Equatable {
+    let title: String?
+    let labels: [String]
+    let series: [AgentChartSeries]
+}
+
+struct AgentDonutChartBlockData: Codable, Equatable {
+    let title: String?
+    let segments: [AgentChartSegment]
+}
+
+struct AgentChartSeries: Codable, Equatable, Identifiable {
+    var id: String { [name, color ?? ""].joined(separator: ":") }
+
+    let name: String
+    let data: [Double]
+    let color: String?
+}
+
+struct AgentChartSegment: Codable, Equatable, Identifiable {
+    var id: String { [name, color ?? ""].joined(separator: ":") }
+
+    let name: String
+    let value: Double
+    let color: String?
+}
+
+struct AgentEvidenceCardBlockData: Codable, Equatable {
+    let title: String?
+    let items: [EvidenceItem]
+
+    struct EvidenceItem: Codable, Equatable, Identifiable {
+        var id: String { [label, toolCallId ?? "", source ?? ""].joined(separator: ":") }
+
+        let label: String
+        let value: String
+        let source: String?
+        let toolCallId: String?
+        let queryWindow: JSONValue?
+        let isTruncated: Bool?
+
+        enum CodingKeys: String, CodingKey {
+            case label
+            case value
+            case source
+            case toolCallId = "tool_call_id"
+            case queryWindow = "query_window"
+            case isTruncated = "is_truncated"
+        }
+    }
+}
+
+struct AgentDraftCardBlockData: Codable, Equatable {
+    let draftId: EntityID
+    let draftType: String
+    let title: String
+    let summary: String
+    let itemCount: Int?
+    let totalAmount: String?
+    let partnerName: String?
+    let warnings: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case draftId = "draft_id"
+        case draftType = "draft_type"
+        case title
+        case summary
+        case itemCount = "item_count"
+        case totalAmount = "total_amount"
+        case partnerName = "partner_name"
+        case warnings
+    }
+}
+
 enum JSONValue: Codable, Equatable {
     case string(String)
     case number(Double)
@@ -336,8 +427,75 @@ enum JSONValue: Codable, Equatable {
     }
 }
 
+extension JSONValue {
+    func decode<T: Decodable>(as type: T.Type, decoder: JSONDecoder = JSONDecoder()) -> T? {
+        guard let rawJSONObject else { return nil }
+        guard JSONSerialization.isValidJSONObject(rawJSONObject) else { return nil }
+        guard let data = try? JSONSerialization.data(withJSONObject: rawJSONObject) else { return nil }
+        return try? decoder.decode(T.self, from: data)
+    }
+
+    var rawJSONObject: Any? {
+        switch self {
+        case let .string(value):
+            return value
+        case let .number(value):
+            return value
+        case let .bool(value):
+            return value
+        case let .object(value):
+            return value.mapValues { $0.rawJSONObject ?? NSNull() }
+        case let .array(value):
+            return value.map { $0.rawJSONObject ?? NSNull() }
+        case .null:
+            return NSNull()
+        }
+    }
+}
+
 extension AgentMessage {
     var isAssistant: Bool { role == "assistant" }
+
+    var resultBlocks: [AgentResultBlock] {
+        AgentResultBlock.decodeList(from: structuredDataJson)
+    }
+}
+
+extension AgentResultBlock {
+    static func decodeList(from structuredDataJson: String?) -> [AgentResultBlock] {
+        guard let structuredDataJson = structuredDataJson?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !structuredDataJson.isEmpty,
+              let data = structuredDataJson.data(using: .utf8) else {
+            return []
+        }
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+
+        if let blocks = try? decoder.decode([AgentResultBlock].self, from: data) {
+            return blocks
+        }
+
+        if let envelope = try? decoder.decode(AgentResultBlockEnvelope.self, from: data) {
+            if !envelope.resultBlocks.isEmpty {
+                return envelope.resultBlocks
+            }
+            return envelope.blocks
+        }
+
+        return []
+    }
+}
+
+private struct AgentResultBlockEnvelope: Codable {
+    let blocks: [AgentResultBlock]
+    let resultBlocks: [AgentResultBlock]
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        blocks = try container.decodeIfPresent([AgentResultBlock].self, forKey: .blocks) ?? []
+        resultBlocks = try container.decodeIfPresent([AgentResultBlock].self, forKey: .resultBlocks) ?? []
+    }
 }
 
 extension AgentNotification {

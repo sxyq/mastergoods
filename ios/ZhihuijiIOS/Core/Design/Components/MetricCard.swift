@@ -9,21 +9,21 @@ struct MetricCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 14, weight: .medium))
+                .font(ZhihuijiTheme.Typography.bodyMedium)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
             Text(value)
-                .font(.system(size: 22, weight: .bold))
+                .font(ZhihuijiTheme.Typography.tabularAmount)
                 .foregroundStyle(tint)
             Text(subtitle)
-                .font(.system(size: 12, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.captionSemibold)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
+        .padding(ZhihuijiTheme.Spacing.lg)
         .background(.white.opacity(0.58), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous)
-                .stroke(.white.opacity(0.5), lineWidth: 0.5)
+                .stroke(.white.opacity(0.5), lineWidth: ZhihuijiTheme.Stroke.hairline)
         )
         .shadow(color: ZhihuijiTheme.ShadowToken.glass, radius: 12, y: 6)
     }

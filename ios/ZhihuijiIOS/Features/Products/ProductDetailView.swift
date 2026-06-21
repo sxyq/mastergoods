@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProductDetailView: View {
     @Environment(\.appEnvironment) private var env
+    @EnvironmentObject private var session: AppSession
     let productId: EntityID
     @StateObject private var viewModel = ProductDetailViewModel()
 
@@ -13,30 +14,34 @@ struct ProductDetailView: View {
                 } else if let product = viewModel.product {
                     header(product)
 
-                    NavigationLink {
-                        ProductEditView(productId: product.id)
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("编辑商品")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
-                                Text("修改基础字段、价格与库存阈值。")
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                    if session.hasPermission(.archivesWrite) {
+                        NavigationLink {
+                            ProductEditView(productId: product.id)
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("编辑商品")
+                                        .font(ZhihuijiTheme.Typography.bodyMedium)
+                                        .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                                    Text("修改基础字段、价格与库存阈值。")
+                                        .font(ZhihuijiTheme.Typography.body)
+                                        .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                             }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                            .padding(16)
+                            .glassCard()
                         }
-                        .padding(16)
-                        .glassCard()
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
 
                     priceSection(product)
                     supplierSection(product)
-                    inventorySection(product)
+                    if session.hasPermission(.inventoryWrite) {
+                        inventorySection(product)
+                    }
                 } else {
                     LoadingStateView(message: "正在加载商品详情...")
                 }
@@ -54,9 +59,9 @@ struct ProductDetailView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(product.name)
-                        .font(.system(size: 22, weight: .bold))
+                        .font(ZhihuijiTheme.Typography.pageTitle)
                     Text(product.code)
-                        .font(.system(size: 13))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                 }
                 Spacer()
@@ -79,7 +84,7 @@ struct ProductDetailView: View {
     private func priceSection(_ product: ProductRecord) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("价格信息")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             HStack {
                 metric("零售价", product.salePrice.currencyText)
                 metric("进货价", product.purchasePrice.currencyText)
@@ -90,18 +95,18 @@ struct ProductDetailView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(level.name)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                             Text(level.code)
-                                .font(.system(size: 11))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                         }
                         Spacer()
                         Text(level.price.currencyText)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.bodyMedium)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                     }
                     .padding(12)
-                    .glassCard(cornerRadius: 12)
+                    .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                 }
             }
         }
@@ -110,41 +115,41 @@ struct ProductDetailView: View {
     private func supplierSection(_ product: ProductRecord) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("供应商关系")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             if let defaultSupplier = product.defaultSupplier {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(defaultSupplier.supplierName)
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.bodyMedium)
                         Text(defaultSupplier.supplierPhone ?? "无联系电话")
-                            .font(.system(size: 12))
+                            .font(ZhihuijiTheme.Typography.caption)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                     }
                     Spacer()
                     StatusChip(title: "默认", tint: ZhihuijiTheme.ColorToken.primary)
                 }
                 .padding(14)
-                .glassCard(cornerRadius: 12)
+                .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
             }
             if let relations = product.supplierRelations, !relations.isEmpty {
                 ForEach(relations.filter { !($0.isDefault ?? false) }) { relation in
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(relation.supplierName)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                             Text(relation.supplierPhone ?? "无联系电话")
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         }
                         Spacer()
                         if let price = relation.lastPurchasePrice {
                             Text(price.currencyText)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                         }
                     }
                     .padding(12)
-                    .glassCard(cornerRadius: 12)
+                    .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                 }
             } else if product.defaultSupplier == nil {
                 EmptyStateView(title: "暂无供应商关系", message: "当前商品还没有绑定默认供应商。")
@@ -155,17 +160,17 @@ struct ProductDetailView: View {
     private func inventorySection(_ product: ProductRecord) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("库存动作")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             NavigationLink {
                 InventoryAdjustView()
             } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("库存调整")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.bodyMedium)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                         Text("当前库存 \(String(format: "%.2f", product.stock))，可直接进入调整与快照。")
-                            .font(.system(size: 13))
+                            .font(ZhihuijiTheme.Typography.body)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                     }
                     Spacer()
@@ -182,10 +187,10 @@ struct ProductDetailView: View {
     private func metric(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 12))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
             Text(value)
-                .font(.system(size: 14, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.bodyMedium)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -202,6 +207,7 @@ final class ProductDetailViewModel: ObservableObject {
             product = try await client.fetchProduct(id: productId)
             errorMessage = nil
         } catch {
+            product = nil
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }

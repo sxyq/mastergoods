@@ -41,4 +41,28 @@ final class AuthPermissionTests: XCTestCase {
         XCTAssertEqual(Notification.Name.zhihuijiUnauthorized.rawValue, "zhihuiji.api.unauthorized")
         XCTAssertEqual(Notification.Name.zhihuijiForbidden.rawValue, "zhihuiji.api.forbidden")
     }
+
+    func testMediaWritePolicyMatchesBusinessPermissions() {
+        XCTAssertTrue(PermissionPolicy.canWriteMedia(targetType: "product", permissions: [.archivesWrite]))
+        XCTAssertTrue(PermissionPolicy.canWriteMedia(targetType: " sale_order ", permissions: [.salesWrite]))
+        XCTAssertTrue(PermissionPolicy.canWriteMedia(targetType: "PURCHASE_ORDER", permissions: [.purchaseWrite]))
+        XCTAssertTrue(PermissionPolicy.canWriteMedia(targetType: "asset", permissions: [.databaseManage]))
+
+        XCTAssertFalse(PermissionPolicy.canWriteMedia(targetType: "product", permissions: [.archivesView]))
+        XCTAssertFalse(PermissionPolicy.canWriteMedia(targetType: "sale_order", permissions: [.financeWrite]))
+        XCTAssertFalse(PermissionPolicy.canWriteMedia(targetType: "unknown", permissions: [.archivesWrite]))
+    }
+
+    func testDatabaseManagePolicyRequiresDatabaseManagePermission() {
+        XCTAssertTrue(PermissionPolicy.canManageDatabase([.databaseManage]))
+        XCTAssertFalse(PermissionPolicy.canManageDatabase([.settingsManage, .usersManage]))
+        XCTAssertFalse(PermissionPolicy.canManageDatabase([]))
+    }
+
+    func testMediaPermissionsRespectTargetTypeScope() {
+        XCTAssertTrue(PermissionPolicy.canWriteMedia(targetType: "asset", permissions: [.databaseManage]))
+        XCTAssertTrue(PermissionPolicy.canWriteMedia(targetType: "asset", permissions: [.databaseManage, .archivesView]))
+        XCTAssertFalse(PermissionPolicy.canWriteMedia(targetType: "asset", permissions: [.archivesWrite]))
+        XCTAssertFalse(PermissionPolicy.canWriteMedia(targetType: "asset", permissions: [.salesWrite]))
+    }
 }

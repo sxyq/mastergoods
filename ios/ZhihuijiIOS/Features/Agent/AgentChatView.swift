@@ -80,10 +80,10 @@ struct AgentChatView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("AI 助手")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(ZhihuijiTheme.Typography.pageTitle)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                     Text("延续安卓移动端的经营助手体验：先看经营提示，再进入会话，再做连续追问。")
-                        .font(.system(size: 14))
+                        .font(ZhihuijiTheme.Typography.body)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
                 Spacer()
@@ -95,11 +95,14 @@ struct AgentChatView: View {
 
             if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.danger)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
-                    .background(ZhihuijiTheme.ColorToken.danger.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(
+                        ZhihuijiTheme.ColorToken.danger.opacity(0.08),
+                        in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                    )
             }
         }
         .padding(16)
@@ -111,12 +114,12 @@ struct AgentChatView: View {
         if let workbench = viewModel.workbench {
             VStack(alignment: .leading, spacing: 14) {
                 Text(workbench.greeting)
-                    .font(.system(size: 19, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.sectionTitle)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
 
                 if let summary = workbench.todaySummary, !summary.isEmpty {
                     Text(summary)
-                        .font(.system(size: 13))
+                        .font(ZhihuijiTheme.Typography.body)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
 
@@ -141,11 +144,14 @@ struct AgentChatView: View {
                                     viewModel.draftQuestion = question
                                 } label: {
                                     Text(question)
-                                        .font(.system(size: 13, weight: .medium))
+                                        .font(ZhihuijiTheme.Typography.bodyMedium)
                                         .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 10)
-                                        .background(Color.white.opacity(0.48), in: Capsule())
+                                        .background(
+                                            Color.white.opacity(0.48),
+                                            in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                                        )
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -162,21 +168,21 @@ struct AgentChatView: View {
                                     .frame(width: 30, height: 30)
                                     .overlay(
                                         Image(systemName: "exclamationmark.triangle.fill")
-                                            .font(.system(size: 12))
+                                            .font(ZhihuijiTheme.Typography.caption)
                                             .foregroundStyle(riskTint(alert.level))
                                     )
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(alert.title)
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .font(ZhihuijiTheme.Typography.bodyMedium)
                                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                                     Text(alert.description)
-                                        .font(.system(size: 12))
+                                        .font(ZhihuijiTheme.Typography.caption)
                                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                                 }
                                 Spacer()
                             }
                             .padding(12)
-                            .glassCard(cornerRadius: 12)
+                            .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                         }
                     }
                 }
@@ -191,7 +197,7 @@ struct AgentChatView: View {
         if let drafts = viewModel.workbench?.pendingDrafts, !drafts.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 Text("待处理草稿")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.sectionTitle)
                 ForEach(drafts.prefix(4)) { draft in
                     Button {
                         Task { await viewModel.openDraft(draft, client: env.apiClient) }
@@ -199,23 +205,23 @@ struct AgentChatView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(draft.title)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.bodyMedium)
                                 Text(draft.draftType)
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 4) {
                                 Text(draft.createdAt.dateTimeText)
-                                    .font(.system(size: 11))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.captionSemibold)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                             }
                         }
                         .padding(14)
-                        .glassCard(cornerRadius: 12)
+                        .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                     }
                     .buttonStyle(.plain)
                 }
@@ -227,7 +233,7 @@ struct AgentChatView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("最近会话")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.sectionTitle)
                 Spacer()
                 if session.hasPermission(.agentWrite) {
                     Button {
@@ -236,12 +242,15 @@ struct AgentChatView: View {
                         HStack(spacing: 6) {
                             Image(systemName: "plus")
                             Text(viewModel.isConversationSaving ? "处理中..." : "新会话")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.captionSemibold)
                         }
                         .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Color.white.opacity(0.52), in: Capsule())
+                        .background(
+                            Color.white.opacity(0.52),
+                            in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                        )
                     }
                     .buttonStyle(.plain)
                     .disabled(viewModel.isConversationSaving)
@@ -264,22 +273,22 @@ struct AgentChatView: View {
                                 VStack(alignment: .leading, spacing: 6) {
                                     HStack(alignment: .top, spacing: 8) {
                                         Text(conversation.title)
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(ZhihuijiTheme.Typography.bodyMedium)
                                             .lineLimit(1)
                                         Spacer(minLength: 4)
                                         if session.hasPermission(.agentWrite), viewModel.selectedConversationId == conversation.id {
                                             Image(systemName: "trash")
-                                                .font(.system(size: 11, weight: .semibold))
+                                                .font(ZhihuijiTheme.Typography.captionSemibold)
                                                 .foregroundStyle(Color.white.opacity(0.92))
                                                 .padding(6)
                                                 .background(Color.white.opacity(0.18), in: Circle())
                                         }
                                     }
                                     Text(conversation.latestSummary?.nilIfBlank ?? "进入后可查看完整消息")
-                                        .font(.system(size: 12))
+                                        .font(ZhihuijiTheme.Typography.caption)
                                         .lineLimit(2)
                                     Text((conversation.lastMessageAt ?? conversation.updatedAt).dateTimeText)
-                                        .font(.system(size: 11))
+                                        .font(ZhihuijiTheme.Typography.caption)
                                         .foregroundStyle(viewModel.selectedConversationId == conversation.id ? Color.white.opacity(0.82) : ZhihuijiTheme.ColorToken.textTertiary)
                                 }
                                 .foregroundStyle(viewModel.selectedConversationId == conversation.id ? .white : ZhihuijiTheme.ColorToken.textPrimary)
@@ -291,7 +300,7 @@ struct AgentChatView: View {
                                         ? LinearGradient(colors: [ZhihuijiTheme.ColorToken.primaryBright, ZhihuijiTheme.ColorToken.primary], startPoint: .leading, endPoint: .trailing)
                                         : LinearGradient(colors: [Color.white.opacity(0.58), Color.white.opacity(0.58)], startPoint: .leading, endPoint: .trailing)
                                     ),
-                                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.field, style: .continuous)
                                 )
                             }
                             .buttonStyle(.plain)
@@ -314,7 +323,7 @@ struct AgentChatView: View {
     private var messagesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("对话记录")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             if viewModel.messages.isEmpty, currentRun == nil {
                 EmptyStateView(title: "还没有消息", message: "先发起一个问题，助手会把推理过程和结果沉淀下来。")
@@ -326,7 +335,7 @@ struct AgentChatView: View {
                                 assistantBubble(
                                     content: message.content,
                                     timestamp: message.createdAt.dateTimeText,
-                                    structuredData: nil,
+                                    structuredData: message.resultBlocks,
                                     isLive: false
                                 )
                                 Spacer(minLength: 32)
@@ -359,7 +368,7 @@ struct AgentChatView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("本次运行轨迹")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.sectionTitle)
                     Spacer()
                     if let llmStatus = currentRun.llmStatus?.nilIfBlank {
                         StatusChip(title: llmStatus, tint: tintForStatus(llmStatus))
@@ -369,20 +378,20 @@ struct AgentChatView: View {
                 if let planSummary = currentRun.planSummary?.nilIfBlank {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("执行计划")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.bodyMedium)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         Text(planSummary)
-                            .font(.system(size: 13))
+                            .font(ZhihuijiTheme.Typography.body)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                     }
                     .padding(14)
-                    .glassCard(cornerRadius: 12)
+                    .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                 }
 
                 if !currentRun.toolCalls.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("工具轨迹")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.bodyMedium)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         ForEach(currentRun.toolCalls) { tool in
                             HStack(alignment: .top, spacing: 12) {
@@ -391,30 +400,30 @@ struct AgentChatView: View {
                                     .frame(width: 28, height: 28)
                                     .overlay(
                                         Image(systemName: iconForToolStatus(tool.status))
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .font(ZhihuijiTheme.Typography.captionSemibold)
                                             .foregroundStyle(tintForStatus(tool.status))
                                     )
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(tool.toolName)
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .font(ZhihuijiTheme.Typography.bodyMedium)
                                     if let inputSummary = tool.inputSummary?.nilIfBlank {
                                         Text(inputSummary)
-                                            .font(.system(size: 12))
+                                            .font(ZhihuijiTheme.Typography.caption)
                                             .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                                     }
                                     if let resultSummary = tool.resultSummary?.nilIfBlank {
                                         Text(resultSummary)
-                                            .font(.system(size: 12, weight: .medium))
+                                            .font(ZhihuijiTheme.Typography.caption)
                                             .foregroundStyle(tintForStatus(tool.status))
                                     }
                                 }
                                 Spacer()
                                 Text(tool.status ?? "pending")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.captionSemibold)
                                     .foregroundStyle(tintForStatus(tool.status))
                             }
                             .padding(12)
-                            .glassCard(cornerRadius: 12)
+                            .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                         }
                     }
                 }
@@ -422,7 +431,7 @@ struct AgentChatView: View {
                 if !currentRun.resultBlocks.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("结构化结果")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.bodyMedium)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         ForEach(currentRun.resultBlocks) { block in
                             resultBlockView(block)
@@ -436,12 +445,15 @@ struct AgentChatView: View {
                     HStack {
                         Image(systemName: "doc.text.magnifyingglass")
                         Text("查看完整审计")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.bodyMedium)
                     }
                     .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color.white.opacity(0.54), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(
+                        Color.white.opacity(0.54),
+                        in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.field, style: .continuous)
+                    )
                 }
                 .buttonStyle(.plain)
             }
@@ -453,7 +465,7 @@ struct AgentChatView: View {
     private var taskSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("近期任务")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             if viewModel.tasks.isEmpty {
                 EmptyStateView(title: "暂无任务", message: "当前没有挂起中的 AI 任务。")
             } else {
@@ -461,20 +473,20 @@ struct AgentChatView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(task.title)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                             Text(task.statusLabel ?? task.status ?? task.taskType)
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         }
                         Spacer()
                         if let progress = task.progress {
                             Text("\(progress)%")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.captionSemibold)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                         }
                     }
                     .padding(14)
-                    .glassCard(cornerRadius: 12)
+                    .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                 }
             }
         }
@@ -483,7 +495,7 @@ struct AgentChatView: View {
     private var notificationSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("通知")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             if viewModel.notifications.isEmpty {
                 EmptyStateView(title: "暂无通知", message: "这里会展示 AI 风险提醒和执行结果。")
             } else {
@@ -497,24 +509,24 @@ struct AgentChatView: View {
                                 .frame(width: 30, height: 30)
                                 .overlay(
                                     Image(systemName: notification.isRead == true ? "bell.badge.slash.fill" : "bell.fill")
-                                        .font(.system(size: 12))
+                                        .font(ZhihuijiTheme.Typography.caption)
                                         .foregroundStyle(notificationTint(notification))
                                 )
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(notification.title)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.bodyMedium)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                                 Text(notification.body)
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                                 Text(notification.createdAt.dateTimeText)
-                                    .font(.system(size: 11))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                             }
                             Spacer()
                         }
                         .padding(14)
-                        .glassCard(cornerRadius: 12)
+                        .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                     }
                     .buttonStyle(.plain)
                 }
@@ -525,7 +537,7 @@ struct AgentChatView: View {
     private var composerSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("发起提问")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
 
             if session.hasPermission(.agentWrite) {
                 TextField("问点什么，比如今天哪些客户欠款最高？", text: $viewModel.draftQuestion, axis: .vertical)
@@ -551,15 +563,18 @@ struct AgentChatView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "square.and.arrow.down")
                             Text(viewModel.isDraftSaving ? "保存中..." : "存草稿")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                         }
                         .foregroundStyle(viewModel.draftQuestion.nilIfBlank == nil ? ZhihuijiTheme.ColorToken.textTertiary : ZhihuijiTheme.ColorToken.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(Color.white.opacity(0.54), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous))
+                        .background(
+                            Color.white.opacity(0.54),
+                            in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                        )
                         .overlay(
                             RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
-                                .stroke(Color.white.opacity(0.45), lineWidth: 0.8)
+                                .stroke(Color.white.opacity(0.45), lineWidth: ZhihuijiTheme.Stroke.hairline)
                         )
                     }
                     .buttonStyle(.plain)
@@ -572,15 +587,18 @@ struct AgentChatView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "stop.fill")
                             Text(viewModel.isStopping ? "停止中..." : "停止")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                         }
                         .foregroundStyle(viewModel.isSending ? ZhihuijiTheme.ColorToken.danger : ZhihuijiTheme.ColorToken.textTertiary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(Color.white.opacity(0.54), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous))
+                        .background(
+                            Color.white.opacity(0.54),
+                            in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                        )
                         .overlay(
                             RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
-                                .stroke(viewModel.isSending ? ZhihuijiTheme.ColorToken.danger.opacity(0.25) : Color.white.opacity(0.45), lineWidth: 0.8)
+                                .stroke(viewModel.isSending ? ZhihuijiTheme.ColorToken.danger.opacity(0.25) : Color.white.opacity(0.45), lineWidth: ZhihuijiTheme.Stroke.hairline)
                         )
                     }
                     .buttonStyle(.plain)
@@ -606,11 +624,11 @@ struct AgentChatView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(audit.runId)
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.cardTitle)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                                 .lineLimit(1)
                             Text("事件数 \(audit.eventCount ?? audit.events.count)")
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         }
                         Spacer()
@@ -620,40 +638,40 @@ struct AgentChatView: View {
                     if !audit.warnings.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("警告")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.captionSemibold)
                             ForEach(audit.warnings, id: \.self) { warning in
                                 Text(warning)
-                                    .font(.system(size: 12))
+                                    .font(ZhihuijiTheme.Typography.caption)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
                             }
                         }
                         .padding(14)
-                        .glassCard(cornerRadius: 12)
+                        .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
                         Text("事件时间线")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.bodyMedium)
                         ForEach(audit.events) { event in
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack {
                                     Text(event.eventType)
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(ZhihuijiTheme.Typography.captionSemibold)
                                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                                     Spacer()
                                     Text(event.createdAt.dateTimeText)
-                                        .font(.system(size: 11))
+                                        .font(ZhihuijiTheme.Typography.caption)
                                         .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                                 }
                                 if let payload = event.payload {
                                     Text(payload.previewText)
-                                        .font(.system(size: 12))
+                                        .font(ZhihuijiTheme.Typography.caption)
                                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                             }
                             .padding(12)
-                            .glassCard(cornerRadius: 12)
+                            .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
                         }
                     }
                 }
@@ -668,7 +686,7 @@ struct AgentChatView: View {
     private func userBubble(_ message: AgentMessage) -> some View {
         VStack(alignment: .trailing, spacing: 4) {
             Text(message.content)
-                .font(.system(size: 14))
+                .font(ZhihuijiTheme.Typography.body)
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
@@ -678,10 +696,10 @@ struct AgentChatView: View {
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
-                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous)
                 )
             Text(message.createdAt.dateTimeText)
-                .font(.system(size: 11))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
         }
     }
@@ -695,7 +713,7 @@ struct AgentChatView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(isLive ? "助手生成中" : "助手")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.captionSemibold)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                 if isLive {
                     ProgressView()
@@ -706,7 +724,7 @@ struct AgentChatView: View {
             }
 
             Text(content)
-                .font(.system(size: 14))
+                .font(ZhihuijiTheme.Typography.body)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -719,79 +737,93 @@ struct AgentChatView: View {
             }
 
             Text(timestamp)
-                .font(.system(size: 11))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(Color.white.opacity(0.62), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.white.opacity(0.62), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.white.opacity(0.46), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous)
+                .stroke(Color.white.opacity(0.46), lineWidth: ZhihuijiTheme.Stroke.hairline)
         )
     }
 
     private func resultBlockCompactView(_ block: AgentResultBlock) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(block.title?.nilIfBlank ?? block.blockType)
-                .font(.system(size: 12, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.captionSemibold)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
             Text(block.data?.previewText ?? "已生成结构化结果")
-                .font(.system(size: 11))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 .lineLimit(3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(Color.white.opacity(0.44), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(ZhihuijiTheme.Spacing.sm)
+        .background(
+            ZhihuijiTheme.ColorToken.surfaceWhite.opacity(0.68),
+            in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+        )
     }
 
+    @ViewBuilder
     private func resultBlockView(_ block: AgentResultBlock) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(block.title?.nilIfBlank ?? block.blockType)
-                .font(.system(size: 14, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.cardTitle)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
 
-            if block.blockType == "kpi_grid", let kpis = block.data?.objectValue?["kpis"]?.arrayValue, !kpis.isEmpty {
+            if ["text", "markdown"].contains(normalizedBlockType(for: block)),
+               let payload = block.data?.decode(as: AgentTextBlockData.self),
+               let markdown = payload.markdown?.nilIfBlank ?? payload.text?.nilIfBlank {
+                AgentMarkdownBlock(markdown: markdown)
+            } else if block.blockType == "kpi_grid", let kpis = block.data?.objectValue?["kpis"]?.arrayValue, !kpis.isEmpty {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                     ForEach(Array(kpis.enumerated()), id: \.offset) { _, item in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(item.objectValue?["label"]?.stringValue ?? "指标")
-                                .font(.system(size: 12))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             Text(item.objectValue?["value"]?.displayText ?? "-")
-                                .font(.system(size: 18, weight: .bold))
+                                .font(ZhihuijiTheme.Typography.amount)
                                 .foregroundStyle(tintForTrend(item.objectValue?["trend_direction"]?.stringValue))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(12)
-                        .background(Color.white.opacity(0.46), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .background(
+                            ZhihuijiTheme.ColorToken.surfaceWhite.opacity(0.72),
+                            in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                        )
                     }
                 }
             } else if block.blockType == "table",
                       let payload = block.data?.objectValue,
                       let headers = payload["headers"]?.arrayValue,
                       let rows = payload["rows"]?.arrayValue {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .top) {
-                        ForEach(Array(headers.enumerated()), id: \.offset) { _, header in
-                            Text(header.displayText)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                    ForEach(Array(rows.prefix(5).enumerated()), id: \.offset) { _, row in
-                        HStack(alignment: .top) {
-                            ForEach(Array((row.arrayValue ?? []).enumerated()), id: \.offset) { _, cell in
-                                Text(cell.displayText)
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .top, spacing: 10) {
+                            ForEach(Array(headers.enumerated()), id: \.offset) { _, header in
+                                Text(header.displayText)
+                                    .font(ZhihuijiTheme.Typography.captionSemibold)
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                                    .frame(width: 108, alignment: .leading)
                             }
                         }
-                        .padding(.vertical, 6)
-                        Divider()
+                        ForEach(Array(rows.prefix(5).enumerated()), id: \.offset) { _, row in
+                            HStack(alignment: .top, spacing: 10) {
+                                ForEach(Array((row.arrayValue ?? []).enumerated()), id: \.offset) { _, cell in
+                                    Text(cell.displayText)
+                                        .font(ZhihuijiTheme.Typography.caption)
+                                        .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                                        .frame(width: 108, alignment: .leading)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                            .padding(.vertical, 6)
+                            Divider()
+                        }
                     }
                 }
             } else if block.blockType == "rank_list",
@@ -801,19 +833,28 @@ struct AgentChatView: View {
                     ForEach(Array(items.prefix(6).enumerated()), id: \.offset) { index, item in
                         HStack {
                             Text("\(index + 1)")
-                                .font(.system(size: 12, weight: .bold))
+                                .font(ZhihuijiTheme.Typography.captionSemibold)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                                 .frame(width: 18)
                             Text(item.rankTitle)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                             Spacer()
                             Text(item.rankValue)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         }
                     }
                 }
+            } else if isLineChartBlock(block),
+                      let payload = block.data?.decode(as: AgentLineChartBlockData.self) {
+                AgentLineChartBlock(data: payload)
+            } else if isBarChartBlock(block),
+                      let payload = block.data?.decode(as: AgentBarChartBlockData.self) {
+                AgentBarChartBlock(data: payload)
+            } else if isDonutChartBlock(block),
+                      let payload = block.data?.decode(as: AgentDonutChartBlockData.self) {
+                AgentDonutChartBlock(data: payload)
             } else if block.blockType == "risk_card",
                       let payload = block.data?.objectValue {
                 VStack(alignment: .leading, spacing: 8) {
@@ -825,20 +866,45 @@ struct AgentChatView: View {
                         Spacer()
                     }
                     Text(payload["title"]?.displayText ?? block.title?.nilIfBlank ?? "风险提醒")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.cardTitle)
                     Text(payload["description"]?.displayText ?? "已生成风险摘要")
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.body)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
+            } else if isEvidenceBlock(block),
+                      let payload = block.data?.decode(as: AgentEvidenceCardBlockData.self) {
+                AgentEvidenceBlock(data: payload)
+            } else if block.blockType == "draft_card",
+                      let payload = block.data?.decode(as: AgentDraftCardBlockData.self) {
+                AgentDraftCardBlock(data: payload)
             } else {
-                Text(block.data?.previewText ?? "已生成结构化结果")
-                    .font(.system(size: 12))
-                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                AgentUnknownResultBlock(block: block)
             }
         }
         .padding(14)
-        .glassCard(cornerRadius: 12)
+        .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
+    }
+
+    private func normalizedBlockType(for block: AgentResultBlock) -> String {
+        let raw = block.blockType.lowercased()
+        guard raw == "chart" else { return raw }
+        return zhihuijiInferChartBlockType(block) ?? raw
+    }
+
+    private func isLineChartBlock(_ block: AgentResultBlock) -> Bool {
+        ["line_chart", "area_chart", "trend_chart"].contains(normalizedBlockType(for: block))
+    }
+
+    private func isBarChartBlock(_ block: AgentResultBlock) -> Bool {
+        ["bar_chart", "column_chart", "horizontal_bar_chart"].contains(normalizedBlockType(for: block))
+    }
+
+    private func isDonutChartBlock(_ block: AgentResultBlock) -> Bool {
+        ["donut_chart", "pie_chart"].contains(normalizedBlockType(for: block))
+    }
+
+    private func isEvidenceBlock(_ block: AgentResultBlock) -> Bool {
+        ["evidence_card", "evidence"].contains(normalizedBlockType(for: block))
     }
 
     private func tintForTrend(_ trend: String?) -> Color {
@@ -932,12 +998,12 @@ private struct AgentDraftSheet: View {
                     HStack(spacing: 10) {
                         StatusChip(title: draft.draftType, tint: ZhihuijiTheme.ColorToken.primary)
                         StatusChip(
-                            title: status.nilIfBlank ?? "open",
-                            tint: status == "archived" ? ZhihuijiTheme.ColorToken.warning : ZhihuijiTheme.ColorToken.success
+                            title: status.nilIfBlank ?? AgentContractStatus.active,
+                            tint: status == AgentContractStatus.archived ? ZhihuijiTheme.ColorToken.warning : ZhihuijiTheme.ColorToken.success
                         )
                     }
                     Text("创建于 \(draft.createdAt.dateTimeText)")
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
                 .padding(16)
@@ -945,15 +1011,15 @@ private struct AgentDraftSheet: View {
 
                 VStack(alignment: .leading, spacing: 12) {
                     Text("草稿内容")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.sectionTitle)
                     TextField("草稿标题", text: $title)
                         .fieldBackground()
                     TextField("草稿内容", text: $content, axis: .vertical)
                         .lineLimit(5 ... 10)
                         .fieldBackground()
                     Picker("状态", selection: $status) {
-                        Text("Open").tag("open")
-                        Text("Archived").tag("archived")
+                        Text("进行中").tag(AgentContractStatus.active)
+                        Text("已归档").tag(AgentContractStatus.archived)
                     }
                     .pickerStyle(.segmented)
                 }
@@ -971,15 +1037,18 @@ private struct AgentDraftSheet: View {
                         HStack(spacing: 8) {
                             Image(systemName: "square.and.arrow.down.fill")
                             Text(isSaving ? "保存中..." : "保存草稿")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                         }
                         .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(Color.white.opacity(0.54), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous))
+                        .background(
+                            Color.white.opacity(0.54),
+                            in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                        )
                         .overlay(
                             RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
-                                .stroke(Color.white.opacity(0.45), lineWidth: 0.8)
+                                .stroke(Color.white.opacity(0.45), lineWidth: ZhihuijiTheme.Stroke.hairline)
                         )
                     }
                     .buttonStyle(.plain)
@@ -991,15 +1060,18 @@ private struct AgentDraftSheet: View {
                     HStack(spacing: 8) {
                         Image(systemName: "trash")
                         Text(isSaving ? "处理中..." : "删除草稿")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.bodyMedium)
                     }
                     .foregroundStyle(ZhihuijiTheme.ColorToken.danger)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(ZhihuijiTheme.ColorToken.danger.opacity(0.08), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous))
+                    .background(
+                        ZhihuijiTheme.ColorToken.danger.opacity(0.08),
+                        in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
-                            .stroke(ZhihuijiTheme.ColorToken.danger.opacity(0.18), lineWidth: 0.8)
+                            .stroke(ZhihuijiTheme.ColorToken.danger.opacity(0.18), lineWidth: ZhihuijiTheme.Stroke.hairline)
                     )
                 }
                 .buttonStyle(.plain)
@@ -1008,6 +1080,479 @@ private struct AgentDraftSheet: View {
             }
             .padding(20)
         }
+    }
+}
+
+func zhihuijiInferChartBlockType(_ block: AgentResultBlock) -> String? {
+    if let chartType = block.data?.objectValue?["chart_type"]?.stringValue
+        ?? block.data?.objectValue?["type"]?.stringValue
+        ?? block.data?.objectValue?["style"]?.stringValue {
+        switch normalizedChartAlias(chartType) {
+        case "line", "linechart", "trendchart", "areachart", "line_chart", "trend_chart", "area_chart":
+            return "line_chart"
+        case "bar", "barchart", "columnchart", "horizontalbarchart", "bar_chart", "column_chart", "horizontal_bar_chart":
+            return "bar_chart"
+        case "pie", "piechart", "donut", "donutchart", "pie_chart", "donut_chart":
+            return "donut_chart"
+        default:
+            break
+        }
+    }
+
+    if block.data?.objectValue?["segments"]?.arrayValue != nil {
+        return "donut_chart"
+    }
+    if let payload = block.data?.objectValue {
+        if payload["labels"]?.arrayValue != nil, payload["series"]?.arrayValue != nil {
+            return "line_chart"
+        }
+        if payload["categories"]?.arrayValue != nil, payload["series"]?.arrayValue != nil {
+            return "bar_chart"
+        }
+        if payload["series"]?.arrayValue != nil {
+            return "line_chart"
+        }
+        if payload["values"]?.arrayValue != nil {
+            return "bar_chart"
+        }
+    }
+    if block.data?.objectValue?["series"]?.arrayValue != nil {
+        return "line_chart"
+    }
+    return nil
+}
+
+func normalizedChartAlias(_ raw: String) -> String {
+    raw.lowercased().replacingOccurrences(of: "_", with: "")
+}
+
+private struct AgentMarkdownBlock: View {
+    let markdown: String
+
+    var body: some View {
+        Group {
+            if let attributed = renderedMarkdown {
+                Text(attributed)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+            } else {
+                Text(markdown)
+                    .font(ZhihuijiTheme.Typography.body)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var renderedMarkdown: AttributedString? {
+        try? AttributedString(
+            markdown: markdown,
+            options: AttributedString.MarkdownParsingOptions(
+                interpretedSyntax: .full,
+                failurePolicy: .returnPartiallyParsedIfPossible
+            )
+        )
+    }
+}
+
+private struct AgentEvidenceBlock: View {
+    let data: AgentEvidenceCardBlockData
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ZhihuijiTheme.Spacing.sm) {
+            if data.items.isEmpty {
+                Text("本轮查询没有返回可展示的证据明细")
+                    .font(ZhihuijiTheme.Typography.body)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+            } else {
+                ForEach(data.items.prefix(6)) { item in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .top, spacing: ZhihuijiTheme.Spacing.sm) {
+                            Text(item.label)
+                                .font(ZhihuijiTheme.Typography.body)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text(item.value)
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        if let source = item.displaySource {
+                            Text(source)
+                                .font(ZhihuijiTheme.Typography.caption)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                        }
+                        if let audit = item.auditSummary {
+                            Text(audit)
+                                .font(ZhihuijiTheme.Typography.caption)
+                                .foregroundStyle(item.isTruncated == true ? ZhihuijiTheme.ColorToken.warning : ZhihuijiTheme.ColorToken.textTertiary)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+}
+
+private struct AgentDraftCardBlock: View {
+    let data: AgentDraftCardBlockData
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ZhihuijiTheme.Spacing.sm) {
+            HStack(spacing: ZhihuijiTheme.Spacing.sm) {
+                StatusChip(title: data.draftType, tint: ZhihuijiTheme.ColorToken.primary)
+                if let partnerName = data.partnerName?.nilIfBlank {
+                    StatusChip(title: partnerName, tint: ZhihuijiTheme.ColorToken.warning)
+                }
+            }
+
+            Text(data.summary)
+                .font(ZhihuijiTheme.Typography.body)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+
+            HStack {
+                if let itemCount = data.itemCount {
+                    Text("\(itemCount) 项")
+                        .font(ZhihuijiTheme.Typography.caption)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                }
+                Spacer()
+                if let totalAmount = data.totalAmount?.nilIfBlank {
+                    AmountText(value: totalAmount, tint: ZhihuijiTheme.ColorToken.primary)
+                }
+            }
+
+            Text("这是 AI 草稿，尚未执行正式业务写入。")
+                .font(ZhihuijiTheme.Typography.caption)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
+
+            if let warnings = data.warnings, !warnings.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(warnings, id: \.self) { warning in
+                        Text("• \(warning)")
+                            .font(ZhihuijiTheme.Typography.caption)
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct AgentUnknownResultBlock: View {
+    let block: AgentResultBlock
+
+    private var fallbackTitle: String {
+        block.title?.nilIfBlank ?? "暂未支持的结构化结果"
+    }
+
+    private var fallbackPreview: String {
+        block.data?.previewText.nilIfBlank ?? "当前结果块没有可直接识别的字段。"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ZhihuijiTheme.Spacing.xs) {
+            Text(fallbackTitle)
+                .font(ZhihuijiTheme.Typography.bodyMedium)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+            Text("结构化结果类型：\(block.blockType)")
+                .font(ZhihuijiTheme.Typography.captionSemibold)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
+            Text("原始字段预览")
+                .font(ZhihuijiTheme.Typography.captionSemibold)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+            Text(fallbackPreview)
+                .font(ZhihuijiTheme.Typography.caption)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct AgentLineChartBlock: View {
+    let data: AgentLineChartBlockData
+
+    private var series: [AgentChartSeries] {
+        data.series.filter { !$0.data.isEmpty }
+    }
+
+    private var labels: [String] {
+        data.labels
+    }
+
+    private var minValue: Double {
+        min(0.0, series.flatMap(\.data).min() ?? 0.0)
+    }
+
+    private var maxValue: Double {
+        max(0.0, series.flatMap(\.data).max() ?? 0.0)
+    }
+
+    private var range: Double {
+        let delta = maxValue - minValue
+        return delta == 0 ? 1 : delta
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ZhihuijiTheme.Spacing.sm) {
+            if series.isEmpty || labels.isEmpty {
+                Text("本轮查询没有返回可绘制的趋势数据")
+                    .font(ZhihuijiTheme.Typography.body)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+            } else {
+                GeometryReader { proxy in
+                    let size = proxy.size
+                    ZStack {
+                        RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                            .fill(ZhihuijiTheme.ColorToken.surfaceWhite.opacity(0.78))
+
+                        ForEach(0..<4, id: \.self) { index in
+                            Path { path in
+                                let y = size.height * CGFloat(index) / 3
+                                path.move(to: CGPoint(x: 0, y: y))
+                                path.addLine(to: CGPoint(x: size.width, y: y))
+                            }
+                            .stroke(ZhihuijiTheme.ColorToken.glassBorderSoft, lineWidth: 1)
+                        }
+
+                        ForEach(Array(series.enumerated()), id: \.offset) { index, item in
+                            let points = points(for: item, in: size)
+                            Path { path in
+                                guard let first = points.first else { return }
+                                path.move(to: first)
+                                for point in points.dropFirst() {
+                                    path.addLine(to: point)
+                                }
+                            }
+                            .stroke(color(for: item.color, index: index), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+
+                            ForEach(Array(points.enumerated()), id: \.offset) { _, point in
+                                Circle()
+                                    .fill(color(for: item.color, index: index))
+                                    .frame(width: 7, height: 7)
+                                    .position(point)
+                            }
+                        }
+                    }
+                }
+                .frame(height: 168)
+
+                HStack(alignment: .top) {
+                    ForEach(Array(labels.enumerated()), id: \.offset) { _, label in
+                        Text(label)
+                            .font(ZhihuijiTheme.Typography.caption)
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                            .frame(maxWidth: .infinity)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(series.enumerated()), id: \.offset) { index, item in
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(color(for: item.color, index: index))
+                                .frame(width: 8, height: 8)
+                            Text(item.name)
+                                .font(ZhihuijiTheme.Typography.caption)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func points(for series: AgentChartSeries, in size: CGSize) -> [CGPoint] {
+        let values = Array(series.data.prefix(labels.count))
+        guard !values.isEmpty else { return [] }
+
+        return values.enumerated().map { index, value in
+            let x = labels.count <= 1
+                ? size.width / 2
+                : size.width * CGFloat(index) / CGFloat(max(labels.count - 1, 1))
+            let ratio = (maxValue - value) / range
+            let y = size.height * CGFloat(ratio)
+            return CGPoint(x: x, y: y.clamped(to: 0...size.height))
+        }
+    }
+
+    private func color(for rawHex: String?, index: Int) -> Color {
+        Color.chartColor(rawHex, fallbackIndex: index)
+    }
+}
+
+private struct AgentBarChartBlock: View {
+    let data: AgentBarChartBlockData
+
+    private var series: [AgentChartSeries] {
+        data.series.filter { !$0.data.isEmpty }
+    }
+
+    private var labels: [String] {
+        data.labels
+    }
+
+    private var maxValue: Double {
+        max(series.flatMap(\.data).max() ?? 0.0, 1.0)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ZhihuijiTheme.Spacing.sm) {
+            if series.isEmpty || labels.isEmpty {
+                Text("本轮查询没有返回可绘制的柱状数据")
+                    .font(ZhihuijiTheme.Typography.body)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+            } else {
+                GeometryReader { proxy in
+                    let groupHeight = max(proxy.size.height - 28, 40)
+                    HStack(alignment: .bottom, spacing: 10) {
+                        ForEach(Array(labels.enumerated()), id: \.offset) { labelIndex, label in
+                            VStack(spacing: 8) {
+                                HStack(alignment: .bottom, spacing: 5) {
+                                    ForEach(Array(series.enumerated()), id: \.offset) { seriesIndex, item in
+                                        let value = item.data.indices.contains(labelIndex) ? max(item.data[labelIndex], 0.0) : 0.0
+                                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                            .fill(color(for: item.color, index: seriesIndex))
+                                            .frame(
+                                                maxWidth: .infinity,
+                                                minHeight: value == 0 ? 4 : CGFloat(value / maxValue) * groupHeight,
+                                                maxHeight: CGFloat(value / maxValue) * groupHeight
+                                            )
+                                    }
+                                }
+                                .frame(maxHeight: .infinity, alignment: .bottom)
+
+                                Text(label)
+                                    .font(ZhihuijiTheme.Typography.caption)
+                                    .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                                    .multilineTextAlignment(.center)
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, ZhihuijiTheme.Spacing.xs)
+                }
+                .frame(height: 184)
+                .padding(.vertical, ZhihuijiTheme.Spacing.xs)
+                .background(
+                    ZhihuijiTheme.ColorToken.surfaceWhite.opacity(0.74),
+                    in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                )
+
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(series.enumerated()), id: \.offset) { index, item in
+                        HStack(spacing: 8) {
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(color(for: item.color, index: index))
+                                .frame(width: 10, height: 10)
+                            Text(item.name)
+                                .font(ZhihuijiTheme.Typography.caption)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func color(for rawHex: String?, index: Int) -> Color {
+        Color.chartColor(rawHex, fallbackIndex: index)
+    }
+}
+
+private struct AgentDonutChartBlock: View {
+    let data: AgentDonutChartBlockData
+
+    private var segments: [AgentChartSegment] {
+        data.segments.filter { $0.value > 0 }
+    }
+
+    private var total: Double {
+        segments.reduce(0) { $0 + $1.value }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ZhihuijiTheme.Spacing.sm) {
+            if segments.isEmpty || total <= 0 {
+                Text("本轮查询没有返回可绘制的占比数据")
+                    .font(ZhihuijiTheme.Typography.body)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+            } else {
+                HStack(spacing: ZhihuijiTheme.Spacing.md) {
+                    ZStack {
+                        Circle()
+                            .stroke(ZhihuijiTheme.ColorToken.surfaceGray, lineWidth: 16)
+
+                        ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
+                            let start = startTrim(at: index)
+                            let end = endTrim(at: index)
+                            Circle()
+                                .trim(from: start, to: end)
+                                .stroke(
+                                    color(for: segment.color, index: index),
+                                    style: StrokeStyle(lineWidth: 16, lineCap: .round)
+                                )
+                                .rotationEffect(.degrees(-90))
+                        }
+
+                        VStack(spacing: 2) {
+                            Text("合计")
+                                .font(ZhihuijiTheme.Typography.caption)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                            Text(chartNumber(total))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                        }
+                    }
+                    .frame(width: 136, height: 136)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
+                            let percent = total == 0 ? 0 : segment.value / total * 100
+                            HStack(alignment: .top, spacing: 8) {
+                                Circle()
+                                    .fill(color(for: segment.color, index: index))
+                                    .frame(width: 9, height: 9)
+                                    .padding(.top, 3)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(segment.name)
+                                        .font(ZhihuijiTheme.Typography.body)
+                                        .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                                    Text("\(chartNumber(segment.value)) · \(String(format: "%.1f", percent))%")
+                                        .font(ZhihuijiTheme.Typography.caption)
+                                        .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func startTrim(at index: Int) -> CGFloat {
+        guard total > 0 else { return 0 }
+        let previous = segments.prefix(index).reduce(0) { $0 + $1.value }
+        return CGFloat(previous / total)
+    }
+
+    private func endTrim(at index: Int) -> CGFloat {
+        guard total > 0 else { return 0 }
+        let current = segments.prefix(index + 1).reduce(0) { $0 + $1.value }
+        return CGFloat(current / total)
+    }
+
+    private func color(for rawHex: String?, index: Int) -> Color {
+        Color.chartColor(rawHex, fallbackIndex: index)
+    }
+
+    private func chartNumber(_ value: Double) -> String {
+        if value.rounded() == value {
+            return String(Int(value))
+        }
+        return String(format: "%.2f", value)
     }
 }
 
@@ -1045,6 +1590,11 @@ private extension JSONValue {
         return nil
     }
 
+    var boolValue: Bool? {
+        if case let .bool(value) = self { return value }
+        return nil
+    }
+
     var displayText: String {
         switch self {
         case let .string(value):
@@ -1068,7 +1618,9 @@ private extension JSONValue {
     var previewText: String {
         switch self {
         case let .object(value):
-            return value.map { "\($0.key)：\($0.value.displayText)" }
+            return value
+                .sorted { $0.key < $1.key }
+                .map { "\($0.key)：\($0.value.displayText)" }
                 .prefix(6)
                 .joined(separator: " | ")
         default:
@@ -1091,5 +1643,103 @@ private extension JSONValue {
             ?? objectValue?["balance"]?.displayText
             ?? objectValue?["description"]?.displayText
             ?? "-"
+    }
+}
+
+private extension AgentEvidenceCardBlockData.EvidenceItem {
+    var displaySource: String? {
+        source?.nilIfBlank.map { raw in
+            "来源: \(raw.replacingOccurrences(of: "tool:", with: ""))"
+        }
+    }
+
+    var auditSummary: String? {
+        var parts: [String] = []
+        if let toolCallId = toolCallId?.nilIfBlank {
+            parts.append("调用 \(toolCallId)")
+        }
+        if let scope = queryWindow?.queryWindowSummary {
+            parts.append("范围 \(scope)")
+        }
+        if isTruncated == true {
+            parts.append("结果已截断")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+}
+
+private extension JSONValue {
+    var queryWindowSummary: String? {
+        guard let objectValue else { return previewText.nilIfBlank }
+
+        var parts: [String] = []
+        if let ownerScope = objectValue["owner_scope"]?.stringValue?.nilIfBlank {
+            parts.append(ownerScope == "current_owner" ? "当前账号" : ownerScope)
+        }
+        if let windowDays = objectValue["window_days"]?.numberValue {
+            parts.append("近 \(Int(windowDays)) 天")
+        }
+        if let limit = objectValue["limit"]?.numberValue {
+            parts.append("上限 \(Int(limit))")
+        }
+        if let rankLimit = objectValue["rank_limit"]?.numberValue {
+            parts.append("排行 \(Int(rankLimit))")
+        }
+        if let lowStockLimit = objectValue["low_stock_limit"]?.numberValue {
+            parts.append("低库存 \(Int(lowStockLimit))")
+        }
+        if objectValue["is_truncated"]?.boolValue == true {
+            parts.append("已截断")
+        }
+        return parts.isEmpty ? previewText.nilIfBlank : parts.joined(separator: " · ")
+    }
+}
+
+private extension Color {
+    static let chartPalette: [Color] = [
+        ZhihuijiTheme.ColorToken.primary,
+        ZhihuijiTheme.ColorToken.success,
+        ZhihuijiTheme.ColorToken.warning,
+        Color(red: 0.58, green: 0.40, blue: 0.98),
+        Color(red: 0.18, green: 0.68, blue: 0.88),
+    ]
+
+    static func chartColor(_ rawHex: String?, fallbackIndex: Int) -> Color {
+        if let rawHex, let parsed = Color(hex: rawHex) {
+            return parsed
+        }
+        return chartPalette[fallbackIndex % chartPalette.count]
+    }
+
+    init?(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        guard [6, 8].contains(hex.count), let value = UInt64(hex, radix: 16) else {
+            return nil
+        }
+
+        let red: Double
+        let green: Double
+        let blue: Double
+        let alpha: Double
+
+        if hex.count == 8 {
+            red = Double((value & 0xFF00_0000) >> 24) / 255
+            green = Double((value & 0x00FF_0000) >> 16) / 255
+            blue = Double((value & 0x0000_FF00) >> 8) / 255
+            alpha = Double(value & 0x0000_00FF) / 255
+        } else {
+            red = Double((value & 0xFF0000) >> 16) / 255
+            green = Double((value & 0x00FF00) >> 8) / 255
+            blue = Double(value & 0x0000FF) / 255
+            alpha = 1
+        }
+
+        self.init(red: red, green: green, blue: blue, opacity: alpha)
+    }
+}
+
+private extension CGFloat {
+    func clamped(to limits: ClosedRange<CGFloat>) -> CGFloat {
+        min(max(self, limits.lowerBound), limits.upperBound)
     }
 }

@@ -12,22 +12,28 @@ struct LoginView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("智慧记")
-                            .font(.system(size: 34, weight: .bold))
+                            .font(ZhihuijiTheme.Typography.pageTitle)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
-                        Text("iOS 原生端会沿用安卓移动端的玻璃感与业务语义，不走 Web PC 风格。")
-                            .font(.system(size: 14))
+                        Text("iOS 原生端沿用安卓移动端的玻璃感与业务语义，不走 Web PC 风格。")
+                            .font(ZhihuijiTheme.Typography.body)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                     }
 
                     VStack(spacing: 14) {
                         ZhihuijiTextField(title: "手机号", text: $viewModel.phone)
                         ZhihuijiTextField(title: "密码", text: $viewModel.password, secure: true)
+
                         if let errorMessage = viewModel.errorMessage {
                             Text(errorMessage)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.danger)
                         }
-                        PrimaryGlassButton(title: viewModel.isLoading ? "登录中..." : "登录", systemImage: "arrow.right.circle.fill", disabled: viewModel.isLoading) {
+
+                        PrimaryGlassButton(
+                            title: viewModel.isLoading ? "登录中..." : "登录",
+                            systemImage: "arrow.right.circle.fill",
+                            disabled: viewModel.isLoading
+                        ) {
                             Task {
                                 await viewModel.login(using: env.apiClient, session: session)
                             }
@@ -37,17 +43,17 @@ struct LoginView: View {
                     .background(.white.opacity(0.58), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous)
-                            .stroke(.white.opacity(0.5), lineWidth: 0.5)
+                            .stroke(.white.opacity(0.5), lineWidth: ZhihuijiTheme.Stroke.hairline)
                     )
 
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Text("连接设置")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.cardTitle)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                             Spacer()
                             Text(env.apiBaseURL.absoluteString)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                                 .lineLimit(1)
                         }
@@ -56,7 +62,7 @@ struct LoginView: View {
 
                         if let message = environmentStore.message {
                             Text(message)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(message.contains("无效") ? ZhihuijiTheme.ColorToken.danger : ZhihuijiTheme.ColorToken.success)
                         }
 
@@ -65,7 +71,7 @@ struct LoginView: View {
                                 _ = environmentStore.applyBaseURL()
                             } label: {
                                 Text("保存地址")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.bodyMedium)
                                     .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 12)
@@ -75,7 +81,7 @@ struct LoginView: View {
                                             startPoint: .leading,
                                             endPoint: .trailing
                                         ),
-                                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.field, style: .continuous)
                                     )
                             }
                             .buttonStyle(.plain)
@@ -84,14 +90,17 @@ struct LoginView: View {
                                 environmentStore.resetBaseURL()
                             } label: {
                                 Text("恢复默认")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.bodyMedium)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 12)
-                                    .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                    .background(
+                                        Color.white.opacity(0.42),
+                                        in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.field, style: .continuous)
+                                    )
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
+                                        RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.field, style: .continuous)
+                                            .stroke(Color.white.opacity(0.5), lineWidth: ZhihuijiTheme.Stroke.hairline)
                                     )
                             }
                             .buttonStyle(.plain)
@@ -101,7 +110,7 @@ struct LoginView: View {
                     .background(.white.opacity(0.58), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous)
-                            .stroke(.white.opacity(0.5), lineWidth: 0.5)
+                            .stroke(.white.opacity(0.5), lineWidth: ZhihuijiTheme.Stroke.hairline)
                     )
                 }
                 .padding(20)
@@ -119,7 +128,7 @@ private struct ZhihuijiTextField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.captionSemibold)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
             field
         }

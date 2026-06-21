@@ -91,14 +91,14 @@ struct ArchivesHomeView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("档案管理")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(ZhihuijiTheme.Typography.pageTitle)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                     Text("按移动端语义集中管理商品、客户和供应商。")
-                        .font(.system(size: 14))
+                        .font(ZhihuijiTheme.Typography.body)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
                 Spacer()
-                if viewModel.selectedTab == .products {
+                if viewModel.selectedTab == .products, session.hasPermission(.archivesWrite) {
                     NavigationLink {
                         ProductEditView()
                     } label: {
@@ -142,7 +142,7 @@ struct ArchivesHomeView: View {
                     viewModel.selectedTab = tab
                 } label: {
                     Text(tab.title)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.bodyMedium)
                         .foregroundStyle(viewModel.selectedTab == tab ? .white : ZhihuijiTheme.ColorToken.textPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -151,7 +151,7 @@ struct ArchivesHomeView: View {
                                 ? LinearGradient(colors: [ZhihuijiTheme.ColorToken.primaryBright, ZhihuijiTheme.ColorToken.primary], startPoint: .leading, endPoint: .trailing)
                                 : LinearGradient(colors: [Color.white.opacity(0.58), Color.white.opacity(0.58)], startPoint: .leading, endPoint: .trailing)
                             ),
-                            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
                         )
                 }
                 .buttonStyle(.plain)
@@ -187,12 +187,12 @@ struct ArchivesHomeView: View {
                 HStack {
                     Image(systemName: "magnifyingglass")
                     Text(viewModel.isLoading ? "搜索中..." : "刷新当前档案")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.captionSemibold)
                 }
                 .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(Color.white.opacity(0.48), in: Capsule())
+                .background(Color.white.opacity(0.48), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous))
             }
             .buttonStyle(.plain)
         }
@@ -234,17 +234,17 @@ struct ArchivesHomeView: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(product.name)
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(ZhihuijiTheme.Typography.bodyMedium)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                                 Text(product.code)
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(ZhihuijiTheme.Typography.captionSemibold)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                                 HStack {
                                     Text("库存 \(formattedQuantity(product.stock))")
                                     Spacer()
                                     Text("售价 \(product.salePrice.currencyText)")
                                 }
-                                .font(.system(size: 13))
+                                .font(ZhihuijiTheme.Typography.body)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                             .padding(16)
@@ -345,10 +345,10 @@ struct ArchivesHomeView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.bodyMedium)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                     Text(subtitle)
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                 }
                 Spacer()
@@ -360,29 +360,29 @@ struct ArchivesHomeView: View {
 
             if let groupName = groupName?.nilIfBlank {
                 Text("分组 \(groupName)")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.captionSemibold)
                     .foregroundStyle(tint)
             }
             if let contact = contact?.nilIfBlank {
                 Text("联系人 \(contact)")
-                    .font(.system(size: 13))
+                    .font(ZhihuijiTheme.Typography.body)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
             }
             if let secondary = secondary?.nilIfBlank {
                 Text(secondary)
-                    .font(.system(size: 12))
+                    .font(ZhihuijiTheme.Typography.caption)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let balance {
                 Text("往来余额 \(balance.currencyText)")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
                     .foregroundStyle(tint)
             }
             HStack {
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.captionSemibold)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
             }
         }
@@ -392,21 +392,24 @@ struct ArchivesHomeView: View {
 
     private func archiveBadge(title: String, enabled: Bool, tint: Color) -> some View {
         Text(title)
-            .font(.system(size: 12, weight: .semibold))
+            .font(ZhihuijiTheme.Typography.captionSemibold)
             .foregroundStyle(enabled ? tint : ZhihuijiTheme.ColorToken.textTertiary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background((enabled ? tint.opacity(0.12) : Color.white.opacity(0.40)), in: Capsule())
+            .background(
+                (enabled ? tint.opacity(0.12) : Color.white.opacity(0.40)),
+                in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+            )
             .overlay(
-                Capsule()
-                    .stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                    .stroke(Color.white.opacity(0.45), lineWidth: ZhihuijiTheme.Stroke.hairline)
             )
     }
 
     private func groupFilterChip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 12, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.captionSemibold)
                 .foregroundStyle(isSelected ? .white : ZhihuijiTheme.ColorToken.textPrimary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -415,11 +418,11 @@ struct ArchivesHomeView: View {
                         ? LinearGradient(colors: [ZhihuijiTheme.ColorToken.primaryBright, ZhihuijiTheme.ColorToken.primary], startPoint: .leading, endPoint: .trailing)
                         : LinearGradient(colors: [Color.white.opacity(0.58), Color.white.opacity(0.58)], startPoint: .leading, endPoint: .trailing)
                     ),
-                    in: Capsule()
+                    in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
                 )
                 .overlay(
-                    Capsule()
-                        .stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+                    RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                        .stroke(Color.white.opacity(0.45), lineWidth: ZhihuijiTheme.Stroke.hairline)
                 )
         }
         .buttonStyle(.plain)
@@ -529,7 +532,21 @@ final class ArchivesHomeViewModel: ObservableObject {
             }
             errorMessage = nil
         } catch {
+            clearLoadedDataForSelectedTab()
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func clearLoadedDataForSelectedTab() {
+        switch selectedTab {
+        case .products:
+            products = []
+        case .customers:
+            customers = []
+            customerGroups = []
+        case .suppliers:
+            suppliers = []
+            supplierGroups = []
         }
     }
 
@@ -703,10 +720,10 @@ private struct PartnerDetailSheet: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(name)
-                                    .font(.system(size: 26, weight: .bold))
+                                    .font(ZhihuijiTheme.Typography.pageTitle)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                                 Text(phone)
-                                    .font(.system(size: 14))
+                                    .font(ZhihuijiTheme.Typography.body)
                                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             }
                             Spacer()
@@ -718,7 +735,7 @@ private struct PartnerDetailSheet: View {
 
                         if let balance {
                             Text("往来余额 \(balance.currencyText)")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                                 .foregroundStyle(tint)
                         }
                     }
@@ -760,18 +777,18 @@ private struct PartnerDetailSheet: View {
     private func detailSection(title: String, rows: [(String, String?)]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
 
             VStack(spacing: 10) {
                 ForEach(rows.filter { $0.1?.nilIfBlank != nil }, id: \.0) { row in
                     HStack(alignment: .top) {
                         Text(row.0)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.captionSemibold)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                             .frame(width: 72, alignment: .leading)
                         Text(row.1 ?? "-")
-                            .font(.system(size: 13))
+                            .font(ZhihuijiTheme.Typography.body)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer()
@@ -958,7 +975,7 @@ private struct PartnerEditorSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text(editor.title)
-                        .font(.system(size: 28, weight: .bold))
+                        .font(ZhihuijiTheme.Typography.pageTitle)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
 
                     if let errorMessage {
@@ -967,7 +984,7 @@ private struct PartnerEditorSheet: View {
 
                     VStack(alignment: .leading, spacing: 12) {
                         Text("基础信息")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.sectionTitle)
                         TextField(editor.kind == .customers ? "客户名称" : "供应商名称", text: $editor.name)
                             .fieldBackground()
                         TextField("手机号", text: $editor.phone)
@@ -989,7 +1006,7 @@ private struct PartnerEditorSheet: View {
                             .background(Color.white.opacity(0.58), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.field, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.field, style: .continuous)
-                                    .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
+                                    .stroke(Color.white.opacity(0.5), lineWidth: ZhihuijiTheme.Stroke.hairline)
                             )
                         }
                         TextField("联系人", text: $editor.contactName)
@@ -1009,7 +1026,7 @@ private struct PartnerEditorSheet: View {
 
                     VStack(alignment: .leading, spacing: 12) {
                         Text("联系与备注")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(ZhihuijiTheme.Typography.sectionTitle)
                         TextField("地址", text: $editor.address, axis: .vertical)
                             .lineLimit(2 ... 4)
                             .fieldBackground()
@@ -1051,15 +1068,15 @@ private struct ArchiveSecondaryActionButton: View {
             HStack(spacing: 8) {
                 Image(systemName: systemImage)
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(ZhihuijiTheme.Typography.captionSemibold)
             }
             .foregroundStyle(tint)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 11)
-            .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                    .stroke(Color.white.opacity(0.45), lineWidth: ZhihuijiTheme.Stroke.hairline)
             )
         }
         .buttonStyle(.plain)

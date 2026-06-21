@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SalesListView: View {
     @Environment(\.appEnvironment) private var env
+    @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = SalesListViewModel()
 
     var body: some View {
@@ -9,15 +10,17 @@ struct SalesListView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Text("销售单")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(ZhihuijiTheme.Typography.pageTitle)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                     Spacer()
-                    NavigationLink {
-                        SalesEditView()
-                    } label: {
-                        StatusChip(title: "开单", tint: ZhihuijiTheme.ColorToken.primary)
+                    if session.hasPermission(.salesWrite) {
+                        NavigationLink {
+                            SalesEditView()
+                        } label: {
+                            StatusChip(title: "开单", tint: ZhihuijiTheme.ColorToken.primary)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
 
                 TextField("搜索单号 / 客户", text: $viewModel.keyword)
@@ -26,7 +29,7 @@ struct SalesListView: View {
                     .background(Color.white.opacity(0.58), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.field, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.field, style: .continuous)
-                            .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
+                            .stroke(Color.white.opacity(0.5), lineWidth: ZhihuijiTheme.Stroke.hairline)
                     )
 
                 PrimaryGlassButton(title: viewModel.isLoading ? "刷新中..." : "刷新销售单", systemImage: "arrow.clockwise", disabled: viewModel.isLoading) {
@@ -75,6 +78,7 @@ final class SalesListViewModel: ObservableObject {
             orders = try await client.fetchSaleOrders(keyword: keyword, page: 1, size: 20)
             errorMessage = nil
         } catch {
+            orders = []
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
@@ -84,33 +88,31 @@ private struct SalesOrderCard: View {
     let order: SalesOrderSummary
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(order.orderNo)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
-                    Text(order.customerName ?? "散客")
-                        .font(.system(size: 13))
+        GlassListRow {
+            VStack(alignment: .leading, spacing: ZhihuijiTheme.Spacing.sm) {
+                HStack {
+                    VStack(alignment: .leading, spacing: ZhihuijiTheme.Spacing.xs) {
+                        Text(order.orderNo)
+                            .font(ZhihuijiTheme.Typography.cardTitle)
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                        Text(order.customerName ?? "散客")
+                            .font(ZhihuijiTheme.Typography.body)
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                    }
+                    Spacer()
+                    StatusChip(title: order.statusLabel, tint: order.statusTint)
+                }
+
+                HStack(alignment: .center) {
+                    AmountText(value: order.totalAmount.currencyText, tint: ZhihuijiTheme.ColorToken.dataTextPrimary)
+                    Spacer()
+                    Text("已收 \(order.paidAmount.currencyText)")
+                        .font(ZhihuijiTheme.Typography.captionSemibold)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
-                Spacer()
-                StatusChip(title: order.statusLabel, tint: order.statusTint)
-            }
 
-            HStack {
-                Label(order.totalAmount.currencyText, systemImage: "yensign.circle.fill")
-                Spacer()
-                Text("已收 \(order.paidAmount.currencyText)")
+                TimestampText(value: order.createdAt)
             }
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
         }
-        .padding(16)
-        .background(Color.white.opacity(0.58), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous)
-                .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
-        )
     }
 }

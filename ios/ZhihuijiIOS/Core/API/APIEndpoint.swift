@@ -16,6 +16,10 @@ enum APIEndpoint {
     case inventoryLedger
     case reports
     case agentWorkbench
+    case mediaAssets
+    case mediaBindings
+    case syncHealth
+    case importJobs
 
     var path: String {
         switch self {
@@ -49,6 +53,14 @@ enum APIEndpoint {
             return "/v1/reports/sales-trend"
         case .agentWorkbench:
             return "/v2/agent/workbench"
+        case .mediaAssets:
+            return "/v2/media/assets"
+        case .mediaBindings:
+            return "/v2/media/bindings"
+        case .syncHealth:
+            return "/v2/sync/health"
+        case .importJobs:
+            return "/v2/import-jobs"
         }
     }
 }

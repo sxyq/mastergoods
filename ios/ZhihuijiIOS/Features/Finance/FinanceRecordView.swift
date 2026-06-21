@@ -2,13 +2,14 @@ import SwiftUI
 
 struct FinanceRecordView: View {
     @Environment(\.appEnvironment) private var env
+    @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = FinanceRecordViewModel()
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("资金流水")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(ZhihuijiTheme.Typography.pageTitle)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
 
                 TextField("搜索流水号 / 分类 / 往来方", text: $viewModel.keyword)
@@ -26,16 +27,18 @@ struct FinanceRecordView: View {
 
                 summarySection
 
+                cashChangeBoundaryCard
+
                 NavigationLink {
                     PayOrderDetailView()
                 } label: {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("付款单工作台")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                             Text("查看付款单状态、创建付款单、切换已付款。")
-                                .font(.system(size: 13))
+                                .font(ZhihuijiTheme.Typography.body)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         }
                         Spacer()
@@ -47,7 +50,14 @@ struct FinanceRecordView: View {
                 }
                 .buttonStyle(.plain)
 
-                financeCreateForm
+                if session.hasPermission(.financeWrite) {
+                    financeCreateForm
+                } else {
+                    EmptyStateView(
+                        title: "资金写入受限",
+                        message: "当前账号只有资金查看权限，不能新增日常流水或现金调整。"
+                    )
+                }
 
                 PrimaryGlassButton(
                     title: viewModel.isLoading ? "刷新中..." : "刷新流水",
@@ -80,10 +90,28 @@ struct FinanceRecordView: View {
         }
     }
 
+    private var cashChangeBoundaryCard: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "info.circle.fill")
+                .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
+                .padding(.top, 1)
+            Text(FinanceRecordViewModel.cashChangeBoundaryNotice)
+                .font(ZhihuijiTheme.Typography.caption)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.52), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                .stroke(ZhihuijiTheme.ColorToken.primary.opacity(0.18), lineWidth: ZhihuijiTheme.Stroke.hairline)
+        )
+    }
+
     private var financeCreateForm: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("记一笔日常流水")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             Picker("方向", selection: $viewModel.createType) {
                 ForEach(FinanceRecordType.allCases) { item in
                     Text(item.label).tag(item)
@@ -113,7 +141,7 @@ struct FinanceRecordView: View {
             PrimaryGlassButton(
                 title: viewModel.isSubmitting ? "保存中..." : "保存流水",
                 systemImage: "plus.circle.fill",
-                disabled: viewModel.isSubmitting
+                disabled: viewModel.isSubmitting || !session.hasPermission(.financeWrite)
             ) {
                 Task { await viewModel.createRecord(client: env.apiClient) }
             }
@@ -125,7 +153,7 @@ struct FinanceRecordView: View {
     private var summarySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("经营摘要")
-                .font(.system(size: 18, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.sectionTitle)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 MetricCard(
                     title: "收入",
@@ -158,7 +186,7 @@ struct FinanceRecordView: View {
     private var quickCategorySection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("常用分类")
-                .font(.system(size: 14, weight: .semibold))
+                .font(ZhihuijiTheme.Typography.captionSemibold)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
@@ -167,7 +195,7 @@ struct FinanceRecordView: View {
                             viewModel.category = item
                         } label: {
                             Text(item)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(ZhihuijiTheme.Typography.captionSemibold)
                                 .foregroundStyle(viewModel.category == item ? .white : ZhihuijiTheme.ColorToken.textPrimary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
@@ -176,11 +204,11 @@ struct FinanceRecordView: View {
                                         ? LinearGradient(colors: [ZhihuijiTheme.ColorToken.primaryBright, ZhihuijiTheme.ColorToken.primary], startPoint: .leading, endPoint: .trailing)
                                         : LinearGradient(colors: [Color.white.opacity(0.58), Color.white.opacity(0.58)], startPoint: .leading, endPoint: .trailing)
                                     ),
-                                    in: Capsule()
+                                    in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
                                 )
                                 .overlay(
-                                    Capsule()
-                                        .stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+                                    RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                                        .stroke(Color.white.opacity(0.45), lineWidth: ZhihuijiTheme.Stroke.hairline)
                                 )
                         }
                         .buttonStyle(.plain)
@@ -194,6 +222,8 @@ struct FinanceRecordView: View {
 
 @MainActor
 final class FinanceRecordViewModel: ObservableObject {
+    nonisolated static let cashChangeBoundaryNotice = "这里记录经营收支流水，复用现有 /v1/finance-records；不等同于现金调整或账户余额调整。cash-change records 后端闭环未完成前，iOS 不提供该入口。"
+
     @Published var keyword = ""
     @Published var typeFilter: FinanceTypeFilter = .all
     @Published var createType: FinanceRecordType = .expense
@@ -305,34 +335,34 @@ private struct FinanceRecordCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(record.recordNo)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(ZhihuijiTheme.Typography.cardTitle)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                     Spacer()
                     StatusChip(title: record.typeLabel, tint: record.typeTint)
                 }
                 Text(record.category)
-                    .font(.system(size: 13))
+                    .font(ZhihuijiTheme.Typography.caption)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 Text(record.partnerName ?? "无往来方")
-                    .font(.system(size: 12))
+                    .font(ZhihuijiTheme.Typography.caption)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                 HStack {
                     Text(record.amount.currencyText)
                     Spacer()
                     Text(record.createdAt.dateTimeText)
                 }
-                .font(.system(size: 12))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                 HStack {
                     Text(record.methodLabel)
                     Spacer()
                     Text(record.updatedAt.dateText)
                 }
-                .font(.system(size: 12))
+                .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 if let notes = record.notes?.nilIfBlank {
                     Text(notes)
-                        .font(.system(size: 12))
+                        .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         .lineLimit(2)
                 }

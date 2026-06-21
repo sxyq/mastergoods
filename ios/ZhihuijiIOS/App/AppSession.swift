@@ -6,6 +6,7 @@ final class AppSession: ObservableObject {
     @Published private(set) var phase: SessionPhase = .booting
     @Published private(set) var auth: AuthState = .loggedOut
     @Published private(set) var currentStore: CurrentStoreProfile?
+    @Published private(set) var storeLoadError: String?
     @Published var accessIssue: AccessIssue?
 
     private let tokenStore = AuthTokenStore()
@@ -55,17 +56,20 @@ final class AppSession: ObservableObject {
     func updateAuth(_ payload: AuthPayload) {
         tokenStore.save(accessToken: payload.token, refreshToken: payload.refreshToken)
         auth = .loggedIn(UserSession(token: payload.token, refreshToken: payload.refreshToken))
+        storeLoadError = nil
         accessIssue = nil
     }
 
     func updateStore(_ profile: CurrentStoreProfile) {
         currentStore = profile
+        storeLoadError = nil
         accessIssue = nil
     }
 
     func logout() {
         tokenStore.clear()
         currentStore = nil
+        storeLoadError = nil
         accessIssue = nil
         auth = .loggedOut
     }
@@ -75,12 +79,17 @@ final class AppSession: ObservableObject {
         do {
             let store = try await client.fetchCurrentStore()
             currentStore = store
+            storeLoadError = nil
         } catch let error as APIError {
             if error == .unauthorized {
                 logout()
+            } else {
+                currentStore = nil
+                storeLoadError = error.errorDescription ?? error.localizedDescription
             }
         } catch {
-            return
+            currentStore = nil
+            storeLoadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
