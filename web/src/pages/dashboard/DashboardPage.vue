@@ -59,6 +59,7 @@ const saleOrders = ref<SaleOrder[]>([])
 const purchaseOrders = ref<PurchaseOrder[]>([])
 const workbench = ref<AgentWorkbench | null>(null)
 const notifications = ref<AgentNotification[]>([])
+const isDemoMode = computed(() => session.source.value !== 'api' || !session.token.value)
 
 const demoTrendPoints: SalesTrendPoint[] = [
   { startAt: Date.now() - 6 * 24 * 60 * 60 * 1000, endAt: Date.now() - 5 * 24 * 60 * 60 * 1000, totalSalesAmount: 13200, totalOrderCount: 14 },
@@ -87,7 +88,7 @@ const demoWorkbench: AgentWorkbench = {
 watch(
   [() => session.source.value, () => session.token.value, activePeriod],
   async () => {
-    if (session.source.value !== 'api' || !session.token.value) {
+    if (isDemoMode.value) {
       useDemoData()
       return
     }
@@ -97,15 +98,18 @@ watch(
 )
 
 const periodRange = computed(() => buildRange(activePeriod.value))
-const trendDataset = computed(() => (trendPoints.value.length > 0 ? trendPoints.value : demoTrendPoints))
-const summaryData = computed(() => summary.value ?? buildDemoSummary())
+const trendDataset = computed(() => (isDemoMode.value ? demoTrendPoints : trendPoints.value))
+const summaryData = computed(() => {
+  if (summary.value) return summary.value
+  return isDemoMode.value ? buildDemoSummary() : buildEmptySummary()
+})
 const inventoryStats = computed(() => buildInventoryStats())
 const activityItems = computed(() => buildActivities())
 const alertItems = computed(() => buildAlerts())
 const unreadCount = computed(() => notifications.value.filter((item) => !item.isRead).length)
 const pendingShipmentCount = computed(() => {
   const count = saleOrders.value.filter((item) => saleShippingStatus(item.status) === '待出库').length
-  return count || 28
+  return count || (isDemoMode.value ? 28 : 0)
 })
 
 const trendGeometry = computed(() => buildTrendGeometry(trendDataset.value))
@@ -143,7 +147,7 @@ async function loadDashboard() {
     products.value = productResult.status === 'fulfilled' ? productResult.value : []
     saleOrders.value = saleResult.status === 'fulfilled' ? saleResult.value : []
     purchaseOrders.value = purchaseResult.status === 'fulfilled' ? purchaseResult.value : []
-    workbench.value = workbenchResult.status === 'fulfilled' ? workbenchResult.value : demoWorkbench
+    workbench.value = workbenchResult.status === 'fulfilled' ? workbenchResult.value : null
     notifications.value = notificationResult.status === 'fulfilled' ? notificationResult.value : []
 
     const errors = [
@@ -165,17 +169,25 @@ async function loadDashboard() {
       // 让计算属性读取到最新余额
       accountBalance.value = accountsResult.value.reduce((sum, item) => sum + item.balance, 0)
     } else {
-      accountBalance.value = 342105.5
+      accountBalance.value = 0
     }
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '经营看板加载失败'
-    useDemoData()
+    summary.value = null
+    trendPoints.value = []
+    lowStockProducts.value = []
+    products.value = []
+    saleOrders.value = []
+    purchaseOrders.value = []
+    workbench.value = null
+    notifications.value = []
+    accountBalance.value = 0
   } finally {
     loading.value = false
   }
 }
 
-const accountBalance = ref(342105.5)
+const accountBalance = ref(0)
 
 function useDemoData() {
   summary.value = {
@@ -233,12 +245,48 @@ function buildDemoSummary() {
   }
 }
 
+function buildEmptySummary() {
+  return {
+    startAt: periodRange.value.startAt,
+    endAt: periodRange.value.endAt,
+    totalSalesAmount: 0,
+    totalPaidAmount: 0,
+    totalRefundAmount: 0,
+    totalUnpaidAmount: 0,
+    totalOrderCount: 0,
+  }
+}
+
 function buildInventoryStats() {
-  const source = products.value.length > 0 ? products.value : []
-  const total = source.length || 100
-  const normal = source.length > 0 ? source.filter((item) => item.stock >= item.safeStock && item.stock > 0).length : 65
-  const warning = source.length > 0 ? source.filter((item) => item.stock > 0 && item.stock < item.safeStock).length : 25
-  const shortage = source.length > 0 ? source.filter((item) => item.stock <= 0).length : 10
+  if (products.value.length === 0) {
+    if (isDemoMode.value) {
+      return {
+        health: 65,
+        normal: 65,
+        warning: 25,
+        shortage: 10,
+        total: 100,
+        normalPercent: 65,
+        warningPercent: 25,
+        shortagePercent: 10,
+      }
+    }
+    return {
+      health: 0,
+      normal: 0,
+      warning: 0,
+      shortage: 0,
+      total: 0,
+      normalPercent: 0,
+      warningPercent: 0,
+      shortagePercent: 0,
+    }
+  }
+  const source = products.value
+  const total = source.length
+  const normal = source.filter((item) => item.stock >= item.safeStock && item.stock > 0).length
+  const warning = source.filter((item) => item.stock > 0 && item.stock < item.safeStock).length
+  const shortage = source.filter((item) => item.stock <= 0).length
   const safe = Math.max(total, 1)
   const health = Math.max(0, Math.min(100, Math.round((normal / safe) * 100)))
   return {
@@ -276,6 +324,9 @@ function buildActivities() {
   }))
   const items = [...sales, ...purchases]
   if (items.length === 0) {
+    if (!isDemoMode.value) {
+      return []
+    }
     return [
       {
         id: 'demo-sale',
@@ -329,16 +380,21 @@ function buildAlerts() {
   }
 
   const advice = workbench.value?.quickQuestions[0] || '根据近期销售趋势，可继续关注畅销商品补货节奏。'
-  alerts.push({
-    id: 'suggestion',
-    tone: 'info',
-    title: '智能优化建议',
-    description: advice,
-    actionLabel: '打开 AI 助手',
-    route: '/agent',
-  })
+  if (workbench.value?.quickQuestions?.length || isDemoMode.value) {
+    alerts.push({
+      id: 'suggestion',
+      tone: 'info',
+      title: '智能优化建议',
+      description: advice,
+      actionLabel: '打开 AI 助手',
+      route: '/agent',
+    })
+  }
 
   if (alerts.length === 0) {
+    if (!isDemoMode.value) {
+      return []
+    }
     return [
       {
         id: 'demo-stock',
@@ -355,7 +411,9 @@ function buildAlerts() {
 }
 
 function buildTrendGeometry(points: SalesTrendPoint[]) {
-  const safePoints = points.length > 0 ? points : demoTrendPoints
+  const safePoints = points.length > 0
+    ? points
+    : (isDemoMode.value ? demoTrendPoints : [{ startAt: periodRange.value.startAt, endAt: periodRange.value.endAt, totalSalesAmount: 0, totalOrderCount: 0 }])
   const max = Math.max(...safePoints.map((item) => item.totalSalesAmount), 1)
   const coords = safePoints.map((item, index) => {
     const x = safePoints.length === 1 ? 50 : (index / (safePoints.length - 1)) * 100
@@ -373,7 +431,10 @@ function buildTrendAxisLabels(max: number) {
 }
 
 function buildTrendDayLabels(points: SalesTrendPoint[]) {
-  const safePoints = points.length > 0 ? points : demoTrendPoints
+  const safePoints = points.length > 0 ? points : (isDemoMode.value ? demoTrendPoints : [])
+  if (safePoints.length === 0) {
+    return []
+  }
   const indexes = Array.from(new Set([0, Math.floor((safePoints.length - 1) / 3), Math.floor(((safePoints.length - 1) * 2) / 3), safePoints.length - 1]))
   return indexes.map((index) => ({
     key: `${safePoints[index].startAt}-${index}`,
@@ -589,8 +650,8 @@ function openQuickCreate() {
           </article>
         </div>
         <div class="dashboard-agent__summary">
-          <strong>{{ workbench?.greeting || demoWorkbench.greeting }}</strong>
-          <p>{{ workbench?.todaySummary || demoWorkbench.todaySummary }}</p>
+          <strong>{{ workbench?.greeting || (isDemoMode ? demoWorkbench.greeting : '智慧记 AI 助手') }}</strong>
+          <p>{{ workbench?.todaySummary || (isDemoMode ? demoWorkbench.todaySummary : '当前按真实接口返回状态展示；没有数据时不会回退本地演示摘要。') }}</p>
         </div>
       </article>
     </section>

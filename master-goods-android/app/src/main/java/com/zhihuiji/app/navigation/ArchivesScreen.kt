@@ -61,13 +61,13 @@ fun ArchivesScreen(
     onNavigateToSupplierCreate: () -> Unit,
 ) {
     val tabs = buildList {
-        if (!accessState.isResolved || accessState.hasPermission("archives:view")) {
+        if (accessState.hasPermission("archives:view")) {
             add("商品")
         }
-        if (!accessState.isResolved || accessState.hasPermission("sales:view")) {
+        if (accessState.hasPermission("sales:view")) {
             add("客户")
         }
-        if (!accessState.isResolved || accessState.hasPermission("purchase:view")) {
+        if (accessState.hasPermission("purchase:view")) {
             add("供应商")
         }
     }

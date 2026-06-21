@@ -75,13 +75,13 @@ fun DocumentsScreen(
     onNavigateToInventorySnapshot: () -> Unit,
 ) {
     val tabs = buildList {
-        if (!accessState.isResolved || accessState.hasPermission("sales:view")) {
+        if (accessState.hasPermission("sales:view")) {
             add(DocumentsTabSpec(DocumentsTabKey.SALES, "销售单", 0))
         }
-        if (!accessState.isResolved || accessState.hasPermission("purchase:view")) {
+        if (accessState.hasPermission("purchase:view")) {
             add(DocumentsTabSpec(DocumentsTabKey.PURCHASES, "采购单", 1))
         }
-        if (!accessState.isResolved || accessState.hasPermission("finance:view")) {
+        if (accessState.hasPermission("finance:view")) {
             add(DocumentsTabSpec(DocumentsTabKey.PAYMENTS, "付款单", 2))
             add(DocumentsTabSpec(DocumentsTabKey.FINANCE, "资金流水", 3))
         }

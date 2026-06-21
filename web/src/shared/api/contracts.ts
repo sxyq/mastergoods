@@ -74,6 +74,8 @@ export const endpointCatalog = {
     api('GET', '/v2/accounts', '资金账户列表和余额', 'finance:view', ['accounts']),
     api('POST', '/v2/accounts', '新增资金账户', 'finance:write', ['accounts']),
     api('GET', '/v1/finance-records', '资金流水、日常支出和收付款记录', 'finance:view', ['finance_records']),
+    api('GET', '/v2/cash-change-records', '找零记录列表、按单据或账户筛选', 'finance:view', ['cash_change_records', 'accounts']),
+    api('POST', '/v2/cash-change-records', '创建找零记录并回写关联账户余额', 'finance:write', ['cash_change_records', 'accounts']),
     api('GET', '/v2/pay-orders', '付款单列表与详情', 'finance:view', ['pay_orders']),
     api('POST', '/v2/pay-orders', '创建付款单', 'finance:write', ['pay_orders', 'finance_records']),
     api('GET', '/v2/pay-orders/{id}', '读取付款单详情', 'finance:view', ['pay_orders']),

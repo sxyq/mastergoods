@@ -40,7 +40,7 @@ import {
   streamAgentChat,
 } from '@/shared/api/agent-stream'
 import { readQueryId, sameEntityId, type EntityId } from '@/shared/utils/id'
-import { formatDateTime, formatDuration, riskLevelLabel } from '@/shared/utils/business'
+import { formatDateTime, formatDuration } from '@/shared/utils/business'
 import PageEmptyState from '@/shared/ui/PageEmptyState.vue'
 import PageStatusBanner from '@/shared/ui/PageStatusBanner.vue'
 
@@ -81,6 +81,13 @@ interface UiMessage {
   error: string
   showTrace: boolean
   runTrace: UiRunTrace | null
+}
+
+interface MarkdownSection {
+  type: 'heading' | 'list' | 'paragraph'
+  level?: number
+  text?: string
+  items?: string[]
 }
 
 const route = useRoute()
@@ -582,6 +589,131 @@ function createEmptyRunTrace(): UiRunTrace {
 function localId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
+
+function renderMarkdownSections(content: string): MarkdownSection[] {
+  const normalized = content.trim()
+  if (!normalized) {
+    return []
+  }
+  const lines = normalized.split(/\r?\n/)
+  const sections: MarkdownSection[] = []
+  let listBuffer: string[] = []
+  let paragraphBuffer: string[] = []
+
+  const flushList = () => {
+    if (listBuffer.length > 0) {
+      sections.push({ type: 'list', items: [...listBuffer] })
+      listBuffer = []
+    }
+  }
+
+  const flushParagraph = () => {
+    if (paragraphBuffer.length > 0) {
+      sections.push({ type: 'paragraph', text: paragraphBuffer.join(' ') })
+      paragraphBuffer = []
+    }
+  }
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (!line) {
+      flushList()
+      flushParagraph()
+      continue
+    }
+    const heading = line.match(/^(#{1,3})\s+(.+)$/)
+    if (heading) {
+      flushList()
+      flushParagraph()
+      sections.push({
+        type: 'heading',
+        level: heading[1].length,
+        text: heading[2].trim(),
+      })
+      continue
+    }
+    if (/^[-*]\s+/.test(line)) {
+      flushParagraph()
+      listBuffer.push(line.replace(/^[-*]\s+/, '').trim())
+      continue
+    }
+    flushList()
+    paragraphBuffer.push(line)
+  }
+
+  flushList()
+  flushParagraph()
+  return sections
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function normalizeBlockType(block: AgentResultBlock) {
+  return block.blockType.trim().toLowerCase()
+}
+
+function blockTableRows(block: AgentResultBlock): Record<string, unknown>[] {
+  if (Array.isArray(block.data) && block.data.every(isRecord)) {
+    return block.data
+  }
+  if (isRecord(block.data) && Array.isArray(block.data.rows) && block.data.rows.every(isRecord)) {
+    return block.data.rows
+  }
+  return []
+}
+
+function blockTableHeaders(block: AgentResultBlock) {
+  const rows = blockTableRows(block)
+  return rows.length > 0 ? Object.keys(rows[0]) : []
+}
+
+function isTableBlock(block: AgentResultBlock) {
+  return normalizeBlockType(block).includes('table') || blockTableRows(block).length > 0
+}
+
+function blockListItems(block: AgentResultBlock): string[] {
+  if (Array.isArray(block.data)) {
+    return block.data
+      .filter((item) => typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean')
+      .map((item) => String(item))
+  }
+  if (isRecord(block.data) && Array.isArray(block.data.items)) {
+    return block.data.items
+      .filter((item) => typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean')
+      .map((item) => String(item))
+  }
+  return []
+}
+
+function isListBlock(block: AgentResultBlock) {
+  const type = normalizeBlockType(block)
+  return type.includes('list') || type.includes('bullet') || blockListItems(block).length > 0
+}
+
+function blockObjectEntries(block: AgentResultBlock) {
+  if (!isRecord(block.data)) {
+    return []
+  }
+  if (Array.isArray(block.data.rows)) {
+    return []
+  }
+  return Object.entries(block.data)
+}
+
+function isObjectBlock(block: AgentResultBlock) {
+  const type = normalizeBlockType(block)
+  return type.includes('kpi') || type.includes('card') || blockObjectEntries(block).length > 0
+}
+
+function formatBlockValue(value: unknown) {
+  if (value == null) return '--'
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+  return JSON.stringify(value, null, 2)
+}
 </script>
 
 <template>
@@ -666,7 +798,18 @@ function localId(prefix: string) {
               <strong>{{ message.role === 'user' ? '你' : message.role === 'assistant' ? '智慧记 AI' : '系统' }}</strong>
               <span>{{ formatDateTime(message.createdAt) }}</span>
             </header>
-            <pre>{{ message.content || (message.isStreaming ? '正在生成...' : '') }}</pre>
+            <div class="agent-markdown" v-if="message.content">
+              <template v-for="(section, index) in renderMarkdownSections(message.content)" :key="`${message.id}-${index}`">
+                <h4 v-if="section.type === 'heading' && section.level === 1">{{ section.text }}</h4>
+                <h5 v-else-if="section.type === 'heading' && section.level === 2">{{ section.text }}</h5>
+                <h6 v-else-if="section.type === 'heading'">{{ section.text }}</h6>
+                <ul v-else-if="section.type === 'list'">
+                  <li v-for="item in section.items" :key="item">{{ item }}</li>
+                </ul>
+                <p v-else>{{ section.text }}</p>
+              </template>
+            </div>
+            <p v-else-if="message.isStreaming" class="agent-markdown__placeholder">正在生成...</p>
             <p v-if="message.error" class="form-error">{{ message.error }}</p>
 
             <div v-if="message.runTrace" class="agent-run-trace">
@@ -716,7 +859,30 @@ function localId(prefix: string) {
                     <article v-for="(block, index) in message.runTrace.resultBlocks" :key="`${block.blockType}-${index}`" class="detail-card">
                       <p class="eyebrow">{{ block.blockType }}</p>
                       <strong>{{ block.title || '结构化结果' }}</strong>
-                      <pre>{{ JSON.stringify(block.data, null, 2) }}</pre>
+                      <div v-if="isTableBlock(block)" class="agent-result-table">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th v-for="header in blockTableHeaders(block)" :key="header">{{ header }}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr v-for="(row, rowIndex) in blockTableRows(block)" :key="rowIndex">
+                              <td v-for="header in blockTableHeaders(block)" :key="`${rowIndex}-${header}`">{{ formatBlockValue(row[header]) }}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <ul v-else-if="isListBlock(block)" class="agent-result-list">
+                        <li v-for="item in blockListItems(block)" :key="item">{{ item }}</li>
+                      </ul>
+                      <dl v-else-if="isObjectBlock(block)" class="agent-result-kv">
+                        <template v-for="[key, value] in blockObjectEntries(block)" :key="key">
+                          <dt>{{ key }}</dt>
+                          <dd>{{ formatBlockValue(value) }}</dd>
+                        </template>
+                      </dl>
+                      <pre v-else>{{ JSON.stringify(block.data, null, 2) }}</pre>
                     </article>
                   </div>
                 </div>
@@ -755,16 +921,6 @@ function localId(prefix: string) {
         </div>
 
         <div class="detail-stack">
-          <article v-if="workbench?.kpiCards?.length" class="detail-card">
-            <p class="eyebrow">KPI</p>
-            <div class="mini-list">
-              <div v-for="card in workbench.kpiCards" :key="card.label">
-                <strong>{{ card.label }}</strong>
-                <span>{{ card.value }} / {{ card.trendValue || '--' }}</span>
-              </div>
-            </div>
-          </article>
-
           <article v-if="workbench?.quickQuestions?.length" class="detail-card">
             <p class="eyebrow">快捷问题</p>
             <div class="form-actions">
@@ -778,16 +934,6 @@ function localId(prefix: string) {
               >
                 {{ question }}
               </button>
-            </div>
-          </article>
-
-          <article v-if="workbench?.riskAlerts?.length" class="detail-card">
-            <p class="eyebrow">风险提醒</p>
-            <div class="mini-list">
-              <div v-for="risk in workbench.riskAlerts" :key="`${risk.level}-${risk.title}`">
-                <strong>{{ risk.title }}</strong>
-                <span>{{ riskLevelLabel(risk.level) }} / {{ risk.description }}</span>
-              </div>
             </div>
           </article>
 
@@ -875,3 +1021,64 @@ function localId(prefix: string) {
     </section>
   </section>
 </template>
+
+<style scoped>
+.agent-markdown {
+  display: grid;
+  gap: 8px;
+  white-space: normal;
+}
+
+.agent-markdown :deep(h4),
+.agent-markdown :deep(h5),
+.agent-markdown :deep(h6) {
+  margin: 0;
+}
+
+.agent-markdown :deep(p),
+.agent-markdown :deep(ul) {
+  margin: 0;
+}
+
+.agent-markdown__placeholder {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.agent-result-table {
+  overflow-x: auto;
+}
+
+.agent-result-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.agent-result-table th,
+.agent-result-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.agent-result-list,
+.agent-result-kv {
+  margin: 0;
+}
+
+.agent-result-kv {
+  display: grid;
+  grid-template-columns: minmax(96px, 140px) 1fr;
+  gap: 6px 10px;
+}
+
+.agent-result-kv dt {
+  font-weight: 600;
+}
+
+.agent-result-kv dd {
+  margin: 0;
+}
+</style>

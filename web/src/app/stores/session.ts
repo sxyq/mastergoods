@@ -68,7 +68,7 @@ export function useSession() {
   const permissions = computed(() => {
     if (state.currentRole === 'OWNER') return rolePermissions.OWNER
     if (state.permissions.length > 0) return state.permissions
-    if (state.source === 'demo' || state.source === 'api') return rolePermissions[state.currentRole]
+    if (state.source === 'demo') return rolePermissions[state.currentRole]
     return []
   })
   const localMembers = computed<EditableStoreMember[]>(() => state.localMembers.map((item) => ({
@@ -123,7 +123,7 @@ export function useSession() {
   function hasAnyPermission(required?: Permission[]) {
     if (!required || required.length === 0) return true
     if (state.currentRole === 'OWNER') return true
-    const granted = new Set(permissions.value.length > 0 ? permissions.value : rolePermissions[state.currentRole])
+    const granted = new Set(permissions.value)
     return required.some((permission) => granted.has(permission))
   }
 

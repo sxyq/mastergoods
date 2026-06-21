@@ -67,7 +67,7 @@ data class RouteAccessRule(
 )
 
 fun MainAccessUiState.canAccessRule(rule: RouteAccessRule): Boolean {
-    if (!isResolved) return true
+    if (!isResolved) return false
     if (!permissions.containsAll(rule.allOf)) return false
     if (rule.anyOf.isNotEmpty() && rule.anyOf.none(permissions::contains)) return false
     return true

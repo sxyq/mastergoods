@@ -17,7 +17,7 @@
 | sales | 新版已做 | `/v2/sale-orders/*` 首批已落地，`/v2/sales-returns/*` 第五阶段已落地，草稿增强已落地 |
 | purchase | 新版已做 | `/v2/purchase-orders/*` 首批已落地，`/v2/purchase-receipts/*` 第五阶段已落地 |
 | pay-orders | 新版已做 | `/v2/pay-orders/*` 首批已落地，B05 已增强账户关联（`account_id` + 余额扣减 + `bill_fund_link`），本轮补齐 `PAID` 幂等保护 |
-| finance | 新版已做 | `/v2/accounts/*`、`/v2/account-transfers/*`、`/v2/bill-fund-links/*` 已落地，账户 create/update 请求已拆分，cash_change_records 待补；Android `@Query` 参数名已验证与后端 `@RequestParam` 一致（camelCase，后端未显式写 name，依赖 `-parameters` 编译保留） |
+| finance | 新版已做 | `/v2/accounts/*`、`/v2/account-transfers/*`、`/v2/bill-fund-links/*`、`/v2/cash-change-records/*` 已落地；找零记录支持列表/详情/创建/删除与账户余额联动；Android `@Query` 参数名已验证与后端 `@RequestParam` 一致（camelCase，后端未显式写 name，依赖 `-parameters` 编译保留） |
 | inventory | 新版已做 | `/v2/inventory/ledger`、`/v2/inventory/ledger/by-source`（显式 `source_type`/`source_id`）、`/v2/inventory/snapshots`、`/v2/inventory/monthly-stats` 已落地；Android `@Query` 参数名已验证与后端 `@RequestParam` 一致（`/ledger` 和 `/snapshots` 为 camelCase，`/by-source` 为 snake_case） |
 | media | 待验证 | `/v2/media/assets/*`、`/v2/media/bindings/*` 已落地首轮合同，仍待真实上传链与客户端联调；V14 迁移已补 `ON DELETE CASCADE`，会话删除时关联绑定自动级联 |
 | agent | 待验证 | `/v2/agent/conversations/*` 已补 `PUT /v2/agent/conversations/{id}`（更新标题/状态）与 `DELETE /v2/agent/conversations/{id}`（级联删除消息与草稿）；`/v2/agent/conversations/{conversationId}/messages`、`/v2/agent/drafts/*` 已落地首轮合同；会话状态枚举约束为 `[active, closed, archived]`，草稿状态枚举约束为 `[active, archived]`；`closed/archived` 会话拒绝新消息写入；推荐结果缓存等后续继续扩展 |

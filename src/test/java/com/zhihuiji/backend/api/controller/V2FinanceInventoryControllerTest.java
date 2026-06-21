@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.zhihuiji.backend.api.controller.v2.V2AccountController;
 import com.zhihuiji.backend.api.controller.v2.V2AccountTransferController;
 import com.zhihuiji.backend.api.controller.v2.V2BillFundLinkController;
+import com.zhihuiji.backend.api.controller.v2.V2CashChangeRecordController;
 import com.zhihuiji.backend.api.controller.v2.V2InventoryController;
 import com.zhihuiji.backend.api.dto.v2.finance.V2FinanceDtos;
 import com.zhihuiji.backend.api.dto.v2.inventory.V2InventoryDtos;
@@ -17,6 +18,7 @@ import com.zhihuiji.backend.application.service.SessionAccessService;
 import com.zhihuiji.backend.application.service.v2.V2AccountService;
 import com.zhihuiji.backend.application.service.v2.V2AccountTransferService;
 import com.zhihuiji.backend.application.service.v2.V2BillFundLinkService;
+import com.zhihuiji.backend.application.service.v2.V2CashChangeRecordService;
 import com.zhihuiji.backend.application.service.v2.V2InventoryService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -31,6 +33,7 @@ import org.springframework.test.web.servlet.MockMvc;
     V2AccountController.class,
     V2AccountTransferController.class,
     V2BillFundLinkController.class,
+    V2CashChangeRecordController.class,
     V2InventoryController.class
 })
 @AutoConfigureMockMvc(addFilters = false)
@@ -44,6 +47,8 @@ class V2FinanceInventoryControllerTest {
     private V2AccountTransferService v2AccountTransferService;
     @MockBean
     private V2BillFundLinkService v2BillFundLinkService;
+    @MockBean
+    private V2CashChangeRecordService v2CashChangeRecordService;
     @MockBean
     private V2InventoryService v2InventoryService;
     @MockBean
@@ -125,5 +130,28 @@ class V2FinanceInventoryControllerTest {
             .andExpect(jsonPath("$.data.account_id").value(5))
             .andExpect(jsonPath("$.data.account_name").value("现金"))
             .andExpect(jsonPath("$.data.link_type").value(1));
+    }
+
+    @Test
+    void createCashChangeRecordReturnsComputedFields() throws Exception {
+        when(v2CashChangeRecordService.create(any())).thenReturn(
+            new V2FinanceDtos.CashChangeRecordResponse(8L, "sale_order", 3L, 100.0, 120.0, 20.0, 5L, "现金", 1, "找零", 1L, 2L)
+        );
+
+        mockMvc.perform(post("/v2/cash-change-records")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "order_type": "sale_order",
+                      "order_id": 3,
+                      "receivable": 100.0,
+                      "received": 120.0,
+                      "account_id": 5
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.change_amount").value(20.0))
+            .andExpect(jsonPath("$.data.account_name").value("现金"))
+            .andExpect(jsonPath("$.data.order_type").value("sale_order"));
     }
 }
