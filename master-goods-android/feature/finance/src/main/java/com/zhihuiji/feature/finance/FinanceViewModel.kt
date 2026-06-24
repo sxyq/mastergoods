@@ -2,6 +2,7 @@ package com.zhihuiji.feature.finance
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.model.FinanceFilter
@@ -55,8 +56,9 @@ class FinanceViewModel @Inject constructor(
 
     fun loadRecords() {
         observeJob?.cancel()
+        val filter = currentFilter()
         observeJob = viewModelScope.launch {
-            repository.observeFinanceRecords(currentFilter())
+            repository.observeFinanceRecords(filter)
                 .catch { error ->
                     _uiState.update {
                         it.copy(
@@ -66,10 +68,14 @@ class FinanceViewModel @Inject constructor(
                     }
                 }
                 .collect { records ->
+                    val items = ArrayList<FinanceItem>(records.size)
+                    for (record in records) {
+                        items.add(record.toFinanceItem())
+                    }
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            records = records.map(FinanceRecordDto::toFinanceItem)
+                            records = items
                         )
                     }
                 }
@@ -77,7 +83,7 @@ class FinanceViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                repository.refreshFinanceRecords(currentFilter())
+                repository.refreshFinanceRecords(filter)
             } catch (error: Exception) {
                 _uiState.update {
                     it.copy(
@@ -117,17 +123,13 @@ class FinanceViewModel @Inject constructor(
 private fun FinanceRecordDto.toFinanceItem(): FinanceItem {
     val typeLabel = StatusLabels.financeType(type)
     val methodLabel = StatusLabels.paymentMethod(method)
-    val titleText = listOf(category, partnerName)
-        .filter { !it.isNullOrBlank() }
-        .joinToString("-")
-        .ifBlank { recordNo }
     return FinanceItem(
         id = id,
         recordNo = recordNo,
-        title = titleText,
+        title = buildFinanceTitle(category, partnerName, recordNo),
         category = category,
         account = methodLabel,
-        amount = "¥%.2f".format(amount),
+        amount = MoneyFormatter.format(amount),
         amountValue = amount,
         type = typeLabel,
         date = TimeFormatter.formatDate(createdAt),
@@ -135,4 +137,19 @@ private fun FinanceRecordDto.toFinanceItem(): FinanceItem {
         partnerName = partnerName,
         notes = notes
     )
+}
+
+private fun buildFinanceTitle(
+    category: String,
+    partnerName: String?,
+    recordNo: String,
+): String {
+    val hasPartner = !partnerName.isNullOrBlank()
+    return if (hasPartner) {
+        "$category-${partnerName.trim()}"
+    } else if (category.isNotBlank()) {
+        category
+    } else {
+        recordNo
+    }
 }

@@ -2,6 +2,7 @@ package com.zhihuiji.feature.finance
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.model.CreateFinanceRecordRequest
 import com.zhihuiji.data.finance.FinanceRepository
@@ -27,7 +28,7 @@ data class DailyExpenseUiState(
         get() = amount.trim().replace(",", "").toDoubleOrNull()
 
     val amountText: String
-        get() = "¥%.2f".format(parsedAmount?.takeIf { it > 0.0 } ?: 0.0)
+        get() = MoneyFormatter.format(parsedAmount?.takeIf { it > 0.0 } ?: 0.0)
 
     val canSubmit: Boolean
         get() = !isSaving && (parsedAmount ?: 0.0) > 0.0 && category.isNotBlank()

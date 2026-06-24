@@ -104,6 +104,20 @@ private val paymentMethods = listOf(
     StatusLabels.Codes.METHOD_BANK to "银行卡",
     StatusLabels.Codes.METHOD_OTHER to "其他",
 )
+private val expenseCategoryRows = expenseCategories.chunked(4)
+private val paymentMethodRows = paymentMethods.chunked(2)
+private val paymentMethodLabels = paymentMethods.toMap()
+private val roundedCardShape = RoundedCornerShape(12.dp)
+private val bottomScrimBrush = Brush.verticalGradient(
+    colors = listOf(
+        BackgroundGradientEnd.copy(alpha = 0.82f),
+        BackgroundGradientEnd.copy(alpha = 0.96f),
+        BackgroundGradientEnd,
+    ),
+)
+private val primaryActionBrush = Brush.horizontalGradient(
+    colors = listOf(ZhihuijiPrimaryBright, ZhihuijiPrimary),
+)
 
 @Composable
 fun DailyExpenseScreen(
@@ -174,7 +188,7 @@ private fun DailyExpenseContent(
         LiquidGlassCard(
             modifier = Modifier.fillMaxWidth(),
             surfaceColor = GlassSurfaceHigh,
-            shape = RoundedCornerShape(12.dp),
+            shape = roundedCardShape,
             contentPadding = 16.dp,
         ) {
             CategoryIconGrid(
@@ -186,7 +200,7 @@ private fun DailyExpenseContent(
         LiquidGlassCard(
             modifier = Modifier.fillMaxWidth(),
             surfaceColor = GlassSurfaceHigh,
-            shape = RoundedCornerShape(12.dp),
+            shape = roundedCardShape,
             contentPadding = 16.dp,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -308,32 +322,19 @@ private fun DailyExpenseBottomBar(
     onPrimaryClick: () -> Unit,
     primaryEnabled: Boolean,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        BackgroundGradientEnd.copy(alpha = 0.82f),
-                        BackgroundGradientEnd.copy(alpha = 0.96f),
-                        BackgroundGradientEnd,
-                    ),
-                ),
-            )
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-    ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(ZhihuijiPrimaryBright, ZhihuijiPrimary),
-                    ),
-                    alpha = if (primaryEnabled) 1f else 0.5f,
-                )
-                .clickable(enabled = primaryEnabled, onClick = onPrimaryClick),
+                .background(brush = bottomScrimBrush)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clip(roundedCardShape)
+                    .background(brush = primaryActionBrush, alpha = if (primaryEnabled) 1f else 0.5f)
+                    .clickable(enabled = primaryEnabled, onClick = onPrimaryClick),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -360,12 +361,12 @@ private fun AmountHeroCard(
     amount: String,
     onAmountChange: (String) -> Unit,
 ) {
-    LiquidGlassCard(
-        modifier = Modifier.fillMaxWidth(),
-        surfaceColor = GlassSurfaceHigh,
-        shape = RoundedCornerShape(12.dp),
-        contentPadding = 16.dp,
-    ) {
+        LiquidGlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            surfaceColor = GlassSurfaceHigh,
+            shape = roundedCardShape,
+            contentPadding = 16.dp,
+        ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -438,7 +439,7 @@ private fun CategoryIconGrid(
             color = TextSecondary,
         )
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            expenseCategories.chunked(4).forEach { row ->
+            expenseCategoryRows.forEach { row ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -471,14 +472,14 @@ private fun CategoryIconTile(
     val borderColor = if (selected) ZhihuijiPrimary else Color.Transparent
     val contentColor = if (selected) ZhihuijiPrimary else TextSecondary
 
-    Column(
-        modifier = modifier
-            .height(78.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(backgroundColor)
-            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
+        Column(
+            modifier = modifier
+                .height(78.dp)
+                .clip(roundedCardShape)
+                .background(backgroundColor)
+                .border(1.dp, borderColor, roundedCardShape)
+                .clickable(onClick = onClick)
+                .padding(vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -505,14 +506,14 @@ private fun AccountSelectorPreview(
     onSelected: (Int) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val label = paymentMethods.firstOrNull { it.first == selectedMethod }?.second ?: "其他"
+    val label = paymentMethodLabels[selectedMethod] ?: "其他"
     Box(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .clip(roundedCardShape)
                 .background(Color.White.copy(alpha = 0.80f))
-                .border(1.dp, DividerLight, RoundedCornerShape(12.dp))
+                .border(1.dp, DividerLight, roundedCardShape)
                 .clickable { expanded = true }
                 .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -574,9 +575,9 @@ private fun FormInfoRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .clip(roundedCardShape)
                 .background(Color.White.copy(alpha = 0.80f))
-                .border(1.dp, DividerLight, RoundedCornerShape(12.dp))
+                .border(1.dp, DividerLight, roundedCardShape)
                 .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -598,12 +599,12 @@ private fun FormInfoRow(
 
 @Composable
 private fun AttachmentCard() {
-    LiquidGlassCard(
-        modifier = Modifier.fillMaxWidth(),
-        surfaceColor = GlassSurfaceHigh,
-        shape = RoundedCornerShape(12.dp),
-        contentPadding = 16.dp,
-    ) {
+        LiquidGlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            surfaceColor = GlassSurfaceHigh,
+            shape = roundedCardShape,
+            contentPadding = 16.dp,
+        ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -628,8 +629,8 @@ private fun AttachmentCard() {
                 Column(
                     modifier = Modifier
                         .size(80.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .border(1.dp, DividerLight, RoundedCornerShape(12.dp))
+                        .clip(roundedCardShape)
+                        .border(1.dp, DividerLight, roundedCardShape)
                         .background(Color.White.copy(alpha = 0.32f)),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
@@ -651,9 +652,9 @@ private fun AttachmentCard() {
                 Box(
                     modifier = Modifier
                         .size(80.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(roundedCardShape)
                         .background(GlassSurfaceMedium)
-                        .border(0.5.dp, GlassBorder, RoundedCornerShape(12.dp)),
+                        .border(0.5.dp, GlassBorder, roundedCardShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -679,7 +680,7 @@ private fun MethodGrid(
     onSelected: (Int) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        paymentMethods.chunked(2).forEach { row ->
+        paymentMethodRows.forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

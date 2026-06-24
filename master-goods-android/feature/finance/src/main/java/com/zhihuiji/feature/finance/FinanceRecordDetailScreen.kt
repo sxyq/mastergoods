@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -45,7 +46,10 @@ fun FinanceRecordDetailScreen(
     viewModel: FinanceViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val record = uiState.records.firstOrNull { it.id == recordId }
+    val record = remember(uiState.records, recordId) {
+        uiState.records.firstOrNull { it.id == recordId }
+    }
+    val totalAmountColor = record?.amountColor()
 
     GlassScaffold(
         topBar = {
@@ -61,7 +65,7 @@ fun FinanceRecordDetailScreen(
                 onPrimaryClick = onNavigateBack,
                 totalLabel = "流水金额",
                 totalAmount = record?.amount,
-                totalAmountColor = record?.amountColor()
+                totalAmountColor = totalAmountColor
             )
         }
     ) { paddingValues ->
@@ -108,6 +112,8 @@ private fun FinanceRecordDetailContent(
     record: FinanceItem,
     modifier: Modifier = Modifier
 ) {
+    val amountColor = record.amountColor()
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
@@ -135,7 +141,7 @@ private fun FinanceRecordDetailContent(
                         Text(
                             text = record.amount,
                             style = AmountTextStyle,
-                            color = record.amountColor()
+                            color = amountColor
                         )
                     }
                     StatusPill(

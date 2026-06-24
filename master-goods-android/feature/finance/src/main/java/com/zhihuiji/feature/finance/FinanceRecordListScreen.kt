@@ -142,9 +142,11 @@ private fun FinanceRecordListItem(
         modifier = modifier,
         title = record.recordNo,
         subtitle = record.title.ifBlank { record.category },
-        meta = listOf(record.account, record.date)
-            .filter { it.isNotBlank() }
-            .joinToString(" · "),
+        meta = when {
+            record.account.isBlank() -> record.date
+            record.date.isBlank() -> record.account
+            else -> "${record.account} · ${record.date}"
+        },
         amount = if (record.type == "支出") "-${record.amount}" else record.amount,
         statusLabel = record.type,
         statusTone = when (record.type) {
