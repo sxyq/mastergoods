@@ -22,11 +22,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException ex) {
-        String msg = "Invalid request";
-        for (var error : ex.getBindingResult().getFieldErrors()) {
-            msg = error.getField() + " " + error.getDefaultMessage();
-            break;
-        }
+        String msg = ex.getBindingResult().getFieldErrors().stream().findFirst()
+            .map(e -> e.getField() + " " + e.getDefaultMessage()).orElse("Invalid request");
         return ResponseEntity.badRequest().body(ApiResponse.failure(ApiResponse.CODE_BAD_REQUEST, msg));
     }
 

@@ -25,13 +25,8 @@ object SignatureIntegrityChecker {
             @Suppress("DEPRECATION")
             packageInfo.signatures.orEmpty()
         }
-        if (signatures.isEmpty()) return false
-        for (signature in signatures) {
-            if (sha256(signature.toByteArray()) == normalizedExpected) {
-                return true
-            }
-        }
-        return false
+        return signatures.isNotEmpty() &&
+            signatures.any { sha256(it.toByteArray()) == normalizedExpected }
     }
 
     private fun sha256(input: ByteArray): String {

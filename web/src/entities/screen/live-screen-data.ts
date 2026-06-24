@@ -34,6 +34,15 @@ import {
   type SupplierRecord,
 } from '@/shared/api/client'
 import type { PageMetric, PageSummaryItem } from './page-models'
+import {
+  financeTypeLabel,
+  formatCurrency,
+  formatNumber,
+  purchasePaymentStatus,
+  purchaseReceiptFlowStatus,
+  purchaseReceiptStatus,
+  saleShippingStatus,
+} from '@/shared/utils/business'
 
 const ORDER_DRAFT = 0
 const ORDER_COMPLETED = 1
@@ -41,22 +50,11 @@ const ORDER_CANCELLED = 2
 const ORDER_CONFIRMED = 3
 const DAY_MS = 24 * 60 * 60 * 1000
 
-const CURRENCY_FORMATTER = new Intl.NumberFormat('zh-CN', {
-  style: 'currency',
-  currency: 'CNY',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})
-
 const DATE_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
   month: '2-digit',
   day: '2-digit',
   hour: '2-digit',
   minute: '2-digit',
-})
-
-const NUMBER_FORMATTER = new Intl.NumberFormat('zh-CN', {
-  maximumFractionDigits: 2,
 })
 
 export interface ScreenLiveRow {
@@ -193,7 +191,7 @@ function mapSalesOrders(orders: SaleOrder[]): ScreenLiveData {
   let unsettledCount = 0
   for (let index = 0; index < sorted.length; index += 1) {
     const order = sorted[index]
-    const shippingLabel = saleShippingStatus(order)
+    const shippingLabel = saleShippingStatus(order.status)
     const paymentLabel = salePaymentStatus(order)
     const statusTokens = saleStatusTokens(order)
     totalSales += order.totalAmount
@@ -242,8 +240,8 @@ function mapPurchaseOrders(orders: PurchaseOrder[]): ScreenLiveData {
   let awaitingPaymentCount = 0
   for (let index = 0; index < sorted.length; index += 1) {
     const order = sorted[index]
-    const receiptLabel = purchaseReceiptStatus(order)
-    const paymentLabel = purchasePaymentStatus(order)
+    const receiptLabel = purchaseReceiptStatus(order.totalAmount, order.receivedAmount, order.status)
+    const paymentLabel = purchasePaymentStatus(order.totalAmount, order.paidAmount, order.status)
     const statusTokens = purchaseStatusTokens(order)
     totalAmount += order.totalAmount
     unpaid += Math.max(order.totalAmount - order.paidAmount, 0)
@@ -444,11 +442,11 @@ function mapPurchaseReceipts(receipts: PurchaseReceipt[]): ScreenLiveData {
         receipt.supplierName || '未命名供应商',
         String(receipt.items.length),
         formatCurrency(receipt.totalAmount),
-        receiptStatusLabel(receipt.status),
+        purchaseReceiptFlowStatus(receipt.status),
         receipt.notes || '--',
         formatDate(receipt.updatedAt),
       ],
-      statusTokens: [receiptStatusLabel(receipt.status)],
+      statusTokens: [purchaseReceiptFlowStatus(receipt.status)],
     }
   }
   return {
@@ -742,13 +740,6 @@ function mapAgentWorkbench(workbench: AgentWorkbench, tasks: AgentTask[], notifi
   }
 }
 
-function saleShippingStatus(order: SaleOrder) {
-  if (order.status === ORDER_CANCELLED) return '已作废'
-  if (order.status === ORDER_COMPLETED) return '已出库'
-  if (order.status === ORDER_CONFIRMED) return '待出库'
-  return '待审核'
-}
-
 function salePaymentStatus(order: SaleOrder) {
   if (order.status === ORDER_CANCELLED) return '已作废'
   if (order.paidAmount <= 0) return '未收款'
@@ -771,21 +762,6 @@ function saleStatusTokens(order: SaleOrder) {
   if (order.status === ORDER_CANCELLED) tokens.push('已作废')
   if (order.status !== ORDER_CANCELLED && order.paidAmount < order.totalAmount) tokens.push('待结算')
   return tokens
-}
-
-function purchaseReceiptStatus(order: PurchaseOrder) {
-  if (order.status === ORDER_CANCELLED) return '已作废'
-  if (order.receivedAmount >= order.totalAmount && order.totalAmount > 0) return '已入库'
-  if (order.receivedAmount > 0) return '部分入库'
-  if (order.status === ORDER_DRAFT) return '草稿'
-  return '待入库'
-}
-
-function purchasePaymentStatus(order: PurchaseOrder) {
-  if (order.status === ORDER_CANCELLED) return '已作废'
-  if (order.paidAmount >= order.totalAmount && order.totalAmount > 0) return '已付款'
-  if (order.paidAmount > 0) return '部分付款'
-  return order.status === ORDER_DRAFT ? '待审批' : '待付款'
 }
 
 function purchaseOwnerLabel(order: PurchaseOrder) {
@@ -823,13 +799,6 @@ function productStatusTokens(product: ProductRecord, lowStockIds: Set<number>) {
   return tokens
 }
 
-function receiptStatusLabel(status: number) {
-  if (status === ORDER_COMPLETED) return '已完成'
-  if (status === ORDER_CANCELLED) return '已作废'
-  if (status === ORDER_CONFIRMED) return '待确认'
-  return '草稿'
-}
-
 function salesReturnStatusLabel(item: SalesReturn) {
   if (item.status === ORDER_CANCELLED) return '已作废'
   if (item.refundAmount >= item.totalAmount && item.totalAmount > 0) return '已退款'
@@ -850,12 +819,6 @@ function inventoryDirectionLabel(quantityChange: number) {
   return '调整'
 }
 
-function financeTypeLabel(type?: number | null) {
-  if (type === 1) return '收入'
-  if (type === 2) return '支出'
-  return '其他'
-}
-
 function financeMethodLabel(method?: number | null) {
   if (method === 1) return '现金'
   if (method === 2) return '银行卡'
@@ -867,18 +830,10 @@ function sameDay(left: number, right: number) {
   return new Date(left).toDateString() === new Date(right).toDateString()
 }
 
-function formatCurrency(value: number) {
-  return CURRENCY_FORMATTER.format(value || 0)
-}
-
 function formatPercent(value: number) {
   return `${(value * 100).toFixed(1)}%`
 }
 
 function formatDate(timestamp: number) {
   return DATE_FORMATTER.format(timestamp)
-}
-
-function formatNumber(value: number) {
-  return NUMBER_FORMATTER.format(value || 0)
 }

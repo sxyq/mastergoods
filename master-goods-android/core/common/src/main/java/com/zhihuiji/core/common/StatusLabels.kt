@@ -31,44 +31,37 @@ object StatusLabels {
         const val INVENTORY_IN = 1
     }
 
-    fun saleOrderStatus(code: Int): String = when (code) {
-        Codes.SALE_DRAFT -> "草稿"
-        Codes.SALE_COMPLETED -> "已完成"
-        Codes.SALE_CANCELLED -> "已取消"
-        Codes.SALE_CONFIRMED -> "已确认"
-        else -> "未知"
-    }
+    private val SALE_ORDER_STATUS = mapOf(
+        Codes.SALE_DRAFT to "草稿", Codes.SALE_COMPLETED to "已完成",
+        Codes.SALE_CANCELLED to "已取消", Codes.SALE_CONFIRMED to "已确认",
+    )
+    fun saleOrderStatus(code: Int): String = SALE_ORDER_STATUS[code] ?: "未知"
 
-    fun purchaseOrderStatus(code: Int): String = when (code) {
-        Codes.PURCHASE_DRAFT -> "草稿"
-        Codes.PURCHASE_RECEIVED -> "已收货"
-        else -> "未知"
-    }
+    private val PURCHASE_ORDER_STATUS = mapOf(
+        Codes.PURCHASE_DRAFT to "草稿", Codes.PURCHASE_RECEIVED to "已收货",
+    )
+    fun purchaseOrderStatus(code: Int): String = PURCHASE_ORDER_STATUS[code] ?: "未知"
 
-    fun payOrderStatus(code: Int): String = when (code) {
-        Codes.PAY_PENDING -> "待付款"
-        Codes.PAY_PAID -> "已付款"
-        Codes.PAY_CANCELLED -> "已取消"
-        else -> "未知"
-    }
+    private val PAY_ORDER_STATUS = mapOf(
+        Codes.PAY_PENDING to "待付款", Codes.PAY_PAID to "已付款",
+        Codes.PAY_CANCELLED to "已取消",
+    )
+    fun payOrderStatus(code: Int): String = PAY_ORDER_STATUS[code] ?: "未知"
 
-    fun financeType(code: Int): String = when (code) {
-        Codes.FINANCE_INCOME -> "收入"
-        Codes.FINANCE_EXPENSE -> "支出"
-        else -> "未知"
-    }
+    private val FINANCE_TYPES = mapOf(
+        Codes.FINANCE_INCOME to "收入", Codes.FINANCE_EXPENSE to "支出",
+    )
+    fun financeType(code: Int): String = FINANCE_TYPES[code] ?: "未知"
 
-    fun supplierStatus(code: Int): String = when (code) {
-        Codes.ENTITY_ACTIVE -> "启用"
-        Codes.ENTITY_DISABLED -> "停用"
-        else -> "未知"
-    }
+    private val SUPPLIER_STATUS = mapOf(
+        Codes.ENTITY_ACTIVE to "启用", Codes.ENTITY_DISABLED to "停用",
+    )
+    fun supplierStatus(code: Int): String = SUPPLIER_STATUS[code] ?: "未知"
 
-    fun customerStatus(code: Int): String = when (code) {
-        Codes.CUSTOMER_STATUS_ACTIVE -> "正常"
-        Codes.CUSTOMER_STATUS_DISABLED -> "已停用"
-        else -> "未知"
-    }
+    private val CUSTOMER_STATUS = mapOf(
+        Codes.CUSTOMER_STATUS_ACTIVE to "正常", Codes.CUSTOMER_STATUS_DISABLED to "已停用",
+    )
+    fun customerStatus(code: Int): String = CUSTOMER_STATUS[code] ?: "未知"
 
     fun customerListStatus(code: Int, balance: Double): String = when {
         code == Codes.CUSTOMER_STATUS_DISABLED -> "已停用"
@@ -77,39 +70,33 @@ object StatusLabels {
         else -> "未知"
     }
 
-    fun productStatus(code: Int): String = when (code) {
-        Codes.ENTITY_ACTIVE -> "正常"
-        Codes.ENTITY_DISABLED -> "停用"
-        else -> "未知"
-    }
+    private val PRODUCT_STATUS = mapOf(
+        Codes.ENTITY_ACTIVE to "正常", Codes.ENTITY_DISABLED to "停用",
+    )
+    fun productStatus(code: Int): String = PRODUCT_STATUS[code] ?: "未知"
 
-    fun customerLevel(code: Int): String = when (code) {
-        Codes.CUSTOMER_NORMAL -> "普通"
-        Codes.CUSTOMER_VIP -> "VIP"
-        Codes.CUSTOMER_SVIP -> "SVIP"
-        else -> "未知"
-    }
+    private val CUSTOMER_LEVELS = mapOf(
+        Codes.CUSTOMER_NORMAL to "普通", Codes.CUSTOMER_VIP to "VIP",
+        Codes.CUSTOMER_SVIP to "SVIP",
+    )
+    fun customerLevel(code: Int): String = CUSTOMER_LEVELS[code] ?: "未知"
 
-    fun paymentMethod(code: Int): String = when (code) {
-        Codes.METHOD_CASH -> "现金"
-        Codes.METHOD_WECHAT -> "微信"
-        Codes.METHOD_ALIPAY -> "支付宝"
-        Codes.METHOD_BANK -> "银行卡"
-        Codes.METHOD_OTHER -> "其他"
-        else -> "未知"
-    }
+    private val PAYMENT_METHODS = mapOf(
+        Codes.METHOD_CASH to "现金", Codes.METHOD_WECHAT to "微信",
+        Codes.METHOD_ALIPAY to "支付宝", Codes.METHOD_BANK to "银行卡",
+        Codes.METHOD_OTHER to "其他",
+    )
+    fun paymentMethod(code: Int): String = PAYMENT_METHODS[code] ?: "未知"
 
-    fun paymentType(code: Int): String = when (code) {
-        Codes.PAYMENT_COLLECT -> "收款"
-        Codes.PAYMENT_REFUND -> "退款"
-        else -> "未知"
-    }
+    private val PAYMENT_TYPES = mapOf(
+        Codes.PAYMENT_COLLECT to "收款", Codes.PAYMENT_REFUND to "退款",
+    )
+    fun paymentType(code: Int): String = PAYMENT_TYPES[code] ?: "未知"
 
-    fun inventoryFlowType(code: Int): String = when (code) {
-        Codes.INVENTORY_OUT -> "出库"
-        Codes.INVENTORY_IN -> "入库"
-        else -> "未知"
-    }
+    private val INVENTORY_FLOW_TYPES = mapOf(
+        Codes.INVENTORY_OUT to "出库", Codes.INVENTORY_IN to "入库",
+    )
+    fun inventoryFlowType(code: Int): String = INVENTORY_FLOW_TYPES[code] ?: "未知"
 
     fun stockStatus(stock: Double, safeStock: Double): String = when {
         stock <= EPSILON -> "缺货"

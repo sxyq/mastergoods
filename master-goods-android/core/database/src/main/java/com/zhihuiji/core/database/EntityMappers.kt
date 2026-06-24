@@ -257,18 +257,6 @@ fun FinanceRecordDto.toEntity() = FinanceRecordEntity(
     updatedAt = updatedAt,
 )
 
-private fun List<SaleOrderItemEntity>.toDtoList(): List<SaleOrderItemDto> {
-    val result = ArrayList<SaleOrderItemDto>(size)
-    for (index in indices) {
-        result.add(get(index).toDto())
-    }
-    return result
-}
+private fun List<SaleOrderItemEntity>.toDtoList(): List<SaleOrderItemDto> = map { it.toDto() }
 
-private fun List<SaleOrderItemDto>.toEntityList(): List<SaleOrderItemEntity?> {
-    val result = ArrayList<SaleOrderItemEntity?>(size)
-    for (index in indices) {
-        result.add(get(index).toEntity())
-    }
-    return result
-}
+private fun List<SaleOrderItemDto>.toEntityList(): List<SaleOrderItemEntity?> = map { it.toEntity() }

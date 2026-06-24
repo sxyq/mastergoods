@@ -33,31 +33,22 @@ object RuntimeSecurityGuard {
 
     private fun hasTestKeys(): Boolean = Build.TAGS?.contains("test-keys") == true
 
-    private fun isFridaPortReachable(): Boolean {
-        for (port in fridaPorts) {
-            try {
-                Socket().use { socket ->
-                    socket.connect(InetSocketAddress("127.0.0.1", port), 120)
-                }
-                return true
-            } catch (_: Throwable) {
-                // continue scanning remaining ports
-            }
-        }
-        return false
-    }
-
-    private fun hasFridaArtifactsInMaps(): Boolean {
-        return try {
-            File("/proc/self/maps").useLines { lines ->
-                lines.any { line ->
-                    line.contains("frida", ignoreCase = true) ||
-                        line.contains("gum-js-loop", ignoreCase = true) ||
-                        line.contains("gmain", ignoreCase = true)
-                }
-            }
+    private fun isFridaPortReachable(): Boolean = fridaPorts.any { port ->
+        try {
+            Socket().use { it.connect(InetSocketAddress("127.0.0.1", port), 120) }
+            true
         } catch (_: Throwable) {
             false
         }
+    }
+
+    private val fridaMapPatterns = listOf("frida", "gum-js-loop", "gmain")
+
+    private fun hasFridaArtifactsInMaps(): Boolean = try {
+        File("/proc/self/maps").useLines { lines ->
+            lines.any { line -> fridaMapPatterns.any { line.contains(it, ignoreCase = true) } }
+        }
+    } catch (_: Throwable) {
+        false
     }
 }

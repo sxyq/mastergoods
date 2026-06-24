@@ -175,24 +175,28 @@ watch(selectedConversationId, async (nextId, prevId) => {
   await loadMessages(nextId)
 })
 
+async function fetchSidePanel() {
+  const [nextWorkbench, nextConversations, nextDrafts, nextTasks, nextNotifications] = await Promise.all([
+    fetchAgentWorkbench(session.token.value),
+    fetchAgentConversations(session.token.value, { page: 0, limit: 50 }),
+    fetchAgentDrafts(session.token.value, { page: 0, limit: 20 }),
+    fetchAgentTasks(session.token.value),
+    fetchAgentNotifications(session.token.value),
+  ])
+  workbench.value = nextWorkbench
+  conversations.value = nextConversations
+  drafts.value = nextDrafts
+  tasks.value = nextTasks
+  notifications.value = nextNotifications
+  return nextConversations
+}
+
 async function loadPage() {
   if (!session.token.value) return
   loading.value = true
   error.value = ''
   try {
-    const [nextWorkbench, nextConversations, nextDrafts, nextTasks, nextNotifications] = await Promise.all([
-      fetchAgentWorkbench(session.token.value),
-      fetchAgentConversations(session.token.value, { page: 0, limit: 50 }),
-      fetchAgentDrafts(session.token.value, { page: 0, limit: 20 }),
-      fetchAgentTasks(session.token.value),
-      fetchAgentNotifications(session.token.value),
-    ])
-    workbench.value = nextWorkbench
-    conversations.value = nextConversations
-    drafts.value = nextDrafts
-    tasks.value = nextTasks
-    notifications.value = nextNotifications
-
+    const nextConversations = await fetchSidePanel()
     selectedConversationId.value = queryConversationId.value ?? nextConversations[0]?.id ?? null
     if (selectedConversationId.value) {
       await loadMessages(selectedConversationId.value)
@@ -559,18 +563,7 @@ function markStreamingMessageError(message: string) {
 async function refreshSidePanel() {
   if (!session.token.value) return
   try {
-    const [nextWorkbench, nextConversations, nextDrafts, nextTasks, nextNotifications] = await Promise.all([
-      fetchAgentWorkbench(session.token.value),
-      fetchAgentConversations(session.token.value, { page: 0, limit: 50 }),
-      fetchAgentDrafts(session.token.value, { page: 0, limit: 20 }),
-      fetchAgentTasks(session.token.value),
-      fetchAgentNotifications(session.token.value),
-    ])
-    workbench.value = nextWorkbench
-    conversations.value = nextConversations
-    drafts.value = nextDrafts
-    tasks.value = nextTasks
-    notifications.value = nextNotifications
+    await fetchSidePanel()
   } catch {
     // keep current side panel state if refresh fails
   }

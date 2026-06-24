@@ -539,7 +539,7 @@ private fun Modifier.bottomNavGlassIndicator(
             spotColor = GlassShadow.copy(alpha = 0.22f)
         )
 
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    val core = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         chrome
             .drawBackdrop(
                 backdrop = backdrop,
@@ -568,23 +568,18 @@ private fun Modifier.bottomNavGlassIndicator(
                     drawRect(brush = BottomBarIndicatorBrush)
                 }
             )
-            .border(
-                width = 0.5.dp,
-                color = Color.White.copy(alpha = 0.56f),
-                shape = shape
-            )
     } else {
         chrome
             .background(
                 brush = BottomBarIndicatorBrush,
                 shape = shape
             )
-            .border(
-                width = 0.5.dp,
-                color = Color.White.copy(alpha = 0.56f),
-                shape = shape
-            )
     }
+    return core.border(
+        width = 0.5.dp,
+        color = Color.White.copy(alpha = 0.56f),
+        shape = shape
+    )
 }
 
 @Composable

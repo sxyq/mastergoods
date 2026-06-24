@@ -19,7 +19,7 @@ public final class PaginationUtils {
         int sourceSize = source.size();
         int fromIndex = safePage * safeSize;
         if (fromIndex >= sourceSize) {
-            return Collections.emptyList();
+            return List.of();
         }
         int toIndex = Math.min(sourceSize, fromIndex + safeSize);
         return source.subList(fromIndex, toIndex);

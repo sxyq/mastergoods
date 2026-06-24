@@ -13,6 +13,7 @@ import com.zhihuiji.app.security.RuntimeSecurityGuard
 import com.zhihuiji.app.security.SignatureIntegrityChecker
 import com.zhihuiji.core.designsystem.ZhihuijiTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlin.comparisons.compareBy
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -45,22 +46,10 @@ class MainActivity : ComponentActivity() {
     private fun preferHighRefreshRateDisplayMode() {
         @Suppress("DEPRECATION")
         val currentDisplay = windowManager.defaultDisplay
-        var preferredMode: Display.Mode? = null
-        for (mode in currentDisplay.supportedModes) {
-            if (mode.refreshRate < 90f) continue
-            val currentPreferred = preferredMode
-            if (
-                currentPreferred == null ||
-                mode.refreshRate > currentPreferred.refreshRate ||
-                (
-                    mode.refreshRate == currentPreferred.refreshRate &&
-                        mode.physicalWidth * mode.physicalHeight > currentPreferred.physicalWidth * currentPreferred.physicalHeight
-                    )
-            ) {
-                preferredMode = mode
-            }
-        }
-        val resolvedPreferredMode = preferredMode ?: return
+        val resolvedPreferredMode = currentDisplay.supportedModes
+            .filter { it.refreshRate >= 90f }
+            .maxWithOrNull(compareBy({ it.refreshRate }, { it.physicalWidth * it.physicalHeight }))
+            ?: return
 
         window.attributes = window.attributes.apply {
             preferredDisplayModeId = resolvedPreferredMode.modeId

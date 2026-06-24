@@ -10,21 +10,13 @@ object MoneyFormatter {
         DecimalFormat("#,##0.00", DecimalFormatSymbols(Locale.CHINA))
     }
 
-    fun format(amount: BigDecimal?): String {
-        return "¥${formatValue(amount)}"
-    }
+    fun format(amount: BigDecimal?): String = "¥${formatValue(amount)}"
 
-    fun format(amount: Double?): String {
-        return "¥${formatValue(amount)}"
-    }
+    fun format(amount: Double?): String = "¥${formatValue(amount)}"
 
-    fun formatWithoutSymbol(amount: BigDecimal?): String {
-        return formatValue(amount)
-    }
+    fun formatWithoutSymbol(amount: BigDecimal?): String = formatValue(amount)
 
-    fun formatWithoutSymbol(amount: Double?): String {
-        return formatValue(amount)
-    }
+    fun formatWithoutSymbol(amount: Double?): String = formatValue(amount)
 
     fun formatSigned(amount: Double?): String {
         if (amount == null) return "¥0.00"
@@ -32,17 +24,9 @@ object MoneyFormatter {
         return "¥$prefix${formatValue(amount)}"
     }
 
-    private fun formatValue(amount: BigDecimal?): String {
-        if (amount == null) return "0.00"
-        return decimalFormat().format(amount)
-    }
+    private fun formatValue(amount: BigDecimal?): String =
+        if (amount == null) "0.00" else formatter.get().format(amount)
 
-    private fun formatValue(amount: Double?): String {
-        if (amount == null) return "0.00"
-        return decimalFormat().format(amount)
-    }
-
-    private fun decimalFormat(): DecimalFormat {
-        return formatter.get()
-    }
+    private fun formatValue(amount: Double?): String =
+        if (amount == null) "0.00" else formatter.get().format(amount)
 }

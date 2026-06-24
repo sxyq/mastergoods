@@ -353,34 +353,27 @@ function logoutInternal() {
   clearPersisted()
 }
 
+const PERSISTED_FIELDS: ReadonlyArray<{ key: string; read: () => string }> = [
+  { key: 'zhihuiji.web.token', read: () => state.token },
+  { key: 'zhihuiji.web.refreshToken', read: () => state.refreshToken },
+  { key: 'zhihuiji.web.userId', read: () => String(state.userId) },
+  { key: 'zhihuiji.web.phone', read: () => state.phone },
+  { key: 'zhihuiji.web.nickname', read: () => state.nickname },
+  { key: 'zhihuiji.web.storeId', read: () => state.storeId },
+  { key: 'zhihuiji.web.storeName', read: () => state.storeName },
+  { key: 'zhihuiji.web.storeRole', read: () => state.currentRole },
+  { key: 'zhihuiji.web.title', read: () => state.currentTitle },
+  { key: 'zhihuiji.web.memberStatus', read: () => String(state.currentMemberStatus) },
+  { key: 'zhihuiji.web.permissions', read: () => JSON.stringify(state.permissions) },
+  { key: 'zhihuiji.web.source', read: () => state.source },
+]
+
 function persist() {
-  localStorage.setItem('zhihuiji.web.token', state.token)
-  localStorage.setItem('zhihuiji.web.refreshToken', state.refreshToken)
-  localStorage.setItem('zhihuiji.web.userId', String(state.userId))
-  localStorage.setItem('zhihuiji.web.phone', state.phone)
-  localStorage.setItem('zhihuiji.web.nickname', state.nickname)
-  localStorage.setItem('zhihuiji.web.storeId', state.storeId)
-  localStorage.setItem('zhihuiji.web.storeName', state.storeName)
-  localStorage.setItem('zhihuiji.web.storeRole', state.currentRole)
-  localStorage.setItem('zhihuiji.web.title', state.currentTitle)
-  localStorage.setItem('zhihuiji.web.memberStatus', String(state.currentMemberStatus))
-  localStorage.setItem('zhihuiji.web.permissions', JSON.stringify(state.permissions))
-  localStorage.setItem('zhihuiji.web.source', state.source)
+  for (const { key, read } of PERSISTED_FIELDS) localStorage.setItem(key, read())
 }
 
 function clearPersisted() {
-  localStorage.removeItem('zhihuiji.web.token')
-  localStorage.removeItem('zhihuiji.web.refreshToken')
-  localStorage.removeItem('zhihuiji.web.userId')
-  localStorage.removeItem('zhihuiji.web.phone')
-  localStorage.removeItem('zhihuiji.web.nickname')
-  localStorage.removeItem('zhihuiji.web.storeId')
-  localStorage.removeItem('zhihuiji.web.storeName')
-  localStorage.removeItem('zhihuiji.web.storeRole')
-  localStorage.removeItem('zhihuiji.web.title')
-  localStorage.removeItem('zhihuiji.web.memberStatus')
-  localStorage.removeItem('zhihuiji.web.permissions')
-  localStorage.removeItem('zhihuiji.web.source')
+  for (const { key } of PERSISTED_FIELDS) localStorage.removeItem(key)
   localStorage.removeItem('zhihuiji.web.apiRoleBindings')
 }
 
