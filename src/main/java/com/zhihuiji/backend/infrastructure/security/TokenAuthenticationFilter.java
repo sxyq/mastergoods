@@ -1,6 +1,5 @@
 package com.zhihuiji.backend.infrastructure.security;
 
-import com.zhihuiji.backend.domain.entity.SessionEntity;
 import com.zhihuiji.backend.application.service.SessionAccessService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -10,6 +9,7 @@ import java.io.IOException;
 import java.util.List;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -19,6 +19,7 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String AUTH_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final List<GrantedAuthority> USER_AUTHORITIES = List.of(new SimpleGrantedAuthority("ROLE_USER"));
 
     private final SessionAccessService sessionAccessService;
 
@@ -34,9 +35,8 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
             String token = authHeader.substring(BEARER_PREFIX.length());
             if (!token.isBlank()) {
                 sessionAccessService.findActiveSessionByToken(token).ifPresent(session -> {
-                    var authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
                     var authentication = new UsernamePasswordAuthenticationToken(
-                            session.getUserId(), null, authorities);
+                            session.getUserId(), null, USER_AUTHORITIES);
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 });
             }

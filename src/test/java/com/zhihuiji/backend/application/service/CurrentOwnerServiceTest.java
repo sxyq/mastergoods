@@ -3,6 +3,8 @@ package com.zhihuiji.backend.application.service;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.zhihuiji.backend.domain.entity.StoreMembershipEntity;
@@ -68,5 +70,39 @@ class CurrentOwnerServiceTest {
 
         assertEquals("当前账号缺少权限: users:manage", exception.getMessage());
         assertEquals(9L, currentOwnerService.requireCurrentOwnerUserId());
+    }
+
+    @Test
+    void requirePermissionsResolvesMembershipOncePerCheck() {
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(12L, "n/a", List.of())
+        );
+        StoreMembershipEntity membership = new StoreMembershipEntity();
+        membership.setOwnerUserId(9L);
+        membership.setUserId(12L);
+        membership.setRoleCode("MANAGER");
+        membership.setStatus(1);
+        when(storeMembershipRepository.findByUserId(12L)).thenReturn(Optional.of(membership));
+
+        assertDoesNotThrow(() -> currentOwnerService.requirePermissions("dashboard:view", "users:manage"));
+
+        verify(storeMembershipRepository, times(1)).findByUserId(12L);
+    }
+
+    @Test
+    void requireAnyPermissionResolvesMembershipOncePerCheck() {
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(13L, "n/a", List.of())
+        );
+        StoreMembershipEntity membership = new StoreMembershipEntity();
+        membership.setOwnerUserId(9L);
+        membership.setUserId(13L);
+        membership.setRoleCode("SALES");
+        membership.setStatus(1);
+        when(storeMembershipRepository.findByUserId(13L)).thenReturn(Optional.of(membership));
+
+        assertDoesNotThrow(() -> currentOwnerService.requireAnyPermission("purchase:write", "sales:write"));
+
+        verify(storeMembershipRepository, times(1)).findByUserId(13L);
     }
 }

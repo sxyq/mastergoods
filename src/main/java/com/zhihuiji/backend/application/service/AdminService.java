@@ -12,9 +12,10 @@ import com.zhihuiji.backend.infrastructure.repository.SaleOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.SessionRepository;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
 import com.zhihuiji.backend.infrastructure.repository.UserRepository;
-import java.util.Comparator;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -71,16 +72,32 @@ public class AdminService {
             saleOrderRepository.count(),
             purchaseOrderRepository.count(),
             agentTaskRepository.count(),
-            agentNotificationRepository.findAll().stream()
-                .filter(notification -> !Boolean.TRUE.equals(notification.getIsRead()))
-                .count()
+            agentNotificationRepository.countByIsReadFalse()
         );
     }
 
     public List<UserItem> listUsers(String keyword) {
-        return userRepository.searchByKeyword(keyword).stream()
-            .map(this::toUserItem)
-            .toList();
+        List<UserEntity> users = userRepository.searchByKeyword(keyword);
+        if (users.isEmpty()) {
+            return List.of();
+        }
+        List<Long> userIds = new ArrayList<>(users.size());
+        for (UserEntity user : users) {
+            userIds.add(user.getId());
+        }
+        List<SessionRepository.ActiveSessionCount> activeCounts = sessionRepository.countActiveSessionsByUserIds(userIds);
+        Map<Long, Long> activeSessionCounts = new HashMap<>(activeCounts.size());
+        for (SessionRepository.ActiveSessionCount activeCount : activeCounts) {
+            activeSessionCounts.put(
+                activeCount.getUserId(),
+                activeCount.getActiveCount() == null ? 0L : activeCount.getActiveCount()
+            );
+        }
+        List<UserItem> results = new ArrayList<>(users.size());
+        for (UserEntity user : users) {
+            results.add(toUserItem(user, activeSessionCounts.getOrDefault(user.getId(), 0L)));
+        }
+        return results;
     }
 
     @Transactional
@@ -113,8 +130,7 @@ public class AdminService {
         if (StringUtils.hasText(request.password())) {
             user.setPasswordHash(passwordEncoder.encode(request.password().trim()));
             if (!request.keepSessions()) {
-                sessionRepository.findAll().stream()
-                    .filter(session -> userId.equals(session.getUserId()) && Boolean.TRUE.equals(session.getIsActive()))
+                sessionRepository.findByUserIdAndIsActiveTrue(userId)
                     .forEach(session -> session.setIsActive(false));
             }
         }
@@ -153,9 +169,10 @@ public class AdminService {
     }
 
     private UserItem toUserItem(UserEntity user) {
-        long activeSessions = sessionRepository.findAll().stream()
-            .filter(session -> user.getId().equals(session.getUserId()) && Boolean.TRUE.equals(session.getIsActive()))
-            .count();
+        return toUserItem(user, sessionRepository.countByUserIdAndIsActiveTrue(user.getId()));
+    }
+
+    private UserItem toUserItem(UserEntity user, long activeSessions) {
         return new UserItem(
             user.getId(),
             user.getPhone(),

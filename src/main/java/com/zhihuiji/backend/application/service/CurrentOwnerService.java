@@ -3,8 +3,6 @@ package com.zhihuiji.backend.application.service;
 import com.zhihuiji.backend.application.service.store.StoreAccessPolicy;
 import com.zhihuiji.backend.infrastructure.repository.UserRepository;
 import com.zhihuiji.backend.infrastructure.repository.StoreMembershipRepository;
-import java.util.Arrays;
-import java.util.List;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -27,10 +25,7 @@ public class CurrentOwnerService {
     }
 
     public Long requireCurrentOwnerUserId() {
-        Long currentUserId = requireCurrentUserId();
-        return storeMembershipRepository.findByUserId(currentUserId)
-            .map(value -> value.getOwnerUserId())
-            .orElse(currentUserId);
+        return resolveCurrentAccess().ownerUserId();
     }
 
     public Long requireCurrentUserId() {
@@ -64,14 +59,22 @@ public class CurrentOwnerService {
     }
 
     public void requirePermissions(String... permissionCodes) {
-        Long currentUserId = requireCurrentUserId();
-        Long ownerUserId = requireCurrentOwnerUserId();
-        StoreMemberAccess access = resolveMemberAccess(currentUserId, ownerUserId);
-        List<String> denied = Arrays.stream(permissionCodes)
-            .filter(permission -> !StoreAccessPolicy.hasPermission(access.roleCode(), access.status(), permission))
-            .toList();
-        if (!denied.isEmpty()) {
-            throw new AccessDeniedException("当前账号缺少权限: " + String.join(", ", denied));
+        if (permissionCodes == null || permissionCodes.length == 0) {
+            return;
+        }
+        CurrentAccess access = resolveCurrentAccess();
+        var permissions = access.role().permissions();
+        StringBuilder denied = new StringBuilder();
+        for (String permission : permissionCodes) {
+            if (!StoreAccessPolicy.containsPermission(permissions, access.status(), permission)) {
+                if (denied.length() > 0) {
+                    denied.append(", ");
+                }
+                denied.append(permission);
+            }
+        }
+        if (denied.length() > 0) {
+            throw new AccessDeniedException("当前账号缺少权限: " + denied);
         }
     }
 
@@ -79,26 +82,29 @@ public class CurrentOwnerService {
         if (permissionCodes == null || permissionCodes.length == 0) {
             return;
         }
-        Long currentUserId = requireCurrentUserId();
-        Long ownerUserId = requireCurrentOwnerUserId();
-        StoreMemberAccess access = resolveMemberAccess(currentUserId, ownerUserId);
-        boolean allowed = Arrays.stream(permissionCodes)
-            .anyMatch(permission -> StoreAccessPolicy.hasPermission(access.roleCode(), access.status(), permission));
-        if (!allowed) {
-            throw new AccessDeniedException("当前账号缺少任一权限: " + String.join(", ", permissionCodes));
+        CurrentAccess access = resolveCurrentAccess();
+        var permissions = access.role().permissions();
+        for (String permission : permissionCodes) {
+            if (StoreAccessPolicy.containsPermission(permissions, access.status(), permission)) {
+                return;
+            }
         }
+        throw new AccessDeniedException("当前账号缺少任一权限: " + String.join(", ", permissionCodes));
     }
 
-    private StoreMemberAccess resolveMemberAccess(Long currentUserId, Long ownerUserId) {
-        return storeMembershipRepository.findByUserId(currentUserId)
-            .map(membership -> new StoreMemberAccess(membership.getRoleCode(), membership.getStatus()))
-            .orElseGet(() -> {
-                if (currentUserId.equals(ownerUserId)) {
-                    return new StoreMemberAccess(StoreAccessPolicy.StoreRole.OWNER.name(), 1);
-                }
-                throw new AccessDeniedException("当前用户未绑定门店成员关系");
-            });
+    private CurrentAccess resolveCurrentAccess() {
+        Long currentUserId = requireCurrentUserId();
+        var membership = storeMembershipRepository.findByUserId(currentUserId);
+        if (membership.isPresent()) {
+            var value = membership.get();
+            return new CurrentAccess(
+                value.getOwnerUserId(),
+                StoreAccessPolicy.requireRole(value.getRoleCode()),
+                value.getStatus()
+            );
+        }
+        return new CurrentAccess(currentUserId, StoreAccessPolicy.StoreRole.OWNER, 1);
     }
 
-    private record StoreMemberAccess(String roleCode, Integer status) {}
+    private record CurrentAccess(Long ownerUserId, StoreAccessPolicy.StoreRole role, Integer status) {}
 }

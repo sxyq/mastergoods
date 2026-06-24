@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 @RequestMapping("/v1/auth")
 public class AuthController {
+    private static final String BEARER_PREFIX = "Bearer ";
+
     private final AuthService authService;
 
     public AuthController(AuthService authService) {
@@ -60,17 +62,18 @@ public class AuthController {
     }
 
     private String extractBearerToken(String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+        String token = extractBearerTokenOrNull(authorization);
+        if (token == null) {
             throw new IllegalArgumentException("missing bearer token");
         }
-        return authorization.substring("Bearer ".length());
+        return token;
     }
 
     private String extractBearerTokenOrNull(String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+        if (authorization == null || !authorization.startsWith(BEARER_PREFIX)) {
             return null;
         }
-        return authorization.substring("Bearer ".length());
+        return authorization.substring(BEARER_PREFIX.length());
     }
 
     public record RegisterRequest(

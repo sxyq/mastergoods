@@ -135,7 +135,7 @@ class AdminServiceTest {
 
         when(userRepository.findById(5L)).thenReturn(Optional.of(user));
         when(passwordEncoder.encode("654321")).thenReturn("ENCODED");
-        when(sessionRepository.findAll()).thenReturn(List.of(active, otherUser));
+        when(sessionRepository.findByUserIdAndIsActiveTrue(5L)).thenReturn(List.of(active));
         when(userRepository.save(any(UserEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         AdminService.UserItem result = adminService.updateUser(
@@ -171,7 +171,7 @@ class AdminServiceTest {
 
         when(userRepository.findById(7L)).thenReturn(Optional.of(user));
         when(passwordEncoder.encode("777777")).thenReturn("ENCODED-KEEP");
-        when(sessionRepository.findAll()).thenReturn(List.of(active));
+        when(sessionRepository.findByUserIdAndIsActiveTrue(7L)).thenReturn(List.of(active));
         when(userRepository.save(any(UserEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         AdminService.UserItem result = adminService.updateUser(
