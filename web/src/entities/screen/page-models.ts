@@ -44,14 +44,15 @@ const baseMetrics: PageMetric[] = [
 ]
 
 export function buildPageModel(screen: StitchScreen): PageModel {
-  const contracts = contractsForRoute(screen.route)
-  const databaseTables = Array.from(new Set(contracts.flatMap((contract) => contract.tables))).slice(0, 10)
+  const route = screen.route
+  const contracts = contractsForRoute(route)
+  const databaseTables = collectDatabaseTables(contracts)
 
-  if (screen.route.includes('/sales')) {
+  if (route.includes('/sales')) {
     return {
       title: screen.title,
       description: '销售开单、销售详情、销售收款和销售退货统一进入 PC 单据工作台。',
-      primaryAction: screen.route.includes('detail') ? '审核/确认销售单' : '新建销售单',
+      primaryAction: route.includes('detail') ? '审核/确认销售单' : '新建销售单',
       secondaryActions: ['审核', '编辑', '收款', '打印', '导出单据'],
       statusTabs: ['全部', '待审核', '待出库', '待结算', '已完成', '已作废'],
       metrics: [
@@ -83,7 +84,7 @@ export function buildPageModel(screen: StitchScreen): PageModel {
     }
   }
 
-  if (screen.route.includes('/purchase') || screen.route.includes('/purchases')) {
+  if (route.includes('/purchase') || route.includes('/purchases')) {
     return {
       title: screen.title,
       description: '采购开单、采购入库、供应商付款与采购退货统一进入采购工作台。',
@@ -119,8 +120,8 @@ export function buildPageModel(screen: StitchScreen): PageModel {
     }
   }
 
-  if (screen.route.includes('/archives')) {
-    if (screen.route.includes('/archives/customers')) {
+  if (route.includes('/archives')) {
+    if (route.includes('/archives/customers')) {
       return {
         title: screen.title,
         description: '客户档案承接销售单、应收款与客户分组，是销售与财务联动的主数据入口。',
@@ -128,7 +129,7 @@ export function buildPageModel(screen: StitchScreen): PageModel {
         secondaryActions: ['批量导入', '导出客户', '客户分组', '催收跟进'],
         statusTabs: ['全部', '启用', '停用', '待跟进', '最近更新'],
         metrics: [
-          { label: '客户档案', value: '326', detail: '真实客户主数据' },
+          { label: '客户档案', value: '326', detail: '示例数据' },
           { label: '客户应收', value: '¥42,680', detail: '需要销售/财务跟进' },
           { label: '客户分组', value: '8 组', detail: '已做客户分层' },
         ],
@@ -154,7 +155,7 @@ export function buildPageModel(screen: StitchScreen): PageModel {
       }
     }
 
-    if (screen.route.includes('/archives/suppliers')) {
+    if (route.includes('/archives/suppliers')) {
       return {
         title: screen.title,
         description: '供应商档案关联采购、付款和对账，是采购与财务联动的主数据入口。',
@@ -162,7 +163,7 @@ export function buildPageModel(screen: StitchScreen): PageModel {
         secondaryActions: ['批量导入', '导出供应商', '供应商分组', '对账跟进'],
         statusTabs: ['全部', '启用', '停用', '待跟进', '最近更新'],
         metrics: [
-          { label: '供应商档案', value: '86', detail: '真实供应商主数据' },
+          { label: '供应商档案', value: '86', detail: '示例数据' },
           { label: '供应商应付', value: '¥31,240', detail: '需要采购/财务对账' },
           { label: '供应商分组', value: '5 组', detail: '按渠道/品类维护' },
         ],
@@ -222,7 +223,7 @@ export function buildPageModel(screen: StitchScreen): PageModel {
     }
   }
 
-  if (screen.route.includes('/inventory')) {
+  if (route.includes('/inventory')) {
     return {
       title: screen.title,
       description: '库存流水、库存调整、入库出库和盘点都需要记录来源单据与经办员工。',
@@ -257,7 +258,7 @@ export function buildPageModel(screen: StitchScreen): PageModel {
     }
   }
 
-  if (screen.route.includes('/finance')) {
+  if (route.includes('/finance')) {
     return {
       title: screen.title,
       description: '资金流水、账户、收付款和单据关联只允许财务或店长处理写操作。',
@@ -292,7 +293,7 @@ export function buildPageModel(screen: StitchScreen): PageModel {
     }
   }
 
-  if (screen.route.includes('/pay-orders')) {
+  if (route.includes('/pay-orders')) {
     return {
       title: screen.title,
       description: '付款单详情联动采购、账户和资金流水，适合财务复核与单据追踪。',
@@ -302,7 +303,7 @@ export function buildPageModel(screen: StitchScreen): PageModel {
       metrics: [
         { label: '付款相关流水', value: '28 笔', detail: '含采购付款与退款' },
         { label: '待核销', value: '¥8,230', detail: '需要财务确认' },
-        { label: '账户余额', value: '¥168,420', detail: '真实账户同步' },
+        { label: '账户余额', value: '¥168,420', detail: '示例数据' },
       ],
       filters: ['流水号', '方向', '分类', '往来方', '日期'],
       table: {
@@ -326,7 +327,7 @@ export function buildPageModel(screen: StitchScreen): PageModel {
     }
   }
 
-  if (screen.route.includes('/agent')) {
+  if (route.includes('/agent')) {
     return {
       title: screen.title,
       description: 'AI 助手只能读取当前店铺授权数据，写入建议草稿和运行审计。',
@@ -361,7 +362,7 @@ export function buildPageModel(screen: StitchScreen): PageModel {
     }
   }
 
-  if (screen.route.includes('/reports')) {
+  if (route.includes('/reports')) {
     return {
       title: screen.title,
       description: '经营报表汇总销售、采购、库存和现金流，按店铺权限提供可视化经营分析。',
@@ -396,7 +397,7 @@ export function buildPageModel(screen: StitchScreen): PageModel {
     }
   }
 
-  if (screen.route.includes('/settings')) {
+  if (route.includes('/settings')) {
     return {
       title: screen.title,
       description: '系统设置聚合店铺资料、员工角色、数据库连接、旧库导入、同步健康和安全配置。',
@@ -458,4 +459,20 @@ export function buildPageModel(screen: StitchScreen): PageModel {
     contracts,
     databaseTables,
   }
+}
+
+function collectDatabaseTables(contracts: ApiContract[]): string[] {
+  const tables: string[] = []
+  const seen = new Set<string>()
+  for (const contract of contracts) {
+    for (const table of contract.tables) {
+      if (seen.has(table)) continue
+      seen.add(table)
+      tables.push(table)
+      if (tables.length === 10) {
+        return tables
+      }
+    }
+  }
+  return tables
 }

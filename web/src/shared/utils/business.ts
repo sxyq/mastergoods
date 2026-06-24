@@ -26,58 +26,78 @@ export const PURCHASE_RETURN_CONFIRMED = 1
 export const PURCHASE_RETURN_COMPLETED = 2
 export const PURCHASE_RETURN_CANCELLED = 3
 
+const CURRENCY_FORMATTER = new Intl.NumberFormat('zh-CN', {
+  style: 'currency',
+  currency: 'CNY',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
+const DATE_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+const RELATIVE_TIME_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
+const RELATIVE_DATE_TIME_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
+const numberFormatters = new Map<number, Intl.NumberFormat>()
+
 export function formatCurrency(value: number | null | undefined) {
-  return new Intl.NumberFormat('zh-CN', {
-    style: 'currency',
-    currency: 'CNY',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value ?? 0)
+  return CURRENCY_FORMATTER.format(value ?? 0)
 }
 
 export function formatNumber(value: number | null | undefined, maximumFractionDigits = 2) {
-  return new Intl.NumberFormat('zh-CN', {
-    maximumFractionDigits,
-  }).format(value ?? 0)
+  let formatter = numberFormatters.get(maximumFractionDigits)
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('zh-CN', {
+      maximumFractionDigits,
+    })
+    numberFormatters.set(maximumFractionDigits, formatter)
+  }
+  return formatter.format(value ?? 0)
 }
 
 export function formatDateTime(timestamp: number | null | undefined) {
   if (!timestamp) return '--'
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(timestamp)
+  return DATE_TIME_FORMATTER.format(timestamp)
 }
 
 export function formatDate(timestamp: number | null | undefined) {
   if (!timestamp) return '--'
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(timestamp)
+  return DATE_FORMATTER.format(timestamp)
 }
 
 export function formatRelativeDate(timestamp: number | null | undefined) {
   if (!timestamp) return '--'
   const date = new Date(timestamp)
   const now = new Date()
-  const sameDay = date.toDateString() === now.toDateString()
+  const sameDay =
+    date.getFullYear() === now.getFullYear()
+    && date.getMonth() === now.getMonth()
+    && date.getDate() === now.getDate()
   if (sameDay) {
-    return new Intl.DateTimeFormat('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(timestamp)
+    return RELATIVE_TIME_FORMATTER.format(timestamp)
   }
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(timestamp)
+  return RELATIVE_DATE_TIME_FORMATTER.format(timestamp)
 }
 
 export function todayStartAt() {
@@ -216,8 +236,12 @@ export function inventoryTrendLabel(stock: number, safeStock: number) {
   return '正常'
 }
 
+function normalizeText(value: string | null | undefined) {
+  return (value ?? '').trim().toLowerCase()
+}
+
 export function inventorySourceLabel(sourceType: string | null | undefined) {
-  const normalized = (sourceType ?? '').trim().toLowerCase()
+  const normalized = normalizeText(sourceType)
   if (normalized === 'sale_order') return '销售出库'
   if (normalized === 'sales_return') return '销售退货入库'
   if (normalized === 'purchase_order') return '采购单'
@@ -255,7 +279,7 @@ export function salesTrendBucket(period: ReportPeriodKey) {
 }
 
 export function riskLevelLabel(level: string | null | undefined) {
-  const normalized = (level ?? '').trim().toLowerCase()
+  const normalized = normalizeText(level)
   if (normalized === 'high') return '高风险'
   if (normalized === 'medium') return '中风险'
   if (normalized === 'low') return '低风险'

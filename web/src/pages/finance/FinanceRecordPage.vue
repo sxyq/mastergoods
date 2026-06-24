@@ -37,9 +37,32 @@ const queryRecordId = computed(() => {
 })
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canWrite = computed(() => session.hasPermission(['finance:write']))
-const selectedRecord = computed(() => records.value.find((item) => item.id === selectedRecordId.value) ?? records.value[0] ?? null)
-const totalIncome = computed(() => records.value.filter((item) => item.type === FINANCE_INCOME).reduce((sum, item) => sum + item.amount, 0))
-const totalExpense = computed(() => records.value.filter((item) => item.type === FINANCE_EXPENSE).reduce((sum, item) => sum + item.amount, 0))
+const recordIndex = computed(() => new Map(records.value.map((item) => [item.id, item] as const)))
+const recordSummary = computed(() => records.value.reduce((summary, item) => {
+  if (item.type === FINANCE_INCOME) {
+    summary.totalIncome += item.amount
+    summary.incomeCount += 1
+  } else if (item.type === FINANCE_EXPENSE) {
+    summary.totalExpense += item.amount
+    summary.expenseCount += 1
+  }
+  return summary
+}, {
+  totalIncome: 0,
+  totalExpense: 0,
+  incomeCount: 0,
+  expenseCount: 0,
+}))
+const accountBalanceTotal = computed(() => accounts.value.reduce((sum, item) => sum + item.balance, 0))
+const selectedRecord = computed(() => {
+  if (selectedRecordId.value == null) return records.value[0] ?? null
+  return recordIndex.value.get(selectedRecordId.value) ?? records.value[0] ?? null
+})
+const totalIncome = computed(() => recordSummary.value.totalIncome)
+const totalExpense = computed(() => recordSummary.value.totalExpense)
+const incomeCount = computed(() => recordSummary.value.incomeCount)
+const expenseCount = computed(() => recordSummary.value.expenseCount)
+const topAccounts = computed(() => accounts.value.slice(0, 6))
 
 watch(
   [() => session.source.value, () => session.token.value, searchKeyword, typeFilter, queryRecordId],
@@ -101,17 +124,17 @@ async function loadPage() {
       <article class="metric-card" data-tone="green">
         <span>收入合计</span>
         <strong>{{ formatCurrency(totalIncome) }}</strong>
-        <p>{{ records.filter((item) => item.type === FINANCE_INCOME).length }} 条收入记录</p>
+        <p>{{ incomeCount }} 条收入记录</p>
       </article>
       <article class="metric-card" data-tone="red">
         <span>支出合计</span>
         <strong>{{ formatCurrency(totalExpense) }}</strong>
-        <p>{{ records.filter((item) => item.type === FINANCE_EXPENSE).length }} 条支出记录</p>
+        <p>{{ expenseCount }} 条支出记录</p>
       </article>
       <article class="metric-card" data-tone="blue">
         <span>资金账户</span>
         <strong>{{ accounts.length }}</strong>
-        <p>账户总余额 {{ formatCurrency(accounts.reduce((sum, item) => sum + item.balance, 0)) }}</p>
+        <p>账户总余额 {{ formatCurrency(accountBalanceTotal) }}</p>
       </article>
     </section>
 
@@ -207,7 +230,7 @@ async function loadPage() {
           <article class="detail-card">
             <p class="eyebrow">账户概览</p>
             <div class="mini-list">
-              <div v-for="account in accounts.slice(0, 6)" :key="account.id">
+              <div v-for="account in topAccounts" :key="account.id">
                 <strong>{{ account.name }}</strong>
                 <span>{{ formatCurrency(account.balance) }}</span>
               </div>

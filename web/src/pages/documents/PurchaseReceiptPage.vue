@@ -12,7 +12,7 @@ import {
   type PurchaseReceipt,
   type PurchaseReceiptWritePayload,
 } from '@/shared/api/client'
-import { readQueryId, sameEntityId, type EntityId } from '@/shared/utils/id'
+import { readQueryId, type EntityId } from '@/shared/utils/id'
 import {
   formatCurrency,
   formatDateTime,
@@ -36,8 +36,22 @@ const success = ref('')
 const queryOrderId = computed(() => readQueryId(route.query.orderId))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canWrite = computed(() => session.hasAnyPermission(['purchase:write', 'inventory:write']))
-const selectedOrder = computed(() => sourceOrders.value.find((item) => sameEntityId(item.id, selectedOrderId.value)) ?? sourceOrders.value[0] ?? null)
-const selectedReceipt = computed(() => receipts.value.find((item) => sameEntityId(item.id, selectedReceiptId.value)) ?? receipts.value[0] ?? null)
+const sourceOrderById = computed(() => new Map(sourceOrders.value.map((item) => [String(item.id), item] as const)))
+const receiptById = computed(() => new Map(receipts.value.map((item) => [String(item.id), item] as const)))
+const selectedOrder = computed(() => {
+  if (selectedOrderId.value != null) {
+    const matched = sourceOrderById.value.get(String(selectedOrderId.value))
+    if (matched) return matched
+  }
+  return sourceOrders.value[0] ?? null
+})
+const selectedReceipt = computed(() => {
+  if (selectedReceiptId.value != null) {
+    const matched = receiptById.value.get(String(selectedReceiptId.value))
+    if (matched) return matched
+  }
+  return receipts.value[0] ?? null
+})
 
 watch(
   [() => session.source.value, () => session.token.value, queryOrderId],

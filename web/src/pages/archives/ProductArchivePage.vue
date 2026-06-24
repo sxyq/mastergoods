@@ -33,8 +33,19 @@ const canWrite = computed(() => session.hasPermission(['archives:write']))
 const canInventoryView = computed(() => session.hasPermission(['inventory:view']))
 const canInventoryWrite = computed(() => session.hasPermission(['inventory:write']))
 const lowStockIds = computed(() => new Set(lowStockProducts.value.map((item) => item.id)))
-const inventoryValue = computed(() => products.value.reduce((sum, item) => sum + item.stock * item.purchasePrice, 0))
-const activeProducts = computed(() => products.value.filter((item) => item.status === 1).length)
+const inventorySummary = computed(() => products.value.reduce(
+  (summary, item) => {
+    summary.inventoryValue += item.stock * item.purchasePrice
+    if (item.status === 1) summary.activeProducts += 1
+    return summary
+  },
+  {
+    inventoryValue: 0,
+    activeProducts: 0,
+  },
+))
+const inventoryValue = computed(() => inventorySummary.value.inventoryValue)
+const activeProducts = computed(() => inventorySummary.value.activeProducts)
 const totalPages = computed(() => Math.max(1, Math.ceil(products.value.length / pageSize.value)))
 const pagedProducts = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value

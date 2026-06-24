@@ -46,6 +46,22 @@ const progressSteps = computed(() => {
   ]
 })
 
+const receivedQuantityMap = computed(() => {
+  const map = new Map<string, number>()
+  for (const receipt of receipts.value) {
+    for (const receiptItem of receipt.items) {
+      const keys = new Set<string>()
+      if (receiptItem.productId) keys.add(String(receiptItem.productId))
+      if (receiptItem.productCode) keys.add(receiptItem.productCode)
+      if (receiptItem.productName) keys.add(receiptItem.productName)
+      for (const key of keys) {
+        map.set(key, (map.get(key) ?? 0) + receiptItem.quantity)
+      }
+    }
+  }
+  return map
+})
+
 watch(
   [() => session.source.value, () => session.token.value, orderId],
   async () => {
@@ -79,14 +95,8 @@ async function loadDetail() {
 }
 
 function receivedQuantity(item: PurchaseOrderItem) {
-  return receipts.value.reduce((sum, receipt) => {
-    const matched = receipt.items.filter((receiptItem) => {
-      if (item.productId && receiptItem.productId === item.productId) return true
-      if (item.productCode && receiptItem.productCode === item.productCode) return true
-      return Boolean(item.productName && receiptItem.productName === item.productName)
-    })
-    return sum + matched.reduce((innerSum, receiptItem) => innerSum + receiptItem.quantity, 0)
-  }, 0)
+  const key = item.productId ? String(item.productId) : item.productCode || item.productName || ''
+  return key ? (receivedQuantityMap.value.get(key) ?? 0) : 0
 }
 </script>
 

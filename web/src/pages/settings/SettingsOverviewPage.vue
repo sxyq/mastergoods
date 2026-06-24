@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useSession } from '@/app/stores/session'
-import type { Permission } from '@/entities/auth/roles'
 
 const session = useSession()
 
-const settingCards = computed(() => [
+const settingCards = [
   {
     title: '店员与权限',
     desc: '维护一个店长（总）和多个员工账号，查看角色矩阵，管理启停与岗位权限。',
@@ -30,9 +29,9 @@ const settingCards = computed(() => [
     permission: ['settings:manage'],
     points: ['Stitch 页面清单', 'API 合同目录', '剩余开发边界'],
   },
-] as const)
+] as const
 
-const visibleCards = computed(() => settingCards.value.filter((item) => session.hasPermission([...item.permission] as Permission[])))
+const visibleCards = computed(() => settingCards.filter((item) => session.hasPermission(item.permission)))
 </script>
 
 <template>

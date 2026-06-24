@@ -154,7 +154,3 @@ function mobileScreen(order: string, id: string, title: string, route: string, m
 function mobileImage(order: string, id: string) {
   return `${mobileReferenceRoot}/images/${order}_${id}.png`
 }
-
-export function findScreenByRoute(route: string) {
-  return stitchScreens.find((screen) => screen.route === route)
-}

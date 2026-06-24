@@ -93,9 +93,19 @@ export const rolePermissions: Record<StoreRole, Permission[]> = {
   ASSISTANT: ['dashboard:view', 'reports:view', 'agent:view'],
 }
 
-export function canAccess(role: StoreRole, required?: Permission[]) {
+export const rolePermissionSets: Record<StoreRole, ReadonlySet<Permission>> = {
+  OWNER: new Set(rolePermissions.OWNER),
+  MANAGER: new Set(rolePermissions.MANAGER),
+  SALES: new Set(rolePermissions.SALES),
+  PURCHASING: new Set(rolePermissions.PURCHASING),
+  WAREHOUSE: new Set(rolePermissions.WAREHOUSE),
+  FINANCE: new Set(rolePermissions.FINANCE),
+  ASSISTANT: new Set(rolePermissions.ASSISTANT),
+}
+
+export function canAccess(role: StoreRole, required?: readonly Permission[]) {
   if (!required || required.length === 0) return true
-  const granted = new Set(rolePermissions[role])
+  const granted = rolePermissionSets[role]
   return required.every((permission) => granted.has(permission))
 }
 

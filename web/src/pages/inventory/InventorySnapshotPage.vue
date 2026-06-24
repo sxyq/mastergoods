@@ -30,14 +30,25 @@ const isApiSource = computed(() => session.source.value === 'api' && Boolean(ses
 const canWrite = computed(() => session.hasPermission(['inventory:write']))
 const snapshotDate = todayStartAt()
 const snapshotMap = computed(() => new Map(snapshots.value.map((item) => [item.productId, item])))
-const filteredProducts = computed(() => {
+type SnapshotProductRow = ProductRecord & {
+  snapshot: InventorySnapshot | null
+}
+
+const filteredProducts = computed<SnapshotProductRow[]>(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
-  if (!keyword) return products.value
-  return products.value.filter((item) => {
-    return item.name.toLowerCase().includes(keyword) || item.code.toLowerCase().includes(keyword)
-  })
+  const rows: SnapshotProductRow[] = []
+  for (const item of products.value) {
+    if (keyword && !item.name.toLowerCase().includes(keyword) && !item.code.toLowerCase().includes(keyword)) {
+      continue
+    }
+    rows.push({
+      ...item,
+      snapshot: snapshotMap.value.get(item.id) ?? null,
+    })
+  }
+  return rows
 })
-const completedCount = computed(() => filteredProducts.value.filter((item) => snapshotMap.value.has(item.id)).length)
+const completedCount = computed(() => filteredProducts.value.reduce((count, item) => count + (item.snapshot ? 1 : 0), 0))
 const lowStockCount = computed(() => products.value.filter((item) => item.stock < item.safeStock).length)
 
 watch(
@@ -91,7 +102,7 @@ async function createSnapshotForProduct(productId: number) {
 
 async function createAllSnapshots() {
   if (!session.token.value) return
-  const pendingProducts = filteredProducts.value.filter((item) => !snapshotMap.value.has(item.id))
+  const pendingProducts = filteredProducts.value.filter((item) => !item.snapshot)
   if (pendingProducts.length === 0) {
     success.value = '当前筛选结果已经全部生成今日快照'
     return
@@ -181,8 +192,8 @@ async function createAllSnapshots() {
               <td>{{ formatNumber(product.stock) }}</td>
               <td>{{ formatNumber(product.safeStock) }}</td>
               <td>{{ inventoryTrendLabel(product.stock, product.safeStock) }}</td>
-              <td>{{ snapshotMap.get(product.id)?.quantity != null ? formatNumber(snapshotMap.get(product.id)?.quantity) : '--' }}</td>
-              <td>{{ snapshotMap.get(product.id)?.totalValue != null ? formatCurrency(snapshotMap.get(product.id)?.totalValue) : '--' }}</td>
+              <td>{{ product.snapshot?.quantity != null ? formatNumber(product.snapshot.quantity) : '--' }}</td>
+              <td>{{ product.snapshot?.totalValue != null ? formatCurrency(product.snapshot.totalValue) : '--' }}</td>
               <td>
                 <button
                   type="button"
@@ -190,7 +201,7 @@ async function createAllSnapshots() {
                   :disabled="submitting || !isApiSource || !canWrite"
                   @click="createSnapshotForProduct(product.id)"
                 >
-                  {{ snapshotMap.has(product.id) ? '刷新快照' : '生成快照' }}
+                  {{ product.snapshot ? '刷新快照' : '生成快照' }}
                 </button>
               </td>
             </tr>

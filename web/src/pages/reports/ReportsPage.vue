@@ -78,28 +78,40 @@ const currentRange = computed(() => {
   }
   return reportRangeForPeriod(period.value, custom)
 })
-const trendMax = computed(() => Math.max(...trendPoints.value.map((item) => item.totalSalesAmount), 1))
+const trendMetrics = computed(() => {
+  let maxSales = 1
+  let maxOrders = 1
+  for (const point of trendPoints.value) {
+    if (point.totalSalesAmount > maxSales) maxSales = point.totalSalesAmount
+    if (point.totalOrderCount > maxOrders) maxOrders = point.totalOrderCount
+  }
+  return { maxSales, maxOrders }
+})
 const trendPath = computed(() => {
-  if (trendPoints.value.length === 0) return ''
+  const points = trendPoints.value
+  if (points.length === 0) return ''
   const width = 620
   const height = 180
-  return trendPoints.value
+  const metrics = trendMetrics.value
+  return points
     .map((item, index) => {
-      const x = trendPoints.value.length === 1 ? width / 2 : (index / (trendPoints.value.length - 1)) * width
-      const y = height - (item.totalSalesAmount / trendMax.value) * 140 - 20
+      const x = points.length === 1 ? width / 2 : (index / (points.length - 1)) * width
+      const y = height - (item.totalSalesAmount / metrics.maxSales) * 140 - 20
       return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
     })
     .join(' ')
 })
 const trendBars = computed(() => {
+  const points = trendPoints.value
+  const metrics = trendMetrics.value
   const width = 620
   const gap = 10
-  const count = Math.max(trendPoints.value.length, 1)
+  const count = Math.max(points.length, 1)
   const barWidth = Math.max((width - gap * (count - 1)) / count, 24)
-  return trendPoints.value.map((item, index) => ({
+  return points.map((item, index) => ({
     x: index * (barWidth + gap),
     width: barWidth,
-    height: Math.max((item.totalOrderCount / Math.max(...trendPoints.value.map((point) => point.totalOrderCount), 1)) * 72, 10),
+    height: Math.max((item.totalOrderCount / metrics.maxOrders) * 72, 10),
   }))
 })
 
@@ -119,7 +131,9 @@ async function loadReports() {
   if (!session.token.value) return
   loading.value = true
   error.value = ''
-  Object.keys(sectionErrors).forEach((key) => delete sectionErrors[key])
+  for (const key in sectionErrors) {
+    delete sectionErrors[key]
+  }
   const range = currentRange.value
 
   const jobs = await Promise.allSettled([
@@ -215,8 +229,13 @@ function printPage() {
 }
 
 function escapeCsv(value: string | number) {
-  const text = String(value ?? '')
+  const text = sanitizeCsvCell(value)
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+}
+
+function sanitizeCsvCell(value: string | number) {
+  const text = String(value ?? '')
+  return /^[=+\-@]/.test(text) ? `'${text}` : text
 }
 
 function toDateInput(date: Date) {
@@ -417,7 +436,7 @@ function percent(value: number | null | undefined) {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in profitCustomers" :key="item.customerId || item.customerName || Math.random()">
+              <tr v-for="(item, index) in profitCustomers" :key="item.customerId || item.customerName || index">
                 <td>{{ item.customerName || '散客' }}</td>
                 <td>{{ formatCurrency(item.totalProfitAmount) }}</td>
                 <td>{{ percent(item.profitRate) }}</td>

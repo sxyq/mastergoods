@@ -54,11 +54,17 @@ const remainingAmount = computed(() => {
   return Math.max(order.value.totalAmount - order.value.paidAmount, 0)
 })
 const subtotalAmount = computed(() => order.value?.items.reduce((sum, item) => sum + item.amount, 0) ?? 0)
+const orderStatus = computed(() => order.value?.status ?? SALE_DRAFT)
+const paidOff = computed(() => order.value ? order.value.paidAmount >= order.value.totalAmount && order.value.totalAmount > 0 : false)
 const canConfirm = computed(() => order.value?.status === SALE_DRAFT && canWrite.value)
 const canCancel = computed(() => Boolean(order.value) && order.value?.status !== SALE_CANCELLED && canWrite.value)
 const canCollectPayment = computed(() => {
   return Boolean(order.value) && order.value?.status !== SALE_CANCELLED && remainingAmount.value > 0
 })
+const orderStatusLabel = computed(() => order.value ? saleOrderStatusLabel(order.value.status) : '-')
+const shippingStatusLabel = computed(() => order.value ? saleShippingStatus(order.value.status) : '-')
+const paymentStatusLabel = computed(() => order.value ? salePaymentStatus(order.value.totalAmount, order.value.paidAmount, order.value.status) : '-')
+const recentPayments = computed(() => payments.value.slice(0, 3))
 const paymentMethods = [
   [METHOD_CASH, '现金'],
   [METHOD_WECHAT, '微信'],
@@ -68,14 +74,13 @@ const paymentMethods = [
 ]
 
 const progressSteps = computed(() => {
-  const current = order.value?.status ?? SALE_DRAFT
-  const paid = order.value ? order.value.paidAmount >= order.value.totalAmount && order.value.totalAmount > 0 : false
+  const current = orderStatus.value
   return [
     { label: '下单', icon: 'shopping_cart', done: true, time: order.value ? formatDateTime(order.value.createdAt).slice(5) : '-' },
     { label: '审核', icon: 'fact_check', done: current !== SALE_DRAFT && current !== SALE_CANCELLED, time: current !== SALE_DRAFT ? '已确认' : '待处理' },
     { label: '出库', icon: 'inventory_2', done: current === SALE_COMPLETED, time: current === SALE_COMPLETED ? '已出库' : '待出库' },
-    { label: '收款', icon: 'payments', done: paid, time: paid ? '已结清' : '待收款' },
-    { label: '完成', icon: 'done_all', done: current === SALE_COMPLETED && paid, time: current === SALE_COMPLETED && paid ? '完成' : '进行中' },
+    { label: '收款', icon: 'payments', done: paidOff.value, time: paidOff.value ? '已结清' : '待收款' },
+    { label: '完成', icon: 'done_all', done: current === SALE_COMPLETED && paidOff.value, time: current === SALE_COMPLETED && paidOff.value ? '完成' : '进行中' },
   ]
 })
 
@@ -209,7 +214,7 @@ async function handleCollectPayment() {
         <section class="pc-detail-hero-card">
           <div>
             <span class="pc-status-chip" :data-tone="order.status === SALE_COMPLETED ? 'done' : order.status === SALE_CANCELLED ? 'cancelled' : order.status === SALE_DRAFT ? 'draft' : 'running'">
-              {{ saleOrderStatusLabel(order.status) }}
+              {{ orderStatusLabel }}
             </span>
             <h2>{{ order.orderNo }}</h2>
             <p>{{ order.notes || '暂无单据备注' }}</p>
@@ -217,7 +222,7 @@ async function handleCollectPayment() {
           <div class="pc-detail-amount">
             <span>应收总额</span>
             <strong>{{ formatCurrency(order.totalAmount) }}</strong>
-            <small>{{ saleShippingStatus(order.status) }} / {{ salePaymentStatus(order.totalAmount, order.paidAmount, order.status) }}</small>
+            <small>{{ shippingStatusLabel }} / {{ paymentStatusLabel }}</small>
           </div>
         </section>
 
@@ -323,8 +328,8 @@ async function handleCollectPayment() {
             <h2>物流配送</h2>
           </div>
           <div class="pc-logistics-list">
-            <div><span></span><p>当前状态：{{ saleShippingStatus(order.status) }}</p><small>{{ formatDateTime(order.updatedAt) }}</small></div>
-            <div><span></span><p>收款状态：{{ salePaymentStatus(order.totalAmount, order.paidAmount, order.status) }}</p><small>{{ payments.length }} 条收款记录</small></div>
+            <div><span></span><p>当前状态：{{ shippingStatusLabel }}</p><small>{{ formatDateTime(order.updatedAt) }}</small></div>
+            <div><span></span><p>收款状态：{{ paymentStatusLabel }}</p><small>{{ payments.length }} 条收款记录</small></div>
           </div>
         </section>
 
@@ -335,7 +340,7 @@ async function handleCollectPayment() {
           </div>
           <p>智能系统已关联该销售单的收款、出库与库存影响记录。</p>
           <ul>
-            <li v-for="payment in payments.slice(0, 3)" :key="payment.id">
+            <li v-for="payment in recentPayments" :key="payment.id">
               <span class="material-symbols-outlined">account_balance</span>
               <div>
                 <small>对应资金流水</small>
@@ -346,7 +351,7 @@ async function handleCollectPayment() {
               <span class="material-symbols-outlined">inventory</span>
               <div>
                 <small>出库状态</small>
-                <strong>{{ saleShippingStatus(order.status) }}</strong>
+                <strong>{{ shippingStatusLabel }}</strong>
               </div>
             </li>
           </ul>

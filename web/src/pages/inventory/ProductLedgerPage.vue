@@ -38,15 +38,41 @@ const queryProductId = computed(() => {
 })
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canAdjust = computed(() => session.hasPermission(['inventory:write']))
-const selectedProduct = computed(() => products.value.find((item) => item.id === selectedProductId.value) ?? products.value[0] ?? null)
-const filteredProducts = computed(() => {
+const productIndex = computed(() => new Map(products.value.map((item) => [item.id, item] as const)))
+type ProductSearchRow = ProductRecord & {
+  searchText: string
+}
+const selectedProduct = computed(() => {
+  if (selectedProductId.value == null) return products.value[0] ?? null
+  return productIndex.value.get(selectedProductId.value) ?? products.value[0] ?? null
+})
+const filteredProducts = computed<ProductSearchRow[]>(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
-  if (!keyword) return products.value
-  return products.value.filter((item) => item.name.toLowerCase().includes(keyword) || item.code.toLowerCase().includes(keyword))
+  const rows: ProductSearchRow[] = []
+  for (const item of products.value) {
+    const searchText = `${item.name} ${item.code}`.toLowerCase()
+    if (keyword && !searchText.includes(keyword)) continue
+    rows.push({
+      ...item,
+      searchText,
+    })
+  }
+  return rows
 })
 const currentBalance = computed(() => ledgerEntries.value[0]?.quantityAfter ?? selectedProduct.value?.stock ?? 0)
-const totalIn = computed(() => ledgerEntries.value.filter((item) => item.quantityChange > 0).reduce((sum, item) => sum + item.quantityChange, 0))
-const totalOut = computed(() => ledgerEntries.value.filter((item) => item.quantityChange < 0).reduce((sum, item) => sum + Math.abs(item.quantityChange), 0))
+const ledgerSummary = computed(() => ledgerEntries.value.reduce((summary, item) => {
+  if (item.quantityChange > 0) {
+    summary.totalIn += item.quantityChange
+  } else if (item.quantityChange < 0) {
+    summary.totalOut += Math.abs(item.quantityChange)
+  }
+  return summary
+}, {
+  totalIn: 0,
+  totalOut: 0,
+}))
+const totalIn = computed(() => ledgerSummary.value.totalIn)
+const totalOut = computed(() => ledgerSummary.value.totalOut)
 const balanceAmount = computed(() => currentBalance.value * (selectedProduct.value?.purchasePrice ?? 0))
 const startAt = computed(() => {
   if (rangeDays.value === 'all') return undefined
@@ -105,7 +131,7 @@ async function loadLedger(productId: number) {
       productId,
       startAt: startAt.value,
     })
-    ledgerEntries.value = [...entries].sort((left, right) => right.createdAt - left.createdAt)
+    ledgerEntries.value = entries
   } catch (loadErr) {
     error.value = loadErr instanceof Error ? loadErr.message : '库存流水加载失败'
   } finally {

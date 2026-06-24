@@ -80,14 +80,22 @@ const queryOrderId = computed(() => readQueryId(route.query.orderId))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canWrite = computed(() => session.hasPermission(['sales:write']))
 const canRefundWrite = computed(() => session.hasPermission(['finance:write']) || session.hasPermission(['sales:write']))
-const selectedReturn = computed(() => returns.value.find((item) => sameEntityId(item.id, selectedReturnId.value)) ?? null)
-const selectedSourceOrder = computed(() => sourceOrders.value.find((item) => sameEntityId(item.id, createOrderId.value)) ?? null)
+const returnIndex = computed(() => new Map(returns.value.map((item) => [String(item.id), item] as const)))
+const sourceOrderIndex = computed(() => new Map(sourceOrders.value.map((item) => [String(item.id), item] as const)))
+const selectedReturn = computed(() => (selectedReturnId.value == null ? null : returnIndex.value.get(String(selectedReturnId.value)) ?? null))
+const selectedSourceOrder = computed(() => (createOrderId.value == null ? null : sourceOrderIndex.value.get(String(createOrderId.value)) ?? null))
 const remainingRefund = computed(() => {
   if (!selectedReturn.value) return 0
   return Math.max(selectedReturn.value.totalAmount - selectedReturn.value.refundAmount, 0)
 })
-const totalReturnAmount = computed(() => returns.value.reduce((sum, item) => sum + item.totalAmount, 0))
-const totalRefundAmount = computed(() => returns.value.reduce((sum, item) => sum + item.refundAmount, 0))
+const returnSummary = computed(() => returns.value.reduce((summary, item) => {
+  summary.totalAmount += item.totalAmount
+  summary.refundAmount += item.refundAmount
+  return summary
+}, { totalAmount: 0, refundAmount: 0 }))
+const totalReturnAmount = computed(() => returnSummary.value.totalAmount)
+const totalRefundAmount = computed(() => returnSummary.value.refundAmount)
+const draftReturnCount = computed(() => returns.value.reduce((count, item) => count + (item.status === SALES_RETURN_DRAFT ? 1 : 0), 0))
 const canEditDraft = computed(() => {
   const current = selectedReturn.value
   return Boolean(current && current.status === SALES_RETURN_DRAFT && canWrite.value)
@@ -157,7 +165,7 @@ watch(selectedReturn, (next) => {
 
 watch(createOrderId, async (nextId, prevId) => {
   if (!nextId || sameEntityId(nextId, prevId) || !session.token.value) return
-  const order = sourceOrders.value.find((item) => sameEntityId(item.id, nextId))
+  const order = sourceOrderIndex.value.get(String(nextId))
   if (order) {
     applySourceOrder(order)
     return
@@ -216,24 +224,29 @@ async function loadReturns() {
   error.value = ''
   success.value = ''
   try {
+    const normalizedKeyword = keyword.value.trim()
+    const status = statusFilter.value === 'all' ? undefined : Number(statusFilter.value)
     let nextReturns = orderFilterId.value
       ? await fetchSalesReturnsByOrder(session.token.value, orderFilterId.value)
       : await fetchSalesReturns(session.token.value, {
-          keyword: keyword.value.trim() || undefined,
-          status: statusFilter.value === 'all' ? undefined : Number(statusFilter.value),
+          keyword: normalizedKeyword || undefined,
+          status,
           page: 0,
           size: 200,
         })
 
     if (orderFilterId.value) {
-      const normalizedKeyword = keyword.value.trim()
-      nextReturns = nextReturns.filter((item) => {
+      const filteredReturns: SalesReturn[] = []
+      for (const item of nextReturns) {
         const matchKeyword = !normalizedKeyword
           || item.returnNo.includes(normalizedKeyword)
           || (item.customerName || '').includes(normalizedKeyword)
-        const matchStatus = statusFilter.value === 'all' || item.status === Number(statusFilter.value)
-        return matchKeyword && matchStatus
-      })
+        const matchStatus = status == null || item.status === status
+        if (matchKeyword && matchStatus) {
+          filteredReturns.push(item)
+        }
+      }
+      nextReturns = filteredReturns
     }
 
     if (queryReturnId.value && !nextReturns.some((item) => sameEntityId(item.id, queryReturnId.value))) {
@@ -401,7 +414,7 @@ async function retryPage() {
       <article class="metric-card" data-tone="blue">
         <span>退货单数</span>
         <strong>{{ returns.length }}</strong>
-        <p>{{ returns.filter((item) => item.status === SALES_RETURN_DRAFT).length }} 单待确认</p>
+        <p>{{ draftReturnCount }} 单待确认</p>
       </article>
       <article class="metric-card" data-tone="orange">
         <span>退货金额</span>

@@ -1,7 +1,10 @@
 import type { AgentChatPayload, AgentObservability, AgentResultBlock } from '@/shared/api/client'
 import { ApiError } from '@/shared/api/client'
+import { camelize } from '@/shared/utils/camelize'
+import { API_BASE_URL } from '@/shared/api/config'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:18080'
+const MAX_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER)
+const MIN_SAFE_INTEGER_BIGINT = BigInt(Number.MIN_SAFE_INTEGER)
 
 export type AgentStreamEvent =
   | AgentRunStartedEvent
@@ -270,7 +273,8 @@ async function openAgentStream(
     while (true) {
       const { value, done } = await reader.read()
       if (done) break
-      buffer += decoder.decode(value, { stream: true })
+      const chunk = decoder.decode(value, { stream: true })
+      if (chunk) buffer += chunk
 
       while (true) {
         const lineBreak = buffer.indexOf('\n')
@@ -286,7 +290,7 @@ async function openAgentStream(
         }
         if (line.startsWith(':')) continue
         if (line.startsWith('data:')) {
-          eventData += `${line.slice(5).trimStart()}\n`
+          eventData += line.slice(5).trimStart() + '\n'
           continue
         }
         if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
@@ -338,15 +342,16 @@ function emitApiAuthEvent(status: 401 | 403) {
 }
 
 function preserveUnsafeIntegers(rawText: string) {
-  let result = ''
+  const chunks: string[] = []
   let inString = false
   let isEscaped = false
+  const length = rawText.length
 
-  for (let index = 0; index < rawText.length; index += 1) {
+  for (let index = 0; index < length; index += 1) {
     const char = rawText[index]
 
     if (inString) {
-      result += char
+      chunks.push(char)
       if (isEscaped) {
         isEscaped = false
       } else if (char === '\\') {
@@ -359,51 +364,45 @@ function preserveUnsafeIntegers(rawText: string) {
 
     if (char === '"') {
       inString = true
-      result += char
+      chunks.push(char)
       continue
     }
 
     if (char === '-' || isDigit(char)) {
       let cursor = index + 1
-      while (cursor < rawText.length && /[0-9eE+.-]/.test(rawText[cursor])) {
+      while (cursor < length && isNumberTokenChar(rawText[cursor])) {
         cursor += 1
       }
 
       const token = rawText.slice(index, cursor)
-      result += shouldPreserveInteger(token) ? `"${token}"` : token
+      chunks.push(shouldPreserveInteger(token) ? `"${token}"` : token)
       index = cursor - 1
       continue
     }
 
-    result += char
+    chunks.push(char)
   }
 
-  return result
+  return chunks.join('')
 }
 
 function shouldPreserveInteger(token: string) {
-  if (!/^-?\d+$/.test(token)) return false
-  const normalized = token.startsWith('-') ? token.slice(1) : token
-  if (normalized.length < 16) return false
+  const startIndex = token[0] === '-' ? 1 : 0
+  const normalizedLength = token.length - startIndex
+  if (normalizedLength < 16) return false
+  for (let index = startIndex; index < token.length; index += 1) {
+    const code = token.charCodeAt(index)
+    if (code < 48 || code > 57) return false
+  }
   const value = BigInt(token)
-  return value > BigInt(Number.MAX_SAFE_INTEGER) || value < BigInt(Number.MIN_SAFE_INTEGER)
+  return value > MAX_SAFE_INTEGER_BIGINT || value < MIN_SAFE_INTEGER_BIGINT
 }
 
 function isDigit(char: string) {
-  return char >= '0' && char <= '9'
+  const code = char.charCodeAt(0)
+  return code >= 48 && code <= 57
 }
 
-function camelize(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map((item) => camelize(item))
-  }
-  if (!value || typeof value !== 'object') {
-    return value
-  }
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([key, nested]) => [
-      key.replace(/_([a-z])/g, (_, char: string) => char.toUpperCase()),
-      camelize(nested),
-    ]),
-  )
+function isNumberTokenChar(char: string) {
+  return isDigit(char) || char === 'e' || char === 'E' || char === '+' || char === '-' || char === '.'
 }

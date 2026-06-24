@@ -51,6 +51,8 @@ const orderId = computed(() => readQueryId(route.query.id))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const isEditMode = computed(() => orderId.value != null)
 const canWrite = computed(() => session.hasPermission(['purchase:write']))
+const supplierById = computed(() => new Map(suppliers.value.map((item) => [item.id, item] as const)))
+const productById = computed(() => new Map(products.value.map((item) => [item.id, item] as const)))
 const normalizedItems = computed(() => {
   return lines.value
     .filter((line) => Number(line.quantity) > 0 && (line.productId || line.productCode.trim() || line.productName.trim()))
@@ -121,13 +123,13 @@ function removeLine(index: number) {
 }
 
 function syncSupplier(supplierId: string) {
-  const supplier = suppliers.value.find((item) => item.id === Number(supplierId))
+  const supplier = supplierById.value.get(Number(supplierId))
   form.supplierId = supplierId
   form.supplierName = supplier?.name || ''
 }
 
 function syncProduct(index: number, productId: string) {
-  const product = products.value.find((item) => item.id === Number(productId))
+  const product = productById.value.get(Number(productId))
   const current = lines.value[index]
   current.productId = productId
   if (product) {
@@ -138,7 +140,7 @@ function syncProduct(index: number, productId: string) {
 }
 
 function productFor(line: LineItemForm) {
-  return products.value.find((item) => item.id === Number(line.productId))
+  return productById.value.get(Number(line.productId))
 }
 
 function lineUnitCost(line: LineItemForm) {

@@ -4,7 +4,12 @@ export function readQueryId(value: string | null | Array<string | null> | undefi
   const raw = Array.isArray(value) ? value[0] : value
   if (typeof raw !== 'string') return null
   const normalized = raw.trim()
-  if (!/^\d+$/.test(normalized)) return null
+  const length = normalized.length
+  if (length === 0) return null
+  for (let index = 0; index < length; index += 1) {
+    const code = normalized.charCodeAt(index)
+    if (code < 48 || code > 57) return null
+  }
   return BigInt(normalized) > 0n ? normalized : null
 }
 

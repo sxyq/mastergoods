@@ -35,9 +35,33 @@ const isApiSource = computed(() => session.source.value === 'api' && Boolean(ses
 const canWrite = computed(() => session.hasPermission(['sales:write']))
 const totalAmount = computed(() => orders.value.reduce((sum, item) => sum + item.totalAmount, 0))
 const unpaidAmount = computed(() => orders.value.reduce((sum, item) => sum + Math.max(item.totalAmount - item.paidAmount, 0), 0))
-const draftCount = computed(() => orders.value.filter((item) => item.status === SALE_DRAFT).length)
-const pendingShipCount = computed(() => orders.value.filter((item) => item.status === SALE_CONFIRMED).length)
-const pendingSettleCount = computed(() => orders.value.filter((item) => item.paidAmount < item.totalAmount && item.status !== SALE_CANCELLED).length)
+const statusSummary = computed(() => orders.value.reduce((summary, item) => {
+  if (item.status === SALE_DRAFT) {
+    summary.draftCount += 1
+  }
+  if (item.status === SALE_CONFIRMED) {
+    summary.pendingShipCount += 1
+  }
+  if (item.paidAmount < item.totalAmount && item.status !== SALE_CANCELLED) {
+    summary.pendingSettleCount += 1
+  }
+  if (item.status === SALE_COMPLETED) {
+    summary.completedCount += 1
+  }
+  if (item.status === SALE_CANCELLED) {
+    summary.cancelledCount += 1
+  }
+  return summary
+}, {
+  draftCount: 0,
+  pendingShipCount: 0,
+  pendingSettleCount: 0,
+  completedCount: 0,
+  cancelledCount: 0,
+}))
+const draftCount = computed(() => statusSummary.value.draftCount)
+const pendingShipCount = computed(() => statusSummary.value.pendingShipCount)
+const pendingSettleCount = computed(() => statusSummary.value.pendingSettleCount)
 const totalPages = computed(() => Math.max(1, Math.ceil(orders.value.length / pageSize.value)))
 const pagedOrders = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
@@ -51,8 +75,8 @@ const statusTabs = computed(() => [
   { key: 'draft' as const, label: '待审核', count: draftCount.value },
   { key: 'ship' as const, label: '待出库', count: pendingShipCount.value },
   { key: 'settle' as const, label: '待结算', count: pendingSettleCount.value },
-  { key: 'completed' as const, label: '已完成', count: orders.value.filter((item) => item.status === SALE_COMPLETED).length },
-  { key: 'cancelled' as const, label: '已作废', count: orders.value.filter((item) => item.status === SALE_CANCELLED).length },
+  { key: 'completed' as const, label: '已完成', count: statusSummary.value.completedCount },
+  { key: 'cancelled' as const, label: '已作废', count: statusSummary.value.cancelledCount },
 ])
 
 watch(

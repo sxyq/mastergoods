@@ -30,9 +30,31 @@ const currentPage = ref(1)
 
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canWrite = computed(() => session.hasPermission(['purchase:write']))
-const displayedOrders = computed(() => rawOrders.value.filter(matchesActiveTab))
-const payableAmount = computed(() => displayedOrders.value.reduce((sum, item) => sum + Math.max(item.totalAmount - item.paidAmount, 0), 0))
-const totalAmount = computed(() => displayedOrders.value.reduce((sum, item) => sum + item.totalAmount, 0))
+const filteredOrders = computed(() => rawOrders.value.filter(matchesActiveTab))
+const orderSummary = computed(() => rawOrders.value.reduce(
+  (summary, item) => {
+    summary.totalAmount += item.totalAmount
+    summary.payableAmount += Math.max(item.totalAmount - item.paidAmount, 0)
+    if (item.status === SALE_DRAFT) summary.draft += 1
+    else if (item.status === SALE_CANCELLED) summary.cancelled += 1
+    else if (isCompleted(item)) summary.completed += 1
+    else if (isPendingReceipt(item)) summary.receipt += 1
+    else if (isPendingPay(item)) summary.pay += 1
+    return summary
+  },
+  {
+    draft: 0,
+    receipt: 0,
+    pay: 0,
+    completed: 0,
+    cancelled: 0,
+    totalAmount: 0,
+    payableAmount: 0,
+  },
+))
+const displayedOrders = filteredOrders
+const payableAmount = computed(() => orderSummary.value.payableAmount)
+const totalAmount = computed(() => orderSummary.value.totalAmount)
 const totalPages = computed(() => Math.max(1, Math.ceil(displayedOrders.value.length / pageSize.value)))
 const pagedOrders = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
@@ -43,11 +65,11 @@ const pageEnd = computed(() => Math.min(currentPage.value * pageSize.value, disp
 
 const statusTabs = computed(() => [
   { key: 'all' as const, label: '全部', count: rawOrders.value.length },
-  { key: 'draft' as const, label: '待审核', count: rawOrders.value.filter((item) => item.status === SALE_DRAFT).length },
-  { key: 'receipt' as const, label: '待入库', count: rawOrders.value.filter(isPendingReceipt).length },
-  { key: 'pay' as const, label: '待付款', count: rawOrders.value.filter(isPendingPay).length },
-  { key: 'completed' as const, label: '已完成', count: rawOrders.value.filter(isCompleted).length },
-  { key: 'cancelled' as const, label: '已作废', count: rawOrders.value.filter((item) => item.status === SALE_CANCELLED).length },
+  { key: 'draft' as const, label: '待审核', count: orderSummary.value.draft },
+  { key: 'receipt' as const, label: '待入库', count: orderSummary.value.receipt },
+  { key: 'pay' as const, label: '待付款', count: orderSummary.value.pay },
+  { key: 'completed' as const, label: '已完成', count: orderSummary.value.completed },
+  { key: 'cancelled' as const, label: '已作废', count: orderSummary.value.cancelled },
 ])
 
 watch(

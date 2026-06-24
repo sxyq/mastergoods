@@ -19,6 +19,7 @@ const activeStatus = ref('全部')
 const searchKeyword = ref('')
 const selectedRowIndex = ref(0)
 const actionLog = ref('等待业务操作')
+const formValues = ref<Record<string, string>>({})
 const writePermissions = computed(() => (screen.value?.permission ?? []).filter((permission) => permission.endsWith(':write')))
 const canManageUsers = computed(() => session.hasPermission(['users:manage']))
 const sourceLabel = computed(() => {
@@ -29,17 +30,34 @@ const sourceLabel = computed(() => {
 })
 const canWrite = computed(() => writePermissions.value.length > 0 && session.hasPermission(writePermissions.value))
 const displayMetrics = computed(() => liveData.value?.metrics ?? pageModel.value?.metrics ?? [])
-const displayColumns = computed(() => liveData.value?.rows ? pageModel.value?.table.columns ?? [] : pageModel.value?.table.columns ?? [])
-const displayRows = computed<ScreenLiveRow[]>(() => {
-  if (liveData.value?.rows) return liveData.value.rows
-  return (pageModel.value?.table.rows ?? []).map((cells) => ({ cells, statusTokens: [] }))
+const displayColumns = computed(() => pageModel.value?.table.columns ?? [])
+type IndexedScreenLiveRow = ScreenLiveRow & {
+  searchText: string
+}
+
+const displayRows = computed<IndexedScreenLiveRow[]>(() => {
+  if (liveData.value?.rows) {
+    return liveData.value.rows.map((row) => ({
+      ...row,
+      searchText: row.cells.join(' ').toLowerCase(),
+    }))
+  }
+  return (pageModel.value?.table.rows ?? []).map((cells) => ({
+    cells,
+    statusTokens: [],
+    searchText: cells.join(' ').toLowerCase(),
+  }))
 })
 const displaySummary = computed(() => liveData.value?.summary ?? pageModel.value?.summary ?? [])
 const visibleRows = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
-  const rows = displayRows.value.filter((row) => !keyword || row.cells.join(' ').toLowerCase().includes(keyword))
-  if (activeStatus.value === '全部') return rows
-  return rows.filter((row) => matchesStatus(row, activeStatus.value))
+  const rows: IndexedScreenLiveRow[] = []
+  for (const row of displayRows.value) {
+    if (keyword && !row.searchText.includes(keyword)) continue
+    if (activeStatus.value !== '全部' && !matchesStatus(row, activeStatus.value)) continue
+    rows.push(row)
+  }
+  return rows
 })
 const selectedRow = computed(() => visibleRows.value[selectedRowIndex.value]?.cells ?? visibleRows.value[0]?.cells)
 const currentPageLabel = computed(() => {
@@ -53,6 +71,7 @@ watch(() => route.fullPath, () => {
   searchKeyword.value = ''
   selectedRowIndex.value = 0
   actionLog.value = '等待业务操作'
+  formValues.value = {}
 })
 
 watch(visibleRows, (rows) => {
@@ -63,6 +82,24 @@ watch(visibleRows, (rows) => {
   if (selectedRowIndex.value > rows.length - 1) {
     selectedRowIndex.value = 0
   }
+})
+
+watch(selectedRow, (row) => {
+  const model = pageModel.value
+  if (!model || !row) return
+  const next: Record<string, string> = {}
+  model.formSections.forEach((section) => {
+    section.fields.forEach((field, fieldIndex) => {
+      if (field.includes('单据') && row[0]) {
+        next[field] = row[0]
+      } else if (fieldIndex < row.length && row[fieldIndex]) {
+        next[field] = row[fieldIndex]
+      } else {
+        next[field] = ''
+      }
+    })
+  })
+  formValues.value = next
 })
 
 watch(
@@ -104,15 +141,24 @@ function runAction(action: string) {
     actionLog.value = `${roleLabels[session.role.value]} 无法执行「${action}」`
     return
   }
+  if (action === '保存草稿') {
+    const filledFields = Object.entries(formValues.value).filter(([, value]) => value.trim() !== '')
+    if (filledFields.length === 0) {
+      actionLog.value = '表单为空，无法保存草稿'
+      return
+    }
+    actionLog.value = `已保存草稿（${filledFields.length} 个字段）：${filledFields.map(([key, value]) => `${key}=${value}`).join('，')}`
+    return
+  }
   const target = selectedRow.value?.[0] ?? model.title
   actionLog.value = `已在 ${model.title} 对「${target}」执行：${action}`
 }
 
-function matchesStatus(row: ScreenLiveRow, status: string) {
+function matchesStatus(row: IndexedScreenLiveRow, status: string) {
   if (row.statusTokens.length > 0) {
     return row.statusTokens.includes(status)
   }
-  return row.cells.join(' ').includes(status.replace(/^待/, '').replace(/^已/, ''))
+  return row.searchText.includes(status.replace(/^待/, '').replace(/^已/, ''))
 }
 </script>
 
@@ -250,7 +296,7 @@ function matchesStatus(row: ScreenLiveRow, status: string) {
               <legend>{{ section.title }}</legend>
               <label v-for="field in section.fields" :key="field">
                 <span>{{ field }}</span>
-                <input :value="selectedRow?.[0] && field.includes('单据') ? selectedRow[0] : ''" :placeholder="field" />
+                <input v-model="formValues[field]" :placeholder="field" />
               </label>
             </fieldset>
           </div>

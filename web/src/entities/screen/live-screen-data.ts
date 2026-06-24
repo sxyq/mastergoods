@@ -39,6 +39,25 @@ const ORDER_DRAFT = 0
 const ORDER_COMPLETED = 1
 const ORDER_CANCELLED = 2
 const ORDER_CONFIRMED = 3
+const DAY_MS = 24 * 60 * 60 * 1000
+
+const CURRENCY_FORMATTER = new Intl.NumberFormat('zh-CN', {
+  style: 'currency',
+  currency: 'CNY',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+const DATE_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
+const NUMBER_FORMATTER = new Intl.NumberFormat('zh-CN', {
+  maximumFractionDigits: 2,
+})
 
 export interface ScreenLiveRow {
   cells: string[]
@@ -166,10 +185,23 @@ export async function loadLiveScreenData(route: string, token: string, keyword =
 
 function mapSalesOrders(orders: SaleOrder[]): ScreenLiveData {
   const sorted = [...orders].sort((a, b) => b.createdAt - a.createdAt)
-  const rows = sorted.map((order) => {
+  const rows: ScreenLiveRow[] = new Array(sorted.length)
+  let totalSales = 0
+  let unpaidAmount = 0
+  let completedCount = 0
+  let pendingReview = 0
+  let unsettledCount = 0
+  for (let index = 0; index < sorted.length; index += 1) {
+    const order = sorted[index]
     const shippingLabel = saleShippingStatus(order)
     const paymentLabel = salePaymentStatus(order)
-    return {
+    const statusTokens = saleStatusTokens(order)
+    totalSales += order.totalAmount
+    unpaidAmount += Math.max(order.totalAmount - order.paidAmount, 0)
+    if (order.status === ORDER_COMPLETED) completedCount += 1
+    if (order.status === ORDER_DRAFT) pendingReview += 1
+    if (statusTokens.includes('待结算')) unsettledCount += 1
+    rows[index] = {
       cells: [
         order.orderNo,
         order.customerName || '散客',
@@ -179,25 +211,20 @@ function mapSalesOrders(orders: SaleOrder[]): ScreenLiveData {
         paymentLabel,
         saleActionLabel(order),
       ],
-      statusTokens: saleStatusTokens(order),
+      statusTokens,
     }
-  })
-
-  const totalSales = sorted.reduce((sum, order) => sum + order.totalAmount, 0)
-  const unpaidAmount = sorted.reduce((sum, order) => sum + Math.max(order.totalAmount - order.paidAmount, 0), 0)
-  const completedCount = sorted.filter((order) => order.status === ORDER_COMPLETED).length
-  const pendingReview = sorted.filter((order) => order.status === ORDER_DRAFT).length
+  }
 
   return {
     metrics: [
       { label: '销售单数', value: String(sorted.length), detail: `${completedCount} 单已完成` },
       { label: '销售金额', value: formatCurrency(totalSales), detail: `${pendingReview} 单待审核` },
-      { label: '待结算', value: formatCurrency(unpaidAmount), detail: `${sorted.filter((order) => saleStatusTokens(order).includes('待结算')).length} 单` },
+      { label: '待结算', value: formatCurrency(unpaidAmount), detail: `${unsettledCount} 单` },
     ],
     rows,
     summary: [
       { label: `共 ${sorted.length} 条记录`, value: `待审核 ${pendingReview} 条` },
-      { label: '已收金额', value: formatCurrency(sorted.reduce((sum, order) => sum + order.paidAmount, 0)) },
+      { label: '已收金额', value: formatCurrency(totalSales - unpaidAmount) },
       { label: '待结算金额', value: formatCurrency(unpaidAmount) },
     ],
   }
@@ -205,10 +232,27 @@ function mapSalesOrders(orders: SaleOrder[]): ScreenLiveData {
 
 function mapPurchaseOrders(orders: PurchaseOrder[]): ScreenLiveData {
   const sorted = [...orders].sort((a, b) => b.createdAt - a.createdAt)
-  const rows = sorted.map((order) => {
+  const rows: ScreenLiveRow[] = new Array(sorted.length)
+  let totalAmount = 0
+  let unpaid = 0
+  let awaitingReceipt = 0
+  let draftCount = 0
+  let receivedAmount = 0
+  let paidAmount = 0
+  let awaitingPaymentCount = 0
+  for (let index = 0; index < sorted.length; index += 1) {
+    const order = sorted[index]
     const receiptLabel = purchaseReceiptStatus(order)
     const paymentLabel = purchasePaymentStatus(order)
-    return {
+    const statusTokens = purchaseStatusTokens(order)
+    totalAmount += order.totalAmount
+    unpaid += Math.max(order.totalAmount - order.paidAmount, 0)
+    receivedAmount += order.receivedAmount
+    paidAmount += order.paidAmount
+    if (order.status === ORDER_DRAFT) draftCount += 1
+    if (statusTokens.includes('待入库')) awaitingReceipt += 1
+    if (statusTokens.includes('待付款')) awaitingPaymentCount += 1
+    rows[index] = {
       cells: [
         order.orderNo,
         order.supplierName || '未命名供应商',
@@ -218,49 +262,58 @@ function mapPurchaseOrders(orders: PurchaseOrder[]): ScreenLiveData {
         paymentLabel,
         purchaseOwnerLabel(order),
       ],
-      statusTokens: purchaseStatusTokens(order),
+      statusTokens,
     }
-  })
-
-  const totalAmount = sorted.reduce((sum, order) => sum + order.totalAmount, 0)
-  const unpaid = sorted.reduce((sum, order) => sum + Math.max(order.totalAmount - order.paidAmount, 0), 0)
-  const awaitingReceipt = sorted.filter((order) => purchaseStatusTokens(order).includes('待入库')).length
+  }
 
   return {
     metrics: [
       { label: '采购单数', value: String(sorted.length), detail: `${awaitingReceipt} 单待入库` },
-      { label: '采购总额', value: formatCurrency(totalAmount), detail: `${sorted.filter((order) => order.status === ORDER_DRAFT).length} 单草稿/待审批` },
-      { label: '待付款', value: formatCurrency(unpaid), detail: `${sorted.filter((order) => purchaseStatusTokens(order).includes('待付款')).length} 单` },
+      { label: '采购总额', value: formatCurrency(totalAmount), detail: `${draftCount} 单草稿/待审批` },
+      { label: '待付款', value: formatCurrency(unpaid), detail: `${awaitingPaymentCount} 单` },
     ],
     rows,
     summary: [
-      { label: '已入库金额', value: formatCurrency(sorted.reduce((sum, order) => sum + order.receivedAmount, 0)) },
-      { label: '已付款金额', value: formatCurrency(sorted.reduce((sum, order) => sum + order.paidAmount, 0)) },
+      { label: '已入库金额', value: formatCurrency(receivedAmount) },
+      { label: '已付款金额', value: formatCurrency(paidAmount) },
       { label: '待付款金额', value: formatCurrency(unpaid) },
     ],
   }
 }
 
 function mapProducts(products: ProductRecord[], lowStockProducts: ProductRecord[]): ScreenLiveData {
-  const lowStockIds = new Set(lowStockProducts.map((item) => item.id))
+  const lowStockIds = new Set<number>()
+  for (let index = 0; index < lowStockProducts.length; index += 1) {
+    lowStockIds.add(lowStockProducts[index].id)
+  }
   const sorted = [...products].sort((a, b) => b.updatedAt - a.updatedAt)
-  const rows = sorted.map((product) => ({
-    cells: [
-      product.defaultSupplier ? '有供应商' : '待资料',
-      product.code,
-      product.name,
-      product.categoryName || '--',
-      product.unitName || '--',
-      formatCurrency(product.salePrice),
-      formatCurrency(product.purchasePrice),
-      formatNumber(product.stock),
-      product.status === 1 ? '详情 / 流水 / 启用' : '详情 / 流水 / 停用',
-    ],
-    statusTokens: productStatusTokens(product, lowStockIds),
-  }))
-
-  const stockValue = sorted.reduce((sum, product) => sum + product.stock * product.purchasePrice, 0)
-  const activeCount = sorted.filter((product) => product.status === 1).length
+  const rows: ScreenLiveRow[] = new Array(sorted.length)
+  let stockValue = 0
+  let activeCount = 0
+  let inactiveCount = 0
+  for (let index = 0; index < sorted.length; index += 1) {
+    const product = sorted[index]
+    stockValue += product.stock * product.purchasePrice
+    if (product.status === 1) {
+      activeCount += 1
+    } else {
+      inactiveCount += 1
+    }
+    rows[index] = {
+      cells: [
+        product.defaultSupplier ? '有供应商' : '待资料',
+        product.code,
+        product.name,
+        product.categoryName || '--',
+        product.unitName || '--',
+        formatCurrency(product.salePrice),
+        formatCurrency(product.purchasePrice),
+        formatNumber(product.stock),
+        product.status === 1 ? '详情 / 流水 / 启用' : '详情 / 流水 / 停用',
+      ],
+      statusTokens: productStatusTokens(product, lowStockIds),
+    }
+  }
 
   return {
     metrics: [
@@ -271,7 +324,7 @@ function mapProducts(products: ProductRecord[], lowStockProducts: ProductRecord[
     rows,
     summary: [
       { label: '启用商品', value: `${activeCount}` },
-      { label: '停用商品', value: `${sorted.filter((product) => product.status !== 1).length}` },
+      { label: '停用商品', value: `${inactiveCount}` },
       { label: '低库存商品', value: `${lowStockIds.size}` },
     ],
   }
@@ -279,14 +332,20 @@ function mapProducts(products: ProductRecord[], lowStockProducts: ProductRecord[
 
 function mapCustomers(customers: CustomerRecord[]): ScreenLiveData {
   const sorted = [...customers].sort((a, b) => b.updatedAt - a.updatedAt)
-  const balance = sorted.reduce((sum, customer) => sum + customer.balance, 0)
-  return {
-    metrics: [
-      { label: '客户档案', value: String(sorted.length), detail: `${sorted.filter((item) => item.status === 1).length} 个启用` },
-      { label: '客户应收', value: formatCurrency(balance), detail: `${sorted.filter((item) => (item.balance || 0) > 0).length} 个欠款客户` },
-      { label: '分组覆盖', value: String(new Set(sorted.map((item) => item.groupName || '未分组')).size), detail: '已接真实客户分组' },
-    ],
-    rows: sorted.map((customer) => ({
+  const rows: ScreenLiveRow[] = new Array(sorted.length)
+  let balance = 0
+  let activeCount = 0
+  let debtCount = 0
+  let highLevelCount = 0
+  const groupNames = new Set<string>()
+  for (let index = 0; index < sorted.length; index += 1) {
+    const customer = sorted[index]
+    balance += customer.balance
+    if (customer.status === 1) activeCount += 1
+    if (customer.balance > 0) debtCount += 1
+    if (customer.level >= 3) highLevelCount += 1
+    groupNames.add(customer.groupName || '未分组')
+    rows[index] = {
       cells: [
         customer.name,
         customer.phone,
@@ -300,25 +359,37 @@ function mapCustomers(customers: CustomerRecord[]): ScreenLiveData {
         customer.status === 1 ? '启用' : '停用',
         customer.balance > 0 ? '待跟进' : '全部',
       ],
-    })),
+    }
+  }
+  return {
+    metrics: [
+      { label: '客户档案', value: String(sorted.length), detail: `${activeCount} 个启用` },
+      { label: '客户应收', value: formatCurrency(balance), detail: `${debtCount} 个欠款客户` },
+      { label: '分组覆盖', value: String(groupNames.size), detail: '已接真实客户分组' },
+    ],
+    rows,
     summary: [
       { label: '客户总数', value: `${sorted.length}` },
       { label: '应收余额', value: formatCurrency(balance) },
-      { label: '高等级客户', value: `${sorted.filter((item) => item.level >= 3).length}` },
+      { label: '高等级客户', value: `${highLevelCount}` },
     ],
   }
 }
 
 function mapSuppliers(suppliers: SupplierRecord[]): ScreenLiveData {
   const sorted = [...suppliers].sort((a, b) => b.updatedAt - a.updatedAt)
-  const payable = sorted.reduce((sum, supplier) => sum + supplier.balance, 0)
-  return {
-    metrics: [
-      { label: '供应商档案', value: String(sorted.length), detail: `${sorted.filter((item) => item.status === 1).length} 个启用` },
-      { label: '供应商应付', value: formatCurrency(payable), detail: `${sorted.filter((item) => (item.balance || 0) > 0).length} 个待对账` },
-      { label: '分组覆盖', value: String(new Set(sorted.map((item) => item.groupName || '未分组')).size), detail: '已接真实供应商分组' },
-    ],
-    rows: sorted.map((supplier) => ({
+  const rows: ScreenLiveRow[] = new Array(sorted.length)
+  let payable = 0
+  let activeCount = 0
+  let debtCount = 0
+  const groupNames = new Set<string>()
+  for (let index = 0; index < sorted.length; index += 1) {
+    const supplier = sorted[index]
+    payable += supplier.balance
+    if (supplier.status === 1) activeCount += 1
+    if (supplier.balance > 0) debtCount += 1
+    groupNames.add(supplier.groupName || '未分组')
+    rows[index] = {
       cells: [
         supplier.name,
         supplier.phone,
@@ -332,26 +403,42 @@ function mapSuppliers(suppliers: SupplierRecord[]): ScreenLiveData {
         supplier.status === 1 ? '启用' : '停用',
         supplier.balance > 0 ? '待跟进' : '全部',
       ],
-    })),
+    }
+  }
+  return {
+    metrics: [
+      { label: '供应商档案', value: String(sorted.length), detail: `${activeCount} 个启用` },
+      { label: '供应商应付', value: formatCurrency(payable), detail: `${debtCount} 个待对账` },
+      { label: '分组覆盖', value: String(groupNames.size), detail: '已接真实供应商分组' },
+    ],
+    rows,
     summary: [
       { label: '供应商总数', value: `${sorted.length}` },
       { label: '应付余额', value: formatCurrency(payable) },
-      { label: '待对账供应商', value: `${sorted.filter((item) => (item.balance || 0) > 0).length}` },
+      { label: '待对账供应商', value: `${debtCount}` },
     ],
   }
 }
 
 function mapPurchaseReceipts(receipts: PurchaseReceipt[]): ScreenLiveData {
   const sorted = [...receipts].sort((a, b) => b.updatedAt - a.updatedAt)
-  const totalAmount = sorted.reduce((sum, receipt) => sum + receipt.totalAmount, 0)
-  const confirmed = sorted.filter((receipt) => receipt.status === ORDER_COMPLETED).length
-  return {
-    metrics: [
-      { label: '入库单数', value: String(sorted.length), detail: `${confirmed} 单已完成` },
-      { label: '入库金额', value: formatCurrency(totalAmount), detail: `${sorted.filter((item) => item.status === ORDER_DRAFT).length} 单草稿` },
-      { label: '待确认', value: `${sorted.filter((item) => item.status === ORDER_CONFIRMED || item.status === ORDER_DRAFT).length}`, detail: '待仓库确认' },
-    ],
-    rows: sorted.map((receipt) => ({
+  const rows: ScreenLiveRow[] = new Array(sorted.length)
+  let totalAmount = 0
+  let confirmed = 0
+  let draftCount = 0
+  let awaitingConfirmCount = 0
+  let unfinishedCount = 0
+  for (let index = 0; index < sorted.length; index += 1) {
+    const receipt = sorted[index]
+    totalAmount += receipt.totalAmount
+    if (receipt.status === ORDER_COMPLETED) {
+      confirmed += 1
+    } else {
+      unfinishedCount += 1
+    }
+    if (receipt.status === ORDER_DRAFT) draftCount += 1
+    if (receipt.status === ORDER_CONFIRMED || receipt.status === ORDER_DRAFT) awaitingConfirmCount += 1
+    rows[index] = {
       cells: [
         receipt.receiptNo,
         receipt.supplierName || '未命名供应商',
@@ -362,26 +449,37 @@ function mapPurchaseReceipts(receipts: PurchaseReceipt[]): ScreenLiveData {
         formatDate(receipt.updatedAt),
       ],
       statusTokens: [receiptStatusLabel(receipt.status)],
-    })),
+    }
+  }
+  return {
+    metrics: [
+      { label: '入库单数', value: String(sorted.length), detail: `${confirmed} 单已完成` },
+      { label: '入库金额', value: formatCurrency(totalAmount), detail: `${draftCount} 单草稿` },
+      { label: '待确认', value: `${awaitingConfirmCount}`, detail: '待仓库确认' },
+    ],
+    rows,
     summary: [
       { label: '已完成入库', value: `${confirmed}` },
       { label: '总入库金额', value: formatCurrency(totalAmount) },
-      { label: '草稿/待确认', value: `${sorted.filter((item) => item.status !== ORDER_COMPLETED).length}` },
+      { label: '草稿/待确认', value: `${unfinishedCount}` },
     ],
   }
 }
 
 function mapSalesReturns(returns: SalesReturn[]): ScreenLiveData {
   const sorted = [...returns].sort((a, b) => b.updatedAt - a.updatedAt)
-  const totalAmount = sorted.reduce((sum, item) => sum + item.totalAmount, 0)
-  const refundAmount = sorted.reduce((sum, item) => sum + item.refundAmount, 0)
-  return {
-    metrics: [
-      { label: '退货单数', value: String(sorted.length), detail: `${sorted.filter((item) => item.status === ORDER_COMPLETED).length} 单已完成` },
-      { label: '退货金额', value: formatCurrency(totalAmount), detail: '已接真实销售退货单' },
-      { label: '已退款金额', value: formatCurrency(refundAmount), detail: `${sorted.filter((item) => item.refundAmount < item.totalAmount).length} 单待退款` },
-    ],
-    rows: sorted.map((item) => ({
+  const rows: ScreenLiveRow[] = new Array(sorted.length)
+  let totalAmount = 0
+  let refundAmount = 0
+  let completedCount = 0
+  let pendingRefundCount = 0
+  for (let index = 0; index < sorted.length; index += 1) {
+    const item = sorted[index]
+    totalAmount += item.totalAmount
+    refundAmount += item.refundAmount
+    if (item.status === ORDER_COMPLETED) completedCount += 1
+    if (item.refundAmount < item.totalAmount) pendingRefundCount += 1
+    rows[index] = {
       cells: [
         item.returnNo,
         item.customerName || '散客',
@@ -392,31 +490,55 @@ function mapSalesReturns(returns: SalesReturn[]): ScreenLiveData {
         formatDate(item.updatedAt),
       ],
       statusTokens: salesReturnStatusTokens(item),
-    })),
+    }
+  }
+  return {
+    metrics: [
+      { label: '退货单数', value: String(sorted.length), detail: `${completedCount} 单已完成` },
+      { label: '退货金额', value: formatCurrency(totalAmount), detail: '已接真实销售退货单' },
+      { label: '已退款金额', value: formatCurrency(refundAmount), detail: `${pendingRefundCount} 单待退款` },
+    ],
+    rows,
     summary: [
       { label: '退货金额', value: formatCurrency(totalAmount) },
       { label: '已退款金额', value: formatCurrency(refundAmount) },
-      { label: '待退款单数', value: `${sorted.filter((item) => item.refundAmount < item.totalAmount).length}` },
+      { label: '待退款单数', value: `${pendingRefundCount}` },
     ],
   }
 }
 
 function mapInventoryLedger(entries: InventoryLedgerEntry[], keyword: string): ScreenLiveData {
-  const filtered = filterByKeyword(entries, keyword, (entry) => [
-    entry.productCode,
-    entry.productName,
-    entry.sourceNo,
-    entry.sourceType,
-    entry.notes,
-  ])
-  const sorted = [...filtered].sort((a, b) => b.createdAt - a.createdAt)
-  return {
-    metrics: [
-      { label: '库存流水', value: String(sorted.length), detail: `${sorted.filter((item) => item.quantityChange > 0).length} 笔入库` },
-      { label: '出库流水', value: `${sorted.filter((item) => item.quantityChange < 0).length}`, detail: '真实库存变动' },
-      { label: '调整流水', value: `${sorted.filter((item) => item.sourceType.toUpperCase().includes('ADJUST')).length}`, detail: '盘点/修正' },
-    ],
-    rows: sorted.map((entry) => ({
+  const normalizedKeyword = keyword.trim().toLowerCase()
+  const ordered: InventoryLedgerEntry[] = new Array(entries.length)
+  let orderedCount = 0
+  let inboundCount = 0
+  let outboundCount = 0
+  let adjustCount = 0
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index]
+    if (normalizedKeyword) {
+      const productCode = String(entry.productCode ?? '').toLowerCase()
+      const productName = String(entry.productName ?? '').toLowerCase()
+      const sourceNo = String(entry.sourceNo ?? '').toLowerCase()
+      const sourceType = String(entry.sourceType ?? '').toLowerCase()
+      const notes = String(entry.notes ?? '').toLowerCase()
+      if (
+        !productCode.includes(normalizedKeyword)
+        && !productName.includes(normalizedKeyword)
+        && !sourceNo.includes(normalizedKeyword)
+        && !sourceType.includes(normalizedKeyword)
+        && !notes.includes(normalizedKeyword)
+      ) continue
+    }
+    ordered[orderedCount++] = entry
+    if (entry.quantityChange > 0) inboundCount += 1
+    if (entry.quantityChange < 0) outboundCount += 1
+    if (entry.sourceType.toUpperCase().includes('ADJUST')) adjustCount += 1
+  }
+  const rows: ScreenLiveRow[] = new Array(orderedCount)
+  for (let index = 0; index < orderedCount; index += 1) {
+    const entry = ordered[index]
+    rows[index] = {
       cells: [
         `${entry.productName} / ${entry.productCode}`,
         inventoryDirectionLabel(entry.quantityChange),
@@ -426,29 +548,55 @@ function mapInventoryLedger(entries: InventoryLedgerEntry[], keyword: string): S
         formatDate(entry.createdAt),
       ],
       statusTokens: [inventoryDirectionLabel(entry.quantityChange)],
-    })),
+    }
+  }
+  return {
+    metrics: [
+      { label: '库存流水', value: String(orderedCount), detail: `${inboundCount} 笔入库` },
+      { label: '出库流水', value: `${outboundCount}`, detail: '真实库存变动' },
+      { label: '调整流水', value: `${adjustCount}`, detail: '盘点/修正' },
+    ],
+    rows,
     summary: [
-      { label: '最近流水', value: sorted[0] ? formatDate(sorted[0].createdAt) : '--' },
-      { label: '正向变动', value: `${sorted.filter((item) => item.quantityChange > 0).length}` },
-      { label: '负向变动', value: `${sorted.filter((item) => item.quantityChange < 0).length}` },
+      { label: '最近流水', value: orderedCount > 0 ? formatDate(ordered[0].createdAt) : '--' },
+      { label: '正向变动', value: `${inboundCount}` },
+      { label: '负向变动', value: `${outboundCount}` },
     ],
   }
 }
 
 function mapInventorySnapshots(snapshots: InventorySnapshot[], entries: InventoryLedgerEntry[], keyword: string): ScreenLiveData {
-  const filtered = filterByKeyword(snapshots, keyword, (snapshot) => [
-    snapshot.productCode,
-    snapshot.productName,
-  ])
-  const sorted = [...filtered].sort((a, b) => b.snapshotDate - a.snapshotDate)
-  const totalValue = sorted.reduce((sum, snapshot) => sum + (snapshot.totalValue || 0), 0)
-  return {
-    metrics: [
-      { label: '库存快照', value: String(sorted.length), detail: `${new Set(sorted.map((item) => item.productId)).size} 个商品` },
-      { label: '库存总值', value: formatCurrency(totalValue), detail: '按快照成本估算' },
-      { label: '今日流水', value: `${entries.filter((item) => sameDay(item.createdAt, Date.now())).length}`, detail: '已联真实库存流水' },
-    ],
-    rows: sorted.map((snapshot) => ({
+  const normalizedKeyword = keyword.trim().toLowerCase()
+  const filtered: InventorySnapshot[] = new Array(snapshots.length)
+  let filteredCount = 0
+  let uniqueProductCount = 0
+  let totalValue = 0
+  let todayEntryCount = 0
+  const today = Date.now()
+  const productIds = new Set<number>()
+  for (let index = 0; index < snapshots.length; index += 1) {
+    const snapshot = snapshots[index]
+    if (normalizedKeyword) {
+      const code = String(snapshot.productCode ?? '').toLowerCase()
+      const name = String(snapshot.productName ?? '').toLowerCase()
+      if (!code.includes(normalizedKeyword) && !name.includes(normalizedKeyword)) {
+        continue
+      }
+    }
+    filtered[filteredCount++] = snapshot
+    totalValue += snapshot.totalValue || 0
+    if (!productIds.has(snapshot.productId)) {
+      productIds.add(snapshot.productId)
+      uniqueProductCount += 1
+    }
+  }
+  const sorted = filtered.slice(0, filteredCount).sort((a, b) => b.snapshotDate - a.snapshotDate)
+  const rows: ScreenLiveRow[] = new Array(sorted.length)
+  let zeroStockCount = 0
+  for (let index = 0; index < sorted.length; index += 1) {
+    const snapshot = sorted[index]
+    if (snapshot.quantity <= 0) zeroStockCount += 1
+    rows[index] = {
       cells: [
         snapshot.productCode,
         snapshot.productName,
@@ -458,26 +606,43 @@ function mapInventorySnapshots(snapshots: InventorySnapshot[], entries: Inventor
         formatDate(snapshot.snapshotDate),
       ],
       statusTokens: [snapshot.quantity > 0 ? '盘点' : '低库存'],
-    })),
+    }
+  }
+  for (let index = 0; index < entries.length; index += 1) {
+    if (sameDay(entries[index].createdAt, today)) {
+      todayEntryCount += 1
+    }
+  }
+  return {
+    metrics: [
+      { label: '库存快照', value: String(sorted.length), detail: `${uniqueProductCount} 个商品` },
+      { label: '库存总值', value: formatCurrency(totalValue), detail: '按快照成本估算' },
+      { label: '今日流水', value: `${todayEntryCount}`, detail: '已联真实库存流水' },
+    ],
+    rows,
     summary: [
       { label: '最近盘点日', value: sorted[0] ? formatDate(sorted[0].snapshotDate) : '--' },
       { label: '库存总值', value: formatCurrency(totalValue) },
-      { label: '零库存商品', value: `${sorted.filter((item) => item.quantity <= 0).length}` },
+      { label: '零库存商品', value: `${zeroStockCount}` },
     ],
   }
 }
 
 function mapFinanceRecords(records: FinanceRecord[], accounts: AccountRecord[]): ScreenLiveData {
   const sorted = [...records].sort((a, b) => b.createdAt - a.createdAt)
-  const income = sorted.filter((item) => item.amount > 0).reduce((sum, item) => sum + item.amount, 0)
-  const accountsBalance = accounts.reduce((sum, account) => sum + account.balance, 0)
-  return {
-    metrics: [
-      { label: '资金流水', value: String(sorted.length), detail: `${accounts.length} 个账户` },
-      { label: '账户余额', value: formatCurrency(accountsBalance), detail: `${accounts.filter((item) => item.status === 1).length} 个启用账户` },
-      { label: '收入流水', value: formatCurrency(income), detail: '真实资金记录' },
-    ],
-    rows: sorted.map((record) => ({
+  const rows: ScreenLiveRow[] = new Array(sorted.length)
+  let income = 0
+  let incomeCount = 0
+  let expenseCount = 0
+  for (let index = 0; index < sorted.length; index += 1) {
+    const record = sorted[index]
+    if (record.amount > 0) {
+      income += record.amount
+      incomeCount += 1
+    } else {
+      expenseCount += 1
+    }
+    rows[index] = {
       cells: [
         record.recordNo,
         financeTypeLabel(record.type),
@@ -488,38 +653,90 @@ function mapFinanceRecords(records: FinanceRecord[], accounts: AccountRecord[]):
         formatDate(record.createdAt),
       ],
       statusTokens: [financeTypeLabel(record.type)],
-    })),
+    }
+  }
+  let accountsBalance = 0
+  let enabledAccountCount = 0
+  for (let index = 0; index < accounts.length; index += 1) {
+    const account = accounts[index]
+    accountsBalance += account.balance
+    if (account.status === 1) enabledAccountCount += 1
+  }
+  return {
+    metrics: [
+      { label: '资金流水', value: String(sorted.length), detail: `${accounts.length} 个账户` },
+      { label: '账户余额', value: formatCurrency(accountsBalance), detail: `${enabledAccountCount} 个启用账户` },
+      { label: '收入流水', value: formatCurrency(income), detail: '真实资金记录' },
+    ],
+    rows,
     summary: [
       { label: '账户余额', value: formatCurrency(accountsBalance) },
-      { label: '收入笔数', value: `${sorted.filter((item) => item.type === 1).length}` },
-      { label: '支出笔数', value: `${sorted.filter((item) => item.type !== 1).length}` },
+      { label: '收入笔数', value: `${incomeCount}` },
+      { label: '支出笔数', value: `${expenseCount}` },
     ],
   }
 }
 
 function mapAgentWorkbench(workbench: AgentWorkbench, tasks: AgentTask[], notifications: AgentNotification[], keyword: string): ScreenLiveData {
-  const filteredTasks = filterByKeyword(tasks, keyword, (task) => [task.title, task.taskType, task.status, task.inputText])
-  const sortedTasks = [...filteredTasks].sort((a, b) => b.updatedAt - a.updatedAt)
-  return {
-    metrics: workbench.kpiCards.slice(0, 3).map((card) => ({
+  const normalizedKeyword = keyword.trim().toLowerCase()
+  const filteredTasks: AgentTask[] = new Array(tasks.length)
+  let filteredTaskCount = 0
+  for (let index = 0; index < tasks.length; index += 1) {
+    const task = tasks[index]
+    if (normalizedKeyword) {
+      const title = String(task.title ?? '').toLowerCase()
+      const taskType = String(task.taskType ?? '').toLowerCase()
+      const status = String(task.status ?? '').toLowerCase()
+      const inputText = String(task.inputText ?? '').toLowerCase()
+      if (
+        !title.includes(normalizedKeyword)
+        && !taskType.includes(normalizedKeyword)
+        && !status.includes(normalizedKeyword)
+        && !inputText.includes(normalizedKeyword)
+      ) continue
+    }
+    filteredTasks[filteredTaskCount++] = task
+  }
+  const sortedTasks = filteredTasks.slice(0, filteredTaskCount).sort((a, b) => b.updatedAt - a.updatedAt)
+  const notificationByTaskId = new Map<string, AgentNotification>()
+  let unreadCount = 0
+  for (let index = 0; index < notifications.length; index += 1) {
+    const notification = notifications[index]
+    if (!notification.isRead) unreadCount += 1
+    if (notification.taskId != null) {
+      notificationByTaskId.set(String(notification.taskId), notification)
+    }
+  }
+  const metrics: PageMetric[] = new Array(Math.min(3, workbench.kpiCards.length))
+  for (let index = 0; index < metrics.length; index += 1) {
+    const card = workbench.kpiCards[index]
+    metrics[index] = {
       label: card.label,
       value: card.value,
       detail: card.trendValue || card.trendDirection || '真实 AI 工作台',
-    })),
-    rows: sortedTasks.map((task) => ({
+    }
+  }
+  const rows: ScreenLiveRow[] = new Array(sortedTasks.length)
+  for (let index = 0; index < sortedTasks.length; index += 1) {
+    const task = sortedTasks[index]
+    rows[index] = {
       cells: [
         task.title,
         task.taskType,
         task.statusLabel || task.status,
         task.progress == null ? '--' : `${task.progress}%`,
-        notifications.find((notification) => notification.taskId === task.id)?.title || '等待通知',
+        notificationByTaskId.get(String(task.id))?.title || '等待通知',
         formatDate(task.updatedAt),
       ],
       statusTokens: [task.statusLabel || task.status],
-    })),
+    }
+  }
+  return {
+    metrics,
+    rows,
     summary: [
       { label: '快捷提问', value: `${workbench.quickQuestions.length} 条` },
-      { label: '待处理通知', value: `${notifications.filter((item) => !item.isRead).length}` },
+      { label: '待处理通知', value: `${unreadCount}` },
       { label: '待确认草稿', value: `${workbench.pendingDrafts.length}` },
     ],
   }
@@ -547,13 +764,13 @@ function saleActionLabel(order: SaleOrder) {
 }
 
 function saleStatusTokens(order: SaleOrder) {
-  const tokens = new Set<string>()
-  if (order.status === ORDER_DRAFT) tokens.add('待审核')
-  if (order.status === ORDER_CONFIRMED) tokens.add('待出库')
-  if (order.status === ORDER_COMPLETED) tokens.add('已完成')
-  if (order.status === ORDER_CANCELLED) tokens.add('已作废')
-  if (order.status !== ORDER_CANCELLED && order.paidAmount < order.totalAmount) tokens.add('待结算')
-  return Array.from(tokens)
+  const tokens: string[] = []
+  if (order.status === ORDER_DRAFT) tokens.push('待审核')
+  if (order.status === ORDER_CONFIRMED) tokens.push('待出库')
+  if (order.status === ORDER_COMPLETED) tokens.push('已完成')
+  if (order.status === ORDER_CANCELLED) tokens.push('已作废')
+  if (order.status !== ORDER_CANCELLED && order.paidAmount < order.totalAmount) tokens.push('待结算')
+  return tokens
 }
 
 function purchaseReceiptStatus(order: PurchaseOrder) {
@@ -579,31 +796,31 @@ function purchaseOwnerLabel(order: PurchaseOrder) {
 }
 
 function purchaseStatusTokens(order: PurchaseOrder) {
-  const tokens = new Set<string>()
+  const tokens: string[] = []
   if (order.status === ORDER_DRAFT) {
-    tokens.add('草稿')
-    tokens.add('待审批')
+    tokens.push('草稿')
+    tokens.push('待审批')
   }
-  if (order.status === ORDER_CANCELLED) tokens.add('已作废')
-  if (order.receivedAmount > 0 && order.receivedAmount < order.totalAmount) tokens.add('部分入库')
+  if (order.status === ORDER_CANCELLED) tokens.push('已作废')
+  if (order.receivedAmount > 0 && order.receivedAmount < order.totalAmount) tokens.push('部分入库')
   if (order.status !== ORDER_CANCELLED && order.receivedAmount <= 0 && order.status !== ORDER_DRAFT && order.status !== ORDER_COMPLETED) {
-    tokens.add('待入库')
+    tokens.push('待入库')
   }
   if (order.status !== ORDER_CANCELLED && order.paidAmount < order.totalAmount && order.status !== ORDER_DRAFT) {
-    tokens.add('待付款')
+    tokens.push('待付款')
   }
   if (order.status === ORDER_COMPLETED || (order.receivedAmount >= order.totalAmount && order.paidAmount >= order.totalAmount && order.totalAmount > 0)) {
-    tokens.add('已完成')
+    tokens.push('已完成')
   }
-  return Array.from(tokens)
+  return tokens
 }
 
 function productStatusTokens(product: ProductRecord, lowStockIds: Set<number>) {
-  const tokens = new Set<string>()
-  tokens.add(product.status === 1 ? '启用' : '停用')
-  if (lowStockIds.has(product.id)) tokens.add('低库存')
-  if (Date.now() - product.updatedAt <= 7 * 24 * 60 * 60 * 1000) tokens.add('最近更新')
-  return Array.from(tokens)
+  const tokens: string[] = []
+  tokens.push(product.status === 1 ? '启用' : '停用')
+  if (lowStockIds.has(product.id)) tokens.push('低库存')
+  if (Date.now() - product.updatedAt <= 7 * DAY_MS) tokens.push('最近更新')
+  return tokens
 }
 
 function receiptStatusLabel(status: number) {
@@ -621,10 +838,10 @@ function salesReturnStatusLabel(item: SalesReturn) {
 }
 
 function salesReturnStatusTokens(item: SalesReturn) {
-  const tokens = new Set<string>()
-  tokens.add(salesReturnStatusLabel(item))
-  if (item.status === ORDER_DRAFT) tokens.add('待审核')
-  return Array.from(tokens)
+  const tokens: string[] = []
+  tokens.push(salesReturnStatusLabel(item))
+  if (item.status === ORDER_DRAFT) tokens.push('待审核')
+  return tokens
 }
 
 function inventoryDirectionLabel(quantityChange: number) {
@@ -646,23 +863,12 @@ function financeMethodLabel(method?: number | null) {
   return '--'
 }
 
-function filterByKeyword<T>(items: T[], keyword: string, pickFields: (item: T) => Array<string | number | null | undefined>) {
-  const normalizedKeyword = keyword.trim().toLowerCase()
-  if (!normalizedKeyword) return items
-  return items.filter((item) => pickFields(item).some((field) => String(field || '').toLowerCase().includes(normalizedKeyword)))
-}
-
 function sameDay(left: number, right: number) {
   return new Date(left).toDateString() === new Date(right).toDateString()
 }
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat('zh-CN', {
-    style: 'currency',
-    currency: 'CNY',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value || 0)
+  return CURRENCY_FORMATTER.format(value || 0)
 }
 
 function formatPercent(value: number) {
@@ -670,16 +876,9 @@ function formatPercent(value: number) {
 }
 
 function formatDate(timestamp: number) {
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(timestamp)
+  return DATE_FORMATTER.format(timestamp)
 }
 
 function formatNumber(value: number) {
-  return new Intl.NumberFormat('zh-CN', {
-    maximumFractionDigits: 2,
-  }).format(value || 0)
+  return NUMBER_FORMATTER.format(value || 0)
 }

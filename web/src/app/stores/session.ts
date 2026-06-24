@@ -41,47 +41,71 @@ authApi.configureAuthRuntime({
   onAuthExpired: () => logoutInternal(),
 })
 
-export function useSession() {
-  const member = computed<StoreMember>(() => {
-    if (state.source === 'api') {
-      return {
-        id: state.userId ? String(state.userId) : 'api-user',
-        name: state.nickname,
-        role: state.currentRole,
-        phone: state.phone,
-        storeId: state.storeId,
-        storeName: state.storeName,
-        status: state.currentMemberStatus,
-        title: state.currentTitle || roleLabels[state.currentRole],
-      }
+const localMemberIndex = computed(() => {
+  const map = new Map<string, StoreMember>()
+  for (const item of state.localMembers) {
+    map.set(item.id, item)
+  }
+  return map
+})
+const activeMemberRoleIndex = computed(() => {
+  const map = new Map<StoreRole, StoreMember>()
+  for (const item of state.localMembers) {
+    if (item.status === 1 && !map.has(item.role)) {
+      map.set(item.role, item)
     }
-    return state.localMembers.find((item) => item.id === state.currentMemberId) ?? state.localMembers[0]
-  })
+  }
+  return map
+})
+const member = computed<StoreMember>(() => {
+  if (state.source === 'api') {
+    return {
+      id: state.userId ? String(state.userId) : 'api-user',
+      name: state.nickname,
+      role: state.currentRole,
+      phone: state.phone,
+      storeId: state.storeId,
+      storeName: state.storeName,
+      status: state.currentMemberStatus,
+      title: state.currentTitle || roleLabels[state.currentRole],
+    }
+  }
+  return localMemberIndex.value.get(state.currentMemberId) ?? state.localMembers[0]
+})
+const role = computed(() => state.currentRole)
+const roleLabel = computed(() => roleLabels[state.currentRole])
+const isAuthenticated = computed(() => Boolean(state.token))
+const hasAppSession = computed(() => state.source === 'demo' || Boolean(state.token))
+const source = computed(() => state.source)
+const token = computed(() => state.token)
+const userId = computed(() => state.userId)
+const permissions = computed(() => {
+  if (state.currentRole === 'OWNER') return rolePermissions.OWNER
+  if (state.permissions.length > 0) return state.permissions
+  if (state.source === 'demo') return rolePermissions[state.currentRole]
+  return []
+})
+const permissionSet = computed(() => new Set(permissions.value))
+const localMembers = computed<EditableStoreMember[]>(() => {
+  const items = state.localMembers
+  const result = new Array<EditableStoreMember>(items.length)
+  for (let index = 0; index < items.length; index++) {
+    const item = items[index]
+    result[index] = {
+      ...item,
+      permissions: rolePermissions[item.role],
+    }
+  }
+  return result
+})
+const loading = computed(() => state.loading)
+const error = computed(() => state.error)
 
-  const role = computed(() => state.currentRole)
-  const roleLabel = computed(() => roleLabels[state.currentRole])
-  const isAuthenticated = computed(() => Boolean(state.token))
-  const hasAppSession = computed(() => state.source === 'demo' || Boolean(state.token))
-  const source = computed(() => state.source)
-  const token = computed(() => state.token)
-  const userId = computed(() => state.userId)
-  const permissions = computed(() => {
-    if (state.currentRole === 'OWNER') return rolePermissions.OWNER
-    if (state.permissions.length > 0) return state.permissions
-    if (state.source === 'demo') return rolePermissions[state.currentRole]
-    return []
-  })
-  const localMembers = computed<EditableStoreMember[]>(() => state.localMembers.map((item) => ({
-    ...item,
-    permissions: rolePermissions[item.role],
-  })))
-  const loading = computed(() => state.loading)
-  const error = computed(() => state.error)
-
+export function useSession() {
   function switchRole(nextRole: StoreRole) {
     if (state.source === 'api') return
     state.currentRole = nextRole
-    const nextMember = state.localMembers.find((item) => item.role === nextRole && item.status === 1)
+    const nextMember = activeMemberRoleIndex.value.get(nextRole)
     if (nextMember) {
       state.currentMemberId = nextMember.id
       state.phone = nextMember.phone
@@ -97,7 +121,7 @@ export function useSession() {
 
   function switchMember(memberId: string) {
     if (state.source === 'api') return
-    const nextMember = state.localMembers.find((item) => item.id === memberId && item.status === 1)
+    const nextMember = localMemberIndex.value.get(memberId)
     if (!nextMember) return
     state.currentMemberId = nextMember.id
     state.currentRole = nextMember.role
@@ -110,21 +134,19 @@ export function useSession() {
     persist()
   }
 
-  function hasPermission(required?: Permission[]) {
+  function hasPermission(required?: readonly Permission[]) {
     if (!required || required.length === 0) return true
     if (state.currentRole === 'OWNER') return true
     if (state.source === 'api') {
-      const granted = new Set(permissions.value)
-      return required.every((permission) => granted.has(permission))
+      return required.every((permission) => permissionSet.value.has(permission))
     }
     return canAccess(state.currentRole, required)
   }
 
-  function hasAnyPermission(required?: Permission[]) {
+  function hasAnyPermission(required?: readonly Permission[]) {
     if (!required || required.length === 0) return true
     if (state.currentRole === 'OWNER') return true
-    const granted = new Set(permissions.value)
-    return required.some((permission) => granted.has(permission))
+    return required.some((permission) => permissionSet.value.has(permission))
   }
 
   async function login(phone: string, password: string) {
@@ -156,7 +178,7 @@ export function useSession() {
       return true
     } catch (error) {
       state.error = error instanceof Error ? error.message : '会话已失效'
-      logout()
+      await logout()
       return false
     } finally {
       state.loading = false
@@ -175,12 +197,19 @@ export function useSession() {
     }
   }
 
-  function logout() {
+  async function logout() {
+    if (state.token && state.source === 'api') {
+      try {
+        await authApi.logout(state.token)
+      } catch {
+        // 即使后端调用失败也继续清本地状态
+      }
+    }
     logoutInternal()
   }
 
   function enterDemo(memberId = 'u-owner') {
-    const nextMember = state.localMembers.find((item) => item.id === memberId && item.status === 1) ?? state.localMembers[0]
+    const nextMember = localMemberIndex.value.get(memberId) ?? state.localMembers[0]
     state.token = ''
     state.refreshToken = ''
     state.userId = 0
@@ -228,7 +257,7 @@ export function useSession() {
       state.error = '当前角色不能管理员工权限'
       return false
     }
-    const member = state.localMembers.find((item) => item.id === memberId)
+    const member = localMemberIndex.value.get(memberId)
     if (!member || member.role === 'OWNER') return false
     Object.assign(member, patch)
     if (member.id === state.currentMemberId) {
@@ -366,13 +395,14 @@ function readStoredRole(): StoreRole {
 
 function readStoredPermissions(): Permission[] {
   const stored = localStorage.getItem('zhihuiji.web.permissions')
-  if (!stored) return localStorage.getItem('zhihuiji.web.source') === 'demo' ? rolePermissions[readStoredRole()] : []
+  const isDemoSource = localStorage.getItem('zhihuiji.web.source') === 'demo'
+  if (!stored) return isDemoSource ? rolePermissions[readStoredRole()] : []
   try {
     const parsed = JSON.parse(stored)
     if (Array.isArray(parsed)) return parsed as Permission[]
-    return localStorage.getItem('zhihuiji.web.source') === 'demo' ? rolePermissions[readStoredRole()] : []
+    return isDemoSource ? rolePermissions[readStoredRole()] : []
   } catch {
-    return localStorage.getItem('zhihuiji.web.source') === 'demo' ? rolePermissions[readStoredRole()] : []
+    return isDemoSource ? rolePermissions[readStoredRole()] : []
   }
 }
 
@@ -382,7 +412,12 @@ function readStoredMembers(): StoreMember[] {
   try {
     const parsed = JSON.parse(stored)
     if (!Array.isArray(parsed)) return [...demoMembers]
-    const ownerCount = parsed.filter((item) => item?.role === 'OWNER').length
+    let ownerCount = 0
+    for (const item of parsed) {
+      if (item?.role === 'OWNER') {
+        ownerCount++
+      }
+    }
     return ownerCount === 1 ? parsed as StoreMember[] : [...demoMembers]
   } catch {
     return [...demoMembers]

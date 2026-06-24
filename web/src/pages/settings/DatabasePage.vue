@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { fetchImportJobs, fetchSyncHealth, importLegacySqlite, type ImportJob, type SyncHealth } from '@/shared/api/client'
 import { useSession } from '@/app/stores/session'
+import { formatDateTime } from '@/shared/utils/business'
 
 const session = useSession()
 const allowed = computed(() => session.hasPermission(['database:manage']))
@@ -13,7 +14,7 @@ const success = ref('')
 const syncHealth = ref<SyncHealth | null>(null)
 const importJobs = ref<ImportJob[]>([])
 const form = reactive({
-  legacyDbPath: '/Users/sunyiyang/Desktop/Project/master-goods/migration_output/zhihuiji.source-backup.db',
+  legacyDbPath: '',
   resetOwnedData: false,
 })
 
@@ -42,7 +43,7 @@ async function refreshData() {
       fetchImportJobs(session.token.value),
     ])
     syncHealth.value = health
-    importJobs.value = jobs.sort((a, b) => b.updatedAt - a.updatedAt)
+    importJobs.value = [...jobs].sort((a, b) => b.updatedAt - a.updatedAt)
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '数据库状态加载失败'
   } finally {
@@ -69,16 +70,6 @@ async function submitImport() {
   }
 }
 
-function formatDateTime(timestamp?: number | null) {
-  if (!timestamp) return '--'
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(timestamp)
-}
 </script>
 
 <template>

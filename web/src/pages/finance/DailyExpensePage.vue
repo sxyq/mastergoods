@@ -28,18 +28,19 @@ const form = reactive({
   notes: '',
 })
 
-const categoryOptions = ['房租', '水电', '工资', '办公', '营销', '物流', '餐饮', '其他']
+const categoryOptions = ['房租', '水电', '工资', '办公', '营销', '物流', '餐饮', '其他'] as const
 const methodOptions = [
   [METHOD_CASH, '现金'],
   [METHOD_WECHAT, '微信'],
   [METHOD_ALIPAY, '支付宝'],
   [METHOD_BANK, '银行卡'],
   [METHOD_OTHER, '其他'],
-]
+] as const
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canWrite = computed(() => session.hasPermission(['finance:write']))
 const parsedAmount = computed(() => Number(form.amount || 0))
 const canSubmit = computed(() => canWrite.value && isApiSource.value && !saving.value && parsedAmount.value > 0 && form.category.trim().length > 0)
+const selectedMethodLabel = computed(() => methodOptions.find(([value]) => String(value) === form.method)?.[1] || '--')
 
 async function submitForm() {
   if (!session.token.value) return
@@ -140,7 +141,7 @@ async function submitForm() {
               </div>
               <div>
                 <dt>支付方式</dt>
-                <dd>{{ methodOptions.find(([value]) => String(value) === form.method)?.[1] || '--' }}</dd>
+                <dd>{{ selectedMethodLabel }}</dd>
               </div>
               <div>
                 <dt>往来对象</dt>

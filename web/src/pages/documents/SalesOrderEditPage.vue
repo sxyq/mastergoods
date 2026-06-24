@@ -50,13 +50,19 @@ const orderId = computed(() => readQueryId(route.query.id))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const isEditMode = computed(() => orderId.value != null)
 const canWrite = computed(() => session.hasPermission(['sales:write']))
+const customerIndex = computed(() => new Map(customers.value.map((item) => [item.id, item] as const)))
+const productIndex = computed(() => new Map(products.value.map((item) => [item.id, item] as const)))
 const subtotalAmount = computed(() => lines.value.reduce((sum, line) => sum + lineAmount(line), 0))
 const totalQuantity = computed(() => lines.value.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0))
 const orderAmount = computed(() => Math.max(0, subtotalAmount.value - (Number(form.discountAmount) || 0)))
-const canSubmit = computed(() => {
-  const filledLines = lines.value.filter((line) => line.productId && Number(line.quantity) > 0)
-  return canWrite.value && isApiSource.value && !saving.value && filledLines.length > 0
-})
+const filledLineCount = computed(() => lines.value.reduce((count, line) => count + (line.productId && Number(line.quantity) > 0 ? 1 : 0), 0))
+const lineRows = computed(() => lines.value.map((line, index) => ({
+  index,
+  line,
+  product: line.productId ? productIndex.value.get(Number(line.productId)) ?? null : null,
+  amount: lineAmount(line),
+})))
+const canSubmit = computed(() => canWrite.value && isApiSource.value && !saving.value && filledLineCount.value > 0)
 
 watch(
   [() => session.source.value, () => session.token.value, orderId],
@@ -124,21 +130,17 @@ function removeLine(index: number) {
 }
 
 function syncCustomer(customerId: string) {
-  const customer = customers.value.find((item) => item.id === Number(customerId))
+  const customer = customerIndex.value.get(Number(customerId))
   form.customerId = customerId
   form.customerName = customer?.name || ''
 }
 
 function syncProduct(index: number, productId: string) {
-  const product = products.value.find((item) => item.id === Number(productId))
+  const product = productIndex.value.get(Number(productId))
   lines.value[index].productId = productId
   if (product) {
     lines.value[index].unitPrice = String(product.salePrice)
   }
-}
-
-function productFor(line: LineItemForm) {
-  return products.value.find((item) => item.id === Number(line.productId))
 }
 
 function lineAmount(line: LineItemForm) {
@@ -312,28 +314,30 @@ function resetForm() {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(line, index) in lines" :key="index">
-              <td class="align-center muted">{{ index + 1 }}</td>
-              <td>
-                <select class="pc-line-input" :value="line.productId" @change="syncProduct(index, ($event.target as HTMLSelectElement).value)">
-                  <option value="">输入商品拼音/条码查询</option>
-                  <option v-for="product in products" :key="product.id" :value="String(product.id)">
-                    {{ product.name }} / {{ product.code }}
-                  </option>
-                </select>
-              </td>
-              <td class="muted">{{ productFor(line)?.categoryName || '-' }}</td>
-              <td class="muted">{{ productFor(line)?.unitName || '-' }}</td>
-              <td><input v-model="line.quantity" class="pc-line-input align-right" type="number" min="0" step="0.01" /></td>
-              <td><input v-model="line.unitPrice" class="pc-line-input align-right" type="number" min="0" step="0.01" /></td>
-              <td><input v-model="line.discountPercent" class="pc-line-input align-right" type="number" min="0" max="100" step="1" /></td>
-              <td class="align-right amount-strong">{{ formatCurrency(lineAmount(line)) }}</td>
-              <td><input v-model="line.remark" class="pc-line-input" placeholder="-" /></td>
-              <td class="align-center">
-                <button type="button" class="pc-delete-line" @click="removeLine(index)">
-                  <span class="material-symbols-outlined">delete</span>
-                </button>
-              </td>
+            <tr v-for="row in lineRows" :key="row.index">
+              <template v-if="row.line">
+                <td class="align-center muted">{{ row.index + 1 }}</td>
+                <td>
+                  <select class="pc-line-input" :value="row.line.productId" @change="syncProduct(row.index, ($event.target as HTMLSelectElement).value)">
+                    <option value="">输入商品拼音/条码查询</option>
+                    <option v-for="product in products" :key="product.id" :value="String(product.id)">
+                      {{ product.name }} / {{ product.code }}
+                    </option>
+                  </select>
+                </td>
+                <td class="muted">{{ row.product?.categoryName || '-' }}</td>
+                <td class="muted">{{ row.product?.unitName || '-' }}</td>
+                <td><input v-model="row.line.quantity" class="pc-line-input align-right" type="number" min="0" step="0.01" /></td>
+                <td><input v-model="row.line.unitPrice" class="pc-line-input align-right" type="number" min="0" step="0.01" /></td>
+                <td><input v-model="row.line.discountPercent" class="pc-line-input align-right" type="number" min="0" max="100" step="1" /></td>
+                <td class="align-right amount-strong">{{ formatCurrency(row.amount) }}</td>
+                <td><input v-model="row.line.remark" class="pc-line-input" placeholder="-" /></td>
+                <td class="align-center">
+                  <button type="button" class="pc-delete-line" @click="removeLine(row.index)">
+                    <span class="material-symbols-outlined">delete</span>
+                  </button>
+                </td>
+              </template>
             </tr>
           </tbody>
         </table>

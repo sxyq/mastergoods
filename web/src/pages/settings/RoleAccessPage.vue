@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { roleDescriptions, roleLabels, rolePermissions, type StoreRole } from '@/entities/auth/roles'
 import { createStoreMember, fetchStoreMembers, updateStoreMember, type StoreMemberRecord } from '@/shared/api/client'
 import { useSession } from '@/app/stores/session'
+import { formatDateTime } from '@/shared/utils/business'
 
 interface AdminUserDraft {
   nickname: string
@@ -21,8 +22,21 @@ const isApiSource = computed(() => session.source.value === 'api' && Boolean(ses
 const canManageDemo = computed(() => !isApiSource.value && session.hasPermission(['users:manage']))
 const canManageApi = computed(() => isApiSource.value && session.hasPermission(['users:manage']))
 const displayMembers = computed(() => session.localMembers.value)
-const enabledEmployees = computed(() => displayMembers.value.filter((member) => member.role !== 'OWNER' && member.status === 1).length)
-const disabledEmployees = computed(() => displayMembers.value.filter((member) => member.status === 0).length)
+const demoMemberStats = computed(() => {
+  let enabledEmployees = 0
+  let disabledEmployees = 0
+  for (const member of displayMembers.value) {
+    if (member.role !== 'OWNER' && member.status === 1) {
+      enabledEmployees += 1
+    }
+    if (member.status === 0) {
+      disabledEmployees += 1
+    }
+  }
+  return { enabledEmployees, disabledEmployees }
+})
+const enabledEmployees = computed(() => demoMemberStats.value.enabledEmployees)
+const disabledEmployees = computed(() => demoMemberStats.value.disabledEmployees)
 const apiMembers = ref<StoreMemberRecord[]>([])
 const apiLoading = ref(false)
 const apiSearch = ref('')
@@ -37,10 +51,28 @@ const filteredApiMembers = computed(() => {
     || roleLabels[member.role].includes(keyword),
   )
 })
-const apiEnabledUsers = computed(() => apiMembers.value.filter((user) => user.status === 1).length)
-const apiDisabledUsers = computed(() => apiMembers.value.filter((user) => user.status !== 1).length)
-const apiActiveSessions = computed(() => apiMembers.value.reduce((sum, user) => sum + user.activeSessions, 0))
-const apiManagerCount = computed(() => apiMembers.value.filter((user) => user.role === 'MANAGER').length)
+const apiMemberStats = computed(() => {
+  let enabledUsers = 0
+  let disabledUsers = 0
+  let activeSessions = 0
+  let managerCount = 0
+  for (const user of apiMembers.value) {
+    if (user.status === 1) {
+      enabledUsers += 1
+    } else {
+      disabledUsers += 1
+    }
+    activeSessions += user.activeSessions
+    if (user.role === 'MANAGER') {
+      managerCount += 1
+    }
+  }
+  return { enabledUsers, disabledUsers, activeSessions, managerCount }
+})
+const apiEnabledUsers = computed(() => apiMemberStats.value.enabledUsers)
+const apiDisabledUsers = computed(() => apiMemberStats.value.disabledUsers)
+const apiActiveSessions = computed(() => apiMemberStats.value.activeSessions)
+const apiManagerCount = computed(() => apiMemberStats.value.managerCount)
 const apiStoreName = computed(() => session.member.value.storeName)
 const demoForm = reactive({
   phone: '13800000008',
@@ -77,7 +109,7 @@ async function loadApiMembers() {
   resetFeedback()
   try {
     const users = await fetchStoreMembers(session.token.value)
-    apiMembers.value = [...users].sort((a, b) => b.updatedAt - a.updatedAt)
+    apiMembers.value = users.sort((a, b) => b.updatedAt - a.updatedAt)
     syncApiDrafts()
   } catch (loadError) {
     error.value = loadError instanceof Error ? loadError.message : '真实门店成员列表加载失败'
@@ -211,21 +243,39 @@ function switchToMember(memberId: string) {
 }
 
 function nextDemoPhone() {
-  const maxSuffix = Math.max(...displayMembers.value.map((member) => Number(member.phone.slice(-2))).filter(Number.isFinite), 7)
+  let maxSuffix = 7
+  for (const member of displayMembers.value) {
+    const suffix = Number(member.phone.slice(-2))
+    if (Number.isFinite(suffix) && suffix > maxSuffix) {
+      maxSuffix = suffix
+    }
+  }
   return `138000000${String(maxSuffix + 1).padStart(2, '0')}`
 }
 
 function nextApiPhone() {
-  const maxSuffix = Math.max(...apiMembers.value.map((user) => Number(user.phone.slice(-2))).filter(Number.isFinite), 7)
+  let maxSuffix = 7
+  for (const user of apiMembers.value) {
+    const suffix = Number(user.phone.slice(-2))
+    if (Number.isFinite(suffix) && suffix > maxSuffix) {
+      maxSuffix = suffix
+    }
+  }
   return `138000000${String(maxSuffix + 1).padStart(2, '0')}`
 }
 
 function syncApiDrafts() {
-  const activeIds = new Set(apiMembers.value.map((user) => user.userId))
-  Object.keys(apiDrafts).forEach((id) => {
-    if (!activeIds.has(Number(id))) delete apiDrafts[Number(id)]
-  })
-  apiMembers.value.forEach((user) => {
+  const activeIds = new Set<number>()
+  for (const user of apiMembers.value) {
+    activeIds.add(user.userId)
+  }
+  for (const id in apiDrafts) {
+    const numericId = Number(id)
+    if (!activeIds.has(numericId)) {
+      delete apiDrafts[numericId]
+    }
+  }
+  for (const user of apiMembers.value) {
     apiDrafts[user.userId] = {
       nickname: user.nickname,
       password: '',
@@ -233,7 +283,7 @@ function syncApiDrafts() {
       role: user.role,
       title: user.title,
     }
-  })
+  }
 }
 
 function isCurrentApiUser(user: StoreMemberRecord) {
@@ -245,16 +295,6 @@ function resetFeedback() {
   success.value = ''
 }
 
-function formatDateTime(timestamp?: number | null) {
-  if (!timestamp) return '--'
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(timestamp)
-}
 </script>
 
 <template>

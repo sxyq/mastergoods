@@ -51,7 +51,11 @@ const queryProductId = computed(() => {
 })
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canWrite = computed(() => session.hasPermission(['inventory:write']))
-const selectedProduct = computed(() => products.value.find((item) => item.id === selectedProductId.value) ?? products.value[0] ?? null)
+const productIndex = computed(() => new Map(products.value.map((item) => [item.id, item] as const)))
+const selectedProduct = computed(() => {
+  if (selectedProductId.value == null) return products.value[0] ?? null
+  return productIndex.value.get(selectedProductId.value) ?? products.value[0] ?? null
+})
 const filteredProducts = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
   if (!keyword) return products.value
@@ -62,6 +66,7 @@ const projectedStock = computed(() => {
   if (!selectedProduct.value) return 0
   return selectedProduct.value.stock + (Number(form.quantity || 0) * activeAdjustment.value.sign)
 })
+const recentLedgerEntries = computed(() => ledgerEntries.value.slice(0, 6))
 
 watch(
   [() => session.source.value, () => session.token.value, queryProductId],
@@ -252,7 +257,7 @@ async function submitAdjustment() {
           <article class="detail-card">
             <p class="eyebrow">最近库存流水</p>
             <div v-if="ledgerEntries.length" class="mini-list">
-              <div v-for="entry in ledgerEntries.slice(0, 6)" :key="entry.id">
+              <div v-for="entry in recentLedgerEntries" :key="entry.id">
                 <strong>{{ entry.sourceType }} / {{ formatNumber(entry.quantityChange) }}</strong>
                 <span>{{ formatDateTime(entry.createdAt) }}</span>
               </div>

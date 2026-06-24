@@ -171,12 +171,23 @@ export const routeContractKeys: Record<string, (keyof typeof endpointCatalog)[]>
   '/settings/database': ['sync'],
 }
 
+const routeContractCache = new Map<string, ApiContract[]>(
+  Object.entries(routeContractKeys).map(([route, keys]) => {
+    const contracts: ApiContract[] = []
+    for (const key of keys) {
+      contracts.push(...endpointCatalog[key])
+    }
+    return [route, contracts] as const
+  }),
+)
+
 export function contractsForRoute(route: string): ApiContract[] {
   const normalizedRoute = route.startsWith('/references/mobile/')
     ? route.replace('/references/mobile', '')
     : route
-  const keys = routeContractKeys[normalizedRoute] ?? routeContractKeys[route] ?? ['dashboard']
-  return keys.flatMap((key) => endpointCatalog[key])
+  return routeContractCache.get(normalizedRoute)
+    ?? routeContractCache.get(route)
+    ?? endpointCatalog.dashboard
 }
 
 function api(method: ApiMethod, path: string, purpose: string, permission: Permission, tables: string[]): ApiContract {

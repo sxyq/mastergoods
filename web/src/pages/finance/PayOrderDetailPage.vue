@@ -61,9 +61,16 @@ const createForm = reactive({
 const queryOrderId = computed(() => readQueryId(route.query.id))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canWrite = computed(() => session.hasPermission(['finance:write']))
-const selectedOrder = computed(() => orders.value.find((item) => sameEntityId(item.id, selectedOrderId.value)) ?? null)
-const totalAmount = computed(() => orders.value.reduce((sum, item) => sum + item.amount, 0))
-const paidCount = computed(() => orders.value.filter((item) => item.status === PAY_ORDER_PAID).length)
+const orderIndex = computed(() => new Map(orders.value.map((item) => [String(item.id), item] as const)))
+const accountIndex = computed(() => new Map(accounts.value.map((item) => [String(item.id), item] as const)))
+const selectedOrder = computed(() => (selectedOrderId.value == null ? null : orderIndex.value.get(String(selectedOrderId.value)) ?? null))
+const orderSummary = computed(() => orders.value.reduce((summary, item) => {
+  summary.totalAmount += item.amount
+  if (item.status === PAY_ORDER_PAID) summary.paidCount += 1
+  return summary
+}, { totalAmount: 0, paidCount: 0 }))
+const totalAmount = computed(() => orderSummary.value.totalAmount)
+const paidCount = computed(() => orderSummary.value.paidCount)
 
 const paymentMethods = [
   [METHOD_CASH, '现金'],
@@ -117,11 +124,14 @@ async function loadOrders() {
   error.value = ''
   success.value = ''
   try {
+    const normalizedKeyword = keyword.value.trim() || undefined
+    const createdAfterAt = createdAfter.value ? new Date(`${createdAfter.value}T00:00:00`).getTime() : undefined
+    const createdBeforeAt = createdBefore.value ? new Date(`${createdBefore.value}T23:59:59`).getTime() : undefined
     let nextOrders = await fetchPayOrders(session.token.value, {
-      keyword: keyword.value.trim() || undefined,
+      keyword: normalizedKeyword,
       status: statusFilter.value === 'all' ? undefined : Number(statusFilter.value),
-      createdAfter: createdAfter.value ? new Date(`${createdAfter.value}T00:00:00`).getTime() : undefined,
-      createdBefore: createdBefore.value ? new Date(`${createdBefore.value}T23:59:59`).getTime() : undefined,
+      createdAfter: createdAfterAt,
+      createdBefore: createdBeforeAt,
       page: 0,
       size: 200,
     })
@@ -145,7 +155,7 @@ async function loadOrders() {
 }
 
 function accountName(accountId: number | null) {
-  return accounts.value.find((item) => item.id === accountId)?.name || '--'
+  return accountId == null ? '--' : accountIndex.value.get(String(accountId))?.name || '--'
 }
 
 async function handleCreatePayOrder() {

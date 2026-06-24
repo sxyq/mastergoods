@@ -5,7 +5,9 @@ import { useSession } from '@/app/stores/session'
 import {
   cancelAgentRun,
   createAgentConversation,
+  createAgentDraft,
   deleteAgentConversation,
+  deleteAgentDraft,
   fetchAgentConversations,
   fetchAgentDrafts,
   fetchAgentMessages,
@@ -14,6 +16,7 @@ import {
   fetchAgentTasks,
   fetchAgentWorkbench,
   markAgentNotificationRead,
+  updateAgentDraft,
   type AgentConversation,
   type AgentDraft,
   type AgentNotification,
@@ -90,6 +93,14 @@ interface MarkdownSection {
   items?: string[]
 }
 
+interface BlockDerivedState {
+  normalizedType: string
+  tableRows: Record<string, unknown>[]
+  tableHeaders: string[]
+  listItems: string[]
+  objectEntries: [string, unknown][]
+}
+
 const route = useRoute()
 const session = useSession()
 
@@ -111,6 +122,13 @@ const auditDrawerOpen = ref(false)
 const auditLoading = ref(false)
 const auditRecord = ref<AgentRunAudit | null>(null)
 const consumedQueryQuestion = ref(false)
+const isDraftEditorOpen = ref(false)
+const editingDraftId = ref<EntityId | null>(null)
+const draftTitle = ref('')
+const draftType = ref('note')
+const draftContentJson = ref('')
+const draftStatus = ref<'active' | 'archived'>('active')
+const draftSaving = ref(false)
 const canWrite = computed(() => session.hasPermission(['agent:write']))
 const canView = computed(() => session.hasPermission(['agent:view']))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
@@ -119,6 +137,9 @@ const queryQuestion = computed(() => {
   const raw = route.query.q
   return typeof raw === 'string' ? raw.trim() : ''
 })
+const selectedConversationTitle = computed(
+  () => conversations.value.find((item) => sameEntityId(item.id, selectedConversationId.value))?.title || '新会话',
+)
 
 const streamState = reactive<{
   controller: AbortController | null
@@ -127,6 +148,11 @@ const streamState = reactive<{
   controller: null,
   done: null,
 })
+const markdownSectionsCache = new Map<string, MarkdownSection[]>()
+const blockDerivedCache = new WeakMap<AgentResultBlock, BlockDerivedState>()
+const messageById = new Map<string, UiMessage>()
+const HEADING_SECTION_REGEX = /^(#{1,3})\s+(.+)$/
+const BULLET_SECTION_REGEX = /^[-*]\s+/
 
 watch(
   [() => session.source.value, () => session.token.value],
@@ -135,6 +161,7 @@ watch(
       workbench.value = null
       conversations.value = []
       messages.value = []
+      messageById.clear()
       error.value = ''
       return
     }
@@ -171,6 +198,7 @@ async function loadPage() {
       await loadMessages(selectedConversationId.value)
     } else {
       messages.value = []
+      messageById.clear()
     }
 
     if (queryQuestion.value && !consumedQueryQuestion.value) {
@@ -189,18 +217,27 @@ async function loadMessages(conversationId: EntityId) {
   if (!session.token.value) return
   try {
     const rows = await fetchAgentMessages(session.token.value, conversationId, { page: 0, limit: 80 })
-    messages.value = rows.map((row) => ({
-      id: `server-${row.id}`,
-      serverId: row.id,
-      conversationId: row.conversationId,
-      role: normalizeRole(row.role),
-      content: row.content,
-      createdAt: row.createdAt,
-      isStreaming: false,
-      error: '',
-      showTrace: false,
-      runTrace: null,
-    }))
+    const nextMessages = new Array<UiMessage>(rows.length)
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index]
+      nextMessages[index] = {
+        id: `server-${row.id}`,
+        serverId: row.id,
+        conversationId: row.conversationId,
+        role: normalizeRole(row.role),
+        content: row.content,
+        createdAt: row.createdAt,
+        isStreaming: false,
+        error: '',
+        showTrace: false,
+        runTrace: null,
+      }
+    }
+    messages.value = nextMessages
+    messageById.clear()
+    for (const message of nextMessages) {
+      messageById.set(message.id, message)
+    }
   } catch (loadErr) {
     error.value = loadErr instanceof Error ? loadErr.message : '会话消息加载失败'
   }
@@ -229,6 +266,7 @@ async function handleDeleteConversation(conversationId: EntityId) {
       selectedConversationId.value = conversations.value[0]?.id ?? null
       if (!selectedConversationId.value) {
         messages.value = []
+        messageById.clear()
       }
     }
   } catch (deleteErr) {
@@ -281,7 +319,9 @@ async function sendMessage(presetText?: string) {
       runTrace: createEmptyRunTrace(),
     }
     currentStreamMessageId.value = assistantMessage.id
-    messages.value = [...messages.value, userMessage, assistantMessage]
+    messages.value.push(userMessage, assistantMessage)
+    messageById.set(userMessage.id, userMessage)
+    messageById.set(assistantMessage.id, assistantMessage)
     inputText.value = ''
 
     const sessionStream = streamAgentChat(session.token.value, {
@@ -503,7 +543,7 @@ function onErrorEvent(messageId: string, event: AgentErrorEvent) {
 }
 
 function mutateMessage(messageId: string, mutate: (message: UiMessage) => void) {
-  const target = messages.value.find((item) => item.id === messageId)
+  const target = messageById.get(messageId)
   if (!target) return
   mutate(target)
 }
@@ -557,9 +597,83 @@ async function readNotification(id: EntityId) {
   if (!session.token.value) return
   try {
     const updated = await markAgentNotificationRead(session.token.value, id)
-    notifications.value = notifications.value.map((item) => (item.id === updated.id ? updated : item))
+    const nextNotifications = notifications.value.slice()
+    for (let index = 0; index < nextNotifications.length; index += 1) {
+      if (nextNotifications[index].id === updated.id) {
+        nextNotifications[index] = updated
+        break
+      }
+    }
+    notifications.value = nextNotifications
   } catch (markErr) {
     error.value = markErr instanceof Error ? markErr.message : '通知标记失败'
+  }
+}
+
+async function loadDrafts() {
+  if (!session.token.value) return
+  try {
+    drafts.value = await fetchAgentDrafts(session.token.value, { page: 0, limit: 20 })
+  } catch {
+    // keep current drafts if refresh fails
+  }
+}
+
+function openCreateDraftEditor() {
+  editingDraftId.value = null
+  draftTitle.value = ''
+  draftType.value = 'note'
+  draftContentJson.value = ''
+  draftStatus.value = 'active'
+  isDraftEditorOpen.value = true
+}
+
+function openEditDraftEditor(draft: AgentDraft) {
+  editingDraftId.value = draft.id
+  draftTitle.value = draft.title
+  draftType.value = draft.draftType
+  draftContentJson.value = draft.contentJson
+  draftStatus.value = draft.status === 'archived' ? 'archived' : 'active'
+  isDraftEditorOpen.value = true
+}
+
+async function saveDraft() {
+  if (!session.token.value || !canWrite.value) return
+  if (!draftTitle.value.trim() || !draftType.value.trim() || !draftContentJson.value.trim()) return
+  draftSaving.value = true
+  try {
+    if (editingDraftId.value) {
+      await updateAgentDraft(session.token.value, editingDraftId.value, {
+        draftType: draftType.value,
+        title: draftTitle.value,
+        contentJson: draftContentJson.value,
+        status: draftStatus.value,
+      })
+    } else {
+      await createAgentDraft(session.token.value, {
+        draftType: draftType.value,
+        title: draftTitle.value,
+        contentJson: draftContentJson.value,
+        status: draftStatus.value,
+      })
+    }
+    isDraftEditorOpen.value = false
+    await loadDrafts()
+  } catch (saveErr) {
+    error.value = saveErr instanceof Error ? saveErr.message : '草稿保存失败'
+  } finally {
+    draftSaving.value = false
+  }
+}
+
+async function removeDraft(draft: AgentDraft) {
+  if (!session.token.value || !canWrite.value) return
+  if (!confirm(`确认删除草稿「${draft.title}」？`)) return
+  try {
+    await deleteAgentDraft(session.token.value, draft.id)
+    await loadDrafts()
+  } catch (deleteErr) {
+    error.value = deleteErr instanceof Error ? deleteErr.message : '草稿删除失败'
   }
 }
 
@@ -595,6 +709,10 @@ function renderMarkdownSections(content: string): MarkdownSection[] {
   if (!normalized) {
     return []
   }
+  const cached = markdownSectionsCache.get(normalized)
+  if (cached) {
+    return cached
+  }
   const lines = normalized.split(/\r?\n/)
   const sections: MarkdownSection[] = []
   let listBuffer: string[] = []
@@ -602,7 +720,7 @@ function renderMarkdownSections(content: string): MarkdownSection[] {
 
   const flushList = () => {
     if (listBuffer.length > 0) {
-      sections.push({ type: 'list', items: [...listBuffer] })
+      sections.push({ type: 'list', items: listBuffer })
       listBuffer = []
     }
   }
@@ -621,7 +739,7 @@ function renderMarkdownSections(content: string): MarkdownSection[] {
       flushParagraph()
       continue
     }
-    const heading = line.match(/^(#{1,3})\s+(.+)$/)
+    const heading = line.match(HEADING_SECTION_REGEX)
     if (heading) {
       flushList()
       flushParagraph()
@@ -632,9 +750,9 @@ function renderMarkdownSections(content: string): MarkdownSection[] {
       })
       continue
     }
-    if (/^[-*]\s+/.test(line)) {
+    if (BULLET_SECTION_REGEX.test(line)) {
       flushParagraph()
-      listBuffer.push(line.replace(/^[-*]\s+/, '').trim())
+      listBuffer.push(line.replace(BULLET_SECTION_REGEX, '').trim())
       continue
     }
     flushList()
@@ -643,6 +761,10 @@ function renderMarkdownSections(content: string): MarkdownSection[] {
 
   flushList()
   flushParagraph()
+  if (markdownSectionsCache.size > 256) {
+    markdownSectionsCache.clear()
+  }
+  markdownSectionsCache.set(normalized, sections)
   return sections
 }
 
@@ -651,22 +773,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function normalizeBlockType(block: AgentResultBlock) {
-  return block.blockType.trim().toLowerCase()
+  return deriveBlockState(block).normalizedType
 }
 
 function blockTableRows(block: AgentResultBlock): Record<string, unknown>[] {
-  if (Array.isArray(block.data) && block.data.every(isRecord)) {
-    return block.data
-  }
-  if (isRecord(block.data) && Array.isArray(block.data.rows) && block.data.rows.every(isRecord)) {
-    return block.data.rows
-  }
-  return []
+  return deriveBlockState(block).tableRows
 }
 
 function blockTableHeaders(block: AgentResultBlock) {
-  const rows = blockTableRows(block)
-  return rows.length > 0 ? Object.keys(rows[0]) : []
+  return deriveBlockState(block).tableHeaders
 }
 
 function isTableBlock(block: AgentResultBlock) {
@@ -674,17 +789,7 @@ function isTableBlock(block: AgentResultBlock) {
 }
 
 function blockListItems(block: AgentResultBlock): string[] {
-  if (Array.isArray(block.data)) {
-    return block.data
-      .filter((item) => typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean')
-      .map((item) => String(item))
-  }
-  if (isRecord(block.data) && Array.isArray(block.data.items)) {
-    return block.data.items
-      .filter((item) => typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean')
-      .map((item) => String(item))
-  }
-  return []
+  return deriveBlockState(block).listItems
 }
 
 function isListBlock(block: AgentResultBlock) {
@@ -693,13 +798,7 @@ function isListBlock(block: AgentResultBlock) {
 }
 
 function blockObjectEntries(block: AgentResultBlock) {
-  if (!isRecord(block.data)) {
-    return []
-  }
-  if (Array.isArray(block.data.rows)) {
-    return []
-  }
-  return Object.entries(block.data)
+  return deriveBlockState(block).objectEntries
 }
 
 function isObjectBlock(block: AgentResultBlock) {
@@ -713,6 +812,87 @@ function formatBlockValue(value: unknown) {
     return String(value)
   }
   return JSON.stringify(value, null, 2)
+}
+
+function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
+  const cached = blockDerivedCache.get(block)
+  if (cached) {
+    return cached
+  }
+
+  const normalizedType = block.blockType.trim().toLowerCase()
+  let tableRows: Record<string, unknown>[] = []
+  let listItems: string[] = []
+  let objectEntries: [string, unknown][] = []
+
+  if (Array.isArray(block.data)) {
+    const rows: Record<string, unknown>[] = []
+    const items: string[] = []
+    let allRecords = true
+    for (let index = 0; index < block.data.length; index += 1) {
+      const item = block.data[index]
+      if (isRecord(item)) {
+        rows.push(item)
+      } else {
+        allRecords = false
+        if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') {
+          items.push(String(item))
+        }
+      }
+    }
+    if (allRecords) {
+      tableRows = rows
+    }
+    listItems = items
+  } else if (isRecord(block.data) && Array.isArray(block.data.rows)) {
+    const rows = block.data.rows
+    let allRecords = true
+    const nextRows: Record<string, unknown>[] = []
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index]
+      if (isRecord(row)) {
+        nextRows.push(row)
+      } else {
+        allRecords = false
+        break
+      }
+    }
+    if (allRecords) {
+      tableRows = nextRows
+    }
+  }
+
+  if (isRecord(block.data) && Array.isArray(block.data.items)) {
+    const items = block.data.items
+    const nextItems: string[] = []
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index]
+      if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') {
+        nextItems.push(String(item))
+      }
+    }
+    listItems = nextItems
+  }
+
+  if (isRecord(block.data) && !Array.isArray(block.data.rows)) {
+    const entries: [string, unknown][] = []
+    for (const key in block.data) {
+      if (Object.prototype.hasOwnProperty.call(block.data, key)) {
+        entries.push([key, block.data[key]])
+      }
+    }
+    objectEntries = entries
+  }
+
+  const derived = {
+    normalizedType,
+    tableRows,
+    tableHeaders: tableRows.length > 0 ? Object.keys(tableRows[0]) : [],
+    listItems,
+    objectEntries,
+  }
+  blockDerivedCache.set(block, derived)
+  return derived
 }
 </script>
 
@@ -782,7 +962,7 @@ function formatBlockValue(value: unknown) {
         <div class="panel-head">
           <div>
             <p class="eyebrow">对话区</p>
-            <h3>{{ conversations.find((item) => sameEntityId(item.id, selectedConversationId))?.title || '新会话' }}</h3>
+            <h3>{{ selectedConversationTitle }}</h3>
           </div>
           <span class="session-source">{{ currentRunId || '等待提问' }}</span>
         </div>
@@ -938,14 +1118,48 @@ function formatBlockValue(value: unknown) {
           </article>
 
           <article class="detail-card">
-            <p class="eyebrow">待处理草稿</p>
+            <div class="draft-card-head">
+              <p class="eyebrow">待处理草稿</p>
+              <button v-if="canWrite" type="button" class="ghost-action" @click="openCreateDraftEditor">新建草稿</button>
+            </div>
             <div v-if="drafts.length" class="mini-list">
-              <div v-for="draft in drafts" :key="draft.id">
-                <strong>{{ draft.title }}</strong>
-                <span>{{ draft.draftType }} / {{ draft.status }}</span>
+              <div v-for="draft in drafts" :key="draft.id" class="draft-item">
+                <div class="draft-item-main">
+                  <strong>{{ draft.title }}</strong>
+                  <span>{{ draft.draftType }} / {{ draft.status }}</span>
+                </div>
+                <div v-if="canWrite" class="draft-item-actions">
+                  <button type="button" class="ghost-action" @click="openEditDraftEditor(draft)">编辑</button>
+                  <button type="button" class="ghost-action danger-link" @click="removeDraft(draft)">删除</button>
+                </div>
               </div>
             </div>
             <PageEmptyState v-else title="暂无草稿" message="当前没有待处理草稿。" />
+            <div v-if="isDraftEditorOpen" class="draft-editor">
+              <label class="compact-field">
+                <span>标题</span>
+                <input v-model="draftTitle" type="text" placeholder="草稿标题" />
+              </label>
+              <label class="compact-field">
+                <span>类型</span>
+                <input v-model="draftType" type="text" placeholder="例如 note" />
+              </label>
+              <label class="compact-field">
+                <span>状态</span>
+                <select v-model="draftStatus">
+                  <option value="active">active</option>
+                  <option value="archived">archived</option>
+                </select>
+              </label>
+              <label class="compact-field">
+                <span>内容</span>
+                <textarea v-model="draftContentJson" rows="4" placeholder="草稿内容（JSON 或文本）"></textarea>
+              </label>
+              <div class="form-actions">
+                <button type="button" :disabled="draftSaving" @click="saveDraft">{{ draftSaving ? '保存中...' : '保存' }}</button>
+                <button type="button" class="ghost-action" :disabled="draftSaving" @click="isDraftEditorOpen = false">取消</button>
+              </div>
+            </div>
           </article>
 
           <article class="detail-card">
@@ -1080,5 +1294,36 @@ function formatBlockValue(value: unknown) {
 
 .agent-result-kv dd {
   margin: 0;
+}
+
+.draft-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.draft-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.draft-item-main {
+  display: grid;
+  gap: 2px;
+}
+
+.draft-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.draft-editor {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
 }
 </style>

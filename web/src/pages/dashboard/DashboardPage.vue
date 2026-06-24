@@ -284,9 +284,18 @@ function buildInventoryStats() {
   }
   const source = products.value
   const total = source.length
-  const normal = source.filter((item) => item.stock >= item.safeStock && item.stock > 0).length
-  const warning = source.filter((item) => item.stock > 0 && item.stock < item.safeStock).length
-  const shortage = source.filter((item) => item.stock <= 0).length
+  let normal = 0
+  let warning = 0
+  let shortage = 0
+  for (const item of source) {
+    if (item.stock <= 0) {
+      shortage += 1
+    } else if (item.stock < item.safeStock) {
+      warning += 1
+    } else {
+      normal += 1
+    }
+  }
   const safe = Math.max(total, 1)
   const health = Math.max(0, Math.min(100, Math.round((normal / safe) * 100)))
   return {
@@ -414,15 +423,26 @@ function buildTrendGeometry(points: SalesTrendPoint[]) {
   const safePoints = points.length > 0
     ? points
     : (isDemoMode.value ? demoTrendPoints : [{ startAt: periodRange.value.startAt, endAt: periodRange.value.endAt, totalSalesAmount: 0, totalOrderCount: 0 }])
-  const max = Math.max(...safePoints.map((item) => item.totalSalesAmount), 1)
   const coords = safePoints.map((item, index) => {
     const x = safePoints.length === 1 ? 50 : (index / (safePoints.length - 1)) * 100
-    const y = 92 - (item.totalSalesAmount / max) * 72
-    return { x, y }
+    return {
+      x,
+      y: item.totalSalesAmount,
+    }
   })
-  const line = coords.map((point) => `${point.x},${point.y}`).join(' ')
-  const area = `M ${coords[0].x},100 ${coords.map((point) => `L ${point.x},${point.y}`).join(' ')} L ${coords[coords.length - 1].x},100 Z`
-  return { max, coords, line, area }
+  let max = 1
+  for (const point of coords) {
+    if (point.y > max) {
+      max = point.y
+    }
+  }
+  const normalizedCoords = coords.map((point) => ({
+    x: point.x,
+    y: 92 - (point.y / max) * 72,
+  }))
+  const line = normalizedCoords.map((point) => `${point.x},${point.y}`).join(' ')
+  const area = `M ${normalizedCoords[0].x},100 ${normalizedCoords.map((point) => `L ${point.x},${point.y}`).join(' ')} L ${normalizedCoords[normalizedCoords.length - 1].x},100 Z`
+  return { max, coords: normalizedCoords, line, area }
 }
 
 function buildTrendAxisLabels(max: number) {

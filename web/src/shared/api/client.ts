@@ -1,7 +1,7 @@
 import type { Permission, StoreRole } from '@/entities/auth/roles'
 import type { EntityId } from '@/shared/utils/id'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:18080'
+import { camelize } from '@/shared/utils/camelize'
+import { API_BASE_URL } from '@/shared/api/config'
 
 interface AuthRuntimeConfig {
   getRefreshToken: () => string
@@ -1105,7 +1105,7 @@ export async function login(phone: string, password: string) {
   })
 }
 
-export async function refreshAuth(refreshToken: string) {
+async function refreshAuth(refreshToken: string) {
   return request<AuthPayload>('/v1/auth/refresh', {
     method: 'POST',
     body: JSON.stringify({ refreshToken }),
@@ -1153,34 +1153,6 @@ export async function updateStoreMember(token: string, userId: number, payload: 
       ...payload,
       keepSessions: payload.keepSessions ?? false,
     }),
-  })
-}
-
-export async function fetchAdminSummary(token: string) {
-  return request<AdminSummary>('/v1/admin/summary', {
-    headers: authHeaders(token),
-  })
-}
-
-export async function fetchAdminUsers(token: string, params: { keyword?: string; page?: number; size?: number } = {}) {
-  return request<AdminUser[]>(`/v1/admin/users${buildQuery(params)}`, {
-    headers: authHeaders(token),
-  })
-}
-
-export async function createAdminUser(token: string, payload: AdminCreateUserPayload) {
-  return request<AdminUser>('/v1/admin/users', {
-    method: 'POST',
-    headers: authHeaders(token),
-    body: JSON.stringify(payload),
-  })
-}
-
-export async function updateAdminUser(token: string, userId: number, payload: AdminUpdateUserPayload) {
-  return request<AdminUser>(`/v1/admin/users/${userId}`, {
-    method: 'PUT',
-    headers: authHeaders(token),
-    body: JSON.stringify(payload),
   })
 }
 
@@ -1700,12 +1672,6 @@ export async function fetchPurchaseReceipts(token: string, params: {
   })
 }
 
-export async function fetchPurchaseReceipt(token: string, id: EntityId) {
-  return request<PurchaseReceipt>(`/v2/purchase-receipts/${id}`, {
-    headers: authHeaders(token),
-  })
-}
-
 export async function fetchPurchaseReceiptsByOrder(token: string, orderId: EntityId) {
   return request<PurchaseReceipt[]>(`/v2/purchase-receipts/by-order/${orderId}`, {
     headers: authHeaders(token),
@@ -1717,14 +1683,6 @@ export async function createPurchaseReceipt(token: string, payload: PurchaseRece
     method: 'POST',
     headers: authHeaders(token),
     body: JSON.stringify(toPurchaseReceiptBody(payload)),
-  })
-}
-
-export async function updatePurchaseReceiptDraft(token: string, id: EntityId, notes?: string | null) {
-  return request<PurchaseReceipt>(`/v2/purchase-receipts/${id}/draft`, {
-    method: 'PUT',
-    headers: authHeaders(token),
-    body: JSON.stringify({ notes: notes ?? null }),
   })
 }
 
@@ -1941,29 +1899,12 @@ export async function fetchAgentConversations(token: string, params: { page?: nu
   })
 }
 
-export async function fetchAgentConversation(token: string, id: EntityId) {
-  return request<AgentConversation>(`/v2/agent/conversations/${id}`, {
-    headers: authHeaders(token),
-  })
-}
-
 export async function createAgentConversation(token: string, payload: AgentConversationCreatePayload) {
   return request<AgentConversation>('/v2/agent/conversations', {
     method: 'POST',
     headers: authHeaders(token),
     body: JSON.stringify({
       title: payload.title,
-      status: payload.status ?? null,
-    }),
-  })
-}
-
-export async function updateAgentConversation(token: string, id: EntityId, payload: AgentConversationUpdatePayload) {
-  return request<AgentConversation>(`/v2/agent/conversations/${id}`, {
-    method: 'PUT',
-    headers: authHeaders(token),
-    body: JSON.stringify({
-      title: payload.title ?? null,
       status: payload.status ?? null,
     }),
   })
@@ -1979,19 +1920,6 @@ export async function deleteAgentConversation(token: string, id: EntityId) {
 export async function fetchAgentMessages(token: string, conversationId: EntityId, params: { page?: number; limit?: number } = {}) {
   return request<AgentMessage[]>(`/v2/agent/conversations/${conversationId}/messages${buildQuery(params)}`, {
     headers: authHeaders(token),
-  })
-}
-
-export async function createAgentMessage(token: string, conversationId: EntityId, payload: AgentMessageCreatePayload) {
-  return request<AgentMessage>(`/v2/agent/conversations/${conversationId}/messages`, {
-    method: 'POST',
-    headers: authHeaders(token),
-    body: JSON.stringify({
-      role: payload.role,
-      message_type: payload.messageType,
-      content: payload.content,
-      structured_data_json: payload.structuredDataJson ?? null,
-    }),
   })
 }
 
@@ -2059,18 +1987,6 @@ export async function markAgentNotificationRead(token: string, id: EntityId) {
   })
 }
 
-export async function chatWithAgent(token: string, payload: AgentChatPayload) {
-  return request<AgentChatResponse>('/v2/agent/chat', {
-    method: 'POST',
-    headers: authHeaders(token),
-    body: JSON.stringify({
-      conversation_id: payload.conversationId ?? null,
-      message: payload.message,
-      stream: payload.stream ?? false,
-    }),
-  })
-}
-
 export async function cancelAgentRun(token: string, runId: string) {
   return request<AgentRunCancelResult>(`/v2/agent/runs/${runId}/cancel`, {
     method: 'POST',
@@ -2085,21 +2001,24 @@ export async function fetchAgentRunAudit(token: string, runId: string) {
 }
 
 async function request<T>(path: string, init: RequestInit = {}, hasRetriedAuth = false): Promise<T> {
+  const requestHeaders = headersToRecord(init.headers)
+  const headers = buildHeaders(requestHeaders, init.body)
+  const hasAuthHeader = hasAuthorization(requestHeaders)
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
-    headers: buildHeaders(init.headers),
+    headers,
   })
 
   const rawText = await response.text()
   const payload = rawText ? safeParse<T>(rawText) : null
 
-  if (response.status === 401 && !hasRetriedAuth && hasAuthorization(init.headers)) {
+  if (response.status === 401 && !hasRetriedAuth && hasAuthHeader) {
     const refreshedToken = await tryRefreshAccessToken()
     if (refreshedToken) {
       return request<T>(path, withAuthorization(init, refreshedToken), true)
     }
     emitApiAuthEvent(401)
-  } else if (response.status === 403 && hasAuthorization(init.headers)) {
+  } else if (response.status === 403 && hasAuthHeader) {
     emitApiAuthEvent(403)
   }
 
@@ -2117,36 +2036,59 @@ function authHeaders(token: string) {
   }
 }
 
-function buildHeaders(headers?: HeadersInit) {
-  return {
-    'Content-Type': 'application/json',
-    ...headersToRecord(headers),
-  }
-}
-
-function headersToRecord(headers?: HeadersInit) {
-  if (!headers) return {}
-  if (headers instanceof Headers) {
-    return Object.fromEntries(headers.entries())
-  }
-  if (Array.isArray(headers)) {
-    return Object.fromEntries(headers)
+function buildHeaders(headers: Record<string, string>, body?: BodyInit | null) {
+  if (body != null && !hasContentType(headers)) {
+    const nextHeaders: Record<string, string> = {}
+    for (const key in headers) {
+      if (Object.prototype.hasOwnProperty.call(headers, key)) {
+        nextHeaders[key] = headers[key]
+      }
+    }
+    nextHeaders['Content-Type'] = 'application/json'
+    return nextHeaders
   }
   return headers
 }
 
-function hasAuthorization(headers?: HeadersInit) {
-  const record = headersToRecord(headers)
-  return typeof record.Authorization === 'string' || typeof record.authorization === 'string'
+function headersToRecord(headers?: HeadersInit): Record<string, string> {
+  if (!headers) return {}
+  if (headers instanceof Headers) {
+    const record: Record<string, string> = {}
+    headers.forEach((value, key) => {
+      record[key] = value
+    })
+    return record
+  }
+  if (Array.isArray(headers)) {
+    const record: Record<string, string> = {}
+    for (let index = 0; index < headers.length; index += 1) {
+      const [key, value] = headers[index]
+      record[key] = value
+    }
+    return record
+  }
+  return headers as Record<string, string>
+}
+
+function hasAuthorization(headers: Record<string, string>) {
+  return typeof headers.Authorization === 'string' || typeof headers.authorization === 'string'
+}
+
+function hasContentType(headers: Record<string, string>) {
+  for (const key in headers) {
+    if (Object.prototype.hasOwnProperty.call(headers, key) && key.toLowerCase() === 'content-type') {
+      return true
+    }
+  }
+  return false
 }
 
 function withAuthorization(init: RequestInit, token: string): RequestInit {
+  const headers = headersToRecord(init.headers)
+  headers.Authorization = `Bearer ${token}`
   return {
     ...init,
-    headers: {
-      ...headersToRecord(init.headers),
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
   }
 }
 
@@ -2180,7 +2122,7 @@ function safeParse<T>(rawText: string) {
 }
 
 function preserveUnsafeIntegers(rawText: string) {
-  let result = ''
+  const chunks: string[] = []
   let inString = false
   let isEscaped = false
 
@@ -2188,7 +2130,7 @@ function preserveUnsafeIntegers(rawText: string) {
     const char = rawText[index]
 
     if (inString) {
-      result += char
+      chunks.push(char)
       if (isEscaped) {
         isEscaped = false
       } else if (char === '\\') {
@@ -2201,26 +2143,26 @@ function preserveUnsafeIntegers(rawText: string) {
 
     if (char === '"') {
       inString = true
-      result += char
+      chunks.push(char)
       continue
     }
 
     if (char === '-' || isDigit(char)) {
       let cursor = index + 1
-      while (cursor < rawText.length && /[0-9eE+.-]/.test(rawText[cursor])) {
+      while (cursor < rawText.length && isNumberTokenChar(rawText[cursor])) {
         cursor += 1
       }
 
       const token = rawText.slice(index, cursor)
-      result += shouldPreserveInteger(token) ? `"${token}"` : token
+      chunks.push(shouldPreserveInteger(token) ? `"${token}"` : token)
       index = cursor - 1
       continue
     }
 
-    result += char
+    chunks.push(char)
   }
 
-  return result
+  return chunks.join('')
 }
 
 function shouldPreserveInteger(token: string) {
@@ -2241,14 +2183,31 @@ function isDigit(char: string) {
   return char >= '0' && char <= '9'
 }
 
+function isNumberTokenChar(char: string) {
+  return isDigit(char) || char === 'e' || char === 'E' || char === '+' || char === '-' || char === '.'
+}
+
 function buildQuery(params: Record<string, unknown>) {
   const search = new URLSearchParams()
-  Object.entries(params).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === '') return
+  for (const key in params) {
+    if (!Object.prototype.hasOwnProperty.call(params, key)) continue
+    const value = params[key]
+    if (value === undefined || value === null || value === '') continue
     search.set(key, String(value))
-  })
+  }
   const query = search.toString()
   return query ? `?${query}` : ''
+}
+
+function mapArray<T, U>(items: readonly T[] | null | undefined, mapper: (item: T) => U): U[] {
+  if (!items || items.length === 0) {
+    return []
+  }
+  const result = new Array<U>(items.length)
+  for (let index = 0; index < items.length; index += 1) {
+    result[index] = mapper(items[index])
+  }
+  return result
 }
 
 function toProductWriteBody(payload: ProductWritePayload) {
@@ -2259,18 +2218,18 @@ function toProductWriteBody(payload: ProductWritePayload) {
     unit_id: payload.unitId,
     sale_price: payload.salePrice,
     purchase_price: payload.purchasePrice,
-    price_levels: payload.priceLevels?.map((item) => ({
+    price_levels: mapArray(payload.priceLevels, (item) => ({
       level_id: item.levelId,
       price: item.price,
-    })) ?? [],
-    supplier_relations: payload.supplierRelations?.map((item) => ({
+    })),
+    supplier_relations: mapArray(payload.supplierRelations, (item) => ({
       product_id: item.productId,
       supplier_id: item.supplierId,
       is_default: item.isDefault ?? false,
       purchase_priority: item.purchasePriority ?? null,
       last_purchase_price: item.lastPurchasePrice ?? null,
       notes: item.notes ?? null,
-    })) ?? [],
+    })),
     stock: payload.stock,
     safe_stock: payload.safeStock,
     status: payload.status,
@@ -2281,7 +2240,7 @@ function toSaleOrderCreateBody(payload: SaleOrderCreatePayload) {
   return {
     customer_id: payload.customerId ?? null,
     customer_name: payload.customerName ?? null,
-    items: payload.items.map((item) => ({
+    items: mapArray(payload.items, (item) => ({
       product_id: item.productId ?? null,
       quantity: item.quantity,
       unit_price: item.unitPrice,
@@ -2295,7 +2254,7 @@ function toSaleOrderDraftBody(payload: SaleOrderUpdateDraftPayload) {
   return {
     discount_amount: payload.discountAmount ?? null,
     notes: payload.notes ?? null,
-    items: payload.items.map((item) => ({
+    items: mapArray(payload.items, (item) => ({
       product_id: item.productId ?? null,
       quantity: item.quantity,
       unit_price: item.unitPrice,
@@ -2307,7 +2266,7 @@ function toPurchaseOrderBody(payload: PurchaseOrderWritePayload) {
   return {
     supplier_id: payload.supplierId ?? null,
     supplier_name: payload.supplierName ?? null,
-    items: payload.items.map((item) => ({
+    items: mapArray(payload.items, (item) => ({
       product_id: item.productId ?? null,
       product_code: item.productCode ?? null,
       product_name: item.productName ?? null,
@@ -2324,7 +2283,7 @@ function toPurchaseReceiptBody(payload: PurchaseReceiptWritePayload) {
     purchase_order_id: payload.purchaseOrderId ?? null,
     supplier_id: payload.supplierId ?? null,
     supplier_name: payload.supplierName ?? null,
-    items: payload.items.map((item) => ({
+    items: mapArray(payload.items, (item) => ({
       product_id: item.productId ?? null,
       product_code: item.productCode ?? null,
       product_name: item.productName ?? null,
@@ -2340,7 +2299,7 @@ function toPurchaseReturnBody(payload: PurchaseReturnWritePayload) {
     purchase_order_id: payload.purchaseOrderId ?? null,
     supplier_id: payload.supplierId ?? null,
     supplier_name: payload.supplierName ?? null,
-    items: payload.items.map((item) => ({
+    items: mapArray(payload.items, (item) => ({
       product_id: item.productId ?? null,
       product_code: item.productCode ?? null,
       product_name: item.productName ?? null,
@@ -2356,7 +2315,7 @@ function toSalesReturnBody(payload: SalesReturnCreatePayload) {
     original_order_id: payload.originalOrderId ?? null,
     customer_id: payload.customerId ?? null,
     customer_name: payload.customerName ?? null,
-    items: payload.items.map((item) => ({
+    items: mapArray(payload.items, (item) => ({
       product_id: item.productId ?? null,
       quantity: item.quantity,
       unit_price: item.unitPrice ?? null,
@@ -2376,19 +2335,4 @@ function toPayOrderBody(payload: PayOrderCreatePayload) {
     account_id: payload.accountId ?? null,
     status: payload.status ?? null,
   }
-}
-
-function camelize(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map((item) => camelize(item))
-  }
-  if (!value || typeof value !== 'object') {
-    return value
-  }
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([key, nested]) => [
-      key.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase()),
-      camelize(nested),
-    ]),
-  )
 }

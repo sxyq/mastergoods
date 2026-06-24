@@ -62,6 +62,19 @@ const statusFilter = ref<'all' | '1' | '0'>('all')
 const groupFilter = ref<string>('all')
 const editingRecordId = ref<number | null>(null)
 const editingGroupId = ref<number | null>(null)
+const currencyFormatter = new Intl.NumberFormat('zh-CN', {
+  style: 'currency',
+  currency: 'CNY',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+const dateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+})
 
 const recordForm = reactive({
   name: '',
@@ -97,9 +110,22 @@ watch(
   { immediate: true },
 )
 
-const activeRecordCount = computed(() => records.value.filter((item) => item.status === 1).length)
-const totalBalance = computed(() => records.value.reduce((sum, item) => sum + (item.balance || 0), 0))
-const pendingCount = computed(() => records.value.filter((item) => (item.balance || 0) > 0).length)
+const recordSummary = computed(() => records.value.reduce(
+  (summary, item) => {
+    if (item.status === 1) summary.activeRecordCount += 1
+    if ((item.balance || 0) > 0) summary.pendingCount += 1
+    summary.totalBalance += item.balance || 0
+    return summary
+  },
+  {
+    activeRecordCount: 0,
+    totalBalance: 0,
+    pendingCount: 0,
+  },
+))
+const activeRecordCount = computed(() => recordSummary.value.activeRecordCount)
+const totalBalance = computed(() => recordSummary.value.totalBalance)
+const pendingCount = computed(() => recordSummary.value.pendingCount)
 const sortedGroups = computed(() => [...groups.value].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)))
 const topGroups = computed(() => sortedGroups.value.slice(0, 6))
 
@@ -323,23 +349,12 @@ function nullableText(value: string) {
 }
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat('zh-CN', {
-    style: 'currency',
-    currency: 'CNY',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value || 0)
+  return currencyFormatter.format(value || 0)
 }
 
 function formatDateTime(timestamp?: number | null) {
   if (!timestamp) return '--'
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(timestamp)
+  return dateTimeFormatter.format(timestamp)
 }
 </script>
 

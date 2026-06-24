@@ -47,7 +47,8 @@ const paymentForm = reactive({
 const queryOrderId = computed(() => readQueryId(route.query.id))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canWrite = computed(() => session.hasAnyPermission(['sales:write', 'finance:write']))
-const selectedOrder = computed(() => orders.value.find((item) => sameEntityId(item.id, selectedOrderId.value)) ?? null)
+const orderIndex = computed(() => new Map(orders.value.map((item) => [String(item.id), item] as const)))
+const selectedOrder = computed(() => (selectedOrderId.value == null ? null : orderIndex.value.get(String(selectedOrderId.value)) ?? null))
 const remainingAmount = computed(() => {
   if (!selectedOrder.value) return 0
   return Math.max(selectedOrder.value.totalAmount - selectedOrder.value.paidAmount, 0)
@@ -98,7 +99,7 @@ async function loadPage() {
       size: 200,
     })
 
-    let nextOrders = [...list]
+    let nextOrders = list
     if (queryOrderId.value && !nextOrders.some((item) => sameEntityId(item.id, queryOrderId.value))) {
       try {
         const detail = await fetchSaleOrder(session.token.value, queryOrderId.value)

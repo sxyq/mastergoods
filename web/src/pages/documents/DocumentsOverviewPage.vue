@@ -5,7 +5,7 @@ import type { Permission } from '@/entities/auth/roles'
 
 const session = useSession()
 
-const documentModules = computed(() => [
+const documentModules = [
   {
     title: '销售业务',
     desc: '销售开单、详情、收款与销售退货',
@@ -61,12 +61,12 @@ const documentModules = computed(() => [
       { label: '付款单详情', route: '/documents/pay-orders/detail', permission: ['finance:view'] },
     ],
   },
-] as const)
+] as const
 
-const visibleModules = computed(() => documentModules.value.filter((item) => session.hasPermission([...item.permission])))
+const visibleModules = computed(() => documentModules.filter((item) => session.hasPermission(item.permission)))
 
 function canOpen(permission: readonly Permission[]) {
-  return session.hasPermission([...permission])
+  return session.hasPermission(permission)
 }
 </script>
 

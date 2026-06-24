@@ -1,3 +1,4 @@
+import type { Component } from 'vue'
 import type { RouteRecordRaw } from 'vue-router'
 import AppLayout from '@/app/layouts/AppLayout.vue'
 import LoginPage from '@/pages/auth/LoginPage.vue'
@@ -32,34 +33,37 @@ import DatabasePage from '@/pages/settings/DatabasePage.vue'
 import SettingsOverviewPage from '@/pages/settings/SettingsOverviewPage.vue'
 import { mobileReferenceScreens, pcDesktopScreens } from './stitch-screens'
 
+const screenComponentByRoute: Record<string, Component> = {
+  '/dashboard': DashboardPage,
+  '/documents': DocumentsOverviewPage,
+  '/archives/products': ProductArchivePage,
+  '/archives/products/edit': ProductEditPage,
+  '/archives/customers': PartnerArchivePage,
+  '/archives/suppliers': PartnerArchivePage,
+  '/documents/sales': SalesOrderListPage,
+  '/documents/sales/edit': SalesOrderEditPage,
+  '/documents/sales/detail': SalesOrderDetailPage,
+  '/documents/sales/payment': SalesPaymentPage,
+  '/documents/sales-returns': SalesReturnPage,
+  '/documents/purchases': PurchaseOrderListPage,
+  '/documents/purchases/edit': PurchaseOrderEditPage,
+  '/documents/purchases/detail': PurchaseOrderDetailPage,
+  '/documents/purchase-receipts': PurchaseReceiptPage,
+  '/documents/purchase-returns': PurchaseReturnPage,
+  '/documents/pay-orders/detail': PayOrderDetailPage,
+  '/inventory/adjust': InventoryAdjustPage,
+  '/inventory/product-ledger': ProductLedgerPage,
+  '/inventory/snapshots': InventorySnapshotPage,
+  '/finance/records/detail': FinanceRecordPage,
+  '/finance/daily-expense': DailyExpensePage,
+  '/reports': ReportsPage,
+  '/agent': AgentPage,
+  '/planning': PlanningOverviewPage,
+  '/settings': SettingsOverviewPage,
+}
+
 function resolveScreenComponent(route: string) {
-  if (route === '/dashboard') return DashboardPage
-  if (route === '/documents') return DocumentsOverviewPage
-  if (route === '/archives/products') return ProductArchivePage
-  if (route === '/archives/products/edit') return ProductEditPage
-  if (route === '/archives/customers') return PartnerArchivePage
-  if (route === '/archives/suppliers') return PartnerArchivePage
-  if (route === '/documents/sales') return SalesOrderListPage
-  if (route === '/documents/sales/edit') return SalesOrderEditPage
-  if (route === '/documents/sales/detail') return SalesOrderDetailPage
-  if (route === '/documents/sales/payment') return SalesPaymentPage
-  if (route === '/documents/sales-returns') return SalesReturnPage
-  if (route === '/documents/purchases') return PurchaseOrderListPage
-  if (route === '/documents/purchases/edit') return PurchaseOrderEditPage
-  if (route === '/documents/purchases/detail') return PurchaseOrderDetailPage
-  if (route === '/documents/purchase-receipts') return PurchaseReceiptPage
-  if (route === '/documents/purchase-returns') return PurchaseReturnPage
-  if (route === '/documents/pay-orders/detail') return PayOrderDetailPage
-  if (route === '/inventory/adjust') return InventoryAdjustPage
-  if (route === '/inventory/product-ledger') return ProductLedgerPage
-  if (route === '/inventory/snapshots') return InventorySnapshotPage
-  if (route === '/finance/records/detail') return FinanceRecordPage
-  if (route === '/finance/daily-expense') return DailyExpensePage
-  if (route === '/reports') return ReportsPage
-  if (route === '/agent') return AgentPage
-  if (route === '/planning') return PlanningOverviewPage
-  if (route === '/settings') return SettingsOverviewPage
-  return StitchScreenPage
+  return screenComponentByRoute[route] ?? StitchScreenPage
 }
 
 const stitchRoutes: RouteRecordRaw[] = [...pcDesktopScreens, ...mobileReferenceScreens].map((screen) => ({
