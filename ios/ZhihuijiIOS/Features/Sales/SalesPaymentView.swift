@@ -6,6 +6,10 @@ struct SalesPaymentView: View {
     let initialOrderId: EntityID?
     @StateObject private var viewModel = SalesPaymentViewModel()
 
+    private var actionPolicy: SalesPaymentActionPolicy {
+        SalesPaymentActionPolicy.resolve(for: session.permissions)
+    }
+
     init(initialOrderId: EntityID? = nil) {
         self.initialOrderId = initialOrderId
     }
@@ -122,7 +126,7 @@ struct SalesPaymentView: View {
             PrimaryGlassButton(
                 title: viewModel.isSubmitting ? "提交中..." : "确认收款",
                 systemImage: "checkmark.circle.fill",
-                disabled: viewModel.isSubmitting || !session.hasPermission(.financeWrite)
+                disabled: viewModel.isSubmitting || !actionPolicy.canWriteFinance
             ) {
                 Task {
                     await viewModel.submit(client: env.apiClient)

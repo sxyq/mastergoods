@@ -6,6 +6,10 @@ struct PurchaseDetailView: View {
     let orderId: EntityID
     @StateObject private var viewModel = PurchaseDetailViewModel()
 
+    private var actionPolicy: PurchaseDetailActionPolicy {
+        PurchaseDetailActionPolicy.resolve(for: session.permissions)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -14,9 +18,9 @@ struct PurchaseDetailView: View {
                 } else if let order = viewModel.order {
                     header(order: order)
 
-                    if session.hasAnyPermission([.inventoryWrite, .purchaseWrite, .financeView]) {
+                    if actionPolicy.canOpenReceipt || actionPolicy.canOpenReturn || actionPolicy.canOpenPayOrder {
                         HStack(spacing: 12) {
-                            if session.hasPermission(.inventoryWrite) {
+                            if actionPolicy.canOpenReceipt {
                                 NavigationLink {
                                     PurchaseReceiptView(initialOrderId: order.id)
                                 } label: {
@@ -25,7 +29,7 @@ struct PurchaseDetailView: View {
                                 .buttonStyle(.plain)
                             }
 
-                            if session.hasPermission(.purchaseWrite) {
+                            if actionPolicy.canOpenReturn {
                                 NavigationLink {
                                     PurchaseReturnView(initialOrderId: order.id)
                                 } label: {
@@ -34,7 +38,7 @@ struct PurchaseDetailView: View {
                                 .buttonStyle(.plain)
                             }
 
-                            if session.hasPermission(.financeView) {
+                            if actionPolicy.canOpenPayOrder {
                                 NavigationLink {
                                     PayOrderDetailView(initialOrderId: nil, initialKeyword: order.supplierName ?? "")
                                 } label: {

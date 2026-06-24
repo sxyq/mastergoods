@@ -18,6 +18,7 @@ final class AgentViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var latestResponse: AgentChatResponse?
     @Published var liveRun: AgentLiveRunPreview?
+    @Published var contextCompactedNotice: String?
     @Published var auditDetail: AgentRunAudit?
     @Published var isAuditLoading = false
     @Published var isAuditPresented = false
@@ -157,6 +158,7 @@ final class AgentViewModel: ObservableObject {
 
         isSending = true
         errorMessage = nil
+        contextCompactedNotice = nil
         appendLocalUserMessage(question)
         draftQuestion = ""
 
@@ -456,6 +458,25 @@ final class AgentViewModel: ObservableObject {
                     errorMessage: nil
                 )
             )
+        case "tool_progress":
+            ensureLiveRun(from: event)
+            let callId = event.toolCallId ?? [event.runId.orEmpty, event.toolName.orEmpty].joined(separator: ":")
+            upsertToolCall(
+                AgentToolCall(
+                    toolCallId: callId,
+                    toolName: event.toolName ?? "tool",
+                    status: "running",
+                    inputSummary: currentToolCall(id: callId)?.inputSummary ?? event.inputSummary,
+                    returnedCount: nil,
+                    totalCount: nil,
+                    limit: nil,
+                    isTruncated: nil,
+                    durationMs: nil,
+                    resultSummary: event.message ?? event.resultSummary,
+                    errorCode: nil,
+                    errorMessage: nil
+                )
+            )
         case "tool_completed":
             ensureLiveRun(from: event)
             let callId = event.toolCallId ?? [event.runId.orEmpty, event.toolName.orEmpty].joined(separator: ":")
@@ -497,11 +518,29 @@ final class AgentViewModel: ObservableObject {
         case "answer_delta":
             ensureLiveRun(from: event)
             liveRun?.answer += event.delta ?? event.content ?? ""
+        case "answer_completed":
+            ensureLiveRun(from: event)
+            if let answer = event.answer?.nilIfBlank {
+                liveRun?.answer = answer
+            }
+            liveRun?.mode = event.mode ?? liveRun?.mode
+            liveRun?.llmStatus = event.llmStatus ?? liveRun?.llmStatus
+            liveRun?.planSource = event.planSource ?? liveRun?.planSource
         case "result_block":
             ensureLiveRun(from: event)
             if let block = event.block, !(liveRun?.resultBlocks.contains(block) ?? false) {
                 liveRun?.resultBlocks.append(block)
             }
+        case "draft_created":
+            ensureLiveRun(from: event)
+            if let draftBlock = makeDraftCreatedBlock(from: event),
+               !(liveRun?.resultBlocks.contains(draftBlock) ?? false) {
+                liveRun?.resultBlocks.append(draftBlock)
+            }
+        case "context_compacted":
+            ensureLiveRun(from: event)
+            let countText = event.compactedCount.map { "\($0) 条" } ?? "部分"
+            contextCompactedNotice = "已压缩 \(countText) 上下文。\(event.summary?.nilIfBlank ?? "旧消息已整理为摘要，以保持连续追问稳定。")"
         case "run_completed":
             ensureLiveRun(from: event)
             if let finalAnswer = event.finalAnswer, !finalAnswer.isEmpty {
@@ -522,6 +561,22 @@ final class AgentViewModel: ObservableObject {
         default:
             break
         }
+    }
+
+    private func makeDraftCreatedBlock(from event: AgentStreamEvent) -> AgentResultBlock? {
+        guard let draftId = event.draftId else { return nil }
+        let draftType = event.draftType?.nilIfBlank ?? "draft"
+        let title = event.title?.nilIfBlank ?? "AI 草稿"
+        return AgentResultBlock(
+            blockType: "draft_card",
+            title: title,
+            data: .object([
+                "draft_id": .string(draftId.rawValue),
+                "draft_type": .string(draftType),
+                "title": .string(title),
+                "summary": .string("草稿已生成，请在草稿管理中确认后再写入正式业务。")
+            ])
+        )
     }
 
     private func makeLatestResponse(from liveRun: AgentLiveRunPreview) -> AgentChatResponse {

@@ -5,6 +5,10 @@ struct PurchaseListView: View {
     @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = PurchaseListViewModel()
 
+    private var actionPolicy: PurchaseListActionPolicy {
+        PurchaseListActionPolicy.resolve(for: session.permissions)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -13,7 +17,7 @@ struct PurchaseListView: View {
                         .font(ZhihuijiTheme.Typography.pageTitle)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                     Spacer()
-                    if session.hasPermission(.purchaseWrite) {
+                    if actionPolicy.canOpenCreate {
                         NavigationLink {
                             PurchaseEditView()
                         } label: {

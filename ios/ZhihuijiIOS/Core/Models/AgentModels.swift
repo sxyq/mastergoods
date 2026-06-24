@@ -267,21 +267,63 @@ struct AgentStreamEvent: Codable, Equatable {
     let seq: Int?
     let eventId: String?
     let delta: String?
+    let deltaSource: String?
     let content: String?
+    let answer: String?
     let toolCallId: String?
     let toolName: String?
     let inputSummary: String?
+    let message: String?
     let resultSummary: String?
     let errorCode: String?
     let errorSummary: String?
     let safeMessage: String?
     let finalAnswer: String?
+    let draftId: EntityID?
+    let draftType: String?
+    let title: String?
+    let suggestedAction: String?
+    let compactedCount: Int?
+    let summary: String?
     let mode: String?
     let llmStatus: String?
     let planSource: String?
     let reason: String?
     let block: AgentResultBlock?
     let timestamp: Int64?
+
+    enum CodingKeys: String, CodingKey {
+        case eventType = "event_type"
+        case runId = "run_id"
+        case conversationId = "conversation_id"
+        case seq
+        case eventId = "event_id"
+        case delta
+        case deltaSource = "delta_source"
+        case content
+        case answer
+        case toolCallId = "tool_call_id"
+        case toolName = "tool_name"
+        case inputSummary = "input_summary"
+        case message
+        case resultSummary = "result_summary"
+        case errorCode = "error_code"
+        case errorSummary = "error_summary"
+        case safeMessage = "safe_message"
+        case finalAnswer = "final_answer"
+        case draftId = "draft_id"
+        case draftType = "draft_type"
+        case title
+        case suggestedAction = "suggested_action"
+        case compactedCount = "compacted_count"
+        case summary
+        case mode
+        case llmStatus = "llm_status"
+        case planSource = "plan_source"
+        case reason
+        case block
+        case timestamp
+    }
 }
 
 struct AgentLiveRunPreview: Equatable {

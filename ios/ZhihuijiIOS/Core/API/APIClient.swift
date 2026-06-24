@@ -61,6 +61,24 @@ final class APIClient {
         )
     }
 
+    func register(phone: String, password: String, verifyCode: String) async throws -> AuthPayload {
+        try await send(
+            path: "/v2/auth/register",
+            method: "POST",
+            body: RegisterRequest(phone: phone, password: password, verifyCode: verifyCode),
+            authorized: false
+        )
+    }
+
+    func issueVerifyCode(phone: String, type: String) async throws -> VerifyCodeResponse {
+        try await send(
+            path: "/v2/auth/verify-code",
+            method: "POST",
+            body: VerifyCodeRequest(phone: phone, type: type),
+            authorized: false
+        )
+    }
+
     func refresh(refreshToken: String) async throws -> AuthPayload {
         try await send(
             .refresh,
@@ -381,11 +399,37 @@ final class APIClient {
         if let size {
             queryItems.append(URLQueryItem(name: "size", value: String(size)))
         }
-        return try await send(path: "/v1/finance-records", queryItems: queryItems)
+        return try await send(path: "/v2/finance-records", queryItems: queryItems)
     }
 
     func createFinanceRecord(payload: FinanceRecordCreatePayload) async throws -> FinanceRecord {
-        try await send(path: "/v1/finance-records", method: "POST", body: payload)
+        try await send(path: "/v2/finance-records", method: "POST", body: payload)
+    }
+
+    func fetchCashChangeRecords(orderType: String? = nil, orderId: EntityID? = nil, accountId: EntityID? = nil) async throws -> [CashChangeRecord] {
+        var queryItems: [URLQueryItem] = []
+        if let orderType, !orderType.isEmpty {
+            queryItems.append(URLQueryItem(name: "orderType", value: orderType))
+        }
+        if let orderId {
+            queryItems.append(URLQueryItem(name: "orderId", value: orderId.rawValue))
+        }
+        if let accountId {
+            queryItems.append(URLQueryItem(name: "accountId", value: accountId.rawValue))
+        }
+        return try await send(path: "/v2/cash-change-records", queryItems: queryItems)
+    }
+
+    func fetchCashChangeRecord(id: EntityID) async throws -> CashChangeRecord {
+        try await send(path: "/v2/cash-change-records/\(id.rawValue)")
+    }
+
+    func createCashChangeRecord(payload: CashChangeRecordCreatePayload) async throws -> CashChangeRecord {
+        try await send(path: "/v2/cash-change-records", method: "POST", body: payload)
+    }
+
+    func deleteCashChangeRecord(id: EntityID) async throws {
+        let _: EmptyPayload = try await send(path: "/v2/cash-change-records/\(id.rawValue)", method: "DELETE")
     }
 
     func fetchPayOrders(keyword: String? = nil, status: Int? = nil, page: Int? = nil, size: Int? = nil) async throws -> [PayOrder] {
@@ -429,14 +473,14 @@ final class APIClient {
     }
 
     func fetchProfitSummary(startAt: Int64, endAt: Int64) async throws -> ProfitSummaryReport {
-        try await send(path: "/v1/reports/profit-summary", queryItems: [
+        try await send(path: "/v2/reports/profit-summary", queryItems: [
             URLQueryItem(name: "start_at", value: String(startAt)),
             URLQueryItem(name: "end_at", value: String(endAt)),
         ])
     }
 
     func fetchRefundRecords(startAt: Int64, endAt: Int64, limit: Int = 10) async throws -> [RefundRecordReport] {
-        try await send(path: "/v1/reports/refund-records", queryItems: [
+        try await send(path: "/v2/reports/refund-records", queryItems: [
             URLQueryItem(name: "start_at", value: String(startAt)),
             URLQueryItem(name: "end_at", value: String(endAt)),
             URLQueryItem(name: "limit", value: String(limit)),
@@ -444,7 +488,7 @@ final class APIClient {
     }
 
     func fetchStockOutRecords(startAt: Int64, endAt: Int64, limit: Int = 10) async throws -> [StockOutRecordReport] {
-        try await send(path: "/v1/reports/stock-out-records", queryItems: [
+        try await send(path: "/v2/reports/stock-out-records", queryItems: [
             URLQueryItem(name: "start_at", value: String(startAt)),
             URLQueryItem(name: "end_at", value: String(endAt)),
             URLQueryItem(name: "limit", value: String(limit)),
@@ -452,7 +496,7 @@ final class APIClient {
     }
 
     func fetchTopProducts(startAt: Int64, endAt: Int64, limit: Int = 10) async throws -> [TopSellingProductReport] {
-        try await send(path: "/v1/reports/top-products", queryItems: [
+        try await send(path: "/v2/reports/top-products", queryItems: [
             URLQueryItem(name: "start_at", value: String(startAt)),
             URLQueryItem(name: "end_at", value: String(endAt)),
             URLQueryItem(name: "limit", value: String(limit)),
@@ -460,7 +504,7 @@ final class APIClient {
     }
 
     func fetchProfitByProducts(startAt: Int64, endAt: Int64, limit: Int = 10) async throws -> [ProfitByProductReport] {
-        try await send(path: "/v1/reports/profit-by-products", queryItems: [
+        try await send(path: "/v2/reports/profit-by-products", queryItems: [
             URLQueryItem(name: "start_at", value: String(startAt)),
             URLQueryItem(name: "end_at", value: String(endAt)),
             URLQueryItem(name: "limit", value: String(limit)),
@@ -468,7 +512,7 @@ final class APIClient {
     }
 
     func fetchProfitByCustomers(startAt: Int64, endAt: Int64, limit: Int = 10) async throws -> [ProfitByCustomerReport] {
-        try await send(path: "/v1/reports/profit-by-customers", queryItems: [
+        try await send(path: "/v2/reports/profit-by-customers", queryItems: [
             URLQueryItem(name: "start_at", value: String(startAt)),
             URLQueryItem(name: "end_at", value: String(endAt)),
             URLQueryItem(name: "limit", value: String(limit)),
@@ -476,7 +520,7 @@ final class APIClient {
     }
 
     func fetchInventoryFlowReport(startAt: Int64, endAt: Int64, limit: Int = 10) async throws -> [InventoryFlowRecordReport] {
-        try await send(path: "/v1/reports/inventory-flow", queryItems: [
+        try await send(path: "/v2/reports/inventory-flow", queryItems: [
             URLQueryItem(name: "start_at", value: String(startAt)),
             URLQueryItem(name: "end_at", value: String(endAt)),
             URLQueryItem(name: "limit", value: String(limit)),
@@ -484,7 +528,7 @@ final class APIClient {
     }
 
     func fetchCustomerSalesReport(startAt: Int64, endAt: Int64, limit: Int = 10) async throws -> [CustomerSalesReport] {
-        try await send(path: "/v1/reports/customer-sales", queryItems: [
+        try await send(path: "/v2/reports/customer-sales", queryItems: [
             URLQueryItem(name: "start_at", value: String(startAt)),
             URLQueryItem(name: "end_at", value: String(endAt)),
             URLQueryItem(name: "limit", value: String(limit)),
@@ -492,26 +536,26 @@ final class APIClient {
     }
 
     func fetchTopReceivableCustomers(limit: Int = 10) async throws -> [CustomerReceivableReport] {
-        try await send(path: "/v1/reports/top-receivable-customers", queryItems: [
+        try await send(path: "/v2/reports/top-receivable-customers", queryItems: [
             URLQueryItem(name: "limit", value: String(limit)),
         ])
     }
 
     func fetchLowStockProducts(limit: Int = 10) async throws -> [LowStockProductReport] {
-        try await send(path: "/v1/reports/low-stock-products", queryItems: [
+        try await send(path: "/v2/reports/low-stock-products", queryItems: [
             URLQueryItem(name: "limit", value: String(limit)),
         ])
     }
 
     func fetchReconciliationSummary(startAt: Int64, endAt: Int64) async throws -> ReconciliationSummaryReport {
-        try await send(path: "/v1/reports/reconciliation-summary", queryItems: [
+        try await send(path: "/v2/reports/reconciliation-summary", queryItems: [
             URLQueryItem(name: "start_at", value: String(startAt)),
             URLQueryItem(name: "end_at", value: String(endAt)),
         ])
     }
 
     func fetchCashflowSummary(startAt: Int64, endAt: Int64) async throws -> CashflowSummaryReport {
-        try await send(path: "/v1/reports/cashflow-summary", queryItems: [
+        try await send(path: "/v2/reports/cashflow-summary", queryItems: [
             URLQueryItem(name: "start_at", value: String(startAt)),
             URLQueryItem(name: "end_at", value: String(endAt)),
         ])
@@ -579,6 +623,25 @@ final class APIClient {
 
     func createMediaAsset(payload: MediaAssetCreatePayload) async throws -> MediaAssetRecord {
         try await send(path: "/v2/media/assets", method: "POST", body: payload)
+    }
+
+    func uploadMediaAsset(fileData: Data, fileName: String, mimeType: String, assetType: String = "product_image") async throws -> MediaAssetRecord {
+        let boundary = "zhihuiji-boundary-\(UUID().uuidString)"
+        let body = makeMultipartBody(
+            boundary: boundary,
+            fileData: fileData,
+            fileName: fileName,
+            mimeType: mimeType,
+            assetType: assetType
+        )
+
+        let (data, response) = try await performUploadRequest(
+            path: "/v2/media/assets/upload",
+            method: "POST",
+            body: body,
+            contentType: "multipart/form-data; boundary=\(boundary)"
+        )
+        return try decodeEnvelope(response: response, data: data)
     }
 
     func deleteMediaAsset(id: EntityID) async throws {
@@ -773,6 +836,11 @@ final class APIClient {
                     var request = request
                     request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                     let (bytes, response) = try await session.bytes(for: request)
+                    if let http = response as? HTTPURLResponse,
+                       !(200 ..< 300).contains(http.statusCode) {
+                        let errorData = try await self.collectStreamErrorData(from: bytes)
+                        try self.validate(response: response, data: errorData)
+                    }
                     try self.validate(response: response, data: Data())
 
                     var dataLines: [String] = []
@@ -868,6 +936,54 @@ final class APIClient {
         return (data, response)
     }
 
+    private func performUploadRequest(
+        path: String,
+        method: String,
+        body: Data,
+        contentType: String
+    ) async throws -> (Data, URLResponse) {
+        var request = try makeBaseRequest(path: path, method: method, queryItems: [])
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+
+        let (data, response) = try await session.data(for: request)
+
+        if let http = response as? HTTPURLResponse,
+           http.statusCode == 401 {
+            try await refreshAccessTokenIfNeeded()
+            var retriedRequest = try makeBaseRequest(path: path, method: method, queryItems: [])
+            retriedRequest.setValue(contentType, forHTTPHeaderField: "Content-Type")
+            retriedRequest.httpBody = body
+            return try await session.data(for: retriedRequest)
+        }
+
+        return (data, response)
+    }
+
+    private func makeMultipartBody(
+        boundary: String,
+        fileData: Data,
+        fileName: String,
+        mimeType: String,
+        assetType: String
+    ) -> Data {
+        var body = Data()
+        let crlf = "\r\n"
+
+        body.append("--\(boundary)\(crlf)".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"asset_type\"\(crlf)\(crlf)".data(using: .utf8)!)
+        body.append("\(assetType)\(crlf)".data(using: .utf8)!)
+
+        body.append("--\(boundary)\(crlf)".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\(crlf)".data(using: .utf8)!)
+        body.append("Content-Type: \(mimeType)\(crlf)\(crlf)".data(using: .utf8)!)
+        body.append(fileData)
+        body.append(crlf.data(using: .utf8)!)
+
+        body.append("--\(boundary)--\(crlf)".data(using: .utf8)!)
+        return body
+    }
+
     private func refreshAccessTokenIfNeeded() async throws {
         guard let refreshToken = tokenStore.readRefreshToken()?.nilIfBlank else {
             NotificationCenter.default.post(name: .zhihuijiUnauthorized, object: nil)
@@ -898,6 +1014,20 @@ final class APIClient {
         authorized: Bool,
         queryItems: [URLQueryItem]
     ) throws -> URLRequest {
+        var request = try makeBaseRequest(path: path, method: method, queryItems: queryItems, authorized: authorized)
+        if let body {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try AnyEncodable(body).encode(using: encoder)
+        }
+        return request
+    }
+
+    private func makeBaseRequest(
+        path: String,
+        method: String,
+        queryItems: [URLQueryItem],
+        authorized: Bool = true
+    ) throws -> URLRequest {
         guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
             throw APIError.invalidURL
         }
@@ -913,10 +1043,6 @@ final class APIClient {
         request.httpMethod = method
         request.timeoutInterval = 20
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        if let body {
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try AnyEncodable(body).encode(using: encoder)
-        }
         if authorized, let token = tokenStore.readAccessToken(), !token.isEmpty {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
@@ -959,6 +1085,20 @@ final class APIClient {
         }
 
         return try? decoder.decode(ErrorEnvelope.self, from: data).message?.nilIfBlank
+    }
+
+    private func collectStreamErrorData(from bytes: URLSession.AsyncBytes, maxBytes: Int = 16 * 1024) async throws -> Data {
+        var text = ""
+        for try await line in bytes.lines {
+            if !text.isEmpty {
+                text.append("\n")
+            }
+            text.append(line)
+            if text.utf8.count >= maxBytes {
+                break
+            }
+        }
+        return Data(text.utf8)
     }
 }
 

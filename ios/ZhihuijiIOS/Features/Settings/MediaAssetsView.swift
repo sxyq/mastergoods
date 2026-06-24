@@ -23,6 +23,8 @@ struct MediaAssetsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 uploadBoundarySection
+                targetContextSection
+                searchSection
                 createAssetSection
                 if let errorMessage = viewModel.errorMessage {
                     EmptyStateView(title: "媒体数据加载失败", message: errorMessage)
@@ -40,6 +42,75 @@ struct MediaAssetsView: View {
         }
     }
 
+    private var targetContextSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("当前目标")
+                    .font(ZhihuijiTheme.Typography.sectionTitle)
+                Spacer()
+                StatusChip(
+                    title: canWriteMedia ? "可写" : "只读",
+                    tint: canWriteMedia ? ZhihuijiTheme.ColorToken.success : ZhihuijiTheme.ColorToken.warning
+                )
+            }
+
+            HStack(spacing: 10) {
+                StatusChip(title: "类型 \(ZhihuijiDisplayName.mediaTargetType(viewModel.targetType.nilIfBlank ?? "--"))", tint: ZhihuijiTheme.ColorToken.primary)
+                StatusChip(title: "目标 \(viewModel.targetId.nilIfBlank ?? "--")", tint: ZhihuijiTheme.ColorToken.warning)
+                StatusChip(title: "对象 \(viewModel.assets.count)", tint: ZhihuijiTheme.ColorToken.primaryBright)
+            }
+
+            Text("先选定目标类型和目标 ID，再登记或绑定媒体对象；这页会始终围绕当前业务对象工作。")
+                .font(ZhihuijiTheme.Typography.caption)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 10) {
+                PrimaryGlassButton(
+                    title: viewModel.isLoading ? "刷新中..." : "刷新媒体",
+                    systemImage: "arrow.clockwise",
+                    disabled: viewModel.isLoading
+                ) {
+                    Task { await viewModel.load(using: env.apiClient) }
+                }
+
+                Button {
+                    Task {
+                        await viewModel.loadBindings(using: env.apiClient)
+                    }
+                } label: {
+                    Label("查看当前绑定", systemImage: "link")
+                        .font(ZhihuijiTheme.Typography.captionSemibold)
+                }
+                .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
+                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 11)
+                .background(Color.white.opacity(0.50), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
+            }
+        }
+        .padding(16)
+        .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
+    }
+
+    private var searchSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("快速筛选")
+                .font(ZhihuijiTheme.Typography.sectionTitle)
+
+            TextField("按对象键、文件名、目标类型或目标 ID 搜索", text: $viewModel.searchText)
+                .fieldBackground()
+
+            HStack(spacing: 10) {
+                StatusChip(title: "对象 \(viewModel.filteredAssets.count)", tint: ZhihuijiTheme.ColorToken.primary)
+                StatusChip(title: "绑定 \(viewModel.filteredBindings.count)", tint: ZhihuijiTheme.ColorToken.warning)
+                StatusChip(title: "总对象 \(viewModel.assets.count)", tint: ZhihuijiTheme.ColorToken.success)
+            }
+        }
+        .padding(16)
+        .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
+    }
+
     private var uploadBoundarySection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
@@ -49,7 +120,7 @@ struct MediaAssetsView: View {
                     .font(ZhihuijiTheme.Typography.bodyMedium)
                     .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
             }
-            Text("真实文件上传、对象存储预签名与校验链路仍待后端运行时补齐。本页不会生成默认对象或假文件，只把已经存在的 object key 绑定到业务对象。")
+            Text("真实文件上传、对象存储预签名与校验链路仍待后端运行时补齐。本页不会生成默认对象或假文件，只把已经存在的对象键绑定到业务对象。")
                 .font(ZhihuijiTheme.Typography.body)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -70,17 +141,17 @@ struct MediaAssetsView: View {
                 .font(ZhihuijiTheme.Typography.sectionTitle)
 
             VStack(alignment: .leading, spacing: 10) {
-                TextField("资产类型，如 product_cover", text: $viewModel.assetType).fieldBackground()
-                TextField("存储提供方，如 object_storage", text: $viewModel.storageProvider).fieldBackground()
-                TextField("Bucket，可选", text: $viewModel.bucketName).fieldBackground()
-                TextField("Object key，必填", text: $viewModel.objectKey).fieldBackground()
-                TextField("原始文件名，必填", text: $viewModel.originalFileName).fieldBackground()
-                TextField("MIME type，必填", text: $viewModel.mimeType).fieldBackground()
-                TextField("文件大小 bytes，必须大于 0", text: $viewModel.sizeBytesText).fieldBackground()
-                TextField("Checksum，可选", text: $viewModel.checksum).fieldBackground()
-                TextField("宽度，可选", text: $viewModel.widthText).fieldBackground()
-                TextField("高度，可选", text: $viewModel.heightText).fieldBackground()
-                TextField("Metadata JSON，可选", text: $viewModel.metadataJson, axis: .vertical)
+                TextField("资产类型（默认商品主图）", text: $viewModel.assetType).fieldBackground()
+                TextField("存储提供方（默认对象存储）", text: $viewModel.storageProvider).fieldBackground()
+                TextField("存储桶，可选", text: $viewModel.bucketName).fieldBackground()
+                TextField("对象键（必填）", text: $viewModel.objectKey).fieldBackground()
+                TextField("原始文件名（必填）", text: $viewModel.originalFileName).fieldBackground()
+                TextField("文件 MIME 类型（必填）", text: $viewModel.mimeType).fieldBackground()
+                TextField("文件大小（bytes，必填）", text: $viewModel.sizeBytesText).fieldBackground()
+                TextField("校验值（可选）", text: $viewModel.checksum).fieldBackground()
+                TextField("宽度（可选）", text: $viewModel.widthText).fieldBackground()
+                TextField("高度（可选）", text: $viewModel.heightText).fieldBackground()
+                TextField("元数据 JSON（可选）", text: $viewModel.metadataJson, axis: .vertical)
                     .fieldBackground()
             }
             .padding(16)
@@ -101,7 +172,7 @@ struct MediaAssetsView: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 TextField("媒体资产 ID", text: $viewModel.bindingAssetId).fieldBackground()
-                TextField("目标类型，如 product / sale_order", text: $viewModel.targetType).fieldBackground()
+                TextField("目标类型（默认媒体对象）", text: $viewModel.targetType).fieldBackground()
                 TextField("目标 ID", text: $viewModel.targetId).fieldBackground()
                 TextField("排序，可选", text: $viewModel.sortOrderText).fieldBackground()
             }
@@ -127,11 +198,11 @@ struct MediaAssetsView: View {
                 }
             }
 
-            if viewModel.assets.isEmpty {
-                EmptyStateView(title: "暂无媒体对象", message: "登记已上传对象后，这里会显示真实的对象 key、大小和绑定入口。")
+            if viewModel.filteredAssets.isEmpty {
+                EmptyStateView(title: "暂无媒体对象", message: "登记已上传对象后，这里会显示真实的对象键、大小和绑定入口。")
             } else {
                 VStack(spacing: 10) {
-                    ForEach(viewModel.assets) { asset in
+                    ForEach(viewModel.filteredAssets) { asset in
                         VStack(alignment: .leading, spacing: 10) {
                             HStack(alignment: .top) {
                                 VStack(alignment: .leading, spacing: 4) {
@@ -143,11 +214,11 @@ struct MediaAssetsView: View {
                                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                                 }
                                 Spacer()
-                                StatusChip(title: asset.assetType, tint: ZhihuijiTheme.ColorToken.primary)
+                                StatusChip(title: ZhihuijiDisplayName.mediaAssetType(asset.assetType), tint: ZhihuijiTheme.ColorToken.primary)
                             }
 
                             HStack {
-                                metadataRow(title: "存储", value: asset.storageProvider)
+                                metadataRow(title: "存储", value: ZhihuijiDisplayName.storageProvider(asset.storageProvider))
                                 Spacer()
                                 metadataRow(title: "大小", value: "\(asset.sizeBytes)")
                             }
@@ -198,14 +269,14 @@ struct MediaAssetsView: View {
             Text("绑定记录")
                 .font(ZhihuijiTheme.Typography.sectionTitle)
 
-            if viewModel.bindings.isEmpty {
+            if viewModel.filteredBindings.isEmpty {
                 EmptyStateView(title: "暂无绑定", message: "选择目标类型和目标 ID 后，可查看媒体对象的业务绑定。")
             } else {
                 VStack(spacing: 10) {
-                    ForEach(viewModel.bindings) { binding in
+                    ForEach(viewModel.filteredBindings) { binding in
                         HStack(alignment: .top) {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(binding.targetType)
+                                Text(ZhihuijiDisplayName.mediaTargetType(binding.targetType))
                                     .font(ZhihuijiTheme.Typography.bodyMedium)
                                 Text(binding.targetId.rawValue)
                                     .font(ZhihuijiTheme.Typography.caption)
@@ -252,13 +323,14 @@ final class MediaAssetsViewModel: ObservableObject {
     @Published var bindings: [MediaBindingRecord] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var searchText = ""
 
-    @Published var assetType = "product_cover"
-    @Published var storageProvider = "object_storage"
+    @Published var assetType = ""
+    @Published var storageProvider = ""
     @Published var bucketName = ""
     @Published var objectKey = ""
     @Published var originalFileName = ""
-    @Published var mimeType = "image/png"
+    @Published var mimeType = ""
     @Published var sizeBytesText = ""
     @Published var checksum = ""
     @Published var widthText = ""
@@ -266,11 +338,32 @@ final class MediaAssetsViewModel: ObservableObject {
     @Published var metadataJson = ""
 
     @Published var bindingAssetId = ""
-    @Published var targetType = "asset"
+    @Published var targetType = ""
     @Published var targetId = ""
     @Published var sortOrderText = ""
     @Published var bindingTargetType = "asset"
     @Published var bindingTargetId = ""
+
+    var filteredAssets: [MediaAssetRecord] {
+        let keyword = searchText.nilIfBlank?.lowercased()
+        guard let keyword else { return assets }
+        return assets.filter { asset in
+            asset.assetType.lowercased().contains(keyword)
+                || asset.originalFileName.lowercased().contains(keyword)
+                || asset.objectKey.lowercased().contains(keyword)
+                || asset.storageProvider.lowercased().contains(keyword)
+        }
+    }
+
+    var filteredBindings: [MediaBindingRecord] {
+        let keyword = searchText.nilIfBlank?.lowercased()
+        guard let keyword else { return bindings }
+        return bindings.filter { binding in
+            binding.targetType.lowercased().contains(keyword)
+                || binding.targetId.rawValue.lowercased().contains(keyword)
+                || binding.assetId.rawValue.lowercased().contains(keyword)
+        }
+    }
 
     func applyInitialTarget(type: String?, id: String?) {
         guard let type = type?.nilIfBlank, let id = id?.nilIfBlank else {
@@ -309,11 +402,11 @@ final class MediaAssetsViewModel: ObservableObject {
     }
 
     func loadBindings(using client: APIClient) async {
-        guard let targetType = bindingTargetType.nilIfBlank,
-              let targetId = bindingTargetId.nilIfBlank else {
+        guard let targetId = bindingTargetId.nilIfBlank else {
             bindings = []
             return
         }
+        let targetType = bindingTargetType.nilIfBlank ?? "asset"
         do {
             bindings = try await client.fetchMediaBindings(targetType: targetType, targetId: EntityID(rawValue: targetId))
         } catch {
@@ -340,7 +433,7 @@ final class MediaAssetsViewModel: ObservableObject {
 
     func makeCreateAssetPayload() -> MediaAssetCreatePayload? {
         guard let objectKey = objectKey.nilIfBlank else {
-            errorMessage = "请先填写真实的 object key；iOS 当前不会生成默认对象或上传假文件。"
+            errorMessage = "请先填写真实的对象键；iOS 当前不会生成默认对象或上传假文件。"
             return nil
         }
         guard let originalFileName = originalFileName.nilIfBlank else {
@@ -348,7 +441,7 @@ final class MediaAssetsViewModel: ObservableObject {
             return nil
         }
         guard let mimeType = mimeType.nilIfBlank else {
-            errorMessage = "请填写 MIME type。"
+            errorMessage = "请填写文件 MIME 类型。"
             return nil
         }
         guard let sizeText = sizeBytesText.nilIfBlank,
@@ -359,7 +452,7 @@ final class MediaAssetsViewModel: ObservableObject {
         }
         if let metadata = metadataJson.nilIfBlank,
            !Self.isJSONObject(metadata) {
-            errorMessage = "Metadata JSON 必须是合法 JSON 对象。"
+            errorMessage = "元数据 JSON 必须是合法 JSON 对象。"
             return nil
         }
 
@@ -370,7 +463,7 @@ final class MediaAssetsViewModel: ObservableObject {
             bucketName: bucketName.nilIfBlank,
             objectKey: objectKey,
             originalFileName: originalFileName,
-            mimeType: mimeType,
+            mimeType: mimeType.nilIfBlank ?? "image/png",
             sizeBytes: sizeBytes,
             checksum: checksum.nilIfBlank,
             width: Int(widthText.nilIfBlank ?? ""),
@@ -399,7 +492,7 @@ final class MediaAssetsViewModel: ObservableObject {
     func createBinding(using client: APIClient) async {
         guard let assetId = bindingAssetId.nilIfBlank.map(EntityID.init(rawValue:)),
               let targetId = targetId.nilIfBlank.map(EntityID.init(rawValue:)) else {
-            errorMessage = "Asset ID and target ID are required."
+            errorMessage = "媒体资产 ID 和目标 ID 都是必填项。"
             return
         }
         do {
@@ -419,7 +512,8 @@ final class MediaAssetsViewModel: ObservableObject {
     func deleteBinding(id: EntityID, using client: APIClient) async {
         do {
             try await client.deleteMediaBinding(id: id)
-            if let targetId = targetId.nilIfBlank.map(EntityID.init(rawValue:)), let targetType = targetType.nilIfBlank {
+            if let targetId = targetId.nilIfBlank.map(EntityID.init(rawValue:)) {
+                let targetType = targetType.nilIfBlank ?? "asset"
                 bindings = try await client.fetchMediaBindings(targetType: targetType, targetId: targetId)
             }
         } catch {

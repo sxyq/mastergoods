@@ -6,6 +6,10 @@ struct SalesDetailView: View {
     let orderId: EntityID
     @StateObject private var viewModel = SalesDetailViewModel()
 
+    private var actionPolicy: SalesDetailActionPolicy {
+        SalesDetailActionPolicy.resolve(for: session.permissions)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -42,7 +46,7 @@ struct SalesDetailView: View {
                             Text("收款记录")
                                 .font(ZhihuijiTheme.Typography.sectionTitle)
                             Spacer()
-                            if session.hasPermission(.financeWrite) {
+                            if actionPolicy.canOpenPayment {
                                 NavigationLink {
                                     SalesPaymentView(initialOrderId: order.id)
                                 } label: {

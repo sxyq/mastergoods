@@ -1,9 +1,17 @@
-﻿import SwiftUI
+import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var session: AppSession
     @EnvironmentObject private var environmentStore: AppEnvironmentStore
     @Environment(\.appEnvironment) private var env
+
+    private var visibility: SettingsVisibilityPolicy {
+        SettingsVisibilityPolicy.resolve(for: session.permissions)
+    }
+
+    private var securityPolicy: SettingsSecurityPolicy {
+        SettingsSecurityPolicy.resolve(for: session.permissions)
+    }
 
     var body: some View {
         ScrollView {
@@ -11,6 +19,7 @@ struct SettingsView: View {
                 headerCard
                 statusOverview
                 managementSection
+                planningSection
                 syncSection
                 mediaSection
                 permissionSection
@@ -97,7 +106,7 @@ struct SettingsView: View {
             Text("门店管理")
                 .font(ZhihuijiTheme.Typography.sectionTitle)
 
-            if session.hasPermission(.usersManage) {
+            if visibility.canManageStaff {
                 NavigationLink {
                     StaffManagementView()
                 } label: {
@@ -110,6 +119,18 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            NavigationLink {
+                RoleAccessView()
+            } label: {
+                settingsEntryCard(
+                    title: "角色权限",
+                    subtitle: "查看各角色拥有的权限范围与矩阵",
+                    icon: "shield.lefthalf.filled",
+                    tint: ZhihuijiTheme.ColorToken.primaryBright
+                )
+            }
+            .buttonStyle(.plain)
 
             settingsInfoCard(
                 title: "门店账号体系",
@@ -124,7 +145,7 @@ struct SettingsView: View {
             Text("同步与导入")
                 .font(ZhihuijiTheme.Typography.sectionTitle)
 
-            if session.hasPermission(.databaseManage) {
+            if visibility.canAccessSyncImport {
                 NavigationLink {
                     SyncImportView()
                 } label: {
@@ -146,12 +167,37 @@ struct SettingsView: View {
         }
     }
 
+    private var planningSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("经营规划")
+                .font(ZhihuijiTheme.Typography.sectionTitle)
+
+            NavigationLink {
+                PlanningOverviewView()
+            } label: {
+                settingsEntryCard(
+                    title: "经营规划概览",
+                    subtitle: "查看后端、Android、iOS、Web 四端进度、里程碑与下一步建议。",
+                    icon: "chart.bar.doc.horizontal.fill",
+                    tint: ZhihuijiTheme.ColorToken.primary
+                )
+            }
+            .buttonStyle(.plain)
+
+            settingsInfoCard(
+                title: "规划数据来源",
+                subtitle: "当前为静态规划快照，用于团队对齐各端推进节奏与重点。",
+                tint: ZhihuijiTheme.ColorToken.success
+            )
+        }
+    }
+
     private var mediaSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("媒体资产")
                 .font(ZhihuijiTheme.Typography.sectionTitle)
 
-            if session.hasPermission(.databaseManage) {
+            if visibility.canAccessMediaAssets {
                 NavigationLink {
                     MediaAssetsView()
                 } label: {
@@ -182,8 +228,8 @@ struct SettingsView: View {
                 EmptyStateView(title: "暂无权限数据", message: "当前账号还没有同步到门店权限信息。")
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 10)], spacing: 10) {
-                    ForEach(session.permissions.map(\.rawValue).sorted(), id: \.self) { permission in
-                        StatusChip(title: permission, tint: ZhihuijiTheme.ColorToken.primary)
+                    ForEach(session.permissions.sorted { $0.displayName < $1.displayName }, id: \.self) { permission in
+                        StatusChip(title: permission.displayName, tint: ZhihuijiTheme.ColorToken.primary)
                     }
                 }
                 .padding(14)
@@ -205,10 +251,10 @@ struct SettingsView: View {
 
             settingsInfoCard(
                 title: "数据权限",
-                subtitle: session.hasPermission(.databaseManage)
+                subtitle: securityPolicy.canManageDatabase
                     ? "当前账号具备数据库管理权限；同步与导入入口可见。"
                     : "当前账号没有数据库管理权限，因此这里只保留业务相关设置与安全信息。",
-                tint: session.hasPermission(.databaseManage) ? ZhihuijiTheme.ColorToken.primaryBright : ZhihuijiTheme.ColorToken.textTertiary
+                tint: securityPolicy.canManageDatabase ? ZhihuijiTheme.ColorToken.primaryBright : ZhihuijiTheme.ColorToken.textTertiary
             )
 
             settingsInfoCard(

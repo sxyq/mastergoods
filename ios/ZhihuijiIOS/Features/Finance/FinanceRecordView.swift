@@ -5,6 +5,10 @@ struct FinanceRecordView: View {
     @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = FinanceRecordViewModel()
 
+    private var actionPolicy: FinanceRecordActionPolicy {
+        FinanceRecordActionPolicy.resolve(for: session.permissions)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -27,7 +31,7 @@ struct FinanceRecordView: View {
 
                 summarySection
 
-                cashChangeBoundaryCard
+                cashChangeSection
 
                 NavigationLink {
                     PayOrderDetailView()
@@ -50,7 +54,28 @@ struct FinanceRecordView: View {
                 }
                 .buttonStyle(.plain)
 
-                if session.hasPermission(.financeWrite) {
+                NavigationLink {
+                    DailyExpenseView()
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("每日支出")
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                            Text("按日期分组查看支出流水，汇总本周/本月支出。")
+                                .font(ZhihuijiTheme.Typography.body)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                    }
+                    .padding(16)
+                    .glassCard()
+                }
+                .buttonStyle(.plain)
+
+                if actionPolicy.canWriteFinance {
                     financeCreateForm
                 } else {
                     EmptyStateView(
@@ -88,17 +113,49 @@ struct FinanceRecordView: View {
         .onChange(of: viewModel.typeFilter) { _, _ in
             Task { await viewModel.load(client: env.apiClient) }
         }
+        .sheet(isPresented: $viewModel.isCashChangeSheetPresented) {
+            CashChangeFormSheet(viewModel: viewModel) {
+                await viewModel.createCashChange(client: env.apiClient)
+            }
+        }
     }
 
-    private var cashChangeBoundaryCard: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "info.circle.fill")
-                .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
-                .padding(.top, 1)
-            Text(FinanceRecordViewModel.cashChangeBoundaryNotice)
-                .font(ZhihuijiTheme.Typography.caption)
-                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+    private var cashChangeSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("现金调整")
+                        .font(ZhihuijiTheme.Typography.sectionTitle)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                    Text("登记应收/实收差额，关联单据并写入 /v2/cash-change-records。")
+                        .font(ZhihuijiTheme.Typography.caption)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Button {
+                    viewModel.isCashChangeSheetPresented = true
+                } label: {
+                    StatusChip(title: "新建调整", tint: ZhihuijiTheme.ColorToken.primary)
+                }
+                .buttonStyle(.plain)
+                .disabled(!actionPolicy.canWriteFinance)
+                .opacity(actionPolicy.canWriteFinance ? 1 : 0.5)
+            }
+
+            if viewModel.cashChangeRecords.isEmpty {
+                Text("暂无现金调整记录")
+                    .font(ZhihuijiTheme.Typography.caption)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+            } else {
+                LazyVStack(spacing: 10) {
+                    ForEach(viewModel.cashChangeRecords) { record in
+                        CashChangeRecordCard(record: record, canDelete: actionPolicy.canWriteFinance) {
+                            Task { await viewModel.deleteCashChange(id: record.id, client: env.apiClient) }
+                        }
+                    }
+                }
+            }
         }
         .padding(14)
         .background(Color.white.opacity(0.52), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
@@ -141,7 +198,7 @@ struct FinanceRecordView: View {
             PrimaryGlassButton(
                 title: viewModel.isSubmitting ? "保存中..." : "保存流水",
                 systemImage: "plus.circle.fill",
-                disabled: viewModel.isSubmitting || !session.hasPermission(.financeWrite)
+                disabled: viewModel.isSubmitting || !actionPolicy.canWriteFinance
             ) {
                 Task { await viewModel.createRecord(client: env.apiClient) }
             }
@@ -222,8 +279,6 @@ struct FinanceRecordView: View {
 
 @MainActor
 final class FinanceRecordViewModel: ObservableObject {
-    nonisolated static let cashChangeBoundaryNotice = "这里记录经营收支流水，复用现有 /v1/finance-records；不等同于现金调整或账户余额调整。cash-change records 后端闭环未完成前，iOS 不提供该入口。"
-
     @Published var keyword = ""
     @Published var typeFilter: FinanceTypeFilter = .all
     @Published var createType: FinanceRecordType = .expense
@@ -236,6 +291,16 @@ final class FinanceRecordViewModel: ObservableObject {
     @Published var isSubmitting = false
     @Published var records: [FinanceRecord] = []
     @Published var errorMessage: String?
+
+    @Published var isCashChangeSheetPresented = false
+    @Published var isSubmittingCashChange = false
+    @Published var cashChangeRecords: [CashChangeRecord] = []
+    @Published var cashChangeOrderType = "sale_order"
+    @Published var cashChangeOrderId = ""
+    @Published var cashChangeReceivableText = ""
+    @Published var cashChangeReceivedText = ""
+    @Published var cashChangeAccountId = ""
+    @Published var cashChangeNotes = ""
 
     var incomeTotal: Double {
         records.filter { $0.type == FinanceRecordType.income.rawValue }.reduce(0) { $0 + $1.amount }
@@ -283,6 +348,15 @@ final class FinanceRecordViewModel: ObservableObject {
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
+        await loadCashChangeRecords(client: client)
+    }
+
+    func loadCashChangeRecords(client: APIClient) async {
+        do {
+            cashChangeRecords = try await client.fetchCashChangeRecords()
+        } catch {
+            cashChangeRecords = []
+        }
     }
 
     func createRecord(client: APIClient) async {
@@ -313,6 +387,49 @@ final class FinanceRecordViewModel: ObservableObject {
             partnerName = ""
             notes = ""
             errorMessage = nil
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func createCashChange(client: APIClient) async {
+        guard let receivable = Double(cashChangeReceivableText) else {
+            errorMessage = "请输入正确的应收金额"
+            return
+        }
+        guard let received = Double(cashChangeReceivedText) else {
+            errorMessage = "请输入正确的实收金额"
+            return
+        }
+        isSubmittingCashChange = true
+        defer { isSubmittingCashChange = false }
+        do {
+            let payload = CashChangeRecordCreatePayload(
+                orderType: cashChangeOrderType,
+                orderId: cashChangeOrderId.nilIfBlank.map { EntityID(rawValue: $0) },
+                receivable: receivable,
+                received: received,
+                accountId: cashChangeAccountId.nilIfBlank.map { EntityID(rawValue: $0) },
+                status: 1,
+                notes: cashChangeNotes.nilIfBlank
+            )
+            let created = try await client.createCashChangeRecord(payload: payload)
+            cashChangeRecords.insert(created, at: 0)
+            cashChangeOrderId = ""
+            cashChangeReceivableText = ""
+            cashChangeReceivedText = ""
+            cashChangeNotes = ""
+            isCashChangeSheetPresented = false
+            errorMessage = nil
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func deleteCashChange(id: EntityID, client: APIClient) async {
+        do {
+            try await client.deleteCashChangeRecord(id: id)
+            cashChangeRecords.removeAll { $0.id == id }
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -370,6 +487,147 @@ private struct FinanceRecordCard: View {
         }
         .padding(16)
         .glassCard()
+    }
+}
+
+private struct CashChangeRecordCard: View {
+    let record: CashChangeRecord
+    let canDelete: Bool
+    let onDelete: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(record.statusTint.opacity(0.16))
+                .frame(width: 42, height: 42)
+                .overlay(
+                    Image(systemName: "yensign.circle.fill")
+                        .foregroundStyle(record.statusTint)
+                )
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(record.orderType)
+                        .font(ZhihuijiTheme.Typography.cardTitle)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                    Spacer()
+                    StatusChip(title: record.statusLabel, tint: record.statusTint)
+                }
+                if let orderId = record.orderId {
+                    Text("单据 \(orderId.rawValue)")
+                        .font(ZhihuijiTheme.Typography.caption)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                }
+                if let accountName = record.accountName?.nilIfBlank {
+                    Text("账户 \(accountName)")
+                        .font(ZhihuijiTheme.Typography.caption)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                }
+                HStack {
+                    Text("应收 \(record.receivable.currencyText)")
+                    Spacer()
+                    Text("实收 \(record.received.currencyText)")
+                }
+                .font(ZhihuijiTheme.Typography.caption)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                HStack {
+                    Text("找零 \(record.changeAmount.currencyText)")
+                    Spacer()
+                    Text(record.createdAt.dateTimeText)
+                }
+                .font(ZhihuijiTheme.Typography.caption)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                if let notes = record.notes?.nilIfBlank {
+                    Text(notes)
+                        .font(ZhihuijiTheme.Typography.caption)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                        .lineLimit(2)
+                }
+            }
+
+            if canDelete {
+                Button(role: .destructive, action: onDelete) {
+                    Image(systemName: "trash")
+                        .font(ZhihuijiTheme.Typography.captionSemibold)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.danger)
+                        .padding(8)
+                        .background(ZhihuijiTheme.ColorToken.danger.opacity(0.10), in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .glassCard()
+    }
+}
+
+private struct CashChangeFormSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var viewModel: FinanceRecordViewModel
+    let onSubmit: () async -> Void
+
+    private var orderTypeOptions: [String] {
+        ["sale_order", "purchase_order", "finance_record", "manual"]
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("关联单据")
+                        .font(ZhihuijiTheme.Typography.sectionTitle)
+                    Picker("单据类型", selection: $viewModel.cashChangeOrderType) {
+                        ForEach(orderTypeOptions, id: \.self) { option in
+                            Text(option).tag(option)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 14)
+                    .background(Color.white.opacity(0.58), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.field, style: .continuous))
+                    TextField("单据 ID（可选）", text: $viewModel.cashChangeOrderId)
+                        .fieldBackground()
+
+                    Text("金额")
+                        .font(ZhihuijiTheme.Typography.sectionTitle)
+                    TextField("应收金额", text: $viewModel.cashChangeReceivableText)
+                        .fieldBackground()
+                        .decimalInputKeyboard()
+                    TextField("实收金额", text: $viewModel.cashChangeReceivedText)
+                        .fieldBackground()
+                        .decimalInputKeyboard()
+
+                    Text("资金账户")
+                        .font(ZhihuijiTheme.Typography.sectionTitle)
+                    TextField("账户 ID（可选）", text: $viewModel.cashChangeAccountId)
+                        .fieldBackground()
+                        .numberInputKeyboard()
+
+                    Text("备注")
+                        .font(ZhihuijiTheme.Typography.sectionTitle)
+                    TextField("备注（可选）", text: $viewModel.cashChangeNotes, axis: .vertical)
+                        .lineLimit(2...4)
+                        .fieldBackground()
+
+                    PrimaryGlassButton(
+                        title: viewModel.isSubmittingCashChange ? "保存中..." : "提交现金调整",
+                        systemImage: "plus.circle.fill",
+                        disabled: viewModel.isSubmittingCashChange
+                    ) {
+                        Task { await onSubmit() }
+                    }
+                }
+                .padding(20)
+            }
+            .navigationTitle("现金调整")
+            .inlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("关闭") { dismiss() }
+                }
+            }
+        }
+        .zhihuijiBackground()
     }
 }
 

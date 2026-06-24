@@ -19,8 +19,44 @@ extension View {
         .overlay(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .stroke(ZhihuijiTheme.ColorToken.glassBorder, lineWidth: ZhihuijiTheme.Stroke.hairline)
-        )
+            )
         .shadow(color: ZhihuijiTheme.ShadowToken.glass, radius: 14, x: 0, y: 8)
+    }
+
+    @ViewBuilder
+    func phoneInputKeyboard() -> some View {
+        #if canImport(UIKit)
+        keyboardType(.phonePad)
+        #else
+        self
+        #endif
+    }
+
+    @ViewBuilder
+    func numberInputKeyboard() -> some View {
+        #if canImport(UIKit)
+        keyboardType(.numberPad)
+        #else
+        self
+        #endif
+    }
+
+    @ViewBuilder
+    func decimalInputKeyboard() -> some View {
+        #if canImport(UIKit)
+        keyboardType(.decimalPad)
+        #else
+        self
+        #endif
+    }
+
+    @ViewBuilder
+    func inlineNavigationTitle() -> some View {
+        #if canImport(UIKit)
+        navigationBarTitleDisplayMode(.inline)
+        #else
+        self
+        #endif
     }
 }
 
@@ -101,19 +137,11 @@ extension GlassListRow where Trailing == EmptyView {
 
 extension Int64 {
     var dateTimeText: String {
-        let date = Date(timeIntervalSince1970: TimeInterval(self) / 1000)
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
-        return formatter.string(from: date)
+        SelfFormatters.dateTime.string(from: Date(timeIntervalSince1970: TimeInterval(self) / 1000))
     }
 
     var dateText: String {
-        let date = Date(timeIntervalSince1970: TimeInterval(self) / 1000)
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
+        SelfFormatters.dateOnly.string(from: Date(timeIntervalSince1970: TimeInterval(self) / 1000))
     }
 }
 
@@ -126,4 +154,20 @@ extension String {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
+}
+
+private enum SelfFormatters {
+    static let dateTime: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter
+    }()
+
+    static let dateOnly: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 }

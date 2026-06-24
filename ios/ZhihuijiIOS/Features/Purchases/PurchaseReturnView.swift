@@ -6,6 +6,10 @@ struct PurchaseReturnView: View {
     let initialOrderId: EntityID?
     @StateObject private var viewModel = PurchaseReturnViewModel()
 
+    private var actionPolicy: PurchaseReturnActionPolicy {
+        PurchaseReturnActionPolicy.resolve(for: session.permissions, returnRecord: viewModel.selectedReturn)
+    }
+
     init(initialOrderId: EntityID? = nil) {
         self.initialOrderId = initialOrderId
     }
@@ -83,7 +87,7 @@ struct PurchaseReturnView: View {
             if let selected = viewModel.selectedReturn {
                 PurchaseReturnDetailCard(item: selected)
 
-                if selected.canEditDraft, session.hasPermission(.purchaseWrite) {
+                if actionPolicy.canEditDraft {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("草稿处理")
                             .font(ZhihuijiTheme.Typography.sectionTitle)
@@ -102,7 +106,7 @@ struct PurchaseReturnView: View {
                     .glassCard()
                 }
 
-                if selected.canRefund, session.hasPermission(.financeWrite) {
+                if actionPolicy.canRefund {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("退款处理")
                             .font(ZhihuijiTheme.Typography.sectionTitle)
@@ -127,7 +131,7 @@ struct PurchaseReturnView: View {
                     .glassCard()
                 }
 
-                if selected.canCancel, session.hasPermission(.purchaseWrite) {
+                if actionPolicy.canCancel {
                     PrimaryGlassButton(title: viewModel.isSubmitting ? "取消中..." : "取消退货单", systemImage: "xmark.circle.fill", disabled: viewModel.isSubmitting) {
                         Task { await viewModel.cancelReturn(client: env.apiClient) }
                     }
@@ -198,7 +202,7 @@ struct PurchaseReturnView: View {
                     }
                     TextField("备注", text: $viewModel.createNotes, axis: .vertical)
                         .fieldBackground()
-                    PrimaryGlassButton(title: viewModel.isSubmitting ? "创建中..." : "创建采购退货单", systemImage: "plus.circle.fill", disabled: viewModel.isSubmitting || !session.hasPermission(.purchaseWrite)) {
+                    PrimaryGlassButton(title: viewModel.isSubmitting ? "创建中..." : "创建采购退货单", systemImage: "plus.circle.fill", disabled: viewModel.isSubmitting || !actionPolicy.canCreateReturn) {
                         Task { await viewModel.createReturn(client: env.apiClient) }
                     }
                 }

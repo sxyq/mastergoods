@@ -13,6 +13,7 @@ final class LoginViewModelTests: XCTestCase {
         super.tearDown()
     }
 
+    @MainActor
     func testLoginViewModelStartsEmpty() {
         let viewModel = LoginViewModel()
 
@@ -41,15 +42,15 @@ final class LoginViewModelTests: XCTestCase {
             }
 
             switch path {
-            case "/v1/auth/login":
+            case "/v2/auth/login":
                 XCTAssertEqual(request.httpMethod, "POST")
                 let body = try XCTUnwrap(request.httpBody)
                 let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
                 XCTAssertEqual(json?["phone"] as? String, "13800000001")
                 XCTAssertEqual(json?["password"] as? String, "123456")
-                return (Self.response(statusCode: 200), Self.loginPayload)
+                return (LoginMockURLProtocol.response(statusCode: 200), LoginMockURLProtocol.loginPayload)
             case "/v2/stores/current":
-                return (Self.response(statusCode: 200), Self.currentStorePayload)
+                return (LoginMockURLProtocol.response(statusCode: 200), LoginMockURLProtocol.currentStorePayload)
             default:
                 throw URLError(.fileDoesNotExist)
             }
@@ -104,7 +105,7 @@ final class LoginMockURLProtocol: URLProtocol {
 
     override func stopLoading() {}
 
-    private static func response(statusCode: Int) -> HTTPURLResponse {
+    fileprivate static func response(statusCode: Int) -> HTTPURLResponse {
         HTTPURLResponse(
             url: URL(string: "https://example.com")!,
             statusCode: statusCode,
@@ -113,7 +114,7 @@ final class LoginMockURLProtocol: URLProtocol {
         )!
     }
 
-    private static let loginPayload = Data(
+    fileprivate static let loginPayload = Data(
         """
         {
           "code": 0,
@@ -128,7 +129,7 @@ final class LoginMockURLProtocol: URLProtocol {
         """.utf8
     )
 
-    private static let currentStorePayload = Data(
+    fileprivate static let currentStorePayload = Data(
         """
         {
           "code": 0,

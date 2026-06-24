@@ -66,6 +66,60 @@ final class ModelDecodingTests: XCTestCase {
         XCTAssertEqual(event.block?.title, "经营概览")
     }
 
+    func testAgentStreamEventDecodesProgressDraftAndContextFields() throws {
+        let draftData = Data(
+            """
+            {
+              "event_type": "draft_created",
+              "run_id": "run-draft",
+              "conversation_id": "conv-draft",
+              "draft_id": "99001",
+              "draft_type": "purchase_plan",
+              "title": "补货草稿",
+              "timestamp": 1710000000000
+            }
+            """.utf8
+        )
+        let progressData = Data(
+            """
+            {
+              "event_type": "tool_progress",
+              "run_id": "run-tool",
+              "tool_name": "inventory_low_stock_lookup",
+              "message": "正在读取低库存商品",
+              "timestamp": 1710000000001
+            }
+            """.utf8
+        )
+        let compactedData = Data(
+            """
+            {
+              "event_type": "context_compacted",
+              "run_id": "run-context",
+              "compacted_count": 18,
+              "summary": "已将早期追问整理为经营上下文",
+              "timestamp": 1710000000002
+            }
+            """.utf8
+        )
+
+        let draft = try JSONDecoder().decode(AgentStreamEvent.self, from: draftData)
+        XCTAssertEqual(draft.eventType, "draft_created")
+        XCTAssertEqual(draft.draftId?.rawValue, "99001")
+        XCTAssertEqual(draft.draftType, "purchase_plan")
+        XCTAssertEqual(draft.title, "补货草稿")
+
+        let progress = try JSONDecoder().decode(AgentStreamEvent.self, from: progressData)
+        XCTAssertEqual(progress.eventType, "tool_progress")
+        XCTAssertEqual(progress.toolName, "inventory_low_stock_lookup")
+        XCTAssertEqual(progress.message, "正在读取低库存商品")
+
+        let compacted = try JSONDecoder().decode(AgentStreamEvent.self, from: compactedData)
+        XCTAssertEqual(compacted.eventType, "context_compacted")
+        XCTAssertEqual(compacted.compactedCount, 18)
+        XCTAssertEqual(compacted.summary, "已将早期追问整理为经营上下文")
+    }
+
     func testAgentResultBlockPayloadsDecodeIntoStructuredModels() throws {
         let data = Data(
             """
@@ -446,14 +500,11 @@ final class ModelDecodingTests: XCTestCase {
     }
 
     func testProductEditBoundariesDoNotClaimNativeScanOrUpload() {
-        XCTAssertTrue(ProductEditViewModel.scanBoundaryNotice.contains("尚未接入"))
+        XCTAssertTrue(ProductEditViewModel.scanBoundaryNotice.contains("兼容设备"))
         XCTAssertTrue(ProductEditViewModel.scanBoundaryNotice.contains("手动填写商品编码"))
-        XCTAssertTrue(ProductEditViewModel.mediaBoundaryNotice.contains("现有媒体 API"))
-        XCTAssertTrue(ProductEditViewModel.mediaBoundaryNotice.contains("不执行本地文件上传"))
-        XCTAssertTrue(ProductEditViewModel.mediaBoundaryNotice.contains("生成假图片"))
     }
 
-    func testPurchaseOrderCreatePayloadKeepsUnsupportedFieldsOutOfDTO() throws {
+    func testPurchaseOrderCreatePayloadEncodesSettlementMethodAndOmitsWarehouseByDefault() throws {
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
         let payload = PurchaseOrderCreatePayload(
@@ -468,6 +519,7 @@ final class ModelDecodingTests: XCTestCase {
                     unitCost: 9.8
                 ),
             ],
+            settlementMethod: 2,
             notes: "六月采购",
             status: 0
         )
@@ -479,18 +531,9 @@ final class ModelDecodingTests: XCTestCase {
         XCTAssertEqual(json["supplier_name"] as? String, "华东供货中心")
         XCTAssertEqual(json["notes"] as? String, "六月采购")
         XCTAssertEqual(json["status"] as? Int, 0)
+        XCTAssertEqual(json["settlement_method"] as? Int, 2)
         XCTAssertNil(json["discount_amount"])
         XCTAssertNil(json["warehouse_id"])
-        XCTAssertNil(json["settlement_method"])
-    }
-
-    func testPurchaseEditBoundaryCopyMatchesBackendContractLimits() {
-        XCTAssertTrue(PurchaseEditViewModel.contractBoundaryNotice.contains("/v2/purchase-orders"))
-        XCTAssertTrue(PurchaseEditViewModel.contractBoundaryNotice.contains("结算方式"))
-        XCTAssertTrue(PurchaseEditViewModel.contractBoundaryNotice.contains("入库仓库"))
-        XCTAssertTrue(PurchaseEditViewModel.contractBoundaryNotice.contains("不写入不存在的 DTO 字段"))
-        XCTAssertTrue(PurchaseEditViewModel.discountBoundaryNotice.contains("整单折扣"))
-        XCTAssertTrue(PurchaseEditViewModel.discountBoundaryNotice.contains("不在本地扣减"))
     }
 
     func testPayOrderCreatePayloadEncodesSupplierAndAccountIDsAsStrings() throws {
@@ -577,6 +620,63 @@ final class ModelDecodingTests: XCTestCase {
         XCTAssertEqual(record.typeLabel, "支出")
         XCTAssertEqual(record.methodLabel, "现金")
         XCTAssertEqual(record.partnerName, "物业中心")
+    }
+
+    func testCashChangeRecordDecodesSnakeCaseFieldsAndResolvesStatus() throws {
+        let data = Data(
+            """
+            {
+              "id": "930000000000010",
+              "order_type": "sale_order",
+              "order_id": "50001",
+              "receivable": 100.0,
+              "received": 80.0,
+              "change_amount": 20.0,
+              "account_id": "70001",
+              "account_name": "现金账户",
+              "status": 1,
+              "notes": "客户现金付款",
+              "created_at": 1710000000000,
+              "updated_at": 1710003600000
+            }
+            """.utf8
+        )
+
+        let record = try JSONDecoder().decode(CashChangeRecord.self, from: data)
+        XCTAssertEqual(record.id.rawValue, "930000000000010")
+        XCTAssertEqual(record.orderType, "sale_order")
+        XCTAssertEqual(record.orderId?.rawValue, "50001")
+        XCTAssertEqual(record.receivable, 100.0)
+        XCTAssertEqual(record.received, 80.0)
+        XCTAssertEqual(record.changeAmount, 20.0)
+        XCTAssertEqual(record.accountId?.rawValue, "70001")
+        XCTAssertEqual(record.accountName, "现金账户")
+        XCTAssertEqual(record.statusLabel, "已生效")
+    }
+
+    func testCashChangeRecordCreatePayloadEncodesSnakeCaseShape() throws {
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        let payload = CashChangeRecordCreatePayload(
+            orderType: "sale_order",
+            orderId: EntityID(rawValue: "50001"),
+            receivable: 100.0,
+            received: 80.0,
+            accountId: EntityID(rawValue: "70001"),
+            status: 1,
+            notes: "现金付款"
+        )
+
+        let data = try encoder.encode(payload)
+        let json = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertEqual(json["order_type"] as? String, "sale_order")
+        XCTAssertEqual(json["order_id"] as? String, "50001")
+        XCTAssertEqual(json["receivable"] as? Double, 100.0)
+        XCTAssertEqual(json["received"] as? Double, 80.0)
+        XCTAssertEqual(json["account_id"] as? String, "70001")
+        XCTAssertEqual(json["status"] as? Int, 1)
+        XCTAssertEqual(json["notes"] as? String, "现金付款")
     }
 
     func testInventorySnapshotSummaryDecodesLargeIDsAndOptionalValue() throws {

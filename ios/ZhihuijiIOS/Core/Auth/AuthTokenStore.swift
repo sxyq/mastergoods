@@ -2,6 +2,7 @@ import Foundation
 import Security
 
 final class AuthTokenStore {
+    private let service = "com.zhihuiji.ios.auth"
     private let accessTokenKey = "zhihuiji.ios.access-token"
     private let refreshTokenKey = "zhihuiji.ios.refresh-token"
 
@@ -30,6 +31,7 @@ final class AuthTokenStore {
     private func read(for key: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
             kSecAttrAccount as String: key,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
@@ -48,6 +50,7 @@ final class AuthTokenStore {
         let data = Data(value.utf8)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
             kSecAttrAccount as String: key,
         ]
         let update: [String: Any] = [
@@ -57,7 +60,9 @@ final class AuthTokenStore {
         if updateStatus == errSecItemNotFound {
             let insert: [String: Any] = [
                 kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
                 kSecAttrAccount as String: key,
+                kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
                 kSecValueData as String: data,
             ]
             SecItemAdd(insert as CFDictionary, nil)
@@ -67,6 +72,7 @@ final class AuthTokenStore {
     private func delete(for key: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
             kSecAttrAccount as String: key,
         ]
         SecItemDelete(query as CFDictionary)

@@ -6,7 +6,7 @@ final class APIClientTests: XCTestCase {
         XCTAssertEqual(APIEndpoint.currentStore.path, "/v2/stores/current")
         XCTAssertEqual(APIEndpoint.storeMembers.path, "/v2/stores/current/members")
         XCTAssertEqual(APIEndpoint.agentWorkbench.path, "/v2/agent/workbench")
-        XCTAssertEqual(APIEndpoint.refresh.path, "/v1/auth/refresh")
+        XCTAssertEqual(APIEndpoint.refresh.path, "/v2/auth/refresh")
     }
 
     func testAuthPayloadDecodesLargeUserIDAsEntityID() throws {
@@ -40,6 +40,18 @@ final class APIClientTests: XCTestCase {
         XCTAssertNil(AppEnvironment.environment(from: "ftp://example.com"))
         XCTAssertNil(AppEnvironment.environment(from: "https:///missing-host"))
         XCTAssertNil(AppEnvironment.environment(from: ""))
+    }
+
+    func testAppEnvironmentStripsEndpointVersionSuffixFromBaseURL() {
+        let v1Root = AppEnvironment.environment(from: "https://example.com/v1")
+        let v2Root = AppEnvironment.environment(from: "https://example.com/v2/")
+        let prefixed = AppEnvironment.environment(from: "https://example.com/zhihuiji/v2?debug=1")
+        let stablePrefix = AppEnvironment.environment(from: "https://example.com/api")
+
+        XCTAssertEqual(v1Root?.apiBaseURL.absoluteString, "https://example.com")
+        XCTAssertEqual(v2Root?.apiBaseURL.absoluteString, "https://example.com")
+        XCTAssertEqual(prefixed?.apiBaseURL.absoluteString, "https://example.com/zhihuiji?debug=1")
+        XCTAssertEqual(stablePrefix?.apiBaseURL.absoluteString, "https://example.com/api")
     }
 
     func testArchiveRelatedEndpointsAreStable() {

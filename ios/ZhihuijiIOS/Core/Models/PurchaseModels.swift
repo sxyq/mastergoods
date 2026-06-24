@@ -10,6 +10,8 @@ struct PurchaseOrderSummary: Identifiable, Codable, Equatable {
     let totalAmount: Double
     let paidAmount: Double
     let receivedAmount: Double
+    let settlementMethod: Int?
+    let warehouseId: EntityID?
     let notes: String?
     let status: Int
     let createdAt: Int64
@@ -22,8 +24,28 @@ struct PurchaseOrderCreatePayload: Codable {
     let supplierId: EntityID?
     let supplierName: String?
     let items: [PurchaseOrderCreateItemPayload]
+    let settlementMethod: Int?
+    let warehouseId: EntityID?
     let notes: String?
     let status: Int?
+
+    init(
+        supplierId: EntityID?,
+        supplierName: String?,
+        items: [PurchaseOrderCreateItemPayload],
+        settlementMethod: Int? = nil,
+        warehouseId: EntityID? = nil,
+        notes: String?,
+        status: Int?
+    ) {
+        self.supplierId = supplierId
+        self.supplierName = supplierName
+        self.items = items
+        self.settlementMethod = settlementMethod
+        self.warehouseId = warehouseId
+        self.notes = notes
+        self.status = status
+    }
 }
 
 struct PurchaseOrderCreateItemPayload: Codable {

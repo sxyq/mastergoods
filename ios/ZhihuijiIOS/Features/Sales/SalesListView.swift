@@ -5,6 +5,10 @@ struct SalesListView: View {
     @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = SalesListViewModel()
 
+    private var actionPolicy: SalesListActionPolicy {
+        SalesListActionPolicy.resolve(for: session.permissions)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -13,7 +17,7 @@ struct SalesListView: View {
                         .font(ZhihuijiTheme.Typography.pageTitle)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
                     Spacer()
-                    if session.hasPermission(.salesWrite) {
+                    if actionPolicy.canOpenCreate {
                         NavigationLink {
                             SalesEditView()
                         } label: {

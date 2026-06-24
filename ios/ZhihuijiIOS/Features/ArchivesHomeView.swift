@@ -7,18 +7,12 @@ struct ArchivesHomeView: View {
     @State private var customerDetail: CustomerRecord?
     @State private var supplierDetail: SupplierRecord?
 
+    private var actionPolicy: ArchivesHomeActionPolicy {
+        ArchivesHomeActionPolicy.resolve(for: session.permissions)
+    }
+
     var availableTabs: [ArchiveTab] {
-        var tabs: [ArchiveTab] = []
-        if session.hasPermission(.archivesView) {
-            tabs.append(.products)
-        }
-        if session.hasPermission(.salesView) {
-            tabs.append(.customers)
-        }
-        if session.hasPermission(.purchaseView) {
-            tabs.append(.suppliers)
-        }
-        return tabs
+        ArchivesHomeAccessPolicy.resolve(for: session.permissions).availableTabs
     }
 
     var body: some View {
@@ -98,14 +92,14 @@ struct ArchivesHomeView: View {
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
                 Spacer()
-                if viewModel.selectedTab == .products, session.hasPermission(.archivesWrite) {
+                if viewModel.selectedTab == .products, actionPolicy.canCreateProduct {
                     NavigationLink {
                         ProductEditView()
                     } label: {
                         StatusChip(title: "新增商品", tint: ZhihuijiTheme.ColorToken.primary)
                     }
                     .buttonStyle(.plain)
-                } else if session.hasPermission(.archivesWrite) {
+                } else if actionPolicy.canCreateCustomer || actionPolicy.canCreateSupplier {
                     Button {
                         switch viewModel.selectedTab {
                         case .customers:
@@ -258,7 +252,7 @@ struct ArchivesHomeView: View {
                             detailAction: {
                                 Task { customerDetail = await viewModel.fetchCustomerDetail(customer.id, using: env.apiClient) }
                             },
-                            editAction: session.hasPermission(.archivesWrite) ? {
+                            editAction: actionPolicy.canEditPartner ? {
                                 viewModel.beginEditCustomer(customer)
                             } : nil
                         ) {
@@ -280,7 +274,7 @@ struct ArchivesHomeView: View {
                             detailAction: {
                                 Task { supplierDetail = await viewModel.fetchSupplierDetail(supplier.id, using: env.apiClient) }
                             },
-                            editAction: session.hasPermission(.archivesWrite) ? {
+                            editAction: actionPolicy.canEditPartner ? {
                                 viewModel.beginEditSupplier(supplier)
                             } : nil
                         ) {
@@ -661,38 +655,6 @@ final class ArchivesHomeViewModel: ObservableObject {
             supplierGroupFilter = nil
         case .products:
             break
-        }
-    }
-}
-
-enum ArchiveTab: String, CaseIterable, Identifiable {
-    case products
-    case customers
-    case suppliers
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .products: return "商品"
-        case .customers: return "客户"
-        case .suppliers: return "供应商"
-        }
-    }
-
-    var searchPlaceholder: String {
-        switch self {
-        case .products: return "搜索商品名称 / 编码"
-        case .customers: return "搜索客户名称 / 手机号"
-        case .suppliers: return "搜索供应商名称 / 手机号"
-        }
-    }
-
-    var emptyMessage: String {
-        switch self {
-        case .products: return "当前没有商品档案数据。"
-        case .customers: return "当前没有客户档案数据。"
-        case .suppliers: return "当前没有供应商档案数据。"
         }
     }
 }

@@ -5,6 +5,10 @@ struct AgentChatView: View {
     @Environment(\.appEnvironment) private var env
     @StateObject private var viewModel = AgentViewModel()
 
+    private var access: AgentAccessPolicy {
+        AgentAccessPolicy.resolve(for: session.permissions)
+    }
+
     private var currentRun: AgentLiveRunPreview? {
         viewModel.liveRun ?? viewModel.latestResponse?.livePreview
     }
@@ -13,6 +17,7 @@ struct AgentChatView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 headerCard
+                dedicatedPageEntries
                 workbenchSection
                 pendingDraftSection
                 conversationsSection
@@ -88,8 +93,8 @@ struct AgentChatView: View {
                 }
                 Spacer()
                 StatusChip(
-                    title: session.hasPermission(.agentWrite) ? "可提问" : "只读",
-                    tint: session.hasPermission(.agentWrite) ? ZhihuijiTheme.ColorToken.primary : ZhihuijiTheme.ColorToken.warning
+                    title: access.canWriteAgent ? "可提问" : "只读",
+                    tint: access.canWriteAgent ? ZhihuijiTheme.ColorToken.primary : ZhihuijiTheme.ColorToken.warning
                 )
             }
 
@@ -104,9 +109,100 @@ struct AgentChatView: View {
                         in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
                     )
             }
+
+            if let notice = viewModel.contextCompactedNotice?.nilIfBlank {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
+                        .padding(.top, 1)
+                    Text(notice)
+                        .font(ZhihuijiTheme.Typography.caption)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(12)
+                .background(
+                    ZhihuijiTheme.ColorToken.primary.opacity(0.08),
+                    in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                )
+            }
         }
         .padding(16)
         .glassCard()
+    }
+
+    @ViewBuilder
+    private var dedicatedPageEntries: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("专页入口")
+                .font(ZhihuijiTheme.Typography.sectionTitle)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                NavigationLink {
+                    AgentWorkbenchView()
+                } label: {
+                    dedicatedEntryCard(
+                        title: "工作台",
+                        subtitle: "经营概览、KPI、待办与风险",
+                        icon: "square.grid.2x2.fill",
+                        tint: ZhihuijiTheme.ColorToken.primary
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink {
+                    AgentDraftsView()
+                } label: {
+                    dedicatedEntryCard(
+                        title: "草稿管理",
+                        subtitle: "创建、编辑、归档与删除草稿",
+                        icon: "doc.text.fill",
+                        tint: ZhihuijiTheme.ColorToken.primaryBright
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink {
+                    AgentTasksView()
+                } label: {
+                    dedicatedEntryCard(
+                        title: "任务与通知",
+                        subtitle: "查看任务进度与风险通知",
+                        icon: "bell.badge.fill",
+                        tint: ZhihuijiTheme.ColorToken.warning
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func dedicatedEntryCard(title: String, subtitle: String, icon: String, tint: Color) -> some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(tint.opacity(0.14))
+                .frame(width: 38, height: 38)
+                .overlay(
+                    Image(systemName: icon)
+                        .font(ZhihuijiTheme.Typography.bodyMedium)
+                        .foregroundStyle(tint)
+                )
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(ZhihuijiTheme.Typography.bodyMedium)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                Text(subtitle)
+                    .font(ZhihuijiTheme.Typography.caption)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(ZhihuijiTheme.Typography.captionSemibold)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+        }
+        .padding(14)
+        .glassCard(cornerRadius: ZhihuijiTheme.Radius.cardSmall)
     }
 
     @ViewBuilder
@@ -235,7 +331,7 @@ struct AgentChatView: View {
                 Text("最近会话")
                     .font(ZhihuijiTheme.Typography.sectionTitle)
                 Spacer()
-                if session.hasPermission(.agentWrite) {
+                if access.canWriteAgent {
                     Button {
                         Task { await viewModel.createConversation(using: env.apiClient) }
                     } label: {
@@ -276,7 +372,7 @@ struct AgentChatView: View {
                                             .font(ZhihuijiTheme.Typography.bodyMedium)
                                             .lineLimit(1)
                                         Spacer(minLength: 4)
-                                        if session.hasPermission(.agentWrite), viewModel.selectedConversationId == conversation.id {
+                                        if access.canWriteAgent, viewModel.selectedConversationId == conversation.id {
                                             Image(systemName: "trash")
                                                 .font(ZhihuijiTheme.Typography.captionSemibold)
                                                 .foregroundStyle(Color.white.opacity(0.92))
@@ -305,7 +401,7 @@ struct AgentChatView: View {
                             }
                             .buttonStyle(.plain)
                             .contextMenu {
-                                if session.hasPermission(.agentWrite) {
+                                if access.canWriteAgent {
                                     Button(role: .destructive) {
                                         Task { await viewModel.deleteConversation(conversation, client: env.apiClient) }
                                     } label: {
@@ -539,7 +635,7 @@ struct AgentChatView: View {
             Text("发起提问")
                 .font(ZhihuijiTheme.Typography.sectionTitle)
 
-            if session.hasPermission(.agentWrite) {
+            if access.canWriteAgent {
                 TextField("问点什么，比如今天哪些客户欠款最高？", text: $viewModel.draftQuestion, axis: .vertical)
                     .lineLimit(3 ... 6)
                     .agentComposerBehavior()
@@ -1223,7 +1319,7 @@ private struct AgentDraftCardBlock: View {
                 }
             }
 
-            Text("这是 AI 草稿，尚未执行正式业务写入。")
+            Text("这是 AI 草稿，当前不会直接写入正式业务数据。")
                 .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
 
@@ -1244,7 +1340,7 @@ private struct AgentUnknownResultBlock: View {
     let block: AgentResultBlock
 
     private var fallbackTitle: String {
-        block.title?.nilIfBlank ?? "暂未支持的结构化结果"
+        block.title?.nilIfBlank ?? "未识别的结构化结果"
     }
 
     private var fallbackPreview: String {
@@ -1569,7 +1665,7 @@ private extension View {
     }
 }
 
-private extension JSONValue {
+extension JSONValue {
     var objectValue: [String: JSONValue]? {
         if case let .object(value) = self { return value }
         return nil
@@ -1740,6 +1836,6 @@ private extension Color {
 
 private extension CGFloat {
     func clamped(to limits: ClosedRange<CGFloat>) -> CGFloat {
-        min(max(self, limits.lowerBound), limits.upperBound)
+        Swift.min(Swift.max(self, limits.lowerBound), limits.upperBound)
     }
 }

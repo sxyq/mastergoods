@@ -10,6 +10,10 @@ struct PurchaseReceiptView: View {
         self.initialOrderId = initialOrderId
     }
 
+    private var actionPolicy: PurchaseReceiptActionPolicy {
+        PurchaseReceiptActionPolicy.resolve(for: session.permissions, receipt: viewModel.selectedReceipt)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -83,7 +87,7 @@ struct PurchaseReceiptView: View {
             if let selected = viewModel.selectedReceipt {
                 PurchaseReceiptDetailCard(item: selected)
 
-                if selected.canEditDraft, session.hasPermission(.inventoryWrite) {
+                if actionPolicy.canEditDraft {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("草稿处理")
                             .font(ZhihuijiTheme.Typography.sectionTitle)
@@ -102,7 +106,7 @@ struct PurchaseReceiptView: View {
                     .glassCard()
                 }
 
-                if selected.canCancel, session.hasPermission(.inventoryWrite) {
+                if actionPolicy.canCancel {
                     PrimaryGlassButton(title: viewModel.isSubmitting ? "取消中..." : "取消收货单", systemImage: "xmark.circle.fill", disabled: viewModel.isSubmitting) {
                         Task { await viewModel.cancelReceipt(client: env.apiClient) }
                     }
@@ -173,7 +177,7 @@ struct PurchaseReceiptView: View {
                     }
                     TextField("备注", text: $viewModel.createNotes, axis: .vertical)
                         .fieldBackground()
-                    PrimaryGlassButton(title: viewModel.isSubmitting ? "创建中..." : "创建收货单", systemImage: "plus.circle.fill", disabled: viewModel.isSubmitting || !session.hasPermission(.inventoryWrite)) {
+                    PrimaryGlassButton(title: viewModel.isSubmitting ? "创建中..." : "创建收货单", systemImage: "plus.circle.fill", disabled: viewModel.isSubmitting || !actionPolicy.canCreateReceipt) {
                         Task { await viewModel.createReceipt(client: env.apiClient) }
                     }
                 }

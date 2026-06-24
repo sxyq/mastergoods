@@ -5,6 +5,10 @@ struct StaffManagementView: View {
     @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = StaffManagementViewModel()
 
+    private var actionPolicy: StaffManagementActionPolicy {
+        StaffManagementActionPolicy.resolve(for: session.permissions)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -17,7 +21,7 @@ struct StaffManagementView: View {
                     role: $viewModel.createRole,
                     title: $viewModel.createTitle,
                     isSaving: viewModel.isSaving,
-                    canManage: session.hasPermission(.usersManage),
+                    canManage: actionPolicy.canManageStaff,
                     onSubmit: {
                         Task { await viewModel.createMember(using: env.apiClient) }
                     }
@@ -52,7 +56,7 @@ struct StaffManagementView: View {
                 StaffEditSheet(
                     viewModel: viewModel,
                     member: member,
-                    canManage: session.hasPermission(.usersManage),
+                    canManage: actionPolicy.canManageStaff,
                     onSave: {
                         Task { await viewModel.saveEditingMember(using: env.apiClient) }
                     }
@@ -88,7 +92,7 @@ struct StaffManagementView: View {
 
             HStack(spacing: 10) {
                 statChip(title: "活跃会话 \(viewModel.totalActiveSessions)", tint: ZhihuijiTheme.ColorToken.primaryBright)
-                statChip(title: session.hasPermission(.usersManage) ? "可管理员工" : "仅可查看", tint: session.hasPermission(.usersManage) ? ZhihuijiTheme.ColorToken.success : ZhihuijiTheme.ColorToken.warning)
+                statChip(title: actionPolicy.canManageStaff ? "可管理员工" : "仅可查看", tint: actionPolicy.canManageStaff ? ZhihuijiTheme.ColorToken.success : ZhihuijiTheme.ColorToken.warning)
             }
         }
         .padding(18)
@@ -169,8 +173,8 @@ struct StaffManagementView: View {
             if !member.permissions.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(member.permissions.map(\.rawValue).sorted().prefix(6), id: \.self) { permission in
-                            Text(permission)
+                        ForEach(member.permissions.sorted { $0.displayName < $1.displayName }.prefix(6), id: \.self) { permission in
+                            Text(permission.displayName)
                                 .font(ZhihuijiTheme.Typography.caption)
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                                 .padding(.horizontal, 10)
@@ -192,8 +196,8 @@ struct StaffManagementView: View {
                 ) {
                     viewModel.beginEditing(member)
                 }
-                .disabled(!session.hasPermission(.usersManage) || viewModel.isSaving)
-                .opacity((!session.hasPermission(.usersManage) || viewModel.isSaving) ? 0.6 : 1)
+                .disabled(!actionPolicy.canManageStaff || viewModel.isSaving)
+                .opacity((!actionPolicy.canManageStaff || viewModel.isSaving) ? 0.6 : 1)
 
                 if member.role == .owner {
                     SecondaryActionButton(
@@ -210,8 +214,8 @@ struct StaffManagementView: View {
                     ) {
                         Task { await viewModel.quickToggleMember(member, using: env.apiClient) }
                     }
-                    .disabled(!session.hasPermission(.usersManage) || viewModel.isSaving)
-                    .opacity((!session.hasPermission(.usersManage) || viewModel.isSaving) ? 0.6 : 1)
+                    .disabled(!actionPolicy.canManageStaff || viewModel.isSaving)
+                    .opacity((!actionPolicy.canManageStaff || viewModel.isSaving) ? 0.6 : 1)
                 }
 
                 if member.activeSessions > 0, member.role != .owner {
@@ -222,8 +226,8 @@ struct StaffManagementView: View {
                     ) {
                         Task { await viewModel.revokeSessions(for: member, using: env.apiClient) }
                     }
-                    .disabled(!session.hasPermission(.usersManage) || viewModel.isSaving)
-                    .opacity((!session.hasPermission(.usersManage) || viewModel.isSaving) ? 0.6 : 1)
+                    .disabled(!actionPolicy.canManageStaff || viewModel.isSaving)
+                    .opacity((!actionPolicy.canManageStaff || viewModel.isSaving) ? 0.6 : 1)
                 }
             }
         }

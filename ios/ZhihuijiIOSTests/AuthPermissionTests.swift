@@ -14,6 +14,15 @@ final class AuthPermissionTests: XCTestCase {
         XCTAssertEqual(StoreRole.assistant.label, "AI/只读助理")
     }
 
+    func testStoreRoleDecodingAcceptsBackendCaseVariantsAndEncodesCanonicalValue() throws {
+        XCTAssertEqual(try JSONDecoder().decode(StoreRole.self, from: Data(#""assistant""#.utf8)), .assistant)
+        XCTAssertEqual(try JSONDecoder().decode(StoreRole.self, from: Data(#""ASSISTANT""#.utf8)), .assistant)
+        XCTAssertEqual(try JSONDecoder().decode(StoreRole.self, from: Data(#"" manager ""#.utf8)), .manager)
+
+        let encoded = try JSONEncoder().encode(StoreRole.assistant)
+        XCTAssertEqual(String(data: encoded, encoding: .utf8), #""ASSISTANT""#)
+    }
+
     func testUserProfileDecodesStringBackedID() throws {
         let data = Data(
             """

@@ -5,6 +5,10 @@ struct PurchaseEditView: View {
     @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = PurchaseEditViewModel()
 
+    private var actionPolicy: PurchaseEditActionPolicy {
+        PurchaseEditActionPolicy.resolve(for: session.permissions)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -17,7 +21,7 @@ struct PurchaseEditView: View {
                 }
 
                 supplierSection
-                purchaseContractBoundarySection
+                settlementSection
                 productSection
                 summarySection
             }
@@ -63,23 +67,42 @@ struct PurchaseEditView: View {
         .glassCard()
     }
 
-    private var purchaseContractBoundarySection: some View {
+    private var settlementSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("结算与入库")
                 .font(ZhihuijiTheme.Typography.sectionTitle)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
-            Text(PurchaseEditViewModel.contractBoundaryNotice)
-                .font(ZhihuijiTheme.Typography.caption)
-                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 12) {
-                disabledSelectField(title: "结算方式", value: "待接入真实字段")
+                settlementMethodField
                 disabledSelectField(title: "入库仓库", value: "默认仓库")
             }
         }
         .padding(16)
         .glassCard()
+    }
+
+    private var settlementMethodField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("结算方式")
+                .font(ZhihuijiTheme.Typography.captionSemibold)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+            Picker("结算方式", selection: $viewModel.settlementMethod) {
+                Text("现金").tag(1)
+                Text("银行转账").tag(2)
+                Text("支票").tag(3)
+                Text("其他").tag(4)
+            }
+            .pickerStyle(.menu)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.white.opacity(0.34), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                    .stroke(Color.white.opacity(0.52), lineWidth: ZhihuijiTheme.Stroke.hairline)
+            )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var productSection: some View {
@@ -155,13 +178,7 @@ struct PurchaseEditView: View {
             HStack {
                 metric("合计", viewModel.total.currencyText)
                 metric("供应商", viewModel.selectedSupplier?.name ?? "未选")
-            }
-            HStack(alignment: .top, spacing: 10) {
-                metric("整单折扣", "未接入")
-                Text(PurchaseEditViewModel.discountBoundaryNotice)
-                    .font(ZhihuijiTheme.Typography.caption)
-                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                metric("明细", "\(viewModel.items.count) 项")
             }
             TextField("备注", text: $viewModel.notes, axis: .vertical)
                 .fieldBackground()
@@ -170,7 +187,7 @@ struct PurchaseEditView: View {
                 Text("已入库").tag(1)
             }
             .pickerStyle(.segmented)
-            PrimaryGlassButton(title: viewModel.isSubmitting ? "创建中..." : "创建采购单", systemImage: "plus.circle.fill", disabled: viewModel.isSubmitting || viewModel.items.isEmpty || !session.hasPermission(.purchaseWrite)) {
+            PrimaryGlassButton(title: viewModel.isSubmitting ? "创建中..." : "创建采购单", systemImage: "plus.circle.fill", disabled: viewModel.isSubmitting || viewModel.items.isEmpty || !actionPolicy.canCreatePurchase) {
                 Task { await viewModel.submit(client: env.apiClient) }
             }
         }
@@ -219,9 +236,6 @@ struct PurchaseEditView: View {
 
 @MainActor
 final class PurchaseEditViewModel: ObservableObject {
-    nonisolated static let contractBoundaryNotice = "采购单创建复用现有 /v2/purchase-orders。当前后端创建合同没有结算方式和入库仓库字段，iOS 按 Android 移动端语义展示禁用选择，不写入不存在的 DTO 字段。"
-    nonisolated static let discountBoundaryNotice = "整单折扣当前未进入采购单创建请求；本页只展示未接入状态，不在本地扣减或伪造后端金额。"
-
     @Published var isSubmitting = false
     @Published var errorMessage: String?
     @Published var suppliers: [SupplierRecord] = []
@@ -232,6 +246,7 @@ final class PurchaseEditViewModel: ObservableObject {
     @Published var items: [EditablePurchaseItem] = []
     @Published var notes = ""
     @Published var initialStatus = 0
+    @Published var settlementMethod = 1
 
     var filteredSuppliers: [SupplierRecord] {
         guard let keyword = supplierKeyword.nilIfBlank?.lowercased() else { return suppliers }
@@ -303,6 +318,7 @@ final class PurchaseEditViewModel: ObservableObject {
                     supplierId: selectedSupplier?.id,
                     supplierName: selectedSupplier?.name,
                     items: createItems,
+                    settlementMethod: settlementMethod,
                     notes: notes.nilIfBlank,
                     status: initialStatus
                 )

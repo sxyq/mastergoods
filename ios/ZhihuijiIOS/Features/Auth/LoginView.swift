@@ -14,7 +14,7 @@ struct LoginView: View {
                         Text("智慧记")
                             .font(ZhihuijiTheme.Typography.pageTitle)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
-                        Text("iOS 原生端沿用安卓移动端的玻璃感与业务语义，不走 Web PC 风格。")
+                        Text("iOS 原生端延续安卓移动端的玻璃感和业务语义，提供更顺手的经营操作体验。")
                             .font(ZhihuijiTheme.Typography.body)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                     }
@@ -45,6 +45,21 @@ struct LoginView: View {
                         RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.card, style: .continuous)
                             .stroke(.white.opacity(0.5), lineWidth: ZhihuijiTheme.Stroke.hairline)
                     )
+
+                    HStack {
+                        Spacer()
+                        Text("没有账号？")
+                            .font(ZhihuijiTheme.Typography.body)
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                        NavigationLink {
+                            RegisterView()
+                        } label: {
+                            Text("立即注册")
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
+                        }
+                        Spacer()
+                    }
 
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {

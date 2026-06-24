@@ -5,6 +5,10 @@ struct InventorySnapshotView: View {
     @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = InventorySnapshotViewModel()
 
+    private var actionPolicy: InventorySnapshotActionPolicy {
+        InventorySnapshotActionPolicy.resolve(for: session.permissions)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -28,7 +32,7 @@ struct InventorySnapshotView: View {
                     statusBanner(text: statusMessage, tint: ZhihuijiTheme.ColorToken.primaryBright)
                 }
 
-                if session.hasPermission(.inventoryWrite) {
+                if actionPolicy.canManageInventory {
                     NavigationLink {
                         InventoryAdjustView()
                     } label: {
@@ -50,6 +54,27 @@ struct InventorySnapshotView: View {
                     }
                     .buttonStyle(.plain)
                 }
+
+                NavigationLink {
+                    InventoryLedgerView()
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("库存台账")
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                            Text("查看库存进出流水明细，支持按商品筛选与汇总。")
+                                .font(ZhihuijiTheme.Typography.body)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                    }
+                    .padding(16)
+                    .glassCard()
+                }
+                .buttonStyle(.plain)
 
                 if let errorMessage = viewModel.errorMessage {
                     EmptyStateView(title: "库存数据加载失败", message: errorMessage)
@@ -118,13 +143,13 @@ struct InventorySnapshotView: View {
                 Spacer()
             }
 
-            PrimaryGlassButton(
-                title: viewModel.isSubmitting ? "生成中..." : "一键生成今日快照",
-                systemImage: "checklist.checked",
-                disabled: viewModel.isSubmitting || viewModel.pendingSnapshotProducts.isEmpty || !session.hasPermission(.inventoryWrite)
-            ) {
-                Task { await viewModel.createTodaySnapshots(client: env.apiClient) }
-            }
+                PrimaryGlassButton(
+                    title: viewModel.isSubmitting ? "生成中..." : "一键生成今日快照",
+                    systemImage: "checklist.checked",
+                    disabled: viewModel.isSubmitting || viewModel.pendingSnapshotProducts.isEmpty || !actionPolicy.canManageInventory
+                ) {
+                    Task { await viewModel.createTodaySnapshots(client: env.apiClient) }
+                }
 
             if viewModel.pendingSnapshotProducts.isEmpty {
                 EmptyStateView(title: "今日快照已齐", message: "当前商品都已有今日盘点快照。")
@@ -270,7 +295,7 @@ struct InventorySnapshotView: View {
             PrimaryGlassButton(
                 title: viewModel.isSubmitting ? "生成中..." : "一键生成今日快照",
                 systemImage: "checklist.checked",
-                disabled: viewModel.isSubmitting || viewModel.pendingSnapshotProducts.isEmpty || !session.hasPermission(.inventoryWrite)
+                disabled: viewModel.isSubmitting || viewModel.pendingSnapshotProducts.isEmpty || !actionPolicy.canManageInventory
             ) {
                 Task { await viewModel.createTodaySnapshots(client: env.apiClient) }
             }

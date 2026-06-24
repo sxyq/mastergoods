@@ -44,7 +44,7 @@ final class APIClientSessionTests: XCTestCase {
                         body: Self.currentStorePayload.data(using: .utf8) ?? Data()
                     )
                 }
-            case "/v1/auth/refresh":
+            case "/v2/auth/refresh":
                 XCTAssertEqual(request.httpMethod, "POST")
                 return Self.response(
                     statusCode: 200,
@@ -135,6 +135,52 @@ final class APIClientSessionTests: XCTestCase {
         XCTAssertTrue(seenEvent)
         try await Task.sleep(nanoseconds: 150_000_000)
         XCTAssertTrue(MockURLProtocol.didStopLoading)
+    }
+
+    func testStreamAgentChatForbiddenResponseUsesEnvelopeMessage() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: config)
+        let tokenStore = AuthTokenStore()
+        tokenStore.clear()
+        tokenStore.save(accessToken: "stream-token", refreshToken: "refresh-token")
+        let notificationExpectation = expectation(description: "stream forbidden notification posted")
+        var notificationMessage: String?
+        let observer = NotificationCenter.default.addObserver(
+            forName: .zhihuijiForbidden,
+            object: nil,
+            queue: nil
+        ) { note in
+            notificationMessage = note.userInfo?["message"] as? String
+            notificationExpectation.fulfill()
+        }
+        defer {
+            NotificationCenter.default.removeObserver(observer)
+        }
+
+        MockURLProtocol.requestHandler = { request in
+            guard request.url?.path == "/v2/agent/chat/stream" else {
+                throw URLError(.fileDoesNotExist)
+            }
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer stream-token")
+            return Self.response(
+                statusCode: 403,
+                body: Data(#"{"code":403,"message":"Agent write permission required"}"#.utf8)
+            )
+        }
+
+        let client = APIClient(baseURL: URL(string: "https://example.com")!, tokenStore: tokenStore, session: session)
+        let stream = try client.streamAgentChat(conversationId: nil, message: "hello")
+
+        do {
+            for try await _ in stream {}
+            XCTFail("Expected forbidden stream error")
+        } catch let error as APIError {
+            XCTAssertEqual(error, .forbidden)
+        }
+
+        await fulfillment(of: [notificationExpectation], timeout: 1.0)
+        XCTAssertEqual(notificationMessage, "Agent write permission required")
     }
 
     func testForbiddenResponsePostsAccessIssueNotification() async throws {
@@ -445,7 +491,7 @@ final class APIClientSessionTests: XCTestCase {
         XCTAssertEqual(legacyResult.products, 3)
     }
 
-    func testFinanceRecordsUseExistingV1EndpointAndKeepCashChangeBoundaryExplicit() async throws {
+    func testFinanceRecordsUseV2Endpoint() async throws {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [MockURLProtocol.self]
         let session = URLSession(configuration: config)
@@ -456,10 +502,9 @@ final class APIClientSessionTests: XCTestCase {
         MockURLProtocol.requestHandler = { request in
             XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer access-token")
             let path = try XCTUnwrap(request.url?.path)
-            XCTAssertNotEqual(path, "/v2/cash-change-records")
 
             switch (request.httpMethod, path) {
-            case ("GET", "/v1/finance-records"):
+            case ("GET", "/v2/finance-records"):
                 let query = try Self.queryDictionary(request)
                 XCTAssertEqual(query["keyword"], "rent")
                 XCTAssertEqual(query["type"], "2")
@@ -469,7 +514,7 @@ final class APIClientSessionTests: XCTestCase {
                     statusCode: 200,
                     body: Self.financeRecordListEnvelope.data(using: .utf8) ?? Data()
                 )
-            case ("POST", "/v1/finance-records"):
+            case ("POST", "/v2/finance-records"):
                 let json = try Self.requestJSON(request)
                 XCTAssertEqual(json["type"] as? Int, 2)
                 XCTAssertEqual(json["category"] as? String, "rent")
@@ -500,8 +545,116 @@ final class APIClientSessionTests: XCTestCase {
 
         XCTAssertEqual(records.first?.recordNo, "FR-001")
         XCTAssertEqual(created.category, "rent")
-        XCTAssertTrue(FinanceRecordViewModel.cashChangeBoundaryNotice.contains("/v1/finance-records"))
-        XCTAssertTrue(FinanceRecordViewModel.cashChangeBoundaryNotice.contains("cash-change records"))
+    }
+
+    func testCashChangeClientMethodsUseBackendContractPathsAndPayloads() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: config)
+        let tokenStore = AuthTokenStore()
+        tokenStore.clear()
+        tokenStore.save(accessToken: "access-token", refreshToken: "refresh-token")
+
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer access-token")
+            let path = try XCTUnwrap(request.url?.path)
+
+            switch (request.httpMethod, path) {
+            case ("GET", "/v2/cash-change-records"):
+                let query = try Self.queryDictionary(request)
+                XCTAssertEqual(query["orderType"], "sale_order")
+                XCTAssertEqual(query["orderId"], "50001")
+                XCTAssertEqual(query["accountId"], "70001")
+                return Self.response(
+                    statusCode: 200,
+                    body: Self.cashChangeRecordListEnvelope.data(using: .utf8) ?? Data()
+                )
+            case ("POST", "/v2/cash-change-records"):
+                let json = try Self.requestJSON(request)
+                XCTAssertEqual(json["order_type"] as? String, "sale_order")
+                XCTAssertEqual(json["order_id"] as? String, "50001")
+                XCTAssertEqual(json["receivable"] as? Double, 100.0)
+                XCTAssertEqual(json["received"] as? Double, 80.0)
+                XCTAssertEqual(json["account_id"] as? String, "70001")
+                XCTAssertEqual(json["status"] as? Int, 1)
+                XCTAssertEqual(json["notes"] as? String, "现金付款")
+                return Self.response(
+                    statusCode: 200,
+                    body: Self.cashChangeRecordEnvelope.data(using: .utf8) ?? Data()
+                )
+            case ("DELETE", "/v2/cash-change-records/93010"):
+                return Self.response(statusCode: 200, body: Self.emptyEnvelope.data(using: .utf8) ?? Data())
+            default:
+                throw URLError(.fileDoesNotExist)
+            }
+        }
+
+        let client = APIClient(baseURL: URL(string: "https://example.com")!, tokenStore: tokenStore, session: session)
+
+        let records = try await client.fetchCashChangeRecords(
+            orderType: "sale_order",
+            orderId: EntityID(rawValue: "50001"),
+            accountId: EntityID(rawValue: "70001")
+        )
+        let created = try await client.createCashChangeRecord(
+            payload: CashChangeRecordCreatePayload(
+                orderType: "sale_order",
+                orderId: EntityID(rawValue: "50001"),
+                receivable: 100.0,
+                received: 80.0,
+                accountId: EntityID(rawValue: "70001"),
+                status: 1,
+                notes: "现金付款"
+            )
+        )
+        try await client.deleteCashChangeRecord(id: EntityID(rawValue: "93010"))
+
+        XCTAssertEqual(records.first?.id.rawValue, "93010")
+        XCTAssertEqual(records.first?.orderType, "sale_order")
+        XCTAssertEqual(created.id.rawValue, "93010")
+        XCTAssertEqual(created.changeAmount, 20.0)
+    }
+
+    func testUploadMediaAssetPostsMultipartToUploadEndpoint() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: config)
+        let tokenStore = AuthTokenStore()
+        tokenStore.clear()
+        tokenStore.save(accessToken: "access-token", refreshToken: "refresh-token")
+
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer access-token")
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/v2/media/assets/upload")
+            let contentType = try XCTUnwrap(request.value(forHTTPHeaderField: "Content-Type"))
+            XCTAssertTrue(contentType.hasPrefix("multipart/form-data; boundary="))
+
+            let bodyData = try XCTUnwrap(Self.requestBodyData(request))
+            let bodyString = String(data: bodyData, encoding: .utf8) ?? ""
+            XCTAssertTrue(bodyString.contains("name=\"asset_type\""))
+            XCTAssertTrue(bodyString.contains("product_image"))
+            XCTAssertTrue(bodyString.contains("name=\"file\""))
+            XCTAssertTrue(bodyString.contains("filename=\"cover.png\""))
+            XCTAssertTrue(bodyString.contains("Content-Type: image/png"))
+
+            return Self.response(
+                statusCode: 200,
+                body: Self.mediaAssetEnvelope.data(using: .utf8) ?? Data()
+            )
+        }
+
+        let client = APIClient(baseURL: URL(string: "https://example.com")!, tokenStore: tokenStore, session: session)
+        let fileData = Data([0x89, 0x50, 0x4E, 0x47])
+        let asset = try await client.uploadMediaAsset(
+            fileData: fileData,
+            fileName: "cover.png",
+            mimeType: "image/png",
+            assetType: "product_image"
+        )
+
+        XCTAssertEqual(asset.id.rawValue, "99001")
+        XCTAssertEqual(asset.mimeType, "image/png")
     }
 
     @MainActor
@@ -514,7 +667,7 @@ final class APIClientSessionTests: XCTestCase {
         tokenStore.save(accessToken: "access-token", refreshToken: "refresh-token")
 
         MockURLProtocol.requestHandler = { request in
-            guard request.url?.path.hasPrefix("/v1/reports/") == true else {
+            guard request.url?.path.hasPrefix("/v2/reports/") == true else {
                 throw URLError(.fileDoesNotExist)
             }
             return Self.response(
@@ -617,7 +770,7 @@ final class APIClientSessionTests: XCTestCase {
                 throw URLError(.badURL)
             }
             switch path {
-            case "/v2/products", "/v1/reports/low-stock-products", "/v2/inventory/snapshots", "/v2/inventory/monthly-stats":
+            case "/v2/products", "/v2/reports/low-stock-products", "/v2/inventory/snapshots", "/v2/inventory/monthly-stats":
                 return Self.response(
                     statusCode: 500,
                     body: Data(#"{"code":500,"message":"inventory unavailable","data":null}"#.utf8)
@@ -920,7 +1073,7 @@ final class APIClientSessionTests: XCTestCase {
                 isDefault: true,
                 purchasePriorityText: "1",
                 lastPurchasePriceText: "8.00",
-                notes: nil
+                notes: ""
             ),
         ]
         editViewModel.selectedCategoryId = "101"
@@ -1442,6 +1595,8 @@ final class APIClientSessionTests: XCTestCase {
             totalAmount: 8,
             paidAmount: 0,
             receivedAmount: 0,
+            settlementMethod: nil,
+            warehouseId: nil,
             notes: nil,
             status: 0,
             createdAt: 1710000000000,
@@ -1486,10 +1641,8 @@ final class APIClientSessionTests: XCTestCase {
         return Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).map { ($0.name, $0.value ?? "") })
     }
 
-    private static func response(statusCode: Int, body: Data) throws -> (HTTPURLResponse, Data) {
-        guard let url = URL(string: "https://example.com") else {
-            throw URLError(.badURL)
-        }
+    private static func response(statusCode: Int, body: Data) -> (HTTPURLResponse, Data) {
+        let url = URL(string: "https://example.com")!
         let response = HTTPURLResponse(
             url: url,
             statusCode: statusCode,
@@ -1499,10 +1652,8 @@ final class APIClientSessionTests: XCTestCase {
         return (response, body)
     }
 
-    private static func streamResponse() throws -> (HTTPURLResponse, Data) {
-        guard let url = URL(string: "https://example.com") else {
-            throw URLError(.badURL)
-        }
+    private static func streamResponse() -> (HTTPURLResponse, Data) {
+        let url = URL(string: "https://example.com")!
         let response = HTTPURLResponse(
             url: url,
             statusCode: 200,
@@ -1602,6 +1753,50 @@ final class APIClientSessionTests: XCTestCase {
           "notes": "monthly rent",
           "created_at": 1710000000000,
           "updated_at": 1710000000000
+        }
+      ]
+    }
+    """
+
+    private static let cashChangeRecordEnvelope = """
+    {
+      "code": 0,
+      "message": "ok",
+      "data": {
+        "id": "93010",
+        "order_type": "sale_order",
+        "order_id": "50001",
+        "receivable": 100.0,
+        "received": 80.0,
+        "change_amount": 20.0,
+        "account_id": "70001",
+        "account_name": "现金账户",
+        "status": 1,
+        "notes": "现金付款",
+        "created_at": 1710000000000,
+        "updated_at": 1710003600000
+      }
+    }
+    """
+
+    private static let cashChangeRecordListEnvelope = """
+    {
+      "code": 0,
+      "message": "ok",
+      "data": [
+        {
+          "id": "93010",
+          "order_type": "sale_order",
+          "order_id": "50001",
+          "receivable": 100.0,
+          "received": 80.0,
+          "change_amount": 20.0,
+          "account_id": "70001",
+          "account_name": "现金账户",
+          "status": 1,
+          "notes": "现金付款",
+          "created_at": 1710000000000,
+          "updated_at": 1710003600000
         }
       ]
     }

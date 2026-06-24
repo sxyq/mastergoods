@@ -6,6 +6,10 @@ struct ProductDetailView: View {
     let productId: EntityID
     @StateObject private var viewModel = ProductDetailViewModel()
 
+    private var actionPolicy: ProductDetailActionPolicy {
+        ProductDetailActionPolicy.resolve(for: session.permissions)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -14,7 +18,7 @@ struct ProductDetailView: View {
                 } else if let product = viewModel.product {
                     header(product)
 
-                    if session.hasPermission(.archivesWrite) {
+                    if actionPolicy.canEditProduct {
                         NavigationLink {
                             ProductEditView(productId: product.id)
                         } label: {
@@ -39,7 +43,7 @@ struct ProductDetailView: View {
 
                     priceSection(product)
                     supplierSection(product)
-                    if session.hasPermission(.inventoryWrite) {
+                    if actionPolicy.canOpenInventoryAdjust {
                         inventorySection(product)
                     }
                 } else {

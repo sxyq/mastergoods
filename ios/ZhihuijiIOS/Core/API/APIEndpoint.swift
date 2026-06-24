@@ -24,19 +24,19 @@ enum APIEndpoint {
     var path: String {
         switch self {
         case .login:
-            return "/v1/auth/login"
+            return "/v2/auth/login"
         case .refresh:
-            return "/v1/auth/refresh"
+            return "/v2/auth/refresh"
         case .logout:
-            return "/v1/auth/logout"
+            return "/v2/auth/logout"
         case .currentUser:
-            return "/v1/auth/users/me"
+            return "/v2/auth/users/me"
         case .currentStore:
             return "/v2/stores/current"
         case .storeMembers:
             return "/v2/stores/current/members"
         case .dashboardSummary:
-            return "/v1/reports/sales-summary"
+            return "/v2/reports/sales-summary"
         case .saleOrders:
             return "/v2/sale-orders"
         case .purchaseOrders:
@@ -50,7 +50,7 @@ enum APIEndpoint {
         case .inventoryLedger:
             return "/v2/inventory/ledger"
         case .reports:
-            return "/v1/reports/sales-trend"
+            return "/v2/reports/sales-trend"
         case .agentWorkbench:
             return "/v2/agent/workbench"
         case .mediaAssets:

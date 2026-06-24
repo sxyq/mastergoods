@@ -5,6 +5,10 @@ struct SalesReturnView: View {
     @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = SalesReturnViewModel()
 
+    private var actionPolicy: SalesReturnActionPolicy {
+        SalesReturnActionPolicy.resolve(for: session.permissions, returnRecord: viewModel.selectedReturn)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -84,7 +88,7 @@ struct SalesReturnView: View {
             if let selected = viewModel.selectedReturn {
                 SalesReturnDetailCard(item: selected)
 
-                if selected.canEditDraft, session.hasPermission(.salesWrite) {
+                if actionPolicy.canEditDraft {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("草稿处理")
                             .font(ZhihuijiTheme.Typography.sectionTitle)
@@ -112,7 +116,7 @@ struct SalesReturnView: View {
                     .glassCard()
                 }
 
-                if selected.canRefund, session.hasPermission(.financeWrite) {
+                if actionPolicy.canRefund {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("退款处理")
                             .font(ZhihuijiTheme.Typography.sectionTitle)
@@ -141,7 +145,7 @@ struct SalesReturnView: View {
                     .glassCard()
                 }
 
-                if selected.canCancel, session.hasPermission(.salesWrite) {
+                if actionPolicy.canCancel {
                     PrimaryGlassButton(
                         title: viewModel.isSubmitting ? "取消中..." : "取消退货单",
                         systemImage: "xmark.circle.fill",
@@ -232,7 +236,7 @@ struct SalesReturnView: View {
                     PrimaryGlassButton(
                         title: viewModel.isSubmitting ? "创建中..." : "创建退货单",
                         systemImage: "plus.circle.fill",
-                        disabled: viewModel.isSubmitting || !session.hasPermission(.salesWrite)
+                        disabled: viewModel.isSubmitting || !actionPolicy.canCreateReturn
                     ) {
                         Task { await viewModel.createReturn(client: env.apiClient) }
                     }

@@ -22,13 +22,30 @@ struct AppEnvironment {
               url.host?.isEmpty == false else {
             return nil
         }
+        let normalizedURL = stripEndpointVersionSuffix(from: url)
 
         let tokenStore = AuthTokenStore()
         return AppEnvironment(
-            apiBaseURL: url,
-            apiClient: APIClient(baseURL: url, tokenStore: tokenStore),
+            apiBaseURL: normalizedURL,
+            apiClient: APIClient(baseURL: normalizedURL, tokenStore: tokenStore),
             tokenStore: tokenStore
         )
+    }
+
+    private static func stripEndpointVersionSuffix(from url: URL) -> URL {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return url
+        }
+
+        let path = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let segments = path.split(separator: "/").map(String.init)
+        guard let last = segments.last?.lowercased(), ["v1", "v2"].contains(last) else {
+            return url
+        }
+
+        let retainedSegments = segments.dropLast()
+        components.path = retainedSegments.isEmpty ? "" : "/" + retainedSegments.joined(separator: "/")
+        return components.url ?? url
     }
 }
 

@@ -5,6 +5,10 @@ struct SalesEditView: View {
     @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = SalesEditViewModel()
 
+    private var actionPolicy: SalesEditActionPolicy {
+        SalesEditActionPolicy.resolve(for: session.permissions)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -141,7 +145,7 @@ struct SalesEditView: View {
                 .fieldBackground()
             TextField("备注", text: $viewModel.notes, axis: .vertical)
                 .fieldBackground()
-            PrimaryGlassButton(title: viewModel.isSubmitting ? "创建中..." : "创建销售单", systemImage: "plus.circle.fill", disabled: viewModel.isSubmitting || viewModel.items.isEmpty || !session.hasPermission(.salesWrite)) {
+            PrimaryGlassButton(title: viewModel.isSubmitting ? "创建中..." : "创建销售单", systemImage: "plus.circle.fill", disabled: viewModel.isSubmitting || viewModel.items.isEmpty || !actionPolicy.canCreateSale) {
                 Task { await viewModel.submit(client: env.apiClient) }
             }
         }

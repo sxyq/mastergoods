@@ -5,6 +5,10 @@ struct ProductListView: View {
     @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = ProductListViewModel()
 
+    private var actionPolicy: ProductListActionPolicy {
+        ProductListActionPolicy.resolve(for: session.permissions)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -12,7 +16,7 @@ struct ProductListView: View {
                     Text("商品档案")
                         .font(ZhihuijiTheme.Typography.pageTitle)
                     Spacer()
-                    if session.hasPermission(.archivesWrite) {
+                    if actionPolicy.canCreateProduct {
                         NavigationLink {
                             ProductEditView()
                         } label: {

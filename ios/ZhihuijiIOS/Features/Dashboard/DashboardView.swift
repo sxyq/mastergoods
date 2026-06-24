@@ -5,6 +5,10 @@ struct DashboardView: View {
     @Environment(\.appEnvironment) private var env
     @StateObject private var viewModel = DashboardViewModel()
 
+    private var quickEntryPolicy: DashboardQuickEntryPolicy {
+        DashboardQuickEntryPolicy.resolve(for: session.permissions)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
@@ -144,7 +148,7 @@ struct DashboardView: View {
             Text("快捷入口")
                 .font(ZhihuijiTheme.Typography.sectionTitle)
 
-            if session.hasPermission(.salesView) {
+            if quickEntryPolicy.canOpenSales {
                 NavigationLink {
                     SalesListView()
                 } label: {
@@ -158,7 +162,7 @@ struct DashboardView: View {
                 .buttonStyle(.plain)
             }
 
-            if session.hasPermission(.purchaseView) {
+            if quickEntryPolicy.canOpenPurchase {
                 NavigationLink {
                     PurchaseListView()
                 } label: {
@@ -172,7 +176,7 @@ struct DashboardView: View {
                 .buttonStyle(.plain)
             }
 
-            if session.hasPermission(.agentView) {
+            if quickEntryPolicy.canOpenAgent {
                 NavigationLink {
                     AgentChatView()
                 } label: {
@@ -185,6 +189,46 @@ struct DashboardView: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            if quickEntryPolicy.canOpenInventory {
+                NavigationLink {
+                    InventorySnapshotView()
+                } label: {
+                    dashboardEntryCard(
+                        title: "库存工作台",
+                        subtitle: "查看低库存、快照、月度统计和库存流水",
+                        icon: "cube.box.fill",
+                        tint: ZhihuijiTheme.ColorToken.primaryBright
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
+            if quickEntryPolicy.canOpenFinance {
+                NavigationLink {
+                    FinanceRecordView()
+                } label: {
+                    dashboardEntryCard(
+                        title: "资金工作台",
+                        subtitle: "查看流水、日常支出、付款和供应商对账",
+                        icon: "creditcard.fill",
+                        tint: ZhihuijiTheme.ColorToken.success
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
+            NavigationLink {
+                SettingsView()
+            } label: {
+                dashboardEntryCard(
+                    title: "系统设置",
+                    subtitle: "门店账号、权限、同步导入和安全信息",
+                    icon: "gearshape.fill",
+                    tint: ZhihuijiTheme.ColorToken.textTertiary
+                )
+            }
+            .buttonStyle(.plain)
         }
     }
 

@@ -19,6 +19,7 @@ final class DashboardViewModelTests: XCTestCase {
         super.tearDown()
     }
 
+    @MainActor
     func testDashboardViewModelStartsWithoutPlaceholderKpis() {
         let viewModel = DashboardViewModel()
 
@@ -27,6 +28,7 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.errorMessage)
     }
 
+    @MainActor
     func testDashboardViewModelKeepsEmptyStateWhenBackendFails() async {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [MockURLProtocol.self]
@@ -41,7 +43,7 @@ final class DashboardViewModelTests: XCTestCase {
             }
 
             switch path {
-            case "/v1/reports/sales-summary", "/v1/reports/low-stock-products":
+            case "/v2/reports/sales-summary", "/v2/reports/low-stock-products":
                 return (
                     HTTPURLResponse(
                         url: request.url!,
@@ -65,6 +67,7 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertNotNil(viewModel.errorMessage)
     }
 
+    @MainActor
     func testDashboardViewModelLoadsRealKpisFromBackend() async {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [MockURLProtocol.self]
@@ -79,7 +82,7 @@ final class DashboardViewModelTests: XCTestCase {
             }
 
             switch path {
-            case "/v1/reports/sales-summary":
+            case "/v2/reports/sales-summary":
                 return (
                     HTTPURLResponse(
                         url: request.url!,
@@ -105,7 +108,7 @@ final class DashboardViewModelTests: XCTestCase {
                         """.utf8
                     )
                 )
-            case "/v1/reports/low-stock-products":
+            case "/v2/reports/low-stock-products":
                 return (
                     HTTPURLResponse(
                         url: request.url!,

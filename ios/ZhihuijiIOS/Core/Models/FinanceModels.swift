@@ -55,6 +55,31 @@ struct PayOrderStatusPayload: Codable {
     let status: Int
 }
 
+struct CashChangeRecord: Identifiable, Codable, Equatable {
+    let id: EntityID
+    let orderType: String
+    let orderId: EntityID?
+    let receivable: Double
+    let received: Double
+    let changeAmount: Double
+    let accountId: EntityID?
+    let accountName: String?
+    let status: Int
+    let notes: String?
+    let createdAt: Int64
+    let updatedAt: Int64
+}
+
+struct CashChangeRecordCreatePayload: Codable {
+    let orderType: String
+    let orderId: EntityID?
+    let receivable: Double
+    let received: Double
+    let accountId: EntityID?
+    let status: Int
+    let notes: String?
+}
+
 enum FinanceRecordType: Int, CaseIterable, Identifiable {
     case income = 1
     case expense = 2
@@ -95,6 +120,24 @@ extension PayOrder {
         case 1: return ZhihuijiTheme.ColorToken.success
         case 2: return ZhihuijiTheme.ColorToken.danger
         default: return ZhihuijiTheme.ColorToken.warning
+        }
+    }
+}
+
+extension CashChangeRecord {
+    var statusLabel: String {
+        switch status {
+        case 1: return "已生效"
+        case 0: return "草稿"
+        default: return "未知"
+        }
+    }
+
+    var statusTint: Color {
+        switch status {
+        case 1: return ZhihuijiTheme.ColorToken.success
+        case 0: return ZhihuijiTheme.ColorToken.warning
+        default: return ZhihuijiTheme.ColorToken.textTertiary
         }
     }
 }

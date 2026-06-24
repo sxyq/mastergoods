@@ -9,6 +9,24 @@ enum StoreRole: String, Codable, CaseIterable {
     case finance = "FINANCE"
     case assistant = "ASSISTANT"
 
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        if let role = StoreRole.allCases.first(where: { $0.rawValue.caseInsensitiveCompare(rawValue) == .orderedSame }) {
+            self = role
+            return
+        }
+        throw DecodingError.dataCorruptedError(
+            in: container,
+            debugDescription: "Unknown store role value: \(rawValue)"
+        )
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+
     var label: String {
         switch self {
         case .owner: return "店长（总）"

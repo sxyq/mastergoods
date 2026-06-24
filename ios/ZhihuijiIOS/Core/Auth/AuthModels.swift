@@ -5,6 +5,22 @@ struct LoginRequest: Codable {
     let password: String
 }
 
+struct RegisterRequest: Codable {
+    let phone: String
+    let password: String
+    let verifyCode: String
+}
+
+struct VerifyCodeRequest: Codable {
+    let phone: String
+    let type: String
+}
+
+struct VerifyCodeResponse: Codable, Equatable {
+    let success: Bool
+    let expireSeconds: Int
+}
+
 struct RefreshRequest: Codable {
     let refreshToken: String
 }

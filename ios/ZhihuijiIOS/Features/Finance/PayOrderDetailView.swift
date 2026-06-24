@@ -8,6 +8,10 @@ struct PayOrderDetailView: View {
     @StateObject private var viewModel = PayOrderDetailViewModel()
     @State private var isSupplierSheetPresented = false
 
+    private var actionPolicy: PayOrderDetailActionPolicy {
+        PayOrderDetailActionPolicy.resolve(for: session.permissions)
+    }
+
     init(initialOrderId: EntityID? = nil, initialKeyword: String = "") {
         self.initialOrderId = initialOrderId
         self.initialKeyword = initialKeyword
@@ -52,7 +56,7 @@ struct PayOrderDetailView: View {
                 if viewModel.orders.isEmpty, !viewModel.isLoading {
                     EmptyStateView(
                         title: "暂无付款单",
-                        message: session.hasPermission(.financeWrite)
+                        message: actionPolicy.canWriteFinance
                             ? "可以直接在下面新建一张付款单。"
                             : "当前账号没有新建付款单权限。"
                     )
@@ -97,7 +101,7 @@ struct PayOrderDetailView: View {
                                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         }
 
-                        if session.hasPermission(.financeWrite) {
+                        if actionPolicy.canWriteFinance {
                             HStack(spacing: 12) {
                                 actionButton(title: "设草稿", status: 0)
                                 actionButton(title: "设已付", status: 1)
@@ -109,7 +113,7 @@ struct PayOrderDetailView: View {
                     .glassCard()
                 }
 
-                if session.hasPermission(.financeWrite) {
+                if actionPolicy.canWriteFinance {
                     createForm
                 }
             }
@@ -196,7 +200,7 @@ struct PayOrderDetailView: View {
             PrimaryGlassButton(
                 title: viewModel.isSubmitting ? "创建中..." : "创建付款单",
                 systemImage: "plus.circle.fill",
-                disabled: viewModel.isSubmitting || !session.hasPermission(.financeWrite)
+                disabled: viewModel.isSubmitting || !actionPolicy.canWriteFinance
             ) {
                 Task { await viewModel.create(client: env.apiClient) }
             }

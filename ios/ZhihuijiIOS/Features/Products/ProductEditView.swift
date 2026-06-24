@@ -1,4 +1,15 @@
 import SwiftUI
+import PhotosUI
+
+#if canImport(UIKit)
+import UIKit
+#endif
+#if canImport(Vision)
+import Vision
+#endif
+#if canImport(VisionKit)
+import VisionKit
+#endif
 
 struct ProductEditView: View {
     @Environment(\.appEnvironment) private var env
@@ -7,6 +18,11 @@ struct ProductEditView: View {
     @StateObject private var viewModel = ProductEditViewModel()
     @State private var isSupplierSheetPresented = false
     @State private var isScanBoundaryPresented = false
+    @State private var photoItem: PhotosPickerItem?
+
+    private var actionPolicy: ProductEditActionPolicy {
+        ProductEditActionPolicy.resolve(for: session.permissions)
+    }
 
     init(productId: EntityID? = nil) {
         self.productId = productId
@@ -43,10 +59,17 @@ struct ProductEditView: View {
                 }
             )
         }
-        .alert("扫码待接入", isPresented: $isScanBoundaryPresented) {
-            Button("知道了", role: .cancel) {}
-        } message: {
-            Text(ProductEditViewModel.scanBoundaryNotice)
+        .sheet(isPresented: $isScanBoundaryPresented) {
+            #if canImport(VisionKit) && canImport(UIKit)
+            ProductCodeScannerSheet { scannedCode in
+                viewModel.code = scannedCode
+                isScanBoundaryPresented = false
+            }
+            #else
+            ScanBoundaryFallbackSheet(message: ProductEditViewModel.scanBoundaryNotice) {
+                isScanBoundaryPresented = false
+            }
+            #endif
         }
     }
 
@@ -93,7 +116,7 @@ struct ProductEditView: View {
                     Text("商品图片")
                         .font(ZhihuijiTheme.Typography.sectionTitle)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
-                    Text(ProductEditViewModel.mediaBoundaryNotice)
+                    Text("从相册选择图片上传到 /v2/media/assets/upload，保存商品后可自动绑定。")
                         .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -110,23 +133,43 @@ struct ProductEditView: View {
                     .fill(ZhihuijiTheme.ColorToken.primary.opacity(0.12))
                     .frame(width: 64, height: 64)
                     .overlay(
-                        Image(systemName: "photo.badge.plus")
+                        Image(systemName: viewModel.isUploadingImage ? "arrow.up.circle" : "photo.badge.plus")
                             .font(.system(size: 28, weight: .semibold))
                             .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
                     )
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(productId == nil ? "保存商品后再绑定已上传对象" : "登记已上传对象并绑定到当前商品")
+                    Text(productId == nil ? "可先上传图片，保存商品后再绑定" : "上传图片后自动绑定到当前商品")
                         .font(ZhihuijiTheme.Typography.bodyMedium)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
-                    Text("当前不伪造本地图片上传；只复用现有 /v2/media/assets 与 /v2/media/bindings。")
-                        .font(ZhihuijiTheme.Typography.caption)
-                        .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if let uploadMessage = viewModel.uploadMessage {
+                        Text(uploadMessage)
+                            .font(ZhihuijiTheme.Typography.caption)
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text("支持 JPG / PNG 等常见图片格式，上传后调用媒体绑定接口关联商品。")
+                            .font(ZhihuijiTheme.Typography.caption)
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
 
             HStack(spacing: 10) {
+                let uploadingImage = viewModel.isUploadingImage
+                PhotosPicker(selection: $photoItem, matching: .images) {
+                    Label(uploadingImage ? "上传中..." : "选择图片上传", systemImage: "square.and.arrow.up")
+                        .font(ZhihuijiTheme.Typography.captionSemibold)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.primary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(Color.white.opacity(0.54), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
+                .disabled(uploadingImage)
+                .opacity(uploadingImage ? 0.5 : 1)
+
                 Button {
                     isScanBoundaryPresented = true
                 } label: {
@@ -151,15 +194,18 @@ struct ProductEditView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 9)
                     .background(Color.white.opacity(0.54), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
-                } else {
-                    Text("新建商品保存成功后开放图片绑定")
-                        .font(ZhihuijiTheme.Typography.captionSemibold)
-                        .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
                 }
             }
         }
         .padding(16)
         .glassCard()
+        .onChange(of: photoItem) { _, newValue in
+            guard let newValue else { return }
+            Task {
+                await viewModel.handlePickedPhoto(item: newValue, productId: productId, client: env.apiClient)
+                photoItem = nil
+            }
+        }
     }
 
     private var pricingSection: some View {
@@ -199,7 +245,7 @@ struct ProductEditView: View {
             PrimaryGlassButton(
                 title: viewModel.isSubmitting ? "保存中..." : (productId == nil ? "创建商品" : "保存商品"),
                 systemImage: "square.and.arrow.down.fill",
-                disabled: viewModel.isSubmitting || !session.hasPermission(.archivesWrite)
+                disabled: viewModel.isSubmitting || !actionPolicy.canSaveProduct
             ) {
                 Task { await viewModel.submit(productId: productId, client: env.apiClient) }
             }
@@ -324,8 +370,7 @@ struct ProductEditView: View {
 
 @MainActor
 final class ProductEditViewModel: ObservableObject {
-    nonisolated static let scanBoundaryNotice = "iOS 原生扫码入口已保留，但当前尚未接入相机权限、扫码解析与回填流程；现阶段请手动填写商品编码。"
-    nonisolated static let mediaBoundaryNotice = "商品图片复用现有媒体 API。当前只登记已上传对象并绑定商品，不执行本地文件上传或生成假图片。"
+    nonisolated static let scanBoundaryNotice = "支持在兼容设备上扫码识别商品编码并自动回填；若当前设备不支持系统扫码，仍可手动填写商品编码。"
 
     @Published var isSubmitting = false
     @Published var errorMessage: String?
@@ -345,6 +390,9 @@ final class ProductEditViewModel: ObservableObject {
     @Published var supplierRelations: [EditableSupplierRelation] = []
     @Published var loadedProductId: EntityID?
     @Published var relationErrorMessage: String?
+    @Published var isUploadingImage = false
+    @Published var uploadMessage: String?
+    @Published var lastUploadedAsset: MediaAssetRecord?
 
     var availableSupplierOptions: [SupplierRecord] {
         let selectedIds = Set(supplierRelations.map(\.supplierId))
@@ -476,6 +524,52 @@ final class ProductEditViewModel: ObservableObject {
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
+    }
+
+    func handlePickedPhoto(item: PhotosPickerItem, productId: EntityID?, client: APIClient) async {
+        guard let data = try? await item.loadTransferable(type: Data.self), !data.isEmpty else {
+            uploadMessage = "无法读取所选图片，请重试。"
+            return
+        }
+        let fileName = "product-image.jpg"
+        let mimeType = Self.inferMimeType(for: fileName)
+
+        isUploadingImage = true
+        defer { isUploadingImage = false }
+        do {
+            let asset = try await client.uploadMediaAsset(
+                fileData: data,
+                fileName: fileName,
+                mimeType: mimeType,
+                assetType: "product_image"
+            )
+            lastUploadedAsset = asset
+
+            if let productId {
+                _ = try await client.createMediaBinding(
+                    payload: MediaBindingCreatePayload(
+                        assetId: asset.id,
+                        targetType: "product",
+                        targetId: productId,
+                        sortOrder: nil
+                    )
+                )
+                uploadMessage = "图片已上传并绑定到当前商品。"
+            } else {
+                uploadMessage = "图片已上传，保存商品后可在管理图片中绑定。"
+            }
+        } catch {
+            uploadMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private static func inferMimeType(for fileName: String) -> String {
+        let lower = fileName.lowercased()
+        if lower.hasSuffix(".png") { return "image/png" }
+        if lower.hasSuffix(".jpg") || lower.hasSuffix(".jpeg") { return "image/jpeg" }
+        if lower.hasSuffix(".gif") { return "image/gif" }
+        if lower.hasSuffix(".webp") { return "image/webp" }
+        return "image/jpeg"
     }
 
     func addSupplierRelation(from supplier: SupplierRecord) {
@@ -661,6 +755,172 @@ private struct ProductFormContext {
     let safeStock: Double
     let status: Int
 }
+
+private struct ScanBoundaryFallbackSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let message: String
+    let onClose: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    EmptyStateView(
+                        title: "当前设备未启用扫码",
+                        message: message
+                    )
+                }
+                .padding(20)
+            }
+            .navigationTitle("扫码商品编码")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("关闭") {
+                        dismiss()
+                        onClose()
+                    }
+                }
+            }
+        }
+        .zhihuijiBackground()
+    }
+}
+
+#if canImport(VisionKit) && canImport(UIKit)
+private struct ProductCodeScannerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let onScan: (String) -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScannerContainerView(
+                onScan: { code in
+                    onScan(code)
+                    dismiss()
+                },
+                onClose: {
+                    dismiss()
+                }
+            )
+            .navigationTitle("扫码商品编码")
+            .inlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("关闭") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .ignoresSafeArea()
+    }
+}
+
+private struct ScannerContainerView: UIViewControllerRepresentable {
+    let onScan: (String) -> Void
+    let onClose: () -> Void
+
+    func makeUIViewController(context: Context) -> ScannerHostViewController {
+        ScannerHostViewController(onScan: onScan, onClose: onClose)
+    }
+
+    func updateUIViewController(_ uiViewController: ScannerHostViewController, context: Context) {}
+}
+
+private final class ScannerHostViewController: UIViewController, DataScannerViewControllerDelegate {
+    private let onScan: (String) -> Void
+    private let onClose: () -> Void
+    private var didStart = false
+    private var scannerController: DataScannerViewController?
+
+    init(onScan: @escaping (String) -> Void, onClose: @escaping () -> Void) {
+        self.onScan = onScan
+        self.onClose = onClose
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard didStart == false else { return }
+        didStart = true
+        startScannerIfPossible()
+    }
+
+    private func startScannerIfPossible() {
+        guard DataScannerViewController.isSupported, DataScannerViewController.isAvailable else {
+            showUnavailableState()
+            return
+        }
+
+        do {
+            let scanner = try DataScannerViewController(
+                recognizedDataTypes: [.barcode(symbologies: [.qr, .ean13, .code128])],
+                qualityLevel: .balanced,
+                recognizesMultipleItems: false,
+                isHighlightingEnabled: true
+            )
+            scanner.delegate = self
+            addChild(scanner)
+            view.addSubview(scanner.view)
+            scanner.view.frame = view.bounds
+            scanner.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            scanner.didMove(toParent: self)
+            try scanner.startScanning()
+            scannerController = scanner
+        } catch {
+            showUnavailableState()
+        }
+    }
+
+    private func showUnavailableState() {
+        let label = UILabel()
+        label.numberOfLines = 0
+        label.textAlignment = .center
+        label.textColor = .secondaryLabel
+        label.font = .systemFont(ofSize: 15, weight: .medium)
+        label.text = "当前设备暂不支持系统扫码，仍可手动填写商品编码。"
+        label.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = .systemBackground
+        view.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            label.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -24)
+        ])
+    }
+
+    func dataScanner(_ dataScanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
+        handleRecognizedItems(addedItems)
+    }
+
+    func dataScanner(_ dataScanner: DataScannerViewController, didUpdate updatedItems: [RecognizedItem], allItems: [RecognizedItem]) {
+        handleRecognizedItems(updatedItems)
+    }
+
+    private func handleRecognizedItems(_ items: [RecognizedItem]) {
+        guard let code = items.compactMap(extractBarcode).first?.trimmingCharacters(in: .whitespacesAndNewlines),
+              code.isEmpty == false else {
+            return
+        }
+        onScan(code)
+    }
+
+    private func extractBarcode(from item: RecognizedItem) -> String? {
+        switch item {
+        case let .barcode(barcode):
+            return barcode.payloadStringValue
+        default:
+            return nil
+        }
+    }
+}
+#endif
 
 private enum ProductEditValidationError: LocalizedError {
     case message(String)

@@ -1,5 +1,9 @@
 import SwiftUI
 
+#if canImport(UIKit)
+import UIKit
+#endif
+
 struct ReportsView: View {
     @Environment(\.appEnvironment) private var env
     @StateObject private var viewModel = ReportsViewModel()
@@ -67,7 +71,19 @@ struct ReportsView: View {
                 tint: ZhihuijiTheme.ColorToken.success,
                 disabled: viewModel.isLoading
             ) {
-                viewModel.exportStatus = "当前导出仅在页面内准备了结构，后续可接系统分享或文件写出。"
+                guard let url = viewModel.writeCSVToTemporaryFile() else {
+                    viewModel.exportStatus = "导出失败：当前没有可导出的报表内容。"
+                    return
+                }
+#if canImport(UIKit)
+                if presentActivitySheet(items: [url]) {
+                    viewModel.exportStatus = "CSV 已生成并打开分享面板。"
+                } else {
+                    viewModel.exportStatus = "CSV 已生成，但分享面板未能唤起。"
+                }
+#else
+                viewModel.exportStatus = "CSV 已生成到临时目录。"
+#endif
             }
 
             SecondaryReportActionButton(
@@ -76,7 +92,16 @@ struct ReportsView: View {
                 tint: ZhihuijiTheme.ColorToken.warning,
                 disabled: viewModel.isLoading
             ) {
-                viewModel.exportStatus = "当前打印入口已保留，后续可直连系统打印面板。"
+                let printableHTML = viewModel.makePrintableHTML()
+#if canImport(UIKit)
+                if presentPrintPanel(html: printableHTML, jobName: "经营报表-\(viewModel.range.title)") {
+                    viewModel.exportStatus = "打印面板已打开。"
+                } else {
+                    viewModel.exportStatus = "打印内容已准备，但系统打印面板未能唤起。"
+                }
+#else
+                viewModel.exportStatus = "打印内容已准备。"
+#endif
             }
         }
     }
@@ -435,6 +460,51 @@ private struct SecondaryReportActionButton: View {
     }
 }
 
+#if canImport(UIKit)
+private func presentActivitySheet(items: [Any]) -> Bool {
+    guard let presenter = topViewController() else { return false }
+    let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+    if let popover = controller.popoverPresentationController {
+        popover.sourceView = presenter.view
+        popover.sourceRect = CGRect(x: presenter.view.bounds.midX, y: presenter.view.bounds.midY, width: 1, height: 1)
+        popover.permittedArrowDirections = []
+    }
+    presenter.present(controller, animated: true)
+    return true
+}
+
+private func presentPrintPanel(html: String, jobName: String) -> Bool {
+    guard topViewController() != nil else { return false }
+    let controller = UIPrintInteractionController.shared
+    let printInfo = UIPrintInfo.printInfo()
+    printInfo.jobName = jobName
+    printInfo.outputType = .general
+    controller.printInfo = printInfo
+    controller.printFormatter = UIMarkupTextPrintFormatter(markupText: html)
+    return controller.present(animated: true, completionHandler: { _, _, _ in })
+}
+
+private func topViewController(base: UIViewController? = nil) -> UIViewController? {
+    let root: UIViewController? = base ?? {
+        let activeScene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }
+        return activeScene?.windows.first(where: { $0.isKeyWindow })?.rootViewController
+    }()
+
+    if let nav = root as? UINavigationController {
+        return topViewController(base: nav.visibleViewController)
+    }
+    if let tab = root as? UITabBarController {
+        return topViewController(base: tab.selectedViewController)
+    }
+    if let presented = root?.presentedViewController {
+        return topViewController(base: presented)
+    }
+    return root
+}
+#endif
+
 @MainActor
 final class ReportsViewModel: ObservableObject {
     @Published var range: ReportRange = .today
@@ -568,6 +638,136 @@ final class ReportsViewModel: ObservableObject {
         let maxAmount = salesTrend.map(\.totalSalesAmount).max() ?? 0
         guard maxAmount > 0 else { return 0.1 }
         return CGFloat(point.totalSalesAmount / maxAmount)
+    }
+
+    func makeCSV() -> String {
+        var lines: [String] = []
+        lines.append("section,label,value,meta")
+        lines.append(csvRow(["overview", "销售额", salesSummary?.totalSalesAmount.currencyText ?? "--", range.title]))
+        lines.append(csvRow(["overview", "毛利", profitSummary?.estimatedProfitAmount.currencyText ?? "--", "估算利润"]))
+        lines.append(csvRow(["overview", "净现金", cashflowSummary?.netCashFlow.currencyText ?? "--", "现金流"]))
+        lines.append(csvRow(["overview", "待收款", reconciliation?.totalReceivableAmount.currencyText ?? "--", "客户应收"]))
+
+        if !salesTrend.isEmpty {
+            for point in salesTrend {
+                lines.append(csvRow(["trend", point.startAt.dateText, point.totalSalesAmount.currencyText, "订单 \(point.totalOrderCount)"]))
+            }
+        }
+
+        if !topProducts.isEmpty {
+            for product in topProducts {
+                lines.append(csvRow(["top_product", product.productName, product.totalAmount.currencyText, "销量 \(String(format: "%.0f", product.totalQuantity))"]))
+            }
+        }
+
+        if !productProfits.isEmpty {
+            for item in productProfits {
+                lines.append(csvRow(["product_profit", item.productName, item.totalProfitAmount.currencyText, String(format: "利润率 %.1f%%", item.profitRate * 100)]))
+            }
+        }
+
+        if !customerSales.isEmpty {
+            for item in customerSales {
+                lines.append(csvRow(["customer_sales", item.customerName, item.totalAmount.currencyText, "订单 \(item.totalOrders)"]))
+            }
+        }
+
+        if !receivableCustomers.isEmpty {
+            for item in receivableCustomers {
+                lines.append(csvRow(["receivable", item.customerName, item.balance.currencyText, item.phone?.nilIfBlank ?? "无联系电话"]))
+            }
+        }
+
+        if !refunds.isEmpty {
+            for refund in refunds {
+                lines.append(csvRow(["refund", refund.orderNo, refund.refundAmount.currencyText, refund.customerName ?? "散客"]))
+            }
+        }
+
+        if !stockOutRecords.isEmpty {
+            for item in stockOutRecords {
+                lines.append(csvRow(["stock_out", item.productName, String(format: "%.2f", item.quantity), item.amount.currencyText]))
+            }
+        }
+
+        if !lowStockProducts.isEmpty {
+            for product in lowStockProducts {
+                lines.append(csvRow(["low_stock", product.productName, String(format: "%.2f", product.stock), String(format: "安全库存 %.2f", product.safeStock)]))
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    func writeCSVToTemporaryFile() -> URL? {
+        let csv = makeCSV()
+        guard !csv.isEmpty else { return nil }
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("zhihuiji-report-\(range.rawValue)-\(Int(Date().timeIntervalSince1970)).csv")
+        do {
+            try csv.write(to: fileURL, atomically: true, encoding: .utf8)
+            return fileURL
+        } catch {
+            exportStatus = "CSV 写入失败：\(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    func makePrintableHTML() -> String {
+        let rows = [
+            ("销售额", salesSummary?.totalSalesAmount.currencyText ?? "--"),
+            ("毛利", profitSummary?.estimatedProfitAmount.currencyText ?? "--"),
+            ("净现金", cashflowSummary?.netCashFlow.currencyText ?? "--"),
+            ("待收款", reconciliation?.totalReceivableAmount.currencyText ?? "--")
+        ]
+
+        let rowHTML = rows.map { title, value in
+            "<tr><td>\(htmlEscaped(title))</td><td>\(htmlEscaped(value))</td></tr>"
+        }.joined(separator: "")
+
+        let topProductsHTML = topProducts.prefix(5).map { product in
+            "<li>\(htmlEscaped(product.productName)) - \(htmlEscaped(product.totalAmount.currencyText))</li>"
+        }.joined(separator: "")
+
+        return """
+        <html>
+        <head>
+        <meta charset="utf-8">
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #102033; padding: 24px; }
+            h1 { font-size: 24px; margin-bottom: 8px; }
+            .sub { color: #6b7785; margin-bottom: 18px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+            td { border-bottom: 1px solid #d8e0ea; padding: 10px 8px; }
+            td:first-child { width: 40%; font-weight: 600; }
+            ul { padding-left: 22px; }
+        </style>
+        </head>
+        <body>
+            <h1>经营报表</h1>
+            <div class="sub">时间范围：\(htmlEscaped(range.title))</div>
+            <table>\(rowHTML)</table>
+            <h2>热销商品</h2>
+            <ul>\(topProductsHTML)</ul>
+        </body>
+        </html>
+        """
+    }
+
+    private func csvRow(_ columns: [String]) -> String {
+        columns.map(csvEscaped).joined(separator: ",")
+    }
+
+    private func csvEscaped(_ value: String) -> String {
+        "\"\(value.replacingOccurrences(of: "\"", with: "\"\""))\""
+    }
+
+    private func htmlEscaped(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
     }
 
     private func capture<T>(_ operation: @escaping () async throws -> T) async -> Result<T, Error> {

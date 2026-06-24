@@ -5,6 +5,10 @@ struct InventoryAdjustView: View {
     @EnvironmentObject private var session: AppSession
     @StateObject private var viewModel = InventoryAdjustViewModel()
 
+    private var actionPolicy: InventoryAdjustActionPolicy {
+        InventoryAdjustActionPolicy.resolve(for: session.permissions)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -108,10 +112,10 @@ struct InventoryAdjustView: View {
                 .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous))
             }
             HStack(spacing: 12) {
-                PrimaryGlassButton(title: viewModel.isSubmitting ? "提交中..." : "提交调整", systemImage: "arrow.left.arrow.right.circle.fill", disabled: viewModel.isSubmitting || !session.hasPermission(.inventoryWrite) || viewModel.selectedProduct == nil) {
+                PrimaryGlassButton(title: viewModel.isSubmitting ? "提交中..." : "提交调整", systemImage: "arrow.left.arrow.right.circle.fill", disabled: viewModel.isSubmitting || !actionPolicy.canAdjustInventory || viewModel.selectedProduct == nil) {
                     Task { await viewModel.createAdjustment(client: env.apiClient) }
                 }
-                PrimaryGlassButton(title: viewModel.isSubmitting ? "处理中..." : "创建快照", systemImage: "camera.metering.center.weighted", disabled: viewModel.isSubmitting || !session.hasPermission(.inventoryWrite) || viewModel.selectedProduct == nil) {
+                PrimaryGlassButton(title: viewModel.isSubmitting ? "处理中..." : "创建快照", systemImage: "camera.metering.center.weighted", disabled: viewModel.isSubmitting || !actionPolicy.canAdjustInventory || viewModel.selectedProduct == nil) {
                     Task { await viewModel.createSnapshot(client: env.apiClient) }
                 }
             }
@@ -207,7 +211,7 @@ struct InventoryAdjustView: View {
             PrimaryGlassButton(
                 title: viewModel.isSubmitting ? "提交中..." : "提交调整",
                 systemImage: "arrow.left.arrow.right.circle.fill",
-                disabled: viewModel.isSubmitting || !session.hasPermission(.inventoryWrite) || viewModel.selectedProduct == nil || viewModel.quantityChangeText.nilIfBlank == nil
+                disabled: viewModel.isSubmitting || !actionPolicy.canAdjustInventory || viewModel.selectedProduct == nil || viewModel.quantityChangeText.nilIfBlank == nil
             ) {
                 Task { await viewModel.createAdjustment(client: env.apiClient) }
             }

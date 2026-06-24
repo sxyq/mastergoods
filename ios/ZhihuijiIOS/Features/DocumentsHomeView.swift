@@ -3,6 +3,10 @@ import SwiftUI
 struct DocumentsHomeView: View {
     @EnvironmentObject private var session: AppSession
 
+    private var access: DocumentsHomeAccessPolicy {
+        DocumentsHomeAccessPolicy.resolve(for: session.permissions)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -22,7 +26,7 @@ struct DocumentsHomeView: View {
                     Text("单据中心")
                         .font(ZhihuijiTheme.Typography.pageTitle)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
-                    Text("销售、采购、收款、退货都按移动端工作流聚合在这里。")
+                    Text("销售、采购、库存和资金都按移动端工作流聚合在这里。")
                         .font(ZhihuijiTheme.Typography.body)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
                 }
@@ -33,9 +37,10 @@ struct DocumentsHomeView: View {
             }
 
             HStack(spacing: 10) {
-                documentBadge(title: "销售", enabled: session.hasPermission(.salesView), tint: ZhihuijiTheme.ColorToken.primary)
-                documentBadge(title: "采购", enabled: session.hasPermission(.purchaseView), tint: ZhihuijiTheme.ColorToken.warning)
-                documentBadge(title: "财务", enabled: session.hasPermission(.financeView), tint: ZhihuijiTheme.ColorToken.success)
+                documentBadge(title: "销售", enabled: access.canViewSales, tint: ZhihuijiTheme.ColorToken.primary)
+                documentBadge(title: "采购", enabled: access.canViewPurchase, tint: ZhihuijiTheme.ColorToken.warning)
+                documentBadge(title: "财务", enabled: access.canViewFinance, tint: ZhihuijiTheme.ColorToken.success)
+                documentBadge(title: "库存", enabled: access.canViewInventory, tint: ZhihuijiTheme.ColorToken.primaryBright)
             }
         }
         .padding(18)
@@ -47,7 +52,7 @@ struct DocumentsHomeView: View {
             Text("业务入口")
                 .font(ZhihuijiTheme.Typography.sectionTitle)
 
-            if session.hasPermission(.salesView) {
+            if access.canViewSales {
                 NavigationLink {
                     SalesListView()
                 } label: {
@@ -62,7 +67,7 @@ struct DocumentsHomeView: View {
                 .buttonStyle(.plain)
             }
 
-            if session.hasPermission(.purchaseView) {
+            if access.canViewPurchase {
                 NavigationLink {
                     PurchaseListView()
                 } label: {
@@ -84,7 +89,7 @@ struct DocumentsHomeView: View {
             Text("能力联动")
                 .font(ZhihuijiTheme.Typography.sectionTitle)
 
-            if session.hasPermission(.financeView) {
+            if access.canViewFinance {
                 NavigationLink {
                     FinanceRecordView()
                 } label: {
@@ -98,7 +103,7 @@ struct DocumentsHomeView: View {
                 .buttonStyle(.plain)
             }
 
-            if session.hasPermission(.inventoryView) {
+            if access.canViewInventory {
                 NavigationLink {
                     InventorySnapshotView()
                 } label: {
