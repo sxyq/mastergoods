@@ -8,7 +8,7 @@ import com.zhihuiji.backend.domain.entity.AgentMessageEntity;
 import com.zhihuiji.backend.infrastructure.repository.AgentConversationRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentDraftRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentMessageRepository;
-import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.springframework.data.domain.PageRequest;
@@ -42,22 +42,27 @@ public class V2AgentConversationService {
         this.currentOwnerService = currentOwnerService;
     }
 
+    @Transactional(readOnly = true)
     public List<V2AgentDtos.AgentConversationResponse> listConversations() {
         return listConversations(null, null);
     }
 
+    @Transactional(readOnly = true)
     public List<V2AgentDtos.AgentConversationResponse> listConversations(Integer page, Integer limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return agentConversationRepository
+        List<AgentConversationEntity> rows = agentConversationRepository
             .findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(
                 ownerUserId,
                 PageRequest.of(safePage(page), safeLimit(limit, DEFAULT_CONVERSATION_LIMIT))
-            )
-            .stream()
-            .map(this::toConversationResponse)
-            .toList();
+            );
+        List<V2AgentDtos.AgentConversationResponse> responses = new ArrayList<>(rows.size());
+        for (AgentConversationEntity row : rows) {
+            responses.add(toConversationResponse(row));
+        }
+        return responses;
     }
 
+    @Transactional(readOnly = true)
     public V2AgentDtos.AgentConversationResponse getConversation(Long id) {
         return toConversationResponse(getOwnedConversation(id));
     }
@@ -101,10 +106,12 @@ public class V2AgentConversationService {
         agentConversationRepository.delete(entity);
     }
 
+    @Transactional(readOnly = true)
     public List<V2AgentDtos.AgentMessageResponse> listMessages(Long conversationId) {
         return listMessages(conversationId, null, null);
     }
 
+    @Transactional(readOnly = true)
     public List<V2AgentDtos.AgentMessageResponse> listMessages(Long conversationId, Integer page, Integer limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         ensureConversationOwned(conversationId, ownerUserId);
@@ -114,11 +121,11 @@ public class V2AgentConversationService {
                 conversationId,
                 PageRequest.of(safePage(page), safeLimit(limit, DEFAULT_MESSAGE_LIMIT))
             );
-        return recentMessages
-            .stream()
-            .sorted(Comparator.comparing(AgentMessageEntity::getCreatedAt).thenComparing(AgentMessageEntity::getId))
-            .map(this::toMessageResponse)
-            .toList();
+        List<V2AgentDtos.AgentMessageResponse> responses = new ArrayList<>(recentMessages.size());
+        for (int i = recentMessages.size() - 1; i >= 0; i--) {
+            responses.add(toMessageResponse(recentMessages.get(i)));
+        }
+        return responses;
     }
 
     @Transactional
@@ -145,10 +152,12 @@ public class V2AgentConversationService {
         return toMessageResponse(saved);
     }
 
+    @Transactional(readOnly = true)
     public List<V2AgentDtos.AgentDraftResponse> listDrafts(Long conversationId) {
         return listDrafts(conversationId, null, null);
     }
 
+    @Transactional(readOnly = true)
     public List<V2AgentDtos.AgentDraftResponse> listDrafts(Long conversationId, Integer page, Integer limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         List<AgentDraftEntity> rows;
@@ -159,7 +168,11 @@ public class V2AgentConversationService {
             ensureConversationOwned(conversationId, ownerUserId);
             rows = agentDraftRepository.findAllByOwnerUserIdAndConversationIdOrderByUpdatedAtDescIdDesc(ownerUserId, conversationId, pageRequest);
         }
-        return rows.stream().map(this::toDraftResponse).toList();
+        List<V2AgentDtos.AgentDraftResponse> responses = new ArrayList<>(rows.size());
+        for (AgentDraftEntity row : rows) {
+            responses.add(toDraftResponse(row));
+        }
+        return responses;
     }
 
     @Transactional

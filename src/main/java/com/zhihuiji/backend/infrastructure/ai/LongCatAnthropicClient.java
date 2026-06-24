@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,25 +31,34 @@ public class LongCatAnthropicClient {
 
     private final AgentLlmProperties properties;
     private final RestClient restClient;
+    private final String normalizedBaseUrl;
+    private final String wireApi;
+    private final boolean hasApiKey;
+    private final boolean openAiAuth;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient streamingHttpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
         .build();
+    private final Map<String, HttpResponse<InputStream>> activeStreams = new ConcurrentHashMap<>();
 
     public LongCatAnthropicClient(AgentLlmProperties properties, RestClient.Builder restClientBuilder) {
         this.properties = properties;
+        this.normalizedBaseUrl = normalizeBaseUrl(properties.getBaseUrl());
+        this.wireApi = properties.getWireApi() == null ? "" : properties.getWireApi();
+        this.hasApiKey = StringUtils.hasText(properties.getApiKey());
+        this.openAiAuth = hasApiKey && usesOpenAiAuth(wireApi);
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(10000);
         requestFactory.setReadTimeout(120000);
         RestClient.Builder builder = restClientBuilder
-            .baseUrl(properties.getBaseUrl())
+            .baseUrl(normalizedBaseUrl)
             .requestFactory(requestFactory);
-        if (StringUtils.hasText(properties.getApiKey()) && usesOpenAiAuth()) {
+        if (hasApiKey && openAiAuth) {
             builder = builder.defaultHeader("Authorization", "Bearer " + properties.getApiKey());
-        } else if (StringUtils.hasText(properties.getApiKey())) {
+        } else if (hasApiKey) {
             builder = builder.defaultHeader("x-api-key", properties.getApiKey());
         }
-        if (!"responses".equalsIgnoreCase(properties.getWireApi()) && StringUtils.hasText(properties.getAnthropicVersion())) {
+        if (!"responses".equalsIgnoreCase(wireApi) && StringUtils.hasText(properties.getAnthropicVersion())) {
             builder = builder.defaultHeader("anthropic-version", properties.getAnthropicVersion());
         }
         this.restClient = builder.build();
@@ -62,7 +72,7 @@ public class LongCatAnthropicClient {
         if (!properties.isEnabled()) {
             return "disabled";
         }
-        if (!StringUtils.hasText(properties.getApiKey())
+        if (!hasApiKey
             || !StringUtils.hasText(properties.getModel())
             || !StringUtils.hasText(properties.getBaseUrl())) {
             return "not_configured";
@@ -71,7 +81,7 @@ public class LongCatAnthropicClient {
     }
 
     public boolean supportsStreaming() {
-        return isConfigured() && "chat_completions".equalsIgnoreCase(properties.getWireApi());
+        return isConfigured() && "chat_completions".equalsIgnoreCase(wireApi);
     }
 
     public String streamingUnavailableStatus() {
@@ -82,10 +92,14 @@ public class LongCatAnthropicClient {
     }
 
     private boolean usesOpenAiAuth() {
+        return usesOpenAiAuth(wireApi);
+    }
+
+    private boolean usesOpenAiAuth(String wireApi) {
         return properties.isRequiresOpenaiAuth()
-            || "responses".equalsIgnoreCase(properties.getWireApi())
-            || "chat_completions".equalsIgnoreCase(properties.getWireApi())
-            || "completions".equalsIgnoreCase(properties.getWireApi());
+            || "responses".equalsIgnoreCase(wireApi)
+            || "chat_completions".equalsIgnoreCase(wireApi)
+            || "completions".equalsIgnoreCase(wireApi);
     }
 
     private static final int MAX_RETRIES = 3;
@@ -117,10 +131,10 @@ public class LongCatAnthropicClient {
     }
 
     private Optional<String> doCreateJsonMessage(String systemPrompt, String userPrompt) {
-        if ("responses".equalsIgnoreCase(properties.getWireApi())) {
+        if ("responses".equalsIgnoreCase(wireApi)) {
             return doCreateResponsesMessage(systemPrompt, userPrompt);
         }
-        if ("chat_completions".equalsIgnoreCase(properties.getWireApi())) {
+        if ("chat_completions".equalsIgnoreCase(wireApi)) {
             return doCreateChatCompletionsMessage(systemPrompt, userPrompt);
         }
         AnthropicResponse response = restClient.post()
@@ -140,10 +154,17 @@ public class LongCatAnthropicClient {
         if (response == null || response.content() == null) {
             return Optional.empty();
         }
-        Optional<String> text = response.content().stream()
-            .filter(block -> "text".equalsIgnoreCase(block.type()) && StringUtils.hasText(block.text()))
-            .map(ContentBlock::text)
-            .reduce((left, right) -> left + "\n" + right);
+        StringBuilder textBuilder = new StringBuilder();
+        for (ContentBlock block : response.content()) {
+            if (!"text".equalsIgnoreCase(block.type()) || !StringUtils.hasText(block.text())) {
+                continue;
+            }
+            if (textBuilder.length() > 0) {
+                textBuilder.append('\n');
+            }
+            textBuilder.append(block.text());
+        }
+        Optional<String> text = textBuilder.length() > 0 ? Optional.of(textBuilder.toString()) : Optional.empty();
         text.ifPresent(ignored -> {
             if (response.usage() != null) {
                 log.info("LongCat agent response from model {}, tokens: input={}, output={}",
@@ -179,12 +200,22 @@ public class LongCatAnthropicClient {
         if (response.output() == null) {
             return Optional.empty();
         }
-        return response.output().stream()
-            .filter(item -> item.content() != null)
-            .flatMap(item -> item.content().stream())
-            .filter(block -> StringUtils.hasText(block.text()))
-            .map(ResponseTextContent::text)
-            .reduce((left, right) -> left + "\n" + right);
+        StringBuilder textBuilder = new StringBuilder();
+        for (ResponseOutputItem item : response.output()) {
+            if (item.content() == null) {
+                continue;
+            }
+            for (ResponseTextContent block : item.content()) {
+                if (!StringUtils.hasText(block.text())) {
+                    continue;
+                }
+                if (textBuilder.length() > 0) {
+                    textBuilder.append('\n');
+                }
+                textBuilder.append(block.text());
+            }
+        }
+        return textBuilder.length() > 0 ? Optional.of(textBuilder.toString()) : Optional.empty();
     }
 
     private Optional<String> doCreateChatCompletionsMessage(String systemPrompt, String userPrompt) {
@@ -226,22 +257,46 @@ public class LongCatAnthropicClient {
     public Optional<String> streamTextMessage(
         String systemPrompt,
         String userPrompt,
+        String runId,
         Consumer<String> onDelta
     ) {
         if (!supportsStreaming()) {
             return Optional.empty();
         }
         try {
-            return doStreamChatCompletionsMessage(systemPrompt, userPrompt, onDelta);
+            return doStreamChatCompletionsMessage(systemPrompt, userPrompt, runId, onDelta);
         } catch (Exception ex) {
             log.warn("LongCat agent streaming request failed: {}", ex.getMessage());
             return Optional.empty();
+        } finally {
+            if (runId != null) {
+                activeStreams.remove(runId);
+            }
+        }
+    }
+
+    /**
+     * 关闭指定 runId 对应的活跃 HTTP 流,用于取消时中断 provider 的阻塞读取。
+     */
+    public void cancelStream(String runId) {
+        if (runId == null) {
+            return;
+        }
+        HttpResponse<InputStream> response = activeStreams.remove(runId);
+        if (response != null) {
+            try {
+                response.body().close();
+                log.info("LongCat agent stream cancelled and closed for runId {}", runId);
+            } catch (Exception ex) {
+                log.debug("LongCat agent stream close on cancel ignored: {}", ex.getMessage());
+            }
         }
     }
 
     private Optional<String> doStreamChatCompletionsMessage(
         String systemPrompt,
         String userPrompt,
+        String runId,
         Consumer<String> onDelta
     ) throws Exception {
         String requestJson = objectMapper.writeValueAsString(Map.of(
@@ -256,13 +311,13 @@ public class LongCatAnthropicClient {
         ));
 
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
-            .uri(URI.create(properties.getBaseUrl().replaceAll("/+$", "") + "/chat/completions"))
+            .uri(URI.create(normalizedBaseUrl + "/chat/completions"))
             .timeout(Duration.ofSeconds(120))
             .header("Content-Type", "application/json")
             .header("Accept", "text/event-stream")
             .POST(HttpRequest.BodyPublishers.ofString(requestJson));
         if (StringUtils.hasText(properties.getApiKey())) {
-            if (usesOpenAiAuth()) {
+            if (openAiAuth) {
                 requestBuilder.header("Authorization", "Bearer " + properties.getApiKey());
             } else {
                 requestBuilder.header("x-api-key", properties.getApiKey());
@@ -277,11 +332,18 @@ public class LongCatAnthropicClient {
             log.warn("LongCat streaming response failed: status={}", response.statusCode());
             return Optional.empty();
         }
+        if (runId != null) {
+            activeStreams.put(runId, response);
+        }
 
         StringBuilder answer = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.body()))) {
             String line;
             while ((line = reader.readLine()) != null) {
+                if (Thread.currentThread().isInterrupted()) {
+                    log.info("LongCat agent stream interrupted, aborting read loop for runId {}", runId);
+                    break;
+                }
                 String payload = normalizeSsePayload(line);
                 if (!StringUtils.hasText(payload) || "[DONE]".equals(payload)) {
                     continue;
@@ -293,7 +355,18 @@ public class LongCatAnthropicClient {
                 }
             }
         }
-        return StringUtils.hasText(answer.toString()) ? Optional.of(answer.toString()) : Optional.empty();
+        return answer.length() > 0 ? Optional.of(answer.toString()) : Optional.empty();
+    }
+
+    private String normalizeBaseUrl(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        int end = value.length();
+        while (end > 0 && value.charAt(end - 1) == '/') {
+            end--;
+        }
+        return value.substring(0, end);
     }
 
     private String normalizeSsePayload(String line) {

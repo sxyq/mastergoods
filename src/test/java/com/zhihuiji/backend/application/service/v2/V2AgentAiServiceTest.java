@@ -296,10 +296,10 @@ class V2AgentAiServiceTest {
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
-        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
                 @SuppressWarnings("unchecked")
-                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                Consumer<String> onDelta = invocation.getArgument(3, Consumer.class);
                 onDelta.accept("客户A");
                 onDelta.accept("应收100元");
                 return Optional.of("客户A应收100元");
@@ -349,10 +349,10 @@ class V2AgentAiServiceTest {
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
-        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
                 @SuppressWarnings("unchecked")
-                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                Consumer<String> onDelta = invocation.getArgument(3, Consumer.class);
                 onDelta.accept("客户A");
                 onDelta.accept("应收");
                 onDelta.accept("100");
@@ -386,10 +386,10 @@ class V2AgentAiServiceTest {
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
-        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
                 @SuppressWarnings("unchecked")
-                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                Consumer<String> onDelta = invocation.getArgument(3, Consumer.class);
                 onDelta.accept("客户A应收");
                 return Optional.empty();
             });
@@ -432,10 +432,10 @@ class V2AgentAiServiceTest {
             .thenReturn(customers);
         when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(10L);
         when(customerRepository.sumPositiveBalance(1L)).thenReturn(1055.0);
-        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
                 @SuppressWarnings("unchecked")
-                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                Consumer<String> onDelta = invocation.getArgument(3, Consumer.class);
                 onDelta.accept("客户应收 Top10 已查询。");
                 return Optional.of("客户应收 Top10 已查询。");
             });
@@ -567,10 +567,10 @@ class V2AgentAiServiceTest {
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
-        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
                 @SuppressWarnings("unchecked")
-                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                Consumer<String> onDelta = invocation.getArgument(3, Consumer.class);
                 onDelta.accept("客户A");
                 return Optional.of("客户A应收100元");
             });
@@ -642,10 +642,10 @@ class V2AgentAiServiceTest {
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
-        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
                 @SuppressWarnings("unchecked")
-                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                Consumer<String> onDelta = invocation.getArgument(3, Consumer.class);
                 onDelta.accept("客户A");
                 return Optional.of("客户A应收100元");
             });
@@ -700,10 +700,10 @@ class V2AgentAiServiceTest {
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
-        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
                 @SuppressWarnings("unchecked")
-                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                Consumer<String> onDelta = invocation.getArgument(3, Consumer.class);
                 onDelta.accept("客户A");
                 return Optional.of("客户A应收100元");
             });
@@ -744,10 +744,10 @@ class V2AgentAiServiceTest {
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
-        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
                 @SuppressWarnings("unchecked")
-                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                Consumer<String> onDelta = invocation.getArgument(3, Consumer.class);
                 onDelta.accept("客户A");
                 return Optional.of("客户A应收100元");
             });
@@ -790,7 +790,7 @@ class V2AgentAiServiceTest {
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         CountDownLatch modelStreamEntered = new CountDownLatch(1);
         CountDownLatch releaseModelStream = new CountDownLatch(1);
-        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
                 modelStreamEntered.countDown();
                 assertTrue(releaseModelStream.await(3, TimeUnit.SECONDS), "model stream release timed out");
@@ -1171,10 +1171,10 @@ class V2AgentAiServiceTest {
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
-        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), any()))
+        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
                 @SuppressWarnings("unchecked")
-                Consumer<String> onDelta = invocation.getArgument(2, Consumer.class);
+                Consumer<String> onDelta = invocation.getArgument(3, Consumer.class);
                 onDelta.accept("客户A");
                 return Optional.of("客户A应收100元");
             });

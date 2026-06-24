@@ -41,12 +41,13 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -81,6 +82,12 @@ public class V2AgentAiService {
     private static final int AUDIT_WRITE_QUEUE_CAPACITY = 512;
     private static final int ANSWER_DELTA_BATCH_CHAR_THRESHOLD = 24;
     private static final String RULE_SUMMARY_NOTICE = "说明：本回答为真实数据查询后的规则摘要，当前未使用模型生成。";
+    private static final Map<String, Object> DEFAULT_LIMIT_TOOL_INPUT = Map.of("limit", DEFAULT_TOOL_LIMIT);
+    private static final Map<String, Object> OVERVIEW_TOOL_INPUT = Map.of(
+        "window_days", 7,
+        "rank_limit", OVERVIEW_SIGNAL_LIMIT,
+        "low_stock_limit", OVERVIEW_SIGNAL_LIMIT
+    );
 
     private final CurrentOwnerService currentOwnerService;
     private final AgentConversationRepository agentConversationRepository;
@@ -213,9 +220,12 @@ public class V2AgentAiService {
     @Transactional(readOnly = true)
     public List<V2AgentDtos.AgentTaskResponse> listTasks() {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return agentTaskRepository.findTop20ByOwnerUserIdOrderByCreatedAtDesc(ownerUserId).stream()
-            .map(this::toTaskResponse)
-            .toList();
+        List<AgentTaskEntity> rows = agentTaskRepository.findTop20ByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
+        List<V2AgentDtos.AgentTaskResponse> responses = new ArrayList<>(rows.size());
+        for (int index = 0; index < rows.size(); index += 1) {
+            responses.add(toTaskResponse(rows.get(index)));
+        }
+        return responses;
     }
 
     @Transactional(readOnly = true)
@@ -224,7 +234,11 @@ public class V2AgentAiService {
         List<AgentNotificationEntity> rows = unreadOnly
             ? agentNotificationRepository.findTop30ByOwnerUserIdAndIsReadFalseOrderByCreatedAtDesc(ownerUserId)
             : agentNotificationRepository.findTop30ByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
-        return rows.stream().map(this::toNotificationResponse).toList();
+        List<V2AgentDtos.AgentNotificationResponse> responses = new ArrayList<>(rows.size());
+        for (int index = 0; index < rows.size(); index += 1) {
+            responses.add(toNotificationResponse(rows.get(index)));
+        }
+        return responses;
     }
 
     @Transactional
@@ -407,6 +421,7 @@ public class V2AgentAiService {
             return new V2AgentDtos.AgentRunCancelResponse(normalizedRunId, "already_cancelled", true);
         }
         activeRun.cancel();
+        longCatAnthropicClient.cancelStream(normalizedRunId);
         emitRunCancelled(activeRun.emitter(), normalizedRunId, "用户已停止生成");
         finishRunAudit(
             ownerUserId,
@@ -674,12 +689,8 @@ public class V2AgentAiService {
         return switch (toolName) {
             case "inventory_low_stock_lookup", "product_catalog_lookup", "customer_receivable_lookup",
                 "supplier_payable_lookup", "sale_order_lookup", "purchase_order_lookup",
-                "pay_order_lookup", "finance_record_lookup" -> Map.of("limit", DEFAULT_TOOL_LIMIT);
-            case "sales_overview_lookup" -> Map.of(
-                "window_days", 7,
-                "rank_limit", OVERVIEW_SIGNAL_LIMIT,
-                "low_stock_limit", OVERVIEW_SIGNAL_LIMIT
-            );
+                "pay_order_lookup", "finance_record_lookup" -> DEFAULT_LIMIT_TOOL_INPUT;
+            case "sales_overview_lookup" -> OVERVIEW_TOOL_INPUT;
             default -> Map.of();
         };
     }
@@ -715,12 +726,12 @@ public class V2AgentAiService {
     private Optional<AgentToolPlan> parseToolPlan(String rawText) {
         try {
             JsonNode root = objectMapper.readTree(extractJsonObject(rawText));
-            List<String> tools = new ArrayList<>();
+            Set<String> tools = new LinkedHashSet<>();
             JsonNode toolsNode = root.get("tools");
             if (toolsNode != null && toolsNode.isArray()) {
                 for (JsonNode item : toolsNode) {
                     String tool = item.asText("");
-                    if (isAllowedTool(tool) && !tools.contains(tool)) {
+                    if (isAllowedTool(tool)) {
                         tools.add(tool);
                     }
                     if (tools.size() >= 3) {
@@ -732,7 +743,7 @@ public class V2AgentAiService {
                 return Optional.empty();
             }
             String rationale = root.path("rationale").asText("模型选择了当前问题所需的只读查询工具");
-            return Optional.of(new AgentToolPlan(tools, rationale));
+            return Optional.of(new AgentToolPlan(new ArrayList<>(tools), rationale));
         } catch (Exception ignored) {
             return Optional.empty();
         }
@@ -752,7 +763,7 @@ public class V2AgentAiService {
 
     private AgentToolPlan inferToolPlan(String message) {
         String normalized = message.toLowerCase(Locale.ROOT);
-        List<String> tools = new ArrayList<>();
+        Set<String> tools = new LinkedHashSet<>();
         if (containsAny(normalized, "库存", "补货", "低库存", "缺货", "inventory", "stock", "low stock", "replenish")) {
             tools.add("inventory_low_stock_lookup");
         }
@@ -780,7 +791,7 @@ public class V2AgentAiService {
         }
         List<String> deduplicated = new ArrayList<>();
         for (String tool : tools) {
-            if (isAllowedTool(tool) && !deduplicated.contains(tool)) {
+            if (isAllowedTool(tool)) {
                 deduplicated.add(tool);
             }
             if (deduplicated.size() >= 4) {
@@ -803,15 +814,38 @@ public class V2AgentAiService {
     }
 
     private ResponsePayload buildInventoryResponse(Long ownerUserId, SseEmitter emitter, String runId) {
-        ToolAudit audit = startToolAudit(emitter, runId, "inventory_low_stock_lookup", Map.of("limit", DEFAULT_TOOL_LIMIT));
+        ToolAudit audit = startToolAudit(emitter, runId, "inventory_low_stock_lookup", DEFAULT_LIMIT_TOOL_INPUT);
         List<ProductEntity> products = productRepository.findLowStockProducts(ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
+        List<ProductEntity> topProducts = limit(products, 5);
         audit.markLimitedResult(products.size(), DEFAULT_TOOL_LIMIT);
         emitToolCompleted(emitter, runId, "inventory_low_stock_lookup", "命中 " + products.size() + " 个低库存商品", audit);
 
-        List<String> affectedItems = products.stream()
-            .limit(5)
-            .map(ProductEntity::getName)
-            .toList();
+        List<String> affectedItems = new ArrayList<>(topProducts.size());
+        List<List<Object>> rows = new ArrayList<>(products.size());
+        List<Map<String, Object>> topItems = new ArrayList<>(topProducts.size());
+        for (int index = 0; index < topProducts.size(); index += 1) {
+            affectedItems.add(topProducts.get(index).getName());
+        }
+        for (int index = 0; index < products.size(); index += 1) {
+            ProductEntity item = products.get(index);
+            rows.add(List.of(
+                item.getName(),
+                item.getCode(),
+                formatNumber(item.getStock()),
+                formatNumber(item.getSafeStock()),
+                money(safeDouble(item.getSalePrice()))
+            ));
+        }
+        for (int index = 0; index < topProducts.size(); index += 1) {
+            ProductEntity item = topProducts.get(index);
+            topItems.add(mapOf(
+                "name", item.getName(),
+                "code", item.getCode(),
+                "stock", formatNumber(item.getStock()),
+                "safe_stock", formatNumber(item.getSafeStock()),
+                "sale_price", money(safeDouble(item.getSalePrice()))
+            ));
+        }
         V2AgentDtos.ResultBlockDto riskBlock = new V2AgentDtos.ResultBlockDto(
             "risk_card",
             "库存风险",
@@ -828,13 +862,7 @@ public class V2AgentAiService {
             "低库存商品列表",
             toJsonNode(mapOf(
                 "headers", List.of("商品", "编码", "当前库存", "安全库存", "销售价"),
-                "rows", products.stream().map(item -> List.of(
-                    item.getName(),
-                    item.getCode(),
-                    formatNumber(item.getStock()),
-                    formatNumber(item.getSafeStock()),
-                    money(safeDouble(item.getSalePrice()))
-                )).toList(),
+                "rows", rows,
                 "row_count", products.size()
             ))
         );
@@ -849,30 +877,51 @@ public class V2AgentAiService {
             toJsonNode(mapOf(
                 "low_stock_count", products.size(),
                 "query_audit", audit.facts(),
-                "top_items", products.stream().limit(5).map(item -> mapOf(
-                    "name", item.getName(),
-                    "code", item.getCode(),
-                    "stock", formatNumber(item.getStock()),
-                    "safe_stock", formatNumber(item.getSafeStock()),
-                    "sale_price", money(safeDouble(item.getSalePrice()))
-                )).toList()
+                "top_items", topItems
             ))
         );
         return new ResponsePayload(answer, blocks, List.of(toolResult));
     }
 
     private ResponsePayload buildProductCatalogResponse(Long ownerUserId, SseEmitter emitter, String runId) {
-        ToolAudit audit = startToolAudit(emitter, runId, "product_catalog_lookup", Map.of("limit", DEFAULT_TOOL_LIMIT));
+        ToolAudit audit = startToolAudit(emitter, runId, "product_catalog_lookup", DEFAULT_LIMIT_TOOL_INPUT);
         List<ProductEntity> products = productRepository.findAllByOwnerUserIdOrderByNameAsc(ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
+        List<ProductEntity> topProducts = limit(products, 5);
         long totalProductCount = safeLong(productRepository.countByOwnerUserId(ownerUserId));
         double totalStock = safeDouble(productRepository.sumStockByOwnerUserId(ownerUserId));
         long lowStockCount = safeLong(productRepository.countLowStockByOwnerUserId(ownerUserId));
         audit.markLimitedResult(products.size(), DEFAULT_TOOL_LIMIT);
         emitToolCompleted(emitter, runId, "product_catalog_lookup", "返回 " + products.size() + " 个商品，总计 " + totalProductCount + " 个商品", audit);
 
-        ProductEntity maxStockProduct = products.stream()
-            .max(Comparator.comparingDouble(item -> safeDouble(item.getStock())))
-            .orElse(null);
+        ProductEntity maxStockProduct = null;
+        double maxStock = Double.NEGATIVE_INFINITY;
+        List<List<Object>> rows = new ArrayList<>(products.size());
+        List<Map<String, Object>> topProductItems = new ArrayList<>(topProducts.size());
+        for (int index = 0; index < products.size(); index += 1) {
+            ProductEntity item = products.get(index);
+            double stock = safeDouble(item.getStock());
+            if (stock > maxStock) {
+                maxStock = stock;
+                maxStockProduct = item;
+            }
+            rows.add(List.of(
+                item.getName(),
+                item.getCode(),
+                safeText(item.getCategory(), "-"),
+                formatNumber(stock),
+                money(safeDouble(item.getSalePrice()))
+            ));
+        }
+        for (int index = 0; index < topProducts.size(); index += 1) {
+            ProductEntity item = topProducts.get(index);
+            topProductItems.add(mapOf(
+                "name", item.getName(),
+                "code", item.getCode(),
+                "category", safeText(item.getCategory(), "-"),
+                "stock", formatNumber(safeDouble(item.getStock())),
+                "sale_price", money(safeDouble(item.getSalePrice()))
+            ));
+        }
 
         V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
             "kpi_grid",
@@ -890,13 +939,7 @@ public class V2AgentAiService {
             "商品列表",
             toJsonNode(mapOf(
                 "headers", List.of("商品", "编码", "分类", "库存", "售价"),
-                "rows", products.stream().map(item -> List.of(
-                    item.getName(),
-                    item.getCode(),
-                    safeText(item.getCategory(), "-"),
-                    formatNumber(safeDouble(item.getStock())),
-                    money(safeDouble(item.getSalePrice()))
-                )).toList(),
+                "rows", rows,
                 "row_count", products.size()
             ))
         );
@@ -916,28 +959,39 @@ public class V2AgentAiService {
                 "stock_total", formatNumber(totalStock),
                 "low_stock_count", lowStockCount,
                 "query_audit", audit.facts(),
-                "top_products", products.stream().limit(5).map(item -> mapOf(
-                    "name", item.getName(),
-                    "code", item.getCode(),
-                    "category", safeText(item.getCategory(), "-"),
-                    "stock", formatNumber(safeDouble(item.getStock())),
-                    "sale_price", money(safeDouble(item.getSalePrice()))
-                )).toList()
+                "top_products", topProductItems
             ))
         );
         return new ResponsePayload(answer, blocks, List.of(toolResult));
     }
 
     private ResponsePayload buildReceivableResponse(Long ownerUserId, SseEmitter emitter, String runId) {
-        ToolAudit audit = startToolAudit(emitter, runId, "customer_receivable_lookup", Map.of("limit", DEFAULT_TOOL_LIMIT));
+        ToolAudit audit = startToolAudit(emitter, runId, "customer_receivable_lookup", DEFAULT_LIMIT_TOOL_INPUT);
         List<CustomerEntity> customers = customerRepository
             .findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(ownerUserId, 0.0, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
+        List<CustomerEntity> topCustomers = limit(customers, 6);
+        CustomerEntity highestReceivableCustomer = customers.isEmpty() ? null : customers.get(0);
         audit.markLimitedResult(customers.size(), DEFAULT_TOOL_LIMIT);
         long totalCustomerCount = safeLong(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(ownerUserId, 0.0));
         double totalReceivable = safeDouble(customerRepository.sumPositiveBalance(ownerUserId));
         emitToolCompleted(emitter, runId, "customer_receivable_lookup", "返回 " + customers.size() + " 个欠款客户，总计 " + totalCustomerCount + " 个", audit);
 
-        double topReceivable = customers.stream().mapToDouble(item -> safeDouble(item.getBalance())).sum();
+        double topReceivable = sumCustomerBalances(customers);
+        List<String> labels = new ArrayList<>(topCustomers.size());
+        List<Double> values = new ArrayList<>(topCustomers.size());
+        List<Map<String, Object>> topCustomerItems = new ArrayList<>(Math.min(topCustomers.size(), 5));
+        for (int index = 0; index < topCustomers.size(); index += 1) {
+            CustomerEntity item = topCustomers.get(index);
+            labels.add(compactChartLabel(item.getName()));
+            values.add(safeDouble(item.getBalance()));
+            if (index < 5) {
+                topCustomerItems.add(mapOf(
+                    "name", item.getName(),
+                    "balance", money(safeDouble(item.getBalance())),
+                    "level", item.getLevel()
+                ));
+            }
+        }
         V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
             "kpi_grid",
             "应收概览",
@@ -945,7 +999,7 @@ public class V2AgentAiService {
                 "kpis", List.of(
                     mapOf("label", "欠款客户总数", "value", String.valueOf(totalCustomerCount), "trend_direction", totalCustomerCount == 0L ? "flat" : "up"),
                     mapOf("label", "应收总额", "value", money(totalReceivable), "trend_direction", totalReceivable > 0 ? "down" : "flat"),
-                    mapOf("label", "最高单户欠款", "value", customers.isEmpty() ? money(0) : money(safeDouble(customers.get(0).getBalance())), "trend_direction", customers.isEmpty() ? "flat" : "up")
+                    mapOf("label", "最高单户欠款", "value", highestReceivableCustomer == null ? money(0) : money(safeDouble(highestReceivableCustomer.getBalance())), "trend_direction", highestReceivableCustomer == null ? "flat" : "up")
                 )
             ))
         );
@@ -964,10 +1018,10 @@ public class V2AgentAiService {
                 "Top 客户应收柱状图",
                 toJsonNode(mapOf(
                     "title", "Top 客户应收柱状图",
-                    "labels", customers.stream().limit(6).map(item -> compactChartLabel(item.getName())).toList(),
+                    "labels", labels,
                     "series", List.of(mapOf(
                         "name", "应收余额",
-                        "data", customers.stream().limit(6).map(item -> safeDouble(item.getBalance())).toList(),
+                        "data", values,
                         "color", "#005BBF"
                     ))
                 ))
@@ -987,11 +1041,7 @@ public class V2AgentAiService {
                 "total_receivable", money(totalReceivable),
                 "top10_receivable_total", money(topReceivable),
                 "query_audit", audit.facts(),
-                "top_customers", customers.stream().limit(5).map(item -> mapOf(
-                    "name", item.getName(),
-                    "balance", money(safeDouble(item.getBalance())),
-                    "level", item.getLevel()
-                )).toList()
+                "top_customers", topCustomerItems
             ))
         );
         return new ResponsePayload(answer, blocks, List.of(toolResult));
@@ -1002,18 +1052,35 @@ public class V2AgentAiService {
             emitter,
             runId,
             "supplier_payable_lookup",
-            Map.of("limit", DEFAULT_TOOL_LIMIT)
+            DEFAULT_LIMIT_TOOL_INPUT
         );
         List<SupplierEntity> topPayables = supplierRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(
             ownerUserId,
             0.0,
             PageRequest.of(0, DEFAULT_TOOL_LIMIT)
         );
+        List<SupplierEntity> topSuppliers = limit(topPayables, 6);
+        SupplierEntity highestPayableSupplier = topPayables.isEmpty() ? null : topPayables.get(0);
         long totalSupplierCount = safeLong(supplierRepository.countByOwnerUserIdAndBalanceGreaterThan(ownerUserId, 0.0));
         double totalPayable = safeDouble(supplierRepository.sumPositiveBalance(ownerUserId));
-        double topPayable = topPayables.stream().mapToDouble(item -> safeDouble(item.getBalance())).sum();
+        double topPayable = sumSupplierBalances(topPayables);
         audit.markLimitedResult(topPayables.size(), DEFAULT_TOOL_LIMIT);
         emitToolCompleted(emitter, runId, "supplier_payable_lookup", "返回 " + topPayables.size() + " 个应付供应商，总计 " + totalSupplierCount + " 个", audit);
+        List<String> labels = new ArrayList<>(topSuppliers.size());
+        List<Double> values = new ArrayList<>(topSuppliers.size());
+        List<Map<String, Object>> topSupplierItems = new ArrayList<>(Math.min(topSuppliers.size(), 5));
+        for (int index = 0; index < topSuppliers.size(); index += 1) {
+            SupplierEntity item = topSuppliers.get(index);
+            labels.add(compactChartLabel(item.getName()));
+            values.add(safeDouble(item.getBalance()));
+            if (index < 5) {
+                topSupplierItems.add(mapOf(
+                    "name", item.getName(),
+                    "balance", money(safeDouble(item.getBalance())),
+                    "phone", safeText(item.getPhone(), "-")
+                ));
+            }
+        }
 
         V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
             "kpi_grid",
@@ -1022,7 +1089,7 @@ public class V2AgentAiService {
                 "kpis", List.of(
                     mapOf("label", "应付供应商总数", "value", String.valueOf(totalSupplierCount), "trend_direction", totalSupplierCount == 0L ? "flat" : "up"),
                     mapOf("label", "应付总额", "value", money(totalPayable), "trend_direction", totalPayable > 0 ? "up" : "flat"),
-                    mapOf("label", "最高单户应付", "value", topPayables.isEmpty() ? money(0) : money(safeDouble(topPayables.get(0).getBalance())), "trend_direction", topPayables.isEmpty() ? "flat" : "up")
+                    mapOf("label", "最高单户应付", "value", highestPayableSupplier == null ? money(0) : money(safeDouble(highestPayableSupplier.getBalance())), "trend_direction", highestPayableSupplier == null ? "flat" : "up")
                 )
             ))
         );
@@ -1039,10 +1106,10 @@ public class V2AgentAiService {
                 "Top 供应商应付柱状图",
                 toJsonNode(mapOf(
                     "title", "Top 供应商应付柱状图",
-                    "labels", topPayables.stream().limit(6).map(item -> compactChartLabel(item.getName())).toList(),
+                    "labels", labels,
                     "series", List.of(mapOf(
                         "name", "应付余额",
-                        "data", topPayables.stream().limit(6).map(item -> safeDouble(item.getBalance())).toList(),
+                        "data", values,
                         "color", "#FB8C00"
                     ))
                 ))
@@ -1064,11 +1131,7 @@ public class V2AgentAiService {
                 "total_payable", money(totalPayable),
                 "top10_payable_total", money(topPayable),
                 "query_audit", audit.facts(),
-                "top_suppliers", topPayables.stream().limit(5).map(item -> mapOf(
-                    "name", item.getName(),
-                    "balance", money(safeDouble(item.getBalance())),
-                    "phone", safeText(item.getPhone(), "-")
-                )).toList()
+                "top_suppliers", topSupplierItems
             ))
         );
         return new ResponsePayload(answer, blocks, List.of(toolResult));
@@ -1082,12 +1145,16 @@ public class V2AgentAiService {
             emitter,
             runId,
             "sales_overview_lookup",
-            Map.of("window_days", 7, "rank_limit", OVERVIEW_SIGNAL_LIMIT, "low_stock_limit", OVERVIEW_SIGNAL_LIMIT)
+            OVERVIEW_TOOL_INPUT
         );
         double salesAmount = safeDouble(saleOrderRepository.sumTotalAmountBetween(ownerUserId, sevenDaysAgo, now));
         double paidAmount = safeDouble(saleOrderRepository.sumPaidAmountBetween(ownerUserId, sevenDaysAgo, now));
         long salesCount = safeLong(saleOrderRepository.countNonCancelledBetween(ownerUserId, sevenDaysAgo, now));
         List<ProductEntity> lowStockProducts = productRepository.findLowStockProducts(ownerUserId, PageRequest.of(0, OVERVIEW_SIGNAL_LIMIT));
+        List<String> lowStockNames = new ArrayList<>(Math.min(lowStockProducts.size(), 3));
+        for (int index = 0; index < lowStockProducts.size() && index < 3; index += 1) {
+            lowStockNames.add(lowStockProducts.get(index).getName());
+        }
         double receivable = safeDouble(customerRepository.sumPositiveBalance(ownerUserId));
         List<Object[]> customerSales = saleOrderRepository.customerSales(
             ownerUserId,
@@ -1096,6 +1163,7 @@ public class V2AgentAiService {
             CANCELLED_SALE_ORDER_STATUS,
             PageRequest.of(0, OVERVIEW_SIGNAL_LIMIT)
         );
+        List<Map<String, Object>> customerSalesRank = buildCustomerSalesRank(customerSales);
         audit.markReturned(Math.max(lowStockProducts.size(), customerSales.size()));
         emitToolCompleted(emitter, runId, "sales_overview_lookup", "已汇总近7天销售、应收和库存信号", audit);
 
@@ -1114,7 +1182,7 @@ public class V2AgentAiService {
         V2AgentDtos.ResultBlockDto rankBlock = new V2AgentDtos.ResultBlockDto(
             "rank_list",
             "客户销售排行",
-            toJsonNode(mapOf("items", buildCustomerSalesRank(customerSales)))
+            toJsonNode(mapOf("items", customerSalesRank))
         );
         V2AgentDtos.ResultBlockDto trendBlock = buildSalesTrendBlock(ownerUserId, sevenDaysAgo, now);
         V2AgentDtos.ResultBlockDto amountBlock = new V2AgentDtos.ResultBlockDto(
@@ -1139,7 +1207,7 @@ public class V2AgentAiService {
                 "description", lowStockProducts.isEmpty()
                     ? "近7天经营数据已汇总，当前库存预警不明显。"
                     : "建议同步关注补货与回款，避免销售增长带来缺货。",
-                "affected_items", lowStockProducts.stream().limit(3).map(ProductEntity::getName).toList(),
+                "affected_items", lowStockNames,
                 "suggested_action", lowStockProducts.isEmpty() ? "继续观察趋势" : "优先处理低库存商品并跟进重点客户回款"
             ))
         );
@@ -1157,14 +1225,14 @@ public class V2AgentAiService {
                 "current_receivable", money(receivable),
                 "low_stock_count", lowStockProducts.size(),
                 "query_audit", audit.facts(),
-                "top_customer_sales", buildCustomerSalesRank(customerSales)
+                "top_customer_sales", customerSalesRank
             ))
         );
         return new ResponsePayload(answer, blocks, List.of(toolResult));
     }
 
     private ResponsePayload buildSaleOrderResponse(Long ownerUserId, SseEmitter emitter, String runId) {
-        ToolAudit audit = startToolAudit(emitter, runId, "sale_order_lookup", Map.of("limit", DEFAULT_TOOL_LIMIT));
+        ToolAudit audit = startToolAudit(emitter, runId, "sale_order_lookup", DEFAULT_LIMIT_TOOL_INPUT);
         List<SaleOrderEntity> recentOrders = saleOrderRepository.search(
             ownerUserId,
             null,
@@ -1177,12 +1245,20 @@ public class V2AgentAiService {
             null,
             PageRequest.of(0, DEFAULT_TOOL_LIMIT)
         );
+        List<SaleOrderEntity> topOrders = limit(recentOrders, 5);
         audit.markLimitedResult(recentOrders.size(), DEFAULT_TOOL_LIMIT);
-        long unpaidCount = recentOrders.stream()
-            .filter(item -> safeDouble(item.getPaidAmount()) + 0.000001 < safeDouble(item.getTotalAmount()))
-            .count();
-        double recentTotal = recentOrders.stream().mapToDouble(item -> safeDouble(item.getTotalAmount())).sum();
-        double recentPaid = recentOrders.stream().mapToDouble(item -> safeDouble(item.getPaidAmount())).sum();
+        long unpaidCount = 0L;
+        double recentTotal = 0D;
+        double recentPaid = 0D;
+        for (SaleOrderEntity item : recentOrders) {
+            double totalAmount = safeDouble(item.getTotalAmount());
+            double paidAmount = safeDouble(item.getPaidAmount());
+            recentTotal += totalAmount;
+            recentPaid += paidAmount;
+            if (paidAmount + 0.000001 < totalAmount) {
+                unpaidCount++;
+            }
+        }
         emitToolCompleted(emitter, runId, "sale_order_lookup", "命中 " + recentOrders.size() + " 条销售单", audit);
 
         V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
@@ -1201,13 +1277,7 @@ public class V2AgentAiService {
             "最近销售单",
             toJsonNode(mapOf(
                 "headers", List.of("单号", "客户", "总额", "已收", "状态"),
-                "rows", recentOrders.stream().map(item -> List.of(
-                    safeText(item.getOrderNo(), "-"),
-                    safeText(item.getCustomerName(), "-"),
-                    money(safeDouble(item.getTotalAmount())),
-                    money(safeDouble(item.getPaidAmount())),
-                    saleOrderStatusLabel(item.getStatus())
-                )).toList(),
+                "rows", buildSaleOrderRows(recentOrders),
                 "row_count", recentOrders.size()
             ))
         );
@@ -1227,29 +1297,28 @@ public class V2AgentAiService {
                 "recent_paid_amount", money(recentPaid),
                 "unpaid_count", unpaidCount,
                 "query_audit", audit.facts(),
-                "recent_orders", recentOrders.stream().limit(5).map(item -> mapOf(
-                    "order_no", safeText(item.getOrderNo(), "-"),
-                    "customer_name", safeText(item.getCustomerName(), "-"),
-                    "total_amount", money(safeDouble(item.getTotalAmount())),
-                    "paid_amount", money(safeDouble(item.getPaidAmount())),
-                    "status", saleOrderStatusLabel(item.getStatus())
-                )).toList()
+                "recent_orders", buildSaleOrderSummaries(topOrders)
             ))
         );
         return new ResponsePayload(answer, blocks, List.of(toolResult));
     }
 
     private ResponsePayload buildPurchaseOrderResponse(Long ownerUserId, SseEmitter emitter, String runId) {
-        ToolAudit audit = startToolAudit(emitter, runId, "purchase_order_lookup", Map.of("limit", DEFAULT_TOOL_LIMIT));
+        ToolAudit audit = startToolAudit(emitter, runId, "purchase_order_lookup", DEFAULT_LIMIT_TOOL_INPUT);
         List<PurchaseOrderEntity> recentOrders = purchaseOrderRepository.search(
             ownerUserId,
             null,
             null,
             PageRequest.of(0, DEFAULT_TOOL_LIMIT)
         );
+        List<PurchaseOrderEntity> topOrders = limit(recentOrders, 5);
         audit.markLimitedResult(recentOrders.size(), DEFAULT_TOOL_LIMIT);
-        double totalAmount = recentOrders.stream().mapToDouble(item -> safeDouble(item.getTotalAmount())).sum();
-        double receivedAmount = recentOrders.stream().mapToDouble(item -> safeDouble(item.getReceivedAmount())).sum();
+        double totalAmount = 0D;
+        double receivedAmount = 0D;
+        for (PurchaseOrderEntity item : recentOrders) {
+            totalAmount += safeDouble(item.getTotalAmount());
+            receivedAmount += safeDouble(item.getReceivedAmount());
+        }
         emitToolCompleted(emitter, runId, "purchase_order_lookup", "命中 " + recentOrders.size() + " 条采购单", audit);
 
         V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
@@ -1268,13 +1337,7 @@ public class V2AgentAiService {
             "最近采购单",
             toJsonNode(mapOf(
                 "headers", List.of("单号", "供应商", "总额", "已付", "状态"),
-                "rows", recentOrders.stream().map(item -> List.of(
-                    safeText(item.getOrderNo(), "-"),
-                    safeText(item.getSupplierName(), "-"),
-                    money(safeDouble(item.getTotalAmount())),
-                    money(safeDouble(item.getPaidAmount())),
-                    purchaseOrderStatusLabel(item.getStatus())
-                )).toList(),
+                "rows", buildPurchaseOrderRows(recentOrders),
                 "row_count", recentOrders.size()
             ))
         );
@@ -1292,20 +1355,14 @@ public class V2AgentAiService {
                 "recent_total_amount", money(totalAmount),
                 "recent_received_amount", money(receivedAmount),
                 "query_audit", audit.facts(),
-                "recent_orders", recentOrders.stream().limit(5).map(item -> mapOf(
-                    "order_no", safeText(item.getOrderNo(), "-"),
-                    "supplier_name", safeText(item.getSupplierName(), "-"),
-                    "total_amount", money(safeDouble(item.getTotalAmount())),
-                    "paid_amount", money(safeDouble(item.getPaidAmount())),
-                    "status", purchaseOrderStatusLabel(item.getStatus())
-                )).toList()
+                "recent_orders", buildPurchaseOrderSummaries(topOrders)
             ))
         );
         return new ResponsePayload(answer, blocks, List.of(toolResult));
     }
 
     private ResponsePayload buildPayOrderResponse(Long ownerUserId, SseEmitter emitter, String runId) {
-        ToolAudit audit = startToolAudit(emitter, runId, "pay_order_lookup", Map.of("limit", DEFAULT_TOOL_LIMIT));
+        ToolAudit audit = startToolAudit(emitter, runId, "pay_order_lookup", DEFAULT_LIMIT_TOOL_INPUT);
         List<PayOrderEntity> recentOrders = payOrderRepository.search(
             ownerUserId,
             null,
@@ -1314,9 +1371,16 @@ public class V2AgentAiService {
             null,
             PageRequest.of(0, DEFAULT_TOOL_LIMIT)
         );
+        List<PayOrderEntity> topOrders = limit(recentOrders, 5);
         audit.markLimitedResult(recentOrders.size(), DEFAULT_TOOL_LIMIT);
-        double totalAmount = recentOrders.stream().mapToDouble(item -> safeDouble(item.getAmount())).sum();
-        long pendingCount = recentOrders.stream().filter(item -> item.getStatus() != null && item.getStatus() == 0).count();
+        double totalAmount = 0D;
+        long pendingCount = 0L;
+        for (PayOrderEntity item : recentOrders) {
+            totalAmount += safeDouble(item.getAmount());
+            if (item.getStatus() != null && item.getStatus() == 0) {
+                pendingCount++;
+            }
+        }
         emitToolCompleted(emitter, runId, "pay_order_lookup", "命中 " + recentOrders.size() + " 条付款单", audit);
 
         V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
@@ -1335,13 +1399,7 @@ public class V2AgentAiService {
             "最近付款单",
             toJsonNode(mapOf(
                 "headers", List.of("单号", "供应商", "金额", "方式", "状态"),
-                "rows", recentOrders.stream().map(item -> List.of(
-                    safeText(item.getOrderNo(), "-"),
-                    safeText(item.getSupplierName(), "-"),
-                    money(safeDouble(item.getAmount())),
-                    paymentMethodLabel(item.getMethod()),
-                    payOrderStatusLabel(item.getStatus())
-                )).toList(),
+                "rows", buildPayOrderRows(recentOrders),
                 "row_count", recentOrders.size()
             ))
         );
@@ -1359,20 +1417,14 @@ public class V2AgentAiService {
                 "recent_total_amount", money(totalAmount),
                 "pending_count", pendingCount,
                 "query_audit", audit.facts(),
-                "recent_orders", recentOrders.stream().limit(5).map(item -> mapOf(
-                    "order_no", safeText(item.getOrderNo(), "-"),
-                    "supplier_name", safeText(item.getSupplierName(), "-"),
-                    "amount", money(safeDouble(item.getAmount())),
-                    "method", paymentMethodLabel(item.getMethod()),
-                    "status", payOrderStatusLabel(item.getStatus())
-                )).toList()
+                "recent_orders", buildPayOrderSummaries(topOrders)
             ))
         );
         return new ResponsePayload(answer, blocks, List.of(toolResult));
     }
 
     private ResponsePayload buildFinanceRecordResponse(Long ownerUserId, SseEmitter emitter, String runId) {
-        ToolAudit audit = startToolAudit(emitter, runId, "finance_record_lookup", Map.of("limit", DEFAULT_TOOL_LIMIT));
+        ToolAudit audit = startToolAudit(emitter, runId, "finance_record_lookup", DEFAULT_LIMIT_TOOL_INPUT);
         List<FinanceRecordEntity> recentRecords = financeRecordRepository.search(
             ownerUserId,
             null,
@@ -1381,15 +1433,18 @@ public class V2AgentAiService {
             null,
             PageRequest.of(0, DEFAULT_TOOL_LIMIT)
         );
+        List<FinanceRecordEntity> topRecords = limit(recentRecords, 5);
         audit.markLimitedResult(recentRecords.size(), DEFAULT_TOOL_LIMIT);
-        double income = recentRecords.stream()
-            .filter(item -> financeTypeLabel(item.getType()).equals("收入"))
-            .mapToDouble(item -> safeDouble(item.getAmount()))
-            .sum();
-        double expense = recentRecords.stream()
-            .filter(item -> financeTypeLabel(item.getType()).equals("支出"))
-            .mapToDouble(item -> safeDouble(item.getAmount()))
-            .sum();
+        double income = 0D;
+        double expense = 0D;
+        for (FinanceRecordEntity item : recentRecords) {
+            double amount = safeDouble(item.getAmount());
+            if (item.getType() != null && item.getType() == 1) {
+                income += amount;
+            } else if (item.getType() != null && item.getType() == 2) {
+                expense += amount;
+            }
+        }
         emitToolCompleted(emitter, runId, "finance_record_lookup", "命中 " + recentRecords.size() + " 条资金流水", audit);
 
         V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
@@ -1408,13 +1463,7 @@ public class V2AgentAiService {
             "最近流水",
             toJsonNode(mapOf(
                 "headers", List.of("单号", "类型", "分类", "金额", "往来方"),
-                "rows", recentRecords.stream().map(item -> List.of(
-                    safeText(item.getRecordNo(), "-"),
-                    financeTypeLabel(item.getType()),
-                    safeText(item.getCategory(), "-"),
-                    money(safeDouble(item.getAmount())),
-                    safeText(item.getPartnerName(), "-")
-                )).toList(),
+                "rows", buildFinanceRecordRows(recentRecords),
                 "row_count", recentRecords.size()
             ))
         );
@@ -1443,16 +1492,154 @@ public class V2AgentAiService {
                 "recent_income", money(income),
                 "recent_expense", money(expense),
                 "query_audit", audit.facts(),
-                "recent_records", recentRecords.stream().limit(5).map(item -> mapOf(
-                    "record_no", safeText(item.getRecordNo(), "-"),
-                    "type", financeTypeLabel(item.getType()),
-                    "category", safeText(item.getCategory(), "-"),
-                    "amount", money(safeDouble(item.getAmount())),
-                    "partner_name", safeText(item.getPartnerName(), "-")
-                )).toList()
+                "recent_records", buildFinanceRecordSummaries(topRecords)
             ))
         );
         return new ResponsePayload(answer, blocks, List.of(toolResult));
+    }
+
+    private List<List<Object>> buildSaleOrderRows(List<SaleOrderEntity> orders) {
+        List<List<Object>> rows = new ArrayList<>(orders == null ? 0 : orders.size());
+        if (orders == null) {
+            return rows;
+        }
+        for (int index = 0; index < orders.size(); index += 1) {
+            SaleOrderEntity item = orders.get(index);
+            rows.add(List.of(
+                safeText(item.getOrderNo(), "-"),
+                safeText(item.getCustomerName(), "-"),
+                money(safeDouble(item.getTotalAmount())),
+                money(safeDouble(item.getPaidAmount())),
+                saleOrderStatusLabel(item.getStatus())
+            ));
+        }
+        return rows;
+    }
+
+    private List<Map<String, Object>> buildSaleOrderSummaries(List<SaleOrderEntity> orders) {
+        List<Map<String, Object>> items = new ArrayList<>(orders == null ? 0 : orders.size());
+        if (orders == null) {
+            return items;
+        }
+        for (int index = 0; index < orders.size(); index += 1) {
+            SaleOrderEntity item = orders.get(index);
+            items.add(mapOf(
+                "order_no", safeText(item.getOrderNo(), "-"),
+                "customer_name", safeText(item.getCustomerName(), "-"),
+                "total_amount", money(safeDouble(item.getTotalAmount())),
+                "paid_amount", money(safeDouble(item.getPaidAmount())),
+                "status", saleOrderStatusLabel(item.getStatus())
+            ));
+        }
+        return items;
+    }
+
+    private List<List<Object>> buildPurchaseOrderRows(List<PurchaseOrderEntity> orders) {
+        List<List<Object>> rows = new ArrayList<>(orders == null ? 0 : orders.size());
+        if (orders == null) {
+            return rows;
+        }
+        for (int index = 0; index < orders.size(); index += 1) {
+            PurchaseOrderEntity item = orders.get(index);
+            rows.add(List.of(
+                safeText(item.getOrderNo(), "-"),
+                safeText(item.getSupplierName(), "-"),
+                money(safeDouble(item.getTotalAmount())),
+                money(safeDouble(item.getPaidAmount())),
+                purchaseOrderStatusLabel(item.getStatus())
+            ));
+        }
+        return rows;
+    }
+
+    private List<Map<String, Object>> buildPurchaseOrderSummaries(List<PurchaseOrderEntity> orders) {
+        List<Map<String, Object>> items = new ArrayList<>(orders == null ? 0 : orders.size());
+        if (orders == null) {
+            return items;
+        }
+        for (int index = 0; index < orders.size(); index += 1) {
+            PurchaseOrderEntity item = orders.get(index);
+            items.add(mapOf(
+                "order_no", safeText(item.getOrderNo(), "-"),
+                "supplier_name", safeText(item.getSupplierName(), "-"),
+                "total_amount", money(safeDouble(item.getTotalAmount())),
+                "paid_amount", money(safeDouble(item.getPaidAmount())),
+                "status", purchaseOrderStatusLabel(item.getStatus())
+            ));
+        }
+        return items;
+    }
+
+    private List<List<Object>> buildPayOrderRows(List<PayOrderEntity> orders) {
+        List<List<Object>> rows = new ArrayList<>(orders == null ? 0 : orders.size());
+        if (orders == null) {
+            return rows;
+        }
+        for (int index = 0; index < orders.size(); index += 1) {
+            PayOrderEntity item = orders.get(index);
+            rows.add(List.of(
+                safeText(item.getOrderNo(), "-"),
+                safeText(item.getSupplierName(), "-"),
+                money(safeDouble(item.getAmount())),
+                paymentMethodLabel(item.getMethod()),
+                payOrderStatusLabel(item.getStatus())
+            ));
+        }
+        return rows;
+    }
+
+    private List<Map<String, Object>> buildPayOrderSummaries(List<PayOrderEntity> orders) {
+        List<Map<String, Object>> items = new ArrayList<>(orders == null ? 0 : orders.size());
+        if (orders == null) {
+            return items;
+        }
+        for (int index = 0; index < orders.size(); index += 1) {
+            PayOrderEntity item = orders.get(index);
+            items.add(mapOf(
+                "order_no", safeText(item.getOrderNo(), "-"),
+                "supplier_name", safeText(item.getSupplierName(), "-"),
+                "amount", money(safeDouble(item.getAmount())),
+                "method", paymentMethodLabel(item.getMethod()),
+                "status", payOrderStatusLabel(item.getStatus())
+            ));
+        }
+        return items;
+    }
+
+    private List<List<Object>> buildFinanceRecordRows(List<FinanceRecordEntity> records) {
+        List<List<Object>> rows = new ArrayList<>(records == null ? 0 : records.size());
+        if (records == null) {
+            return rows;
+        }
+        for (int index = 0; index < records.size(); index += 1) {
+            FinanceRecordEntity item = records.get(index);
+            rows.add(List.of(
+                safeText(item.getRecordNo(), "-"),
+                financeTypeLabel(item.getType()),
+                safeText(item.getCategory(), "-"),
+                money(safeDouble(item.getAmount())),
+                safeText(item.getPartnerName(), "-")
+            ));
+        }
+        return rows;
+    }
+
+    private List<Map<String, Object>> buildFinanceRecordSummaries(List<FinanceRecordEntity> records) {
+        List<Map<String, Object>> items = new ArrayList<>(records == null ? 0 : records.size());
+        if (records == null) {
+            return items;
+        }
+        for (int index = 0; index < records.size(); index += 1) {
+            FinanceRecordEntity item = records.get(index);
+            items.add(mapOf(
+                "record_no", safeText(item.getRecordNo(), "-"),
+                "type", financeTypeLabel(item.getType()),
+                "category", safeText(item.getCategory(), "-"),
+                "amount", money(safeDouble(item.getAmount())),
+                "partner_name", safeText(item.getPartnerName(), "-")
+            ));
+        }
+        return items;
     }
 
     private FinalAnswer buildFinalAnswer(String userMessage, ResponsePayload payload) {
@@ -1551,7 +1738,7 @@ public class V2AgentAiService {
         String prompt = finalAnswerUserPrompt(userMessage, payload, synthesizedWithFailures);
         StringBuilder streamedAnswer = new StringBuilder();
         AnswerDeltaBatcher answerDeltaBatcher = new AnswerDeltaBatcher(emitter, runId);
-        Optional<String> streamed = longCatAnthropicClient.streamTextMessage(systemPrompt, prompt, delta -> {
+        Optional<String> streamed = longCatAnthropicClient.streamTextMessage(systemPrompt, prompt, runId, delta -> {
             ensureRunActive(runId);
             streamedAnswer.append(delta);
             boolean emittedVisibleDelta = answerDeltaBatcher.accept(delta, "model_stream");
@@ -1720,7 +1907,7 @@ public class V2AgentAiService {
     }
 
     private V2AgentDtos.ResultBlockDto buildEvidenceBlock(String runId, List<ToolExecutionResult> toolResults) {
-        List<Map<String, Object>> items = new ArrayList<>();
+        List<Map<String, Object>> items = new ArrayList<>(toolResults == null ? 0 : toolResults.size() * 4);
         if (toolResults != null) {
             for (ToolExecutionResult result : toolResults) {
                 Map<String, Object> audit = result.queryAudit();
@@ -1756,7 +1943,9 @@ public class V2AgentAiService {
     }
 
     private List<V2AgentDtos.AgentToolCallDto> toToolCallDtos(String runId, ResponsePayload payload) {
-        List<V2AgentDtos.AgentToolCallDto> calls = new ArrayList<>();
+        int estimatedSize = (payload.toolResults() == null ? 0 : payload.toolResults().size())
+            + (payload.toolFailures() == null ? 0 : payload.toolFailures().size());
+        List<V2AgentDtos.AgentToolCallDto> calls = new ArrayList<>(estimatedSize);
         if (payload.toolResults() != null) {
             for (ToolExecutionResult result : payload.toolResults()) {
                 Map<String, Object> audit = result.queryAudit();
@@ -1800,7 +1989,9 @@ public class V2AgentAiService {
     }
 
     private List<V2AgentDtos.AgentEvidenceRefDto> toEvidenceRefs(String runId, ResponsePayload payload) {
-        List<V2AgentDtos.AgentEvidenceRefDto> refs = new ArrayList<>();
+        List<V2AgentDtos.AgentEvidenceRefDto> refs = new ArrayList<>(
+            payload.toolResults() == null ? 0 : payload.toolResults().size() * 2
+        );
         if (payload.toolResults() == null) {
             return refs;
         }
@@ -1839,7 +2030,7 @@ public class V2AgentAiService {
         if (result == null || result.facts() == null || result.facts().isMissingNode()) {
             return List.of();
         }
-        List<Map<String, String>> items = new ArrayList<>();
+        List<Map<String, String>> items = new ArrayList<>(4);
         switch (result.toolName()) {
             case "inventory_low_stock_lookup" -> addEvidenceItem(items, result, "低库存商品数", "low_stock_count", "个");
             case "product_catalog_lookup" -> {
@@ -2005,12 +2196,10 @@ public class V2AgentAiService {
         if (normalized.contains("查询边界：")) {
             return normalized;
         }
-        List<String> notices = new ArrayList<>();
+        Set<String> notices = new LinkedHashSet<>();
         for (ToolExecutionResult result : toolResults) {
             for (String notice : queryBoundaryNotices(result)) {
-                if (!notices.contains(notice)) {
-                    notices.add(notice);
-                }
+                notices.add(notice);
             }
         }
         if (notices.isEmpty()) {
@@ -2063,7 +2252,7 @@ public class V2AgentAiService {
             return fallbackAnswer;
         }
         List<String> findings = new ArrayList<>();
-        List<String> actions = new ArrayList<>();
+        Set<String> actions = new LinkedHashSet<>();
 
         for (ToolExecutionResult toolResult : toolResults) {
             switch (toolResult.toolName()) {
@@ -2152,11 +2341,9 @@ public class V2AgentAiService {
             }
         }
 
-        List<String> dedupedActions = new ArrayList<>();
+        List<String> dedupedActions = new ArrayList<>(Math.min(actions.size(), 3));
         for (String action : actions) {
-            if (!dedupedActions.contains(action)) {
-                dedupedActions.add(action);
-            }
+            dedupedActions.add(action);
             if (dedupedActions.size() >= 3) {
                 break;
             }
@@ -2768,7 +2955,10 @@ public class V2AgentAiService {
     }
 
     private List<Map<String, Object>> buildRankItems(List<CustomerEntity> customers) {
-        List<Map<String, Object>> items = new ArrayList<>();
+        List<Map<String, Object>> items = new ArrayList<>(customers == null ? 0 : customers.size());
+        if (customers == null) {
+            return items;
+        }
         for (int index = 0; index < customers.size(); index++) {
             CustomerEntity customer = customers.get(index);
             items.add(mapOf(
@@ -2782,7 +2972,10 @@ public class V2AgentAiService {
     }
 
     private List<Map<String, Object>> buildCustomerSalesRank(List<Object[]> rows) {
-        List<Map<String, Object>> items = new ArrayList<>();
+        List<Map<String, Object>> items = new ArrayList<>(rows == null ? 0 : rows.size());
+        if (rows == null) {
+            return items;
+        }
         for (int index = 0; index < rows.size(); index++) {
             Object[] row = rows.get(index);
             String name = row[1] == null ? "未命名客户" : String.valueOf(row[1]);
@@ -2798,7 +2991,10 @@ public class V2AgentAiService {
     }
 
     private List<Map<String, Object>> buildSupplierPayableRank(List<SupplierEntity> suppliers) {
-        List<Map<String, Object>> items = new ArrayList<>();
+        List<Map<String, Object>> items = new ArrayList<>(suppliers == null ? 0 : suppliers.size());
+        if (suppliers == null) {
+            return items;
+        }
         for (int index = 0; index < suppliers.size(); index++) {
             SupplierEntity supplier = suppliers.get(index);
             items.add(mapOf(
@@ -2940,6 +3136,28 @@ public class V2AgentAiService {
             return List.of();
         }
         return items.size() <= size ? items : items.subList(0, size);
+    }
+
+    private double sumCustomerBalances(List<CustomerEntity> customers) {
+        double total = 0D;
+        if (customers == null) {
+            return total;
+        }
+        for (CustomerEntity customer : customers) {
+            total += safeDouble(customer.getBalance());
+        }
+        return total;
+    }
+
+    private double sumSupplierBalances(List<SupplierEntity> suppliers) {
+        double total = 0D;
+        if (suppliers == null) {
+            return total;
+        }
+        for (SupplierEntity supplier : suppliers) {
+            total += safeDouble(supplier.getBalance());
+        }
+        return total;
     }
 
     private String safeText(String value, String fallback) {
