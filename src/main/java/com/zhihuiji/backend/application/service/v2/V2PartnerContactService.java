@@ -9,6 +9,7 @@ import com.zhihuiji.backend.domain.entity.SupplierEntity;
 import com.zhihuiji.backend.infrastructure.repository.CustomerRepository;
 import com.zhihuiji.backend.infrastructure.repository.PartnerContactRepository;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,11 +37,13 @@ public class V2PartnerContactService {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         String normalizedPartnerType = requirePartnerType(partnerType);
         requirePartnerExists(ownerUserId, normalizedPartnerType, partnerId);
-        return partnerContactRepository
-            .findAllByOwnerUserIdAndPartnerTypeAndPartnerIdOrderByIsPrimaryDescCreatedAtAsc(ownerUserId, normalizedPartnerType, partnerId)
-            .stream()
-            .map(this::toResponse)
-            .toList();
+        List<PartnerContactEntity> contacts = partnerContactRepository
+            .findAllByOwnerUserIdAndPartnerTypeAndPartnerIdOrderByIsPrimaryDescCreatedAtAsc(ownerUserId, normalizedPartnerType, partnerId);
+        List<V2PartnerDtos.PartnerContactResponse> responses = new ArrayList<>(contacts.size());
+        for (PartnerContactEntity contact : contacts) {
+            responses.add(toResponse(contact));
+        }
+        return responses;
     }
 
     @Transactional
@@ -155,15 +158,16 @@ public class V2PartnerContactService {
     }
 
     private void clearPrimary(Long ownerUserId, String partnerType, Long partnerId, Long keepId) {
-        partnerContactRepository.findAllByOwnerUserIdAndPartnerTypeAndPartnerIdOrderByIsPrimaryDescCreatedAtAsc(ownerUserId, partnerType, partnerId)
-            .stream()
-            .filter(contact -> !contact.getId().equals(keepId))
-            .filter(contact -> Boolean.TRUE.equals(contact.getIsPrimary()))
-            .forEach(contact -> {
-                contact.setIsPrimary(false);
-                contact.setUpdatedAt(System.currentTimeMillis());
-                partnerContactRepository.save(contact);
-            });
+        long now = System.currentTimeMillis();
+        List<PartnerContactEntity> contacts = partnerContactRepository.findAllByOwnerUserIdAndPartnerTypeAndPartnerIdOrderByIsPrimaryDescCreatedAtAsc(ownerUserId, partnerType, partnerId);
+        for (PartnerContactEntity contact : contacts) {
+            if (contact.getId().equals(keepId) || !Boolean.TRUE.equals(contact.getIsPrimary())) {
+                continue;
+            }
+            contact.setIsPrimary(false);
+            contact.setUpdatedAt(now);
+            partnerContactRepository.save(contact);
+        }
     }
 
     private void refreshPrimarySummary(Long ownerUserId, String partnerType, Long partnerId) {

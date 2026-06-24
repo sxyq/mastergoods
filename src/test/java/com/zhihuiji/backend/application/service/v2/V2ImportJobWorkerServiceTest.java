@@ -3,6 +3,8 @@ package com.zhihuiji.backend.application.service.v2;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -91,5 +93,36 @@ class V2ImportJobWorkerServiceTest {
         assertEquals(V2ImportJobService.STATUS_FAILED, entity.getStatus());
         assertEquals("failed", entity.getStage());
         assertEquals("invalid_request", entity.getFailureCode());
+    }
+
+    @Test
+    void recoverStaleJobsMarksRunningJobsAsFailedWhenHeartbeatExceeded() {
+        ImportJobEntity staleJob = new ImportJobEntity();
+        staleJob.setId(20L);
+        staleJob.setStatus(V2ImportJobService.STATUS_RUNNING);
+        staleJob.setLastHeartbeatAt(System.currentTimeMillis() - 20 * 60 * 1000L);
+        when(importJobRepository.findByStatusAndLastHeartbeatAtBefore(
+            eq(V2ImportJobService.STATUS_RUNNING),
+            any(Long.class)
+        )).thenReturn(List.of(staleJob));
+
+        service.recoverStaleJobs();
+
+        assertEquals(V2ImportJobService.STATUS_FAILED, staleJob.getStatus());
+        assertEquals("failed", staleJob.getStage());
+        assertEquals("heartbeat_timeout", staleJob.getFailureCode());
+        verify(importJobRepository).save(staleJob);
+    }
+
+    @Test
+    void recoverStaleJobsDoesNothingWhenNoStaleJobs() {
+        when(importJobRepository.findByStatusAndLastHeartbeatAtBefore(
+            eq(V2ImportJobService.STATUS_RUNNING),
+            any(Long.class)
+        )).thenReturn(List.of());
+
+        service.recoverStaleJobs();
+
+        verify(importJobRepository, never()).save(any());
     }
 }

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.zhihuiji.backend.api.common.OrderStatus;
 import com.zhihuiji.backend.domain.entity.SaleOrderEntity;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -40,6 +41,37 @@ class SaleOrderRepositoryTest {
         assertEquals(50.0, ((Number) rows.get(1)[3]).doubleValue());
     }
 
+    @Test
+    void findAllByOwnerUserIdAndIdInScopesToRequestedOrders() {
+        saleOrderRepository.save(saleOrder(1L, 1L, 0L, 100.0, OrderStatus.COMPLETED.code()));
+        saleOrderRepository.save(saleOrder(2L, 1L, 21_600_000L, 50.0, OrderStatus.COMPLETED.code()));
+        saleOrderRepository.save(saleOrder(3L, 2L, 43_200_000L, 80.0, OrderStatus.COMPLETED.code()));
+
+        List<SaleOrderEntity> rows = saleOrderRepository.findAllByOwnerUserIdAndIdIn(1L, Set.of(1L, 3L));
+
+        assertEquals(1, rows.size());
+        assertEquals(1L, rows.get(0).getId());
+    }
+
+    @Test
+    void salesSummaryAggregateScopesOwnerRangeAndCancelledStatus() {
+        saleOrderRepository.save(saleOrder(1L, 1L, 0L, 100.0, OrderStatus.COMPLETED.code()));
+        saleOrderRepository.save(saleOrder(2L, 1L, 1_000L, 50.0, OrderStatus.CANCELLED.code()));
+        saleOrderRepository.save(saleOrder(3L, 2L, 1_000L, 999.0, OrderStatus.COMPLETED.code()));
+        saleOrderRepository.save(saleOrder(4L, 1L, 9_999L, 25.0, OrderStatus.COMPLETED.code()));
+
+        Object[] row = normalizeAggregateRow(saleOrderRepository.salesSummaryAggregate(
+            1L,
+            0L,
+            2_000L,
+            OrderStatus.CANCELLED.code()
+        ));
+
+        assertEquals(100.0, ((Number) row[0]).doubleValue());
+        assertEquals(100.0, ((Number) row[1]).doubleValue());
+        assertEquals(1L, ((Number) row[2]).longValue());
+    }
+
     private static SaleOrderEntity saleOrder(Long id, Long ownerUserId, Long createdAt, Double totalAmount, Integer status) {
         SaleOrderEntity entity = new SaleOrderEntity();
         entity.setId(id);
@@ -56,5 +88,12 @@ class SaleOrderRepositoryTest {
         entity.setCreatedAt(createdAt);
         entity.setUpdatedAt(createdAt);
         return entity;
+    }
+
+    private static Object[] normalizeAggregateRow(Object raw) {
+        if (raw instanceof Object[] row && row.length == 1 && row[0] instanceof Object[] nested) {
+            return nested;
+        }
+        return (Object[]) raw;
     }
 }

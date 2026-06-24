@@ -6,8 +6,11 @@ import com.zhihuiji.backend.application.service.CurrentOwnerService;
 import com.zhihuiji.backend.domain.entity.CustomerEntity;
 import com.zhihuiji.backend.domain.entity.PartnerGroupEntity;
 import com.zhihuiji.backend.infrastructure.repository.CustomerRepository;
-import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,24 +33,26 @@ public class V2CustomerService {
         this.currentOwnerService = currentOwnerService;
     }
 
+    @Transactional(readOnly = true)
     public List<V2PartnerDtos.CustomerResponse> list(String keyword, Integer status, Long groupId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        List<CustomerEntity> customers = (keyword == null || keyword.isBlank())
-            ? customerRepository.findAllByOwnerUserId(ownerUserId)
-            : customerRepository.findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndPhoneContainingIgnoreCase(
-                ownerUserId,
-                keyword.trim(),
-                ownerUserId,
-                keyword.trim()
-            );
-        return customers.stream()
-            .filter(customer -> status == null || status.equals(customer.getStatus()))
-            .filter(customer -> groupId == null || groupId.equals(customer.getGroupId()))
-            .sorted(Comparator.comparing(CustomerEntity::getUpdatedAt).reversed())
-            .map(this::toResponse)
-            .toList();
+        String normalizedKeyword = normalizeKeyword(keyword);
+        List<CustomerEntity> customers = customerRepository.search(ownerUserId, normalizedKeyword, status, groupId);
+        Set<Long> groupIds = new LinkedHashSet<>();
+        for (CustomerEntity customer : customers) {
+            if (customer.getGroupId() != null) {
+                groupIds.add(customer.getGroupId());
+            }
+        }
+        Map<Long, String> groupNamesById = loadGroupNamesById(groupIds);
+        List<V2PartnerDtos.CustomerResponse> responses = new java.util.ArrayList<>(customers.size());
+        for (CustomerEntity customer : customers) {
+            responses.add(toResponse(customer, groupNamesById));
+        }
+        return responses;
     }
 
+    @Transactional(readOnly = true)
     public V2PartnerDtos.CustomerResponse get(Long id) {
         return toResponse(getOwnedEntity(id));
     }
@@ -118,15 +123,31 @@ public class V2CustomerService {
             .orElseThrow(() -> new IllegalArgumentException("客户不存在"));
     }
 
-    private V2PartnerDtos.CustomerResponse toResponse(CustomerEntity entity) {
-        PartnerGroupEntity group = entity.getGroupId() == null ? null : partnerGroupService.getOwnedEntity(PartnerTypes.CUSTOMER, entity.getGroupId());
+    private Map<Long, String> loadGroupNamesById(Set<Long> groupIds) {
+        if (groupIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> groupNamesById = new LinkedHashMap<>(groupIds.size());
+        for (PartnerGroupEntity group : partnerGroupService.getOwnedEntityMap(PartnerTypes.CUSTOMER, groupIds).values()) {
+            groupNamesById.put(group.getId(), group.getName());
+        }
+        return groupNamesById;
+    }
+
+    private V2PartnerDtos.CustomerResponse toResponse(CustomerEntity entity, Map<Long, String> groupNamesById) {
+        String groupName = entity.getGroupId() == null
+            ? null
+            : groupNamesById.getOrDefault(
+                entity.getGroupId(),
+                partnerGroupService.getOwnedEntity(PartnerTypes.CUSTOMER, entity.getGroupId()).getName()
+            );
         return new V2PartnerDtos.CustomerResponse(
             entity.getId(),
             entity.getName(),
             entity.getPhone(),
             entity.getLevel(),
             entity.getGroupId(),
-            group == null ? null : group.getName(),
+            groupName,
             entity.getContactName(),
             entity.getContactPhone(),
             entity.getAddress(),
@@ -136,6 +157,10 @@ public class V2CustomerService {
             entity.getCreatedAt(),
             entity.getUpdatedAt()
         );
+    }
+
+    private V2PartnerDtos.CustomerResponse toResponse(CustomerEntity entity) {
+        return toResponse(entity, Map.of());
     }
 
     private String normalizeRequired(String value, String message) {
@@ -165,5 +190,13 @@ public class V2CustomerService {
             throw new IllegalArgumentException("客户状态不合法");
         }
         return status;
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

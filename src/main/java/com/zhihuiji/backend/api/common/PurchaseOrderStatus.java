@@ -1,7 +1,5 @@
 package com.zhihuiji.backend.api.common;
 
-import java.util.Arrays;
-
 public enum PurchaseOrderStatus {
     DRAFT(0),
     RECEIVED(1),
@@ -25,9 +23,11 @@ public enum PurchaseOrderStatus {
         if (status == null) {
             return null;
         }
-        return Arrays.stream(values())
-            .filter(value -> value.code == status)
-            .findFirst()
-            .orElse(null);
+        for (PurchaseOrderStatus value : values()) {
+            if (value.code == status) {
+                return value;
+            }
+        }
+        return null;
     }
 }

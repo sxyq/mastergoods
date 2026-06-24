@@ -6,20 +6,39 @@ import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface CustomerRepository extends JpaRepository<CustomerEntity, Long> {
     Optional<CustomerEntity> findByOwnerUserIdAndPhone(Long ownerUserId, String phone);
 
-    List<CustomerEntity> findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndPhoneContainingIgnoreCase(
-        Long ownerUserIdForName,
-        String nameKeyword,
-        Long ownerUserIdForPhone,
-        String phoneKeyword
+    @Query("""
+        SELECT c FROM CustomerEntity c
+        WHERE c.ownerUserId = :ownerUserId
+          AND (:status IS NULL OR c.status = :status)
+          AND (:groupId IS NULL OR c.groupId = :groupId)
+          AND (
+              :keyword IS NULL
+              OR :keyword = ''
+              OR LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(c.phone) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          )
+        ORDER BY c.updatedAt DESC
+        """)
+    List<CustomerEntity> search(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("keyword") String keyword,
+        @Param("status") Integer status,
+        @Param("groupId") Long groupId
     );
 
     List<CustomerEntity> findAllByOwnerUserIdOrderByNameAsc(Long ownerUserId, Pageable pageable);
 
+    List<CustomerEntity> findAllByOwnerUserIdOrderByUpdatedAtDesc(Long ownerUserId);
+
     List<CustomerEntity> findAllByOwnerUserId(Long ownerUserId);
+
+    @Query("SELECT e FROM CustomerEntity e WHERE e.ownerUserId = :ownerUserId AND COALESCE(e.updatedAt, e.createdAt) >= :sinceTimestamp")
+    List<CustomerEntity> findChangedByOwnerUserId(@org.springframework.data.repository.query.Param("ownerUserId") Long ownerUserId, @org.springframework.data.repository.query.Param("sinceTimestamp") Long sinceTimestamp);
 
     List<CustomerEntity> findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(Long ownerUserId, Double balance, Pageable pageable);
 

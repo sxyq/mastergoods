@@ -1,7 +1,5 @@
 package com.zhihuiji.backend.api.common;
 
-import java.util.Arrays;
-
 public enum PaymentType {
     RECEIVE(1),
     REFUND(2);
@@ -20,9 +18,11 @@ public enum PaymentType {
         if (code == null) {
             return null;
         }
-        return Arrays.stream(values())
-            .filter(value -> value.code == code)
-            .findFirst()
-            .orElse(null);
+        for (PaymentType value : values()) {
+            if (value.code == code) {
+                return value;
+            }
+        }
+        return null;
     }
 }

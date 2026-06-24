@@ -15,6 +15,9 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrderEnti
 
     List<PurchaseOrderEntity> findAllByOwnerUserId(Long ownerUserId);
 
+    @Query("SELECT e FROM PurchaseOrderEntity e WHERE e.ownerUserId = :ownerUserId AND COALESCE(e.updatedAt, e.createdAt) >= :sinceTimestamp")
+    List<PurchaseOrderEntity> findChangedByOwnerUserId(@Param("ownerUserId") Long ownerUserId, @Param("sinceTimestamp") Long sinceTimestamp);
+
     @Query("SELECT o FROM PurchaseOrderEntity o WHERE " +
         "o.ownerUserId = :ownerUserId AND " +
         "(:status IS NULL OR o.status = :status) AND " +

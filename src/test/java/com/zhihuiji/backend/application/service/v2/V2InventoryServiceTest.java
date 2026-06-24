@@ -18,6 +18,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 class V2InventoryServiceTest {
     @Mock
@@ -112,7 +114,7 @@ class V2InventoryServiceTest {
         entry.setSourceNo("SR-001");
         entry.setNotes("退货回库");
         entry.setCreatedAt(1L);
-        when(ledgerRepository.findAllByOwnerUserIdAndSourceTypeAndSourceId(1L, "sales_return", 7L))
+        when(ledgerRepository.findAllByOwnerUserIdAndSourceTypeAndSourceIdOrderByCreatedAtDesc(1L, "sales_return", 7L))
             .thenReturn(java.util.List.of(entry));
 
         java.util.List<V2InventoryDtos.LedgerEntryResponse> result = service.listLedgerBySource("sales_return", 7L);
@@ -121,6 +123,27 @@ class V2InventoryServiceTest {
         assertEquals("sales_return", result.get(0).sourceType());
         assertEquals(7L, result.get(0).sourceId());
         assertEquals("SR-001", result.get(0).sourceNo());
+    }
+
+    @Test
+    void listLedgerUsesNewestFirstWhenNoFilterIsProvided() {
+        InventoryLedgerEntity entry = new InventoryLedgerEntity();
+        entry.setId(9L);
+        entry.setOwnerUserId(1L);
+        entry.setProductId(6L);
+        entry.setProductCode("P001");
+        entry.setProductName("矿泉水");
+        entry.setQuantityBefore(9.0);
+        entry.setQuantityChange(-1.0);
+        entry.setQuantityAfter(8.0);
+        entry.setCreatedAt(20L);
+        when(ledgerRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(1L, PageRequest.of(0, 50)))
+            .thenReturn(new PageImpl<>(java.util.List.of(entry), PageRequest.of(0, 50), 1));
+
+        var result = service.listLedger(null, null, null, 0, 50);
+
+        assertEquals(1, result.getTotalElements());
+        assertEquals(9L, result.getContent().get(0).id());
     }
 
     private static ProductEntity product(Long id, String code, String name, Double stock, Double purchasePrice) {

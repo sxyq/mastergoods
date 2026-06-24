@@ -6,9 +6,10 @@ import com.zhihuiji.backend.domain.entity.ProductUnitEntity;
 import java.util.Collection;
 import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
 import com.zhihuiji.backend.infrastructure.repository.ProductUnitRepository;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -29,9 +30,12 @@ public class V2ProductUnitService {
 
     public List<V2ProductDtos.UnitResponse> list() {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return productUnitRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId).stream()
-            .map(this::toResponse)
-            .toList();
+        List<ProductUnitEntity> rows = productUnitRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId);
+        List<V2ProductDtos.UnitResponse> responses = new ArrayList<>(rows.size());
+        for (ProductUnitEntity row : rows) {
+            responses.add(toResponse(row));
+        }
+        return responses;
     }
 
     public ProductUnitEntity getOwnedEntity(Long id) {
@@ -45,8 +49,11 @@ public class V2ProductUnitService {
         if (ids == null || ids.isEmpty()) {
             return Map.of();
         }
-        return productUnitRepository.findAllByOwnerUserIdAndIdIn(ownerUserId, ids).stream()
-            .collect(Collectors.toMap(ProductUnitEntity::getId, value -> value));
+        Map<Long, ProductUnitEntity> unitsById = new LinkedHashMap<>(ids.size());
+        for (ProductUnitEntity unit : productUnitRepository.findAllByOwnerUserIdAndIdIn(ownerUserId, ids)) {
+            unitsById.put(unit.getId(), unit);
+        }
+        return unitsById;
     }
 
     public V2ProductDtos.UnitResponse create(V2ProductDtos.UnitWriteRequest request) {

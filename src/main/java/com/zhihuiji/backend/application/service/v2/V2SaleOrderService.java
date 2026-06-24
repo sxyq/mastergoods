@@ -19,7 +19,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,9 +53,10 @@ public class V2SaleOrderService {
     }
 
     public V2SaleOrderDtos.SaleOrderResponse create(V2SaleOrderDtos.CreateRequest request) {
-        List<SaleOrderService.SaleItemDraft> items = request.items().stream()
-            .map(row -> new SaleOrderService.SaleItemDraft(row.productId(), row.quantity(), row.unitPrice()))
-            .toList();
+        List<SaleOrderService.SaleItemDraft> items = new ArrayList<>(request.items().size());
+        for (V2SaleOrderDtos.CreateItemRequest row : request.items()) {
+            items.add(new SaleOrderService.SaleItemDraft(row.productId(), row.quantity(), row.unitPrice()));
+        }
         return toResponse(saleOrderService.create(
             new SaleOrderService.CreateSaleOrderCommand(
                 request.customerId(),
@@ -68,6 +68,7 @@ public class V2SaleOrderService {
         ));
     }
 
+    @Transactional(readOnly = true)
     public List<V2SaleOrderDtos.SaleOrderResponse> list(
         String keyword,
         Integer status,
@@ -118,11 +119,14 @@ public class V2SaleOrderService {
             PageRequest.of(normalizePage(page), normalizeSize(size))
         );
         Map<Long, List<SaleOrderItemEntity>> itemsByOrderId = findItemsByOrderId(ownerUserId, orders);
-        return orders.stream()
-            .map(order -> toResponse(order, itemsByOrderId.getOrDefault(order.getId(), List.of())))
-            .toList();
+        List<V2SaleOrderDtos.SaleOrderResponse> responses = new ArrayList<>(orders.size());
+        for (SaleOrderEntity order : orders) {
+            responses.add(toResponse(order, itemsByOrderId.getOrDefault(order.getId(), List.of())));
+        }
+        return responses;
     }
 
+    @Transactional(readOnly = true)
     public V2SaleOrderDtos.SaleOrderResponse get(Long id) {
         return toResponse(saleOrderService.get(id));
     }
@@ -152,7 +156,7 @@ public class V2SaleOrderService {
             saleOrderItemRepository.deleteAll(oldItems);
 
             double subtotal = 0.0;
-            List<SaleOrderItemEntity> newItems = new ArrayList<>();
+            List<SaleOrderItemEntity> newItems = new ArrayList<>(request.items().size());
             for (V2SaleOrderDtos.CreateItemRequest itemReq : request.items()) {
                 ProductEntity product = productRepository.findByIdForUpdate(ownerUserId, itemReq.productId())
                     .orElseThrow(() -> new IllegalArgumentException("商品不存在: " + itemReq.productId()));
@@ -236,10 +240,14 @@ public class V2SaleOrderService {
         return toPaymentResponse(saleOrderService.addPayment(id, request.amount(), request.method(), request.referenceNo()));
     }
 
+    @Transactional(readOnly = true)
     public List<V2SaleOrderDtos.PaymentResponse> listPayments(Long id) {
-        return saleOrderService.listPayments(id).stream()
-            .map(this::toPaymentResponse)
-            .toList();
+        List<PaymentEntity> payments = saleOrderService.listPayments(id);
+        List<V2SaleOrderDtos.PaymentResponse> responses = new ArrayList<>(payments.size());
+        for (PaymentEntity payment : payments) {
+            responses.add(toPaymentResponse(payment));
+        }
+        return responses;
     }
 
     public void updateStatus(Long id, Integer status) {
@@ -255,12 +263,16 @@ public class V2SaleOrderService {
     }
 
     private V2SaleOrderDtos.SaleOrderResponse toResponse(SaleOrderEntity order, List<SaleOrderItemEntity> items) {
+        List<V2SaleOrderDtos.SaleOrderItemResponse> itemResponses = new ArrayList<>(items.size());
+        for (SaleOrderItemEntity item : items) {
+            itemResponses.add(toItemResponse(item));
+        }
         return new V2SaleOrderDtos.SaleOrderResponse(
             order.getId(),
             order.getOrderNo(),
             order.getCustomerId(),
             order.getCustomerName(),
-            items.stream().map(this::toItemResponse).toList(),
+            itemResponses,
             order.getSubtotalAmount(),
             order.getDiscountAmount(),
             order.getTotalAmount(),
@@ -304,15 +316,22 @@ public class V2SaleOrderService {
         if (orders.isEmpty()) {
             return Collections.emptyMap();
         }
-        Set<Long> orderIds = orders.stream()
-            .map(SaleOrderEntity::getId)
-            .filter(id -> id != null && id > 0L)
-            .collect(Collectors.toSet());
+        Set<Long> orderIds = new java.util.HashSet<>(orders.size());
+        for (SaleOrderEntity order : orders) {
+            Long orderId = order.getId();
+            if (orderId != null && orderId > 0L) {
+                orderIds.add(orderId);
+            }
+        }
         if (orderIds.isEmpty()) {
             return Collections.emptyMap();
         }
-        return saleOrderItemRepository.findByOwnerUserIdAndOrderIdIn(ownerUserId, orderIds).stream()
-            .collect(Collectors.groupingBy(SaleOrderItemEntity::getOrderId));
+        List<SaleOrderItemEntity> items = saleOrderItemRepository.findByOwnerUserIdAndOrderIdIn(ownerUserId, orderIds);
+        Map<Long, List<SaleOrderItemEntity>> itemsByOrderId = new java.util.LinkedHashMap<>();
+        for (SaleOrderItemEntity item : items) {
+            itemsByOrderId.computeIfAbsent(item.getOrderId(), ignored -> new ArrayList<>()).add(item);
+        }
+        return itemsByOrderId;
     }
 
     private int normalizePage(Integer page) {

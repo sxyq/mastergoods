@@ -12,6 +12,8 @@ public interface PaymentRepository extends JpaRepository<PaymentEntity, Long> {
 
     List<PaymentEntity> findByOwnerUserIdAndOrderId(Long ownerUserId, Long orderId);
 
+    List<PaymentEntity> findByOwnerUserIdAndOrderIdOrderByCreatedAtAsc(Long ownerUserId, Long orderId);
+
     List<PaymentEntity> findByOwnerUserIdAndCreatedAtBetween(Long ownerUserId, Long startAt, Long endAt);
 
     List<PaymentEntity> findByOwnerUserIdAndTypeAndCreatedAtBetweenOrderByCreatedAtDesc(
@@ -39,6 +41,9 @@ public interface PaymentRepository extends JpaRepository<PaymentEntity, Long> {
     );
 
     List<PaymentEntity> findAllByOwnerUserId(Long ownerUserId);
+
+    @Query("SELECT e FROM PaymentEntity e WHERE e.ownerUserId = :ownerUserId AND e.createdAt >= :sinceTimestamp")
+    List<PaymentEntity> findChangedByOwnerUserId(@Param("ownerUserId") Long ownerUserId, @Param("sinceTimestamp") Long sinceTimestamp);
 
     void deleteByOwnerUserIdAndOrderId(Long ownerUserId, Long orderId);
 }

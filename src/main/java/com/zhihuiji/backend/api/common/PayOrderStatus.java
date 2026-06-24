@@ -1,7 +1,5 @@
 package com.zhihuiji.backend.api.common;
 
-import java.util.Arrays;
-
 public enum PayOrderStatus {
     DRAFT(0),
     PAID(1),
@@ -25,9 +23,11 @@ public enum PayOrderStatus {
         if (status == null) {
             return null;
         }
-        return Arrays.stream(values())
-            .filter(value -> value.code == status)
-            .findFirst()
-            .orElse(null);
+        for (PayOrderStatus value : values()) {
+            if (value.code == status) {
+                return value;
+            }
+        }
+        return null;
     }
 }

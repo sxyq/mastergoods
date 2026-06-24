@@ -17,6 +17,8 @@ public interface AgentNotificationRepository extends JpaRepository<AgentNotifica
 
     long countByOwnerUserIdAndIsReadFalse(Long ownerUserId);
 
+    long countByIsReadFalse();
+
     void deleteAllByOwnerUserIdAndIsReadTrue(Long ownerUserId);
 
     void deleteAllByOwnerUserIdIn(Collection<Long> ownerUserIds);

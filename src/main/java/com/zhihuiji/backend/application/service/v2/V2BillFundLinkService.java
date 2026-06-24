@@ -6,7 +6,11 @@ import com.zhihuiji.backend.domain.entity.AccountEntity;
 import com.zhihuiji.backend.domain.entity.BillFundLinkEntity;
 import com.zhihuiji.backend.infrastructure.repository.AccountRepository;
 import com.zhihuiji.backend.infrastructure.repository.BillFundLinkRepository;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,16 +30,14 @@ public class V2BillFundLinkService {
 
     public List<V2FinanceDtos.BillFundLinkResponse> listByBill(String billType, Long billId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return billFundLinkRepository.findAllByOwnerUserIdAndBillTypeAndBillIdOrderByCreatedAtDesc(ownerUserId, billType, billId).stream()
-            .map(this::toResponse)
-            .toList();
+        List<BillFundLinkEntity> rows = billFundLinkRepository.findAllByOwnerUserIdAndBillTypeAndBillIdOrderByCreatedAtDesc(ownerUserId, billType, billId);
+        return toResponses(ownerUserId, rows);
     }
 
     public List<V2FinanceDtos.BillFundLinkResponse> listByAccount(Long accountId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return billFundLinkRepository.findAllByOwnerUserIdAndAccountIdOrderByCreatedAtDesc(ownerUserId, accountId).stream()
-            .map(this::toResponse)
-            .toList();
+        List<BillFundLinkEntity> rows = billFundLinkRepository.findAllByOwnerUserIdAndAccountIdOrderByCreatedAtDesc(ownerUserId, accountId);
+        return toResponses(ownerUserId, rows);
     }
 
     @Transactional
@@ -65,13 +67,36 @@ public class V2BillFundLinkService {
         billFundLinkRepository.delete(entity);
     }
 
+    private List<V2FinanceDtos.BillFundLinkResponse> toResponses(Long ownerUserId, List<BillFundLinkEntity> rows) {
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> accountIds = new java.util.LinkedHashSet<>(rows.size());
+        for (BillFundLinkEntity row : rows) {
+            accountIds.add(row.getAccountId());
+        }
+        Map<Long, String> accountNames = new HashMap<>(accountIds.size());
+        for (AccountEntity account : accountRepository.findAllByOwnerUserIdAndIdIn(ownerUserId, accountIds)) {
+            accountNames.put(account.getId(), account.getName());
+        }
+        List<V2FinanceDtos.BillFundLinkResponse> responses = new ArrayList<>(rows.size());
+        for (BillFundLinkEntity row : rows) {
+            responses.add(toResponse(row, accountNames.get(row.getAccountId())));
+        }
+        return responses;
+    }
+
     private V2FinanceDtos.BillFundLinkResponse toResponse(BillFundLinkEntity entity) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         String accountName = accountRepository.findByIdAndOwnerUserId(entity.getAccountId(), ownerUserId)
             .map(AccountEntity::getName).orElse("未知账户");
+        return toResponse(entity, accountName);
+    }
+
+    private V2FinanceDtos.BillFundLinkResponse toResponse(BillFundLinkEntity entity, String accountName) {
         return new V2FinanceDtos.BillFundLinkResponse(
             entity.getId(), entity.getBillType(), entity.getBillId(),
-            entity.getAccountId(), accountName, entity.getAmount(),
+            entity.getAccountId(), accountName != null ? accountName : "未知账户", entity.getAmount(),
             entity.getLinkType(), entity.getNotes(), entity.getCreatedAt(), entity.getUpdatedAt()
         );
     }

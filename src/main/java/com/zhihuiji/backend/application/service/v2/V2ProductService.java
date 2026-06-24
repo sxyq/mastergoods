@@ -7,7 +7,6 @@ import com.zhihuiji.backend.domain.entity.ProductEntity;
 import com.zhihuiji.backend.domain.entity.ProductPriceLevelEntity;
 import com.zhihuiji.backend.domain.entity.ProductUnitEntity;
 import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -41,33 +40,59 @@ public class V2ProductService {
         this.currentOwnerService = currentOwnerService;
     }
 
+    @Transactional(readOnly = true)
     public List<V2ProductDtos.ProductResponse> list(String keyword, Integer status, Long categoryId, Long unitId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        List<ProductEntity> products = (keyword == null || keyword.isBlank())
-            ? productRepository.findAllByOwnerUserId(ownerUserId)
-            : productRepository.findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndCodeContainingIgnoreCase(
+        String normalizedKeyword = normalizeKeyword(keyword);
+        List<ProductEntity> products = normalizedKeyword == null
+            ? productRepository.findAllByOwnerUserIdAndFiltersOrderByUpdatedAtDesc(ownerUserId, status, categoryId, unitId)
+            : productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(
                 ownerUserId,
-                keyword.trim(),
-                ownerUserId,
-                keyword.trim()
+                normalizedKeyword,
+                status,
+                categoryId,
+                unitId
             );
-        return products.stream()
-            .filter(product -> status == null || status.equals(product.getStatus()))
-            .filter(product -> categoryId == null || categoryId.equals(product.getCategoryId()))
-            .filter(product -> unitId == null || unitId.equals(product.getUnitId()))
-            .sorted(Comparator.comparing(ProductEntity::getUpdatedAt).reversed())
-            .map(this::toResponse)
-            .toList();
+        if (products.isEmpty()) {
+            return List.of();
+        }
+        ProductResponseContext context = ProductResponseContext.from(
+            products,
+            categoryService,
+            unitService,
+            priceLevelService,
+            supplierRelationService
+        );
+        List<V2ProductDtos.ProductResponse> responses = new java.util.ArrayList<>(products.size());
+        for (ProductEntity product : products) {
+            responses.add(toResponse(product, context));
+        }
+        return responses;
     }
 
+    @Transactional(readOnly = true)
     public List<V2ProductDtos.ProductResponse> lowStock(Integer size) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         int limit = size == null || size <= 0 ? 20 : Math.min(size, 100);
-        return productRepository.findLowStockProducts(ownerUserId, PageRequest.of(0, limit)).stream()
-            .map(this::toResponse)
-            .toList();
+        List<ProductEntity> products = productRepository.findLowStockProducts(ownerUserId, PageRequest.of(0, limit));
+        if (products.isEmpty()) {
+            return List.of();
+        }
+        ProductResponseContext context = ProductResponseContext.from(
+            products,
+            categoryService,
+            unitService,
+            priceLevelService,
+            supplierRelationService
+        );
+        List<V2ProductDtos.ProductResponse> responses = new java.util.ArrayList<>(products.size());
+        for (ProductEntity product : products) {
+            responses.add(toResponse(product, context));
+        }
+        return responses;
     }
 
+    @Transactional(readOnly = true)
     public V2ProductDtos.ProductResponse get(Long id) {
         return toResponse(getOwnedEntity(id));
     }
@@ -153,17 +178,33 @@ public class V2ProductService {
     }
 
     private V2ProductDtos.ProductResponse toResponse(ProductEntity entity) {
-        Map<Long, ProductCategoryEntity> categoriesById = categoryService.getOwnedEntityMap(entity.getCategoryId() == null ? Set.of() : Set.of(entity.getCategoryId()));
-        Map<Long, ProductUnitEntity> unitsById = unitService.getOwnedEntityMap(entity.getUnitId() == null ? Set.of() : Set.of(entity.getUnitId()));
-        Set<Long> priceLevelIds = new LinkedHashSet<>(priceLevelService.extractLevelIds(entity.getPriceLevelValuesJson()));
-        Map<Long, ProductPriceLevelEntity> priceLevelDefinitionsById = priceLevelService.getOwnedEntityMap(priceLevelIds);
-        List<V2ProductDtos.ProductSupplierRelationResponse> supplierRelations = supplierRelationService.list(entity.getId());
+        return toResponse(
+            entity,
+            ProductResponseContext.single(
+                entity,
+                categoryService,
+                unitService,
+                priceLevelService,
+                supplierRelationService
+            )
+        );
+    }
+
+    private V2ProductDtos.ProductResponse toResponse(ProductEntity entity, ProductResponseContext context) {
+        Map<Long, ProductCategoryEntity> categoriesById = context.categoriesById();
+        Map<Long, ProductUnitEntity> unitsById = context.unitsById();
+        Map<Long, ProductPriceLevelEntity> priceLevelDefinitionsById = context.priceLevelDefinitionsById();
+        List<V2ProductDtos.ProductSupplierRelationResponse> supplierRelations = context.supplierRelationsByProductId()
+            .getOrDefault(entity.getId(), List.of());
         ProductCategoryEntity category = entity.getCategoryId() == null ? null : categoriesById.get(entity.getCategoryId());
         ProductUnitEntity unit = entity.getUnitId() == null ? null : unitsById.get(entity.getUnitId());
-        V2ProductDtos.ProductSupplierRelationResponse defaultSupplier = supplierRelations.stream()
-            .filter(relation -> Boolean.TRUE.equals(relation.isDefault()))
-            .findFirst()
-            .orElse(null);
+        V2ProductDtos.ProductSupplierRelationResponse defaultSupplier = null;
+        for (V2ProductDtos.ProductSupplierRelationResponse relation : supplierRelations) {
+            if (Boolean.TRUE.equals(relation.isDefault())) {
+                defaultSupplier = relation;
+                break;
+            }
+        }
         return new V2ProductDtos.ProductResponse(
             entity.getId(),
             entity.getCode(),
@@ -183,6 +224,56 @@ public class V2ProductService {
             entity.getCreatedAt(),
             entity.getUpdatedAt()
         );
+    }
+
+    private record ProductResponseContext(
+        Map<Long, ProductCategoryEntity> categoriesById,
+        Map<Long, ProductUnitEntity> unitsById,
+        Map<Long, ProductPriceLevelEntity> priceLevelDefinitionsById,
+        Map<Long, List<V2ProductDtos.ProductSupplierRelationResponse>> supplierRelationsByProductId
+    ) {
+        static ProductResponseContext from(
+            List<ProductEntity> products,
+            V2ProductCategoryService categoryService,
+            V2ProductUnitService unitService,
+            V2ProductPriceLevelService priceLevelService,
+            V2ProductSupplierRelationService supplierRelationService
+        ) {
+            Set<Long> categoryIds = new LinkedHashSet<>();
+            Set<Long> unitIds = new LinkedHashSet<>();
+            Set<Long> priceLevelIds = new LinkedHashSet<>();
+            Set<Long> productIds = new LinkedHashSet<>();
+            for (ProductEntity product : products) {
+                if (product.getId() != null && product.getId() > 0L) {
+                    productIds.add(product.getId());
+                }
+                if (product.getCategoryId() != null && product.getCategoryId() > 0L) {
+                    categoryIds.add(product.getCategoryId());
+                }
+                if (product.getUnitId() != null && product.getUnitId() > 0L) {
+                    unitIds.add(product.getUnitId());
+                }
+                priceLevelIds.addAll(priceLevelService.extractLevelIds(product.getPriceLevelValuesJson()));
+            }
+            Map<Long, ProductCategoryEntity> categoriesById = categoryService.getOwnedEntityMap(categoryIds);
+            Map<Long, ProductUnitEntity> unitsById = unitService.getOwnedEntityMap(unitIds);
+            Map<Long, ProductPriceLevelEntity> priceLevelDefinitionsById = priceLevelService.getOwnedEntityMap(priceLevelIds);
+            Map<Long, List<V2ProductDtos.ProductSupplierRelationResponse>> supplierRelationsByProductId = productIds.isEmpty()
+                ? Map.of()
+                : supplierRelationService.listByProductIds(productIds);
+            return new ProductResponseContext(categoriesById, unitsById, priceLevelDefinitionsById, supplierRelationsByProductId);
+        }
+
+        static ProductResponseContext single(
+            ProductEntity product,
+            V2ProductCategoryService categoryService,
+            V2ProductUnitService unitService,
+            V2ProductPriceLevelService priceLevelService,
+            V2ProductSupplierRelationService supplierRelationService
+        ) {
+            List<ProductEntity> products = product == null ? List.of() : List.of(product);
+            return from(products, categoryService, unitService, priceLevelService, supplierRelationService);
+        }
     }
 
     private String normalizeRequired(String value, String message) {
@@ -207,5 +298,13 @@ public class V2ProductService {
             throw new IllegalArgumentException(message);
         }
         return status;
+    }
+
+    private static String normalizeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

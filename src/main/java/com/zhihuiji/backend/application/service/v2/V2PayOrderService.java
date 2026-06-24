@@ -36,17 +36,22 @@ public class V2PayOrderService {
         this.currentOwnerService = currentOwnerService;
     }
 
+    @Transactional(readOnly = true)
     public List<V2PayOrderDtos.PayOrderResponse> list(
         String keyword,
         Integer status,
         Long createdAfter,
         Long createdBefore
     ) {
-        return payOrderService.list(keyword, status, createdAfter, createdBefore).stream()
-            .map(this::toResponse)
-            .toList();
+        List<PayOrderEntity> rows = payOrderService.list(keyword, status, createdAfter, createdBefore);
+        List<V2PayOrderDtos.PayOrderResponse> responses = new java.util.ArrayList<>(rows.size());
+        for (PayOrderEntity row : rows) {
+            responses.add(toResponse(row));
+        }
+        return responses;
     }
 
+    @Transactional(readOnly = true)
     public V2PayOrderDtos.PayOrderResponse get(Long id) {
         return toResponse(payOrderService.getById(id));
     }

@@ -12,6 +12,9 @@ public interface FinanceRecordRepository extends JpaRepository<FinanceRecordEnti
 
     List<FinanceRecordEntity> findAllByOwnerUserIdOrderByUpdatedAtAscIdAsc(Long ownerUserId);
 
+    @Query("SELECT e FROM FinanceRecordEntity e WHERE e.ownerUserId = :ownerUserId AND COALESCE(e.updatedAt, e.createdAt) >= :sinceTimestamp ORDER BY e.updatedAt ASC, e.id ASC")
+    List<FinanceRecordEntity> findChangedByOwnerUserId(@Param("ownerUserId") Long ownerUserId, @Param("sinceTimestamp") Long sinceTimestamp);
+
     @Query("SELECT r FROM FinanceRecordEntity r WHERE " +
         "r.ownerUserId = :ownerUserId AND " +
         "(:type IS NULL OR r.type = :type) AND " +

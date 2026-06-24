@@ -13,7 +13,6 @@ import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
 import com.zhihuiji.backend.infrastructure.repository.SaleOrderItemRepository;
 import com.zhihuiji.backend.infrastructure.repository.SaleOrderRepository;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -63,7 +62,7 @@ public class SaleOrderService {
         String orderNo = "SO" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
 
         double subtotal = 0.0;
-        List<SaleOrderItemEntity> itemEntities = new ArrayList<>();
+        List<SaleOrderItemEntity> itemEntities = new ArrayList<>(command.items().size());
         for (SaleItemDraft item : command.items()) {
             ProductEntity product = productRepository.findByIdForUpdate(ownerUserId, item.productId())
                 .orElseThrow(() -> new IllegalArgumentException("商品不存在: " + item.productId()));
@@ -126,10 +125,12 @@ public class SaleOrderService {
         return toDetail(order);
     }
 
+    @Transactional(readOnly = true)
     public List<SaleOrderEntity> list(String keyword, Integer status) {
         return list(keyword, status, null, null, null, null, null, null);
     }
 
+    @Transactional(readOnly = true)
     public List<SaleOrderEntity> list(
         String keyword,
         Integer status,
@@ -143,35 +144,36 @@ public class SaleOrderService {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         return saleOrderRepository.search(
             ownerUserId,
-            keyword,
+            normalizeKeyword(keyword),
             status,
             minTotalAmount,
             maxTotalAmount,
             createdAfter,
             createdBefore,
-            productKeyword,
+            normalizeKeyword(productKeyword),
             paymentStatus
         );
     }
 
+    @Transactional(readOnly = true)
     public OrderDetail get(Long orderId) {
         SaleOrderEntity order = saleOrderRepository.findByIdAndOwnerUserId(orderId, currentOwnerService.requireCurrentOwnerUserId())
             .orElseThrow(() -> new IllegalArgumentException("订单不存在"));
         return toDetail(order);
     }
 
+    @Transactional(readOnly = true)
     public List<SaleOrderItemEntity> listItems(Long orderId) {
         return saleOrderItemRepository.findByOwnerUserIdAndOrderId(currentOwnerService.requireCurrentOwnerUserId(), orderId);
     }
 
+    @Transactional(readOnly = true)
     public List<PaymentEntity> listPayments(Long orderId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         if (!saleOrderRepository.existsByIdAndOwnerUserId(orderId, ownerUserId)) {
             throw new IllegalArgumentException("订单不存在");
         }
-        return paymentRepository.findByOwnerUserIdAndOrderId(ownerUserId, orderId).stream()
-            .sorted(Comparator.comparingLong(PaymentEntity::getCreatedAt))
-            .toList();
+        return paymentRepository.findByOwnerUserIdAndOrderIdOrderByCreatedAtAsc(ownerUserId, orderId);
     }
 
     @Transactional
@@ -294,6 +296,7 @@ public class SaleOrderService {
         saleOrderRepository.save(order);
     }
 
+    @Transactional(readOnly = true)
     public byte[] exportPdf(Long orderId) {
         SaleOrderEntity order = saleOrderRepository.findByIdAndOwnerUserId(orderId, currentOwnerService.requireCurrentOwnerUserId())
             .orElseThrow(() -> new IllegalArgumentException("订单不存在"));
@@ -429,5 +432,13 @@ public class SaleOrderService {
         List<SaleOrderItemEntity> items,
         List<PaymentEntity> payments
     ) {}
+
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
 
 }

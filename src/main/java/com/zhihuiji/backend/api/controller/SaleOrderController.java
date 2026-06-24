@@ -38,9 +38,10 @@ public class SaleOrderController {
     @PostMapping
     @RequireStorePermission("sales:write")
     public ApiResponse<SaleOrderDto> create(@Valid @RequestBody CreateRequest request) {
-        List<SaleOrderService.SaleItemDraft> items = request.items().stream()
-            .map(row -> new SaleOrderService.SaleItemDraft(row.productId(), row.quantity(), row.unitPrice()))
-            .toList();
+        List<SaleOrderService.SaleItemDraft> items = new java.util.ArrayList<>(request.items().size());
+        for (ItemRequest row : request.items()) {
+            items.add(new SaleOrderService.SaleItemDraft(row.productId(), row.quantity(), row.unitPrice()));
+        }
         return ApiResponse.success(toDto(saleOrderService.create(
             new SaleOrderService.CreateSaleOrderCommand(
                 request.customerId(),
@@ -75,9 +76,11 @@ public class SaleOrderController {
             productKeyword,
             ParseUtils.parseInteger(paymentStatus)
         );
-        List<SaleOrderDto> payload = PaginationUtils.slice(orders, page, size).stream()
-            .map(order -> toDto(order, saleOrderService.listItems(order.getId())))
-            .toList();
+        List<SaleOrderEntity> rows = PaginationUtils.slice(orders, page, size);
+        List<SaleOrderDto> payload = new java.util.ArrayList<>(rows.size());
+        for (SaleOrderEntity order : rows) {
+            payload.add(toDto(order, saleOrderService.listItems(order.getId())));
+        }
         return ApiResponse.success(payload);
     }
 
@@ -130,8 +133,9 @@ public class SaleOrderController {
     }
 
     private SaleOrderDto toDto(SaleOrderEntity order, List<SaleOrderItemEntity> items) {
-        List<SaleOrderItemDto> itemDtos = items.stream()
-            .map(item -> new SaleOrderItemDto(
+        List<SaleOrderItemDto> itemDtos = new java.util.ArrayList<>(items.size());
+        for (SaleOrderItemEntity item : items) {
+            itemDtos.add(new SaleOrderItemDto(
                 item.getId(),
                 item.getOrderId(),
                 item.getProductId(),
@@ -143,8 +147,8 @@ public class SaleOrderController {
                 item.getUnitPrice(),
                 item.getAmount(),
                 item.getCreatedAt()
-            ))
-            .toList();
+            ));
+        }
         return new SaleOrderDto(
             order.getId(),
             order.getOrderNo(),

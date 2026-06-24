@@ -3,6 +3,7 @@ const state = {
   demoAccounts: [],
   selectedUser: null,
 };
+let userIndex = new Map();
 
 const summaryGrid = document.getElementById("summary-grid");
 const userTableBody = document.getElementById("user-table-body");
@@ -45,7 +46,7 @@ async function request(path, options = {}) {
 
 async function bootstrap() {
   initBackground();
-  await Promise.all([loadSummary(), loadUsers(), seedDemo(false)]);
+  await seedDemo(false);
 }
 
 async function loadSummary() {
@@ -57,6 +58,7 @@ async function loadSummary() {
 async function loadUsers(keyword = "") {
   const query = keyword ? `?keyword=${encodeURIComponent(keyword)}` : "";
   state.users = await request(`/v1/admin/users${query}`);
+  userIndex = new Map(state.users.map((user) => [String(user.id), user]));
   renderUsers();
 }
 
@@ -123,15 +125,6 @@ function renderUsers() {
       `;
     })
     .join("");
-
-  userTableBody.querySelectorAll("[data-user-id]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const user = state.users.find((item) => String(item.id) === button.dataset.userId);
-      if (user) {
-        fillForm(user);
-      }
-    });
-  });
 }
 
 function fillForm(user) {
@@ -319,5 +312,20 @@ function handleError(error) {
   agentResult.textContent = `操作失败：${error.message}`;
   agentResult.classList.remove("empty");
 }
+
+userTableBody.addEventListener("click", (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) {
+    return;
+  }
+  const button = target.closest("[data-user-id]");
+  if (!(button instanceof HTMLElement)) {
+    return;
+  }
+  const user = userIndex.get(button.dataset.userId);
+  if (user) {
+    fillForm(user);
+  }
+});
 
 bootstrap().catch(handleError);

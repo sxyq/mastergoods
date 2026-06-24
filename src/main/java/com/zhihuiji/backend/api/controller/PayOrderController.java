@@ -37,16 +37,21 @@ public class PayOrderController {
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "size", required = false) Integer size
     ) {
-        return ApiResponse.success(
-            PaginationUtils.slice(payOrderService.list(
-                    keyword,
-                    status,
-                    ParseUtils.parseLong(createdAfter),
-                    ParseUtils.parseLong(createdBefore)
-                ), page, size).stream()
-                .map(this::toDto)
-                .toList()
+        List<PayOrderEntity> rows = PaginationUtils.slice(
+            payOrderService.list(
+                keyword,
+                status,
+                ParseUtils.parseLong(createdAfter),
+                ParseUtils.parseLong(createdBefore)
+            ),
+            page,
+            size
         );
+        List<PayOrderDto> payload = new java.util.ArrayList<>(rows.size());
+        for (PayOrderEntity row : rows) {
+            payload.add(toDto(row));
+        }
+        return ApiResponse.success(payload);
     }
 
     @GetMapping("/{id}")

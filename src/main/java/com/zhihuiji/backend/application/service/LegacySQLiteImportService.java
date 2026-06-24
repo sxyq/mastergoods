@@ -130,7 +130,7 @@ public class LegacySQLiteImportService {
             clearOwnedData(user.getId(), true);
         }
 
-        return importIntoOwner(user.getId(), user.getPhone(), user.getNickname(), dbPath, false);
+        return importIntoOwner(user.getId(), user.getPhone(), user.getNickname(), dbPath);
     }
 
     @Transactional
@@ -151,7 +151,7 @@ public class LegacySQLiteImportService {
         if (Boolean.TRUE.equals(request.resetOwnedData())) {
             clearOwnedData(ownerUserId, false);
         }
-        return importIntoOwner(ownerUserId, owner.getPhone(), owner.getNickname(), dbPath, false);
+        return importIntoOwner(ownerUserId, owner.getPhone(), owner.getNickname(), dbPath);
     }
 
     private UserEntity createUser(ImportRequest request) {
@@ -170,8 +170,7 @@ public class LegacySQLiteImportService {
         Long ownerUserId,
         String phone,
         String nickname,
-        Path dbPath,
-        boolean clearSessions
+        Path dbPath
     ) {
         ImportCounters counters = new ImportCounters();
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + dbPath)) {
@@ -220,39 +219,42 @@ public class LegacySQLiteImportService {
         customerRepository.deleteAll(customerRepository.findAllByOwnerUserId(ownerUserId));
         supplierRepository.deleteAll(supplierRepository.findAllByOwnerUserId(ownerUserId));
         if (clearSessions) {
-            sessionRepository.findAll().stream()
-                .filter(session -> ownerUserId.equals(session.getUserId()))
-                .forEach(sessionRepository::delete);
+            sessionRepository.deleteByUserId(ownerUserId);
         }
     }
 
     private Map<Long, ImportedAccount> importAccounts(Connection connection, Long ownerUserId, ImportCounters counters) throws SQLException {
-        Map<Long, ImportedAccount> accountMap = new HashMap<>();
-        Set<String> usedAccountCodes = new HashSet<>();
+        Map<Long, ImportedAccount> accountMap = new HashMap<>(64);
+        Set<String> usedAccountCodes = new HashSet<>(64);
         try (Statement statement = connection.createStatement();
              ResultSet rs = statement.executeQuery("select * from accts where is_del = 0 order by id")) {
             while (rs.next()) {
+                long legacyId = rs.getLong("id");
+                String legacySyncGroup = rs.getString("sync_g");
+                String legacyName = rs.getString("name");
+                String createdAtText = rs.getString("create_at");
+                String revisedAtText = rs.getString("revise_at");
                 AccountEntity account = new AccountEntity();
                 account.setOwnerUserId(ownerUserId);
                 account.setCode(
                     ensureUniqueIdentifier(
-                        buildLegacyCode("ACCT", rs.getLong("id"), rs.getString("sync_g")),
+                        buildLegacyCode("ACCT", legacyId, legacySyncGroup),
                         "ACCT",
-                        rs.getLong("id"),
+                        legacyId,
                         usedAccountCodes
                     )
                 );
-                account.setName(nonBlank(rs.getString("name"), "旧版账户-" + rs.getLong("id")));
+                account.setName(nonBlank(legacyName, "旧版账户-" + legacyId));
                 account.setType(normalizeAccountType(rs.getInt("tye")));
                 account.setBalance(rs.getDouble("cur_amt"));
                 account.setIsDefault(rs.getInt("seq") == 1 || rs.getInt("is_sys") == 1);
                 account.setStatus(rs.getInt("is_stop") == 1 ? 0 : 1);
                 account.setSortOrder(rs.getInt("seq"));
                 account.setNotes(blankToNull(rs.getString("remark")));
-                account.setCreatedAt(parseTimestampOrNow(rs.getString("create_at")));
-                account.setUpdatedAt(parseTimestampOrFallback(rs.getString("revise_at"), account.getCreatedAt()));
+                account.setCreatedAt(parseTimestampOrNow(createdAtText));
+                account.setUpdatedAt(parseTimestampOrFallback(revisedAtText, account.getCreatedAt()));
                 account = accountRepository.save(account);
-                accountMap.put(rs.getLong("id"), new ImportedAccount(account.getId(), account.getName(), account.getType()));
+                accountMap.put(legacyId, new ImportedAccount(account.getId(), account.getName(), account.getType()));
                 counters.accounts++;
             }
         }
@@ -260,22 +262,30 @@ public class LegacySQLiteImportService {
     }
 
     private CompanyImportContext importCompanies(Connection connection, Long ownerUserId, ImportCounters counters) throws SQLException {
-        Map<Long, ImportedCompany> customerMap = new HashMap<>();
-        Map<Long, ImportedCompany> supplierMap = new HashMap<>();
-        Set<String> usedCustomerPhones = new HashSet<>();
-        Set<String> usedSupplierPhones = new HashSet<>();
+        Map<Long, ImportedCompany> customerMap = new HashMap<>(128);
+        Map<Long, ImportedCompany> supplierMap = new HashMap<>(128);
+        Set<String> usedCustomerPhones = new HashSet<>(128);
+        Set<String> usedSupplierPhones = new HashSet<>(128);
         try (Statement statement = connection.createStatement();
              ResultSet rs = statement.executeQuery("select * from companies where is_del = 0 order by id")) {
             while (rs.next()) {
                 long oldCompanyId = rs.getLong("id");
-                boolean supplier = isSupplierCompany(rs.getInt("tye"), rs.getInt("company_type_id"), rs.getString("name"));
-                String name = nonBlank(rs.getString("name"), supplier ? "旧版供应商-" + oldCompanyId : "旧版客户-" + oldCompanyId);
-                long createdAt = parseTimestampOrNow(rs.getString("create_at"));
-                long updatedAt = parseTimestampOrFallback(rs.getString("revise_at"), createdAt);
-                String contactName = blankToNull(rs.getString("linkman"));
-                String contactPhone = blankToNull(nonBlank(rs.getString("mobile"), rs.getString("tel")));
-                String address = blankToNull(rs.getString("addr"));
-                String notes = blankToNull(rs.getString("remark"));
+                String legacyName = rs.getString("name");
+                String createdAtText = rs.getString("create_at");
+                String revisedAtText = rs.getString("revise_at");
+                String linkman = rs.getString("linkman");
+                String mobile = rs.getString("mobile");
+                String tel = rs.getString("tel");
+                String addr = rs.getString("addr");
+                String remark = rs.getString("remark");
+                boolean supplier = isSupplierCompany(rs.getInt("tye"), rs.getInt("company_type_id"), legacyName);
+                String name = nonBlank(legacyName, supplier ? "旧版供应商-" + oldCompanyId : "旧版客户-" + oldCompanyId);
+                long createdAt = parseTimestampOrNow(createdAtText);
+                long updatedAt = parseTimestampOrFallback(revisedAtText, createdAt);
+                String contactName = blankToNull(linkman);
+                String contactPhone = blankToNull(nonBlank(mobile, tel));
+                String address = blankToNull(addr);
+                String notes = blankToNull(remark);
                 double balance = rs.getDouble("cur_amt");
                 int status = rs.getInt("is_stop") == 1 ? 0 : 1;
 
@@ -323,22 +333,28 @@ public class LegacySQLiteImportService {
     }
 
     private ProductImportContext importProducts(Connection connection, Long ownerUserId, ImportCounters counters) throws SQLException {
-        Map<Long, ImportedProduct> productMap = new HashMap<>();
-        Set<String> usedProductCodes = new HashSet<>();
+        Map<Long, ImportedProduct> productMap = new HashMap<>(128);
+        Set<String> usedProductCodes = new HashSet<>(128);
         try (Statement statement = connection.createStatement();
              ResultSet rs = statement.executeQuery("select * from products where is_del = 0 order by id")) {
             while (rs.next()) {
+                long legacyId = rs.getLong("id");
+                String legacyCode = rs.getString("code");
+                String syncGroup = rs.getString("sync_g");
+                String legacyName = rs.getString("name");
+                String createdAtText = rs.getString("create_at");
+                String revisedAtText = rs.getString("revise_at");
                 ProductEntity entity = new ProductEntity();
                 entity.setOwnerUserId(ownerUserId);
                 entity.setCode(
                     ensureUniqueIdentifier(
-                        nonBlank(rs.getString("code"), buildLegacyCode("PROD", rs.getLong("id"), rs.getString("sync_g"))),
+                        nonBlank(legacyCode, buildLegacyCode("PROD", legacyId, syncGroup)),
                         "PROD",
-                        rs.getLong("id"),
+                        legacyId,
                         usedProductCodes
                     )
                 );
-                entity.setName(nonBlank(rs.getString("name"), "旧版商品-" + rs.getLong("id")));
+                entity.setName(nonBlank(legacyName, "旧版商品-" + legacyId));
                 entity.setCategory(normalizeCategory(rs.getInt("ptype_id")));
                 entity.setUnit(nonBlank(rs.getString("unit"), "件"));
                 entity.setSalePrice(firstPositive(rs.getDouble("sale_prc"), rs.getDouble("trade_prc"), rs.getDouble("prc4")));
@@ -348,11 +364,11 @@ public class LegacySQLiteImportService {
                 entity.setStatus(rs.getInt("is_stop") == 1 ? 0 : 1);
                 entity.setSyncStatus(0);
                 entity.setSyncVersion(1L);
-                entity.setCreatedAt(parseTimestampOrNow(rs.getString("create_at")));
-                entity.setUpdatedAt(parseTimestampOrFallback(rs.getString("revise_at"), entity.getCreatedAt()));
+                entity.setCreatedAt(parseTimestampOrNow(createdAtText));
+                entity.setUpdatedAt(parseTimestampOrFallback(revisedAtText, entity.getCreatedAt()));
                 entity = productRepository.save(entity);
                 productMap.put(
-                    rs.getLong("id"),
+                    legacyId,
                     new ImportedProduct(entity.getId(), entity.getCode(), entity.getName(), entity.getPurchasePrice(), entity.getStock(), entity.getUpdatedAt())
                 );
                 counters.products++;
@@ -382,8 +398,8 @@ public class LegacySQLiteImportService {
         Map<Long, ImportedAccount> accountMap,
         ImportCounters counters
     ) throws SQLException {
-        Map<Long, ImportedSaleOrder> saleOrderMap = new HashMap<>();
-        Set<String> usedSaleOrderNos = new HashSet<>();
+        Map<Long, ImportedSaleOrder> saleOrderMap = new HashMap<>(128);
+        Set<String> usedSaleOrderNos = new HashSet<>(128);
         try (Statement statement = connection.createStatement();
              ResultSet rs = statement.executeQuery("select * from sales where is_del = 0 order by id")) {
             while (rs.next()) {
@@ -477,9 +493,9 @@ public class LegacySQLiteImportService {
         Map<Long, ImportedAccount> accountMap,
         ImportCounters counters
     ) throws SQLException {
-        Map<Long, ImportedPurchaseOrder> purchaseOrderMap = new HashMap<>();
-        Set<String> usedPurchaseOrderNos = new HashSet<>();
-        Set<String> usedPayOrderNos = new HashSet<>();
+        Map<Long, ImportedPurchaseOrder> purchaseOrderMap = new HashMap<>(128);
+        Set<String> usedPurchaseOrderNos = new HashSet<>(128);
+        Set<String> usedPayOrderNos = new HashSet<>(128);
         try (Statement statement = connection.createStatement();
              ResultSet rs = statement.executeQuery("select * from purs where is_del = 0 order by id")) {
             while (rs.next()) {
@@ -584,10 +600,15 @@ public class LegacySQLiteImportService {
         Map<Long, ImportedAccount> accountMap,
         ImportCounters counters
     ) throws SQLException {
-        Set<String> usedRecordNos = new HashSet<>();
+        Set<String> usedRecordNos = new HashSet<>(128);
         try (Statement statement = connection.createStatement();
              ResultSet rs = statement.executeQuery("select * from funds where is_del = 0 order by id")) {
             while (rs.next()) {
+                long legacyId = rs.getLong("id");
+                String legacyCode = rs.getString("code");
+                String createAtText = rs.getString("create_at");
+                String optOnText = rs.getString("opt_on");
+                String reviseAtText = rs.getString("revise_at");
                 double income = positiveOrZero(rs.getDouble("in_amt"));
                 double expense = positiveOrZero(rs.getDouble("out_amt"));
                 double amount = income > 0.0 ? income : expense;
@@ -599,9 +620,9 @@ public class LegacySQLiteImportService {
                 entity.setOwnerUserId(ownerUserId);
                 entity.setRecordNo(
                     ensureUniqueIdentifier(
-                        nonBlank(rs.getString("code"), "LEGACY-FUND-" + rs.getLong("id")),
+                        nonBlank(legacyCode, "LEGACY-FUND-" + legacyId),
                         "FUND",
-                        rs.getLong("id"),
+                        legacyId,
                         usedRecordNos
                     )
                 );
@@ -612,8 +633,8 @@ public class LegacySQLiteImportService {
                 ImportedAccount account = accountMap.get(rs.getLong("acct_id"));
                 entity.setMethod(account == null ? 1 : normalizeMethodFromAccountType(account.type()));
                 entity.setNotes(blankToNull(rs.getString("remark")));
-                entity.setCreatedAt(parseTimestampOrFallback(rs.getString("create_at"), parseDateOrNow(rs.getString("opt_on"))));
-                entity.setUpdatedAt(parseTimestampOrFallback(rs.getString("revise_at"), entity.getCreatedAt()));
+                entity.setCreatedAt(parseTimestampOrFallback(createAtText, parseDateOrNow(optOnText)));
+                entity.setUpdatedAt(parseTimestampOrFallback(reviseAtText, entity.getCreatedAt()));
                 entity.setSyncStatus(0);
                 entity.setSyncVersion(1L);
                 financeRecordRepository.save(entity);

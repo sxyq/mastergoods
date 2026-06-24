@@ -52,7 +52,7 @@ public class PurchaseOrderService {
             ? PurchaseOrderStatus.DRAFT.code()
             : PurchaseOrderStatus.RECEIVED.code();
 
-        List<PurchaseOrderItemEntity> itemEntities = new ArrayList<>();
+        List<PurchaseOrderItemEntity> itemEntities = new ArrayList<>(command.items().size());
         for (PurchaseItemDraft item : command.items()) {
             ProductEntity product = resolveProduct(ownerUserId, item);
             double quantity = item.quantity() == null ? 0.0 : item.quantity();
@@ -98,6 +98,8 @@ public class PurchaseOrderService {
         order.setTotalAmount(total);
         order.setPaidAmount(0.0);
         order.setReceivedAmount(orderStatus == PurchaseOrderStatus.RECEIVED.code() ? total : 0.0);
+        order.setSettlementMethod(command.settlementMethod());
+        order.setWarehouseId(command.warehouseId());
         order.setNotes(command.notes());
         order.setStatus(orderStatus);
         order.setSyncStatus(0);
@@ -109,10 +111,16 @@ public class PurchaseOrderService {
         return new PurchaseDetail(order, itemEntities);
     }
 
+    @Transactional(readOnly = true)
     public List<PurchaseOrderEntity> list(String keyword, Integer status) {
-        return purchaseOrderRepository.search(currentOwnerService.requireCurrentOwnerUserId(), keyword, status);
+        return purchaseOrderRepository.search(
+            currentOwnerService.requireCurrentOwnerUserId(),
+            normalizeKeyword(keyword),
+            status
+        );
     }
 
+    @Transactional(readOnly = true)
     public PurchaseDetail get(Long orderId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         PurchaseOrderEntity order = purchaseOrderRepository.findByIdAndOwnerUserId(orderId, ownerUserId)
@@ -120,6 +128,7 @@ public class PurchaseOrderService {
         return new PurchaseDetail(order, purchaseOrderItemRepository.findByOwnerUserIdAndOrderId(ownerUserId, orderId));
     }
 
+    @Transactional(readOnly = true)
     public List<PurchaseOrderItemEntity> listItems(Long orderId) {
         return purchaseOrderItemRepository.findByOwnerUserIdAndOrderId(currentOwnerService.requireCurrentOwnerUserId(), orderId);
     }
@@ -148,6 +157,8 @@ public class PurchaseOrderService {
         Long supplierId,
         String supplierName,
         List<PurchaseItemDraft> items,
+        Integer settlementMethod,
+        Long warehouseId,
         String notes,
         Integer status
     ) {}
@@ -167,7 +178,7 @@ public class PurchaseOrderService {
 
         purchaseOrderItemRepository.deleteAllByOrderId(orderId);
 
-        List<PurchaseOrderItemEntity> itemEntities = new ArrayList<>();
+        List<PurchaseOrderItemEntity> itemEntities = new ArrayList<>(command.items().size());
         for (PurchaseItemDraft item : command.items()) {
             ProductEntity product = resolveProduct(ownerUserId, item);
             double quantity = item.quantity() == null ? 0.0 : item.quantity();
@@ -199,6 +210,8 @@ public class PurchaseOrderService {
         order.setSupplierId(command.supplierId());
         order.setSupplierName(command.supplierName());
         order.setTotalAmount(total);
+        order.setSettlementMethod(command.settlementMethod());
+        order.setWarehouseId(command.warehouseId());
         order.setNotes(command.notes());
         order.setUpdatedAt(now);
         order.setSyncStatus(0);
@@ -224,4 +237,12 @@ public class PurchaseOrderService {
         PurchaseOrderEntity order,
         List<PurchaseOrderItemEntity> items
     ) {}
+
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
 }

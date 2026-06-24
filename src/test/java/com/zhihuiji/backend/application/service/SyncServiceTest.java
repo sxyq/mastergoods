@@ -101,12 +101,12 @@ class SyncServiceTest {
 
     @Test
     void pullCollectsAndSortsAllEntityTypesWithPaging() {
-        when(customerRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(customer(1L, 100L)));
-        when(supplierRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(supplier(2L, 200L)));
-        when(productRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(product(3L, 300L)));
-        when(saleOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(saleOrder(4L, 400L)));
-        when(purchaseOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(purchaseOrder(5L, 500L)));
-        when(payOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(payOrder(6L, 600L)));
+        when(customerRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of(customer(1L, 100L)));
+        when(supplierRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of(supplier(2L, 200L)));
+        when(productRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of(product(3L, 300L)));
+        when(saleOrderRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of(saleOrder(4L, 400L)));
+        when(purchaseOrderRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of(purchaseOrder(5L, 500L)));
+        when(payOrderRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of(payOrder(6L, 600L)));
 
         SyncService.PullResult result = syncService.pull("0", 2);
 
@@ -119,12 +119,12 @@ class SyncServiceTest {
 
     @Test
     void pullIncludesPayOrderAccountIdInPayload() throws Exception {
-        when(customerRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
-        when(supplierRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
-        when(productRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
-        when(saleOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
-        when(purchaseOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
-        when(payOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(payOrder(6L, 600L)));
+        when(customerRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of());
+        when(supplierRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of());
+        when(productRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of());
+        when(saleOrderRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of());
+        when(purchaseOrderRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of());
+        when(payOrderRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of(payOrder(6L, 600L)));
 
         SyncService.PullResult result = syncService.pull("0", 10);
 
@@ -160,12 +160,12 @@ class SyncServiceTest {
     void pullFallsBackToCreatedAtAndClampsInvalidLimit() {
         CustomerEntity customer = customer(7L, 100L);
         customer.setUpdatedAt(null);
-        when(customerRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(customer));
-        when(supplierRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
-        when(productRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
-        when(saleOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
-        when(purchaseOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
-        when(payOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
+        when(customerRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of(customer));
+        when(supplierRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of());
+        when(productRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of());
+        when(saleOrderRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of());
+        when(purchaseOrderRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of());
+        when(payOrderRepository.findChangedByOwnerUserId(1L, 0L)).thenReturn(List.of());
 
         SyncService.PullResult result = syncService.pull("bad-cursor", 0);
 

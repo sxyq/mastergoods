@@ -4,10 +4,14 @@ import com.zhihuiji.backend.api.common.PartnerTypes;
 import com.zhihuiji.backend.api.dto.v2.partner.V2PartnerDtos;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
 import com.zhihuiji.backend.domain.entity.PartnerGroupEntity;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import com.zhihuiji.backend.infrastructure.repository.CustomerRepository;
 import com.zhihuiji.backend.infrastructure.repository.PartnerGroupRepository;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -31,9 +35,23 @@ public class V2PartnerGroupService {
 
     public List<V2PartnerDtos.PartnerGroupResponse> list(String partnerType) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return partnerGroupRepository.findAllByOwnerUserIdAndPartnerTypeOrderBySortOrderAscNameAsc(ownerUserId, requirePartnerType(partnerType)).stream()
-            .map(this::toResponse)
-            .toList();
+        List<PartnerGroupEntity> rows = partnerGroupRepository.findAllByOwnerUserIdAndPartnerTypeOrderBySortOrderAscNameAsc(ownerUserId, requirePartnerType(partnerType));
+        List<V2PartnerDtos.PartnerGroupResponse> responses = new ArrayList<>(rows.size());
+        for (PartnerGroupEntity row : rows) {
+            responses.add(toResponse(row));
+        }
+        return responses;
+    }
+
+    public Map<Long, PartnerGroupEntity> getOwnedEntityMap(String partnerType, Collection<Long> ids) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, PartnerGroupEntity> groupsById = new LinkedHashMap<>(ids.size());
+        partnerGroupRepository.findAllByOwnerUserIdAndPartnerTypeAndIdIn(ownerUserId, requirePartnerType(partnerType), ids)
+            .forEach(group -> groupsById.put(group.getId(), group));
+        return groupsById;
     }
 
     public PartnerGroupEntity getOwnedEntity(String partnerType, Long id) {

@@ -9,11 +9,11 @@ import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
 import com.zhihuiji.backend.infrastructure.repository.ProductSupplierRelationRepository;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,12 +55,13 @@ public class V2ProductSupplierRelationService {
         List<ProductSupplierRelationEntity> relations = productSupplierRelationRepository
             .findAllByOwnerUserIdAndProductIdInOrderByIsDefaultDescPurchasePriorityAscCreatedAtAsc(ownerUserId, productIds);
         Map<Long, SupplierEntity> suppliersById = loadSuppliers(relations);
-        return relations.stream()
-            .collect(Collectors.groupingBy(
-                ProductSupplierRelationEntity::getProductId,
-                java.util.LinkedHashMap::new,
-                Collectors.mapping(relation -> toResponse(relation, suppliersById.get(relation.getSupplierId())), Collectors.toList()))
-            );
+        Map<Long, List<V2ProductDtos.ProductSupplierRelationResponse>> responsesByProductId = new LinkedHashMap<>();
+        for (ProductSupplierRelationEntity relation : relations) {
+            List<V2ProductDtos.ProductSupplierRelationResponse> responses = responsesByProductId
+                .computeIfAbsent(relation.getProductId(), ignored -> new java.util.ArrayList<>());
+            responses.add(toResponse(relation, suppliersById.get(relation.getSupplierId())));
+        }
+        return responsesByProductId;
     }
 
     @Transactional
@@ -76,7 +77,7 @@ public class V2ProductSupplierRelationService {
             throw new IllegalArgumentException("商品供应商关系已存在");
         }
         ProductSupplierRelationEntity entity = new ProductSupplierRelationEntity();
-        fillEntity(ownerUserId, entity, request, product.getId(), supplier.getId(), true);
+        fillEntity(ownerUserId, entity, request, product.getId(), supplier.getId(), true, Map.of(supplier.getId(), supplier));
         ProductSupplierRelationEntity saved = productSupplierRelationRepository.save(entity);
         return toResponse(saved, supplier);
     }
@@ -95,7 +96,7 @@ public class V2ProductSupplierRelationService {
         )) {
             throw new IllegalArgumentException("商品供应商关系已存在");
         }
-        fillEntity(ownerUserId, entity, request, product.getId(), supplier.getId(), false);
+        fillEntity(ownerUserId, entity, request, product.getId(), supplier.getId(), false, Map.of(supplier.getId(), supplier));
         ProductSupplierRelationEntity saved = productSupplierRelationRepository.save(entity);
         return toResponse(saved, supplier);
     }
@@ -105,7 +106,8 @@ public class V2ProductSupplierRelationService {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         requireOwnedProduct(ownerUserId, productId);
         List<V2ProductDtos.ProductSupplierRelationWriteRequest> normalizedRequests = requests == null ? List.of() : requests;
-        validateRequests(ownerUserId, productId, normalizedRequests, null);
+        Map<Long, SupplierEntity> suppliersById = loadSuppliersById(ownerUserId, normalizedRequests);
+        validateRequests(ownerUserId, productId, normalizedRequests, null, suppliersById);
         productSupplierRelationRepository.deleteAllByOwnerUserIdAndProductId(ownerUserId, productId);
         long now = System.currentTimeMillis();
         for (V2ProductDtos.ProductSupplierRelationWriteRequest request : normalizedRequests) {
@@ -138,9 +140,10 @@ public class V2ProductSupplierRelationService {
         V2ProductDtos.ProductSupplierRelationWriteRequest request,
         Long productId,
         Long supplierId,
-        boolean isCreate
+        boolean isCreate,
+        Map<Long, SupplierEntity> suppliersById
     ) {
-        validateRequests(ownerUserId, productId, List.of(request), isCreate ? null : entity.getId());
+        validateRequests(ownerUserId, productId, List.of(request), isCreate ? null : entity.getId(), suppliersById);
         entity.setOwnerUserId(ownerUserId);
         entity.setProductId(productId);
         entity.setSupplierId(supplierId);
@@ -159,23 +162,24 @@ public class V2ProductSupplierRelationService {
     }
 
     private void clearDefaultSupplier(Long ownerUserId, Long productId, Long keepId) {
-        productSupplierRelationRepository
-            .findAllByOwnerUserIdAndProductIdOrderByIsDefaultDescPurchasePriorityAscCreatedAtAsc(ownerUserId, productId)
-            .stream()
-            .filter(relation -> !relation.getId().equals(keepId))
-            .filter(relation -> Boolean.TRUE.equals(relation.getIsDefault()))
-            .forEach(relation -> {
-                relation.setIsDefault(false);
-                relation.setUpdatedAt(System.currentTimeMillis());
-                productSupplierRelationRepository.save(relation);
-            });
+        long now = System.currentTimeMillis();
+        for (ProductSupplierRelationEntity relation : productSupplierRelationRepository
+            .findAllByOwnerUserIdAndProductIdOrderByIsDefaultDescPurchasePriorityAscCreatedAtAsc(ownerUserId, productId)) {
+            if (relation.getId().equals(keepId) || !Boolean.TRUE.equals(relation.getIsDefault())) {
+                continue;
+            }
+            relation.setIsDefault(false);
+            relation.setUpdatedAt(now);
+            productSupplierRelationRepository.save(relation);
+        }
     }
 
     private void validateRequests(
         Long ownerUserId,
         Long productId,
         List<V2ProductDtos.ProductSupplierRelationWriteRequest> requests,
-        Long currentRelationId
+        Long currentRelationId,
+        Map<Long, SupplierEntity> suppliersById
     ) {
         Set<Long> supplierIds = new LinkedHashSet<>();
         long defaultCount = 0L;
@@ -194,7 +198,11 @@ public class V2ProductSupplierRelationService {
             }
             normalizePurchasePriority(request.purchasePriority());
             normalizeNullablePrice(request.lastPurchasePrice());
-            requireOwnedSupplier(ownerUserId, request.supplierId());
+            if (suppliersById == null) {
+                requireOwnedSupplier(ownerUserId, request.supplierId());
+            } else if (!suppliersById.containsKey(request.supplierId())) {
+                throw new IllegalArgumentException("供应商不存在");
+            }
         }
         if (defaultCount > 1) {
             throw new IllegalArgumentException("同一个商品只能设置一个默认供应商");
@@ -210,6 +218,23 @@ public class V2ProductSupplierRelationService {
                 throw new IllegalArgumentException("商品供应商关系已存在");
             }
         }
+    }
+
+    private Map<Long, SupplierEntity> loadSuppliersById(Long ownerUserId, List<V2ProductDtos.ProductSupplierRelationWriteRequest> requests) {
+        Set<Long> supplierIds = new LinkedHashSet<>();
+        for (V2ProductDtos.ProductSupplierRelationWriteRequest request : requests) {
+            if (request != null && request.supplierId() != null) {
+                supplierIds.add(request.supplierId());
+            }
+        }
+        if (supplierIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, SupplierEntity> suppliersById = new LinkedHashMap<>(supplierIds.size());
+        for (SupplierEntity supplier : supplierRepository.findAllByOwnerUserIdAndIdIn(ownerUserId, supplierIds)) {
+            suppliersById.put(supplier.getId(), supplier);
+        }
+        return suppliersById;
     }
 
     private ProductEntity requireOwnedProduct(Long ownerUserId, Long productId) {
@@ -230,21 +255,27 @@ public class V2ProductSupplierRelationService {
 
     private List<V2ProductDtos.ProductSupplierRelationResponse> buildResponses(List<ProductSupplierRelationEntity> relations) {
         Map<Long, SupplierEntity> suppliersById = loadSuppliers(relations);
-        return relations.stream()
-            .map(relation -> toResponse(relation, suppliersById.get(relation.getSupplierId())))
-            .toList();
+        List<V2ProductDtos.ProductSupplierRelationResponse> responses = new java.util.ArrayList<>(relations.size());
+        for (ProductSupplierRelationEntity relation : relations) {
+            responses.add(toResponse(relation, suppliersById.get(relation.getSupplierId())));
+        }
+        return responses;
     }
 
     private Map<Long, SupplierEntity> loadSuppliers(List<ProductSupplierRelationEntity> relations) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        Set<Long> supplierIds = relations.stream()
-            .map(ProductSupplierRelationEntity::getSupplierId)
-            .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<Long> supplierIds = new LinkedHashSet<>();
+        for (ProductSupplierRelationEntity relation : relations) {
+            supplierIds.add(relation.getSupplierId());
+        }
         if (supplierIds.isEmpty()) {
             return Map.of();
         }
-        return supplierRepository.findAllByOwnerUserIdAndIdIn(ownerUserId, supplierIds).stream()
-            .collect(Collectors.toMap(SupplierEntity::getId, value -> value));
+        Map<Long, SupplierEntity> suppliersById = new LinkedHashMap<>(supplierIds.size());
+        for (SupplierEntity supplier : supplierRepository.findAllByOwnerUserIdAndIdIn(ownerUserId, supplierIds)) {
+            suppliersById.put(supplier.getId(), supplier);
+        }
+        return suppliersById;
     }
 
     private V2ProductDtos.ProductSupplierRelationResponse toResponse(

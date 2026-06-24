@@ -5,6 +5,7 @@ import com.zhihuiji.backend.application.service.CurrentOwnerService;
 import com.zhihuiji.backend.domain.entity.ImportJobEntity;
 import com.zhihuiji.backend.infrastructure.repository.ImportJobRepository;
 import java.util.List;
+import java.util.Locale;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,14 +33,20 @@ public class V2ImportJobService {
         this.currentOwnerService = currentOwnerService;
     }
 
+    @Transactional(readOnly = true)
     public List<V2ImportJobDtos.ImportJobResponse> list(String status) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         List<ImportJobEntity> jobs = (status == null || status.isBlank())
             ? importJobRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(ownerUserId)
-            : importJobRepository.findAllByOwnerUserIdAndStatusOrderByUpdatedAtDesc(ownerUserId, status.trim().toLowerCase());
-        return jobs.stream().map(this::toResponse).toList();
+            : importJobRepository.findAllByOwnerUserIdAndStatusOrderByUpdatedAtDesc(ownerUserId, normalizeStatus(status));
+        List<V2ImportJobDtos.ImportJobResponse> responses = new java.util.ArrayList<>(jobs.size());
+        for (ImportJobEntity job : jobs) {
+            responses.add(toResponse(job));
+        }
+        return responses;
     }
 
+    @Transactional(readOnly = true)
     public V2ImportJobDtos.ImportJobResponse get(Long id) {
         return toResponse(getOwnedEntity(id));
     }
@@ -158,5 +165,9 @@ public class V2ImportJobService {
             return null;
         }
         return value.trim();
+    }
+
+    private String normalizeStatus(String status) {
+        return status == null ? null : status.trim().toLowerCase(Locale.ROOT);
     }
 }

@@ -4,6 +4,7 @@ import com.zhihuiji.backend.domain.entity.SupplierEntity;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class SupplierService {
@@ -15,32 +16,14 @@ public class SupplierService {
         this.currentOwnerService = currentOwnerService;
     }
 
+    @Transactional(readOnly = true)
     public List<SupplierEntity> list(String keyword, Integer status) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        boolean hasKeyword = keyword != null && !keyword.isBlank();
-        if (hasKeyword && status != null) {
-            return supplierRepository.findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndPhoneContainingIgnoreCaseAndStatus(
-                ownerUserId,
-                keyword.trim(),
-                ownerUserId,
-                keyword.trim(),
-                status
-            );
-        }
-        if (hasKeyword) {
-            return supplierRepository.findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndPhoneContainingIgnoreCase(
-                ownerUserId,
-                keyword.trim(),
-                ownerUserId,
-                keyword.trim()
-            );
-        }
-        if (status != null) {
-            return supplierRepository.findByOwnerUserIdAndStatus(ownerUserId, status);
-        }
-        return supplierRepository.findAllByOwnerUserId(ownerUserId);
+        String normalizedKeyword = normalizeKeyword(keyword);
+        return supplierRepository.search(ownerUserId, normalizedKeyword, status, null);
     }
 
+    @Transactional(readOnly = true)
     public SupplierEntity get(Long id) {
         return supplierRepository.findByIdAndOwnerUserId(id, currentOwnerService.requireCurrentOwnerUserId())
             .orElseThrow(() -> new IllegalArgumentException("供应商不存在"));
@@ -50,9 +33,11 @@ public class SupplierService {
         validatePayload(supplier);
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         long now = System.currentTimeMillis();
-        supplier.setName(supplier.getName().trim());
-        supplier.setPhone(normalizePhone(supplier.getPhone()));
-        if (supplierRepository.existsByOwnerUserIdAndPhone(ownerUserId, supplier.getPhone())) {
+        String normalizedName = supplier.getName().trim();
+        String normalizedPhone = normalizePhone(supplier.getPhone());
+        supplier.setName(normalizedName);
+        supplier.setPhone(normalizedPhone);
+        if (supplierRepository.existsByOwnerUserIdAndPhone(ownerUserId, normalizedPhone)) {
             throw new IllegalArgumentException("供应商手机号已存在");
         }
         supplier.setOwnerUserId(ownerUserId);
@@ -71,10 +56,14 @@ public class SupplierService {
         SupplierEntity target = get(id);
         validatePayload(payload);
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        target.setName(payload.getName().trim());
-        target.setPhone(normalizePhone(payload.getPhone()));
-        if (supplierRepository.existsByOwnerUserIdAndPhoneAndIdNot(ownerUserId, target.getPhone(), id)) {
-            throw new IllegalArgumentException("供应商手机号已存在");
+        String normalizedName = payload.getName().trim();
+        String normalizedPhone = normalizePhone(payload.getPhone());
+        target.setName(normalizedName);
+        if (!normalizedPhone.equals(target.getPhone())) {
+            target.setPhone(normalizedPhone);
+            if (supplierRepository.existsByOwnerUserIdAndPhoneAndIdNot(ownerUserId, normalizedPhone, id)) {
+                throw new IllegalArgumentException("供应商手机号已存在");
+            }
         }
         target.setAddress(normalizeNullableText(payload.getAddress()));
         target.setNotes(normalizeNullableText(payload.getNotes()));
@@ -125,5 +114,13 @@ public class SupplierService {
             return 0.0;
         }
         return Math.max(0.0, amount);
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

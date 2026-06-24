@@ -100,12 +100,13 @@ public class SyncService {
         );
     }
 
+    @Transactional(readOnly = true)
     public PullResult pull(String sinceCursor, int limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         long since = parseCursor(sinceCursor);
         int safeLimit = normalizeLimit(limit);
 
-        List<SyncChange> changes = new ArrayList<>();
+        List<SyncChange> changes = new ArrayList<>(safeLimit);
         changes.addAll(collectCustomerChanges(ownerUserId, since));
         changes.addAll(collectSupplierChanges(ownerUserId, since));
         changes.addAll(collectProductChanges(ownerUserId, since));
@@ -129,58 +130,55 @@ public class SyncService {
     }
 
     private List<SyncChange> collectCustomerChanges(Long ownerUserId, long since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (CustomerEntity entity : customerRepository.findAllByOwnerUserId(ownerUserId)) {
+        List<CustomerEntity> entities = customerRepository.findChangedByOwnerUserId(ownerUserId, since);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (CustomerEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (changedAt <= since || entity.getId() == null) {
+            if (entity.getId() == null) {
                 continue;
             }
-            Map<String, Object> payload = new HashMap<>();
+            Map<String, Object> payload = newPayload(10);
             payload.put("id", entity.getId());
             payload.put("name", entity.getName());
             payload.put("phone", entity.getPhone());
             payload.put("balance", entity.getBalance());
             payload.put("status", entity.getStatus());
-            payload.put("sync_status", entity.getSyncStatus());
-            payload.put("sync_version", entity.getSyncVersion());
-            payload.put("created_at", entity.getCreatedAt());
-            payload.put("updated_at", entity.getUpdatedAt());
+            putSyncMetadata(payload, entity.getSyncStatus(), entity.getSyncVersion(), entity.getCreatedAt(), entity.getUpdatedAt());
             rows.add(new SyncChange("customer", String.valueOf(entity.getId()), "upsert", writePayload(payload), changedAt));
         }
         return rows;
     }
 
     private List<SyncChange> collectSupplierChanges(Long ownerUserId, long since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (SupplierEntity entity : supplierRepository.findAllByOwnerUserId(ownerUserId)) {
+        List<SupplierEntity> entities = supplierRepository.findChangedByOwnerUserId(ownerUserId, since);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (SupplierEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (changedAt <= since || entity.getId() == null) {
+            if (entity.getId() == null) {
                 continue;
             }
-            Map<String, Object> payload = new HashMap<>();
+            Map<String, Object> payload = newPayload(10);
             payload.put("id", entity.getId());
             payload.put("name", entity.getName());
             payload.put("phone", entity.getPhone());
             payload.put("address", entity.getAddress());
             payload.put("balance", entity.getBalance());
             payload.put("status", entity.getStatus());
-            payload.put("sync_status", entity.getSyncStatus());
-            payload.put("sync_version", entity.getSyncVersion());
-            payload.put("created_at", entity.getCreatedAt());
-            payload.put("updated_at", entity.getUpdatedAt());
+            putSyncMetadata(payload, entity.getSyncStatus(), entity.getSyncVersion(), entity.getCreatedAt(), entity.getUpdatedAt());
             rows.add(new SyncChange("supplier", String.valueOf(entity.getId()), "upsert", writePayload(payload), changedAt));
         }
         return rows;
     }
 
     private List<SyncChange> collectProductChanges(Long ownerUserId, long since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (ProductEntity entity : productRepository.findAllByOwnerUserId(ownerUserId)) {
+        List<ProductEntity> entities = productRepository.findChangedByOwnerUserId(ownerUserId, since);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (ProductEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (changedAt <= since || entity.getId() == null) {
+            if (entity.getId() == null) {
                 continue;
             }
-            Map<String, Object> payload = new HashMap<>();
+            Map<String, Object> payload = newPayload(14);
             payload.put("id", entity.getId());
             payload.put("code", entity.getCode());
             payload.put("barcode", entity.getCode());
@@ -191,23 +189,21 @@ public class SyncService {
             payload.put("stock", entity.getStock());
             payload.put("safe_stock", entity.getSafeStock());
             payload.put("status", entity.getStatus());
-            payload.put("sync_status", entity.getSyncStatus());
-            payload.put("sync_version", entity.getSyncVersion());
-            payload.put("created_at", entity.getCreatedAt());
-            payload.put("updated_at", entity.getUpdatedAt());
+            putSyncMetadata(payload, entity.getSyncStatus(), entity.getSyncVersion(), entity.getCreatedAt(), entity.getUpdatedAt());
             rows.add(new SyncChange("product", String.valueOf(entity.getId()), "upsert", writePayload(payload), changedAt));
         }
         return rows;
     }
 
     private List<SyncChange> collectSaleOrderChanges(Long ownerUserId, long since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (SaleOrderEntity entity : saleOrderRepository.findAllByOwnerUserId(ownerUserId)) {
+        List<SaleOrderEntity> entities = saleOrderRepository.findChangedByOwnerUserId(ownerUserId, since);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (SaleOrderEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (changedAt <= since || entity.getId() == null) {
+            if (entity.getId() == null) {
                 continue;
             }
-            Map<String, Object> payload = new HashMap<>();
+            Map<String, Object> payload = newPayload(12);
             payload.put("id", entity.getId());
             payload.put("order_no", entity.getOrderNo());
             payload.put("customer_id", entity.getCustomerId());
@@ -216,33 +212,28 @@ public class SyncService {
             payload.put("paid_amount", entity.getPaidAmount());
             payload.put("status", entity.getStatus());
             payload.put("notes", entity.getNotes());
-            payload.put("sync_status", entity.getSyncStatus());
-            payload.put("sync_version", entity.getSyncVersion());
-            payload.put("created_at", entity.getCreatedAt());
-            payload.put("updated_at", entity.getUpdatedAt());
+            putSyncMetadata(payload, entity.getSyncStatus(), entity.getSyncVersion(), entity.getCreatedAt(), entity.getUpdatedAt());
             rows.add(new SyncChange("sale_order", String.valueOf(entity.getId()), "upsert", writePayload(payload), changedAt));
         }
         return rows;
     }
 
     private List<SyncChange> collectPurchaseOrderChanges(Long ownerUserId, long since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (PurchaseOrderEntity entity : purchaseOrderRepository.findAllByOwnerUserId(ownerUserId)) {
+        List<PurchaseOrderEntity> entities = purchaseOrderRepository.findChangedByOwnerUserId(ownerUserId, since);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (PurchaseOrderEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (changedAt <= since || entity.getId() == null) {
+            if (entity.getId() == null) {
                 continue;
             }
-            Map<String, Object> payload = new HashMap<>();
+            Map<String, Object> payload = newPayload(11);
             payload.put("id", entity.getId());
             payload.put("order_no", entity.getOrderNo());
             payload.put("supplier_name", entity.getSupplierName());
             payload.put("total_amount", entity.getTotalAmount());
             payload.put("status", entity.getStatus());
             payload.put("notes", entity.getNotes());
-            payload.put("sync_status", entity.getSyncStatus());
-            payload.put("sync_version", entity.getSyncVersion());
-            payload.put("created_at", entity.getCreatedAt());
-            payload.put("updated_at", entity.getUpdatedAt());
+            putSyncMetadata(payload, entity.getSyncStatus(), entity.getSyncVersion(), entity.getCreatedAt(), entity.getUpdatedAt());
             rows.add(
                 new SyncChange(
                     "purchase_order",
@@ -257,13 +248,14 @@ public class SyncService {
     }
 
     private List<SyncChange> collectPayOrderChanges(Long ownerUserId, long since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (PayOrderEntity entity : payOrderRepository.findAllByOwnerUserId(ownerUserId)) {
+        List<PayOrderEntity> entities = payOrderRepository.findChangedByOwnerUserId(ownerUserId, since);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (PayOrderEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (changedAt <= since || entity.getId() == null) {
+            if (entity.getId() == null) {
                 continue;
             }
-            Map<String, Object> payload = new HashMap<>();
+            Map<String, Object> payload = newPayload(12);
             payload.put("id", entity.getId());
             payload.put("order_no", entity.getOrderNo());
             payload.put("supplier_id", entity.getSupplierId());
@@ -274,13 +266,27 @@ public class SyncService {
             payload.put("status", entity.getStatus());
             payload.put("reference_no", entity.getReferenceNo());
             payload.put("notes", entity.getNotes());
-            payload.put("sync_status", entity.getSyncStatus());
-            payload.put("sync_version", entity.getSyncVersion());
-            payload.put("created_at", entity.getCreatedAt());
-            payload.put("updated_at", entity.getUpdatedAt());
+            putSyncMetadata(payload, entity.getSyncStatus(), entity.getSyncVersion(), entity.getCreatedAt(), entity.getUpdatedAt());
             rows.add(new SyncChange("pay_order", String.valueOf(entity.getId()), "upsert", writePayload(payload), changedAt));
         }
         return rows;
+    }
+
+    private Map<String, Object> newPayload(int capacity) {
+        return new HashMap<>(capacity);
+    }
+
+    private void putSyncMetadata(
+        Map<String, Object> payload,
+        Integer syncStatus,
+        Long syncVersion,
+        Long createdAt,
+        Long updatedAt
+    ) {
+        payload.put("sync_status", syncStatus);
+        payload.put("sync_version", syncVersion);
+        payload.put("created_at", createdAt);
+        payload.put("updated_at", updatedAt);
     }
 
     private String writePayload(Map<String, Object> payload) {

@@ -5,15 +5,20 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhihuiji.backend.application.service.LegacySQLiteImportService;
 import com.zhihuiji.backend.domain.entity.ImportJobEntity;
 import com.zhihuiji.backend.infrastructure.repository.ImportJobRepository;
+import java.util.List;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class V2ImportJobWorkerService {
+    private static final Logger log = LoggerFactory.getLogger(V2ImportJobWorkerService.class);
     private static final Set<String> SUPPORTED_SOURCE_TYPES = Set.of("legacy_sqlite", "kingdee_android_sqlite");
     private static final int MAX_JOBS_PER_TICK = 3;
+    private static final long STALE_HEARTBEAT_THRESHOLD_MS = 10 * 60 * 1000L;
 
     private final ImportJobRepository importJobRepository;
     private final LegacySQLiteImportService legacySQLiteImportService;
@@ -34,12 +39,36 @@ public class V2ImportJobWorkerService {
         initialDelayString = "${sync.import-jobs.worker-initial-delay-ms:1500}"
     )
     public void processPendingJobs() {
+        recoverStaleJobs();
         for (int index = 0; index < MAX_JOBS_PER_TICK; index++) {
             Long jobId = claimNextPendingJobId();
             if (jobId == null) {
                 return;
             }
             executeClaimedJob(jobId);
+        }
+    }
+
+    @Transactional
+    public void recoverStaleJobs() {
+        long threshold = System.currentTimeMillis() - STALE_HEARTBEAT_THRESHOLD_MS;
+        List<ImportJobEntity> staleJobs = importJobRepository.findByStatusAndLastHeartbeatAtBefore(
+            V2ImportJobService.STATUS_RUNNING,
+            threshold
+        );
+        if (staleJobs.isEmpty()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        for (ImportJobEntity entity : staleJobs) {
+            entity.setStatus(V2ImportJobService.STATUS_FAILED);
+            entity.setStage("failed");
+            entity.setFailureCode("heartbeat_timeout");
+            entity.setFailureMessage("Worker 心跳超时,任务自动标记失败");
+            entity.setFinishedAt(now);
+            entity.setUpdatedAt(now);
+            importJobRepository.save(entity);
+            log.warn("Recovered stale import job {} (lastHeartbeatAt={})", entity.getId(), entity.getLastHeartbeatAt());
         }
     }
 

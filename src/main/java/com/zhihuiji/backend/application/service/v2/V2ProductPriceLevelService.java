@@ -7,12 +7,13 @@ import com.zhihuiji.backend.domain.entity.ProductEntity;
 import com.zhihuiji.backend.domain.entity.ProductPriceLevelEntity;
 import com.zhihuiji.backend.infrastructure.repository.ProductPriceLevelRepository;
 import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -36,9 +37,12 @@ public class V2ProductPriceLevelService {
 
     public List<V2ProductDtos.PriceLevelResponse> list() {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return productPriceLevelRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId).stream()
-            .map(this::toResponse)
-            .toList();
+        List<ProductPriceLevelEntity> rows = productPriceLevelRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId);
+        List<V2ProductDtos.PriceLevelResponse> responses = new ArrayList<>(rows.size());
+        for (ProductPriceLevelEntity row : rows) {
+            responses.add(toResponse(row));
+        }
+        return responses;
     }
 
     public ProductPriceLevelEntity getOwnedEntity(Long id) {
@@ -52,8 +56,11 @@ public class V2ProductPriceLevelService {
         if (ids == null || ids.isEmpty()) {
             return Map.of();
         }
-        return productPriceLevelRepository.findAllByOwnerUserIdAndIdIn(ownerUserId, ids).stream()
-            .collect(Collectors.toMap(ProductPriceLevelEntity::getId, value -> value));
+        Map<Long, ProductPriceLevelEntity> levelsById = new LinkedHashMap<>(ids.size());
+        for (ProductPriceLevelEntity level : productPriceLevelRepository.findAllByOwnerUserIdAndIdIn(ownerUserId, ids)) {
+            levelsById.put(level.getId(), level);
+        }
+        return levelsById;
     }
 
     public V2ProductDtos.PriceLevelResponse create(V2ProductDtos.PriceLevelWriteRequest request) {
@@ -128,13 +135,14 @@ public class V2ProductPriceLevelService {
         if (definitions.size() != uniqueIds.size()) {
             throw new IllegalArgumentException("存在无效的价格层级");
         }
-        List<StoredProductPriceValue> storedValues = uniqueIds.stream()
-            .map(levelId -> new StoredProductPriceValue(levelId, values.stream()
-                .filter(value -> levelId.equals(value.levelId()))
-                .findFirst()
-                .map(V2ProductDtos.ProductPriceValueWriteRequest::price)
-                .orElseThrow()))
-            .toList();
+        Map<Long, Double> pricesByLevelId = new LinkedHashMap<>(values.size());
+        for (V2ProductDtos.ProductPriceValueWriteRequest value : values) {
+            pricesByLevelId.put(value.levelId(), value.price());
+        }
+        List<StoredProductPriceValue> storedValues = new ArrayList<>(uniqueIds.size());
+        for (Long levelId : uniqueIds) {
+            storedValues.add(new StoredProductPriceValue(levelId, pricesByLevelId.get(levelId)));
+        }
         try {
             return objectMapper.writeValueAsString(storedValues);
         } catch (Exception exception) {
@@ -148,10 +156,13 @@ public class V2ProductPriceLevelService {
         }
         try {
             StoredProductPriceValue[] values = objectMapper.readValue(priceLevelValuesJson, StoredProductPriceValue[].class);
-            return java.util.Arrays.stream(values)
-                .map(StoredProductPriceValue::levelId)
-                .filter(java.util.Objects::nonNull)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+            Set<Long> levelIds = new LinkedHashSet<>(values.length);
+            for (StoredProductPriceValue value : values) {
+                if (value.levelId() != null) {
+                    levelIds.add(value.levelId());
+                }
+            }
+            return levelIds;
         } catch (Exception exception) {
             throw new IllegalStateException("商品价格层级反序列化失败", exception);
         }
@@ -166,26 +177,25 @@ public class V2ProductPriceLevelService {
         }
         try {
             StoredProductPriceValue[] values = objectMapper.readValue(priceLevelValuesJson, StoredProductPriceValue[].class);
-            return java.util.Arrays.stream(values)
-                .map(value -> {
-                    ProductPriceLevelEntity definition = definitionsById.get(value.levelId());
-                    if (definition == null) {
-                        return null;
-                    }
-                    return new V2ProductDtos.ProductPriceValueResponse(
-                        definition.getId(),
-                        definition.getCode(),
-                        definition.getName(),
-                        value.price(),
-                        definition.getStatus(),
-                        definition.getSortOrder()
-                    );
-                })
-                .filter(java.util.Objects::nonNull)
-                .sorted(java.util.Comparator
-                    .comparing(V2ProductDtos.ProductPriceValueResponse::sortOrder)
-                    .thenComparing(V2ProductDtos.ProductPriceValueResponse::name))
-                .toList();
+            List<V2ProductDtos.ProductPriceValueResponse> responses = new ArrayList<>(values.length);
+            for (StoredProductPriceValue value : values) {
+                ProductPriceLevelEntity definition = definitionsById.get(value.levelId());
+                if (definition == null) {
+                    continue;
+                }
+                responses.add(new V2ProductDtos.ProductPriceValueResponse(
+                    definition.getId(),
+                    definition.getCode(),
+                    definition.getName(),
+                    value.price(),
+                    definition.getStatus(),
+                    definition.getSortOrder()
+                ));
+            }
+            responses.sort(java.util.Comparator
+                .comparing(V2ProductDtos.ProductPriceValueResponse::sortOrder)
+                .thenComparing(V2ProductDtos.ProductPriceValueResponse::name));
+            return responses;
         } catch (Exception exception) {
             throw new IllegalStateException("商品价格层级反序列化失败", exception);
         }
@@ -193,11 +203,13 @@ public class V2ProductPriceLevelService {
 
     private boolean isReferencedByAnyProduct(Long levelId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return productRepository.findAllByOwnerUserId(ownerUserId).stream()
-            .map(ProductEntity::getPriceLevelValuesJson)
-            .filter(value -> value != null && !value.isBlank())
-            .map(this::extractLevelIds)
-            .anyMatch(levelIds -> levelIds.contains(levelId));
+        for (ProductEntity product : productRepository.findAllByOwnerUserId(ownerUserId)) {
+            String priceLevelValuesJson = product.getPriceLevelValuesJson();
+            if (priceLevelValuesJson != null && !priceLevelValuesJson.isBlank() && extractLevelIds(priceLevelValuesJson).contains(levelId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private V2ProductDtos.PriceLevelResponse toResponse(ProductPriceLevelEntity entity) {

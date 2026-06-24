@@ -11,6 +11,9 @@ public interface SalesReturnRepository extends JpaRepository<SalesReturnEntity, 
 
     List<SalesReturnEntity> findByOwnerUserIdOrderByCreatedAtDesc(Long ownerUserId);
 
+    @Query("SELECT e FROM SalesReturnEntity e WHERE e.ownerUserId = :ownerUserId AND COALESCE(e.updatedAt, e.createdAt) >= :sinceTimestamp ORDER BY e.createdAt DESC")
+    List<SalesReturnEntity> findChangedByOwnerUserId(@Param("ownerUserId") Long ownerUserId, @Param("sinceTimestamp") Long sinceTimestamp);
+
     Optional<SalesReturnEntity> findByIdAndOwnerUserId(Long id, Long ownerUserId);
 
     boolean existsByIdAndOwnerUserId(Long id, Long ownerUserId);

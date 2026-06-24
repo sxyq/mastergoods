@@ -15,7 +15,9 @@ import com.zhihuiji.backend.infrastructure.repository.PurchaseReceiptItemReposit
 import com.zhihuiji.backend.infrastructure.repository.PurchaseReceiptRepository;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,7 +66,7 @@ public class V2PurchaseReceiptService {
         SupplierEntity supplier = resolveSupplier(ownerUserId, request, purchaseOrder);
 
         double total = 0.0;
-        List<PurchaseReceiptItemEntity> itemEntities = new ArrayList<>();
+        List<PurchaseReceiptItemEntity> itemEntities = new ArrayList<>(request.items().size());
         for (V2PurchaseReceiptDtos.CreateItemRequest item : request.items()) {
             ProductEntity product = resolveProduct(ownerUserId, item);
             double quantity = item.quantity() == null ? 0.0 : item.quantity();
@@ -111,17 +113,22 @@ public class V2PurchaseReceiptService {
         return toResponse(receipt, itemEntities);
     }
 
+    @Transactional(readOnly = true)
     public List<V2PurchaseReceiptDtos.PurchaseReceiptResponse> list(String keyword, Integer status) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         String normalizedKeyword = normalizeKeyword(keyword);
         List<PurchaseReceiptEntity> receipts = normalizedKeyword == null
             ? listWithoutKeyword(ownerUserId, status)
             : purchaseReceiptRepository.search(ownerUserId, normalizedKeyword, status);
-        return receipts.stream()
-            .map(r -> toResponse(r, purchaseReceiptItemRepository.findByOwnerUserIdAndReceiptIdOrderByCreatedAtAsc(ownerUserId, r.getId())))
-            .toList();
+        Map<Long, List<PurchaseReceiptItemEntity>> itemsByReceiptId = loadItemsByReceiptId(ownerUserId, receipts);
+        List<V2PurchaseReceiptDtos.PurchaseReceiptResponse> responses = new ArrayList<>(receipts.size());
+        for (PurchaseReceiptEntity receipt : receipts) {
+            responses.add(toResponse(receipt, itemsByReceiptId.getOrDefault(receipt.getId(), List.of())));
+        }
+        return responses;
     }
 
+    @Transactional(readOnly = true)
     public V2PurchaseReceiptDtos.PurchaseReceiptResponse get(Long id) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         PurchaseReceiptEntity entity = purchaseReceiptRepository.findByIdAndOwnerUserId(id, ownerUserId)
@@ -129,11 +136,16 @@ public class V2PurchaseReceiptService {
         return toResponse(entity, purchaseReceiptItemRepository.findByOwnerUserIdAndReceiptIdOrderByCreatedAtAsc(ownerUserId, id));
     }
 
+    @Transactional(readOnly = true)
     public List<V2PurchaseReceiptDtos.PurchaseReceiptResponse> listByOrder(Long purchaseOrderId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return purchaseReceiptRepository.findByOwnerUserIdAndPurchaseOrderIdOrderByCreatedAtDesc(ownerUserId, purchaseOrderId).stream()
-            .map(r -> toResponse(r, purchaseReceiptItemRepository.findByOwnerUserIdAndReceiptIdOrderByCreatedAtAsc(ownerUserId, r.getId())))
-            .toList();
+        List<PurchaseReceiptEntity> receipts = purchaseReceiptRepository.findByOwnerUserIdAndPurchaseOrderIdOrderByCreatedAtDesc(ownerUserId, purchaseOrderId);
+        Map<Long, List<PurchaseReceiptItemEntity>> itemsByReceiptId = loadItemsByReceiptId(ownerUserId, receipts);
+        List<V2PurchaseReceiptDtos.PurchaseReceiptResponse> responses = new ArrayList<>(receipts.size());
+        for (PurchaseReceiptEntity receipt : receipts) {
+            responses.add(toResponse(receipt, itemsByReceiptId.getOrDefault(receipt.getId(), List.of())));
+        }
+        return responses;
     }
 
     @Transactional
@@ -255,13 +267,17 @@ public class V2PurchaseReceiptService {
     }
 
     private V2PurchaseReceiptDtos.PurchaseReceiptResponse toResponse(PurchaseReceiptEntity entity, List<PurchaseReceiptItemEntity> items) {
+        List<V2PurchaseReceiptDtos.PurchaseReceiptItemResponse> itemResponses = new ArrayList<>(items.size());
+        for (PurchaseReceiptItemEntity item : items) {
+            itemResponses.add(toItemResponse(item));
+        }
         return new V2PurchaseReceiptDtos.PurchaseReceiptResponse(
             entity.getId(),
             entity.getReceiptNo(),
             entity.getPurchaseOrderId(),
             entity.getSupplierId(),
             entity.getSupplierName(),
-            items.stream().map(this::toItemResponse).toList(),
+            itemResponses,
             entity.getTotalAmount(),
             entity.getStatus(),
             entity.getNotes(),
@@ -283,6 +299,21 @@ public class V2PurchaseReceiptService {
         }
         String trimmed = keyword.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private Map<Long, List<PurchaseReceiptItemEntity>> loadItemsByReceiptId(Long ownerUserId, List<PurchaseReceiptEntity> receipts) {
+        if (receipts.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> receiptIds = new ArrayList<>(receipts.size());
+        for (PurchaseReceiptEntity receipt : receipts) {
+            receiptIds.add(receipt.getId());
+        }
+        Map<Long, List<PurchaseReceiptItemEntity>> itemsByReceiptId = new LinkedHashMap<>(receiptIds.size());
+        for (PurchaseReceiptItemEntity item : purchaseReceiptItemRepository.findByOwnerUserIdAndReceiptIdInOrderByReceiptIdAscCreatedAtAsc(ownerUserId, receiptIds)) {
+            itemsByReceiptId.computeIfAbsent(item.getReceiptId(), ignored -> new ArrayList<>()).add(item);
+        }
+        return itemsByReceiptId;
     }
 
     private V2PurchaseReceiptDtos.PurchaseReceiptItemResponse toItemResponse(PurchaseReceiptItemEntity item) {

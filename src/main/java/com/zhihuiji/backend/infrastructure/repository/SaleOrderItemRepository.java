@@ -11,6 +11,9 @@ import org.springframework.data.repository.query.Param;
 public interface SaleOrderItemRepository extends JpaRepository<SaleOrderItemEntity, Long> {
     List<SaleOrderItemEntity> findAllByOwnerUserIdOrderByCreatedAtAsc(Long ownerUserId);
 
+    @Query("SELECT e FROM SaleOrderItemEntity e WHERE e.ownerUserId = :ownerUserId AND e.createdAt >= :sinceTimestamp ORDER BY e.createdAt ASC")
+    List<SaleOrderItemEntity> findChangedByOwnerUserId(@Param("ownerUserId") Long ownerUserId, @Param("sinceTimestamp") Long sinceTimestamp);
+
     java.util.Optional<SaleOrderItemEntity> findByIdAndOwnerUserId(Long id, Long ownerUserId);
 
     List<SaleOrderItemEntity> findByOwnerUserIdAndOrderId(Long ownerUserId, Long orderId);
@@ -101,9 +104,10 @@ public interface SaleOrderItemRepository extends JpaRepository<SaleOrderItemEnti
 
     @Query("""
         SELECT item.productId, item.productCode, item.productName, COALESCE(SUM(item.quantity), 0), COALESCE(SUM(item.amount), 0)
-        FROM SaleOrderItemEntity item, SaleOrderEntity orderEntity
-        WHERE item.orderId = orderEntity.id
-          AND item.ownerUserId = :ownerUserId
+        FROM SaleOrderItemEntity item
+        JOIN SaleOrderEntity orderEntity
+          ON item.orderId = orderEntity.id
+        WHERE item.ownerUserId = :ownerUserId
           AND orderEntity.ownerUserId = :ownerUserId
           AND orderEntity.createdAt BETWEEN :startAt AND :endAt
           AND (orderEntity.status IS NULL OR orderEntity.status <> :cancelledStatus)
@@ -122,12 +126,14 @@ public interface SaleOrderItemRepository extends JpaRepository<SaleOrderItemEnti
         SELECT item.productId, item.productCode, item.productName,
                COALESCE(SUM(item.amount), 0),
                COALESCE(SUM(item.quantity * p.purchasePrice), 0)
-        FROM SaleOrderItemEntity item, SaleOrderEntity orderEntity, ProductEntity p
-        WHERE item.orderId = orderEntity.id
-          AND item.ownerUserId = :ownerUserId
+        FROM SaleOrderItemEntity item
+        JOIN SaleOrderEntity orderEntity
+          ON item.orderId = orderEntity.id
+        JOIN ProductEntity p
+          ON p.id = item.productId
+         AND p.ownerUserId = :ownerUserId
+        WHERE item.ownerUserId = :ownerUserId
           AND orderEntity.ownerUserId = :ownerUserId
-          AND p.ownerUserId = :ownerUserId
-          AND p.id = item.productId
           AND orderEntity.createdAt BETWEEN :startAt AND :endAt
           AND (orderEntity.status IS NULL OR orderEntity.status <> :cancelledStatus)
         GROUP BY item.productId, item.productCode, item.productName
@@ -145,12 +151,14 @@ public interface SaleOrderItemRepository extends JpaRepository<SaleOrderItemEnti
         SELECT orderEntity.customerId, orderEntity.customerName,
                COALESCE(SUM(item.amount), 0),
                COALESCE(SUM(item.quantity * p.purchasePrice), 0)
-        FROM SaleOrderItemEntity item, SaleOrderEntity orderEntity, ProductEntity p
-        WHERE item.orderId = orderEntity.id
-          AND item.ownerUserId = :ownerUserId
+        FROM SaleOrderItemEntity item
+        JOIN SaleOrderEntity orderEntity
+          ON item.orderId = orderEntity.id
+        JOIN ProductEntity p
+          ON p.id = item.productId
+         AND p.ownerUserId = :ownerUserId
+        WHERE item.ownerUserId = :ownerUserId
           AND orderEntity.ownerUserId = :ownerUserId
-          AND p.ownerUserId = :ownerUserId
-          AND p.id = item.productId
           AND orderEntity.createdAt BETWEEN :startAt AND :endAt
           AND (orderEntity.status IS NULL OR orderEntity.status <> :cancelledStatus)
         GROUP BY orderEntity.customerId, orderEntity.customerName

@@ -29,21 +29,24 @@ public class PayOrderService {
         this.currentOwnerService = currentOwnerService;
     }
 
+    @Transactional(readOnly = true)
     public List<PayOrderEntity> list(
         String keyword,
         Integer status,
         Long createdAfter,
         Long createdBefore
     ) {
+        String normalizedKeyword = normalizeKeyword(keyword);
         return payOrderRepository.search(
             currentOwnerService.requireCurrentOwnerUserId(),
-            keyword,
+            normalizedKeyword,
             status,
             createdAfter,
             createdBefore
         );
     }
 
+    @Transactional(readOnly = true)
     public PayOrderEntity getById(Long id) {
         return payOrderRepository.findByIdAndOwnerUserId(id, currentOwnerService.requireCurrentOwnerUserId())
             .orElseThrow(() -> new IllegalArgumentException("付款单不存在"));
@@ -61,7 +64,7 @@ public class PayOrderService {
         PayOrderEntity entity = new PayOrderEntity();
         entity.setId(IdGenerator.nextId());
         entity.setOwnerUserId(ownerUserId);
-        entity.setOrderNo(generateOrderNo(now));
+        entity.setOrderNo(generateOrderNo());
         entity.setSupplierId(command.supplierId());
         entity.setSupplierName(resolveSupplierName(ownerUserId, command.supplierId(), command.supplierName()));
         entity.setAmount(command.amount());
@@ -152,13 +155,7 @@ public class PayOrderService {
         return normalized;
     }
 
-    private boolean matchesKeyword(PayOrderEntity entity, String normalizedKeyword) {
-        return safeString(entity.getOrderNo()).contains(normalizedKeyword)
-            || safeString(entity.getSupplierName()).contains(normalizedKeyword)
-            || safeString(entity.getReferenceNo()).contains(normalizedKeyword);
-    }
-
-    private String generateOrderNo(long timestamp) {
+    private String generateOrderNo() {
         return "POUT" + UUID.randomUUID().toString().replace("-", "").toUpperCase(Locale.ROOT);
     }
 
@@ -170,8 +167,12 @@ public class PayOrderService {
         return normalized.isEmpty() ? null : normalized;
     }
 
-    private String safeString(String raw) {
-        return raw == null ? "" : raw.toLowerCase(Locale.ROOT);
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private double safeDouble(Double value) {

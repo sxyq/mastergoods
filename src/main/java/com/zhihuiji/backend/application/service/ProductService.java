@@ -28,24 +28,25 @@ public class ProductService {
         this.currentOwnerService = currentOwnerService;
     }
 
+    @Transactional(readOnly = true)
     public List<ProductEntity> list(String keyword) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        if (keyword == null || keyword.isBlank()) {
-            return productRepository.findAllByOwnerUserId(ownerUserId);
-        }
-        return productRepository.findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndCodeContainingIgnoreCase(
+        return productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(
             ownerUserId,
-            keyword,
-            ownerUserId,
-            keyword
+            normalizeKeyword(keyword),
+            null,
+            null,
+            null
         );
     }
 
+    @Transactional(readOnly = true)
     public ProductEntity get(Long id) {
         return productRepository.findByIdAndOwnerUserId(id, currentOwnerService.requireCurrentOwnerUserId())
             .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
     }
 
+    @Transactional(readOnly = true)
     public ProductEntity findByCode(String code) {
         if (code == null || code.isBlank()) {
             return null;
@@ -120,5 +121,13 @@ public class ProductService {
         adjustment.setCreatedAt(now);
         inventoryAdjustmentRepository.save(adjustment);
         return saved;
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

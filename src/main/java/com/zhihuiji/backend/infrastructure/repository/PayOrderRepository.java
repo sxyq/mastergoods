@@ -15,6 +15,9 @@ public interface PayOrderRepository extends JpaRepository<PayOrderEntity, Long> 
 
     List<PayOrderEntity> findAllByOwnerUserId(Long ownerUserId);
 
+    @Query("SELECT e FROM PayOrderEntity e WHERE e.ownerUserId = :ownerUserId AND COALESCE(e.updatedAt, e.createdAt) >= :sinceTimestamp")
+    List<PayOrderEntity> findChangedByOwnerUserId(@Param("ownerUserId") Long ownerUserId, @Param("sinceTimestamp") Long sinceTimestamp);
+
     @Query("SELECT COALESCE(SUM(o.amount), 0) FROM PayOrderEntity o WHERE o.ownerUserId = :ownerUserId AND o.createdAt BETWEEN :startAt AND :endAt AND o.status = :status")
     Double sumAmountBetweenByStatus(
         @Param("ownerUserId") Long ownerUserId,

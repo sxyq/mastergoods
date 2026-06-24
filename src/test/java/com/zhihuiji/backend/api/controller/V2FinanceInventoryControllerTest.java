@@ -26,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -84,15 +85,15 @@ class V2FinanceInventoryControllerTest {
 
     @Test
     void inventorySnapshotEndpointsReturnSnakeCaseFields() throws Exception {
-        when(v2InventoryService.listSnapshots(20240601L, null, null)).thenReturn(List.of(
+        when(v2InventoryService.listSnapshots(20240601L, null, null, 0, 50)).thenReturn(new PageImpl<>(List.of(
             new V2InventoryDtos.SnapshotResponse(9L, 6L, "P001", "矿泉水", null, 10.0, 1.5, 15.0, 20240601L, 1L)
-        ));
+        )));
 
         mockMvc.perform(get("/v2/inventory/snapshots").param("snapshotDate", "20240601"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data[0].product_id").value(6))
-            .andExpect(jsonPath("$.data[0].snapshot_date").value(20240601))
-            .andExpect(jsonPath("$.data[0].total_value").value(15.0));
+            .andExpect(jsonPath("$.data.content[0].product_id").value(6))
+            .andExpect(jsonPath("$.data.content[0].snapshot_date").value(20240601))
+            .andExpect(jsonPath("$.data.content[0].total_value").value(15.0));
     }
 
     @Test

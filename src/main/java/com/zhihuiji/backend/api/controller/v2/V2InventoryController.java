@@ -6,6 +6,7 @@ import com.zhihuiji.backend.application.service.v2.V2InventoryService;
 import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,12 +26,14 @@ public class V2InventoryController {
     }
 
     @GetMapping("/ledger")
-    public ApiResponse<List<V2InventoryDtos.LedgerEntryResponse>> listLedger(
+    public ApiResponse<Page<V2InventoryDtos.LedgerEntryResponse>> listLedger(
         @RequestParam(required = false) Long productId,
         @RequestParam(required = false) Long startAt,
-        @RequestParam(required = false) Long endAt
+        @RequestParam(required = false) Long endAt,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "50") int size
     ) {
-        return ApiResponse.success(v2InventoryService.listLedger(productId, startAt, endAt));
+        return ApiResponse.success(v2InventoryService.listLedger(productId, startAt, endAt, page, size));
     }
 
     @GetMapping("/ledger/by-source")
@@ -48,12 +51,14 @@ public class V2InventoryController {
     }
 
     @GetMapping("/snapshots")
-    public ApiResponse<List<V2InventoryDtos.SnapshotResponse>> listSnapshots(
+    public ApiResponse<Page<V2InventoryDtos.SnapshotResponse>> listSnapshots(
         @RequestParam(required = false) Long snapshotDate,
         @RequestParam(required = false) Long startDate,
-        @RequestParam(required = false) Long endDate
+        @RequestParam(required = false) Long endDate,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "50") int size
     ) {
-        return ApiResponse.success(v2InventoryService.listSnapshots(snapshotDate, startDate, endDate));
+        return ApiResponse.success(v2InventoryService.listSnapshots(snapshotDate, startDate, endDate, page, size));
     }
 
     @PostMapping("/snapshots")
@@ -63,10 +68,12 @@ public class V2InventoryController {
     }
 
     @GetMapping("/monthly-stats")
-    public ApiResponse<List<V2InventoryDtos.MonthlyStatsResponse>> listMonthlyStats(
+    public ApiResponse<Page<V2InventoryDtos.MonthlyStatsResponse>> listMonthlyStats(
         @RequestParam Integer year,
-        @RequestParam Integer month
+        @RequestParam Integer month,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "50") int size
     ) {
-        return ApiResponse.success(v2InventoryService.listMonthlyStats(year, month));
+        return ApiResponse.success(v2InventoryService.listMonthlyStats(year, month, page, size));
     }
 }

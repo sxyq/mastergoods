@@ -6,7 +6,9 @@ import com.zhihuiji.backend.domain.entity.AccountEntity;
 import com.zhihuiji.backend.domain.entity.CashChangeRecordEntity;
 import com.zhihuiji.backend.infrastructure.repository.AccountRepository;
 import com.zhihuiji.backend.infrastructure.repository.CashChangeRecordRepository;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,16 +28,32 @@ public class V2CashChangeRecordService {
         this.currentOwnerService = currentOwnerService;
     }
 
+    @Transactional(readOnly = true)
     public List<V2FinanceDtos.CashChangeRecordResponse> list(String orderType, Long orderId, Long accountId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return cashChangeRecordRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(ownerUserId).stream()
-            .filter(entity -> orderType == null || orderType.isBlank() || entity.getOrderType().equalsIgnoreCase(orderType.trim()))
-            .filter(entity -> orderId == null || orderId.equals(entity.getOrderId()))
-            .filter(entity -> accountId == null || accountId.equals(entity.getAccountId()))
-            .map(this::toResponse)
-            .toList();
+        List<CashChangeRecordEntity> records = cashChangeRecordRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
+        List<CashChangeRecordEntity> matchedRecords = new java.util.ArrayList<>(records.size());
+        for (CashChangeRecordEntity entity : records) {
+            if (orderType != null && !orderType.isBlank() && !entity.getOrderType().equalsIgnoreCase(orderType.trim())) {
+                continue;
+            }
+            if (orderId != null && !orderId.equals(entity.getOrderId())) {
+                continue;
+            }
+            if (accountId != null && !accountId.equals(entity.getAccountId())) {
+                continue;
+            }
+            matchedRecords.add(entity);
+        }
+        Map<Long, String> accountNamesById = loadAccountNamesById(ownerUserId, matchedRecords);
+        List<V2FinanceDtos.CashChangeRecordResponse> responses = new java.util.ArrayList<>(matchedRecords.size());
+        for (CashChangeRecordEntity entity : matchedRecords) {
+            responses.add(toResponse(entity, accountNamesById));
+        }
+        return responses;
     }
 
+    @Transactional(readOnly = true)
     public V2FinanceDtos.CashChangeRecordResponse get(Long id) {
         return toResponse(getOwnedEntity(id));
     }
@@ -75,7 +93,8 @@ public class V2CashChangeRecordService {
             account.setUpdatedAt(now);
             accountRepository.save(account);
         }
-        return toResponse(saved);
+        Map<Long, String> accountNamesById = account == null ? Map.of() : Map.of(account.getId(), account.getName());
+        return toResponse(saved, accountNamesById);
     }
 
     @Transactional
@@ -99,12 +118,39 @@ public class V2CashChangeRecordService {
             .orElseThrow(() -> new IllegalArgumentException("找零记录不存在"));
     }
 
+    private Map<Long, String> loadAccountNamesById(Long ownerUserId, List<CashChangeRecordEntity> records) {
+        if (records.isEmpty()) {
+            return Map.of();
+        }
+        java.util.Set<Long> accountIds = new java.util.LinkedHashSet<>();
+        for (CashChangeRecordEntity entity : records) {
+            if (entity.getAccountId() != null) {
+                accountIds.add(entity.getAccountId());
+            }
+        }
+        if (accountIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> accountNamesById = new LinkedHashMap<>(accountIds.size());
+        for (AccountEntity account : accountRepository.findAllByOwnerUserIdAndIdIn(ownerUserId, accountIds)) {
+            accountNamesById.put(account.getId(), account.getName());
+        }
+        return accountNamesById;
+    }
+
     private V2FinanceDtos.CashChangeRecordResponse toResponse(CashChangeRecordEntity entity) {
+        return toResponse(entity, null);
+    }
+
+    private V2FinanceDtos.CashChangeRecordResponse toResponse(CashChangeRecordEntity entity, Map<Long, String> accountNamesById) {
         String accountName = null;
         if (entity.getAccountId() != null) {
-            accountName = accountRepository.findByIdAndOwnerUserId(entity.getAccountId(), currentOwnerService.requireCurrentOwnerUserId())
-                .map(AccountEntity::getName)
-                .orElse("未知账户");
+            accountName = accountNamesById == null ? null : accountNamesById.get(entity.getAccountId());
+            if (accountName == null) {
+                accountName = accountRepository.findByIdAndOwnerUserId(entity.getAccountId(), currentOwnerService.requireCurrentOwnerUserId())
+                    .map(AccountEntity::getName)
+                    .orElse("未知账户");
+            }
         }
         return new V2FinanceDtos.CashChangeRecordResponse(
             entity.getId(),

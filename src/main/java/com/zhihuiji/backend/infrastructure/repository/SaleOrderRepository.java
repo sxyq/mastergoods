@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.infrastructure.repository;
 
 import com.zhihuiji.backend.domain.entity.SaleOrderEntity;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +19,11 @@ public interface SaleOrderRepository extends JpaRepository<SaleOrderEntity, Long
     boolean existsByIdAndOwnerUserId(Long id, Long ownerUserId);
 
     List<SaleOrderEntity> findAllByOwnerUserId(Long ownerUserId);
+
+    List<SaleOrderEntity> findAllByOwnerUserIdAndIdIn(Long ownerUserId, Collection<Long> ids);
+
+    @Query("SELECT e FROM SaleOrderEntity e WHERE e.ownerUserId = :ownerUserId AND COALESCE(e.updatedAt, e.createdAt) >= :sinceTimestamp")
+    List<SaleOrderEntity> findChangedByOwnerUserId(@Param("ownerUserId") Long ownerUserId, @Param("sinceTimestamp") Long sinceTimestamp);
 
     @Query("SELECT o FROM SaleOrderEntity o WHERE " +
         "o.ownerUserId = :ownerUserId AND " +
@@ -90,6 +96,22 @@ public interface SaleOrderRepository extends JpaRepository<SaleOrderEntity, Long
 
     @Query("SELECT COUNT(o) FROM SaleOrderEntity o WHERE o.ownerUserId = :ownerUserId AND o.createdAt BETWEEN :startAt AND :endAt AND o.status <> 2")
     Long countNonCancelledBetween(@Param("ownerUserId") Long ownerUserId, @Param("startAt") Long startAt, @Param("endAt") Long endAt);
+
+    @Query("""
+        SELECT COALESCE(SUM(o.totalAmount), 0),
+               COALESCE(SUM(o.paidAmount), 0),
+               COUNT(o)
+        FROM SaleOrderEntity o
+        WHERE o.ownerUserId = :ownerUserId
+          AND o.createdAt BETWEEN :startAt AND :endAt
+          AND o.status <> :cancelledStatus
+    """)
+    Object[] salesSummaryAggregate(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("startAt") Long startAt,
+        @Param("endAt") Long endAt,
+        @Param("cancelledStatus") Integer cancelledStatus
+    );
 
     @Query(value = """
         SELECT FLOOR((created_at - :startAt) / :bucketMillis) AS bucket_index,

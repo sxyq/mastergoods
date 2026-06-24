@@ -60,15 +60,16 @@ public class V2SyncController {
 
     @PostMapping("/upload")
     public ApiResponse<V2SyncDtos.SyncUploadResponse> upload(@Valid @RequestBody V2SyncDtos.SyncUploadRequest request) {
-        List<V2SyncService.SyncChange> changes = request.changes().stream()
-            .map(item -> new V2SyncService.SyncChange(
+        List<V2SyncService.SyncChange> changes = new java.util.ArrayList<>(request.changes().size());
+        for (V2SyncDtos.SyncChangeDto item : request.changes()) {
+            changes.add(new V2SyncService.SyncChange(
                 item.entityType(),
                 item.entityId(),
                 item.operation(),
                 item.payload(),
                 item.updatedAt()
-            ))
-            .toList();
+            ));
+        }
         V2SyncService.UploadResult result = v2SyncService.upload(request.clientId(), changes, request.lastSyncCursor());
         return ApiResponse.success(new V2SyncDtos.SyncUploadResponse(
             result.acceptedCount(),
@@ -81,15 +82,16 @@ public class V2SyncController {
     @PostMapping("/pull")
     public ApiResponse<V2SyncDtos.SyncPullResponse> pull(@Valid @RequestBody V2SyncDtos.SyncPullRequest request) {
         V2SyncService.PullResult result = v2SyncService.pull(request.clientId(), request.sinceCursor(), request.limit());
-        List<V2SyncDtos.SyncChangeDto> changes = result.changes().stream()
-            .map(item -> new V2SyncDtos.SyncChangeDto(
+        List<V2SyncDtos.SyncChangeDto> changes = new java.util.ArrayList<>(result.changes().size());
+        for (V2SyncService.SyncChange item : result.changes()) {
+            changes.add(new V2SyncDtos.SyncChangeDto(
                 item.entityType(),
                 item.entityId(),
                 item.operation(),
                 item.payload(),
                 item.updatedAt()
-            ))
-            .toList();
+            ));
+        }
         return ApiResponse.success(new V2SyncDtos.SyncPullResponse(
             changes,
             result.effectiveCursor(),

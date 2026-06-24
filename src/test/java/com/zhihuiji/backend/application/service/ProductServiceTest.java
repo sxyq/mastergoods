@@ -39,15 +39,16 @@ class ProductServiceTest {
     @Test
     void listUsesAllProductsWhenKeywordBlankAndSearchWhenPresent() {
         ProductEntity product = product("P1", 10.0);
-        when(productRepository.findAllByOwnerUserId(1L)).thenReturn(List.of(product));
-        when(productRepository.findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndCodeContainingIgnoreCase(1L, "P1", 1L, "P1"))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(1L, null, null, null, null))
+            .thenReturn(List.of(product));
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(1L, "P1", null, null, null))
             .thenReturn(List.of(product));
 
         assertEquals(1, productService.list(" ").size());
-        assertEquals(1, productService.list("P1").size());
+        assertEquals(1, productService.list(" P1 ").size());
 
-        verify(productRepository).findAllByOwnerUserId(1L);
-        verify(productRepository).findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndCodeContainingIgnoreCase(1L, "P1", 1L, "P1");
+        verify(productRepository).findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(1L, null, null, null, null);
+        verify(productRepository).findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(1L, "P1", null, null, null);
     }
 
     @Test

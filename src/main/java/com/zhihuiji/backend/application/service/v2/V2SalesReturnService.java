@@ -17,7 +17,9 @@ import com.zhihuiji.backend.infrastructure.repository.SaleOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.SalesReturnItemRepository;
 import com.zhihuiji.backend.infrastructure.repository.SalesReturnRepository;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,7 +71,7 @@ public class V2SalesReturnService {
         CustomerEntity customer = resolveCustomer(ownerUserId, request, originalOrder);
 
         double total = 0.0;
-        List<SalesReturnItemEntity> itemEntities = new ArrayList<>();
+        List<SalesReturnItemEntity> itemEntities = new ArrayList<>(request.items().size());
         for (V2SalesReturnDtos.CreateItemRequest item : request.items()) {
             ProductEntity product = productRepository.findByIdForUpdate(ownerUserId, item.productId())
                 .orElseThrow(() -> new IllegalArgumentException("商品不存在: " + item.productId()));
@@ -117,17 +119,22 @@ public class V2SalesReturnService {
         return toResponse(returnEntity, itemEntities);
     }
 
+    @Transactional(readOnly = true)
     public List<V2SalesReturnDtos.SalesReturnResponse> list(String keyword, Integer status) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         String normalizedKeyword = normalizeKeyword(keyword);
         List<SalesReturnEntity> returns = normalizedKeyword == null
             ? listWithoutKeyword(ownerUserId, status)
             : salesReturnRepository.search(ownerUserId, normalizedKeyword, status);
-        return returns.stream()
-            .map(r -> toResponse(r, salesReturnItemRepository.findByOwnerUserIdAndReturnIdOrderByCreatedAtAsc(ownerUserId, r.getId())))
-            .toList();
+        Map<Long, List<SalesReturnItemEntity>> itemsByReturnId = loadItemsByReturnId(ownerUserId, returns);
+        List<V2SalesReturnDtos.SalesReturnResponse> responses = new ArrayList<>(returns.size());
+        for (SalesReturnEntity entity : returns) {
+            responses.add(toResponse(entity, itemsByReturnId.getOrDefault(entity.getId(), List.of())));
+        }
+        return responses;
     }
 
+    @Transactional(readOnly = true)
     public V2SalesReturnDtos.SalesReturnResponse get(Long id) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         SalesReturnEntity entity = salesReturnRepository.findByIdAndOwnerUserId(id, ownerUserId)
@@ -135,11 +142,16 @@ public class V2SalesReturnService {
         return toResponse(entity, salesReturnItemRepository.findByOwnerUserIdAndReturnIdOrderByCreatedAtAsc(ownerUserId, id));
     }
 
+    @Transactional(readOnly = true)
     public List<V2SalesReturnDtos.SalesReturnResponse> listByOrder(Long originalOrderId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return salesReturnRepository.findByOwnerUserIdAndOriginalOrderIdOrderByCreatedAtDesc(ownerUserId, originalOrderId).stream()
-            .map(r -> toResponse(r, salesReturnItemRepository.findByOwnerUserIdAndReturnIdOrderByCreatedAtAsc(ownerUserId, r.getId())))
-            .toList();
+        List<SalesReturnEntity> returns = salesReturnRepository.findByOwnerUserIdAndOriginalOrderIdOrderByCreatedAtDesc(ownerUserId, originalOrderId);
+        Map<Long, List<SalesReturnItemEntity>> itemsByReturnId = loadItemsByReturnId(ownerUserId, returns);
+        List<V2SalesReturnDtos.SalesReturnResponse> responses = new ArrayList<>(returns.size());
+        for (SalesReturnEntity entity : returns) {
+            responses.add(toResponse(entity, itemsByReturnId.getOrDefault(entity.getId(), List.of())));
+        }
+        return responses;
     }
 
     @Transactional
@@ -285,13 +297,17 @@ public class V2SalesReturnService {
     }
 
     private V2SalesReturnDtos.SalesReturnResponse toResponse(SalesReturnEntity entity, List<SalesReturnItemEntity> items) {
+        List<V2SalesReturnDtos.SalesReturnItemResponse> itemResponses = new ArrayList<>(items.size());
+        for (SalesReturnItemEntity item : items) {
+            itemResponses.add(toItemResponse(item));
+        }
         return new V2SalesReturnDtos.SalesReturnResponse(
             entity.getId(),
             entity.getReturnNo(),
             entity.getOriginalOrderId(),
             entity.getCustomerId(),
             entity.getCustomerName(),
-            items.stream().map(this::toItemResponse).toList(),
+            itemResponses,
             entity.getTotalAmount(),
             entity.getRefundAmount(),
             entity.getStatus(),
@@ -314,6 +330,21 @@ public class V2SalesReturnService {
         }
         String trimmed = keyword.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private Map<Long, List<SalesReturnItemEntity>> loadItemsByReturnId(Long ownerUserId, List<SalesReturnEntity> returns) {
+        if (returns.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> returnIds = new ArrayList<>(returns.size());
+        for (SalesReturnEntity entity : returns) {
+            returnIds.add(entity.getId());
+        }
+        Map<Long, List<SalesReturnItemEntity>> itemsByReturnId = new LinkedHashMap<>(returnIds.size());
+        for (SalesReturnItemEntity item : salesReturnItemRepository.findByOwnerUserIdAndReturnIdInOrderByReturnIdAscCreatedAtAsc(ownerUserId, returnIds)) {
+            itemsByReturnId.computeIfAbsent(item.getReturnId(), ignored -> new ArrayList<>()).add(item);
+        }
+        return itemsByReturnId;
     }
 
     private V2SalesReturnDtos.SalesReturnItemResponse toItemResponse(SalesReturnItemEntity item) {

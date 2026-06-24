@@ -3,6 +3,7 @@ package com.zhihuiji.backend.application.service.v2;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -62,8 +63,8 @@ class V2ProductSupplierRelationServiceTest {
     @Test
     void replaceForProductRejectsMultipleDefaultSuppliers() {
         when(productRepository.findByIdAndOwnerUserId(1L, 1L)).thenReturn(Optional.of(product(1L)));
-        when(supplierRepository.findByIdAndOwnerUserId(41L, 1L)).thenReturn(Optional.of(supplier(41L, "供应商A")));
-        when(supplierRepository.findByIdAndOwnerUserId(42L, 1L)).thenReturn(Optional.of(supplier(42L, "供应商B")));
+        when(supplierRepository.findAllByOwnerUserIdAndIdIn(eq(1L), any()))
+            .thenReturn(List.of(supplier(41L, "供应商A"), supplier(42L, "供应商B")));
 
         assertThrows(
             IllegalArgumentException.class,
@@ -75,6 +76,10 @@ class V2ProductSupplierRelationServiceTest {
                 )
             )
         );
+
+        ArgumentCaptor<java.util.Collection<Long>> captor = ArgumentCaptor.forClass(java.util.Collection.class);
+        verify(supplierRepository).findAllByOwnerUserIdAndIdIn(eq(1L), captor.capture());
+        assertEquals(List.of(41L, 42L), List.copyOf(captor.getValue()));
     }
 
     @Test

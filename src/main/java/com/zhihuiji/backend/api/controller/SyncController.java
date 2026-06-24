@@ -23,9 +23,11 @@ public class SyncController {
 
     @PostMapping("/upload")
     public ApiResponse<SyncService.UploadResult> upload(@Valid @RequestBody UploadRequest request) {
-        List<SyncService.SyncChange> changes = request.changes().stream()
-            .map(c -> new SyncService.SyncChange(c.entityType(), c.entityId(), c.operation(), c.payload(), c.updatedAt()))
-            .toList();
+        List<SyncChangeDto> requestChanges = request.changes();
+        List<SyncService.SyncChange> changes = new java.util.ArrayList<>(requestChanges.size());
+        for (SyncChangeDto change : requestChanges) {
+            changes.add(new SyncService.SyncChange(change.entityType(), change.entityId(), change.operation(), change.payload(), change.updatedAt()));
+        }
         return ApiResponse.success(syncService.upload(request.clientId(), changes, request.lastSyncCursor()));
     }
 

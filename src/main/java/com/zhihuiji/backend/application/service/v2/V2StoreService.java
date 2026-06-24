@@ -13,7 +13,6 @@ import com.zhihuiji.backend.infrastructure.repository.StoreRepository;
 import com.zhihuiji.backend.infrastructure.repository.UserRepository;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,7 +52,12 @@ public class V2StoreService {
         UserEntity currentUser = userRepository.findById(currentUserId)
             .orElseThrow(() -> new IllegalArgumentException("当前用户不存在"));
         List<StoreMembershipEntity> memberships = storeMembershipRepository.findByOwnerUserIdOrderByCreatedAtAsc(ownerUserId);
-        int enabledCount = (int) memberships.stream().filter(item -> item.getStatus() != null && item.getStatus() == 1).count();
+        int enabledCount = 0;
+        for (StoreMembershipEntity item : memberships) {
+            if (item.getStatus() != null && item.getStatus() == 1) {
+                enabledCount++;
+            }
+        }
         int disabledCount = memberships.size() - enabledCount;
         StoreAccessPolicy.StoreRole role = StoreAccessPolicy.requireRole(membership.getRoleCode());
         return new V2StoreDtos.CurrentStoreResponse(
@@ -78,19 +82,32 @@ public class V2StoreService {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         StoreContext context = ensureStoreContext(ownerUserId);
         List<StoreMembershipEntity> memberships = storeMembershipRepository.findByOwnerUserIdOrderByCreatedAtAsc(ownerUserId);
-        Map<Long, UserEntity> usersById = userRepository.findAllById(
-            memberships.stream().map(StoreMembershipEntity::getUserId).toList()
-        ).stream().collect(Collectors.toMap(UserEntity::getId, user -> user));
-        return memberships.stream()
-            .map(membership -> toMemberResponse(context.store(), membership, usersById.get(membership.getUserId())))
-            .toList();
+        List<Long> memberUserIds = new java.util.ArrayList<>(memberships.size());
+        for (StoreMembershipEntity membership : memberships) {
+            memberUserIds.add(membership.getUserId());
+        }
+        Map<Long, UserEntity> usersById = new java.util.LinkedHashMap<>(memberUserIds.size());
+        for (UserEntity user : userRepository.findAllById(memberUserIds)) {
+            usersById.put(user.getId(), user);
+        }
+        Map<Long, Long> activeSessionsByUserId = activeSessionCountsByUserId(memberUserIds);
+        List<V2StoreDtos.MemberResponse> responses = new java.util.ArrayList<>(memberships.size());
+        for (StoreMembershipEntity membership : memberships) {
+            responses.add(toMemberResponse(
+                context.store(),
+                membership,
+                usersById.get(membership.getUserId()),
+                activeSessionsByUserId.getOrDefault(membership.getUserId(), 0L)
+            ));
+        }
+        return responses;
     }
 
     @Transactional
     public V2StoreDtos.MemberResponse createMember(V2StoreDtos.MemberCreateRequest request) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        ensureCurrentUserCanManage(ownerUserId);
         StoreContext context = ensureStoreContext(ownerUserId);
+        ensureCurrentUserCanManage(context);
         String phone = normalizeRequired(request.phone(), "手机号不能为空");
         if (userRepository.findByPhone(phone).isPresent()) {
             throw new IllegalArgumentException("手机号已注册");
@@ -124,8 +141,8 @@ public class V2StoreService {
     @Transactional
     public V2StoreDtos.MemberResponse updateMember(Long userId, V2StoreDtos.MemberUpdateRequest request) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        ensureCurrentUserCanManage(ownerUserId);
         StoreContext context = ensureStoreContext(ownerUserId);
+        ensureCurrentUserCanManage(context);
         StoreMembershipEntity membership = storeMembershipRepository.findByOwnerUserIdAndUserId(ownerUserId, userId)
             .orElseThrow(() -> new IllegalArgumentException("店员不存在"));
         UserEntity user = userRepository.findById(userId)
@@ -178,9 +195,8 @@ public class V2StoreService {
         return new StoreContext(store, ownerMembership);
     }
 
-    private void ensureCurrentUserCanManage(Long ownerUserId) {
+    private void ensureCurrentUserCanManage(StoreContext context) {
         Long currentUserId = currentOwnerService.requireCurrentUserId();
-        StoreContext context = ensureStoreContext(ownerUserId);
         StoreMembershipEntity membership = resolveCurrentMembership(context, currentUserId);
         if (!permissionNames(StoreAccessPolicy.requireRole(membership.getRoleCode()), membership.getStatus())
             .contains(StoreAccessPolicy.StorePermission.USERS_MANAGE.code())) {
@@ -227,6 +243,18 @@ public class V2StoreService {
         if (user == null) {
             throw new IllegalArgumentException("店员账号不存在");
         }
+        return toMemberResponse(store, membership, user, sessionRepository.countByUserIdAndIsActiveTrue(user.getId()));
+    }
+
+    private V2StoreDtos.MemberResponse toMemberResponse(
+        StoreEntity store,
+        StoreMembershipEntity membership,
+        UserEntity user,
+        Long activeSessions
+    ) {
+        if (user == null) {
+            throw new IllegalArgumentException("店员账号不存在");
+        }
         StoreAccessPolicy.StoreRole role = StoreAccessPolicy.requireRole(membership.getRoleCode());
         int status = normalizeStatus(membership.getStatus());
         return new V2StoreDtos.MemberResponse(
@@ -239,16 +267,14 @@ public class V2StoreService {
             permissionNames(role, status),
             user.getCreatedAt(),
             Math.max(user.getUpdatedAt(), membership.getUpdatedAt()),
-            sessionRepository.countByUserIdAndIsActiveTrue(user.getId()),
+            activeSessions,
             store.getId(),
             store.getStoreName()
         );
     }
 
     private void invalidateActiveSessions(Long userId) {
-        List<SessionEntity> sessions = sessionRepository.findAll().stream()
-            .filter(session -> userId.equals(session.getUserId()) && Boolean.TRUE.equals(session.getIsActive()))
-            .toList();
+        List<SessionEntity> sessions = sessionRepository.findByUserIdAndIsActiveTrue(userId);
         if (sessions.isEmpty()) {
             return;
         }
@@ -256,6 +282,17 @@ public class V2StoreService {
             session.setIsActive(false);
         }
         sessionRepository.saveAll(sessions);
+    }
+
+    private Map<Long, Long> activeSessionCountsByUserId(List<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, Long> countsByUserId = new java.util.LinkedHashMap<>(userIds.size());
+        for (SessionRepository.ActiveSessionCount row : sessionRepository.countActiveSessionsByUserIds(userIds)) {
+            countsByUserId.put(row.getUserId(), row.getActiveCount());
+        }
+        return countsByUserId;
     }
 
     private String normalizeRequired(String value, String message) {

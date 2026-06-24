@@ -6,9 +6,10 @@ import com.zhihuiji.backend.domain.entity.ProductCategoryEntity;
 import java.util.Collection;
 import com.zhihuiji.backend.infrastructure.repository.ProductCategoryRepository;
 import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -29,9 +30,12 @@ public class V2ProductCategoryService {
 
     public List<V2ProductDtos.CategoryResponse> list() {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return productCategoryRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId).stream()
-            .map(this::toResponse)
-            .toList();
+        List<ProductCategoryEntity> rows = productCategoryRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId);
+        List<V2ProductDtos.CategoryResponse> responses = new ArrayList<>(rows.size());
+        for (ProductCategoryEntity row : rows) {
+            responses.add(toResponse(row));
+        }
+        return responses;
     }
 
     public ProductCategoryEntity getOwnedEntity(Long id) {
@@ -45,8 +49,11 @@ public class V2ProductCategoryService {
         if (ids == null || ids.isEmpty()) {
             return Map.of();
         }
-        return productCategoryRepository.findAllByOwnerUserIdAndIdIn(ownerUserId, ids).stream()
-            .collect(Collectors.toMap(ProductCategoryEntity::getId, value -> value));
+        Map<Long, ProductCategoryEntity> categoriesById = new LinkedHashMap<>(ids.size());
+        for (ProductCategoryEntity category : productCategoryRepository.findAllByOwnerUserIdAndIdIn(ownerUserId, ids)) {
+            categoriesById.put(category.getId(), category);
+        }
+        return categoriesById;
     }
 
     public V2ProductDtos.CategoryResponse create(V2ProductDtos.CategoryWriteRequest request) {

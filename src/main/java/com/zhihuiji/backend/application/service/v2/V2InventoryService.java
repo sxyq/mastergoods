@@ -11,6 +11,9 @@ import com.zhihuiji.backend.infrastructure.repository.InventoryMonthlyStatsRepos
 import com.zhihuiji.backend.infrastructure.repository.InventorySnapshotRepository;
 import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,24 +37,32 @@ public class V2InventoryService {
         this.currentOwnerService = currentOwnerService;
     }
 
-    public List<V2InventoryDtos.LedgerEntryResponse> listLedger(Long productId, Long startAt, Long endAt) {
+    public Page<V2InventoryDtos.LedgerEntryResponse> listLedger(Long productId, Long startAt, Long endAt, int page, int size) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        Pageable pageable = toPageable(page, size);
+        Page<InventoryLedgerEntity> entityPage;
         if (productId != null) {
-            return ledgerRepository.findAllByOwnerUserIdAndProductIdOrderByCreatedAtDesc(ownerUserId, productId).stream()
-                .map(this::toLedgerResponse).toList();
+            entityPage = ledgerRepository.findAllByOwnerUserIdAndProductIdOrderByCreatedAtDesc(ownerUserId, productId, pageable);
+        } else if (startAt != null && endAt != null) {
+            entityPage = ledgerRepository.findAllByOwnerUserIdAndCreatedAtBetweenOrderByCreatedAtDesc(ownerUserId, startAt, endAt, pageable);
+        } else {
+            entityPage = ledgerRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(ownerUserId, pageable);
         }
-        if (startAt != null && endAt != null) {
-            return ledgerRepository.findAllByOwnerUserIdAndCreatedAtBetweenOrderByCreatedAtDesc(ownerUserId, startAt, endAt).stream()
-                .map(this::toLedgerResponse).toList();
-        }
-        return ledgerRepository.findAllByOwnerUserIdAndCreatedAtBetweenOrderByCreatedAtDesc(ownerUserId, 0L, System.currentTimeMillis()).stream()
-            .map(this::toLedgerResponse).toList();
+        return entityPage.map(this::toLedgerResponse);
     }
 
     public List<V2InventoryDtos.LedgerEntryResponse> listLedgerBySource(String sourceType, Long sourceId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return ledgerRepository.findAllByOwnerUserIdAndSourceTypeAndSourceId(ownerUserId, sourceType, sourceId).stream()
-            .map(this::toLedgerResponse).toList();
+        List<InventoryLedgerEntity> rows = ledgerRepository.findAllByOwnerUserIdAndSourceTypeAndSourceIdOrderByCreatedAtDesc(
+            ownerUserId,
+            sourceType,
+            sourceId
+        );
+        List<V2InventoryDtos.LedgerEntryResponse> responses = new java.util.ArrayList<>(rows.size());
+        for (InventoryLedgerEntity row : rows) {
+            responses.add(toLedgerResponse(row));
+        }
+        return responses;
     }
 
     @Transactional
@@ -83,17 +94,18 @@ public class V2InventoryService {
         return toLedgerResponse(ledgerRepository.save(entity));
     }
 
-    public List<V2InventoryDtos.SnapshotResponse> listSnapshots(Long snapshotDate, Long startDate, Long endDate) {
+    public Page<V2InventoryDtos.SnapshotResponse> listSnapshots(Long snapshotDate, Long startDate, Long endDate, int page, int size) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        Pageable pageable = toPageable(page, size);
+        Page<InventorySnapshotEntity> entityPage;
         if (snapshotDate != null) {
-            return snapshotRepository.findAllByOwnerUserIdAndSnapshotDateOrderByProductNameAsc(ownerUserId, snapshotDate).stream()
-                .map(this::toSnapshotResponse).toList();
+            entityPage = snapshotRepository.findAllByOwnerUserIdAndSnapshotDateOrderByProductNameAsc(ownerUserId, snapshotDate, pageable);
+        } else if (startDate != null && endDate != null) {
+            entityPage = snapshotRepository.findAllByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateAscProductNameAsc(ownerUserId, startDate, endDate, pageable);
+        } else {
+            entityPage = Page.empty(pageable);
         }
-        if (startDate != null && endDate != null) {
-            return snapshotRepository.findAllByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateAscProductNameAsc(ownerUserId, startDate, endDate).stream()
-                .map(this::toSnapshotResponse).toList();
-        }
-        return List.of();
+        return entityPage.map(this::toSnapshotResponse);
     }
 
     @Transactional
@@ -124,13 +136,20 @@ public class V2InventoryService {
         return toSnapshotResponse(snapshotRepository.save(entity));
     }
 
-    public List<V2InventoryDtos.MonthlyStatsResponse> listMonthlyStats(Integer year, Integer month) {
+    public Page<V2InventoryDtos.MonthlyStatsResponse> listMonthlyStats(Integer year, Integer month, int page, int size) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        Pageable pageable = toPageable(page, size);
         if (year != null && month != null) {
-            return monthlyStatsRepository.findAllByOwnerUserIdAndYearAndMonthOrderByProductNameAsc(ownerUserId, year, month).stream()
-                .map(this::toMonthlyStatsResponse).toList();
+            return monthlyStatsRepository.findAllByOwnerUserIdAndYearAndMonthOrderByProductNameAsc(ownerUserId, year, month, pageable)
+                .map(this::toMonthlyStatsResponse);
         }
-        return List.of();
+        return Page.empty(pageable);
+    }
+
+    private Pageable toPageable(int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = size <= 0 ? 50 : Math.min(size, 200);
+        return PageRequest.of(safePage, safeSize);
     }
 
     private V2InventoryDtos.LedgerEntryResponse toLedgerResponse(InventoryLedgerEntity entity) {

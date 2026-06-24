@@ -3,6 +3,8 @@ package com.zhihuiji.backend.application.service.v2;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -123,7 +125,7 @@ class V2SyncServiceTest {
 
     @Test
     void pullUsesStableCompositeCursorForSameTimestampPageBoundary() {
-        when(productCategoryRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(1L)).thenReturn(List.of(
+        when(productCategoryRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of(
             productCategory(1L, "分类A", 100L),
             productCategory(2L, "分类B", 100L),
             productCategory(3L, "分类C", 100L)
@@ -141,7 +143,7 @@ class V2SyncServiceTest {
 
     @Test
     void pullDoesNotPersistCursorBeforeClientAck() {
-        when(productCategoryRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(1L)).thenReturn(List.of(
+        when(productCategoryRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of(
             productCategory(1L, "分类A", 100L)
         ));
 
@@ -153,7 +155,7 @@ class V2SyncServiceTest {
 
     @Test
     void acknowledgeCursorPersistsPullCursorAndSubsequentPullStartsFromAckedCursor() {
-        when(productCategoryRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(1L)).thenReturn(List.of(
+        when(productCategoryRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of(
             productCategory(1L, "分类A", 100L),
             productCategory(2L, "分类B", 100L),
             productCategory(3L, "分类C", 100L)
@@ -191,34 +193,34 @@ class V2SyncServiceTest {
     }
 
     private void stubEmptyPullRepositories() {
-        when(productUnitRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(1L)).thenReturn(List.of());
-        when(productPriceLevelRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(1L)).thenReturn(List.of());
-        when(productSupplierRelationRepository.findAllByOwnerUserIdOrderByUpdatedAtAscIdAsc(1L)).thenReturn(List.of());
-        when(partnerGroupRepository.findAllByOwnerUserIdAndPartnerTypeOrderBySortOrderAscNameAsc(1L, "customer")).thenReturn(List.of());
-        when(partnerGroupRepository.findAllByOwnerUserIdAndPartnerTypeOrderBySortOrderAscNameAsc(1L, "supplier")).thenReturn(List.of());
-        when(partnerContactRepository.findAllByOwnerUserIdAndPartnerTypeOrderByUpdatedAtAscIdAsc(1L, "customer")).thenReturn(List.of());
-        when(partnerContactRepository.findAllByOwnerUserIdAndPartnerTypeOrderByUpdatedAtAscIdAsc(1L, "supplier")).thenReturn(List.of());
-        when(customerRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
-        when(supplierRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
-        when(productRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
-        when(saleOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
-        when(saleOrderItemRepository.findAllByOwnerUserIdOrderByCreatedAtAsc(1L)).thenReturn(List.of());
-        when(paymentRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
-        when(purchaseOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
-        when(purchaseOrderItemRepository.findAllByOwnerUserIdOrderByCreatedAtAsc(1L)).thenReturn(List.of());
-        when(payOrderRepository.findAllByOwnerUserId(1L)).thenReturn(List.of());
-        when(financeRecordRepository.findAllByOwnerUserIdOrderByUpdatedAtAscIdAsc(1L)).thenReturn(List.of());
-        when(accountRepository.findAllByOwnerUserIdOrderByUpdatedAtAscIdAsc(1L)).thenReturn(List.of());
-        when(accountTransferRepository.findAllByOwnerUserIdOrderByUpdatedAtAscIdAsc(1L)).thenReturn(List.of());
-        when(billFundLinkRepository.findAllByOwnerUserIdOrderByUpdatedAtAscIdAsc(1L)).thenReturn(List.of());
-        when(inventoryAdjustmentRepository.findByOwnerUserIdOrderByCreatedAtAsc(1L)).thenReturn(List.of());
-        when(inventoryLedgerRepository.findAllByOwnerUserIdOrderByCreatedAtAscIdAsc(1L)).thenReturn(List.of());
-        when(inventorySnapshotRepository.findAllByOwnerUserIdOrderBySnapshotDateAscIdAsc(1L)).thenReturn(List.of());
-        when(inventoryMonthlyStatsRepository.findAllByOwnerUserIdOrderByYearAscMonthAscIdAsc(1L)).thenReturn(List.of());
-        when(salesReturnRepository.findByOwnerUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
-        when(salesReturnItemRepository.findAllByOwnerUserIdOrderByCreatedAtAsc(1L)).thenReturn(List.of());
-        when(purchaseReceiptRepository.findByOwnerUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
-        when(purchaseReceiptItemRepository.findAllByOwnerUserIdOrderByCreatedAtAsc(1L)).thenReturn(List.of());
+        when(productUnitRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(productPriceLevelRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(productSupplierRelationRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(partnerGroupRepository.findChangedByOwnerUserIdAndPartnerType(eq(1L), eq("customer"), anyLong())).thenReturn(List.of());
+        when(partnerGroupRepository.findChangedByOwnerUserIdAndPartnerType(eq(1L), eq("supplier"), anyLong())).thenReturn(List.of());
+        when(partnerContactRepository.findChangedByOwnerUserIdAndPartnerType(eq(1L), eq("customer"), anyLong())).thenReturn(List.of());
+        when(partnerContactRepository.findChangedByOwnerUserIdAndPartnerType(eq(1L), eq("supplier"), anyLong())).thenReturn(List.of());
+        when(customerRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(supplierRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(productRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(saleOrderRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(saleOrderItemRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(paymentRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(purchaseOrderRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(purchaseOrderItemRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(payOrderRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(financeRecordRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(accountRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(accountTransferRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(billFundLinkRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(inventoryAdjustmentRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(inventoryLedgerRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(inventorySnapshotRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(inventoryMonthlyStatsRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(salesReturnRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(salesReturnItemRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(purchaseReceiptRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
+        when(purchaseReceiptItemRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
     }
 
     private ProductCategoryEntity productCategory(Long id, String name, long updatedAt) {

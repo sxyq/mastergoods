@@ -239,6 +239,7 @@ public class V2SyncService {
         );
     }
 
+    @Transactional(readOnly = true)
     public CursorStatus cursorStatus(String clientId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         String normalizedClientId = normalizeClientId(clientId);
@@ -293,7 +294,7 @@ public class V2SyncService {
         );
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public PullResult pull(String clientId, String sinceCursor, Integer limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         String normalizedClientId = normalizeClientId(clientId);
@@ -304,7 +305,7 @@ public class V2SyncService {
             : parseCursorToken(sinceCursor);
         int safeLimit = normalizeLimit(limit == null ? DEFAULT_PULL_LIMIT : limit);
 
-        List<SyncChange> changes = new ArrayList<>();
+        List<SyncChange> changes = new ArrayList<>(64);
         changes.addAll(collectProductCategoryChanges(ownerUserId, effectiveCursor));
         changes.addAll(collectProductUnitChanges(ownerUserId, effectiveCursor));
         changes.addAll(collectProductPriceLevelChanges(ownerUserId, effectiveCursor));
@@ -342,7 +343,7 @@ public class V2SyncService {
         );
 
         boolean hasMore = changes.size() > safeLimit;
-        List<SyncChange> page = hasMore ? new ArrayList<>(changes.subList(0, safeLimit)) : changes;
+        List<SyncChange> page = hasMore ? new ArrayList<>(changes.subList(0, safeLimit)) : new ArrayList<>(changes);
         CursorToken nextCursor = effectiveCursor;
         if (!page.isEmpty()) {
             nextCursor = cursorFor(page.get(page.size() - 1));
@@ -367,8 +368,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectProductCategoryChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (ProductCategoryEntity entity : productCategoryRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<ProductCategoryEntity> entities = productCategoryRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (ProductCategoryEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("product_category", entity.getId(), changedAt, since)) continue;
             rows.add(change("product_category", entity.getId(), changedAt, payload(
@@ -384,8 +387,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectProductUnitChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (ProductUnitEntity entity : productUnitRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<ProductUnitEntity> entities = productUnitRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (ProductUnitEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("product_unit", entity.getId(), changedAt, since)) continue;
             rows.add(change("product_unit", entity.getId(), changedAt, payload(
@@ -401,8 +406,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectProductPriceLevelChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (ProductPriceLevelEntity entity : productPriceLevelRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<ProductPriceLevelEntity> entities = productPriceLevelRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (ProductPriceLevelEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("product_price_level", entity.getId(), changedAt, since)) continue;
             rows.add(change("product_price_level", entity.getId(), changedAt, payload(
@@ -419,8 +426,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectProductSupplierRelationChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (ProductSupplierRelationEntity entity : productSupplierRelationRepository.findAllByOwnerUserIdOrderByUpdatedAtAscIdAsc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<ProductSupplierRelationEntity> entities = productSupplierRelationRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (ProductSupplierRelationEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("product_supplier_relation", entity.getId(), changedAt, since)) continue;
             rows.add(change("product_supplier_relation", entity.getId(), changedAt, payload(
@@ -439,9 +448,11 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectPartnerGroupChanges(Long ownerUserId, String partnerType, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
+        long sinceTimestamp = since.updatedAt();
         String entityType = "customer".equals(partnerType) ? "customer_group" : "supplier_group";
-        for (PartnerGroupEntity entity : partnerGroupRepository.findAllByOwnerUserIdAndPartnerTypeOrderBySortOrderAscNameAsc(ownerUserId, partnerType)) {
+        List<PartnerGroupEntity> entities = partnerGroupRepository.findChangedByOwnerUserIdAndPartnerType(ownerUserId, partnerType, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (PartnerGroupEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip(entityType, entity.getId(), changedAt, since)) continue;
             rows.add(change(entityType, entity.getId(), changedAt, payload(
@@ -458,9 +469,11 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectPartnerContactChanges(Long ownerUserId, String partnerType, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
+        long sinceTimestamp = since.updatedAt();
         String entityType = "customer".equals(partnerType) ? "customer_contact" : "supplier_contact";
-        for (PartnerContactEntity entity : partnerContactRepository.findAllByOwnerUserIdAndPartnerTypeOrderByUpdatedAtAscIdAsc(ownerUserId, partnerType)) {
+        List<PartnerContactEntity> entities = partnerContactRepository.findChangedByOwnerUserIdAndPartnerType(ownerUserId, partnerType, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (PartnerContactEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip(entityType, entity.getId(), changedAt, since)) continue;
             rows.add(change(entityType, entity.getId(), changedAt, payload(
@@ -479,8 +492,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectCustomerChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (CustomerEntity entity : customerRepository.findAllByOwnerUserId(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<CustomerEntity> entities = customerRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (CustomerEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("customer", entity.getId(), changedAt, since)) continue;
             rows.add(change("customer", entity.getId(), changedAt, payload(
@@ -505,8 +520,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectSupplierChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (SupplierEntity entity : supplierRepository.findAllByOwnerUserId(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<SupplierEntity> entities = supplierRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (SupplierEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("supplier", entity.getId(), changedAt, since)) continue;
             rows.add(change("supplier", entity.getId(), changedAt, payload(
@@ -530,8 +547,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectProductChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (ProductEntity entity : productRepository.findAllByOwnerUserId(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<ProductEntity> entities = productRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (ProductEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("product", entity.getId(), changedAt, since)) continue;
             rows.add(change("product", entity.getId(), changedAt, payload(
@@ -558,8 +577,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectSaleOrderChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (SaleOrderEntity entity : saleOrderRepository.findAllByOwnerUserId(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<SaleOrderEntity> entities = saleOrderRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (SaleOrderEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("sale_order", entity.getId(), changedAt, since)) continue;
             rows.add(change("sale_order", entity.getId(), changedAt, payload(
@@ -583,8 +604,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectSaleOrderItemChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (SaleOrderItemEntity entity : saleOrderItemRepository.findAllByOwnerUserIdOrderByCreatedAtAsc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<SaleOrderItemEntity> entities = saleOrderItemRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (SaleOrderItemEntity entity : entities) {
             long changedAt = safeLong(entity.getCreatedAt());
             if (shouldSkip("sale_order_item", entity.getId(), changedAt, since)) continue;
             rows.add(change("sale_order_item", entity.getId(), changedAt, payload(
@@ -605,8 +628,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectPaymentChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (PaymentEntity entity : paymentRepository.findAllByOwnerUserId(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<PaymentEntity> entities = paymentRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (PaymentEntity entity : entities) {
             long changedAt = safeLong(entity.getCreatedAt());
             if (shouldSkip("payment", entity.getId(), changedAt, since)) continue;
             rows.add(change("payment", entity.getId(), changedAt, payload(
@@ -623,8 +648,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectPurchaseOrderChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (PurchaseOrderEntity entity : purchaseOrderRepository.findAllByOwnerUserId(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<PurchaseOrderEntity> entities = purchaseOrderRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (PurchaseOrderEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("purchase_order", entity.getId(), changedAt, since)) continue;
             rows.add(change("purchase_order", entity.getId(), changedAt, payload(
@@ -647,8 +674,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectPurchaseOrderItemChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (PurchaseOrderItemEntity entity : purchaseOrderItemRepository.findAllByOwnerUserIdOrderByCreatedAtAsc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<PurchaseOrderItemEntity> entities = purchaseOrderItemRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (PurchaseOrderItemEntity entity : entities) {
             long changedAt = safeLong(entity.getCreatedAt());
             if (shouldSkip("purchase_order_item", entity.getId(), changedAt, since)) continue;
             rows.add(change("purchase_order_item", entity.getId(), changedAt, payload(
@@ -667,8 +696,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectPayOrderChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (PayOrderEntity entity : payOrderRepository.findAllByOwnerUserId(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<PayOrderEntity> entities = payOrderRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (PayOrderEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("pay_order", entity.getId(), changedAt, since)) continue;
             rows.add(change("pay_order", entity.getId(), changedAt, payload(
@@ -692,8 +723,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectFinanceRecordChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (FinanceRecordEntity entity : financeRecordRepository.findAllByOwnerUserIdOrderByUpdatedAtAscIdAsc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<FinanceRecordEntity> entities = financeRecordRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (FinanceRecordEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("finance_record", entity.getId(), changedAt, since)) continue;
             rows.add(change("finance_record", entity.getId(), changedAt, payload(
@@ -715,8 +748,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectAccountChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (AccountEntity entity : accountRepository.findAllByOwnerUserIdOrderByUpdatedAtAscIdAsc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<AccountEntity> entities = accountRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (AccountEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("account", entity.getId(), changedAt, since)) continue;
             rows.add(change("account", entity.getId(), changedAt, payload(
@@ -737,8 +772,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectAccountTransferChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (AccountTransferEntity entity : accountTransferRepository.findAllByOwnerUserIdOrderByUpdatedAtAscIdAsc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<AccountTransferEntity> entities = accountTransferRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (AccountTransferEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("account_transfer", entity.getId(), changedAt, since)) continue;
             rows.add(change("account_transfer", entity.getId(), changedAt, payload(
@@ -758,8 +795,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectBillFundLinkChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (BillFundLinkEntity entity : billFundLinkRepository.findAllByOwnerUserIdOrderByUpdatedAtAscIdAsc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<BillFundLinkEntity> entities = billFundLinkRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (BillFundLinkEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("bill_fund_link", entity.getId(), changedAt, since)) continue;
             rows.add(change("bill_fund_link", entity.getId(), changedAt, payload(
@@ -778,8 +817,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectInventoryAdjustmentChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (InventoryAdjustmentEntity entity : inventoryAdjustmentRepository.findByOwnerUserIdOrderByCreatedAtAsc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<InventoryAdjustmentEntity> entities = inventoryAdjustmentRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (InventoryAdjustmentEntity entity : entities) {
             long changedAt = safeLong(entity.getCreatedAt());
             if (shouldSkip("inventory_adjustment", entity.getId(), changedAt, since)) continue;
             rows.add(change("inventory_adjustment", entity.getId(), changedAt, payload(
@@ -798,8 +839,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectInventoryLedgerChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (InventoryLedgerEntity entity : inventoryLedgerRepository.findAllByOwnerUserIdOrderByCreatedAtAscIdAsc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<InventoryLedgerEntity> entities = inventoryLedgerRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (InventoryLedgerEntity entity : entities) {
             long changedAt = safeLong(entity.getCreatedAt());
             if (shouldSkip("inventory_ledger", entity.getId(), changedAt, since)) continue;
             rows.add(change("inventory_ledger", entity.getId(), changedAt, payload(
@@ -823,8 +866,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectInventorySnapshotChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (InventorySnapshotEntity entity : inventorySnapshotRepository.findAllByOwnerUserIdOrderBySnapshotDateAscIdAsc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<InventorySnapshotEntity> entities = inventorySnapshotRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (InventorySnapshotEntity entity : entities) {
             long changedAt = safeLong(entity.getCreatedAt());
             if (shouldSkip("inventory_snapshot", entity.getId(), changedAt, since)) continue;
             rows.add(change("inventory_snapshot", entity.getId(), changedAt, payload(
@@ -844,8 +889,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectInventoryMonthlyStatsChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (InventoryMonthlyStatsEntity entity : inventoryMonthlyStatsRepository.findAllByOwnerUserIdOrderByYearAscMonthAscIdAsc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<InventoryMonthlyStatsEntity> entities = inventoryMonthlyStatsRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (InventoryMonthlyStatsEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("inventory_monthly_stats", entity.getId(), changedAt, since)) continue;
             rows.add(change("inventory_monthly_stats", entity.getId(), changedAt, payload(
@@ -871,8 +918,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectSalesReturnChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (SalesReturnEntity entity : salesReturnRepository.findByOwnerUserIdOrderByCreatedAtDesc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<SalesReturnEntity> entities = salesReturnRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (SalesReturnEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("sales_return", entity.getId(), changedAt, since)) continue;
             rows.add(change("sales_return", entity.getId(), changedAt, payload(
@@ -893,8 +942,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectSalesReturnItemChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (SalesReturnItemEntity entity : salesReturnItemRepository.findAllByOwnerUserIdOrderByCreatedAtAsc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<SalesReturnItemEntity> entities = salesReturnItemRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (SalesReturnItemEntity entity : entities) {
             long changedAt = safeLong(entity.getCreatedAt());
             if (shouldSkip("sales_return_item", entity.getId(), changedAt, since)) continue;
             rows.add(change("sales_return_item", entity.getId(), changedAt, payload(
@@ -913,8 +964,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectPurchaseReceiptChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (PurchaseReceiptEntity entity : purchaseReceiptRepository.findByOwnerUserIdOrderByCreatedAtDesc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<PurchaseReceiptEntity> entities = purchaseReceiptRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (PurchaseReceiptEntity entity : entities) {
             long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
             if (shouldSkip("purchase_receipt", entity.getId(), changedAt, since)) continue;
             rows.add(change("purchase_receipt", entity.getId(), changedAt, payload(
@@ -934,8 +987,10 @@ public class V2SyncService {
     }
 
     private List<SyncChange> collectPurchaseReceiptItemChanges(Long ownerUserId, CursorToken since) {
-        List<SyncChange> rows = new ArrayList<>();
-        for (PurchaseReceiptItemEntity entity : purchaseReceiptItemRepository.findAllByOwnerUserIdOrderByCreatedAtAsc(ownerUserId)) {
+        long sinceTimestamp = since.updatedAt();
+        List<PurchaseReceiptItemEntity> entities = purchaseReceiptItemRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
+        List<SyncChange> rows = new ArrayList<>(entities.size());
+        for (PurchaseReceiptItemEntity entity : entities) {
             long changedAt = safeLong(entity.getCreatedAt());
             if (shouldSkip("purchase_receipt_item", entity.getId(), changedAt, since)) continue;
             rows.add(change("purchase_receipt_item", entity.getId(), changedAt, payload(
@@ -1544,7 +1599,7 @@ public class V2SyncService {
     }
 
     private String payload(Object... entries) {
-        Map<String, Object> map = new HashMap<>();
+        Map<String, Object> map = new HashMap<>(Math.max(4, entries.length / 2));
         for (int index = 0; index < entries.length; index += 2) {
             map.put((String) entries[index], entries[index + 1]);
         }
@@ -1765,14 +1820,22 @@ public class V2SyncService {
             if (cursor == null || cursor.isBlank()) {
                 return initial();
             }
-            String[] parts = cursor.split("\\|", 3);
-            if (parts.length == 1) {
-                return new CursorToken(parseLong(parts[0]), "", "");
+            int firstSeparator = cursor.indexOf('|');
+            if (firstSeparator < 0) {
+                return new CursorToken(parseLong(cursor), "", "");
+            }
+            int secondSeparator = cursor.indexOf('|', firstSeparator + 1);
+            if (secondSeparator < 0) {
+                return new CursorToken(
+                    parseLong(cursor.substring(0, firstSeparator)),
+                    cursor.substring(firstSeparator + 1),
+                    ""
+                );
             }
             return new CursorToken(
-                parseLong(parts[0]),
-                parts.length > 1 ? parts[1] : "",
-                parts.length > 2 ? parts[2] : ""
+                parseLong(cursor.substring(0, firstSeparator)),
+                cursor.substring(firstSeparator + 1, secondSeparator),
+                cursor.substring(secondSeparator + 1)
             );
         }
 

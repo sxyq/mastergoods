@@ -177,7 +177,7 @@ public class DemoDataService {
     }
 
     private List<Long> demoOwnerUserIds() {
-        List<Long> ids = new ArrayList<>();
+        List<Long> ids = new ArrayList<>(DEMO_USER_PHONES.size());
         for (String phone : DEMO_USER_PHONES) {
             userRepository.findByPhone(phone)
                 .map(UserEntity::getId)
@@ -211,7 +211,7 @@ public class DemoDataService {
     }
 
     private Map<String, SupplierEntity> createSuppliers(Long ownerUserId, long now) {
-        Map<String, SupplierEntity> map = new HashMap<>();
+        Map<String, SupplierEntity> map = new HashMap<>(3);
         map.put("supplier-a", createSupplier(ownerUserId, "供应商A", "13900010001", "华东供货中心", "常规补货", 12800.0, now));
         map.put("supplier-b", createSupplier(ownerUserId, "供应商B", "13900010002", "工业配件市场", "账期 15 天", 8600.0, now));
         map.put("supplier-c", createSupplier(ownerUserId, "供应商C", "13900010003", "包装耗材仓", "包装材料", 3200.0, now));
@@ -243,7 +243,7 @@ public class DemoDataService {
     }
 
     private Map<String, CustomerEntity> createCustomers(Long ownerUserId, long now) {
-        Map<String, CustomerEntity> map = new HashMap<>();
+        Map<String, CustomerEntity> map = new HashMap<>(3);
         map.put("customer-a", createCustomer(ownerUserId, "门店客户A", "13700020001", "静安门店", "核心连锁门店", 15800.0, now));
         map.put("customer-b", createCustomer(ownerUserId, "客户B", "13700020002", "嘉定工业园", "工业客户", 9200.0, now));
         map.put("customer-c", createCustomer(ownerUserId, "客户C", "13700020003", "闵行仓配点", "账期客户", 4100.0, now));
@@ -276,7 +276,7 @@ public class DemoDataService {
     }
 
     private Map<String, ProductEntity> createProducts(Long ownerUserId, long now) {
-        Map<String, ProductEntity> map = new HashMap<>();
+        Map<String, ProductEntity> map = new HashMap<>(5);
         map.put("sensor-s7", createProduct(ownerUserId, "S7-0021", "工业传感器 S7", "工业件", "个", 58.0, 35.0, 22.0, 30.0, now));
         map.put("glove-a12", createProduct(ownerUserId, "A12-0045", "绝缘手套 A12", "劳保", "只", 48.0, 26.0, 24.0, 18.0, now));
         map.put("box-xl", createProduct(ownerUserId, "XL-0012", "包装纸箱 XL", "耗材", "箱", 12.0, 5.0, 12.0, 20.0, now));
@@ -325,6 +325,8 @@ public class DemoDataService {
                     new PurchaseOrderService.PurchaseItemDraft(products.get("sensor-s7").getId(), null, null, 20.0, 34.0),
                     new PurchaseOrderService.PurchaseItemDraft(products.get("scanner-q9").getId(), null, null, 8.0, 118.0)
                 ),
+                2,
+                null,
                 "四月第一批补货",
                 PurchaseOrderStatus.RECEIVED.code()
             )
@@ -340,6 +342,8 @@ public class DemoDataService {
                     new PurchaseOrderService.PurchaseItemDraft(products.get("box-xl").getId(), null, null, 18.0, 4.6),
                     new PurchaseOrderService.PurchaseItemDraft(products.get("tape-b3").getId(), null, null, 40.0, 2.8)
                 ),
+                null,
+                null,
                 "包装耗材待到货",
                 PurchaseOrderStatus.DRAFT.code()
             )
@@ -466,20 +470,30 @@ public class DemoDataService {
         if (payments.isEmpty()) {
             return;
         }
-        PaymentEntity latest = payments.stream()
-            .filter(payment -> Objects.equals(payment.getType(), PaymentType.RECEIVE.code()))
-            .reduce((left, right) -> right)
-            .orElse(payments.get(payments.size() - 1));
+        PaymentEntity latest = payments.get(payments.size() - 1);
+        for (int index = payments.size() - 1; index >= 0; index--) {
+            PaymentEntity payment = payments.get(index);
+            if (Objects.equals(payment.getType(), PaymentType.RECEIVE.code())) {
+                latest = payment;
+                break;
+            }
+        }
         latest.setCreatedAt(createdAt);
         paymentRepository.save(latest);
     }
 
     private void markRefundAsHistorical(Long ownerUserId, Long orderId, long createdAt) {
         List<PaymentEntity> payments = paymentRepository.findByOwnerUserIdAndOrderId(ownerUserId, orderId);
-        payments.stream()
-            .filter(payment -> Objects.equals(payment.getType(), PaymentType.REFUND.code()))
-            .forEach(payment -> payment.setCreatedAt(createdAt));
-        paymentRepository.saveAll(payments);
+        List<PaymentEntity> refunds = new ArrayList<>();
+        for (PaymentEntity payment : payments) {
+            if (Objects.equals(payment.getType(), PaymentType.REFUND.code())) {
+                payment.setCreatedAt(createdAt);
+                refunds.add(payment);
+            }
+        }
+        if (!refunds.isEmpty()) {
+            paymentRepository.saveAll(refunds);
+        }
         SaleOrderEntity order = saleOrderRepository.findByIdAndOwnerUserId(orderId, ownerUserId).orElseThrow();
         order.setCreatedAt(nowMinusDays(4));
         order.setUpdatedAt(createdAt);

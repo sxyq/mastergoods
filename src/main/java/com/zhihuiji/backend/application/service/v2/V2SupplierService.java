@@ -6,8 +6,10 @@ import com.zhihuiji.backend.application.service.CurrentOwnerService;
 import com.zhihuiji.backend.domain.entity.PartnerGroupEntity;
 import com.zhihuiji.backend.domain.entity.SupplierEntity;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
-import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,39 +32,28 @@ public class V2SupplierService {
         this.currentOwnerService = currentOwnerService;
     }
 
+    @Transactional(readOnly = true)
     public List<V2PartnerDtos.SupplierResponse> list(String keyword, Integer status, Long groupId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        boolean hasKeyword = keyword != null && !keyword.isBlank();
-        List<SupplierEntity> suppliers;
-        if (hasKeyword && status != null) {
-            suppliers = supplierRepository.findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndPhoneContainingIgnoreCaseAndStatus(
-                ownerUserId,
-                keyword.trim(),
-                ownerUserId,
-                keyword.trim(),
-                status
-            );
-        } else if (hasKeyword) {
-            suppliers = supplierRepository.findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndPhoneContainingIgnoreCase(
-                ownerUserId,
-                keyword.trim(),
-                ownerUserId,
-                keyword.trim()
-            );
-        } else if (status != null) {
-            suppliers = supplierRepository.findByOwnerUserIdAndStatus(ownerUserId, status);
-        } else {
-            suppliers = supplierRepository.findAllByOwnerUserId(ownerUserId);
+        String normalizedKeyword = normalizeKeyword(keyword);
+        List<SupplierEntity> suppliers = supplierRepository.search(ownerUserId, normalizedKeyword, status, groupId);
+        Set<Long> groupIds = new java.util.LinkedHashSet<>();
+        for (SupplierEntity supplier : suppliers) {
+            if (supplier.getGroupId() != null) {
+                groupIds.add(supplier.getGroupId());
+            }
         }
-        return suppliers.stream()
-            .filter(supplier -> groupId == null || groupId.equals(supplier.getGroupId()))
-            .sorted(Comparator.comparing(SupplierEntity::getUpdatedAt).reversed())
-            .map(this::toResponse)
-            .toList();
+        Map<Long, String> groupNamesById = loadGroupNamesById(groupIds);
+        List<V2PartnerDtos.SupplierResponse> responses = new java.util.ArrayList<>(suppliers.size());
+        for (SupplierEntity supplier : suppliers) {
+            responses.add(toResponse(supplier, groupNamesById));
+        }
+        return responses;
     }
 
+    @Transactional(readOnly = true)
     public V2PartnerDtos.SupplierResponse get(Long id) {
-        return toResponse(getOwnedEntity(id));
+        return toResponse(getOwnedEntity(id), Map.of());
     }
 
     @Transactional
@@ -129,14 +120,30 @@ public class V2SupplierService {
             .orElseThrow(() -> new IllegalArgumentException("供应商不存在"));
     }
 
-    private V2PartnerDtos.SupplierResponse toResponse(SupplierEntity entity) {
-        PartnerGroupEntity group = entity.getGroupId() == null ? null : partnerGroupService.getOwnedEntity(PartnerTypes.SUPPLIER, entity.getGroupId());
+    private Map<Long, String> loadGroupNamesById(Set<Long> groupIds) {
+        if (groupIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> groupNamesById = new LinkedHashMap<>(groupIds.size());
+        for (PartnerGroupEntity group : partnerGroupService.getOwnedEntityMap(PartnerTypes.SUPPLIER, groupIds).values()) {
+            groupNamesById.put(group.getId(), group.getName());
+        }
+        return groupNamesById;
+    }
+
+    private V2PartnerDtos.SupplierResponse toResponse(SupplierEntity entity, Map<Long, String> groupNamesById) {
+        String groupName = entity.getGroupId() == null
+            ? null
+            : groupNamesById.getOrDefault(
+                entity.getGroupId(),
+                partnerGroupService.getOwnedEntity(PartnerTypes.SUPPLIER, entity.getGroupId()).getName()
+            );
         return new V2PartnerDtos.SupplierResponse(
             entity.getId(),
             entity.getName(),
             entity.getPhone(),
             entity.getGroupId(),
-            group == null ? null : group.getName(),
+            groupName,
             entity.getContactName(),
             entity.getContactPhone(),
             entity.getAddress(),
@@ -146,6 +153,10 @@ public class V2SupplierService {
             entity.getCreatedAt(),
             entity.getUpdatedAt()
         );
+    }
+
+    private V2PartnerDtos.SupplierResponse toResponse(SupplierEntity entity) {
+        return toResponse(entity, Map.of());
     }
 
     private String normalizeRequired(String value, String message) {
@@ -175,5 +186,13 @@ public class V2SupplierService {
             throw new IllegalArgumentException("供应商状态不合法");
         }
         return status;
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

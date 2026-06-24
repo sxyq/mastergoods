@@ -19,6 +19,7 @@ import com.zhihuiji.backend.infrastructure.repository.PurchaseReturnRefundReposi
 import com.zhihuiji.backend.infrastructure.repository.PurchaseReturnRepository;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,7 +83,7 @@ public class V2PurchaseReturnService {
         SupplierEntity supplier = resolveSupplier(ownerUserId, request, purchaseOrder);
 
         double total = 0.0;
-        List<PurchaseReturnItemEntity> itemEntities = new ArrayList<>();
+        List<PurchaseReturnItemEntity> itemEntities = new ArrayList<>(request.items().size());
         for (V2PurchaseReturnDtos.CreateItemRequest item : request.items()) {
             ProductEntity product = resolveProduct(ownerUserId, item);
             double quantity = item.quantity() == null ? 0.0 : item.quantity();
@@ -149,15 +150,17 @@ public class V2PurchaseReturnService {
         return toResponse(returnEntity, itemEntities, List.of());
     }
 
+    @Transactional(readOnly = true)
     public List<V2PurchaseReturnDtos.PurchaseReturnResponse> list(String keyword, Integer status) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         String normalizedKeyword = normalizeKeyword(keyword);
         List<PurchaseReturnEntity> returns = normalizedKeyword == null
             ? listWithoutKeyword(ownerUserId, status)
             : purchaseReturnRepository.search(ownerUserId, normalizedKeyword, status);
-        return returns.stream().map(entity -> toResponse(ownerUserId, entity)).toList();
+        return toResponses(ownerUserId, returns);
     }
 
+    @Transactional(readOnly = true)
     public V2PurchaseReturnDtos.PurchaseReturnResponse get(Long id) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         PurchaseReturnEntity entity = purchaseReturnRepository.findByIdAndOwnerUserId(id, ownerUserId)
@@ -165,11 +168,11 @@ public class V2PurchaseReturnService {
         return toResponse(ownerUserId, entity);
     }
 
+    @Transactional(readOnly = true)
     public List<V2PurchaseReturnDtos.PurchaseReturnResponse> listByOrder(Long purchaseOrderId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return purchaseReturnRepository.findByOwnerUserIdAndPurchaseOrderIdOrderByCreatedAtDesc(ownerUserId, purchaseOrderId).stream()
-            .map(entity -> toResponse(ownerUserId, entity))
-            .toList();
+        List<PurchaseReturnEntity> returns = purchaseReturnRepository.findByOwnerUserIdAndPurchaseOrderIdOrderByCreatedAtDesc(ownerUserId, purchaseOrderId);
+        return toResponses(ownerUserId, returns);
     }
 
     @Transactional
@@ -368,7 +371,7 @@ public class V2PurchaseReturnService {
     }
 
     private Map<String, PurchaseOrderItemEntity> buildOrderItemMap(List<PurchaseOrderItemEntity> items) {
-        Map<String, PurchaseOrderItemEntity> map = new HashMap<>();
+        Map<String, PurchaseOrderItemEntity> map = new HashMap<>(Math.max(4, items.size() * 2));
         for (PurchaseOrderItemEntity item : items) {
             map.put(productKey(item.getProductId(), null), item);
             if (item.getProductCode() != null && !item.getProductCode().isBlank()) {
@@ -389,12 +392,17 @@ public class V2PurchaseReturnService {
             )
         );
         Map<String, Double> reserved = new HashMap<>();
-        for (PurchaseReturnEntity entity : returns) {
-            List<PurchaseReturnItemEntity> items = purchaseReturnItemRepository.findByOwnerUserIdAndReturnIdOrderByCreatedAtAsc(ownerUserId, entity.getId());
-            for (PurchaseReturnItemEntity item : items) {
-                String key = productKey(item.getProductId(), item.getProductCode());
-                reserved.put(key, reserved.getOrDefault(key, 0.0) + safeDouble(item.getQuantity()));
-            }
+        if (returns.isEmpty()) {
+            return reserved;
+        }
+        List<Long> returnIds = new ArrayList<>(returns.size());
+        for (PurchaseReturnEntity purchaseReturn : returns) {
+            returnIds.add(purchaseReturn.getId());
+        }
+        List<PurchaseReturnItemEntity> allItems = purchaseReturnItemRepository.findAllByOwnerUserIdAndReturnIdIn(ownerUserId, returnIds);
+        for (PurchaseReturnItemEntity item : allItems) {
+            String key = productKey(item.getProductId(), item.getProductCode());
+            reserved.put(key, reserved.getOrDefault(key, 0.0) + safeDouble(item.getQuantity()));
         }
         return reserved;
     }
@@ -407,19 +415,60 @@ public class V2PurchaseReturnService {
         );
     }
 
+    private List<V2PurchaseReturnDtos.PurchaseReturnResponse> toResponses(Long ownerUserId, List<PurchaseReturnEntity> returns) {
+        if (returns.isEmpty()) {
+            return List.of();
+        }
+        List<Long> returnIds = new ArrayList<>(returns.size());
+        for (PurchaseReturnEntity purchaseReturn : returns) {
+            returnIds.add(purchaseReturn.getId());
+        }
+        List<PurchaseReturnItemEntity> allItems = purchaseReturnItemRepository.findAllByOwnerUserIdAndReturnIdIn(ownerUserId, returnIds);
+        allItems.sort(Comparator.comparing(PurchaseReturnItemEntity::getCreatedAt));
+        Map<Long, List<PurchaseReturnItemEntity>> itemsByReturnId = new HashMap<>();
+        for (PurchaseReturnItemEntity item : allItems) {
+            itemsByReturnId.computeIfAbsent(item.getReturnId(), ignored -> new ArrayList<>()).add(item);
+        }
+
+        List<PurchaseReturnRefundEntity> allRefunds = purchaseReturnRefundRepository.findAllByOwnerUserIdAndReturnIdIn(ownerUserId, returnIds);
+        allRefunds.sort(Comparator.comparing(PurchaseReturnRefundEntity::getCreatedAt));
+        Map<Long, List<PurchaseReturnRefundEntity>> refundsByReturnId = new HashMap<>();
+        for (PurchaseReturnRefundEntity refund : allRefunds) {
+            refundsByReturnId.computeIfAbsent(refund.getReturnId(), ignored -> new ArrayList<>()).add(refund);
+        }
+
+        List<V2PurchaseReturnDtos.PurchaseReturnResponse> responses = new ArrayList<>(returns.size());
+        for (PurchaseReturnEntity entity : returns) {
+            responses.add(toResponse(
+                entity,
+                itemsByReturnId.getOrDefault(entity.getId(), List.of()),
+                refundsByReturnId.getOrDefault(entity.getId(), List.of())
+            ));
+        }
+        return responses;
+    }
+
     private V2PurchaseReturnDtos.PurchaseReturnResponse toResponse(
         PurchaseReturnEntity entity,
         List<PurchaseReturnItemEntity> items,
         List<PurchaseReturnRefundEntity> refunds
     ) {
+        List<V2PurchaseReturnDtos.PurchaseReturnItemResponse> itemResponses = new ArrayList<>(items.size());
+        for (PurchaseReturnItemEntity item : items) {
+            itemResponses.add(toItemResponse(item));
+        }
+        List<V2PurchaseReturnDtos.PurchaseReturnRefundResponse> refundResponses = new ArrayList<>(refunds.size());
+        for (PurchaseReturnRefundEntity refund : refunds) {
+            refundResponses.add(toRefundResponse(refund));
+        }
         return new V2PurchaseReturnDtos.PurchaseReturnResponse(
             entity.getId(),
             entity.getReturnNo(),
             entity.getPurchaseOrderId(),
             entity.getSupplierId(),
             entity.getSupplierName(),
-            items.stream().map(this::toItemResponse).toList(),
-            refunds.stream().map(this::toRefundResponse).toList(),
+            itemResponses,
+            refundResponses,
             entity.getTotalAmount(),
             entity.getRefundAmount(),
             entity.getStatus(),

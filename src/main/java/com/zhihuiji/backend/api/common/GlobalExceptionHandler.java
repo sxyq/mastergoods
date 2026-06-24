@@ -22,10 +22,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException ex) {
-        String msg = ex.getBindingResult().getFieldErrors().stream()
-            .findFirst()
-            .map(err -> err.getField() + " " + err.getDefaultMessage())
-            .orElse("Invalid request");
+        String msg = "Invalid request";
+        for (var error : ex.getBindingResult().getFieldErrors()) {
+            msg = error.getField() + " " + error.getDefaultMessage();
+            break;
+        }
         return ResponseEntity.badRequest().body(ApiResponse.failure(ApiResponse.CODE_BAD_REQUEST, msg));
     }
 

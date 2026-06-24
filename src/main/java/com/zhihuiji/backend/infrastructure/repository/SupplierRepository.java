@@ -7,30 +7,39 @@ import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface SupplierRepository extends JpaRepository<SupplierEntity, Long> {
-    List<SupplierEntity> findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndPhoneContainingIgnoreCase(
-        Long ownerUserIdForName,
-        String nameKeyword,
-        Long ownerUserIdForPhone,
-        String phoneKeyword
-    );
-
-    List<SupplierEntity> findByOwnerUserIdAndStatus(Long ownerUserId, Integer status);
-
-    List<SupplierEntity> findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndPhoneContainingIgnoreCaseAndStatus(
-        Long ownerUserIdForName,
-        String nameKeyword,
-        Long ownerUserIdForPhone,
-        String phoneKeyword,
-        Integer status
+    @Query("""
+        SELECT s FROM SupplierEntity s
+        WHERE s.ownerUserId = :ownerUserId
+          AND (:status IS NULL OR s.status = :status)
+          AND (:groupId IS NULL OR s.groupId = :groupId)
+          AND (
+              :keyword IS NULL
+              OR :keyword = ''
+              OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(s.phone) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          )
+        ORDER BY s.updatedAt DESC
+        """)
+    List<SupplierEntity> search(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("keyword") String keyword,
+        @Param("status") Integer status,
+        @Param("groupId") Long groupId
     );
 
     List<SupplierEntity> findAllByOwnerUserIdOrderByNameAsc(Long ownerUserId, Pageable pageable);
 
     List<SupplierEntity> findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(Long ownerUserId, Double balance, Pageable pageable);
 
+    List<SupplierEntity> findAllByOwnerUserIdOrderByUpdatedAtDesc(Long ownerUserId);
+
     List<SupplierEntity> findAllByOwnerUserId(Long ownerUserId);
+
+    @Query("SELECT e FROM SupplierEntity e WHERE e.ownerUserId = :ownerUserId AND COALESCE(e.updatedAt, e.createdAt) >= :sinceTimestamp")
+    List<SupplierEntity> findChangedByOwnerUserId(@org.springframework.data.repository.query.Param("ownerUserId") Long ownerUserId, @org.springframework.data.repository.query.Param("sinceTimestamp") Long sinceTimestamp);
 
     List<SupplierEntity> findAllByOwnerUserIdAndIdIn(Long ownerUserId, Collection<Long> ids);
 

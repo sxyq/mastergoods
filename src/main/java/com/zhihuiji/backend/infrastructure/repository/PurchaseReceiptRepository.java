@@ -11,6 +11,9 @@ public interface PurchaseReceiptRepository extends JpaRepository<PurchaseReceipt
 
     List<PurchaseReceiptEntity> findByOwnerUserIdOrderByCreatedAtDesc(Long ownerUserId);
 
+    @Query("SELECT e FROM PurchaseReceiptEntity e WHERE e.ownerUserId = :ownerUserId AND COALESCE(e.updatedAt, e.createdAt) >= :sinceTimestamp ORDER BY e.createdAt DESC")
+    List<PurchaseReceiptEntity> findChangedByOwnerUserId(@Param("ownerUserId") Long ownerUserId, @Param("sinceTimestamp") Long sinceTimestamp);
+
     Optional<PurchaseReceiptEntity> findByIdAndOwnerUserId(Long id, Long ownerUserId);
 
     boolean existsByIdAndOwnerUserId(Long id, Long ownerUserId);

@@ -16,11 +16,12 @@ public final class PaginationUtils {
         }
         int safePage = page == null || page < 0 ? DEFAULT_PAGE : page;
         int safeSize = size == null || size <= 0 ? DEFAULT_SIZE : Math.min(size, MAX_SIZE);
+        int sourceSize = source.size();
         int fromIndex = safePage * safeSize;
-        if (fromIndex >= source.size()) {
+        if (fromIndex >= sourceSize) {
             return Collections.emptyList();
         }
-        int toIndex = Math.min(source.size(), fromIndex + safeSize);
+        int toIndex = Math.min(sourceSize, fromIndex + safeSize);
         return source.subList(fromIndex, toIndex);
     }
 }

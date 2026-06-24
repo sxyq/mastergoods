@@ -7,7 +7,11 @@ import com.zhihuiji.backend.domain.entity.AccountEntity;
 import com.zhihuiji.backend.domain.entity.AccountTransferEntity;
 import com.zhihuiji.backend.infrastructure.repository.AccountRepository;
 import com.zhihuiji.backend.infrastructure.repository.AccountTransferRepository;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,16 +32,20 @@ public class V2AccountTransferService {
 
     public List<V2FinanceDtos.AccountTransferResponse> list() {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return accountTransferRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(ownerUserId).stream()
-            .map(entity -> toResponse(ownerUserId, entity))
-            .toList();
+        List<AccountTransferEntity> rows = accountTransferRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
+        Map<Long, String> accountNamesById = loadAccountNamesById(ownerUserId, rows);
+        List<V2FinanceDtos.AccountTransferResponse> responses = new ArrayList<>(rows.size());
+        for (AccountTransferEntity row : rows) {
+            responses.add(toResponse(row, accountNamesById));
+        }
+        return responses;
     }
 
     public V2FinanceDtos.AccountTransferResponse get(Long id) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         AccountTransferEntity entity = accountTransferRepository.findByIdAndOwnerUserId(id, ownerUserId)
             .orElseThrow(() -> new IllegalArgumentException("转账记录不存在"));
-        return toResponse(ownerUserId, entity);
+        return toResponse(entity, loadAccountNamesById(ownerUserId, List.of(entity)));
     }
 
     @Transactional
@@ -76,7 +84,10 @@ public class V2AccountTransferService {
         accountRepository.save(fromAccount);
         accountRepository.save(toAccount);
         try {
-            return toResponse(ownerUserId, accountTransferRepository.save(entity));
+            Map<Long, String> accountNamesById = new LinkedHashMap<>(2);
+            accountNamesById.put(fromAccount.getId(), fromAccount.getName());
+            accountNamesById.put(toAccount.getId(), toAccount.getName());
+            return toResponse(accountTransferRepository.save(entity), accountNamesById);
         } catch (DataIntegrityViolationException ex) {
             throw new IllegalStateException("生成转账单号失败，请重试", ex);
         }
@@ -92,11 +103,25 @@ public class V2AccountTransferService {
         throw new IllegalStateException("生成转账单号失败，请重试");
     }
 
-    private V2FinanceDtos.AccountTransferResponse toResponse(Long ownerUserId, AccountTransferEntity entity) {
-        String fromName = accountRepository.findByIdAndOwnerUserId(entity.getFromAccountId(), ownerUserId)
-            .map(AccountEntity::getName).orElse("未知账户");
-        String toName = accountRepository.findByIdAndOwnerUserId(entity.getToAccountId(), ownerUserId)
-            .map(AccountEntity::getName).orElse("未知账户");
+    private Map<Long, String> loadAccountNamesById(Long ownerUserId, List<AccountTransferEntity> rows) {
+        if (rows.isEmpty()) {
+            return Map.of();
+        }
+        Set<Long> accountIds = new java.util.LinkedHashSet<>(rows.size() * 2);
+        for (AccountTransferEntity row : rows) {
+            accountIds.add(row.getFromAccountId());
+            accountIds.add(row.getToAccountId());
+        }
+        Map<Long, String> accountNamesById = new LinkedHashMap<>(accountIds.size());
+        for (AccountEntity account : accountRepository.findAllByOwnerUserIdAndIdIn(ownerUserId, accountIds)) {
+            accountNamesById.put(account.getId(), account.getName());
+        }
+        return accountNamesById;
+    }
+
+    private V2FinanceDtos.AccountTransferResponse toResponse(AccountTransferEntity entity, Map<Long, String> accountNamesById) {
+        String fromName = accountNamesById.getOrDefault(entity.getFromAccountId(), "未知账户");
+        String toName = accountNamesById.getOrDefault(entity.getToAccountId(), "未知账户");
         return new V2FinanceDtos.AccountTransferResponse(
             entity.getId(), entity.getTransferNo(), entity.getFromAccountId(), fromName,
             entity.getToAccountId(), toName, entity.getAmount(), entity.getFee(),

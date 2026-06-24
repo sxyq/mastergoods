@@ -4,6 +4,7 @@ import com.zhihuiji.backend.domain.entity.CustomerEntity;
 import com.zhihuiji.backend.infrastructure.repository.CustomerRepository;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CustomerService {
@@ -15,19 +16,14 @@ public class CustomerService {
         this.currentOwnerService = currentOwnerService;
     }
 
+    @Transactional(readOnly = true)
     public List<CustomerEntity> list(String keyword) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        if (keyword == null || keyword.isBlank()) {
-            return customerRepository.findAllByOwnerUserId(ownerUserId);
-        }
-        return customerRepository.findByOwnerUserIdAndNameContainingIgnoreCaseOrOwnerUserIdAndPhoneContainingIgnoreCase(
-            ownerUserId,
-            keyword,
-            ownerUserId,
-            keyword
-        );
+        String normalizedKeyword = normalizeKeyword(keyword);
+        return customerRepository.search(ownerUserId, normalizedKeyword, null, null);
     }
 
+    @Transactional(readOnly = true)
     public CustomerEntity get(Long id) {
         return customerRepository.findByIdAndOwnerUserId(id, currentOwnerService.requireCurrentOwnerUserId())
             .orElseThrow(() -> new IllegalArgumentException("客户不存在"));
@@ -35,7 +31,9 @@ public class CustomerService {
 
     public CustomerEntity create(CustomerEntity customer) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        if (customerRepository.findByOwnerUserIdAndPhone(ownerUserId, customer.getPhone()).isPresent()) {
+        String normalizedPhone = customer.getPhone() == null ? "" : customer.getPhone().trim();
+        customer.setPhone(normalizedPhone);
+        if (customerRepository.findByOwnerUserIdAndPhone(ownerUserId, normalizedPhone).isPresent()) {
             throw new IllegalArgumentException("手机号已存在");
         }
         long now = System.currentTimeMillis();
@@ -49,13 +47,17 @@ public class CustomerService {
 
     public CustomerEntity update(Long id, CustomerEntity payload) {
         CustomerEntity target = get(id);
-        customerRepository.findByOwnerUserIdAndPhone(currentOwnerService.requireCurrentOwnerUserId(), payload.getPhone())
-            .filter(existing -> !existing.getId().equals(id))
-            .ifPresent(existing -> {
-                throw new IllegalArgumentException("手机号已存在");
-            });
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        String normalizedPhone = payload.getPhone() == null ? "" : payload.getPhone().trim();
+        if (!normalizedPhone.equals(target.getPhone())) {
+            customerRepository.findByOwnerUserIdAndPhone(ownerUserId, normalizedPhone)
+                .filter(existing -> !existing.getId().equals(id))
+                .ifPresent(existing -> {
+                    throw new IllegalArgumentException("手机号已存在");
+                });
+        }
         target.setName(payload.getName());
-        target.setPhone(payload.getPhone());
+        target.setPhone(normalizedPhone);
         target.setLevel(payload.getLevel());
         target.setAddress(payload.getAddress());
         target.setNotes(payload.getNotes());
@@ -69,5 +71,13 @@ public class CustomerService {
 
     public void delete(Long id) {
         customerRepository.delete(get(id));
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

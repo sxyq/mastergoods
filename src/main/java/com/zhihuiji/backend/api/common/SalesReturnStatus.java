@@ -1,7 +1,5 @@
 package com.zhihuiji.backend.api.common;
 
-import java.util.Arrays;
-
 public enum SalesReturnStatus {
     DRAFT(0),
     CONFIRMED(1),
@@ -26,9 +24,11 @@ public enum SalesReturnStatus {
         if (status == null) {
             return null;
         }
-        return Arrays.stream(values())
-            .filter(value -> value.code == status)
-            .findFirst()
-            .orElse(null);
+        for (SalesReturnStatus value : values()) {
+            if (value.code == status) {
+                return value;
+            }
+        }
+        return null;
     }
 }

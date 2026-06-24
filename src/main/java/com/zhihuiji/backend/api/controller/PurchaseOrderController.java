@@ -31,20 +31,23 @@ public class PurchaseOrderController {
     @PostMapping
     @RequireStorePermission("purchase:write")
     public ApiResponse<PurchaseOrderDto> create(@Valid @RequestBody CreateRequest request) {
-        List<PurchaseOrderService.PurchaseItemDraft> items = request.items().stream()
-            .map(row -> new PurchaseOrderService.PurchaseItemDraft(
+        List<PurchaseOrderService.PurchaseItemDraft> items = new java.util.ArrayList<>(request.items().size());
+        for (ItemRequest row : request.items()) {
+            items.add(new PurchaseOrderService.PurchaseItemDraft(
                 row.productId(),
                 row.productCode(),
                 row.productName(),
                 row.quantity(),
                 row.unitCost()
-            ))
-            .toList();
+            ));
+        }
         return ApiResponse.success(toDto(purchaseOrderService.create(
             new PurchaseOrderService.CreatePurchaseOrderCommand(
                 request.supplierId(),
                 request.supplierName(),
                 items,
+                null,
+                null,
                 request.notes(),
                 request.status()
             )
@@ -58,9 +61,11 @@ public class PurchaseOrderController {
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "size", required = false) Integer size
     ) {
-        List<PurchaseOrderDto> payload = PaginationUtils.slice(purchaseOrderService.list(keyword, status), page, size).stream()
-            .map(order -> toDto(order, purchaseOrderService.listItems(order.getId())))
-            .toList();
+        List<PurchaseOrderEntity> rows = PaginationUtils.slice(purchaseOrderService.list(keyword, status), page, size);
+        List<PurchaseOrderDto> payload = new java.util.ArrayList<>(rows.size());
+        for (PurchaseOrderEntity order : rows) {
+            payload.add(toDto(order, purchaseOrderService.listItems(order.getId())));
+        }
         return ApiResponse.success(payload);
     }
 
@@ -74,8 +79,9 @@ public class PurchaseOrderController {
     }
 
     private PurchaseOrderDto toDto(PurchaseOrderEntity order, List<PurchaseOrderItemEntity> items) {
-        List<PurchaseOrderItemDto> itemDtos = items.stream()
-            .map(item -> new PurchaseOrderItemDto(
+        List<PurchaseOrderItemDto> itemDtos = new java.util.ArrayList<>(items.size());
+        for (PurchaseOrderItemEntity item : items) {
+            itemDtos.add(new PurchaseOrderItemDto(
                 item.getId(),
                 item.getOrderId(),
                 item.getProductCode(),
@@ -84,8 +90,8 @@ public class PurchaseOrderController {
                 item.getUnitCost(),
                 item.getAmount(),
                 item.getCreatedAt()
-            ))
-            .toList();
+            ));
+        }
         return new PurchaseOrderDto(
             order.getId(),
             order.getOrderNo(),
