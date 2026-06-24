@@ -2,12 +2,12 @@ package com.zhihuiji.backend.application.service;
 
 import com.zhihuiji.backend.domain.entity.FinanceRecordEntity;
 import com.zhihuiji.backend.infrastructure.repository.FinanceRecordRepository;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import com.zhihuiji.backend.api.common.IdGenerator;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class FinanceRecordService {
@@ -22,6 +22,7 @@ public class FinanceRecordService {
         this.currentOwnerService = currentOwnerService;
     }
 
+    @Transactional(readOnly = true)
     public List<FinanceRecordEntity> list(
         String keyword,
         Integer type,
@@ -30,23 +31,28 @@ public class FinanceRecordService {
     ) {
         return financeRecordRepository.search(
             currentOwnerService.requireCurrentOwnerUserId(),
-            keyword,
+            normalizeKeyword(keyword),
             type,
             createdAfter,
             createdBefore
         );
     }
 
+    @Transactional
     public FinanceRecordEntity create(CreateCommand command) {
-        validateCreateCommand(command);
+        if (command == null) {
+            throw new IllegalArgumentException("资金流水参数不能为空");
+        }
+        String normalizedCategory = normalizeCategory(command.category());
+        validateCreateCommand(command, normalizedCategory);
 
         long now = System.currentTimeMillis();
         FinanceRecordEntity entity = new FinanceRecordEntity();
         entity.setId(IdGenerator.nextId());
         entity.setOwnerUserId(currentOwnerService.requireCurrentOwnerUserId());
-        entity.setRecordNo(generateRecordNo(now));
+        entity.setRecordNo(generateRecordNo());
         entity.setType(command.type());
-        entity.setCategory(normalizeCategory(command.category()));
+        entity.setCategory(normalizedCategory);
         entity.setPartnerName(normalizeNullableText(command.partnerName()));
         entity.setAmount(command.amount());
         entity.setMethod(command.method() == null || command.method() <= 0 ? 1 : command.method());
@@ -58,10 +64,7 @@ public class FinanceRecordService {
         return financeRecordRepository.save(entity);
     }
 
-    private void validateCreateCommand(CreateCommand command) {
-        if (command == null) {
-            throw new IllegalArgumentException("资金流水参数不能为空");
-        }
+    private void validateCreateCommand(CreateCommand command, String normalizedCategory) {
         if (command.type() == null ||
             (command.type() != TYPE_INCOME && command.type() != TYPE_EXPENSE)) {
             throw new IllegalArgumentException("资金流水类型不合法");
@@ -69,8 +72,7 @@ public class FinanceRecordService {
         if (command.amount() == null || command.amount() <= 0.0) {
             throw new IllegalArgumentException("金额必须大于0");
         }
-        String category = normalizeCategory(command.category());
-        if (category.isEmpty()) {
+        if (normalizedCategory.isEmpty()) {
             throw new IllegalArgumentException("分类不能为空");
         }
     }
@@ -82,18 +84,7 @@ public class FinanceRecordService {
         return raw.trim();
     }
 
-    private boolean matchesKeyword(FinanceRecordEntity entity, String keyword) {
-        return safe(entity.getRecordNo()).contains(keyword)
-            || safe(entity.getCategory()).contains(keyword)
-            || safe(entity.getPartnerName()).contains(keyword)
-            || safe(entity.getNotes()).contains(keyword);
-    }
-
-    private String safe(String raw) {
-        return raw == null ? "" : raw.toLowerCase(Locale.ROOT);
-    }
-
-    private String generateRecordNo(long timestamp) {
+    private String generateRecordNo() {
         return "FR" + UUID.randomUUID().toString().replace("-", "").toUpperCase(Locale.ROOT);
     }
 
@@ -103,6 +94,14 @@ public class FinanceRecordService {
         }
         String normalized = raw.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     public record CreateCommand(

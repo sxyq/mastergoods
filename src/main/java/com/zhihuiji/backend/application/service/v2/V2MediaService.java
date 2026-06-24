@@ -6,35 +6,46 @@ import com.zhihuiji.backend.domain.entity.MediaAssetEntity;
 import com.zhihuiji.backend.domain.entity.MediaBindingEntity;
 import com.zhihuiji.backend.infrastructure.repository.MediaAssetRepository;
 import com.zhihuiji.backend.infrastructure.repository.MediaBindingRepository;
+import com.zhihuiji.backend.infrastructure.storage.MediaStorageService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class V2MediaService {
     private final MediaAssetRepository mediaAssetRepository;
     private final MediaBindingRepository mediaBindingRepository;
     private final CurrentOwnerService currentOwnerService;
+    private final MediaStorageService mediaStorageService;
 
     public V2MediaService(
         MediaAssetRepository mediaAssetRepository,
         MediaBindingRepository mediaBindingRepository,
-        CurrentOwnerService currentOwnerService
+        CurrentOwnerService currentOwnerService,
+        MediaStorageService mediaStorageService
     ) {
         this.mediaAssetRepository = mediaAssetRepository;
         this.mediaBindingRepository = mediaBindingRepository;
         this.currentOwnerService = currentOwnerService;
+        this.mediaStorageService = mediaStorageService;
     }
 
+    @Transactional(readOnly = true)
     public List<V2MediaDtos.MediaAssetResponse> listAssets() {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return mediaAssetRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(ownerUserId).stream()
-            .map(this::toAssetResponse)
-            .toList();
+        List<MediaAssetEntity> assets = mediaAssetRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
+        List<V2MediaDtos.MediaAssetResponse> responses = new java.util.ArrayList<>(assets.size());
+        for (MediaAssetEntity asset : assets) {
+            responses.add(toAssetResponse(asset));
+        }
+        return responses;
     }
 
+    @Transactional(readOnly = true)
     public V2MediaDtos.MediaAssetResponse getAsset(Long id) {
-        return toAssetResponse(getOwnedAsset(id));
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        return toAssetResponse(getOwnedAsset(id, ownerUserId));
     }
 
     @Transactional
@@ -64,28 +75,55 @@ public class V2MediaService {
     }
 
     @Transactional
+    public V2MediaDtos.MediaAssetResponse uploadFile(MultipartFile file, String assetType) throws Exception {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("文件不能为空");
+        }
+        String normalizedAssetType = normalizeRequired(assetType, "assetType 不能为空");
+        String objectKey = mediaStorageService.store(file);
+        V2MediaDtos.MediaAssetCreateRequest createRequest = new V2MediaDtos.MediaAssetCreateRequest(
+            normalizedAssetType,
+            "local",
+            "local-disk",
+            objectKey,
+            file.getOriginalFilename(),
+            file.getContentType(),
+            file.getSize(),
+            null,
+            null,
+            null,
+            null
+        );
+        return createAsset(createRequest);
+    }
+
+    @Transactional
     public void deleteAsset(Long id) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        MediaAssetEntity entity = getOwnedAsset(id);
+        MediaAssetEntity entity = getOwnedAsset(id, ownerUserId);
         mediaBindingRepository.deleteAllByOwnerUserIdAndAssetId(ownerUserId, id);
         mediaAssetRepository.delete(entity);
     }
 
+    @Transactional(readOnly = true)
     public List<V2MediaDtos.MediaBindingResponse> listBindings(String targetType, Long targetId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        return mediaBindingRepository.findAllByOwnerUserIdAndTargetTypeAndTargetIdOrderBySortOrderAscIdAsc(
-                ownerUserId,
-                normalizeRequired(targetType, "targetType 不能为空"),
-                targetId
-            ).stream()
-            .map(this::toBindingResponse)
-            .toList();
+        List<MediaBindingEntity> bindings = mediaBindingRepository.findAllByOwnerUserIdAndTargetTypeAndTargetIdOrderBySortOrderAscIdAsc(
+            ownerUserId,
+            normalizeRequired(targetType, "targetType 不能为空"),
+            targetId
+        );
+        List<V2MediaDtos.MediaBindingResponse> responses = new java.util.ArrayList<>(bindings.size());
+        for (MediaBindingEntity binding : bindings) {
+            responses.add(toBindingResponse(binding));
+        }
+        return responses;
     }
 
     @Transactional
     public V2MediaDtos.MediaBindingResponse createBinding(V2MediaDtos.MediaBindingCreateRequest request) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        MediaAssetEntity asset = getOwnedAsset(request.assetId());
+        MediaAssetEntity asset = getOwnedAsset(request.assetId(), ownerUserId);
         String targetType = normalizeRequired(request.targetType(), "targetType 不能为空");
         if (mediaBindingRepository.existsByOwnerUserIdAndAssetIdAndTargetTypeAndTargetId(ownerUserId, asset.getId(), targetType, request.targetId())) {
             throw new IllegalArgumentException("媒体绑定已存在");
@@ -107,8 +145,8 @@ public class V2MediaService {
         mediaBindingRepository.delete(entity);
     }
 
-    private MediaAssetEntity getOwnedAsset(Long id) {
-        return mediaAssetRepository.findByIdAndOwnerUserId(id, currentOwnerService.requireCurrentOwnerUserId())
+    private MediaAssetEntity getOwnedAsset(Long id, Long ownerUserId) {
+        return mediaAssetRepository.findByIdAndOwnerUserId(id, ownerUserId)
             .orElseThrow(() -> new IllegalArgumentException("媒体资源不存在"));
     }
 

@@ -127,4 +127,28 @@ public final class V2FinanceDtos {
     public record AccountListResponse(
         List<AccountResponse> items
     ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record FinanceRecordResponse(
+        Long id,
+        String recordNo,
+        Integer type,
+        String category,
+        String partnerName,
+        Double amount,
+        Integer method,
+        String notes,
+        Long createdAt,
+        Long updatedAt
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record FinanceRecordCreateRequest(
+        Integer type,
+        String category,
+        String partnerName,
+        Double amount,
+        Integer method,
+        String notes
+    ) {}
 }

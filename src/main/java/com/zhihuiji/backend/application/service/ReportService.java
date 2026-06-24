@@ -4,8 +4,8 @@ import com.zhihuiji.backend.api.common.OrderStatus;
 import com.zhihuiji.backend.api.common.PayOrderStatus;
 import com.zhihuiji.backend.api.common.PaymentType;
 import com.zhihuiji.backend.api.dto.report.ReportDto;
+import com.zhihuiji.backend.domain.entity.CustomerEntity;
 import com.zhihuiji.backend.domain.entity.InventoryAdjustmentEntity;
-import com.zhihuiji.backend.domain.entity.PayOrderEntity;
 import com.zhihuiji.backend.domain.entity.PaymentEntity;
 import com.zhihuiji.backend.domain.entity.ProductEntity;
 import com.zhihuiji.backend.domain.entity.SaleOrderEntity;
@@ -21,11 +21,11 @@ import com.zhihuiji.backend.infrastructure.repository.SaleOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
@@ -74,12 +74,19 @@ public class ReportService {
         this.currentOwnerService = currentOwnerService;
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ReportDto.SalesSummaryReportDto salesSummary(Long startAt, Long endAt) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         TimeRange range = normalizeRange(startAt, endAt);
-        double totalSales = safeDouble(saleOrderRepository.sumTotalAmountBetween(ownerUserId, range.startAt(), range.endAt()));
-        double totalPaid = safeDouble(saleOrderRepository.sumPaidAmountBetween(ownerUserId, range.startAt(), range.endAt()));
-        long orderCount = saleOrderRepository.countNonCancelledBetween(ownerUserId, range.startAt(), range.endAt());
+        Object[] salesRow = normalizeAggregateRow(saleOrderRepository.salesSummaryAggregate(
+            ownerUserId,
+            range.startAt(),
+            range.endAt(),
+            OrderStatus.CANCELLED.code()
+        ));
+        double totalSales = safeDouble(salesRow[0]);
+        double totalPaid = safeDouble(salesRow[1]);
+        long orderCount = safeLong(salesRow[2]);
         double totalRefund = safeDouble(paymentRepository.sumAbsoluteAmountBetweenByType(
             ownerUserId,
             range.startAt(),
@@ -98,25 +105,26 @@ public class ReportService {
         );
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<ReportDto.SalesTrendPointReportDto> salesTrend(Long startAt, Long endAt, String bucket) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         TimeRange range = normalizeRange(startAt, endAt);
         long bucketMillis = normalizeSalesTrendBucket(bucket);
         int bucketCount = trendBucketCount(range, bucketMillis);
-        Map<Long, Object[]> rowsByBucket = saleOrderRepository.salesTrendBuckets(
-                ownerUserId,
-                range.startAt(),
-                range.endAt(),
-                bucketMillis,
-                OrderStatus.CANCELLED.code()
-            ).stream()
-            .collect(Collectors.toMap(
-                row -> safeLong(row[0]),
-                row -> row,
-                (left, ignored) -> left
-            ));
+        Map<Long, Object[]> rowsByBucket = new HashMap<>();
+        List<Object[]> bucketRows = saleOrderRepository.salesTrendBuckets(
+            ownerUserId,
+            range.startAt(),
+            range.endAt(),
+            bucketMillis,
+            OrderStatus.CANCELLED.code()
+        );
+        for (Object[] row : bucketRows) {
+            long bucketIndex = safeLong(row[0]);
+            rowsByBucket.putIfAbsent(bucketIndex, row);
+        }
 
-        List<ReportDto.SalesTrendPointReportDto> points = new ArrayList<>();
+        List<ReportDto.SalesTrendPointReportDto> points = new ArrayList<>(bucketCount);
         for (int index = 0; index < bucketCount; index++) {
             long pointStart = range.startAt() + (bucketMillis * index);
             long pointEnd = Math.min(range.endAt(), pointStart + bucketMillis - 1L);
@@ -131,6 +139,7 @@ public class ReportService {
         return points;
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ReportDto.ProfitSummaryReportDto profitSummary(Long startAt, Long endAt) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         TimeRange range = normalizeRange(startAt, endAt);
@@ -153,6 +162,7 @@ public class ReportService {
         );
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<ReportDto.RefundRecordReportDto> refundRecords(Long startAt, Long endAt, int limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         TimeRange range = normalizeRange(startAt, endAt);
@@ -168,15 +178,16 @@ public class ReportService {
             return List.of();
         }
 
-        Set<Long> orderIds = refundPayments.stream()
-            .map(PaymentEntity::getOrderId)
-            .filter(id -> id != null && id > 0L)
-            .collect(Collectors.toSet());
+        Set<Long> orderIds = new HashSet<>(refundPayments.size());
+        for (PaymentEntity payment : refundPayments) {
+            Long orderId = payment.getOrderId();
+            if (orderId != null && orderId > 0L) {
+                orderIds.add(orderId);
+            }
+        }
         Map<Long, SaleOrderEntity> orderMap = orderIds.isEmpty()
             ? Map.of()
-            : saleOrderRepository.findAllByOwnerUserId(ownerUserId).stream()
-                .filter(order -> orderIds.contains(order.getId()))
-                .collect(Collectors.toMap(SaleOrderEntity::getId, o -> o));
+            : buildSaleOrderMap(ownerUserId, orderIds);
 
         List<ReportDto.RefundRecordReportDto> rows = new ArrayList<>();
         for (PaymentEntity payment : refundPayments) {
@@ -196,140 +207,148 @@ public class ReportService {
         return rows;
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<ReportDto.StockOutRecordReportDto> stockOutRecords(Long startAt, Long endAt, int limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         TimeRange range = normalizeRange(startAt, endAt);
         int safeLimit = normalizeLimit(limit);
-        return saleOrderItemRepository.recentStockOutRows(
-                ownerUserId,
-                range.startAt(),
-                range.endAt(),
-                OrderStatus.CANCELLED.code(),
-                PageRequest.of(0, safeLimit)
-            ).stream()
-            .map(this::toStockOutRecord)
-            .toList();
+        List<Object[]> stockOutRows = saleOrderItemRepository.recentStockOutRows(
+            ownerUserId,
+            range.startAt(),
+            range.endAt(),
+            OrderStatus.CANCELLED.code(),
+            PageRequest.of(0, safeLimit)
+        );
+        List<ReportDto.StockOutRecordReportDto> rows = new ArrayList<>(stockOutRows.size());
+        for (Object[] row : stockOutRows) {
+            rows.add(toStockOutRecord(row));
+        }
+        return rows;
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<ReportDto.TopSellingProductReportDto> topProducts(Long startAt, Long endAt, int limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         TimeRange range = normalizeRange(startAt, endAt);
         int safeLimit = normalizeLimit(limit);
-        return saleOrderItemRepository.topProducts(
-                ownerUserId,
-                range.startAt(),
-                range.endAt(),
-                OrderStatus.CANCELLED.code(),
-                PageRequest.of(0, safeLimit)
-            ).stream()
-            .map(row -> new ReportDto.TopSellingProductReportDto(
+        List<Object[]> topRows = saleOrderItemRepository.topProducts(
+            ownerUserId,
+            range.startAt(),
+            range.endAt(),
+            OrderStatus.CANCELLED.code(),
+            PageRequest.of(0, safeLimit)
+        );
+        List<ReportDto.TopSellingProductReportDto> rows = new ArrayList<>(topRows.size());
+        for (Object[] row : topRows) {
+            rows.add(new ReportDto.TopSellingProductReportDto(
                 safeLong(row[0]),
                 safeString((String) row[1], ""),
                 safeString((String) row[2], ""),
                 safeDouble(row[3]),
                 safeDouble(row[4])
-            ))
-            .limit(safeLimit)
-            .toList();
+            ));
+        }
+        return rows;
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<ReportDto.ProfitByProductReportDto> profitByProducts(Long startAt, Long endAt, int limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         TimeRange range = normalizeRange(startAt, endAt);
         int safeLimit = normalizeLimit(limit);
-        return saleOrderItemRepository.profitByProducts(
-                ownerUserId,
-                range.startAt(),
-                range.endAt(),
-                OrderStatus.CANCELLED.code(),
-                PageRequest.of(0, safeLimit)
-            ).stream()
-            .map(row -> {
-                double totalSalesAmount = safeDouble(row[3]);
-                double totalCostAmount = safeDouble(row[4]);
-                double totalProfit = totalSalesAmount - totalCostAmount;
-                double profitRate = totalSalesAmount <= 0.0 ? 0.0 : (totalProfit / totalSalesAmount) * 100.0;
-                return new ReportDto.ProfitByProductReportDto(
-                    safeLong(row[0]),
-                    safeString((String) row[1], ""),
-                    safeString((String) row[2], ""),
-                    totalSalesAmount,
-                    totalCostAmount,
-                    totalProfit,
-                    profitRate
-                );
-            })
-            .limit(safeLimit)
-            .toList();
+        List<Object[]> profitRows = saleOrderItemRepository.profitByProducts(
+            ownerUserId,
+            range.startAt(),
+            range.endAt(),
+            OrderStatus.CANCELLED.code(),
+            PageRequest.of(0, safeLimit)
+        );
+        List<ReportDto.ProfitByProductReportDto> rows = new ArrayList<>(profitRows.size());
+        for (Object[] row : profitRows) {
+            double totalSalesAmount = safeDouble(row[3]);
+            double totalCostAmount = safeDouble(row[4]);
+            double totalProfit = totalSalesAmount - totalCostAmount;
+            double profitRate = totalSalesAmount <= 0.0 ? 0.0 : (totalProfit / totalSalesAmount) * 100.0;
+            rows.add(new ReportDto.ProfitByProductReportDto(
+                safeLong(row[0]),
+                safeString((String) row[1], ""),
+                safeString((String) row[2], ""),
+                totalSalesAmount,
+                totalCostAmount,
+                totalProfit,
+                profitRate
+            ));
+        }
+        return rows;
     }
 
     public List<ReportDto.ProfitByCustomerReportDto> profitByCustomers(Long startAt, Long endAt, int limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         TimeRange range = normalizeRange(startAt, endAt);
         int safeLimit = normalizeLimit(limit);
-        return saleOrderItemRepository.profitByCustomers(
-                ownerUserId,
-                range.startAt(),
-                range.endAt(),
-                OrderStatus.CANCELLED.code(),
-                PageRequest.of(0, safeLimit)
-            ).stream()
-            .map(row -> {
-                double totalSalesAmount = safeDouble(row[2]);
-                double totalCostAmount = safeDouble(row[3]);
-                double totalProfit = totalSalesAmount - totalCostAmount;
-                double profitRate = totalSalesAmount <= 0.0 ? 0.0 : (totalProfit / totalSalesAmount) * 100.0;
-                return new ReportDto.ProfitByCustomerReportDto(
-                    row[0] == null ? null : safeLong(row[0]),
-                    safeString((String) row[1], "散客"),
-                    totalSalesAmount,
-                    totalCostAmount,
-                    totalProfit,
-                    profitRate
-                );
-            })
-            .limit(safeLimit)
-            .toList();
+        List<Object[]> profitRows = saleOrderItemRepository.profitByCustomers(
+            ownerUserId,
+            range.startAt(),
+            range.endAt(),
+            OrderStatus.CANCELLED.code(),
+            PageRequest.of(0, safeLimit)
+        );
+        List<ReportDto.ProfitByCustomerReportDto> rows = new ArrayList<>(profitRows.size());
+        for (Object[] row : profitRows) {
+            double totalSalesAmount = safeDouble(row[2]);
+            double totalCostAmount = safeDouble(row[3]);
+            double totalProfit = totalSalesAmount - totalCostAmount;
+            double profitRate = totalSalesAmount <= 0.0 ? 0.0 : (totalProfit / totalSalesAmount) * 100.0;
+            rows.add(new ReportDto.ProfitByCustomerReportDto(
+                row[0] == null ? null : safeLong(row[0]),
+                safeString((String) row[1], "散客"),
+                totalSalesAmount,
+                totalCostAmount,
+                totalProfit,
+                profitRate
+            ));
+        }
+        return rows;
     }
 
     public List<ReportDto.InventoryFlowRecordDto> inventoryFlow(Long startAt, Long endAt, int limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         TimeRange range = normalizeRange(startAt, endAt);
         int safeLimit = normalizeLimit(limit);
-        List<ReportDto.InventoryFlowRecordDto> rows = new ArrayList<>();
+        List<ReportDto.InventoryFlowRecordDto> rows = new ArrayList<>(safeLimit * 3);
 
         PageRequest page = PageRequest.of(0, safeLimit);
-        saleOrderItemRepository.recentSaleInventoryFlowRows(
+        List<Object[]> saleRows = saleOrderItemRepository.recentSaleInventoryFlowRows(
                 ownerUserId,
                 range.startAt(),
                 range.endAt(),
                 OrderStatus.CANCELLED.code(),
                 page
-            ).stream()
-            .map(row -> toSaleInventoryFlowRecord(row, INVENTORY_FLOW_OUT, false))
-            .forEach(rows::add);
-        saleOrderItemRepository.recentCancelledSaleInventoryFlowRows(
+            );
+        for (Object[] row : saleRows) {
+            rows.add(toSaleInventoryFlowRecord(row, INVENTORY_FLOW_OUT, false));
+        }
+        List<Object[]> cancelledRows = saleOrderItemRepository.recentCancelledSaleInventoryFlowRows(
                 ownerUserId,
                 range.startAt(),
                 range.endAt(),
                 OrderStatus.CANCELLED.code(),
                 page
-            ).stream()
-            .map(row -> toSaleInventoryFlowRecord(row, INVENTORY_FLOW_IN, true))
-            .forEach(rows::add);
-        inventoryAdjustmentRepository.findByOwnerUserIdAndCreatedAtBetweenOrderByCreatedAtDesc(
+            );
+        for (Object[] row : cancelledRows) {
+            rows.add(toSaleInventoryFlowRecord(row, INVENTORY_FLOW_IN, true));
+        }
+        List<InventoryAdjustmentEntity> adjustments = inventoryAdjustmentRepository.findByOwnerUserIdAndCreatedAtBetweenOrderByCreatedAtDesc(
                 ownerUserId,
                 range.startAt(),
                 range.endAt(),
                 page
-            ).stream()
-            .map(this::toAdjustmentInventoryFlowRecord)
-            .forEach(rows::add);
-
-        return rows.stream()
-            .sorted(Comparator.comparingLong(ReportDto.InventoryFlowRecordDto::flowTime).reversed())
-            .limit(safeLimit)
-            .toList();
+            );
+        for (InventoryAdjustmentEntity adjustment : adjustments) {
+            rows.add(toAdjustmentInventoryFlowRecord(adjustment));
+        }
+        rows.sort(Comparator.comparingLong(ReportDto.InventoryFlowRecordDto::flowTime).reversed());
+        return List.copyOf(rows.subList(0, Math.min(rows.size(), safeLimit)));
     }
 
     private ReportDto.StockOutRecordReportDto toStockOutRecord(Object[] row) {
@@ -399,48 +418,60 @@ public class ReportService {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         TimeRange range = normalizeRange(startAt, endAt);
         int safeLimit = normalizeLimit(limit);
-        return saleOrderRepository.customerSales(
-                ownerUserId,
-                range.startAt(),
-                range.endAt(),
-                OrderStatus.CANCELLED.code(),
-                PageRequest.of(0, safeLimit)
-            ).stream()
-            .map(row -> new ReportDto.CustomerSalesReportDto(
+        List<Object[]> customerRows = saleOrderRepository.customerSales(
+            ownerUserId,
+            range.startAt(),
+            range.endAt(),
+            OrderStatus.CANCELLED.code(),
+            PageRequest.of(0, safeLimit)
+        );
+        List<ReportDto.CustomerSalesReportDto> rows = new ArrayList<>(customerRows.size());
+        for (Object[] row : customerRows) {
+            rows.add(new ReportDto.CustomerSalesReportDto(
                 row[0] == null ? null : safeLong(row[0]),
                 safeString((String) row[1], "散客"),
                 safeInt(row[2]),
                 safeDouble(row[3])
-            ))
-            .limit(safeLimit)
-            .toList();
+            ));
+        }
+        return rows;
     }
 
     public List<ReportDto.CustomerReceivableReportDto> receivables(int limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         int safeLimit = normalizeLimit(limit);
-        return customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(ownerUserId, 0.0, PageRequest.of(0, safeLimit)).stream()
-            .map(c -> new ReportDto.CustomerReceivableReportDto(
-                safeLong(c.getId()),
-                safeString(c.getName(), ""),
-                safeString(c.getPhone(), ""),
-                safeDouble(c.getBalance())
-            ))
-            .toList();
+        List<CustomerEntity> customers = customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(
+            ownerUserId,
+            0.0,
+            PageRequest.of(0, safeLimit)
+        );
+        List<ReportDto.CustomerReceivableReportDto> rows = new ArrayList<>(customers.size());
+        for (CustomerEntity customer : customers) {
+            rows.add(new ReportDto.CustomerReceivableReportDto(
+                safeLong(customer.getId()),
+                safeString(customer.getName(), ""),
+                safeString(customer.getPhone(), ""),
+                safeDouble(customer.getBalance())
+            ));
+        }
+        return rows;
     }
 
     public List<ReportDto.LowStockProductReportDto> lowStockProducts(int limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         int safeLimit = normalizeLimit(limit);
-        return productRepository.findLowStockProducts(ownerUserId, PageRequest.of(0, safeLimit)).stream()
-            .map(p -> new ReportDto.LowStockProductReportDto(
-                safeLong(p.getId()),
-                safeString(p.getCode(), ""),
-                safeString(p.getName(), ""),
-                safeDouble(p.getStock()),
-                safeDouble(p.getSafeStock())
-            ))
-            .toList();
+        List<ProductEntity> products = productRepository.findLowStockProducts(ownerUserId, PageRequest.of(0, safeLimit));
+        List<ReportDto.LowStockProductReportDto> rows = new ArrayList<>(products.size());
+        for (ProductEntity product : products) {
+            rows.add(new ReportDto.LowStockProductReportDto(
+                safeLong(product.getId()),
+                safeString(product.getCode(), ""),
+                safeString(product.getName(), ""),
+                safeDouble(product.getStock()),
+                safeDouble(product.getSafeStock())
+            ));
+        }
+        return rows;
     }
 
     public ReportDto.ReconciliationSummaryReportDto reconciliationSummary(Long startAt, Long endAt) {
@@ -499,52 +530,6 @@ public class ReportService {
         );
     }
 
-    private List<SaleOrderItemEntity> collectOrderItems(Long ownerUserId, List<SaleOrderEntity> orders) {
-        if (orders.isEmpty()) {
-            return List.of();
-        }
-        Set<Long> seenOrderIds = new HashSet<>();
-        for (SaleOrderEntity order : orders) {
-            long orderId = safeLong(order.getId());
-            if (orderId <= 0L || seenOrderIds.contains(orderId)) {
-                continue;
-            }
-            seenOrderIds.add(orderId);
-        }
-        if (seenOrderIds.isEmpty()) {
-            return List.of();
-        }
-        return saleOrderItemRepository.findByOwnerUserIdAndOrderIdIn(ownerUserId, seenOrderIds);
-    }
-
-    private Map<Long, List<SaleOrderItemEntity>> groupItemsByOrderId(List<SaleOrderItemEntity> items) {
-        if (items.isEmpty()) {
-            return Map.of();
-        }
-        return items.stream().collect(Collectors.groupingBy(item -> safeLong(item.getOrderId())));
-    }
-
-    private boolean isNonCancelledOrder(SaleOrderEntity order) {
-        return order.getStatus() == null || order.getStatus() != OrderStatus.CANCELLED.code();
-    }
-
-    private boolean isCancelledOrder(SaleOrderEntity order) {
-        return order.getStatus() != null && order.getStatus() == OrderStatus.CANCELLED.code();
-    }
-
-    private boolean isRefundPayment(PaymentEntity payment) {
-        return (payment.getType() != null && payment.getType() == PaymentType.REFUND.code())
-            || safeDouble(payment.getAmount()) < 0.0;
-    }
-
-    private boolean isReceivePayment(PaymentEntity payment) {
-        return !isRefundPayment(payment) && safeDouble(payment.getAmount()) > 0.0;
-    }
-
-    private boolean isCompletedPayOrder(PayOrderEntity payOrder) {
-        return payOrder.getStatus() != null && payOrder.getStatus() == PayOrderStatus.PAID.code();
-    }
-
     private int normalizeLimit(int limit) {
         if (limit <= 0) {
             return 10;
@@ -571,6 +556,15 @@ public class ReportService {
         return new Object[] {0.0, 0.0, 0L};
     }
 
+    private Map<Long, SaleOrderEntity> buildSaleOrderMap(Long ownerUserId, Set<Long> orderIds) {
+        List<SaleOrderEntity> orders = saleOrderRepository.findAllByOwnerUserIdAndIdIn(ownerUserId, orderIds);
+        Map<Long, SaleOrderEntity> orderMap = new HashMap<>(orders.size());
+        for (SaleOrderEntity order : orders) {
+            orderMap.put(order.getId(), order);
+        }
+        return orderMap;
+    }
+
     private long normalizeSalesTrendBucket(String bucket) {
         if ("hour6".equalsIgnoreCase(bucket) || "6h".equalsIgnoreCase(bucket)) {
             return SIX_HOUR_BUCKET_MILLIS;
@@ -582,10 +576,6 @@ public class ReportService {
         long duration = Math.max(0L, range.endAt() - range.startAt());
         long count = (duration / bucketMillis) + 1L;
         return (int) Math.max(1L, Math.min(count, MAX_TREND_BUCKETS));
-    }
-
-    private boolean between(long value, long startAt, long endAt) {
-        return value >= startAt && value <= endAt;
     }
 
     private static double safeDouble(Object value) {

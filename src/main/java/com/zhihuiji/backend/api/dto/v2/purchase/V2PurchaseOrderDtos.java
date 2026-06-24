@@ -17,6 +17,8 @@ public final class V2PurchaseOrderDtos {
         Double totalAmount,
         Double paidAmount,
         Double receivedAmount,
+        Integer settlementMethod,
+        Long warehouseId,
         String notes,
         Integer status,
         Long createdAt,
@@ -41,6 +43,8 @@ public final class V2PurchaseOrderDtos {
         Long supplierId,
         String supplierName,
         List<CreateItemRequest> items,
+        Integer settlementMethod,
+        Long warehouseId,
         String notes,
         Integer status
     ) {}

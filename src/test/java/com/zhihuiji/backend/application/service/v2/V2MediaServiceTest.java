@@ -3,6 +3,7 @@ package com.zhihuiji.backend.application.service.v2;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -12,13 +13,16 @@ import com.zhihuiji.backend.domain.entity.MediaAssetEntity;
 import com.zhihuiji.backend.domain.entity.MediaBindingEntity;
 import com.zhihuiji.backend.infrastructure.repository.MediaAssetRepository;
 import com.zhihuiji.backend.infrastructure.repository.MediaBindingRepository;
+import com.zhihuiji.backend.infrastructure.storage.MediaStorageService;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+import org.springframework.web.multipart.MultipartFile;
 
 class V2MediaServiceTest {
     @Mock
@@ -27,13 +31,15 @@ class V2MediaServiceTest {
     private MediaBindingRepository mediaBindingRepository;
     @Mock
     private CurrentOwnerService currentOwnerService;
+    @Mock
+    private MediaStorageService mediaStorageService;
 
     private V2MediaService service;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        service = new V2MediaService(mediaAssetRepository, mediaBindingRepository, currentOwnerService);
+        service = new V2MediaService(mediaAssetRepository, mediaBindingRepository, currentOwnerService, mediaStorageService);
         when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
         when(mediaAssetRepository.save(any(MediaAssetEntity.class))).thenAnswer(invocation -> {
             MediaAssetEntity entity = invocation.getArgument(0);
@@ -119,6 +125,66 @@ class V2MediaServiceTest {
         verify(mediaAssetRepository).save(captor.capture());
         assertEquals(1L, captor.getValue().getOwnerUserId());
         assertEquals("media/new.png", captor.getValue().getObjectKey());
+    }
+
+    @Test
+    void uploadFileStoresAndRegistersMetadata() throws Exception {
+        MultipartFile file = Mockito.mock(MultipartFile.class);
+        when(file.isEmpty()).thenReturn(false);
+        when(file.getOriginalFilename()).thenReturn("photo.png");
+        when(file.getContentType()).thenReturn("image/png");
+        when(file.getSize()).thenReturn(1024L);
+        when(mediaStorageService.store(file)).thenReturn("abc123def456.png");
+        when(mediaAssetRepository.existsByOwnerUserIdAndObjectKey(1L, "abc123def456.png")).thenReturn(false);
+
+        V2MediaDtos.MediaAssetResponse response = service.uploadFile(file, "product_image");
+
+        assertEquals("abc123def456.png", response.objectKey());
+        assertEquals("local", response.storageProvider());
+        assertEquals("local-disk", response.bucketName());
+        assertEquals("product_image", response.assetType());
+        assertEquals("photo.png", response.originalFileName());
+        assertEquals("image/png", response.mimeType());
+        assertEquals(1024L, response.sizeBytes());
+
+        verify(mediaStorageService).store(file);
+        ArgumentCaptor<MediaAssetEntity> captor = ArgumentCaptor.forClass(MediaAssetEntity.class);
+        verify(mediaAssetRepository).save(captor.capture());
+        MediaAssetEntity saved = captor.getValue();
+        assertEquals(1L, saved.getOwnerUserId());
+        assertEquals("abc123def456.png", saved.getObjectKey());
+        assertEquals("local", saved.getStorageProvider());
+        assertEquals("local-disk", saved.getBucketName());
+        assertEquals("product_image", saved.getAssetType());
+        assertEquals("photo.png", saved.getOriginalFileName());
+        assertEquals("image/png", saved.getMimeType());
+        assertEquals(1024L, saved.getSizeBytes());
+    }
+
+    @Test
+    void uploadFileRejectsEmptyFile() {
+        MultipartFile file = Mockito.mock(MultipartFile.class);
+        when(file.isEmpty()).thenReturn(true);
+
+        IllegalArgumentException error = assertThrows(
+            IllegalArgumentException.class,
+            () -> service.uploadFile(file, "product_image")
+        );
+        assertEquals("文件不能为空", error.getMessage());
+    }
+
+    @Test
+    void uploadFileRejectsBlankAssetTypeBeforeStoring() throws Exception {
+        MultipartFile file = Mockito.mock(MultipartFile.class);
+        when(file.isEmpty()).thenReturn(false);
+
+        IllegalArgumentException error = assertThrows(
+            IllegalArgumentException.class,
+            () -> service.uploadFile(file, "   ")
+        );
+
+        assertEquals("assetType 不能为空", error.getMessage());
+        verify(mediaStorageService, never()).store(any());
     }
 
     @Test

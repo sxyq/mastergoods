@@ -32,6 +32,12 @@ public class PurchaseOrderEntity {
     @Column(name = "received_amount", nullable = false)
     private Double receivedAmount;
 
+    @Column(name = "settlement_method")
+    private Integer settlementMethod;
+
+    @Column(name = "warehouse_id")
+    private Long warehouseId;
+
     @Column(length = 255)
     private String notes;
 
@@ -112,6 +118,22 @@ public class PurchaseOrderEntity {
 
     public void setReceivedAmount(Double receivedAmount) {
         this.receivedAmount = receivedAmount;
+    }
+
+    public Integer getSettlementMethod() {
+        return settlementMethod;
+    }
+
+    public void setSettlementMethod(Integer settlementMethod) {
+        this.settlementMethod = settlementMethod;
+    }
+
+    public Long getWarehouseId() {
+        return warehouseId;
+    }
+
+    public void setWarehouseId(Long warehouseId) {
+        this.warehouseId = warehouseId;
     }
 
     public String getNotes() {

@@ -1,14 +1,15 @@
-package com.zhihuiji.backend.api.controller;
+package com.zhihuiji.backend.api.controller.v2;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.common.ParseUtils;
 import com.zhihuiji.backend.api.common.PaginationUtils;
-import com.zhihuiji.backend.api.dto.FinanceRecordDto;
+import com.zhihuiji.backend.api.dto.v2.finance.V2FinanceDtos;
 import com.zhihuiji.backend.application.service.FinanceRecordService;
 import com.zhihuiji.backend.domain.entity.FinanceRecordEntity;
 import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
-import java.util.List;
 import jakarta.validation.Valid;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -17,17 +18,17 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/v1/finance-records")
+@RequestMapping("/v2/finance-records")
 @RequireStorePermission("finance:view")
-public class FinanceRecordController {
+public class V2FinanceRecordController {
     private final FinanceRecordService financeRecordService;
 
-    public FinanceRecordController(FinanceRecordService financeRecordService) {
+    public V2FinanceRecordController(FinanceRecordService financeRecordService) {
         this.financeRecordService = financeRecordService;
     }
 
     @GetMapping
-    public ApiResponse<List<FinanceRecordDto>> list(
+    public ApiResponse<List<V2FinanceDtos.FinanceRecordResponse>> list(
         @RequestParam(value = "keyword", required = false) String keyword,
         @RequestParam(value = "type", required = false) Integer type,
         @RequestParam(value = "created_after", required = false) String createdAfter,
@@ -40,16 +41,18 @@ public class FinanceRecordController {
             page,
             size
         );
-        List<FinanceRecordDto> payload = new java.util.ArrayList<>(rows.size());
+        List<V2FinanceDtos.FinanceRecordResponse> payload = new ArrayList<>(rows.size());
         for (FinanceRecordEntity row : rows) {
-            payload.add(toDto(row));
+            payload.add(toResponse(row));
         }
         return ApiResponse.success(payload);
     }
 
     @PostMapping
     @RequireStorePermission("finance:write")
-    public ApiResponse<FinanceRecordDto> create(@Valid @RequestBody CreateRequest request) {
+    public ApiResponse<V2FinanceDtos.FinanceRecordResponse> create(
+        @Valid @RequestBody V2FinanceDtos.FinanceRecordCreateRequest request
+    ) {
         FinanceRecordEntity created = financeRecordService.create(
             new FinanceRecordService.CreateCommand(
                 request.type(),
@@ -60,11 +63,11 @@ public class FinanceRecordController {
                 request.notes()
             )
         );
-        return ApiResponse.success(toDto(created));
+        return ApiResponse.success(toResponse(created));
     }
 
-    private FinanceRecordDto toDto(FinanceRecordEntity entity) {
-        return new FinanceRecordDto(
+    private V2FinanceDtos.FinanceRecordResponse toResponse(FinanceRecordEntity entity) {
+        return new V2FinanceDtos.FinanceRecordResponse(
             entity.getId(),
             entity.getRecordNo(),
             entity.getType(),
@@ -77,13 +80,4 @@ public class FinanceRecordController {
             entity.getUpdatedAt()
         );
     }
-
-    public record CreateRequest(
-        Integer type,
-        String category,
-        String partnerName,
-        Double amount,
-        Integer method,
-        String notes
-    ) {}
 }

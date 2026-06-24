@@ -6,6 +6,7 @@ import com.zhihuiji.backend.application.service.v2.V2MediaService;
 import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/v2/media")
@@ -39,6 +41,15 @@ public class V2MediaController {
     @RequireStorePermission(anyOf = {"archives:write", "sales:write", "purchase:write", "finance:write", "inventory:write", "agent:write"})
     public ApiResponse<V2MediaDtos.MediaAssetResponse> createAsset(@Valid @RequestBody V2MediaDtos.MediaAssetCreateRequest request) {
         return ApiResponse.success(v2MediaService.createAsset(request));
+    }
+
+    @PostMapping(value = "/assets/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @RequireStorePermission(anyOf = {"archives:write", "sales:write", "purchase:write", "finance:write", "inventory:write", "agent:write"})
+    public ApiResponse<V2MediaDtos.MediaAssetResponse> uploadAsset(
+        @RequestParam("file") MultipartFile file,
+        @RequestParam(value = "asset_type", defaultValue = "product_image") String assetType
+    ) throws Exception {
+        return ApiResponse.success(v2MediaService.uploadFile(file, assetType));
     }
 
     @DeleteMapping("/assets/{id}")

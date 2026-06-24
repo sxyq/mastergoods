@@ -11,6 +11,7 @@ import com.zhihuiji.backend.api.common.PayOrderStatus;
 import com.zhihuiji.backend.api.common.PaymentType;
 import com.zhihuiji.backend.api.dto.report.ReportDto;
 import com.zhihuiji.backend.domain.entity.InventoryAdjustmentEntity;
+import com.zhihuiji.backend.domain.entity.PaymentEntity;
 import com.zhihuiji.backend.domain.entity.SaleOrderEntity;
 import com.zhihuiji.backend.domain.entity.SaleOrderItemEntity;
 import com.zhihuiji.backend.infrastructure.repository.CustomerRepository;
@@ -93,6 +94,34 @@ class ReportServiceTest {
     }
 
     @Test
+    void salesSummaryUsesSingleSalesAggregateQuery() {
+        when(saleOrderRepository.salesSummaryAggregate(
+            1L,
+            0L,
+            2_000L,
+            OrderStatus.CANCELLED.code()
+        )).thenReturn(new Object[] {150.0, 120.0, 2L});
+        when(paymentRepository.sumAbsoluteAmountBetweenByType(
+            1L,
+            0L,
+            2_000L,
+            PaymentType.REFUND.code()
+        )).thenReturn(20.0);
+
+        ReportDto.SalesSummaryReportDto result = reportService.salesSummary(0L, 2_000L);
+
+        assertEquals(150.0, result.totalSalesAmount());
+        assertEquals(120.0, result.totalPaidAmount());
+        assertEquals(20.0, result.totalRefundAmount());
+        assertEquals(30.0, result.totalUnpaidAmount());
+        assertEquals(2, result.totalOrderCount());
+        verify(saleOrderRepository).salesSummaryAggregate(1L, 0L, 2_000L, OrderStatus.CANCELLED.code());
+        verify(saleOrderRepository, never()).sumTotalAmountBetween(1L, 0L, 2_000L);
+        verify(saleOrderRepository, never()).sumPaidAmountBetween(1L, 0L, 2_000L);
+        verify(saleOrderRepository, never()).countNonCancelledBetween(1L, 0L, 2_000L);
+    }
+
+    @Test
     void reconciliationSummaryIncludesPartnerCountsFromDatabaseAggregates() {
         when(customerRepository.sumPositiveBalance(1L)).thenReturn(300.0);
         when(supplierRepository.sumPositiveBalance(1L)).thenReturn(120.0);
@@ -159,6 +188,32 @@ class ReportServiceTest {
         );
         verify(saleOrderRepository, never()).findByOwnerUserIdAndCreatedAtBetween(1L, 0L, 2_000L);
         verify(saleOrderItemRepository, never()).findByOwnerUserIdAndOrderIdIn(1L, Set.of(10L));
+    }
+
+    @Test
+    void refundRecordsLoadsOnlyReferencedOrders() {
+        PaymentEntity payment = refundPayment(100L, 10L, -25.0, 1_500L);
+        PaymentEntity guestPayment = refundPayment(101L, null, -5.0, 1_600L);
+        SaleOrderEntity order = saleOrder(10L, 1_000L, 1_100L, OrderStatus.COMPLETED.code());
+        when(paymentRepository.findByOwnerUserIdAndTypeAndCreatedAtBetweenOrderByCreatedAtDesc(
+            1L,
+            PaymentType.REFUND.code(),
+            0L,
+            2_000L,
+            PageRequest.of(0, 5)
+        )).thenReturn(List.of(payment, guestPayment));
+        when(saleOrderRepository.findAllByOwnerUserIdAndIdIn(1L, Set.of(10L))).thenReturn(List.of(order));
+
+        List<ReportDto.RefundRecordReportDto> result = reportService.refundRecords(0L, 2_000L, 5);
+
+        assertEquals(2, result.size());
+        assertEquals(10L, result.get(0).orderId());
+        assertEquals("SO-10", result.get(0).orderNo());
+        assertEquals(25.0, result.get(0).refundAmount());
+        assertEquals(0L, result.get(1).orderId());
+        assertEquals("-", result.get(1).orderNo());
+        verify(saleOrderRepository).findAllByOwnerUserIdAndIdIn(1L, Set.of(10L));
+        verify(saleOrderRepository, never()).findAllByOwnerUserId(1L);
     }
 
     @Test
@@ -296,6 +351,19 @@ class ReportServiceTest {
         entity.setQuantity(quantity);
         entity.setUnitPrice(amount / quantity);
         entity.setAmount(amount);
+        entity.setCreatedAt(createdAt);
+        return entity;
+    }
+
+    private static PaymentEntity refundPayment(Long id, Long orderId, Double amount, Long createdAt) {
+        PaymentEntity entity = new PaymentEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setOrderId(orderId);
+        entity.setAmount(amount);
+        entity.setMethod(1);
+        entity.setReferenceNo("R-" + id);
+        entity.setType(PaymentType.REFUND.code());
         entity.setCreatedAt(createdAt);
         return entity;
     }
