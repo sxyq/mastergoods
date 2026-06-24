@@ -9,10 +9,6 @@ spring:
       ddl-auto: update
   flyway:
     enabled: false
-  data:
-    redis:
-      host: localhost
-      port: 6379
 
 agent:
   llm:
@@ -31,3 +27,8 @@ agent:
 zhihuiji:
   demo:
     auto-seed: ${ZHIHUIJI_DEMO_AUTO_SEED:false}
+
+media:
+  storage:
+    local:
+      base-path: ${MEDIA_STORAGE_PATH:./data/media}

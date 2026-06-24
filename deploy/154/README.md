@@ -4,7 +4,7 @@ This directory contains the Docker Compose deployment for the backend on `154.21
 
 ## Layout
 
-- `docker-compose.yml`: PostgreSQL, Redis, and Spring Boot backend
+- `docker-compose.yml`: PostgreSQL and Spring Boot backend
 - `.env.example`: environment variable template
 
 ## Server-side usage

@@ -54,7 +54,6 @@ curl http://localhost:18080/v1/sync/health
 
 - JDK 21
 - PostgreSQL 15+
-- Redis 7+
 
 ```bash
 ./gradlew bootRun

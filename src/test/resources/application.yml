@@ -9,8 +9,4 @@ spring:
       ddl-auto: create-drop
   flyway:
     enabled: false
-  data:
-    redis:
-      host: localhost
-      port: 6379
 

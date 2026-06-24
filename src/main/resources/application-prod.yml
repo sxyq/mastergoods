@@ -35,7 +35,7 @@ logging:
     com.zhihuiji: INFO
 
 cors:
-  origin-patterns: ${CORS_ORIGIN_PATTERS:https://zhihuiji.com,https://*.zhihuiji.com}
+  origin-patterns: ${CORS_ORIGIN_PATTERNS:https://zhihuiji.com,https://*.zhihuiji.com}
 
 auth:
   invite-code: ${AUTH_INVITE_CODE:}

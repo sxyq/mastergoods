@@ -15,19 +15,6 @@ services:
       timeout: 5s
       retries: 10
 
-  redis:
-    image: m.daocloud.io/docker.io/library/redis:7
-    container_name: zhihuiji117-redis
-    restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
   backend:
     image: zhihuiji117-backend-local
     container_name: zhihuiji117-backend
@@ -35,15 +22,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     environment:
       SERVER_PORT: 18080
       DB_URL: jdbc:postgresql://postgres:5432/zhihuiji
       DB_USER: zhihuiji
       DB_PASSWORD: zhihuiji
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
       AUTH_INVITE_CODE: ${AUTH_INVITE_CODE:-021218}
       AGENT_LLM_ENABLED: ${AGENT_LLM_ENABLED:-false}
       AGENT_LLM_BASE_URL: ${AGENT_LLM_BASE_URL:-}
@@ -56,4 +39,3 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:

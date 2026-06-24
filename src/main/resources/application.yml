@@ -23,10 +23,6 @@ spring:
     property-naming-strategy: SNAKE_CASE
     deserialization:
       fail-on-unknown-properties: false
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
 
 logging:
   level:
@@ -35,6 +31,11 @@ logging:
 
 auth:
   invite-code: ${AUTH_INVITE_CODE:}
+
+media:
+  storage:
+    local:
+      base-path: ${MEDIA_STORAGE_PATH:./data/media}
 
 agent:
   llm:
