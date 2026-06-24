@@ -160,7 +160,7 @@ interface ZhihuijiApi {
     @PUT("v1/pay-orders/{id}/status")
     suspend fun updatePayOrderStatus(@Path("id") id: Long, @Body body: StatusRequest): ApiResponse<PayOrderDto>
 
-    @GET("v1/finance-records")
+    @GET("v2/finance-records")
     suspend fun financeRecords(
         @Query("keyword") keyword: String? = null,
         @Query("type") type: Int? = null,
@@ -168,53 +168,53 @@ interface ZhihuijiApi {
         @Query("created_before") createdBefore: String? = null,
     ): ApiResponse<List<FinanceRecordDto>>
 
-    @POST("v1/finance-records")
+    @POST("v2/finance-records")
     suspend fun createFinanceRecord(@Body body: CreateFinanceRecordRequest): ApiResponse<FinanceRecordDto>
 
-    @GET("v1/reports/sales-summary")
+    @GET("v2/reports/sales-summary")
     suspend fun salesSummary(@Query("start_at") startAt: Long, @Query("end_at") endAt: Long): ApiResponse<SalesSummaryReportDto>
 
-    @GET("v1/reports/sales-trend")
+    @GET("v2/reports/sales-trend")
     suspend fun salesTrend(
         @Query("start_at") startAt: Long,
         @Query("end_at") endAt: Long,
         @Query("bucket") bucket: String = "day",
     ): ApiResponse<List<SalesTrendPointReportDto>>
 
-    @GET("v1/reports/profit-summary")
+    @GET("v2/reports/profit-summary")
     suspend fun profitSummary(@Query("start_at") startAt: Long, @Query("end_at") endAt: Long): ApiResponse<ProfitSummaryReportDto>
 
-    @GET("v1/reports/refund-records")
+    @GET("v2/reports/refund-records")
     suspend fun refundRecords(@Query("start_at") startAt: Long, @Query("end_at") endAt: Long, @Query("limit") limit: Int = 10): ApiResponse<List<RefundRecordReportDto>>
 
-    @GET("v1/reports/stock-out-records")
+    @GET("v2/reports/stock-out-records")
     suspend fun stockOutRecords(@Query("start_at") startAt: Long, @Query("end_at") endAt: Long, @Query("limit") limit: Int = 10): ApiResponse<List<StockOutRecordReportDto>>
 
-    @GET("v1/reports/top-products")
+    @GET("v2/reports/top-products")
     suspend fun topProducts(@Query("start_at") startAt: Long, @Query("end_at") endAt: Long, @Query("limit") limit: Int = 10): ApiResponse<List<TopSellingProductReportDto>>
 
-    @GET("v1/reports/profit-by-products")
+    @GET("v2/reports/profit-by-products")
     suspend fun profitByProducts(@Query("start_at") startAt: Long, @Query("end_at") endAt: Long, @Query("limit") limit: Int = 10): ApiResponse<List<ProfitByProductReportDto>>
 
-    @GET("v1/reports/profit-by-customers")
+    @GET("v2/reports/profit-by-customers")
     suspend fun profitByCustomers(@Query("start_at") startAt: Long, @Query("end_at") endAt: Long, @Query("limit") limit: Int = 10): ApiResponse<List<ProfitByCustomerReportDto>>
 
-    @GET("v1/reports/inventory-flow")
+    @GET("v2/reports/inventory-flow")
     suspend fun inventoryFlow(@Query("start_at") startAt: Long, @Query("end_at") endAt: Long, @Query("limit") limit: Int = 10): ApiResponse<List<InventoryFlowRecordDto>>
 
-    @GET("v1/reports/customer-sales")
+    @GET("v2/reports/customer-sales")
     suspend fun customerSales(@Query("start_at") startAt: Long, @Query("end_at") endAt: Long, @Query("limit") limit: Int = 10): ApiResponse<List<CustomerSalesReportDto>>
 
-    @GET("v1/reports/top-receivable-customers")
+    @GET("v2/reports/top-receivable-customers")
     suspend fun topReceivableCustomers(@Query("limit") limit: Int = 10): ApiResponse<List<CustomerReceivableReportDto>>
 
-    @GET("v1/reports/low-stock-products")
+    @GET("v2/reports/low-stock-products")
     suspend fun lowStockProducts(@Query("limit") limit: Int = 10): ApiResponse<List<LowStockProductReportDto>>
 
-    @GET("v1/reports/reconciliation-summary")
+    @GET("v2/reports/reconciliation-summary")
     suspend fun reconciliationSummary(@Query("start_at") startAt: Long, @Query("end_at") endAt: Long): ApiResponse<ReconciliationSummaryReportDto>
 
-    @GET("v1/reports/cashflow-summary")
+    @GET("v2/reports/cashflow-summary")
     suspend fun cashflowSummary(@Query("start_at") startAt: Long, @Query("end_at") endAt: Long): ApiResponse<CashflowSummaryReportDto>
 
     @GET("v1/sync/health")

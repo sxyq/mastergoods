@@ -4,8 +4,12 @@ import com.zhihuiji.core.model.v2.agent.AgentStreamEvent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.job
@@ -21,6 +25,18 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.random.Random
+
+/**
+ * SSE 连接重连状态。
+ */
+data class RetryState(
+    val isRetrying: Boolean = false,
+    val attempt: Int = 0,
+    val maxAttempts: Int = 3,
+    val nextRetryInMs: Long = 0,
+    val lastError: String? = null,
+)
 
 /**
  * Agent SSE 流式客户端。
@@ -47,13 +63,20 @@ class AgentSseClient(
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
+    private val _retryState = MutableStateFlow(RetryState())
+    val retryState: StateFlow<RetryState> = _retryState.asStateFlow()
+
     /**
      * 发起流式聊天请求，返回事件流。
+     *
+     * 连接建立阶段（HTTP 请求）会在 [IOException] 时按指数退避重试；
+     * 一旦开始读取响应体并发射事件，则不再重试（避免对话状态不一致）。
      *
      * @param requestBodyJson AgentChatRequest 的 JSON 字符串
      */
     fun chatStream(requestBodyJson: String): Flow<AgentStreamEvent> = flow {
         val url = NetworkConfig.endpointUrl(baseUrlProvider(), "v2/agent/chat/stream")
+        val coroutineContext = currentCoroutineContext()
 
         val request = Request.Builder()
             .url(url)
@@ -63,22 +86,26 @@ class AgentSseClient(
             .header("Connection", "keep-alive")
             .build()
 
-        val call = callFactory(streamingOkHttpClient, request)
         try {
-            currentCoroutineContext().job.invokeOnCompletion { cause ->
-                if (cause != null && !call.isCanceled()) {
-                    call.cancel()
+            val response = retryWithBackoff {
+                val call = callFactory(streamingOkHttpClient, request)
+                coroutineContext.job.invokeOnCompletion { cause ->
+                    if (cause != null && !call.isCanceled()) {
+                        call.cancel()
+                    }
                 }
+                call.executeCancellable()
             }
-            call.executeCancellable().use { response ->
-                if (!response.isSuccessful) {
+
+            response.use { resp ->
+                if (!resp.isSuccessful) {
                     throw NetworkException(
-                        response.code,
-                        httpErrorMessage(response.code, "SSE 连接失败: ${response.code} ${response.message}")
+                        resp.code,
+                        httpErrorMessage(resp.code, "SSE 连接失败: ${resp.code} ${resp.message}")
                     )
                 }
 
-                val body = response.body
+                val body = resp.body
                     ?: throw NetworkException(-1, "SSE 响应体为空")
 
                 val source = body.source()
@@ -94,7 +121,7 @@ class AgentSseClient(
                 }
 
                 while (!source.exhausted()) {
-                    currentCoroutineContext().ensureActive()
+                    coroutineContext.ensureActive()
                     val line = source.readUtf8Line() ?: break
 
                     // 标准 SSE 以空行结束一个事件；后端当前单行 data 也兼容这个路径。
@@ -126,9 +153,41 @@ class AgentSseClient(
             }
         } catch (e: IOException) {
             currentCoroutineContext().ensureActive()
+            _retryState.value = RetryState()
             throw NetworkException(-1, agentSseNetworkErrorMessage(e))
         }
     }.flowOn(streamDispatcher)
+
+    private suspend fun <T> retryWithBackoff(
+        maxRetries: Int = 3,
+        initialDelayMs: Long = 1000L,
+        maxDelayMs: Long = 10000L,
+        block: suspend () -> T,
+    ): T {
+        var lastException: Exception? = null
+        for (attempt in 1..maxRetries) {
+            try {
+                val result = block()
+                _retryState.value = RetryState()
+                return result
+            } catch (e: IOException) {
+                lastException = e
+                if (attempt == maxRetries) break
+                currentCoroutineContext().ensureActive()
+                val delayMs = minOf(maxDelayMs, initialDelayMs * (1L shl (attempt - 1))) +
+                    Random.nextLong(0, 500)
+                _retryState.value = RetryState(
+                    isRetrying = true,
+                    attempt = attempt,
+                    maxAttempts = maxRetries,
+                    nextRetryInMs = delayMs,
+                    lastError = e.message,
+                )
+                delay(delayMs)
+            }
+        }
+        throw lastException ?: IOException("Retry exhausted without exception")
+    }
 
     private fun parseEvent(jsonLine: String): AgentStreamEvent? {
         return try {

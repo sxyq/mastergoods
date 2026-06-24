@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,6 +49,18 @@ import com.zhihuiji.feature.products.ProductListScreen
 import com.zhihuiji.feature.customers.CustomerListScreen
 import com.zhihuiji.feature.suppliers.SupplierListScreen
 
+private enum class ArchiveTabKey {
+    PRODUCTS,
+    CUSTOMERS,
+    SUPPLIERS,
+}
+
+private data class ArchiveTabSpec(
+    val key: ArchiveTabKey,
+    val label: String,
+    val searchHint: String,
+)
+
 @Composable
 fun ArchivesScreen(
     accessState: MainAccessUiState,
@@ -60,15 +73,17 @@ fun ArchivesScreen(
     onNavigateToSupplierDetail: (Long) -> Unit,
     onNavigateToSupplierCreate: () -> Unit,
 ) {
-    val tabs = buildList {
-        if (accessState.hasPermission("archives:view")) {
-            add("商品")
-        }
-        if (accessState.hasPermission("sales:view")) {
-            add("客户")
-        }
-        if (accessState.hasPermission("purchase:view")) {
-            add("供应商")
+    val tabs = remember(accessState.isResolved, accessState.permissions) {
+        buildList {
+            if (accessState.hasPermission("archives:view")) {
+                add(ArchiveTabSpec(ArchiveTabKey.PRODUCTS, "商品", "搜索商品名称、编码..."))
+            }
+            if (accessState.hasPermission("sales:view")) {
+                add(ArchiveTabSpec(ArchiveTabKey.CUSTOMERS, "客户", "搜索客户名称、手机号..."))
+            }
+            if (accessState.hasPermission("purchase:view")) {
+                add(ArchiveTabSpec(ArchiveTabKey.SUPPLIERS, "供应商", "搜索供应商名称、联系人..."))
+            }
         }
     }
     if (tabs.isEmpty()) {
@@ -78,11 +93,11 @@ fun ArchivesScreen(
     val initialPage = initialTab.coerceIn(tabs.indices)
     var selectedTab by rememberSaveable(tabs, initialPage) { mutableIntStateOf(initialPage) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
-    val selectedLabel = tabs[selectedTab]
-    val onCreateClick = when (selectedLabel) {
-        "商品" -> onNavigateToProductCreate
-        "客户" -> onNavigateToCustomerCreate
-        else -> onNavigateToSupplierCreate
+    val selectedTabSpec = tabs[selectedTab]
+    val onCreateClick = when (selectedTabSpec.key) {
+        ArchiveTabKey.PRODUCTS -> onNavigateToProductCreate
+        ArchiveTabKey.CUSTOMERS -> onNavigateToCustomerCreate
+        ArchiveTabKey.SUPPLIERS -> onNavigateToSupplierCreate
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -91,24 +106,20 @@ fun ArchivesScreen(
             tabs = tabs,
             selectedIndex = selectedTab,
             searchQuery = searchQuery,
-            searchHint = when (selectedTab) {
-                0 -> "搜索商品名称、编码..."
-                1 -> "搜索客户名称、手机号..."
-                else -> "搜索供应商名称、联系人..."
-            },
+            searchHint = selectedTabSpec.searchHint,
             onSearchChange = { searchQuery = it },
             onTabSelected = { selectedTab = it },
         )
-        when (selectedTab) {
-            tabs.indexOf("商品") -> ProductListScreen(
+        when (selectedTabSpec.key) {
+            ArchiveTabKey.PRODUCTS -> ProductListScreen(
                 onNavigateToDetail = onNavigateToProductDetail,
                 searchQuery = searchQuery
             )
-            tabs.indexOf("客户") -> CustomerListScreen(
+            ArchiveTabKey.CUSTOMERS -> CustomerListScreen(
                 onNavigateToDetail = onNavigateToCustomerDetail,
                 searchQuery = searchQuery
             )
-            else -> SupplierListScreen(
+            ArchiveTabKey.SUPPLIERS -> SupplierListScreen(
                 onNavigateToDetail = onNavigateToSupplierDetail,
                 searchQuery = searchQuery
             )
@@ -158,7 +169,7 @@ private fun ArchivesTopBar(
 
 @Composable
 private fun ArchivesSearchAndTabs(
-    tabs: List<String>,
+    tabs: List<ArchiveTabSpec>,
     selectedIndex: Int,
     searchQuery: String,
     searchHint: String,
@@ -247,7 +258,7 @@ private fun ArchivesSearchAndTabs(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = tab,
+                        text = tab.label,
                         fontSize = 12.sp,
                         lineHeight = 16.sp,
                         fontWeight = FontWeight.SemiBold,

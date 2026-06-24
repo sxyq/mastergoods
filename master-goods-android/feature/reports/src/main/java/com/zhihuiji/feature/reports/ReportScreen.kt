@@ -552,7 +552,8 @@ private fun SummaryLineChart(
     modifier: Modifier = Modifier
 ) {
     val maxValue = remember(sales, profit) {
-        listOf(sales, profit).maxOrNull()?.takeIf { it > 0.0 } ?: 1.0
+        val max = if (sales > profit) sales else profit
+        if (max > 0.0) max else 1.0
     }
     Canvas(
         modifier = modifier.drawWithCache {

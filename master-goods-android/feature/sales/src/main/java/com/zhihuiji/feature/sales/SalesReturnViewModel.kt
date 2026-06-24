@@ -120,13 +120,29 @@ class SalesReturnViewModel @Inject constructor(
 
         repository.listSalesReturns()
             .onSuccess { rows ->
-                val items = rows
-                    .sortedWith(compareBy<SalesReturnV2Dto> { it.status != 0 }.thenByDescending { it.createdAt })
-                    .map(SalesReturnV2Dto::toSalesReturnItem)
-                val selectedId = selectId
-                    ?.takeIf { id -> items.any { it.id == id } }
-                    ?: items.firstOrNull { it.status == 0 }?.id
-                    ?: items.firstOrNull()?.id
+                val sortedRows = rows.sortedWith(compareBy<SalesReturnV2Dto> { it.status != 0 }.thenByDescending { it.createdAt })
+                val items = ArrayList<SalesReturnItem>(sortedRows.size)
+                for (row in sortedRows) {
+                    items.add(row.toSalesReturnItem())
+                }
+                var selectedFound = false
+                var firstOpenId: Long? = null
+                var firstAnyId: Long? = null
+                for (item in items) {
+                    if (firstAnyId == null) {
+                        firstAnyId = item.id
+                    }
+                    if (firstOpenId == null && item.status == 0) {
+                        firstOpenId = item.id
+                    }
+                    if (selectId != null && item.id == selectId) {
+                        selectedFound = true
+                    }
+                }
+                val selectedId = when {
+                    selectId != null && selectedFound -> selectId
+                    else -> firstOpenId ?: firstAnyId
+                }
                 _uiState.update {
                     it.copy(
                         isLoading = false,

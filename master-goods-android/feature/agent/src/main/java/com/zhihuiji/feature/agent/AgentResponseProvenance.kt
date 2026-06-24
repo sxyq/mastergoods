@@ -7,6 +7,14 @@ internal const val DeltaSourceModelStream = "model_stream"
 internal const val DeltaSourceRuleSummary = "rule_summary"
 internal const val DeltaSourceServerNotice = "server_notice"
 
+private val ruleSummaryDisabledStatuses = setOf(
+    "disabled",
+    "not_configured",
+    "stream_not_supported",
+    "failed_or_empty",
+    "stream_failed_or_empty",
+)
+
 internal fun assistantHeaderStatusLabel(
     isStreaming: Boolean,
     hasServerAnswerDelta: Boolean,
@@ -101,13 +109,7 @@ internal fun assistantReviewBadgeLabel(
 }
 
 internal fun isRuleSummaryMode(mode: String?, llmStatus: String?): Boolean =
-    mode == "tool_query_rule_summary" || llmStatus in setOf(
-        "disabled",
-        "not_configured",
-        "stream_not_supported",
-        "failed_or_empty",
-        "stream_failed_or_empty",
-    )
+    mode == "tool_query_rule_summary" || llmStatus in ruleSummaryDisabledStatuses
 
 internal fun isStreamInterruptedMode(mode: String?, llmStatus: String?): Boolean =
     mode == "tool_query_llm_stream_interrupted" || llmStatus == "stream_interrupted"

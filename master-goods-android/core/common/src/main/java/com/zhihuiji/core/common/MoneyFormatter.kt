@@ -6,32 +6,43 @@ import java.text.DecimalFormatSymbols
 import java.util.Locale
 
 object MoneyFormatter {
-    private fun createFormatter(): DecimalFormat =
+    private val formatter = ThreadLocal.withInitial<DecimalFormat> {
         DecimalFormat("#,##0.00", DecimalFormatSymbols(Locale.CHINA))
+    }
 
     fun format(amount: BigDecimal?): String {
-        if (amount == null) return "¥0.00"
-        return "¥${createFormatter().format(amount)}"
+        return "¥${formatValue(amount)}"
     }
 
     fun format(amount: Double?): String {
-        if (amount == null) return "¥0.00"
-        return "¥${createFormatter().format(amount)}"
+        return "¥${formatValue(amount)}"
     }
 
     fun formatWithoutSymbol(amount: BigDecimal?): String {
-        if (amount == null) return "0.00"
-        return createFormatter().format(amount)
+        return formatValue(amount)
     }
 
     fun formatWithoutSymbol(amount: Double?): String {
-        if (amount == null) return "0.00"
-        return createFormatter().format(amount)
+        return formatValue(amount)
     }
 
     fun formatSigned(amount: Double?): String {
         if (amount == null) return "¥0.00"
         val prefix = if (amount >= 0) "+" else ""
-        return "¥$prefix${createFormatter().format(amount)}"
+        return "¥$prefix${formatValue(amount)}"
+    }
+
+    private fun formatValue(amount: BigDecimal?): String {
+        if (amount == null) return "0.00"
+        return decimalFormat().format(amount)
+    }
+
+    private fun formatValue(amount: Double?): String {
+        if (amount == null) return "0.00"
+        return decimalFormat().format(amount)
+    }
+
+    private fun decimalFormat(): DecimalFormat {
+        return formatter.get()
     }
 }

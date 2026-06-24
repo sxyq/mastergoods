@@ -77,6 +77,7 @@ import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 import com.zhihuiji.core.model.v2.agent.ChatMessage
 import com.zhihuiji.core.model.v2.agent.ChatMessagePart
 import com.zhihuiji.core.model.v2.agent.MessageRole
+import com.zhihuiji.core.model.v2.agent.RunTrace
 import com.zhihuiji.core.model.v2.agent.ResultBlockDto
 import com.zhihuiji.core.model.v2.agent.ToolCallRecord
 import com.zhihuiji.core.model.v2.agent.ToolCallStatus
@@ -86,6 +87,13 @@ private val AgentChatTopPadding = 16.dp
 private val AgentChatBottomInputClearance = 116.dp
 private const val CompletedToolPillVisibleMs = 1_200L
 private const val AgentChatAutoFollowBottomThresholdItems = 1
+private val EmptyChatPills = listOf("真实查询", "流式回答", "图表结果")
+
+private data class ChatTailState(
+    val lastMessage: ChatMessage?,
+    val lastAssistantMessage: ChatMessage?,
+    val activeStreamingMessage: ChatMessage?,
+)
 
 @Composable
 fun AgentChatScreen(
@@ -96,11 +104,33 @@ fun AgentChatScreen(
     viewModel: AgentChatViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val messages = uiState.messages
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
-    val activeStreamingMessage = uiState.messages.lastOrNull { message ->
-        message.role == MessageRole.ASSISTANT && message.isStreaming
+    val chatTailState = remember(messages) {
+        var activeStreamingMessage: ChatMessage? = null
+        var lastAssistantMessage: ChatMessage? = null
+        for (index in messages.lastIndex downTo 0) {
+            val message = messages[index]
+            if (lastAssistantMessage == null && message.role == MessageRole.ASSISTANT) {
+                lastAssistantMessage = message
+            }
+            if (activeStreamingMessage == null && message.role == MessageRole.ASSISTANT && message.isStreaming) {
+                activeStreamingMessage = message
+            }
+            if (lastAssistantMessage != null && activeStreamingMessage != null) {
+                break
+            }
+        }
+        ChatTailState(
+            lastMessage = messages.lastOrNull(),
+            lastAssistantMessage = lastAssistantMessage,
+            activeStreamingMessage = activeStreamingMessage,
+        )
     }
+    val lastMessage = chatTailState.lastMessage
+    val lastAssistantMessage = chatTailState.lastAssistantMessage
+    val activeStreamingMessage = chatTailState.activeStreamingMessage
     val activeStreamingMessageId = activeStreamingMessage?.id
     val streamingScrollBucket = if (uiState.isStreaming && activeStreamingMessage != null) {
         activeStreamingMessage.streamingAutoFollowBucket()
@@ -108,9 +138,9 @@ fun AgentChatScreen(
         0
     }
     // 新消息进入时使用动画；流式增量只做轻量贴底，避免每个 token 排队滚动动画。
-    LaunchedEffect(uiState.messages.size, uiState.messages.lastOrNull()?.id) {
-        if (uiState.messages.isNotEmpty()) {
-            listState.animateScrollToItem(uiState.messages.size - 1)
+    LaunchedEffect(messages.size, lastMessage?.id) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.lastIndex)
         }
     }
 
@@ -118,10 +148,10 @@ fun AgentChatScreen(
         if (
             uiState.isStreaming &&
             activeStreamingMessageId != null &&
-            uiState.messages.lastOrNull()?.id == activeStreamingMessageId &&
-            listState.shouldAutoFollowStreamingContent(uiState.messages.size)
+            lastMessage?.id == activeStreamingMessageId &&
+            listState.shouldAutoFollowStreamingContent(messages.size)
         ) {
-            listState.scrollToItem(uiState.messages.lastIndex)
+            listState.scrollToItem(messages.lastIndex)
         }
     }
 
@@ -148,7 +178,7 @@ fun AgentChatScreen(
                 subtitle = if (uiState.isStreaming) "正在分析真实业务数据" else "真实问答与结果块",
                 onNavigationClick = onNavigateBack,
                 actions = {
-                    if (uiState.messages.isNotEmpty()) {
+                    if (messages.isNotEmpty()) {
                         IconButton(onClick = viewModel::clearMessages) {
                             Icon(
                                 imageVector = Icons.Default.Close,
@@ -197,7 +227,7 @@ fun AgentChatScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(
-                            items = uiState.messages,
+                            items = messages,
                             key = { it.id },
                             contentType = { message -> "message-${message.role.name.lowercase()}" },
                         ) { message ->
@@ -208,8 +238,7 @@ fun AgentChatScreen(
                             )
                         }
 
-                        val showStandaloneTyping = uiState.messages
-                            .lastOrNull { it.role == MessageRole.ASSISTANT }
+                        val showStandaloneTyping = lastAssistantMessage
                             .shouldShowStandaloneTypingIndicator(uiState.isStreaming)
                         if (showStandaloneTyping) {
                             item(
@@ -262,6 +291,7 @@ private fun ChatMessageItem(
     modifier: Modifier = Modifier,
 ) {
     val isUser = message.role == MessageRole.USER
+    val runTrace = message.runTrace
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -363,6 +393,7 @@ private fun ChatMessageItem(
                     AssistantMessageTimeline(
                         message = message,
                         parts = displayParts,
+                        runTrace = runTrace,
                         allowActiveAnimations = allowActiveAnimations,
                     )
                 }
@@ -415,11 +446,11 @@ private fun ChatMessageItem(
 
 private fun ChatMessage.displayParts(): List<ChatMessagePart> =
     parts.ifEmpty {
-        buildList {
+        ArrayList<ChatMessagePart>(1 + blocks.size).apply {
             if (content.isNotBlank()) {
                 add(ChatMessagePart.Text(content))
-                blocks.forEach { block ->
-                    add(ChatMessagePart.ResultBlock(block))
+                for (index in blocks.indices) {
+                    add(ChatMessagePart.ResultBlock(blocks[index]))
                 }
             }
         }
@@ -561,9 +592,11 @@ private fun AssistantHeaderBadge(
 private fun AssistantMessageTimeline(
     message: ChatMessage,
     parts: List<ChatMessagePart>,
+    runTrace: RunTrace?,
     allowActiveAnimations: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val toolCalls = runTrace?.toolCalls.orEmpty()
     LiquidGlassSurface(
         modifier = modifier.fillMaxWidth(),
         blurRadius = 30.dp,
@@ -575,17 +608,22 @@ private fun AssistantMessageTimeline(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (message.shouldShowAssistantHeader()) {
+                var hasCompletedTool = false
+                for (index in toolCalls.indices) {
+                    if (toolCalls[index].status == ToolCallStatus.COMPLETED) {
+                        hasCompletedTool = true
+                        break
+                    }
+                }
                 AssistantMessageHeader(
                     isStreaming = message.isStreaming,
                     hasServerAnswerDelta = message.hasServerAnswerDelta,
                     answerDeltaSource = message.answerDeltaSource,
-                    mode = message.runTrace?.mode,
-                    llmStatus = message.runTrace?.llmStatus,
-                    hasToolEvidence = message.runTrace?.toolCalls?.isNotEmpty() == true,
-                    hasAuditTrace = message.runTrace?.auditId != null || message.runTrace?.traceId != null,
-                    hasCompletedTool = message.runTrace?.toolCalls?.any {
-                        it.status == ToolCallStatus.COMPLETED
-                    } == true,
+                    mode = runTrace?.mode,
+                    llmStatus = runTrace?.llmStatus,
+                    hasToolEvidence = toolCalls.isNotEmpty(),
+                    hasAuditTrace = runTrace?.auditId != null || runTrace?.traceId != null,
+                    hasCompletedTool = hasCompletedTool,
                     showBadges = message.shouldShowAssistantHeaderBadges(),
                 )
             }
@@ -848,33 +886,27 @@ private fun StreamingToolActivityPill(
 ) {
     if (toolCalls.isEmpty()) return
 
-    val activeTool = remember(toolCalls) { toolCalls.latestActiveToolCall() }
-    if (activeTool != null) {
+    var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
+    val visibleTool = remember(toolCalls, nowMs) { toolCalls.latestVisibleToolCall(nowMs) }
+    if (visibleTool == null) return
+
+    if (visibleTool.status == ToolCallStatus.RUNNING || visibleTool.status == ToolCallStatus.PENDING) {
         Spacer(modifier = Modifier.height(8.dp))
         InlineToolActivityPill(
-            toolCall = activeTool,
+            toolCall = visibleTool,
             modifier = modifier,
         )
         return
     }
 
-    val latestFinishedTool = remember(toolCalls) { toolCalls.latestFinishedToolCallCandidate() } ?: return
-    var nowMs by remember(
-        latestFinishedTool.toolName,
-        latestFinishedTool.status,
-        latestFinishedTool.completedAt,
-        latestFinishedTool.timestamp,
-    ) {
-        mutableStateOf(System.currentTimeMillis())
-    }
-    val isVisible = latestFinishedTool.isRecentlyFinished(nowMs)
+    val isVisible = visibleTool.isRecentlyFinished(nowMs)
     LaunchedEffect(
-        latestFinishedTool.toolName,
-        latestFinishedTool.status,
-        latestFinishedTool.completedAt,
-        latestFinishedTool.timestamp,
+        visibleTool.toolName,
+        visibleTool.status,
+        visibleTool.completedAt,
+        visibleTool.timestamp,
     ) {
-        while (latestFinishedTool.isRecentlyFinished(nowMs)) {
+        while (visibleTool.isRecentlyFinished(nowMs)) {
             delay(120)
             nowMs = System.currentTimeMillis()
         }
@@ -883,7 +915,7 @@ private fun StreamingToolActivityPill(
     if (!isVisible) return
     Spacer(modifier = Modifier.height(8.dp))
     InlineToolActivityPill(
-        toolCall = latestFinishedTool,
+        toolCall = visibleTool,
         modifier = modifier,
     )
 }
@@ -942,33 +974,61 @@ private fun InlineToolActivityPill(
 
 internal fun ToolCallRecord.activityLabel(): String =
     when (status) {
-        ToolCallStatus.COMPLETED -> resultSummary.shortToolActivityLabel() ?: "工具查询完成"
-        ToolCallStatus.FAILED -> resultSummary.shortToolActivityLabel() ?: "工具查询失败"
+        ToolCallStatus.COMPLETED -> {
+            val resultLabel = resultSummary.shortToolActivityLabel()
+            resultLabel ?: "工具查询完成"
+        }
+        ToolCallStatus.FAILED -> {
+            val resultLabel = resultSummary.shortToolActivityLabel()
+            resultLabel ?: "工具查询失败"
+        }
         ToolCallStatus.PENDING,
-        ToolCallStatus.RUNNING -> inputSummary.shortToolActivityLabel()
-            ?: resultSummary.shortToolActivityLabel()
-            ?: "正在查询真实业务数据"
+        ToolCallStatus.RUNNING -> {
+            val inputLabel = inputSummary.shortToolActivityLabel()
+            inputLabel ?: resultSummary.shortToolActivityLabel() ?: "正在查询真实业务数据"
+        }
     }
 
 private fun String?.shortToolActivityLabel(): String? =
     this?.trim()?.take(34)?.ifBlank { null }
 
 internal fun List<ToolCallRecord>.latestVisibleToolCall(nowMs: Long = System.currentTimeMillis()): ToolCallRecord? {
-    val activeCall = latestActiveToolCall()
-    if (activeCall != null) {
-        return activeCall
+    var latestFinishedCall: ToolCallRecord? = null
+    for (index in lastIndex downTo 0) {
+        val call = this[index]
+        when (call.status) {
+            ToolCallStatus.RUNNING,
+            ToolCallStatus.PENDING -> return call
+
+            ToolCallStatus.FAILED,
+            ToolCallStatus.COMPLETED -> if (latestFinishedCall == null) {
+                latestFinishedCall = call
+            }
+        }
     }
-    return latestFinishedToolCallCandidate()?.takeIf { it.isRecentlyFinished(nowMs) }
+    return latestFinishedCall?.takeIf { it.isRecentlyFinished(nowMs) }
 }
 
 internal fun List<ToolCallRecord>.latestActiveToolCall(): ToolCallRecord? =
-    asReversed().firstOrNull { call ->
-        call.status == ToolCallStatus.RUNNING || call.status == ToolCallStatus.PENDING
+    run {
+        for (index in lastIndex downTo 0) {
+            val call = this[index]
+            if (call.status == ToolCallStatus.RUNNING || call.status == ToolCallStatus.PENDING) {
+                return@run call
+            }
+        }
+        null
     }
 
 internal fun List<ToolCallRecord>.latestFinishedToolCallCandidate(): ToolCallRecord? =
-    asReversed().firstOrNull { call ->
-        call.status == ToolCallStatus.FAILED || call.status == ToolCallStatus.COMPLETED
+    run {
+        for (index in lastIndex downTo 0) {
+            val call = this[index]
+            if (call.status == ToolCallStatus.FAILED || call.status == ToolCallStatus.COMPLETED) {
+                return@run call
+            }
+        }
+        null
     }
 
 internal fun ToolCallRecord.isRecentlyFinished(nowMs: Long): Boolean {
@@ -1231,7 +1291,7 @@ internal fun emptyChatHelperText(): String =
     "发送问题后，AI 会按当前账号权限查询真实业务数据，并返回 Markdown、表格或统计图。"
 
 internal fun emptyChatPills(): List<String> =
-    listOf("真实查询", "流式回答", "图表结果")
+    EmptyChatPills
 
 @Composable
 private fun EmptyStatePill(

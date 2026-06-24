@@ -14,10 +14,10 @@ class ZhihuijiApiContractTest {
         assertEquals("v1/sale-orders", getPath("saleOrders"))
         assertEquals("v1/purchase-orders", getPath("purchaseOrders"))
         assertEquals("v1/pay-orders", getPath("payOrders"))
-        assertEquals("v1/finance-records", getPath("financeRecords"))
-        assertEquals("v1/reports/sales-summary", getPath("salesSummary"))
-        assertEquals("v1/reports/sales-trend", getPath("salesTrend"))
-        assertEquals("v1/reports/cashflow-summary", getPath("cashflowSummary"))
+        assertEquals("v2/finance-records", getPath("financeRecords"))
+        assertEquals("v2/reports/sales-summary", getPath("salesSummary"))
+        assertEquals("v2/reports/sales-trend", getPath("salesTrend"))
+        assertEquals("v2/reports/cashflow-summary", getPath("cashflowSummary"))
         assertEquals("v1/sync/health", getPath("syncHealth"))
         assertEquals("v2/agent/workbench", getPath("agentWorkbenchV2", ZhihuijiV2Api::class.java))
     }
@@ -28,7 +28,7 @@ class ZhihuijiApiContractTest {
         assertEquals("v1/sale-orders", postPath("createSaleOrder"))
         assertEquals("v1/purchase-orders", postPath("createPurchaseOrder"))
         assertEquals("v1/pay-orders", postPath("createPayOrder"))
-        assertEquals("v1/finance-records", postPath("createFinanceRecord"))
+        assertEquals("v2/finance-records", postPath("createFinanceRecord"))
         assertEquals("v2/agent/chat", postPath("agentChatV2", ZhihuijiV2Api::class.java))
     }
 

@@ -72,11 +72,20 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_orders_updatedAt` ON `sale_orders` (`updatedAt`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_orders_status` ON `sale_orders` (`status`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_orders_createdAt` ON `sale_orders` (`createdAt`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_orders_customerId` ON `sale_orders` (`customerId`)")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): ZhihuijiDatabase {
         return Room.databaseBuilder(context, ZhihuijiDatabase::class.java, "zhihuiji.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
     }
 

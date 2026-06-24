@@ -17,7 +17,8 @@ class MemoryCache {
     @Suppress("UNCHECKED_CAST")
     fun <T> get(key: String, ttlMillis: Long): T? {
         val entry = cache[key] as? CacheEntry<T> ?: return null
-        return if (System.currentTimeMillis() - entry.timestamp < ttlMillis) {
+        val now = System.currentTimeMillis()
+        return if (now - entry.timestamp < ttlMillis) {
             entry.data
         } else {
             cache.remove(key)
@@ -34,7 +35,7 @@ class MemoryCache {
     }
 
     fun invalidatePrefix(prefix: String) {
-        cache.keys.removeAll { it.startsWith(prefix) }
+        cache.entries.removeIf { it.key.startsWith(prefix) }
     }
 
     fun clear() {

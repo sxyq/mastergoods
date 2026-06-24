@@ -65,10 +65,11 @@ class SaleOrderListViewModel @Inject constructor(
 
     fun loadOrders() {
         viewModelScope.launch {
+            val currentState = _uiState.value
             _uiState.update { it.copy(isLoading = true, error = null) }
             val filter = SaleOrderV2Filter(
-                keyword = _uiState.value.keyword.takeIf { it.isNotBlank() },
-                status = _uiState.value.selectedTab.takeIf { it > 0 }?.let {
+                keyword = currentState.keyword.takeIf { it.isNotBlank() },
+                status = currentState.selectedTab.takeIf { it > 0 }?.let {
                     when (it) {
                         1 -> 0 // 草稿
                         2 -> 1 // 已完成
@@ -79,10 +80,14 @@ class SaleOrderListViewModel @Inject constructor(
             )
             repository.listSaleOrders(filter)
                 .onSuccess { orders ->
+                    val items = ArrayList<SaleOrderItem>(orders.size)
+                    for (order in orders) {
+                        items.add(order.toSaleOrderItem())
+                    }
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            orders = orders.map { dto -> dto.toSaleOrderItem() }
+                            orders = items
                         )
                     }
                 }

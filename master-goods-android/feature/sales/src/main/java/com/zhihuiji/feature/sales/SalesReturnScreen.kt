@@ -34,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -272,6 +273,9 @@ private fun SalesReturnContent(
     onSelectReturn: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val otherReturns = remember(uiState.returns, salesReturn.id) {
+        uiState.returns.filterNot { it.id == salesReturn.id }
+    }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 172.dp),
@@ -326,7 +330,7 @@ private fun SalesReturnContent(
                 SectionTitle(title = "其他退货单")
             }
             items(
-                items = uiState.returns.filterNot { it.id == salesReturn.id },
+                items = otherReturns,
                 key = { it.id },
             ) { item ->
                 SalesReturnCompactCard(
@@ -664,6 +668,9 @@ private fun SalesReturnSubmitBar(
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val totalQuantity = remember(salesReturn.lines) {
+        salesReturn.totalQuantity
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -678,7 +685,7 @@ private fun SalesReturnSubmitBar(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "应退总额 (共${salesReturn.totalQuantity.formatQuantity()}件)",
+                    text = "应退总额 (共${totalQuantity.formatQuantity()}件)",
                     style = MaterialTheme.typography.labelLarge,
                     color = TextSecondary,
                 )

@@ -2,6 +2,7 @@ package com.zhihuiji.feature.suppliers
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.model.v2.partner.SupplierV2Dto
 import com.zhihuiji.data.supplier.SupplierV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -12,17 +13,23 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-fun SupplierV2Dto.toSupplierItem(): SupplierItem = SupplierItem(
-    id = id,
-    name = name,
-    contact = primaryContactName?.let { "$it $phone" } ?: phone,
-    payable = "¥%.2f".format(balance),
-    status = when (status) {
-        1 -> "正常"
-        0 -> "停用"
-        else -> "未知"
-    }
-)
+fun SupplierV2Dto.toSupplierItem(): SupplierItem {
+    val contact = splitSupplierContact(primaryContactName, phone)
+    return SupplierItem(
+        id = id,
+        name = name,
+        contactName = contact.first,
+        contactPhone = contact.second,
+        payableAmount = balance,
+        payable = MoneyFormatter.format(balance),
+        isStopped = status == 0,
+        status = when (status) {
+            1 -> "正常"
+            0 -> "停用"
+            else -> "未知"
+        }
+    )
+}
 
 data class SupplierListUiState(
     val isLoading: Boolean = false,
@@ -35,8 +42,11 @@ data class SupplierListUiState(
 data class SupplierItem(
     val id: Long,
     val name: String,
-    val contact: String,
+    val contactName: String,
+    val contactPhone: String,
+    val payableAmount: Double,
     val payable: String,
+    val isStopped: Boolean,
     val status: String
 )
 
@@ -90,5 +100,16 @@ class SupplierListViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+}
+
+private fun splitSupplierContact(primaryContactName: String?, phone: String): Pair<String, String> {
+    val trimmedName = primaryContactName?.trim().orEmpty()
+    val trimmedPhone = phone.trim()
+    return when {
+        trimmedName.isNotBlank() -> trimmedName to if (trimmedPhone.isNotBlank()) trimmedPhone else "暂无电话"
+        trimmedPhone.isBlank() -> "暂无联系人" to "暂无电话"
+        trimmedPhone.any { it.isDigit() } -> "暂无联系人" to trimmedPhone
+        else -> trimmedPhone to "暂无电话"
     }
 }

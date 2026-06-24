@@ -147,6 +147,9 @@ private fun PurchaseReceiptContent(
     onSelectReceipt: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val otherReceipts = remember(uiState.receipts, receipt.id) {
+        uiState.receipts.filterNot { it.id == receipt.id }
+    }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 132.dp),
@@ -226,7 +229,7 @@ private fun PurchaseReceiptContent(
                 )
             }
             items(
-                items = uiState.receipts.filterNot { it.id == receipt.id },
+                items = otherReceipts,
                 key = { it.id },
             ) { item ->
                 PurchaseReceiptCompactCard(

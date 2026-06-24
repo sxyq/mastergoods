@@ -6,6 +6,8 @@ import android.os.Build
 import java.security.MessageDigest
 
 object SignatureIntegrityChecker {
+    private val hexDigits = "0123456789ABCDEF".toCharArray()
+
     fun isSignatureTrusted(context: Context, expectedSha256: String): Boolean {
         val normalizedExpected = expectedSha256.normalizeFingerprint()
         if (normalizedExpected.isBlank()) return true
@@ -16,22 +18,32 @@ object SignatureIntegrityChecker {
                 packageName,
                 PackageManager.GET_SIGNING_CERTIFICATES,
             )
-            packageInfo.signingInfo?.apkContentsSigners.orEmpty().map { it.toByteArray() }
+            packageInfo.signingInfo?.apkContentsSigners.orEmpty()
         } else {
             @Suppress("DEPRECATION")
             val packageInfo = packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
             @Suppress("DEPRECATION")
-            packageInfo.signatures.orEmpty().map { it.toByteArray() }
+            packageInfo.signatures.orEmpty()
         }
         if (signatures.isEmpty()) return false
-        return signatures.any { signatureBytes ->
-            sha256(signatureBytes) == normalizedExpected
+        for (signature in signatures) {
+            if (sha256(signature.toByteArray()) == normalizedExpected) {
+                return true
+            }
         }
+        return false
     }
 
     private fun sha256(input: ByteArray): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(input)
-        return digest.joinToString(separator = "") { "%02X".format(it) }
+        val hexChars = CharArray(digest.size * 2)
+        var index = 0
+        for (byte in digest) {
+            val value = byte.toInt() and 0xFF
+            hexChars[index++] = hexDigits[value ushr 4]
+            hexChars[index++] = hexDigits[value and 0x0F]
+        }
+        return String(hexChars)
     }
 
     private fun String.normalizeFingerprint(): String = replace(":", "").trim().uppercase()

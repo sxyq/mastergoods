@@ -178,10 +178,9 @@ class SettingsViewModel @Inject constructor(
                     syncBadge = health?.status.orEmpty().ifBlank { if (healthResult.isSuccess) "在线" else "异常" },
                     syncStatus = syncStatus,
                     importStatus = importStatus,
-                    error = listOf(healthResult, cursorResult, importJobsResult)
-                        .firstOrNull { it.isFailure }
-                        ?.exceptionOrNull()
-                        ?.message,
+                    error = healthResult.exceptionOrNull()?.message
+                        ?: cursorResult.exceptionOrNull()?.message
+                        ?: importJobsResult.exceptionOrNull()?.message,
                 )
             }
         }

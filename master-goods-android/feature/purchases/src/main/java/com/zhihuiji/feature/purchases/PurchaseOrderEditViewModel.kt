@@ -71,7 +71,7 @@ class PurchaseOrderEditViewModel @Inject constructor(
                             supplierId = order.supplierId?.toString() ?: "",
                             supplierName = order.supplierName ?: "",
                             remark = order.notes ?: "",
-                            items = order.items.map { item -> item.toEditItem() }
+                            items = order.items.toEditItems(),
                         )
                     }
                 }
@@ -95,42 +95,39 @@ class PurchaseOrderEditViewModel @Inject constructor(
 
     fun addItem() {
         _uiState.update {
-            it.copy(items = it.items + PurchaseEditItem())
+            it.copy(items = it.items.append(PurchaseEditItem()))
         }
     }
 
     fun removeItem(index: Int) {
         _uiState.update {
-            val newItems = it.items.toMutableList().apply { removeAt(index) }
-            it.copy(items = newItems)
+            it.copy(items = it.items.removeAtIndex(index))
         }
     }
 
     fun updateItemProduct(index: Int, productId: String, productName: String, productCode: String? = null) {
         _uiState.update { state ->
-            val newItems = state.items.toMutableList()
-            newItems[index] = newItems[index].copy(
-                productId = productId.toLongOrNull(),
-                productName = productName,
-                productCode = productCode ?: newItems[index].productCode,
+            state.copy(
+                items = state.items.replaceAt(index) { item ->
+                    item.copy(
+                        productId = productId.toLongOrNull(),
+                        productName = productName,
+                        productCode = productCode ?: item.productCode,
+                    )
+                }
             )
-            state.copy(items = newItems)
         }
     }
 
     fun updateItemQuantity(index: Int, quantity: String) {
         _uiState.update { state ->
-            val newItems = state.items.toMutableList()
-            newItems[index] = newItems[index].copy(quantity = quantity)
-            state.copy(items = newItems)
+            state.copy(items = state.items.replaceAt(index) { it.copy(quantity = quantity) })
         }
     }
 
     fun updateItemUnitCost(index: Int, unitCost: String) {
         _uiState.update { state ->
-            val newItems = state.items.toMutableList()
-            newItems[index] = newItems[index].copy(unitCost = unitCost)
-            state.copy(items = newItems)
+            state.copy(items = state.items.replaceAt(index) { it.copy(unitCost = unitCost) })
         }
     }
 
@@ -141,7 +138,7 @@ class PurchaseOrderEditViewModel @Inject constructor(
             val request = CreatePurchaseOrderV2Request(
                 supplierId = state.supplierId.toLongOrNull(),
                 supplierName = state.supplierName.takeIf { it.isNotBlank() },
-                items = state.items.mapNotNull { it.toCreateRequest() },
+                items = state.items.toCreateRequests(),
                 notes = state.remark.takeIf { it.isNotBlank() },
             )
             if (orderId != null && orderId > 0) {
@@ -182,6 +179,14 @@ private fun PurchaseOrderItemV2Dto.toEditItem(): PurchaseEditItem = PurchaseEdit
     unitCost = unitCost.toString(),
 )
 
+private fun List<PurchaseOrderItemV2Dto>.toEditItems(): List<PurchaseEditItem> {
+    val result = ArrayList<PurchaseEditItem>(size)
+    for (item in this) {
+        result.add(item.toEditItem())
+    }
+    return result
+}
+
 private fun PurchaseEditItem.toCreateRequest(): CreatePurchaseOrderItemV2Request? {
     val qty = quantity.toDoubleOrNull() ?: return null
     val cost = unitCost.toDoubleOrNull() ?: return null
@@ -192,4 +197,48 @@ private fun PurchaseEditItem.toCreateRequest(): CreatePurchaseOrderItemV2Request
         quantity = qty,
         unitCost = cost,
     )
+}
+
+private fun List<PurchaseEditItem>.toCreateRequests(): List<CreatePurchaseOrderItemV2Request> {
+    val result = ArrayList<CreatePurchaseOrderItemV2Request>(size)
+    for (item in this) {
+        val request = item.toCreateRequest() ?: continue
+        result.add(request)
+    }
+    return result
+}
+
+private fun List<PurchaseEditItem>.append(item: PurchaseEditItem): List<PurchaseEditItem> {
+    val result = ArrayList<PurchaseEditItem>(size + 1)
+    result.addAll(this)
+    result.add(item)
+    return result
+}
+
+private fun List<PurchaseEditItem>.removeAtIndex(index: Int): List<PurchaseEditItem> {
+    if (index !in indices) {
+        throw IndexOutOfBoundsException("Index: $index, Size: $size")
+    }
+    val result = ArrayList<PurchaseEditItem>(size - 1)
+    for (i in indices) {
+        if (i != index) {
+            result.add(this[i])
+        }
+    }
+    return result
+}
+
+private inline fun List<PurchaseEditItem>.replaceAt(
+    index: Int,
+    transform: (PurchaseEditItem) -> PurchaseEditItem,
+): List<PurchaseEditItem> {
+    if (index !in indices) {
+        throw IndexOutOfBoundsException("Index: $index, Size: $size")
+    }
+    val result = ArrayList<PurchaseEditItem>(size)
+    for (i in indices) {
+        val item = this[i]
+        result.add(if (i == index) transform(item) else item)
+    }
+    return result
 }

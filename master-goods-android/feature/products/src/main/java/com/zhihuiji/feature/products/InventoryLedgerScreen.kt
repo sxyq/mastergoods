@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -257,7 +258,12 @@ private fun InventoryTimelineItemCard(
     modifier: Modifier = Modifier,
 ) {
     val isIncrease = item.quantityChange >= 0
-    val tone = item.timelineTone()
+    val tone = remember(item.quantityChange) {
+        item.timelineTone()
+    }
+    val auxiliary = remember(item.quantityBefore, item.unitCost, item.notes) {
+        item.auxiliaryText()
+    }
 
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
@@ -320,7 +326,6 @@ private fun InventoryTimelineItemCard(
                     overflow = TextOverflow.Ellipsis,
                 )
 
-                val auxiliary = item.auxiliaryText()
                 if (auxiliary != null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -431,14 +436,37 @@ private fun InventoryLedgerItem.timelineTone(): TimelineTone =
         else -> TimelineTone(Icons.Filled.Inventory, TextTertiary)
     }
 
-private fun InventoryLedgerItem.auxiliaryText(): String? =
-    listOfNotNull(
-        quantityBefore?.let { "变动前: ${it.formatQuantity()}" },
-        unitCost?.let { "单位成本: ¥${it.formatMoney()}" },
-        notes?.takeIf { it.isNotBlank() },
-    )
-        .takeIf { it.isNotEmpty() }
-        ?.joinToString(" · ")
+private fun InventoryLedgerItem.auxiliaryText(): String? {
+    val noteText = notes?.takeIf { it.isNotBlank() }
+    if (quantityBefore == null && unitCost == null && noteText == null) {
+        return null
+    }
+    return buildString {
+        var needsSeparator = false
+
+        fun appendSeparatorIfNeeded() {
+            if (needsSeparator) {
+                append(" · ")
+            }
+            needsSeparator = true
+        }
+
+        quantityBefore?.let {
+            appendSeparatorIfNeeded()
+            append("变动前: ")
+            append(it.formatQuantity())
+        }
+        unitCost?.let {
+            appendSeparatorIfNeeded()
+            append("单位成本: ¥")
+            append(it.formatMoney())
+        }
+        noteText?.let {
+            appendSeparatorIfNeeded()
+            append(it)
+        }
+    }
+}
 
 private fun Double.formatQuantity(): String {
     val rounded = kotlin.math.round(this)

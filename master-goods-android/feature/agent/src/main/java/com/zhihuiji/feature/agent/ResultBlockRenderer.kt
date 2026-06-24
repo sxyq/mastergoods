@@ -503,15 +503,20 @@ private fun LineChartBlock(
     modifier: Modifier = Modifier,
 ) {
     val renderSeries = remember(data.series) {
-        data.series.mapIndexed { index, series ->
-            ChartSeriesUi(
-                name = series.name,
-                values = series.data,
-                color = chartColor(series.color, index),
+        val items = ArrayList<ChartSeriesUi>(data.series.size)
+        for (index in data.series.indices) {
+            val series = data.series[index]
+            items.add(
+                ChartSeriesUi(
+                    name = series.name,
+                    values = series.data,
+                    color = chartColor(series.color, index),
+                )
             )
         }
+        items
     }
-    val labels = remember(data.labels) { data.labels }
+    val labels = data.labels
     val contractError = remember(labels, renderSeries) {
         validateChartContract(labels = labels, series = renderSeries)
     }
@@ -527,8 +532,6 @@ private fun LineChartBlock(
             Spacer(modifier = Modifier.height(12.dp))
             if (contractError != null) {
                 ChartContractErrorMessage(contractError)
-            } else if (!hasChartValues(renderSeries)) {
-                EmptyChartMessage("本轮查询没有返回可绘制的趋势数据")
             } else {
                 LineChartCanvas(labels = labels, series = renderSeries)
                 Spacer(modifier = Modifier.height(8.dp))
@@ -547,15 +550,20 @@ private fun BarChartBlock(
     modifier: Modifier = Modifier,
 ) {
     val renderSeries = remember(data.series) {
-        data.series.mapIndexed { index, series ->
-            ChartSeriesUi(
-                name = series.name,
-                values = series.data,
-                color = chartColor(series.color, index),
+        val items = ArrayList<ChartSeriesUi>(data.series.size)
+        for (index in data.series.indices) {
+            val series = data.series[index]
+            items.add(
+                ChartSeriesUi(
+                    name = series.name,
+                    values = series.data,
+                    color = chartColor(series.color, index),
+                )
             )
         }
+        items
     }
-    val labels = remember(data.labels) { data.labels }
+    val labels = data.labels
     val contractError = remember(labels, renderSeries) {
         validateChartContract(labels = labels, series = renderSeries)
     }
@@ -571,8 +579,6 @@ private fun BarChartBlock(
             Spacer(modifier = Modifier.height(12.dp))
             if (contractError != null) {
                 ChartContractErrorMessage(contractError)
-            } else if (!hasChartValues(renderSeries)) {
-                EmptyChartMessage("本轮查询没有返回可绘制的柱状数据")
             } else {
                 BarChartCanvas(labels = labels, series = renderSeries)
                 Spacer(modifier = Modifier.height(8.dp))
@@ -681,7 +687,10 @@ private fun LineChartCanvas(
                     val linePath = if (points.size >= 2) {
                         Path().apply {
                             moveTo(points.first().x, points.first().y)
-                            points.drop(1).forEach { lineTo(it.x, it.y) }
+                            for (index in 1 until points.size) {
+                                val point = points[index]
+                                lineTo(point.x, point.y)
+                            }
                         }
                     } else {
                         null
@@ -844,7 +853,12 @@ internal data class BarChartScale(
 )
 
 internal fun barChartScale(values: List<Double>): BarChartScale {
-    val usableValues = values.filter { it.isUsableChartValue() }
+    val usableValues = ArrayList<Double>(values.size)
+    for (value in values) {
+        if (value.isUsableChartValue()) {
+            usableValues.add(value)
+        }
+    }
     val minValue = minOf(0.0, usableValues.minOrNull() ?: 0.0)
     val maxValue = maxOf(0.0, usableValues.maxOrNull() ?: 1.0)
     val range = (maxValue - minValue).takeIf { it > 0.0 } ?: 1.0
@@ -862,15 +876,18 @@ internal data class DonutSegmentFilterResult(
 
 internal fun donutChartSegments(rawSegments: List<DonutChartBlockData.Segment>): DonutSegmentFilterResult {
     var ignoredCount = 0
-    val segments = rawSegments.mapIndexedNotNull { index, segment ->
+    val segments = ArrayList<ChartSegmentUi>(rawSegments.size)
+    for (index in rawSegments.indices) {
+        val segment = rawSegments[index]
         if (!segment.value.isUsableChartValue() || segment.value <= 0.0) {
             ignoredCount++
-            null
         } else {
-            ChartSegmentUi(
-                name = segment.name,
-                value = segment.value,
-                color = chartColor(segment.color, index),
+            segments.add(
+                ChartSegmentUi(
+                    name = segment.name,
+                    value = segment.value,
+                    color = chartColor(segment.color, index),
+                )
             )
         }
     }
@@ -894,8 +911,9 @@ private fun DonutChartCanvas(
             val arcSize = Size(diameter, diameter)
             val innerRadius = (diameter - strokeWidth) / 2.4f
             val center = Offset(size.width / 2f, size.height / 2f)
-            val sweeps = segments.map { segment ->
-                segment to (segment.value / total * 360.0).toFloat().coerceAtLeast(1.2f)
+            val sweeps = ArrayList<Pair<ChartSegmentUi, Float>>(segments.size)
+            for (segment in segments) {
+                sweeps.add(segment to (segment.value / total * 360.0).toFloat().coerceAtLeast(1.2f))
             }
 
             onDrawBehind {
@@ -1170,9 +1188,6 @@ private fun chartColor(rawColor: String?, index: Int): Color {
     return ChartPalette[index % ChartPalette.size]
 }
 
-private fun hasChartValues(series: List<ChartSeriesUi>): Boolean =
-    series.any { item -> item.values.any { it.isUsableChartValue() } }
-
 internal fun validateChartContractForSeries(
     labels: List<String>,
     series: List<Pair<String, List<Double>>>,
@@ -1197,13 +1212,15 @@ private fun validateChartContract(labels: List<String>, series: List<ChartSeries
     if (series.isEmpty()) {
         return "图表数据缺少真实序列，无法绘制"
     }
-    val mismatchedSeries = series.firstOrNull { it.values.size != labels.size }
-    if (mismatchedSeries != null) {
-        return "图表序列「${mismatchedSeries.name}」的数据量与标签数量不一致，已停止绘制"
-    }
-    val invalidSeries = series.firstOrNull { item -> item.values.any { !it.isUsableChartValue() } }
-    if (invalidSeries != null) {
-        return "图表序列「${invalidSeries.name}」包含无效数值，已停止绘制"
+    for (item in series) {
+        if (item.values.size != labels.size) {
+            return "图表序列「${item.name}」的数据量与标签数量不一致，已停止绘制"
+        }
+        for (value in item.values) {
+            if (!value.isUsableChartValue()) {
+                return "图表序列「${item.name}」包含无效数值，已停止绘制"
+            }
+        }
     }
     return null
 }

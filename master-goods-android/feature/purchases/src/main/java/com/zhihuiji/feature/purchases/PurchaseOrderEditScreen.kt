@@ -41,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -590,13 +591,15 @@ private fun ProductImagePlaceholder(
     index: Int,
     modifier: Modifier = Modifier,
 ) {
-    val brush = Brush.linearGradient(
-        colors = when (index % 3) {
-            0 -> listOf(Color(0xFFEAF4FF), Color(0xFFD8E2FF))
-            1 -> listOf(Color(0xFFFFF7ED), Color(0xFFFFE5C2))
-            else -> listOf(Color(0xFFF0FDF8), Color(0xFFCCFBF1))
-        }
-    )
+    val brush = remember(index % 3) {
+        Brush.linearGradient(
+            colors = when (index % 3) {
+                0 -> listOf(Color(0xFFEAF4FF), Color(0xFFD8E2FF))
+                1 -> listOf(Color(0xFFFFF7ED), Color(0xFFFFE5C2))
+                else -> listOf(Color(0xFFF0FDF8), Color(0xFFCCFBF1))
+            },
+        )
+    }
     Box(
         modifier = modifier
             .size(80.dp)
@@ -773,18 +776,22 @@ private fun PurchaseOrderFloatingSummary(
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val totalAmountText = remember(totalAmount) {
+        "%.2f".format(totalAmount)
+    }
+    val bottomScrim = remember {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color.Transparent,
+                BackgroundGradientEnd.copy(alpha = 0.94f),
+                BackgroundGradientEnd,
+            ),
+        )
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        BackgroundGradientEnd.copy(alpha = 0.94f),
-                        BackgroundGradientEnd,
-                    )
-                )
-            )
+            .background(brush = bottomScrim)
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         LiquidGlassCard(
@@ -816,7 +823,7 @@ private fun PurchaseOrderFloatingSummary(
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
-                                text = "%.2f".format(totalAmount),
+                                text = totalAmountText,
                                 style = MaterialTheme.typography.headlineLarge,
                                 color = ZhihuijiPrimary,
                                 fontWeight = FontWeight.Bold,

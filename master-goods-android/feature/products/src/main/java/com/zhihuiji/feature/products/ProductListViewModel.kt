@@ -63,18 +63,38 @@ class ProductListViewModel @Inject constructor(
 
     fun loadProducts() {
         viewModelScope.launch {
+            val currentState = _uiState.value
             _uiState.update { it.copy(isLoading = true, error = null) }
             repository.listProducts(
-                keyword = _uiState.value.keyword.takeIf { it.isNotBlank() },
-                categoryId = _uiState.value.selectedCategoryId
+                keyword = currentState.keyword.takeIf { it.isNotBlank() },
+                categoryId = currentState.selectedCategoryId
             )
                 .onSuccess { products ->
-                    val items = products.map { dto -> dto.toProductItem() }
-                    val filtered = when (_uiState.value.selectedStockStatus) {
-                        "normal" -> items.filter { it.status == "正常" }
-                        "low" -> items.filter { it.status == "低库存" }
-                        "out" -> items.filter { it.status == "缺货" }
-                        else -> items
+                    val filtered = ArrayList<ProductItem>(products.size)
+                    when (currentState.selectedStockStatus) {
+                        "normal" -> {
+                            for (dto in products) {
+                                val item = dto.toProductItem()
+                                if (item.status == "正常") filtered.add(item)
+                            }
+                        }
+                        "low" -> {
+                            for (dto in products) {
+                                val item = dto.toProductItem()
+                                if (item.status == "低库存") filtered.add(item)
+                            }
+                        }
+                        "out" -> {
+                            for (dto in products) {
+                                val item = dto.toProductItem()
+                                if (item.status == "缺货") filtered.add(item)
+                            }
+                        }
+                        else -> {
+                            for (dto in products) {
+                                filtered.add(dto.toProductItem())
+                            }
+                        }
                     }
                     _uiState.update {
                         it.copy(

@@ -49,10 +49,10 @@ data class PurchaseReturnUiState(
     val refundReferenceNo: String = "",
 ) {
     val selectedOrder: PurchaseReturnSourceOrder?
-        get() = sourceOrders.firstOrNull { it.id == selectedOrderId } ?: sourceOrders.firstOrNull()
+        get() = selectedOrderId?.let(sourceOrders::findById) ?: sourceOrders.firstOrNull()
 
     val selectedReturn: PurchaseReturnRecord?
-        get() = returns.firstOrNull { it.id == selectedReturnId } ?: returns.firstOrNull()
+        get() = selectedReturnId?.let(returns::findById) ?: returns.firstOrNull()
 }
 
 data class PurchaseReturnSourceOrder(
@@ -149,33 +149,44 @@ class PurchaseReturnViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, success = null) }
+            val currentState = _uiState.value
             val sourceResult = purchaseOrderRepository.listPurchaseOrders()
             val returnResult = purchaseReturnRepository.listPurchaseReturns()
             sourceResult.fold(
                 onSuccess = { orders ->
-                    val mappedOrders = orders
-                        .sortedByDescending { it.updatedAt.takeIf { ts -> ts > 0 } ?: it.createdAt }
-                        .map(PurchaseOrderV2Dto::toSourceOrder)
-                    val selectedOrderId = _uiState.value.selectedOrderId
-                        ?.takeIf { id -> mappedOrders.any { it.id == id } }
+                    val sortedOrders = orders.sortedByDescending { it.updatedAt.takeIf { ts -> ts > 0 } ?: it.createdAt }
+                    val mappedOrders = ArrayList<PurchaseReturnSourceOrder>(sortedOrders.size)
+                    val mappedOrdersById = HashMap<Long, PurchaseReturnSourceOrder>(sortedOrders.size * 2)
+                    for (index in sortedOrders.indices) {
+                        val mappedOrder = sortedOrders[index].toSourceOrder()
+                        mappedOrders.add(mappedOrder)
+                        mappedOrdersById[mappedOrder.id] = mappedOrder
+                    }
+                    val selectedOrderId = currentState.selectedOrderId
+                        ?.takeIf(mappedOrdersById::containsKey)
                         ?: mappedOrders.firstOrNull()?.id
-                    val selectedOrder = mappedOrders.firstOrNull { it.id == selectedOrderId }
+                    val selectedOrder = selectedOrderId?.let(mappedOrdersById::get)
                     returnResult.fold(
                         onSuccess = { returns ->
-                            val mappedReturns = returns
-                                .sortedByDescending(PurchaseReturnV2Dto::updatedAt)
-                                .map(PurchaseReturnV2Dto::toReturnRecord)
-                            val selectedReturnId = _uiState.value.selectedReturnId
-                                ?.takeIf { id -> mappedReturns.any { it.id == id } }
+                            val sortedReturns = returns.sortedByDescending(PurchaseReturnV2Dto::updatedAt)
+                            val mappedReturns = ArrayList<PurchaseReturnRecord>(sortedReturns.size)
+                            val mappedReturnsById = HashMap<Long, PurchaseReturnRecord>(sortedReturns.size * 2)
+                            for (index in sortedReturns.indices) {
+                                val mappedReturn = sortedReturns[index].toReturnRecord()
+                                mappedReturns.add(mappedReturn)
+                                mappedReturnsById[mappedReturn.id] = mappedReturn
+                            }
+                            val selectedReturnId = currentState.selectedReturnId
+                                ?.takeIf(mappedReturnsById::containsKey)
                                 ?: mappedReturns.firstOrNull()?.id
-                            val selectedReturn = mappedReturns.firstOrNull { it.id == selectedReturnId }
+                            val selectedReturn = selectedReturnId?.let(mappedReturnsById::get)
                             _uiState.update {
                                 it.copy(
                                     isLoading = false,
                                     sourceOrders = mappedOrders,
                                     selectedOrderId = selectedOrderId,
                                     createNotes = selectedOrder?.notes.orEmpty(),
-                                    createItems = selectedOrder?.lines?.map(PurchaseReturnSourceLine::toDraftLine).orEmpty(),
+                                    createItems = selectedOrder?.lines?.toDraftLines().orEmpty(),
                                     returns = mappedReturns,
                                     selectedReturnId = selectedReturnId,
                                     detailNotes = selectedReturn?.notes.orEmpty(),
@@ -192,7 +203,7 @@ class PurchaseReturnViewModel @Inject constructor(
                                     sourceOrders = mappedOrders,
                                     selectedOrderId = selectedOrderId,
                                     createNotes = selectedOrder?.notes.orEmpty(),
-                                    createItems = selectedOrder?.lines?.map(PurchaseReturnSourceLine::toDraftLine).orEmpty(),
+                                    createItems = selectedOrder?.lines?.toDraftLines().orEmpty(),
                                     error = error.message ?: "采购退货单加载失败",
                                 )
                             }
@@ -216,12 +227,12 @@ class PurchaseReturnViewModel @Inject constructor(
     }
 
     fun selectSourceOrder(id: Long) {
-        val order = _uiState.value.sourceOrders.firstOrNull { it.id == id } ?: return
+        val order = _uiState.value.sourceOrders.findById(id) ?: return
         _uiState.update {
             it.copy(
                 selectedOrderId = id,
                 createNotes = order.notes.orEmpty(),
-                createItems = order.lines.map(PurchaseReturnSourceLine::toDraftLine),
+                createItems = order.lines.toDraftLines(),
                 error = null,
                 success = null,
             )
@@ -286,7 +297,7 @@ class PurchaseReturnViewModel @Inject constructor(
                         it.copy(
                             isSaving = false,
                             mode = PurchaseReturnMode.MANAGE,
-                            returns = listOf(mapped) + it.returns.filterNot { item -> item.id == mapped.id },
+                            returns = it.returns.upsertById(mapped) { item -> item.id },
                             selectedReturnId = mapped.id,
                             detailNotes = mapped.notes.orEmpty(),
                             refundAmount = mapped.remainingRefund.takeIf { value -> value > 0.0 }?.formatMoneyInput().orEmpty(),
@@ -302,7 +313,7 @@ class PurchaseReturnViewModel @Inject constructor(
     }
 
     fun selectReturn(id: Long) {
-        val selected = _uiState.value.returns.firstOrNull { it.id == id } ?: return
+        val selected = _uiState.value.returns.findById(id) ?: return
         _uiState.update {
             it.copy(
                 selectedReturnId = id,
@@ -425,7 +436,7 @@ class PurchaseReturnViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isSaving = false,
-                            returns = listOf(mapped) + it.returns.filterNot { record -> record.id == mapped.id },
+                            returns = it.returns.upsertById(mapped) { record -> record.id },
                             selectedReturnId = mapped.id,
                             detailNotes = mapped.notes.orEmpty(),
                             refundAmount = mapped.remainingRefund.takeIf { value -> value > 0.0 }?.formatMoneyInput().orEmpty(),
@@ -476,6 +487,14 @@ private fun PurchaseReturnSourceLine.toDraftLine(): PurchaseReturnDraftLine =
         unitCostInput = unitCost.formatMoneyInput(),
     )
 
+private fun List<PurchaseReturnSourceLine>.toDraftLines(): List<PurchaseReturnDraftLine> {
+    val draftLines = ArrayList<PurchaseReturnDraftLine>(size)
+    for (index in indices) {
+        draftLines.add(this[index].toDraftLine())
+    }
+    return draftLines
+}
+
 private fun PurchaseReturnV2Dto.toReturnRecord(): PurchaseReturnRecord =
     PurchaseReturnRecord(
         id = id,
@@ -509,7 +528,50 @@ private fun PurchaseReturnRefundV2Dto.toRefundRecord(): PurchaseReturnRecordRefu
     )
 
 private fun List<PurchaseReturnDraftLine>.updateAt(index: Int, update: (PurchaseReturnDraftLine) -> PurchaseReturnDraftLine): List<PurchaseReturnDraftLine> =
-    mapIndexed { currentIndex, item -> if (currentIndex == index) update(item) else item }
+    ArrayList<PurchaseReturnDraftLine>(size).also { updated ->
+        for (currentIndex in indices) {
+            val item = this[currentIndex]
+            updated.add(if (currentIndex == index) update(item) else item)
+        }
+    }
+
+private inline fun <T> List<T>.upsertById(
+    item: T,
+    idSelector: (T) -> Long,
+): List<T> {
+    val targetId = idSelector(item)
+    val updated = ArrayList<T>(size + 1)
+    var replaced = false
+    for (index in indices) {
+        val current = this[index]
+        if (!replaced && idSelector(current) == targetId) {
+            updated.add(item)
+            replaced = true
+        } else {
+            updated.add(current)
+        }
+    }
+    if (!replaced) {
+        updated.add(0, item)
+    }
+    return updated
+}
+
+private fun List<PurchaseReturnSourceOrder>.findById(id: Long): PurchaseReturnSourceOrder? {
+    for (index in indices) {
+        val order = this[index]
+        if (order.id == id) return order
+    }
+    return null
+}
+
+private fun List<PurchaseReturnRecord>.findById(id: Long): PurchaseReturnRecord? {
+    for (index in indices) {
+        val record = this[index]
+        if (record.id == id) return record
+    }
+    return null
+}
 
 private fun Double.formatPurchaseReturnQuantity(): String =
     if (this % 1.0 == 0.0) "%.0f".format(this) else "%.2f".format(this)

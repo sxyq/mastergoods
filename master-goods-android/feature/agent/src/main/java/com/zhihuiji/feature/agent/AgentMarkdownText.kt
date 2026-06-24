@@ -56,42 +56,25 @@ fun AgentMarkdownText(
     renderIdentity: Any? = markdown,
 ) {
     val blocks = remember(renderIdentity, markdown) { parseMarkdown(markdown) }
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        blocks.forEachIndexed { index, block ->
-            key(block.stableKey(index)) {
-                when (block) {
-                    is MarkdownBlock.Heading -> MarkdownSelectableBlock {
-                        MarkdownHeading(block, contentColor)
-                    }
-                    is MarkdownBlock.Paragraph -> MarkdownSelectableBlock {
-                        MarkdownParagraph(block.text, contentColor)
-                    }
-                    is MarkdownBlock.ListBlock -> MarkdownSelectableBlock {
-                        MarkdownList(block, contentColor)
-                    }
-                    is MarkdownBlock.CodeBlock -> MarkdownSelectableBlock {
-                        MarkdownCodeBlock(block)
-                    }
-                    is MarkdownBlock.Quote -> MarkdownSelectableBlock {
-                        MarkdownQuote(block, contentColor)
-                    }
-                    is MarkdownBlock.Divider -> MarkdownDivider()
-                    is MarkdownBlock.Table -> MarkdownSelectableBlock {
-                        MarkdownTable(block)
+    SelectionContainer {
+        Column(
+            modifier = modifier,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            blocks.forEachIndexed { index, block ->
+                key(block.stableKey(index)) {
+                    when (block) {
+                        is MarkdownBlock.Heading -> MarkdownHeading(block, contentColor)
+                        is MarkdownBlock.Paragraph -> MarkdownParagraph(block.text, contentColor)
+                        is MarkdownBlock.ListBlock -> MarkdownList(block, contentColor)
+                        is MarkdownBlock.CodeBlock -> MarkdownCodeBlock(block)
+                        is MarkdownBlock.Quote -> MarkdownQuote(block, contentColor)
+                        is MarkdownBlock.Divider -> MarkdownDivider()
+                        is MarkdownBlock.Table -> MarkdownTable(block)
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun MarkdownSelectableBlock(content: @Composable () -> Unit) {
-    SelectionContainer {
-        content()
     }
 }
 
@@ -464,17 +447,19 @@ private fun hasMarkdownBlockSyntax(markdown: String): Boolean {
     if (markdown.indexOfAny(charArrayOf('\n', '#', '-', '*', '+', '>', '`', '|')) < 0) {
         return false
     }
-    return markdown
-        .lineSequence()
-        .map(String::trim)
-        .any { line ->
-            line.startsWith("```") ||
-                headingMatch(line) != null ||
-                line.startsWith(">") ||
-                listMatch(line) != null ||
-                DividerRegex.matches(line) ||
-                hasTableDelimiter(line)
+    for (line in markdown.lineSequence()) {
+        val trimmed = line.trim()
+        if (trimmed.startsWith("```") ||
+            headingMatch(trimmed) != null ||
+            trimmed.startsWith(">") ||
+            listMatch(trimmed) != null ||
+            DividerRegex.matches(trimmed) ||
+            hasTableDelimiter(trimmed)
+        ) {
+            return true
         }
+    }
+    return false
 }
 
 private fun headingMatch(line: String): Pair<Int, String>? {

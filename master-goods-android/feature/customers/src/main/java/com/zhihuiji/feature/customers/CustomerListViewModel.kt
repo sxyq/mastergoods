@@ -2,6 +2,7 @@ package com.zhihuiji.feature.customers
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.model.v2.partner.CustomerV2Dto
 import com.zhihuiji.data.customer.CustomerV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -10,15 +11,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.ArrayList
 import javax.inject.Inject
 
 fun CustomerV2Dto.toCustomerItem(): CustomerItem = CustomerItem(
     id = id,
     name = name,
     phone = phone,
-    receivable = "¥%.2f".format(balance),
+    receivableAmount = balance,
+    receivable = MoneyFormatter.format(balance),
+    hasDebt = status == 1 && balance > 0.0,
     status = when (status) {
-        1 -> if (balance > 0) "欠款" else "正常"
+        1 -> if (balance > 0.0) "欠款" else "正常"
         0 -> "已停用"
         else -> "未知"
     }
@@ -36,7 +40,9 @@ data class CustomerItem(
     val id: Long,
     val name: String,
     val phone: String,
+    val receivableAmount: Double,
     val receivable: String,
+    val hasDebt: Boolean,
     val status: String
 )
 
@@ -54,22 +60,31 @@ class CustomerListViewModel @Inject constructor(
 
     fun loadCustomers() {
         viewModelScope.launch {
+            val snapshot = _uiState.value
             _uiState.update { it.copy(isLoading = true, error = null) }
-            val status = when (_uiState.value.selectedTabIndex) {
+            val status = when (snapshot.selectedTabIndex) {
                 1 -> 1 // 正常/欠款
                 2 -> 1 // 欠款在UI层过滤
                 3 -> 0 // 已停用
                 else -> null
             }
             repository.listCustomers(
-                keyword = _uiState.value.keyword.takeIf { it.isNotBlank() },
+                keyword = snapshot.keyword.takeIf { it.isNotBlank() },
                 status = status
             )
                 .onSuccess { customers ->
-                    val items = customers.map { it.toCustomerItem() }
-                    val filtered = when (_uiState.value.selectedTabIndex) {
-                        2 -> items.filter { it.status == "欠款" }
-                        else -> items
+                    val filtered = ArrayList<CustomerItem>(customers.size)
+                    if (snapshot.selectedTabIndex == 2) {
+                        for (customer in customers) {
+                            val item = customer.toCustomerItem()
+                            if (item.hasDebt) {
+                                filtered.add(item)
+                            }
+                        }
+                    } else {
+                        for (customer in customers) {
+                            filtered.add(customer.toCustomerItem())
+                        }
                     }
                     _uiState.update {
                         it.copy(

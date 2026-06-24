@@ -109,6 +109,31 @@ fun agentChatRoute(initialQuestion: String? = null, conversationId: Long? = null
     return "agent_chat?initialQuestion=$encodedQuestion&conversationId=${conversationId ?: -1L}"
 }
 
+private fun longRouteArguments(name: String): List<NamedNavArgument> =
+    listOf(navArgument(name) { type = NavType.LongType })
+
+private val initialTabArguments = listOf(
+    navArgument("initialTab") {
+        type = NavType.IntType
+        defaultValue = 0
+    }
+)
+private val productIdArguments = longRouteArguments("productId")
+private val customerIdArguments = longRouteArguments("customerId")
+private val supplierIdArguments = longRouteArguments("supplierId")
+private val orderIdArguments = longRouteArguments("orderId")
+private val recordIdArguments = longRouteArguments("recordId")
+private val agentChatArguments = listOf(
+    navArgument("initialQuestion") {
+        type = NavType.StringType
+        defaultValue = ""
+    },
+    navArgument("conversationId") {
+        type = NavType.LongType
+        defaultValue = -1L
+    }
+)
+
 @Composable
 fun MainNavGraph(
     navController: NavHostController,
@@ -152,7 +177,7 @@ fun MainNavGraph(
                 route = "${TabRoutes.DOCUMENTS}?initialTab={initialTab}",
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("initialTab") { type = NavType.IntType; defaultValue = 0 })
+                arguments = initialTabArguments
             ) { backStackEntry ->
                 DocumentsScreen(
                     accessState = accessState,
@@ -174,7 +199,7 @@ fun MainNavGraph(
                 route = "${TabRoutes.ARCHIVES}?initialTab={initialTab}",
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("initialTab") { type = NavType.IntType; defaultValue = 0 })
+                arguments = initialTabArguments
             ) { backStackEntry ->
                 ArchivesScreen(
                     accessState = accessState,
@@ -205,7 +230,7 @@ fun MainNavGraph(
                 route = DetailRoutes.PRODUCT_DETAIL,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("productId") { type = NavType.LongType })
+                arguments = productIdArguments
             ) { backStackEntry ->
                 val productId = backStackEntry.arguments?.getLong("productId") ?: 0L
                 ProductDetailScreen(
@@ -220,7 +245,7 @@ fun MainNavGraph(
                 route = DetailRoutes.PRODUCT_EDIT,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("productId") { type = NavType.LongType })
+                arguments = productIdArguments
             ) { backStackEntry ->
                 val productId = backStackEntry.arguments?.getLong("productId")
                 ProductEditScreen(
@@ -240,7 +265,7 @@ fun MainNavGraph(
                 route = DetailRoutes.STOCK_ADJUST,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("productId") { type = NavType.LongType })
+                arguments = productIdArguments
             ) { backStackEntry ->
                 val productId = backStackEntry.arguments?.getLong("productId") ?: 0L
                 StockAdjustScreen(
@@ -253,7 +278,7 @@ fun MainNavGraph(
                 route = DetailRoutes.INVENTORY_LEDGER,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("productId") { type = NavType.LongType })
+                arguments = productIdArguments
             ) { backStackEntry ->
                 val productId = backStackEntry.arguments?.getLong("productId") ?: 0L
                 InventoryLedgerScreen(
@@ -272,7 +297,7 @@ fun MainNavGraph(
                 route = DetailRoutes.CUSTOMER_DETAIL,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("customerId") { type = NavType.LongType })
+                arguments = customerIdArguments
             ) { backStackEntry ->
                 val customerId = backStackEntry.arguments?.getLong("customerId") ?: 0L
                 CustomerDetailScreen(
@@ -285,7 +310,7 @@ fun MainNavGraph(
                 route = DetailRoutes.CUSTOMER_EDIT,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("customerId") { type = NavType.LongType })
+                arguments = customerIdArguments
             ) { backStackEntry ->
                 val customerId = backStackEntry.arguments?.getLong("customerId")
                 CustomerEditScreen(
@@ -307,7 +332,7 @@ fun MainNavGraph(
                 route = DetailRoutes.SUPPLIER_DETAIL,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("supplierId") { type = NavType.LongType })
+                arguments = supplierIdArguments
             ) { backStackEntry ->
                 val supplierId = backStackEntry.arguments?.getLong("supplierId") ?: 0L
                 SupplierDetailScreen(
@@ -321,7 +346,7 @@ fun MainNavGraph(
                 route = DetailRoutes.SUPPLIER_STATEMENT,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("supplierId") { type = NavType.LongType })
+                arguments = supplierIdArguments
             ) { backStackEntry ->
                 val supplierId = backStackEntry.arguments?.getLong("supplierId") ?: 0L
                 SupplierStatementScreen(
@@ -333,7 +358,7 @@ fun MainNavGraph(
                 route = DetailRoutes.SUPPLIER_EDIT,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("supplierId") { type = NavType.LongType })
+                arguments = supplierIdArguments
             ) { backStackEntry ->
                 val supplierId = backStackEntry.arguments?.getLong("supplierId")
                 SupplierEditScreen(
@@ -355,7 +380,7 @@ fun MainNavGraph(
                 route = DetailRoutes.SALE_ORDER_DETAIL,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("orderId") { type = NavType.LongType })
+                arguments = orderIdArguments
             ) {
                 SaleOrderDetailScreen(
                     onBackClick = { navController.popBackStack() },
@@ -367,7 +392,7 @@ fun MainNavGraph(
                 route = DetailRoutes.SALE_ORDER_EDIT,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("orderId") { type = NavType.LongType })
+                arguments = orderIdArguments
             ) {
                 SaleOrderEditScreen(
                     onBackClick = { navController.popBackStack() },
@@ -384,7 +409,7 @@ fun MainNavGraph(
                 route = DetailRoutes.PAYMENT,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("orderId") { type = NavType.LongType })
+                arguments = orderIdArguments
             ) {
                 PaymentScreen(
                     onBackClick = { navController.popBackStack() },
@@ -402,7 +427,7 @@ fun MainNavGraph(
                 route = DetailRoutes.PURCHASE_ORDER_DETAIL,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("orderId") { type = NavType.LongType })
+                arguments = orderIdArguments
             ) {
                 PurchaseOrderDetailScreen(
                     onBackClick = { navController.popBackStack() },
@@ -414,7 +439,7 @@ fun MainNavGraph(
                 route = DetailRoutes.PURCHASE_ORDER_EDIT,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("orderId") { type = NavType.LongType })
+                arguments = orderIdArguments
             ) {
                 PurchaseOrderEditScreen(
                     onBackClick = { navController.popBackStack() },
@@ -443,7 +468,7 @@ fun MainNavGraph(
                 route = DetailRoutes.PAY_ORDER_DETAIL,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("orderId") { type = NavType.LongType })
+                arguments = orderIdArguments
             ) {
                 PayOrderDetailScreen(
                     onBackClick = { navController.popBackStack() }
@@ -455,7 +480,7 @@ fun MainNavGraph(
                 route = DetailRoutes.FINANCE_RECORD_DETAIL,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("recordId") { type = NavType.LongType })
+                arguments = recordIdArguments
             ) { backStackEntry ->
                 val recordId = backStackEntry.arguments?.getLong("recordId") ?: 0L
                 FinanceRecordDetailScreen(
@@ -492,7 +517,7 @@ fun MainNavGraph(
                 route = "${DetailRoutes.TASK_NOTIFICATION}?initialTab={initialTab}",
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(navArgument("initialTab") { type = NavType.IntType; defaultValue = 0 })
+                arguments = initialTabArguments
             ) { backStackEntry ->
                 TaskNotificationScreen(
                     onBackClick = { navController.popBackStack() },
@@ -505,16 +530,7 @@ fun MainNavGraph(
                 route = DetailRoutes.AGENT_CHAT,
                 accessState = accessState,
                 navController = navController,
-                arguments = listOf(
-                    navArgument("initialQuestion") {
-                        type = NavType.StringType
-                        defaultValue = ""
-                    },
-                    navArgument("conversationId") {
-                        type = NavType.LongType
-                        defaultValue = -1L
-                    }
-                )
+                arguments = agentChatArguments
             ) { backStackEntry ->
                 val initialQuestion = backStackEntry.arguments?.getString("initialQuestion")?.takeIf { it.isNotBlank() }
                 val conversationId = backStackEntry.arguments?.getLong("conversationId")?.takeIf { it > 0 }

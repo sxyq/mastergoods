@@ -116,9 +116,11 @@ class PurchaseReceiptViewModel @Inject constructor(
 
         repository.listPurchaseReceipts()
             .onSuccess { receipts ->
-                val items = receipts
-                    .sortedWith(compareBy<PurchaseReceiptV2Dto> { it.status != 0 }.thenByDescending { it.createdAt })
-                    .map(PurchaseReceiptV2Dto::toPurchaseReceiptItem)
+                val sorted = receipts.sortedWith(compareBy<PurchaseReceiptV2Dto> { it.status != 0 }.thenByDescending { it.createdAt })
+                val items = ArrayList<PurchaseReceiptItem>(sorted.size)
+                for (index in sorted.indices) {
+                    items.add(sorted[index].toPurchaseReceiptItem())
+                }
                 val selectedId = selectId
                     ?.takeIf { id -> items.any { it.id == id } }
                     ?: items.firstOrNull { it.status == 0 }?.id
@@ -148,7 +150,7 @@ private fun PurchaseReceiptV2Dto.toPurchaseReceiptItem(): PurchaseReceiptItem =
         receiptNo = receiptNo,
         purchaseOrderId = purchaseOrderId,
         supplierName = supplierName ?: "-",
-        items = items.map(PurchaseReceiptItemV2Dto::toPurchaseReceiptLineItem),
+        items = items.toPurchaseReceiptLineItems(),
         totalAmount = totalAmount,
         status = status,
         notes = notes,
@@ -164,3 +166,11 @@ private fun PurchaseReceiptItemV2Dto.toPurchaseReceiptLineItem(): PurchaseReceip
         unitCost = unitCost,
         amount = amount,
     )
+
+private fun List<PurchaseReceiptItemV2Dto>.toPurchaseReceiptLineItems(): List<PurchaseReceiptLineItem> {
+    val result = ArrayList<PurchaseReceiptLineItem>(size)
+    for (index in indices) {
+        result.add(get(index).toPurchaseReceiptLineItem())
+    }
+    return result
+}

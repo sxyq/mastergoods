@@ -107,6 +107,10 @@ private val DashboardTrendCardHeight = 228.dp
 private val DashboardReminderRowHeight = 68.dp
 private val DashboardDialogDayFormatter = DateTimeFormatter.ofPattern("MM月dd日", Locale.getDefault())
 private val DashboardDialogFullDayFormatter = DateTimeFormatter.ofPattern("yyyy年MM月dd日", Locale.getDefault())
+private val DashboardWholeNumberFormatter = ThreadLocal.withInitial<DecimalFormat> {
+    DecimalFormat("#,##0")
+}
+private const val DashboardReminderItemCapacity = 3
 
 @Composable
 fun DashboardScreen(
@@ -333,6 +337,7 @@ private fun BusinessOverviewSection(
     onSalesDateClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isNetCashFlowNegative = netCashFlow.startsWith("-")
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(DashboardInnerSectionGap)
@@ -396,8 +401,8 @@ private fun BusinessOverviewSection(
                 value = signedCurrency(netCashFlow),
                 caption = "${salesPeriodLabel}资金流水净额",
                 icon = Icons.Outlined.AccountBalance,
-                accent = if (netCashFlow.startsWith("-")) DangerRed else SuccessGreen,
-                valueColor = if (netCashFlow.startsWith("-")) DangerRed else SuccessGreen,
+                accent = if (isNetCashFlowNegative) DangerRed else SuccessGreen,
+                valueColor = if (isNetCashFlowNegative) DangerRed else SuccessGreen,
                 glow = SuccessGreen.copy(alpha = 0.07f)
             )
         }
@@ -513,6 +518,7 @@ private fun SalesTrendSection(
     title: String,
     modifier: Modifier = Modifier
 ) {
+    val totalText = remember(trend) { formatCurrency(trend.sumOf { it.value }) }
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(DashboardInnerSectionGap)
@@ -538,7 +544,7 @@ private fun SalesTrendSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "总计  ${formatCurrency(trend.sumOf { it.value })}",
+                    text = "总计  $totalText",
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -730,13 +736,16 @@ private fun TrendAxisLabels(
     trend: List<SalesTrendPoint>,
     modifier: Modifier = Modifier
 ) {
+    val firstLabel = trend.firstOrNull()?.label ?: "-"
+    val middleLabel = trend.getOrNull(trend.size / 2)?.label ?: "-"
+    val lastLabel = trend.lastOrNull()?.label ?: "今日"
     if (trend.size <= 1) {
         Box(
             modifier = modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = trend.firstOrNull()?.label ?: "-",
+                text = firstLabel,
                 fontSize = 12.sp,
                 lineHeight = 16.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -772,7 +781,7 @@ private fun TrendAxisLabels(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = trend.firstOrNull()?.label ?: "-",
+            text = firstLabel,
             fontSize = 12.sp,
             lineHeight = 16.sp,
             fontWeight = FontWeight.SemiBold,
@@ -780,7 +789,7 @@ private fun TrendAxisLabels(
             maxLines = 1
         )
         Text(
-            text = trend.getOrNull(trend.size / 2)?.label ?: "-",
+            text = middleLabel,
             fontSize = 12.sp,
             lineHeight = 16.sp,
             fontWeight = FontWeight.SemiBold,
@@ -788,7 +797,7 @@ private fun TrendAxisLabels(
             maxLines = 1
         )
         Text(
-            text = trend.lastOrNull()?.label ?: "今日",
+            text = lastLabel,
             fontSize = 12.sp,
             lineHeight = 16.sp,
             fontWeight = FontWeight.SemiBold,
@@ -1132,6 +1141,7 @@ private fun SalesDatePickerDialog(
     onDateSelected: (LocalDate) -> Unit
 ) {
     val today = remember { LocalDate.now() }
+    val yesterday = remember(today) { today.minusDays(1) }
     val initialDate = remember(selectedDate, today) {
         when {
             selectedDate == null -> today
@@ -1211,10 +1221,10 @@ private fun SalesDatePickerDialog(
                         )
                         SalesDateShortcutChip(
                             label = "昨天",
-                            date = today.minusDays(1),
-                            selected = pickedDate == today.minusDays(1),
+                            date = yesterday,
+                            selected = pickedDate == yesterday,
                             onClick = {
-                                onDateSelected(today.minusDays(1))
+                                onDateSelected(yesterday)
                                 onDismiss()
                             }
                         )
@@ -1322,12 +1332,16 @@ private fun buildDashboardReminderItems(
     canOpenProducts: Boolean,
     canOpenCustomers: Boolean,
     canOpenAgent: Boolean,
-): List<DashboardReminderItem> = buildList {
+): List<DashboardReminderItem> {
+    // Keep the reminder list allocation bounded to the small, fixed dashboard surface.
+    val reminders = ArrayList<DashboardReminderItem>(DashboardReminderItemCapacity)
+    val firstLowStockProduct = lowStockProducts.firstOrNull()
+    val firstPendingReminder = pendingReminders.firstOrNull()
     if (lowStockCount > 0 && canOpenProducts) {
-        add(
+        reminders.add(
             DashboardReminderItem(
                 title = "低库存商品",
-                subtitle = lowStockProducts.firstOrNull()?.let { "${it.name} 等商品需补货" }
+                subtitle = firstLowStockProduct?.let { "${it.name} 等商品需补货" }
                     ?: "$lowStockCount 个商品库存低于安全线",
                 count = lowStockCount,
                 icon = Icons.Outlined.Inventory,
@@ -1337,7 +1351,7 @@ private fun buildDashboardReminderItems(
         )
     }
     if (receivableCustomerCount > 0 && canOpenCustomers) {
-        add(
+        reminders.add(
             DashboardReminderItem(
                 title = "待收款客户",
                 subtitle = "$receivableCustomerCount 位客户账款需要跟进",
@@ -1348,11 +1362,11 @@ private fun buildDashboardReminderItems(
             )
         )
     }
-    if (isEmpty() && pendingReminders.isNotEmpty() && canOpenAgent) {
-        add(
+    if (reminders.isEmpty() && pendingReminders.isNotEmpty() && canOpenAgent) {
+        reminders.add(
             DashboardReminderItem(
                 title = "AI 经营提醒",
-                subtitle = pendingReminders.first(),
+                subtitle = firstPendingReminder.orEmpty(),
                 count = pendingReminders.size,
                 icon = Icons.Outlined.SmartToy,
                 tint = WarningOrange,
@@ -1360,6 +1374,7 @@ private fun buildDashboardReminderItems(
             )
         )
     }
+    return reminders
 }
 
 private fun signedCurrency(value: String): String {
@@ -1379,7 +1394,7 @@ private fun formatCurrencyText(value: String): String {
     return formatCurrency(normalized)
 }
 
-private fun formatNumber(value: Double): String = DecimalFormat("#,##0").format(value)
+private fun formatNumber(value: Double): String = DashboardWholeNumberFormatter.get()!!.format(value)
 
 private fun LocalDate.toDatePickerMillis(): Long =
     atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()

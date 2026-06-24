@@ -12,9 +12,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import java.util.concurrent.ConcurrentHashMap
 
 data class DraftItem(
     val id: Long,
+    val conversationId: Long? = null,
     val draftType: String,
     val typeLabel: String,
     val title: String,
@@ -23,6 +25,7 @@ data class DraftItem(
     val amountText: String,
     val status: String,
     val statusLabel: String,
+    val contentJson: String = "",
     val createdAt: Long = System.currentTimeMillis(),
 )
 
@@ -51,10 +54,14 @@ class DraftListViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             val result = repository.listDrafts()
             result.onSuccess { dtos ->
+                val drafts = ArrayList<DraftItem>(dtos.size)
+                for (dto in dtos) {
+                    drafts.add(dto.toDraftItem())
+                }
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        drafts = dtos.map { dto -> dto.toDraftItem() }
+                        drafts = drafts,
                     )
                 }
             }.onFailure { e ->
@@ -71,19 +78,17 @@ class DraftListViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isArchiving = true, error = null) }
             val draft = _uiState.value.drafts.firstOrNull { it.id == draftId }
-            val dtoResult = repository.listDrafts()
-            val dto = dtoResult.getOrNull()?.firstOrNull { it.id == draftId }
-            if (draft == null || dto == null) {
+            if (draft == null) {
                 _uiState.update { it.copy(isArchiving = false, error = "草稿不存在或已处理") }
                 return@launch
             }
             repository.updateDraft(
                 draftId,
                 UpdateAgentDraftRequest(
-                    conversationId = dto.conversationId,
-                    draftType = dto.draftType,
-                    title = dto.title,
-                    contentJson = dto.contentJson,
+                    conversationId = draft.conversationId,
+                    draftType = draft.draftType,
+                    title = draft.title,
+                    contentJson = draft.contentJson,
                     status = "archived",
                 )
             ).onSuccess {
@@ -119,6 +124,7 @@ class DraftListViewModel @Inject constructor(
 
 private fun AgentDraftDto.toDraftItem(): DraftItem = DraftItem(
     id = id,
+    conversationId = conversationId,
     draftType = draftType,
     typeLabel = when (draftType) {
         "sale" -> "销售"
@@ -156,6 +162,7 @@ private fun AgentDraftDto.toDraftItem(): DraftItem = DraftItem(
         "pending", "confirmed" -> "后端状态未接入执行"
         else -> status.ifBlank { "后端未返回状态" }
     },
+    contentJson = contentJson,
     createdAt = createdAt,
 )
 
@@ -176,13 +183,31 @@ private fun extractAmountText(json: String): String? {
 
 private fun extractJsonValue(json: String, vararg keys: String): String? {
     if (json.isBlank()) return null
-    return keys.asSequence()
-        .mapNotNull { key ->
+    for (key in keys) {
+        val patterns = jsonValuePatterns.getOrPut(key) {
             val escapedKey = Regex.escape(key)
-            val stringMatch = Regex("\"$escapedKey\"\\s*:\\s*\"([^\"]*)\"").find(json)
-            val numberMatch = Regex("\"$escapedKey\"\\s*:\\s*([-+]?\\d+(?:\\.\\d+)?)").find(json)
-            stringMatch?.groupValues?.getOrNull(1)
-                ?: numberMatch?.groupValues?.getOrNull(1)
+            JsonValuePattern(
+                stringRegex = Regex("\"$escapedKey\"\\s*:\\s*\"([^\"]*)\""),
+                numberRegex = Regex("\"$escapedKey\"\\s*:\\s*([-+]?\\d+(?:\\.\\d+)?)"),
+            )
         }
-        .firstOrNull { it.isNotBlank() }
+        val stringMatch = patterns.stringRegex.find(json)
+        val stringValue = stringMatch?.groupValues?.getOrNull(1)
+        if (!stringValue.isNullOrBlank()) {
+            return stringValue
+        }
+        val numberMatch = patterns.numberRegex.find(json)
+        val numberValue = numberMatch?.groupValues?.getOrNull(1)
+        if (!numberValue.isNullOrBlank()) {
+            return numberValue
+        }
+    }
+    return null
 }
+
+private data class JsonValuePattern(
+    val stringRegex: Regex,
+    val numberRegex: Regex,
+)
+
+private val jsonValuePatterns = ConcurrentHashMap<String, JsonValuePattern>()

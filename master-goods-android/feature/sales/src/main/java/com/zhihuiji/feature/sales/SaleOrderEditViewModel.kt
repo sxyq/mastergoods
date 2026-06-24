@@ -105,43 +105,28 @@ class SaleOrderEditViewModel @Inject constructor(
     }
 
     fun updateItemProduct(index: Int, productId: String, productName: String) {
-        _uiState.update { state ->
-            state.copy(
-                items = state.items.mapIndexed { i, item ->
-                    if (i == index) item.copy(productId = productId.toLongOrNull(), productName = productName) else item
-                }
-            )
+        updateItemAt(index) { item ->
+            item.copy(productId = productId.toLongOrNull(), productName = productName)
         }
     }
 
     fun updateItemQuantity(index: Int, quantity: String) {
-        _uiState.update { state ->
-            state.copy(
-                items = state.items.mapIndexed { i, item ->
-                    if (i == index) item.copy(quantity = quantity) else item
-                }
-            )
-        }
+        updateItemAt(index) { item -> item.copy(quantity = quantity) }
     }
 
     fun updateItemUnitPrice(index: Int, unitPrice: String) {
-        _uiState.update { state ->
-            state.copy(
-                items = state.items.mapIndexed { i, item ->
-                    if (i == index) item.copy(unitPrice = unitPrice) else item
-                }
-            )
-        }
+        updateItemAt(index) { item -> item.copy(unitPrice = unitPrice) }
     }
 
     fun saveOrder() {
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null) }
             val state = _uiState.value
+            val itemRequests = state.items.mapNotNull { it.toCreateRequest() }
             val request = CreateSaleOrderV2Request(
                 customerId = state.customerId.toLongOrNull(),
                 customerName = state.customerName.takeIf { it.isNotBlank() },
-                items = state.items.mapNotNull { it.toCreateRequest() },
+                items = itemRequests,
                 notes = state.remark.takeIf { it.isNotBlank() },
                 discountAmount = state.discountAmount.toDoubleOrNull(),
             )
@@ -149,7 +134,7 @@ class SaleOrderEditViewModel @Inject constructor(
                 val updateRequest = com.zhihuiji.core.model.v2.order.UpdateSaleDraftV2Request(
                     discountAmount = state.discountAmount.toDoubleOrNull(),
                     notes = state.remark.takeIf { it.isNotBlank() },
-                    items = state.items.mapNotNull { it.toCreateRequest() },
+                    items = itemRequests,
                 )
                 repository.updateDraft(orderId, updateRequest)
                     .onSuccess {
@@ -176,6 +161,17 @@ class SaleOrderEditViewModel @Inject constructor(
 
     fun onSaveSuccessHandled() {
         _uiState.update { it.copy(saveSuccess = false) }
+    }
+
+    private fun updateItemAt(index: Int, transform: (EditItem) -> EditItem) {
+        _uiState.update { state ->
+            val items = state.items.toMutableList()
+            if (index !in items.indices) {
+                return@update state
+            }
+            items[index] = transform(items[index])
+            state.copy(items = items)
+        }
     }
 }
 

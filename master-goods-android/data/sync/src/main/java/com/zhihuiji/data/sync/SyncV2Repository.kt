@@ -43,6 +43,8 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
+private val EMPTY_JSON_OBJECT = JsonObject(emptyMap())
+
 @Singleton
 class SyncV2Repository @Inject constructor(
     private val api: ZhihuijiV2Api,
@@ -105,7 +107,7 @@ class SyncV2Repository @Inject constructor(
     }
 
     suspend fun applyPulledChanges(result: SyncPullV2Response): Result<Unit> = runCatching {
-        result.changes.forEach { change ->
+        for (change in result.changes) {
             when (change.entityType) {
                 "customer" -> applyCustomerChange(change)
                 "supplier" -> applySupplierChange(change)
@@ -359,9 +361,12 @@ class SyncV2Repository @Inject constructor(
         operation.equals("delete", ignoreCase = true)
 
     private fun parsePayload(payload: String?): JsonObject =
-        runCatching {
-            if (payload.isNullOrBlank()) JsonObject(emptyMap()) else json.parseToJsonElement(payload).jsonObject
-        }.getOrDefault(JsonObject(emptyMap()))
+        if (payload.isNullOrBlank()) {
+            EMPTY_JSON_OBJECT
+        } else {
+            runCatching { json.parseToJsonElement(payload).jsonObject }
+                .getOrDefault(EMPTY_JSON_OBJECT)
+        }
 
     private fun JsonObject.string(key: String): String = stringOrNull(key).orEmpty()
 

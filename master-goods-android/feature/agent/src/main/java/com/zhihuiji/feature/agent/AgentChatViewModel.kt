@@ -20,6 +20,7 @@ import com.zhihuiji.core.model.v2.agent.ToolAuditRecord
 import com.zhihuiji.core.model.v2.agent.ToolCallRecord
 import com.zhihuiji.core.model.v2.agent.ToolCallStatus
 import com.zhihuiji.core.model.v2.agent.UpdateAgentDraftRequest
+import com.zhihuiji.core.network.RetryState
 import com.zhihuiji.data.agent.AgentAuditRepository
 import com.zhihuiji.data.agent.AgentV2Repository
 import com.zhihuiji.data.agent.listRecentMessages
@@ -62,7 +63,16 @@ data class AgentChatUiState(
     val canStop: Boolean = false,
     val showDraftConfirm: DraftConfirmState? = null,
     val contextCompacted: ContextCompactedState? = null,
-)
+    val retryState: RetryState = RetryState(),
+) {
+    /** 重连中提示文案，供 UI 直接展示 */
+    val retryMessage: String?
+        get() = if (retryState.isRetrying) {
+            "重连中... (${retryState.attempt}/${retryState.maxAttempts})"
+        } else {
+            null
+        }
+}
 
 /**
  * 草稿确认弹窗状态
@@ -96,6 +106,7 @@ class AgentChatViewModel @Inject constructor(
     private val pendingAnswerDelta = StringBuilder()
     private var pendingAnswerDeltaSource: String? = null
     private var consumedInitialQuestionKey: String? = null
+    private var currentStreamingAssistantMessageId: String? = null
 
     /** 当前运行的审计记录构建器 */
     private var currentAuditBuilder: AuditRecordBuilder? = null
@@ -144,7 +155,11 @@ class AgentChatViewModel @Inject constructor(
         repository.listRecentMessages(conversationId)
             .onSuccess { messages ->
                 val chatMessages = withContext(Dispatchers.Default) {
-                    messages.map { dto -> dto.toChatMessage() }
+                    val parsed = ArrayList<ChatMessage>(messages.size)
+                    for (index in messages.indices) {
+                        parsed.add(messages[index].toChatMessage())
+                    }
+                    parsed
                 }
                 _uiState.update {
                     it.copy(
@@ -210,6 +225,7 @@ class AgentChatViewModel @Inject constructor(
                 animateReveal = false,
                 createdAt = System.currentTimeMillis(),
             )
+            currentStreamingAssistantMessageId = assistantMessageId
             _uiState.update { it.copy(messages = it.messages + streamingMessage) }
 
             repository.chatStream(request)
@@ -551,6 +567,7 @@ class AgentChatViewModel @Inject constructor(
                         currentRunId = null,
                     )
                 }
+                currentStreamingAssistantMessageId = null
                 updateAssistantMessage(assistantMessageId) { msg ->
                     val finalContent = msg.content.withAuthoritativeAnswerIfVisible(
                         answer = finalAnswer,
@@ -589,6 +606,7 @@ class AgentChatViewModel @Inject constructor(
                         currentRunId = null,
                     )
                 }
+                currentStreamingAssistantMessageId = null
                 updateAssistantMessage(assistantMessageId) { msg ->
                     msg.copy(
                         isStreaming = false,
@@ -622,6 +640,7 @@ class AgentChatViewModel @Inject constructor(
                 canStop = false,
                 currentRunId = null,
                 error = errorMessage,
+                retryState = RetryState(),
             )
         }
         updateAssistantMessage(assistantMessageId) { msg ->
@@ -639,6 +658,7 @@ class AgentChatViewModel @Inject constructor(
                 },
             )
         }
+        currentStreamingAssistantMessageId = null
         currentAuditBuilder?.errorInfo = ErrorAuditInfo(
             message = errorMessage,
         )
@@ -669,19 +689,20 @@ class AgentChatViewModel @Inject constructor(
         transform: (ChatMessage) -> ChatMessage,
     ) {
         _uiState.update { state ->
-            val lastIndex = state.messages.lastIndex
-            val index = when {
-                lastIndex >= 0 && state.messages[lastIndex].id == assistantMessageId -> lastIndex
-                else -> state.messages.indexOfFirst { it.id == assistantMessageId }
+            val messages = state.messages
+            var index = messages.lastIndex
+            while (index >= 0 && messages[index].id != assistantMessageId) {
+                index--
             }
             if (index == -1) {
                 return@update state
             }
-            val updated = transform(state.messages[index])
-            if (updated == state.messages[index]) {
+            val current = messages[index]
+            val updated = transform(current)
+            if (updated == current) {
                 return@update state
             }
-            val updatedMessages = state.messages.toMutableList()
+            val updatedMessages = messages.toMutableList()
             updatedMessages[index] = updated
             state.copy(messages = updatedMessages)
         }
@@ -803,26 +824,25 @@ class AgentChatViewModel @Inject constructor(
         if (runId.isNullOrBlank()) {
             cancellingAuditBuilder?.let(::saveAuditRecord)
         }
-        _uiState.update { state ->
-            val stoppedMessages = state.messages.map { message ->
-                if (message.role == MessageRole.ASSISTANT && message.isStreaming) {
-                    message.copy(
-                        isStreaming = false,
-                        animateReveal = false,
-                        runTrace = message.runTrace?.let { trace ->
-                            trace.copy(
-                                toolCalls = trace.toolCalls.closeOpenToolCalls(
-                                    resultSummary = TOOL_CANCELLED_WITH_RUN_MESSAGE,
-                                ),
-                            )
-                        },
-                    )
-                } else {
-                    message
-                }
+        val streamingAssistantMessageId = currentStreamingAssistantMessageId
+        currentStreamingAssistantMessageId = null
+        if (streamingAssistantMessageId != null) {
+            updateAssistantMessage(streamingAssistantMessageId) { message ->
+                message.copy(
+                    isStreaming = false,
+                    animateReveal = false,
+                    runTrace = message.runTrace?.let { trace ->
+                        trace.copy(
+                            toolCalls = trace.toolCalls.closeOpenToolCalls(
+                                resultSummary = TOOL_CANCELLED_WITH_RUN_MESSAGE,
+                            ),
+                        )
+                    },
+                )
             }
+        }
+        _uiState.update { state ->
             state.copy(
-                messages = stoppedMessages,
                 isStreaming = false,
                 canStop = false,
                 currentRunId = null,
@@ -841,6 +861,7 @@ class AgentChatViewModel @Inject constructor(
         } else {
             chatJob?.cancel()
         }
+        currentStreamingAssistantMessageId = null
         clearPendingAnswerDelta()
         _uiState.update {
             it.copy(
@@ -916,10 +937,15 @@ private fun List<ToolCallRecord>.updateToolCall(
     nextCursor: String? = null,
     timestamp: Long,
 ): List<ToolCallRecord> {
-    val index = if (!toolCallId.isNullOrBlank()) {
-        indexOfLast { it.toolCallId == toolCallId }
+    var index = lastIndex
+    if (!toolCallId.isNullOrBlank()) {
+        while (index >= 0 && this[index].toolCallId != toolCallId) {
+            index--
+        }
     } else {
-        indexOfLast { it.toolName == toolName }
+        while (index >= 0 && this[index].toolName != toolName) {
+            index--
+        }
     }
     if (index == -1) {
         return this + ToolCallRecord(
@@ -979,21 +1005,32 @@ internal fun List<ToolCallRecord>.closeOpenToolCalls(
     resultSummary: String,
     completedAt: Long = System.currentTimeMillis(),
 ): List<ToolCallRecord> {
-    if (none { it.status == ToolCallStatus.RUNNING || it.status == ToolCallStatus.PENDING }) {
-        return this
-    }
-    return map { call ->
+    var hasOpenCall = false
+    for (call in this) {
         if (call.status == ToolCallStatus.RUNNING || call.status == ToolCallStatus.PENDING) {
-            call.copy(
-                status = ToolCallStatus.FAILED,
-                resultSummary = call.resultSummary?.takeIf { it.isNotBlank() } ?: resultSummary,
-                completedAt = call.completedAt ?: completedAt,
-                timestamp = completedAt,
-            )
-        } else {
-            call
+            hasOpenCall = true
+            break
         }
     }
+    if (!hasOpenCall) {
+        return this
+    }
+    val updated = ArrayList<ToolCallRecord>(size)
+    for (call in this) {
+        if (call.status == ToolCallStatus.RUNNING || call.status == ToolCallStatus.PENDING) {
+            updated.add(
+                call.copy(
+                    status = ToolCallStatus.FAILED,
+                    resultSummary = call.resultSummary?.takeIf { it.isNotBlank() } ?: resultSummary,
+                    completedAt = call.completedAt ?: completedAt,
+                    timestamp = completedAt,
+                )
+            )
+        } else {
+            updated.add(call)
+        }
+    }
+    return updated
 }
 
 internal fun RunTrace.withAnswerDeltaSourceIfChanged(deltaSource: String?): RunTrace {
@@ -1032,8 +1069,16 @@ internal fun mergeLoadedConversationMessages(
 ): List<ChatMessage> {
     if (!isStreaming) return loadedMessages
     if (currentMessages.isEmpty()) return loadedMessages
-    val loadedIds = loadedMessages.mapTo(mutableSetOf()) { it.id }
-    val liveMessages = currentMessages.filter { message -> message.id !in loadedIds }
+    val loadedIds = HashSet<String>(loadedMessages.size * 2)
+    for (message in loadedMessages) {
+        loadedIds.add(message.id)
+    }
+    val liveMessages = ArrayList<ChatMessage>(currentMessages.size)
+    for (message in currentMessages) {
+        if (message.id !in loadedIds) {
+            liveMessages.add(message)
+        }
+    }
     return loadedMessages + liveMessages
 }
 
@@ -1082,11 +1127,13 @@ private fun buildStoredMessageParts(
     content: String,
     blocks: List<ResultBlockDto>,
 ): List<ChatMessagePart> {
-    val parts = mutableListOf<ChatMessagePart>()
+    val parts = ArrayList<ChatMessagePart>(if (content.isNotBlank()) blocks.size + 1 else blocks.size)
     if (content.isNotBlank()) {
         parts += ChatMessagePart.Text(content)
     }
-    parts += blocks.map(ChatMessagePart::ResultBlock)
+    for (block in blocks) {
+        parts += ChatMessagePart.ResultBlock(block)
+    }
     return parts
 }
 
@@ -1139,13 +1186,23 @@ internal fun List<ChatMessagePart>.appendStreamingText(
 ): List<ChatMessagePart> {
     if (delta.isBlank()) return this
     if (none { it is ChatMessagePart.Text }) {
-        val blocksToShow = pendingBlocks.ifEmpty {
-            filterIsInstance<ChatMessagePart.PendingResultBlock>().map { it.block }
+        val resultBlocks = ArrayList<ChatMessagePart>(pendingBlocks.size)
+        if (pendingBlocks.isNotEmpty()) {
+            for (block in pendingBlocks) {
+                resultBlocks.add(ChatMessagePart.ResultBlock(block))
+            }
+        } else {
+            val seenBlocks = HashSet<ResultBlockDto>()
+            for (part in this) {
+                if (part is ChatMessagePart.PendingResultBlock && seenBlocks.add(part.block)) {
+                    resultBlocks.add(ChatMessagePart.ResultBlock(part.block))
+                }
+            }
         }
-        val resultBlocks = blocksToShow
-            .distinct()
-            .map(ChatMessagePart::ResultBlock)
-        return listOf(ChatMessagePart.Text(delta)) + resultBlocks
+        return buildList(1 + resultBlocks.size) {
+            add(ChatMessagePart.Text(delta))
+            addAll(resultBlocks)
+        }
     }
     val last = lastOrNull()
     return if (last is ChatMessagePart.Text) {
@@ -1186,14 +1243,31 @@ internal fun List<ChatMessagePart>.withAuthoritativeText(
         if (part is ChatMessagePart.Text) index else null
     }
     if (textIndexes.isEmpty()) {
-        val blocksToShow = pendingBlocks.ifEmpty {
-            filterIsInstance<ChatMessagePart.PendingResultBlock>().map { it.block } +
-                filterIsInstance<ChatMessagePart.ResultBlock>().map { it.block }
+        val resultParts = ArrayList<ChatMessagePart>(pendingBlocks.size + size)
+        val seenBlocks = HashSet<ResultBlockDto>()
+        if (pendingBlocks.isNotEmpty()) {
+            for (block in pendingBlocks) {
+                if (seenBlocks.add(block)) {
+                    resultParts.add(ChatMessagePart.ResultBlock(block))
+                }
+            }
+        } else {
+            for (part in this) {
+                when (part) {
+                    is ChatMessagePart.PendingResultBlock -> if (seenBlocks.add(part.block)) {
+                        resultParts.add(ChatMessagePart.ResultBlock(part.block))
+                    }
+                    is ChatMessagePart.ResultBlock -> if (seenBlocks.add(part.block)) {
+                        resultParts.add(ChatMessagePart.ResultBlock(part.block))
+                    }
+                    is ChatMessagePart.Text -> Unit
+                }
+            }
         }
-        val resultParts = blocksToShow
-            .distinct()
-            .map(ChatMessagePart::ResultBlock)
-        return listOf(ChatMessagePart.Text(content)) + resultParts
+        return buildList(1 + resultParts.size) {
+            add(ChatMessagePart.Text(content))
+            addAll(resultParts)
+        }
     }
     if (textIndexes.size > 1) {
         return mergeAuthoritativeTextAcrossTimeline(content, textIndexes)
@@ -1222,31 +1296,39 @@ private fun List<ChatMessagePart>.containsResultBlock(block: ResultBlockDto): Bo
 
 private fun List<ChatMessagePart>.promotePendingResultBlocks(): List<ChatMessagePart> {
     if (none { it is ChatMessagePart.PendingResultBlock }) return this
-    return map { part ->
-        when (part) {
-            is ChatMessagePart.PendingResultBlock -> ChatMessagePart.ResultBlock(part.block)
-            else -> part
-        }
-    }.distinctResultBlocks()
+    val promoted = ArrayList<ChatMessagePart>(size)
+    for (part in this) {
+        promoted.add(
+            when (part) {
+                is ChatMessagePart.PendingResultBlock -> ChatMessagePart.ResultBlock(part.block)
+                else -> part
+            }
+        )
+    }
+    return promoted.distinctResultBlocks()
 }
 
 private fun List<ChatMessagePart>.distinctResultBlocks(): List<ChatMessagePart> {
     val seenBlocks = mutableSetOf<ResultBlockDto>()
-    return filter { part ->
+    val distinctParts = ArrayList<ChatMessagePart>(size)
+    for (part in this) {
         when (part) {
-            is ChatMessagePart.ResultBlock -> seenBlocks.add(part.block)
-            else -> true
+            is ChatMessagePart.ResultBlock -> if (seenBlocks.add(part.block)) distinctParts.add(part)
+            else -> distinctParts.add(part)
         }
     }
+    return distinctParts
 }
 
 private fun List<ChatMessagePart>.mergeAuthoritativeTextAcrossTimeline(
     content: String,
     textIndexes: List<Int>,
 ): List<ChatMessagePart> {
-    val visibleText = textIndexes.joinToString(separator = "") { index ->
-        (this[index] as ChatMessagePart.Text).markdown
+    val visibleBuilder = StringBuilder()
+    for (index in textIndexes) {
+        visibleBuilder.append((this[index] as ChatMessagePart.Text).markdown)
     }
+    val visibleText = visibleBuilder.toString()
     return when {
         visibleText == content || visibleText.startsWith(content) -> this
         content.startsWith(visibleText) -> {

@@ -2,6 +2,7 @@ package com.zhihuiji.feature.purchases
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.model.v2.order.PurchaseOrderV2Dto
@@ -36,7 +37,7 @@ fun PurchaseOrderV2Dto.toPurchaseOrderItem(): PurchaseOrderItem = PurchaseOrderI
     id = id,
     orderNo = orderNo,
     supplier = supplierName ?: "",
-    amount = "¥%.2f".format(totalAmount),
+    amount = MoneyFormatter.format(totalAmount),
     status = StatusLabels.purchaseOrderStatus(status),
     date = TimeFormatter.formatDate(createdAt)
 )
@@ -56,8 +57,9 @@ class PurchaseOrderListViewModel @Inject constructor(
     fun loadOrders() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
+            val keyword = _uiState.value.keyword.takeIf { it.isNotBlank() }
             val filter = PurchaseOrderV2Filter(
-                keyword = _uiState.value.keyword.takeIf { it.isNotBlank() },
+                keyword = keyword,
                 status = when (_uiState.value.selectedTabIndex) {
                     1 -> StatusLabels.Codes.PURCHASE_DRAFT
                     2 -> StatusLabels.Codes.PURCHASE_RECEIVED
@@ -66,10 +68,14 @@ class PurchaseOrderListViewModel @Inject constructor(
             )
             repository.listPurchaseOrders(filter)
                 .onSuccess { orders ->
+                    val items = ArrayList<PurchaseOrderItem>(orders.size)
+                    for (order in orders) {
+                        items.add(order.toPurchaseOrderItem())
+                    }
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            orders = orders.map { dto -> dto.toPurchaseOrderItem() }
+                            orders = items
                         )
                     }
                 }

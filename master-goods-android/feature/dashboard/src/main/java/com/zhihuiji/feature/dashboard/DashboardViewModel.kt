@@ -9,12 +9,14 @@ import com.zhihuiji.data.customer.CustomerV2Repository
 import com.zhihuiji.data.product.ProductV2Repository
 import com.zhihuiji.data.report.ReportRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -125,57 +127,54 @@ class DashboardViewModel @Inject constructor(
                 null
             }
 
-            if (requestSequence != loadSequence) return@launch
-
-            val salesSummary = salesSummaryResult.getOrNull()
-            val trendPoints = salesTrendResult.getOrNull().orEmpty()
-            val salesAmount = salesSummary?.totalSalesAmount ?: trendPoints.sumOf { it.totalSalesAmount }
-            val salesOrderCount = salesSummary?.totalOrderCount ?: trendPoints.sumOf { it.totalOrderCount }
-            val salesTrend = buildSalesTrend(
-                trendPoints = trendPoints,
-                dateRange = dateRange
-            )
-            val lowStockCount = lowStockResult.getOrNull()?.size ?: 0
-            val customers = customerFallbackResult?.getOrNull().orEmpty()
-            val receivableAmount = reconciliationSummary?.totalReceivableAmount ?: customers.sumOf { it.balance }
-            val receivableCustomerCount = when {
-                reconciliationSummary == null -> customers.count { it.balance > 0.0 }
-                reconciliationSummary.totalReceivableCustomerCount > 0L ->
-                    reconciliationSummary.totalReceivableCustomerCount
-                        .coerceAtMost(Int.MAX_VALUE.toLong())
-                        .toInt()
-                reconciliationSummary.totalReceivableAmount == 0.0 -> 0
-                else -> customers.count { it.balance > 0.0 }
-            }
-            val netCashFlow = cashflowSummaryResult.getOrNull()?.netCashFlow ?: 0.0
-
-            val lowStockItems = lowStockResult.getOrNull()?.map { product ->
-                LowStockProductItem(
-                    id = product.id,
-                    name = product.name,
-                    stock = product.stock,
-                    safeStock = product.safeStock
+            val nextState = withContext(Dispatchers.Default) {
+                val salesSummary = salesSummaryResult.getOrNull()
+                val trendPoints = salesTrendResult.getOrNull().orEmpty()
+                val salesAmount = salesSummary?.totalSalesAmount ?: trendPoints.sumOf { it.totalSalesAmount }
+                val salesOrderCount = salesSummary?.totalOrderCount ?: trendPoints.sumOf { it.totalOrderCount }
+                val salesTrend = buildSalesTrend(
+                    trendPoints = trendPoints,
+                    dateRange = dateRange
                 )
-            } ?: emptyList()
+                val lowStockCount = lowStockResult.getOrNull()?.size ?: 0
+                val customers = customerFallbackResult?.getOrNull().orEmpty()
+                val receivableAmount = reconciliationSummary?.totalReceivableAmount ?: customers.sumOf { it.balance }
+                val receivableCustomerCount = when {
+                    reconciliationSummary == null -> customers.count { it.balance > 0.0 }
+                    reconciliationSummary.totalReceivableCustomerCount > 0L ->
+                        reconciliationSummary.totalReceivableCustomerCount
+                            .coerceAtMost(Int.MAX_VALUE.toLong())
+                            .toInt()
+                    reconciliationSummary.totalReceivableAmount == 0.0 -> 0
+                    else -> customers.count { it.balance > 0.0 }
+                }
+                val netCashFlow = cashflowSummaryResult.getOrNull()?.netCashFlow ?: 0.0
 
-            val reminders = buildPendingReminders(lowStockItems, receivableAmount)
+                val lowStockItems = lowStockResult.getOrNull()?.map { product ->
+                    LowStockProductItem(
+                        id = product.id,
+                        name = product.name,
+                        stock = product.stock,
+                        safeStock = product.safeStock
+                    )
+                } ?: emptyList()
 
-            val results = listOf(
-                salesSummaryResult,
-                salesTrendResult,
-                lowStockResult,
-                reconciliationSummaryResult,
-                cashflowSummaryResult,
-                customerFallbackResult,
-            ).filterNotNull()
-            val hasError = results.any { it.isFailure }
-            val errorMsg = results.filter { it.isFailure }.mapNotNull {
-                runCatching { it.getOrThrow() }.exceptionOrNull()?.message
-            }.firstOrNull()
+                val reminders = buildPendingReminders(lowStockItems, receivableAmount)
 
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
+                val results = listOf(
+                    salesSummaryResult,
+                    salesTrendResult,
+                    lowStockResult,
+                    reconciliationSummaryResult,
+                    cashflowSummaryResult,
+                    customerFallbackResult,
+                ).filterNotNull()
+                val hasError = results.any { it.isFailure }
+                val errorMsg = results.filter { it.isFailure }.mapNotNull {
+                    runCatching { it.getOrThrow() }.exceptionOrNull()?.message
+                }.firstOrNull()
+
+                DashboardComputedState(
                     salesAmount = "%.2f".format(salesAmount),
                     receivableAmount = "%.2f".format(receivableAmount),
                     lowStockCount = lowStockCount,
@@ -186,6 +185,24 @@ class DashboardViewModel @Inject constructor(
                     lowStockProducts = lowStockItems,
                     pendingReminders = reminders,
                     error = if (hasError) errorMsg else null
+                )
+            }
+
+            if (requestSequence != loadSequence) return@launch
+
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    salesAmount = nextState.salesAmount,
+                    receivableAmount = nextState.receivableAmount,
+                    lowStockCount = nextState.lowStockCount,
+                    salesOrderCount = nextState.salesOrderCount,
+                    netCashFlow = nextState.netCashFlow,
+                    receivableCustomerCount = nextState.receivableCustomerCount,
+                    salesTrend = nextState.salesTrend,
+                    lowStockProducts = nextState.lowStockProducts,
+                    pendingReminders = nextState.pendingReminders,
+                    error = nextState.error
                 )
             }
         }
@@ -338,8 +355,21 @@ private data class DashboardDateRange(
     val days: Int
 ) {
     val salesTrendBucket: String
-        get() = if (days == 1) "hour6" else "day"
+    get() = if (days == 1) "hour6" else "day"
 }
+
+private data class DashboardComputedState(
+    val salesAmount: String,
+    val receivableAmount: String,
+    val lowStockCount: Int,
+    val salesOrderCount: Int,
+    val netCashFlow: String,
+    val receivableCustomerCount: Int,
+    val salesTrend: List<SalesTrendPoint>,
+    val lowStockProducts: List<LowStockProductItem>,
+    val pendingReminders: List<String>,
+    val error: String?,
+)
 
 private fun ReconciliationSummaryReportDto?.needsReceivableCustomerFallback(): Boolean =
     this == null || (totalReceivableAmount > 0.0 && totalReceivableCustomerCount == 0L)

@@ -12,12 +12,10 @@ import okhttp3.CertificatePinner
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.Cache
 import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
-import java.io.File
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -66,12 +64,11 @@ object NetworkModule {
     @Singleton
     fun provideBaseUrlInterceptor(settingsStore: SettingsStore): Interceptor = Interceptor { chain ->
         val currentBaseUrl = settingsStore.peekBaseUrl()
-        val normalizedUrl = NetworkConfig.normalizeBaseUrl(currentBaseUrl)
-        val newBaseUrl = normalizedUrl.toHttpUrl()
+        val newBaseUrl = currentBaseUrl.toHttpUrl()
         check(BuildConfig.ALLOW_CLEARTEXT_BASE_URL || newBaseUrl.isHttps) {
             "Release builds require an HTTPS base URL"
         }
-        check(BuildConfig.ALLOW_CLEARTEXT_BASE_URL || SettingsStore.isTrustedReleaseBaseUrl(normalizedUrl)) {
+        check(BuildConfig.ALLOW_CLEARTEXT_BASE_URL || SettingsStore.isTrustedReleaseBaseUrl(currentBaseUrl)) {
             "Release builds require a trusted production host"
         }
         val originalRequest = chain.request()

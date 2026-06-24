@@ -36,6 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,6 +72,32 @@ fun SettingsScreen(
     onNavigateToStaffManagement: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val accountTrailing = remember(uiState.isLoggedIn) {
+        if (uiState.isLoggedIn) "真实账号" else "未登录"
+    }
+    val securityTrailing = remember(uiState.isLoggedIn) {
+        if (uiState.isLoggedIn) "会话有效" else "待登录"
+    }
+    val staffTrailing = remember(uiState.isLoggedIn, canManageUsers) {
+        when {
+            !uiState.isLoggedIn -> "待登录"
+            canManageUsers -> "真实接口"
+            else -> "无权限"
+        }
+    }
+    val syncTrailing = remember(uiState.syncBadge, uiState.isSyncing, canManageDatabase) {
+        if (canManageDatabase) {
+            uiState.syncBadge.ifBlank { if (uiState.isSyncing) "同步中" else "实时同步" }
+        } else {
+            "无权限"
+        }
+    }
+    val importTrailing = remember(uiState.importStatus, canManageDatabase) {
+        if (canManageDatabase) uiState.importStatus.shortSettingStatus() else "无权限"
+    }
+    val serverTrailing = remember(uiState.serverUrl) {
+        if (uiState.serverUrl.isBlank()) "未读取" else "当前"
+    }
 
     GlassScaffold(
         modifier = modifier.fillMaxSize(),
@@ -98,25 +125,21 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = Icons.Default.Person,
                         title = "个人资料",
-                        trailing = if (uiState.isLoggedIn) "真实账号" else "未登录",
+                        trailing = accountTrailing,
                         onClick = viewModel::loadAccount,
                     )
                     GroupDivider()
                     SettingsRow(
                         icon = Icons.Default.Security,
                         title = "账号安全",
-                        trailing = if (uiState.isLoggedIn) "会话有效" else "待登录",
+                        trailing = securityTrailing,
                         onClick = viewModel::loadAccount,
                     )
                     GroupDivider()
                     SettingsRow(
                         icon = Icons.Default.SupervisorAccount,
                         title = "店员与权限",
-                        trailing = when {
-                            !uiState.isLoggedIn -> "待登录"
-                            canManageUsers -> "真实接口"
-                            else -> "无权限"
-                        },
+                        trailing = staffTrailing,
                         enabled = uiState.isLoggedIn && canManageUsers,
                         onClick = onNavigateToStaffManagement,
                     )
@@ -128,11 +151,7 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = Icons.Default.CloudSync,
                         title = "同步设置",
-                        trailing = if (canManageDatabase) {
-                            uiState.syncBadge.ifBlank { if (uiState.isSyncing) "同步中" else "实时同步" }
-                        } else {
-                            "无权限"
-                        },
+                        trailing = syncTrailing,
                         isLoading = uiState.isSyncing,
                         enabled = uiState.isLoggedIn && canManageDatabase,
                         onClick = viewModel::runSync,
@@ -141,7 +160,7 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = Icons.Default.ImportExport,
                         title = "数据导入导出",
-                        trailing = if (canManageDatabase) uiState.importStatus.shortSettingStatus() else "无权限",
+                        trailing = importTrailing,
                         enabled = uiState.isLoggedIn && canManageDatabase,
                         onClick = viewModel::refreshSyncStatus,
                     )
@@ -153,7 +172,7 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = Icons.Default.Computer,
                         title = "服务器地址",
-                        trailing = if (uiState.serverUrl.isBlank()) "未读取" else "当前",
+                        trailing = serverTrailing,
                         onClick = viewModel::refreshSyncStatus,
                     )
                     GroupDivider()
@@ -254,6 +273,10 @@ private fun AccountHeaderCard(
     uiState: SettingsUiState,
     modifier: Modifier = Modifier,
 ) {
+    val avatar = remember(uiState.userName) { avatarText(uiState.userName) }
+    val subtitle = remember(uiState.isLoggedIn, uiState.clientId, uiState.accountSubtitle) {
+        uiState.storefrontSubtitle
+    }
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -273,7 +296,7 @@ private fun AccountHeaderCard(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = avatarText(uiState.userName),
+                    text = avatar,
                     fontSize = 22.sp,
                     lineHeight = 28.sp,
                     fontWeight = FontWeight.Bold,
@@ -296,7 +319,7 @@ private fun AccountHeaderCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = uiState.storefrontSubtitle,
+                    text = subtitle,
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
                     color = TextSecondary,

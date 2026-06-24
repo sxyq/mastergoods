@@ -3,6 +3,7 @@ package com.zhihuiji.feature.suppliers
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.common.StatusLabels
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.model.v2.order.PayOrderV2Dto
 import com.zhihuiji.core.model.v2.order.PurchaseOrderV2Dto
@@ -11,6 +12,8 @@ import com.zhihuiji.data.order.PayOrderV2Repository
 import com.zhihuiji.data.order.PurchaseOrderV2Repository
 import com.zhihuiji.data.supplier.SupplierV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -77,8 +80,11 @@ class SupplierStatementViewModel @Inject constructor(
                 return@launch
             }
 
-            val purchaseResult = purchaseOrderRepository.listPurchaseOrders()
-            val payResult = payOrderRepository.listPayOrders()
+            val (purchaseResult, payResult) = coroutineScope {
+                val purchaseDeferred = async { purchaseOrderRepository.listPurchaseOrders() }
+                val payDeferred = async { payOrderRepository.listPayOrders() }
+                purchaseDeferred.await() to payDeferred.await()
+            }
 
             val purchases = purchaseResult.getOrNull()
                 ?.filter { it.matchesSupplier(supplier) }
@@ -87,21 +93,41 @@ class SupplierStatementViewModel @Inject constructor(
                 ?.filter { it.matchesSupplier(supplier) }
                 .orEmpty()
 
-            val warning = listOfNotNull(
-                purchaseResult.exceptionOrNull()?.message?.let { "采购单读取失败：$it" },
-                payResult.exceptionOrNull()?.message?.let { "付款单读取失败：$it" },
-            ).takeIf { it.isNotEmpty() }?.joinToString("\n")
+            val warning = buildString {
+                purchaseResult.exceptionOrNull()?.message?.let {
+                    append("采购单读取失败：")
+                    append(it)
+                }
+                payResult.exceptionOrNull()?.message?.let {
+                    if (isNotEmpty()) append('\n')
+                    append("付款单读取失败：")
+                    append(it)
+                }
+            }.takeIf { it.isNotBlank() }
+
+            val transactions = ArrayList<SupplierStatementTransaction>(purchases.size + payments.size)
+            var purchaseTotal = 0.0
+            for (order in purchases) {
+                transactions.add(order.toStatementTransaction())
+                purchaseTotal += order.totalAmount
+            }
+            var paymentTotal = 0.0
+            for (order in payments) {
+                transactions.add(order.toStatementTransaction())
+                paymentTotal += order.amount
+            }
+            transactions.sortByDescending { it.timestamp }
+            if (transactions.size > 20) {
+                transactions.subList(20, transactions.size).clear()
+            }
 
             _uiState.update {
                 it.copy(
                     isLoading = false,
                     supplier = supplier.toStatementSupplier(),
-                    transactions = (purchases.map { order -> order.toStatementTransaction() } +
-                        payments.map { order -> order.toStatementTransaction() })
-                        .sortedByDescending { transaction -> transaction.timestamp }
-                        .take(20),
-                    purchaseTotal = purchases.sumOf { order -> order.totalAmount },
-                    paymentTotal = payments.sumOf { order -> order.amount },
+                    transactions = transactions,
+                    purchaseTotal = purchaseTotal,
+                    paymentTotal = paymentTotal,
                     contractWarning = warning,
                 )
             }
@@ -147,4 +173,4 @@ private fun PayOrderV2Dto.matchesSupplier(supplier: SupplierV2Dto): Boolean =
 private fun String?.matchesSupplierName(name: String): Boolean =
     !this.isNullOrBlank() && name.isNotBlank() && equals(name, ignoreCase = true)
 
-private fun formatCurrency(value: Double): String = "¥%.2f".format(value)
+private fun formatCurrency(value: Double): String = MoneyFormatter.format(value)

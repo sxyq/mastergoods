@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,16 +75,18 @@ fun DocumentsScreen(
     onNavigateToDailyExpense: () -> Unit,
     onNavigateToInventorySnapshot: () -> Unit,
 ) {
-    val tabs = buildList {
-        if (accessState.hasPermission("sales:view")) {
-            add(DocumentsTabSpec(DocumentsTabKey.SALES, "销售单", 0))
-        }
-        if (accessState.hasPermission("purchase:view")) {
-            add(DocumentsTabSpec(DocumentsTabKey.PURCHASES, "采购单", 1))
-        }
-        if (accessState.hasPermission("finance:view")) {
-            add(DocumentsTabSpec(DocumentsTabKey.PAYMENTS, "付款单", 2))
-            add(DocumentsTabSpec(DocumentsTabKey.FINANCE, "资金流水", 3))
+    val tabs = remember(accessState.isResolved, accessState.permissions) {
+        buildList {
+            if (accessState.hasPermission("sales:view")) {
+                add(DocumentsTabSpec(DocumentsTabKey.SALES, "销售单", 0))
+            }
+            if (accessState.hasPermission("purchase:view")) {
+                add(DocumentsTabSpec(DocumentsTabKey.PURCHASES, "采购单", 1))
+            }
+            if (accessState.hasPermission("finance:view")) {
+                add(DocumentsTabSpec(DocumentsTabKey.PAYMENTS, "付款单", 2))
+                add(DocumentsTabSpec(DocumentsTabKey.FINANCE, "资金流水", 3))
+            }
         }
     }
     if (tabs.isEmpty()) {
@@ -105,8 +108,9 @@ fun DocumentsScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         DocumentsTopAppBar()
+        val tabLabels = remember(tabs) { tabs.map(DocumentsTabSpec::label) }
         DocumentsTabBar(
-            tabs = tabs.map(DocumentsTabSpec::label),
+            tabs = tabLabels,
             pagerState = pagerState,
         )
         HorizontalPager(

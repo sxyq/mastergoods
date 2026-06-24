@@ -34,18 +34,21 @@ object RuntimeSecurityGuard {
     private fun hasTestKeys(): Boolean = Build.TAGS?.contains("test-keys") == true
 
     private fun isFridaPortReachable(): Boolean {
-        return fridaPorts.any { port ->
-            runCatching {
+        for (port in fridaPorts) {
+            try {
                 Socket().use { socket ->
                     socket.connect(InetSocketAddress("127.0.0.1", port), 120)
-                    true
                 }
-            }.getOrDefault(false)
+                return true
+            } catch (_: Throwable) {
+                // continue scanning remaining ports
+            }
         }
+        return false
     }
 
     private fun hasFridaArtifactsInMaps(): Boolean {
-        return runCatching {
+        return try {
             File("/proc/self/maps").useLines { lines ->
                 lines.any { line ->
                     line.contains("frida", ignoreCase = true) ||
@@ -53,6 +56,8 @@ object RuntimeSecurityGuard {
                         line.contains("gmain", ignoreCase = true)
                 }
             }
-        }.getOrDefault(false)
+        } catch (_: Throwable) {
+            false
+        }
     }
 }

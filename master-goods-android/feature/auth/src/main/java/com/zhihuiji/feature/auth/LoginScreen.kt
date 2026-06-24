@@ -49,6 +49,12 @@ import com.zhihuiji.core.designsystem.TextPrimary
 import com.zhihuiji.core.designsystem.TextSecondary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 
+private val AuthBackgroundBrush = Brush.verticalGradient(
+    colors = listOf(BackgroundGradientStart, BackgroundGradientEnd)
+)
+private val AuthCardShape = RoundedCornerShape(28.dp)
+private val AuthFieldShape = RoundedCornerShape(14.dp)
+
 @Composable
 fun LoginScreen(
     viewModel: AuthViewModel,
@@ -99,11 +105,7 @@ private fun LoginContent(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(BackgroundGradientStart, BackgroundGradientEnd)
-                )
-            )
+            .background(AuthBackgroundBrush)
             .padding(horizontal = 20.dp)
     ) {
         Column(
@@ -117,7 +119,7 @@ private fun LoginContent(
             LiquidGlassCard(
                 modifier = Modifier.fillMaxWidth(),
                 blurRadius = 24.dp,
-                shape = RoundedCornerShape(28.dp),
+                shape = AuthCardShape,
                 surfaceColor = GlassSurfaceHigh,
                 contentPadding = 24.dp
             ) {
@@ -225,6 +227,6 @@ internal fun AuthOutlinedField(
         visualTransformation = visualTransformation,
         keyboardOptions = keyboardOptions,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp)
+        shape = AuthFieldShape
     )
 }

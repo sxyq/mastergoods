@@ -9,6 +9,8 @@ import com.zhihuiji.core.model.v2.product.ProductUnitV2Dto
 import com.zhihuiji.core.model.v2.product.ProductWriteV2Request
 import com.zhihuiji.data.product.ProductV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -53,20 +55,30 @@ class ProductEditViewModel @Inject constructor(
 
     private fun loadReferenceData() {
         viewModelScope.launch {
-            repository.listCategories()
-                .onSuccess { categories ->
-                    _uiState.update { it.copy(categories = categories.filter { item -> item.status == 1 }) }
-                }
-                .onFailure { error ->
-                    _uiState.update { it.copy(error = error.message) }
-                }
-            repository.listUnits()
-                .onSuccess { units ->
-                    _uiState.update { it.copy(units = units.filter { item -> item.status == 1 }) }
-                }
-                .onFailure { error ->
-                    _uiState.update { it.copy(error = error.message) }
-                }
+            val (categoriesResult, unitsResult) = coroutineScope {
+                val categoriesDeferred = async { repository.listCategories() }
+                val unitsDeferred = async { repository.listUnits() }
+                categoriesDeferred.await() to unitsDeferred.await()
+            }
+
+            val categories = categoriesResult.getOrNull()
+                ?.filter { item -> item.status == 1 }
+                .orEmpty()
+            val units = unitsResult.getOrNull()
+                ?.filter { item -> item.status == 1 }
+                .orEmpty()
+            val errorMessage = listOfNotNull(
+                categoriesResult.exceptionOrNull()?.message,
+                unitsResult.exceptionOrNull()?.message,
+            ).takeIf { it.isNotEmpty() }?.joinToString("\n")
+
+            _uiState.update {
+                it.copy(
+                    categories = categories,
+                    units = units,
+                    error = errorMessage,
+                )
+            }
         }
     }
 

@@ -80,6 +80,10 @@ import com.zhihuiji.core.designsystem.WarningOrange
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimaryBright
 
+private val productActionPrimaryBrush = Brush.horizontalGradient(
+    listOf(ZhihuijiPrimaryBright, ZhihuijiPrimary),
+)
+
 @Composable
 fun ProductEditScreen(
     productId: Long?,
@@ -165,7 +169,6 @@ private fun ProductEditScreenContent(
     var purchasePrice by remember(uiState.purchasePrice) { mutableStateOf(uiState.purchasePrice) }
     var stock by remember(uiState.stock) { mutableStateOf(uiState.stock) }
     var safeStock by remember(uiState.safeStock) { mutableStateOf(uiState.safeStock) }
-    var wholesalePrice by remember(uiState.wholesalePrice) { mutableStateOf(uiState.wholesalePrice) }
 
     val form = ProductEditForm(
         name = name,
@@ -260,8 +263,8 @@ private fun ProductEditScreenContent(
                             )
                         }
                         ProductInputField(
-                            value = wholesalePrice,
-                            onValueChange = { wholesalePrice = it },
+                            value = uiState.wholesalePrice,
+                            onValueChange = {},
                             label = "批发价 (¥)",
                             placeholder = "价格等级接入后可用",
                             enabled = false,
@@ -742,7 +745,7 @@ private fun ProductActionButton(
     val shape = RoundedCornerShape(12.dp)
     val backgroundModifier = if (primary) {
         Modifier.background(
-            brush = Brush.horizontalGradient(listOf(ZhihuijiPrimaryBright, ZhihuijiPrimary)),
+            brush = productActionPrimaryBrush,
             alpha = if (enabled) 1f else 0.48f,
             shape = shape
         )

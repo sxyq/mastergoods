@@ -33,37 +33,26 @@ class AuthViewModel @Inject constructor(
     }
 
     fun login(phone: String, password: String) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            authRepository.login(phone, password)
-                .onSuccess {
-                    _uiState.update { it.copy(isLoggedIn = true, isLoading = false) }
-                }
-                .onFailure { throwable ->
-                    _uiState.update { it.copy(isLoading = false, error = throwable.message) }
-                }
+        launchAuth {
+            authRepository.login(phone, password).map { }
         }
     }
 
     fun register(phone: String, password: String, verifyCode: String) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            authRepository.register(phone, password, verifyCode)
-                .onSuccess {
-                    _uiState.update { it.copy(isLoggedIn = true, isLoading = false) }
-                }
-                .onFailure { throwable ->
-                    _uiState.update { it.copy(isLoading = false, error = throwable.message) }
-                }
+        launchAuth {
+            authRepository.register(phone, password, verifyCode).map { }
         }
     }
 
     fun logout() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            authRepository.logout()
-            _uiState.update {
-                it.copy(isLoggedIn = false, isSessionReady = false, isLoading = false)
+            try {
+                authRepository.logout()
+            } finally {
+                _uiState.update {
+                    it.copy(isLoggedIn = false, isSessionReady = false, isLoading = false)
+                }
             }
         }
     }
@@ -75,5 +64,18 @@ class AuthViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    private fun launchAuth(action: suspend () -> Result<Unit>) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            action()
+                .onSuccess {
+                    _uiState.update { it.copy(isLoggedIn = true, isLoading = false) }
+                }
+                .onFailure { throwable ->
+                    _uiState.update { it.copy(isLoading = false, error = throwable.message) }
+                }
+        }
     }
 }

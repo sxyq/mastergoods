@@ -25,12 +25,12 @@ data class InventorySnapshotUiState(
     val statusMessage: String? = null,
     val snapshotDate: Long = todayStartMillis(),
     val items: List<InventoryCountItem> = emptyList(),
+    val countedItems: Int = 0,
+    val gainQuantity: Double = 0.0,
+    val lossQuantity: Double = 0.0,
 ) {
     val snapshotDateLabel: String get() = TimeFormatter.formatDate(snapshotDate)
     val totalItems: Int get() = items.size
-    val countedItems: Int get() = items.count { it.isCounted }
-    val gainQuantity: Double get() = items.mapNotNull { it.difference }.filter { it > 0 }.sum()
-    val lossQuantity: Double get() = items.mapNotNull { it.difference }.filter { it < 0 }.sum()
     val canComplete: Boolean get() = !isLoading && !isSubmitting && items.isNotEmpty()
 }
 
@@ -151,9 +151,24 @@ class InventorySnapshotViewModel @Inject constructor(
         }
 
         val snapshotsByProduct = snapshots.associateBy { it.productId }
-        val items = products
-            .sortedWith(compareBy<ProductV2Dto> { it.categoryName }.thenBy { it.name })
-            .map { product -> product.toInventoryCountItem(snapshotsByProduct[product.id]) }
+        val sortedProducts = products.sortedWith(inventoryProductComparator)
+        val items = ArrayList<InventoryCountItem>(sortedProducts.size)
+        var countedItems = 0
+        var gainQuantity = 0.0
+        var lossQuantity = 0.0
+        for (product in sortedProducts) {
+            val item = product.toInventoryCountItem(snapshotsByProduct[product.id])
+            items.add(item)
+            if (item.isCounted) {
+                countedItems++
+            }
+            item.difference?.let { difference ->
+                when {
+                    difference > 0 -> gainQuantity += difference
+                    difference < 0 -> lossQuantity += difference
+                }
+            }
+        }
 
         _uiState.update {
             it.copy(
@@ -161,6 +176,9 @@ class InventorySnapshotViewModel @Inject constructor(
                 isSubmitting = false,
                 error = null,
                 items = items,
+                countedItems = countedItems,
+                gainQuantity = gainQuantity,
+                lossQuantity = lossQuantity,
             )
         }
     }
@@ -178,6 +196,9 @@ private fun ProductV2Dto.toInventoryCountItem(snapshot: InventorySnapshotV2Dto?)
         totalValue = snapshot?.totalValue,
         snapshotCreatedAt = snapshot?.createdAt?.let(TimeFormatter::formatDateTime),
     )
+
+private val inventoryProductComparator =
+    compareBy<ProductV2Dto>({ it.categoryName }, { it.name })
 
 private fun todayStartMillis(): Long =
     Calendar.getInstance().apply {

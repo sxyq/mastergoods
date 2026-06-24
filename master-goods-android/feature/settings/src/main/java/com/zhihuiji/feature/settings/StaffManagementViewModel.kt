@@ -6,6 +6,8 @@ import com.zhihuiji.core.model.CurrentStoreProfile
 import com.zhihuiji.core.model.StoreStaffMember
 import com.zhihuiji.data.auth.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -83,15 +85,18 @@ class StaffManagementViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, success = null) }
             val state = _uiState.value
-            val storeResult = authRepository.fetchCurrentStore()
-            val membersResult = authRepository.fetchStoreMembers()
+            val keyword = state.searchKeyword.trim()
+            val (storeResult, membersResult) = coroutineScope {
+                val storeDeferred = async { authRepository.fetchCurrentStore() }
+                val membersDeferred = async { authRepository.fetchStoreMembers() }
+                storeDeferred.await() to membersDeferred.await()
+            }
             val currentStore = storeResult.getOrNull()
             membersResult.fold(
                 onSuccess = { users ->
                     val filtered = users
                         .sortedByDescending(StoreStaffMember::updatedAt)
                         .filter { member ->
-                            val keyword = state.searchKeyword.trim()
                             keyword.isBlank()
                                 || member.phone.contains(keyword)
                                 || member.nickname.contains(keyword)

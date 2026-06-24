@@ -30,6 +30,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,6 +65,9 @@ fun TaskNotificationScreen(
     viewModel: TaskNotificationViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val showMarkAllReadButton = remember(uiState.selectedTab, uiState.notifications) {
+        uiState.selectedTab == 1 && uiState.notifications.any { !it.isRead }
+    }
     LaunchedEffect(initialTab) {
         viewModel.selectTab(initialTab.coerceIn(tabs.indices))
     }
@@ -76,7 +80,7 @@ fun TaskNotificationScreen(
                 subtitle = "查看服务端返回的任务与通知",
                 onNavigationClick = onBackClick,
                 actions = {
-                    if (uiState.selectedTab == 1 && uiState.notifications.any { !it.isRead }) {
+                    if (showMarkAllReadButton) {
                         TextButton(onClick = viewModel::markAllNotificationsRead) {
                             Text("全部已读")
                         }

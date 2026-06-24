@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -313,6 +314,22 @@ private fun InventoryCountItemCard(
     item: InventoryCountItem,
     modifier: Modifier = Modifier,
 ) {
+    val extraInfoText = remember(item.snapshotCreatedAt, item.totalValue) {
+        val createdAtText = item.snapshotCreatedAt?.let { "快照 $it" }
+        val totalValueText = item.totalValue?.let { "库存价值 ¥%.2f".format(it) }
+        if (createdAtText == null && totalValueText == null) {
+            null
+        } else {
+            buildString {
+                createdAtText?.let { append(it) }
+                totalValueText?.let {
+                    if (isNotEmpty()) append(" · ")
+                    append(it)
+                }
+            }
+        }
+    }
+
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
         surfaceColor = GlassSurfaceHigh,
@@ -382,13 +399,10 @@ private fun InventoryCountItemCard(
                     }
                 }
 
-                if (item.snapshotCreatedAt != null || item.totalValue != null) {
+                if (extraInfoText != null) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = listOfNotNull(
-                            item.snapshotCreatedAt?.let { "快照 $it" },
-                            item.totalValue?.let { "库存价值 ¥%.2f".format(it) },
-                        ).joinToString(" · "),
+                        text = extraInfoText,
                         style = MaterialTheme.typography.labelLarge,
                         color = TextTertiary,
                     )
@@ -403,6 +417,9 @@ private fun ProductAvatar(
     name: String,
     modifier: Modifier = Modifier,
 ) {
+    val initial = remember(name) {
+        name.take(1).ifBlank { "货" }
+    }
     Box(
         modifier = modifier
             .size(64.dp)
@@ -411,7 +428,7 @@ private fun ProductAvatar(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = name.take(1).ifBlank { "货" },
+            text = initial,
             style = MaterialTheme.typography.headlineMedium,
             color = ZhihuijiPrimary,
         )

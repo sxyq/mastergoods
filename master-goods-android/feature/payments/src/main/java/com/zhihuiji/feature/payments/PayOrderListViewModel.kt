@@ -2,6 +2,7 @@ package com.zhihuiji.feature.payments
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.model.v2.order.PayOrderV2Dto
@@ -38,7 +39,7 @@ fun PayOrderV2Dto.toPayOrderItem(): PayOrderItem = PayOrderItem(
     id = id,
     orderNo = orderNo,
     payee = supplierName ?: "",
-    amount = "¥%.2f".format(amount),
+    amount = MoneyFormatter.format(amount),
     status = StatusLabels.payOrderStatus(status),
     method = StatusLabels.paymentMethod(method),
     referenceNo = referenceNo,
@@ -60,8 +61,9 @@ class PayOrderListViewModel @Inject constructor(
     fun loadOrders() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
+            val keyword = _uiState.value.keyword.takeIf { it.isNotBlank() }
             val filter = PayOrderV2Filter(
-                keyword = _uiState.value.keyword.takeIf { it.isNotBlank() },
+                keyword = keyword,
                 status = when (_uiState.value.selectedTabIndex) {
                     1 -> StatusLabels.Codes.PAY_PENDING
                     2 -> StatusLabels.Codes.PAY_PAID
@@ -71,10 +73,14 @@ class PayOrderListViewModel @Inject constructor(
             )
             repository.listPayOrders(filter)
                 .onSuccess { orders ->
+                    val items = ArrayList<PayOrderItem>(orders.size)
+                    for (order in orders) {
+                        items.add(order.toPayOrderItem())
+                    }
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            orders = orders.map { dto -> dto.toPayOrderItem() }
+                            orders = items
                         )
                     }
                 }

@@ -148,7 +148,7 @@ fun SaleOrderItemEntity.toDto() = SaleOrderItemDto(
 )
 
 fun SaleOrderWithItems.toDto() = order.toDto(
-    items = items.map { it.toDto() },
+    items = items.toDtoList(),
 )
 
 fun SaleOrderDto.toEntity() = SaleOrderEntity(
@@ -178,7 +178,7 @@ fun SaleOrderItemDto.toEntity() = SaleOrderItemEntity(
     createdAt = createdAt,
 )
 
-fun SaleOrderDto.toItemEntities() = items.map { it.toEntity() }
+fun SaleOrderDto.toItemEntities() = items.toEntityList()
 
 fun PurchaseOrderEntity.toDto() = PurchaseOrderDto(
     id = id,
@@ -256,3 +256,19 @@ fun FinanceRecordDto.toEntity() = FinanceRecordEntity(
     createdAt = createdAt,
     updatedAt = updatedAt,
 )
+
+private fun List<SaleOrderItemEntity>.toDtoList(): List<SaleOrderItemDto> {
+    val result = ArrayList<SaleOrderItemDto>(size)
+    for (index in indices) {
+        result.add(get(index).toDto())
+    }
+    return result
+}
+
+private fun List<SaleOrderItemDto>.toEntityList(): List<SaleOrderItemEntity?> {
+    val result = ArrayList<SaleOrderItemEntity?>(size)
+    for (index in indices) {
+        result.add(get(index).toEntity())
+    }
+    return result
+}

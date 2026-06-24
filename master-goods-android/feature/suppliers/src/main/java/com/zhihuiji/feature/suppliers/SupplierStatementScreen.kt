@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.designsystem.AmountTextStyle
 import com.zhihuiji.core.designsystem.BottomActionBar
 import com.zhihuiji.core.designsystem.DangerRed
@@ -61,6 +63,10 @@ fun SupplierStatementScreen(
     viewModel: SupplierStatementViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val supplier = uiState.supplier
+    val supplierTotalAmount = remember(supplier?.balance) {
+        supplier?.balance?.let(::formatStatementCurrency).orEmpty()
+    }
 
     LaunchedEffect(supplierId) {
         viewModel.loadStatement(supplierId)
@@ -88,7 +94,7 @@ fun SupplierStatementScreen(
             )
         },
         bottomBar = {
-            uiState.supplier?.let { supplier ->
+            supplier?.let { currentSupplier ->
                 BottomActionBar(
                     primaryText = "发起付款",
                     onPrimaryClick = {},
@@ -97,8 +103,8 @@ fun SupplierStatementScreen(
                     onSecondaryClick = {},
                     secondaryEnabled = false,
                     totalLabel = "应付总额",
-                    totalAmount = formatStatementCurrency(supplier.balance),
-                    totalAmountColor = if (supplier.balance > 0.0) DangerRed else SuccessGreen
+                    totalAmount = supplierTotalAmount,
+                    totalAmountColor = if (currentSupplier.balance > 0.0) DangerRed else SuccessGreen
                 )
             }
         }
@@ -139,6 +145,10 @@ private fun SupplierStatementContent(
     modifier: Modifier = Modifier
 ) {
     val supplier = uiState.supplier ?: return
+    val balanceText = remember(supplier.balance) { formatStatementCurrency(supplier.balance) }
+    val purchaseTotalText = remember(uiState.purchaseTotal) { formatStatementCurrency(uiState.purchaseTotal) }
+    val paymentTotalText = remember(uiState.paymentTotal) { formatStatementCurrency(uiState.paymentTotal) }
+    val isActive = supplier.status == 1
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
@@ -182,8 +192,8 @@ private fun SupplierStatementContent(
                         )
                     }
                     StatusPill(
-                        text = if (supplier.status == 1) "启用" else "停用",
-                        status = if (supplier.status == 1) StatusType.NORMAL else StatusType.CANCELLED
+                        text = if (isActive) "启用" else "停用",
+                        status = if (isActive) StatusType.NORMAL else StatusType.CANCELLED
                     )
                 }
 
@@ -195,7 +205,7 @@ private fun SupplierStatementContent(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = formatStatementCurrency(supplier.balance),
+                    text = balanceText,
                     style = AmountTextStyle,
                     color = if (supplier.balance > 0.0) DangerRed else ZhihuijiPrimary
                 )
@@ -218,13 +228,13 @@ private fun SupplierStatementContent(
                     StatementMetric(
                         modifier = Modifier.weight(1f),
                         label = "采购增加",
-                        value = formatStatementCurrency(uiState.purchaseTotal),
+                        value = purchaseTotalText,
                         color = DangerRed
                     )
                     StatementMetric(
                         modifier = Modifier.weight(1f),
                         label = "付款抵扣",
-                        value = formatStatementCurrency(uiState.paymentTotal),
+                        value = paymentTotalText,
                         color = SuccessGreen
                     )
                 }
@@ -463,4 +473,4 @@ private fun SupplierStatementTransaction.statusType(): StatusType = when (kind) 
     }
 }
 
-private fun formatStatementCurrency(value: Double): String = "¥%.2f".format(value)
+private fun formatStatementCurrency(value: Double): String = MoneyFormatter.format(value)

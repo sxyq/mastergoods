@@ -21,11 +21,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.designsystem.BottomActionBar
 import com.zhihuiji.core.designsystem.DangerRed
 import com.zhihuiji.core.designsystem.GlassScaffold
@@ -74,15 +76,20 @@ private fun CustomerDetailScreenContent(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val customer = uiState.customer
+    val balanceText = remember(customer?.balance) {
+        customer?.let { MoneyFormatter.format(it.balance) }
+    }
+
     GlassScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             GlassTopBar(
                 title = "客户详情",
-                subtitle = uiState.customer?.phone ?: "联系资料与应收余额",
+                subtitle = customer?.phone ?: "联系资料与应收余额",
                 onNavigationClick = onNavigateBack,
                 actions = {
-                    uiState.customer?.let {
+                    customer?.let {
                         IconButton(onClick = onDelete) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
@@ -95,13 +102,13 @@ private fun CustomerDetailScreenContent(
             )
         },
         bottomBar = {
-            uiState.customer?.let { customer ->
+            customer?.let { currentCustomer ->
                 BottomActionBar(
                     primaryText = "编辑资料",
                     onPrimaryClick = onNavigateToEdit,
                     totalLabel = "应收余额",
-                    totalAmount = "¥%.2f".format(customer.balance),
-                    totalAmountColor = if (customer.balance > 0.0) DangerRed else ZhihuijiPrimary
+                    totalAmount = balanceText ?: MoneyFormatter.format(currentCustomer.balance),
+                    totalAmountColor = if (currentCustomer.balance > 0.0) DangerRed else ZhihuijiPrimary
                 )
             }
         }
@@ -134,8 +141,8 @@ private fun CustomerDetailScreenContent(
                     }
                 }
 
-                uiState.customer != null -> {
-                    val customer = uiState.customer!!
+                customer != null -> {
+                    val currentCustomer = customer
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -152,11 +159,11 @@ private fun CustomerDetailScreenContent(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = customer.name,
+                                        text = currentCustomer.name,
                                         style = MaterialTheme.typography.headlineSmall,
                                         color = TextPrimary
                                     )
-                                    val (statusText, statusType) = when (customer.status) {
+                                    val (statusText, statusType) = when (currentCustomer.status) {
                                         1 -> "正常" to StatusType.NORMAL
                                         0 -> "已停用" to StatusType.CANCELLED
                                         else -> "未知" to StatusType.PENDING
@@ -168,7 +175,7 @@ private fun CustomerDetailScreenContent(
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "手机号: ${customer.phone}",
+                                    text = "手机号: ${currentCustomer.phone}",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = TextSecondary
                                 )
@@ -184,8 +191,8 @@ private fun CustomerDetailScreenContent(
                                     color = TextPrimary
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
-                                InfoRow(label = "手机号", value = customer.phone)
-                                InfoRow(label = "地址", value = customer.address ?: "-")
+                                InfoRow(label = "手机号", value = currentCustomer.phone)
+                                InfoRow(label = "地址", value = currentCustomer.address ?: "-")
                             }
                         }
 
@@ -200,13 +207,13 @@ private fun CustomerDetailScreenContent(
                                 Spacer(modifier = Modifier.height(12.dp))
                                 InfoRow(
                                     label = "余额（应收款）",
-                                    value = "¥%.2f".format(customer.balance)
+                                    value = balanceText ?: MoneyFormatter.format(currentCustomer.balance)
                                 )
                             }
                         }
 
                         // 备注卡片
-                        if (!customer.remark.isNullOrBlank()) {
+                        if (!currentCustomer.remark.isNullOrBlank()) {
                             LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Text(
@@ -216,7 +223,7 @@ private fun CustomerDetailScreenContent(
                                     )
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Text(
-                                        text = customer.remark,
+                                        text = currentCustomer.remark,
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = TextSecondary
                                     )

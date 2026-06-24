@@ -56,6 +56,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+private val ruleSummaryDisabledStatuses = setOf(
+    "disabled",
+    "not_configured",
+    "stream_not_supported",
+    "failed_or_empty",
+    "stream_failed_or_empty",
+)
+
 /**
  * 可折叠的过程轨迹面板。
  *
@@ -148,19 +156,29 @@ fun RunTracePanel(
 
 @Composable
 private fun RunTraceStatusSummary(runTrace: RunTrace) {
-    val hasSafety = runTrace.safetyResult != null
+    val safetyResult = runTrace.safetyResult
+    val toolCalls = runTrace.toolCalls
+    val hasSafety = safetyResult != null
     val hasPlan = runTrace.planSteps.isNotEmpty()
-    val hasTools = runTrace.toolCalls.isNotEmpty()
-    val failedToolCount = runTrace.toolCalls.count { it.status == ToolCallStatus.FAILED }
-    val allToolsDone = runTrace.toolCalls.all { it.status == ToolCallStatus.COMPLETED }
+    val hasTools = toolCalls.isNotEmpty()
+    var failedToolCount = 0
+    var allToolsDone = hasTools
+    for (toolCall in toolCalls) {
+        if (toolCall.status == ToolCallStatus.FAILED) {
+            failedToolCount++
+        }
+        if (toolCall.status != ToolCallStatus.COMPLETED) {
+            allToolsDone = false
+        }
+    }
     val isModelStream = runTrace.answerDeltaSource == "model_stream"
     val isStreamInterrupted = runTrace.isStreamInterrupted()
     val isRuleSummary = runTrace.answerDeltaSource == "rule_summary" ||
         runTrace.mode == "tool_query_rule_summary"
 
     val statusText = when {
-        hasSafety && !runTrace.safetyResult!!.passed -> "已拦截"
-        hasTools && failedToolCount == runTrace.toolCalls.size -> "查询失败"
+        hasSafety && !safetyResult!!.passed -> "已拦截"
+        hasTools && failedToolCount == toolCalls.size -> "查询失败"
         failedToolCount > 0 -> "部分失败"
         isStreamInterrupted -> "流式中断"
         isModelStream -> "模型流"
@@ -173,8 +191,8 @@ private fun RunTraceStatusSummary(runTrace: RunTrace) {
     }
 
     val statusColor = when {
-        hasSafety && !runTrace.safetyResult!!.passed -> DangerRed
-        hasTools && failedToolCount == runTrace.toolCalls.size -> DangerRed
+        hasSafety && !safetyResult!!.passed -> DangerRed
+        hasTools && failedToolCount == toolCalls.size -> DangerRed
         failedToolCount > 0 -> WarningOrange
         isStreamInterrupted -> WarningOrange
         isModelStream -> ZhihuijiPrimary
@@ -238,13 +256,7 @@ private fun ModelStatusBlock(runTrace: RunTrace) {
         runTrace.planSource?.let { "规划: ${it.planSourceLabel()}" },
         runTrace.answerDeltaSource?.let { "输出: ${it.answerDeltaSourceLabel()}" },
     ).joinToString(" · ")
-    val isRuleSummary = runTrace.llmStatus in setOf(
-        "disabled",
-        "not_configured",
-        "stream_not_supported",
-        "failed_or_empty",
-        "stream_failed_or_empty",
-    ) ||
+    val isRuleSummary = runTrace.llmStatus in ruleSummaryDisabledStatuses ||
         runTrace.mode == "tool_query_rule_summary" ||
         runTrace.answerDeltaSource == "rule_summary"
     val color = if (isRuleSummary || runTrace.isStreamInterrupted()) WarningOrange else ZhihuijiPrimary

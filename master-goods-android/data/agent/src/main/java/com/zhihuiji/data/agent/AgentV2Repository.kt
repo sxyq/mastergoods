@@ -16,10 +16,12 @@ import com.zhihuiji.core.model.v2.agent.CreateAgentMessageRequest
 import com.zhihuiji.core.model.v2.agent.UpdateAgentConversationRequest
 import com.zhihuiji.core.model.v2.agent.UpdateAgentDraftRequest
 import com.zhihuiji.core.network.AgentSseClient
+import com.zhihuiji.core.network.RetryState
 import com.zhihuiji.core.network.ZhihuijiV2Api
 import com.zhihuiji.core.network.safeApiCall
 import com.zhihuiji.core.network.safeApiUnitCall
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -32,6 +34,9 @@ class AgentV2Repository @Inject constructor(
     private val sseClient: AgentSseClient,
     private val json: Json,
 ) {
+    /** SSE 连接重连状态，透传自 AgentSseClient */
+    val retryState: StateFlow<RetryState> get() = sseClient.retryState
+
     // ---------- Conversation ----------
 
     suspend fun listConversations(

@@ -79,10 +79,10 @@ private fun CustomerEditScreenContent(
     onSave: (String, String, String?, String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var name by remember { mutableStateOf(uiState.name) }
-    var phone by remember { mutableStateOf(uiState.phone) }
-    var address by remember { mutableStateOf(uiState.address) }
-    var remark by remember { mutableStateOf(uiState.remark) }
+    var name by remember(uiState.isEditMode, uiState.name) { mutableStateOf(uiState.name) }
+    var phone by remember(uiState.isEditMode, uiState.phone) { mutableStateOf(uiState.phone) }
+    var address by remember(uiState.isEditMode, uiState.address) { mutableStateOf(uiState.address) }
+    var remark by remember(uiState.isEditMode, uiState.remark) { mutableStateOf(uiState.remark) }
 
     Column(modifier = modifier.fillMaxSize()) {
         GlassTopBar(

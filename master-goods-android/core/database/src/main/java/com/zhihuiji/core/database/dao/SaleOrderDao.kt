@@ -78,7 +78,11 @@ interface SaleOrderDao {
     suspend fun replaceOrderGraphs(orders: List<SaleOrderEntity>, items: List<SaleOrderItemEntity>) {
         if (orders.isEmpty()) return
         upsertAll(orders)
-        deleteItemsByOrderIds(orders.map { it.id })
+        val orderIds = ArrayList<Long>(orders.size)
+        for (order in orders) {
+            orderIds.add(order.id)
+        }
+        deleteItemsByOrderIds(orderIds)
         if (items.isNotEmpty()) {
             upsertItems(items)
         }

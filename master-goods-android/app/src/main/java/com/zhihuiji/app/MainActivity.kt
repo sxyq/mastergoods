@@ -16,13 +16,9 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private val startupAgentLaunch: AgentLaunchRequest?
-        get() {
-            return parseStartupAgentLaunch(intent?.extras)
-        }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val startupAgentLaunch = parseStartupAgentLaunch(intent?.extras)
         if (shouldEnforceProductionRuntimeGuards(BuildConfig.BUILD_TYPE)) {
             window.setFlags(
                 WindowManager.LayoutParams.FLAG_SECURE,
@@ -49,16 +45,26 @@ class MainActivity : ComponentActivity() {
     private fun preferHighRefreshRateDisplayMode() {
         @Suppress("DEPRECATION")
         val currentDisplay = windowManager.defaultDisplay
-        val preferredMode = currentDisplay.supportedModes
-            .filter { it.refreshRate >= 90f }
-            .maxWithOrNull(
-                compareBy<Display.Mode> { it.refreshRate }
-                    .thenBy { it.physicalWidth * it.physicalHeight }
-            ) ?: return
+        var preferredMode: Display.Mode? = null
+        for (mode in currentDisplay.supportedModes) {
+            if (mode.refreshRate < 90f) continue
+            val currentPreferred = preferredMode
+            if (
+                currentPreferred == null ||
+                mode.refreshRate > currentPreferred.refreshRate ||
+                (
+                    mode.refreshRate == currentPreferred.refreshRate &&
+                        mode.physicalWidth * mode.physicalHeight > currentPreferred.physicalWidth * currentPreferred.physicalHeight
+                    )
+            ) {
+                preferredMode = mode
+            }
+        }
+        val resolvedPreferredMode = preferredMode ?: return
 
         window.attributes = window.attributes.apply {
-            preferredDisplayModeId = preferredMode.modeId
-            preferredRefreshRate = preferredMode.refreshRate
+            preferredDisplayModeId = resolvedPreferredMode.modeId
+            preferredRefreshRate = resolvedPreferredMode.refreshRate
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
                 setFrameRateBoostOnTouchEnabled(true)
                 setFrameRatePowerSavingsBalanced(false)

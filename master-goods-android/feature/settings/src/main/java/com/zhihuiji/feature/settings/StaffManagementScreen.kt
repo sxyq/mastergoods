@@ -232,9 +232,21 @@ private fun StaffHeroCard(
     uiState: StaffManagementUiState,
     modifier: Modifier = Modifier,
 ) {
-    val enabledCount = uiState.staffMembers.count { it.status == 1 }
-    val disabledCount = uiState.staffMembers.count { it.status != 1 }
-    val activeSessions = uiState.staffMembers.sumOf { it.activeSessions }
+    val summary = remember(uiState.staffMembers) {
+        var enabledCount = 0
+        var activeSessions = 0L
+        for (member in uiState.staffMembers) {
+            if (member.status == 1) {
+                enabledCount += 1
+            }
+            activeSessions += member.activeSessions
+        }
+        StaffSummary(
+            enabledCount = enabledCount,
+            disabledCount = uiState.staffMembers.size - enabledCount,
+            activeSessions = activeSessions,
+        )
+    }
 
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
@@ -280,9 +292,9 @@ private fun StaffHeroCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 SummaryChip(label = "真实账号", value = uiState.staffMembers.size.toString())
-                SummaryChip(label = "启用", value = enabledCount.toString())
-                SummaryChip(label = "停用", value = disabledCount.toString())
-                SummaryChip(label = "活跃会话", value = activeSessions.toString())
+                SummaryChip(label = "启用", value = summary.enabledCount.toString())
+                SummaryChip(label = "停用", value = summary.disabledCount.toString())
+                SummaryChip(label = "活跃会话", value = summary.activeSessions.toString())
                 uiState.currentStore?.let {
                     SummaryChip(label = "当前角色", value = roleLabel(it.role))
                     SummaryChip(label = "我的权限", value = it.permissions.size.toString())
@@ -482,6 +494,9 @@ private fun StaffMemberCard(
     var title by remember(member.id, member.title) { mutableStateOf(member.title) }
     var keepSessions by remember(member.id) { mutableStateOf(true) }
     val ownerLocked = member.role == "OWNER"
+    val updatedAtText = remember(member.updatedAt) {
+        formatTimestamp(member.updatedAt)
+    }
 
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
@@ -526,7 +541,7 @@ private fun StaffMemberCard(
                 SummaryTag(text = title.ifBlank { member.title })
                 SummaryTag(text = "权限 ${member.permissions.size}")
                 SummaryTag(text = "活跃会话 ${member.activeSessions}")
-                SummaryTag(text = "更新 ${formatTimestamp(member.updatedAt)}")
+                SummaryTag(text = "更新 $updatedAtText")
             }
 
             if (member.permissions.isNotEmpty()) {
@@ -534,8 +549,9 @@ private fun StaffMemberCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    member.permissions.take(6).forEach { permission ->
-                        SummaryTag(text = permission)
+                    val visiblePermissionCount = minOf(6, member.permissions.size)
+                    for (index in 0 until visiblePermissionCount) {
+                        SummaryTag(text = member.permissions[index])
                     }
                     if (member.permissions.size > 6) {
                         SummaryTag(text = "+${member.permissions.size - 6}")
@@ -636,6 +652,12 @@ private fun StaffMemberCard(
 }
 
 private val StoreRoleOptions = listOf("MANAGER", "SALES", "PURCHASING", "WAREHOUSE", "FINANCE", "ASSISTANT")
+
+private data class StaffSummary(
+    val enabledCount: Int,
+    val disabledCount: Int,
+    val activeSessions: Long,
+)
 
 private fun roleLabel(role: String): String =
     when (role) {

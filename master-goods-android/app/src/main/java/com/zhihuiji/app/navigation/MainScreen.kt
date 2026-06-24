@@ -149,10 +149,13 @@ fun MainScreen(
         return
     }
 
-    val visibleBottomBarDestinations = bottomBarDestinations
-        .filter { accessState.canAccessRoute(it.route) }
-    val selectedIndex = visibleBottomBarDestinations.indexOfFirst { currentRoute.matchesTopLevelRoute(it.route) }
-        .takeIf { it >= 0 } ?: 0
+    val visibleBottomBarDestinations = remember(accessState.isResolved, accessState.permissions) {
+        bottomBarDestinations.filter { accessState.canAccessRoute(it.route) }
+    }
+    val selectedIndex = remember(visibleBottomBarDestinations, currentRoute) {
+        visibleBottomBarDestinations.indexOfFirst { currentRoute.matchesTopLevelRoute(it.route) }
+            .takeIf { it >= 0 } ?: 0
+    }
     val bottomBarScrollEvents = remember {
         MutableSharedFlow<Float>(extraBufferCapacity = 64)
     }

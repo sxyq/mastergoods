@@ -29,6 +29,8 @@ enum class ReportPeriod(
     THIS_MONTH("本月", "本月")
 }
 
+private val reportPeriods = enumValues<ReportPeriod>()
+
 fun TopSellingProductReportDto.toTopProductItem(): TopProductItem = TopProductItem(
     id = productId,
     name = productName,
@@ -59,7 +61,7 @@ data class ReportUiState(
     val topProducts: List<TopProductItem> = emptyList()
 ) {
     val selectedPeriod: ReportPeriod
-        get() = ReportPeriod.values()[selectedPeriodIndex.coerceIn(0, ReportPeriod.values().lastIndex)]
+        get() = reportPeriods[selectedPeriodIndex.coerceIn(0, reportPeriods.lastIndex)]
 
     val selectedPeriodLabel: String
         get() = selectedPeriod.periodLabel
@@ -124,23 +126,26 @@ class ReportViewModel @Inject constructor(
                 payableAmount = 0.0,
             )
 
-            val topProductItems = topProducts.getOrNull()?.map { it.toTopProductItem() } ?: emptyList()
+            val topProductItems = topProducts.getOrNull()?.let { result ->
+                buildList(result.size) {
+                    for (item in result) {
+                        add(item.toTopProductItem())
+                    }
+                }
+            } ?: emptyList()
 
             val partnerBalancesFailed = partnerBalancesResult?.isFailure == true
-            val failedSections = listOfNotNull(
-                "销售汇总".takeIf { salesSummary.isFailure },
-                "利润预估".takeIf { profitSummary.isFailure },
-                "商品排行".takeIf { topProducts.isFailure },
-                "往来余额".takeIf { partnerBalancesFailed }
-            )
-            val errorMsg = listOfNotNull(
-                salesSummary.takeIf { it.isFailure },
-                profitSummary.takeIf { it.isFailure },
-                topProducts.takeIf { it.isFailure },
-                partnerBalancesResult?.takeIf { it.isFailure }
-            ).mapNotNull {
-                runCatching { it.getOrThrow() }.exceptionOrNull()?.message
-            }.firstOrNull()
+            val failedSections = ArrayList<String>(4).apply {
+                if (salesSummary.isFailure) add("销售汇总")
+                if (profitSummary.isFailure) add("利润预估")
+                if (topProducts.isFailure) add("商品排行")
+                if (partnerBalancesFailed) add("往来余额")
+            }
+            val errorMsg =
+                salesSummary.messageOrNull()
+                    ?: profitSummary.messageOrNull()
+                    ?: topProducts.messageOrNull()
+                    ?: partnerBalancesResult?.messageOrNull()
 
             _uiState.update {
                 it.copy(
@@ -160,7 +165,7 @@ class ReportViewModel @Inject constructor(
     }
 
     fun setPeriod(index: Int) {
-        val nextIndex = index.coerceIn(0, ReportPeriod.values().lastIndex)
+        val nextIndex = index.coerceIn(0, reportPeriods.lastIndex)
         if (nextIndex == _uiState.value.selectedPeriodIndex) return
         _uiState.update { it.copy(selectedPeriodIndex = nextIndex) }
         loadReports()
@@ -195,3 +200,6 @@ class ReportViewModel @Inject constructor(
 
 private fun LocalDate.startOfDayMillis(): Long =
     atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+private fun <T> Result<T>.messageOrNull(): String? =
+    exceptionOrNull()?.message

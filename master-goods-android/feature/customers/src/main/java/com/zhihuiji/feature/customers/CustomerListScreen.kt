@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,7 +50,7 @@ import com.zhihuiji.core.designsystem.TextPrimary
 import com.zhihuiji.core.designsystem.TextSecondary
 import com.zhihuiji.core.designsystem.TextTertiary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
-import java.util.Locale
+import com.zhihuiji.core.common.MoneyFormatter
 
 @Composable
 fun CustomerListScreen(
@@ -143,7 +144,9 @@ private fun CustomerReceivableSummary(
     customers: List<CustomerItem>,
     modifier: Modifier = Modifier
 ) {
-    val receivableTotal = customers.sumOf { parseCurrencyAmount(it.receivable).coerceAtLeast(0.0) }
+    val receivableTotal = remember(customers) {
+        customers.sumOf { it.receivableAmount.coerceAtLeast(0.0) }
+    }
     LiquidGlassCard(
         modifier = modifier
             .fillMaxWidth()
@@ -198,8 +201,7 @@ private fun CustomerArchiveCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val amount = parseCurrencyAmount(customer.receivable)
-    val hasDebt = amount > 0.0 || customer.status == "欠款"
+    val hasDebt = customer.hasDebt
     val statusText = when {
         customer.status == "已停用" -> "已停用"
         hasDebt -> "有欠款"
@@ -411,8 +413,4 @@ private fun CustomerStateMessage(
 private fun archiveInitial(value: String, fallback: String): String =
     value.trim().firstOrNull()?.toString() ?: fallback
 
-private fun parseCurrencyAmount(value: String): Double =
-    value.filter { it.isDigit() || it == '.' || it == '-' }.toDoubleOrNull() ?: 0.0
-
-private fun formatCurrency(value: Double): String =
-    String.format(Locale.CHINA, "¥%,.2f", value)
+private fun formatCurrency(value: Double): String = MoneyFormatter.format(value)

@@ -140,9 +140,10 @@ private fun SupplierArchiveCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val payableAmount = parseCurrencyAmount(supplier.payable)
-    val isStopped = supplier.status == "停用"
-    val (contactName, contactPhone) = splitSupplierContact(supplier.contact)
+    val payableAmount = supplier.payableAmount
+    val isStopped = supplier.isStopped
+    val contactName = supplier.contactName
+    val contactPhone = supplier.contactPhone
     val statusColor = when {
         isStopped -> TextTertiary
         payableAmount > 0.0 -> WarningOrange
@@ -359,17 +360,3 @@ private fun SupplierStateMessage(
 
 private fun archiveInitial(value: String, fallback: String): String =
     value.trim().firstOrNull()?.toString() ?: fallback
-
-private fun parseCurrencyAmount(value: String): Double =
-    value.filter { it.isDigit() || it == '.' || it == '-' }.toDoubleOrNull() ?: 0.0
-
-private fun splitSupplierContact(value: String): Pair<String, String> {
-    val trimmed = value.trim()
-    if (trimmed.isBlank()) return "暂无联系人" to "暂无电话"
-    val parts = trimmed.split(Regex("\\s+"), limit = 2)
-    return when {
-        parts.size == 2 -> parts[0] to parts[1]
-        trimmed.any { it.isDigit() } -> "暂无联系人" to trimmed
-        else -> trimmed to "暂无电话"
-    }
-}

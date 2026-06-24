@@ -20,8 +20,11 @@ data class InventoryLedgerUiState(
     val productCode: String = "",
     val entries: List<InventoryLedgerItem> = emptyList(),
 ) {
-    val totalIn: Double get() = entries.filter { it.quantityChange > 0 }.sumOf { it.quantityChange }
-    val totalOut: Double get() = entries.filter { it.quantityChange < 0 }.sumOf { -it.quantityChange }
+    private val summary: InventoryLedgerSummary
+        get() = entries.fold(InventoryLedgerSummary(), InventoryLedgerSummary::accumulate)
+
+    val totalIn: Double get() = summary.totalIn
+    val totalOut: Double get() = summary.totalOut
     val latestBalance: Double? get() = entries.firstOrNull()?.quantityAfter
 }
 
@@ -39,6 +42,21 @@ data class InventoryLedgerItem(
     val createdAt: String,
 )
 
+private data class InventoryLedgerSummary(
+    val totalIn: Double = 0.0,
+    val totalOut: Double = 0.0,
+) {
+    fun accumulate(item: InventoryLedgerItem): InventoryLedgerSummary {
+        return if (item.quantityChange > 0) {
+            copy(totalIn = totalIn + item.quantityChange)
+        } else if (item.quantityChange < 0) {
+            copy(totalOut = totalOut - item.quantityChange)
+        } else {
+            this
+        }
+    }
+}
+
 @HiltViewModel
 class InventoryLedgerViewModel @Inject constructor(
     private val repository: SyncV2Repository,
@@ -51,9 +69,7 @@ class InventoryLedgerViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             repository.listInventoryLedger(productId = productId)
                 .onSuccess { entries ->
-                    val items = entries
-                        .sortedByDescending { it.createdAt }
-                        .map(InventoryLedgerEntryV2Dto::toLedgerItem)
+                    val items = entries.map(InventoryLedgerEntryV2Dto::toLedgerItem)
                     val first = items.firstOrNull()
                     _uiState.update {
                         it.copy(

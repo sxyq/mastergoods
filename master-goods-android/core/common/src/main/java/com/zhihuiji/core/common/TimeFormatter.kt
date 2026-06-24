@@ -5,22 +5,31 @@ import java.util.Date
 import java.util.Locale
 
 object TimeFormatter {
-    private fun createDateFormatter(): SimpleDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.CHINA)
-    private fun createDateTimeFormatter(): SimpleDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA)
-    private fun createTimeFormatter(): SimpleDateFormat = SimpleDateFormat("HH:mm", Locale.CHINA)
+    private val dateFormatter = ThreadLocal.withInitial<SimpleDateFormat> {
+        SimpleDateFormat("yyyy-MM-dd", Locale.CHINA)
+    }
+    private val dateTimeFormatter = ThreadLocal.withInitial<SimpleDateFormat> {
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA)
+    }
+    private val timeFormatter = ThreadLocal.withInitial<SimpleDateFormat> {
+        SimpleDateFormat("HH:mm", Locale.CHINA)
+    }
 
     fun formatDate(epochMillis: Long?): String {
-        if (epochMillis == null || epochMillis == 0L) return "-"
-        return createDateFormatter().format(Date(epochMillis))
+        return formatOrDash(epochMillis, dateFormatter)
     }
 
     fun formatDateTime(epochMillis: Long?): String {
-        if (epochMillis == null || epochMillis == 0L) return "-"
-        return createDateTimeFormatter().format(Date(epochMillis))
+        return formatOrDash(epochMillis, dateTimeFormatter)
     }
 
     fun formatTime(epochMillis: Long?): String {
+        return formatOrDash(epochMillis, timeFormatter)
+    }
+
+    private fun formatOrDash(epochMillis: Long?, formatter: ThreadLocal<SimpleDateFormat>): String {
         if (epochMillis == null || epochMillis == 0L) return "-"
-        return createTimeFormatter().format(Date(epochMillis))
+        val localFormatter = formatter.get()
+        return localFormatter.format(Date(epochMillis))
     }
 }
