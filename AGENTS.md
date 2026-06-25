@@ -126,6 +126,43 @@ Before adding new components, classes, or helpers, check this inventory. New fil
 - **Extract Shared Fetch**: `AgentPage.vue` `fetchSidePanel` — single function reused by `loadPage` / `refreshSidePanel`
 - **Remove Duplicate Helpers**: `live-screen-data.ts` — deleted 7 functions duplicated in `business.ts`, switched to imports
 
+### Database Migration & Multi-Tenant Isolation Pattern
+
+Flyway migrations in `src/main/resources/db/migration/` follow a deliberate multi-tenant evolution:
+
+| Migration | Purpose | Reuse Pattern |
+|-----------|---------|---------------|
+| `V1__init` – `V6__add_foreign_keys` | Early schema (pre-multi-tenant) — base tables, indexes, FKs | Read-only; do not modify applied migrations |
+| `V7__owner_scope_foundation` | **Multi-tenant foundation** — adds `owner_user_id BIGINT NOT NULL` to all 14 business tables, backfills via `SYSTEM-LEGACY-OWNER`, drops global unique constraints, adds owner-scoped unique indexes (`uq_products_owner_code`, `uq_customers_owner_phone`, etc.) | Reference for any new multi-tenant migration; always include `owner_user_id` column + owner-scoped index |
+| `V8+` | New domain tables — all include `owner_user_id` from creation | New tables MUST have `owner_user_id BIGINT NOT NULL` + `CREATE INDEX ... ON (owner_user_id, ...)` |
+
+**Multi-tenant isolation strategy**: No database-level RLS (Row Level Security). Isolation is enforced at the **application layer** via JPQL queries with `ownerUserId` parameter (all repositories filter by `ownerUserId`) + `CurrentOwnerService.requireCurrentOwnerUserId()`. No `GRANT` statements (single DB user). All `@Query` annotations in repositories include `ownerUserId`.
+
+### Android Security Configuration
+
+| File | Purpose | Reuse Pattern |
+|------|---------|---------------|
+| `app/src/debug/res/xml/network_security_config.xml` + `app/src/release/res/xml/network_security_config.xml` | Network security — **both** debug and release set `cleartextTrafficPermitted="false"` (blocks all HTTP) | Do not enable cleartext; use HTTPS only |
+| `app/src/main/AndroidManifest.xml` | Minimal permissions (`INTERNET` + `ACCESS_NETWORK_STATE` only), `allowBackup="false"`, no `android:debuggable` | Follow minimal-permission principle; keep `allowBackup="false"` |
+| `app/proguard-rules.pro` | Keeps `*Annotation*`, `Signature`, `InnerClasses`, `EnclosingMethod` + kotlinx.serialization `$$serializer` classes | Do not remove serializer keep rules or deserialization breaks |
+
+### Static Admin Console (`src/main/resources/static/admin-console/`)
+
+| File | Purpose | Reuse Pattern |
+|------|---------|---------------|
+| `app.js` `escapeHtml(value)` | XSS prevention — escapes `&` `<` `>` `"` before `innerHTML` assignment | Use for ALL user-controllable data inserted via `innerHTML`; never insert raw API strings |
+| `app.js` `request(path)` | Fetch wrapper — hardcoded API paths only, no user-controlled URL | Reference pattern for admin console API calls |
+
+**Admin console XSS pattern**: `renderAccounts` / `renderUsers` use `escapeHtml()` for nickname/phone fields; `renderSummary` uses static metadata + numeric values (safe). Demo account passwords shown in plaintext is intentional for local demo seed feature.
+
+### Third-Party & Test Modules (Read-Only Reference)
+
+| Module | Nature | Audit Stance |
+|--------|--------|--------------|
+| `master-goods-android/backdrop/` (`com.kyant.backdrop`) | Third-party Compose rendering library — Blur/Shadow/Highlight/RenderEffect/RuntimeShader graphics | Read-only REVIEWED; do not refactor third-party rendering code |
+| `master-goods-android/benchmark/` | Macrobenchmark instrumentation — `MacrobenchmarkRule` + UiAutomator flows | Read-only REVIEWED; test-only, no production security surface |
+| `master-goods-android/core/model/src/test/` | Serialization contract tests — verify `@SerialName` snake_case + `ignoreUnknownKeys` backward compat | Read-only REVIEWED; IDs use `Long` (safe) |
+
 ### Cross-Platform ID Safety Rule
 
 - **Backend**: IDs are `Long` (Java) — safe up to 2^63
