@@ -342,16 +342,15 @@ private fun ChatMessageItem(
                             bottom = 4.dp,
                         ),
                     )
+                    val bubbleShape = RoundedCornerShape(
+                        topStart = 16.dp,
+                        topEnd = 16.dp,
+                        bottomStart = if (isUser) 16.dp else 4.dp,
+                        bottomEnd = if (isUser) 4.dp else 16.dp,
+                    )
                     Box(
                         modifier = Modifier
-                            .clip(
-                                RoundedCornerShape(
-                                    topStart = 16.dp,
-                                    topEnd = 16.dp,
-                                    bottomStart = if (isUser) 16.dp else 4.dp,
-                                    bottomEnd = if (isUser) 4.dp else 16.dp,
-                                )
-                            )
+                            .clip(bubbleShape)
                             .background(
                                 brush = if (isUser) AgentUserBubbleBrush else AgentAssistantBubbleBrush
                             )
@@ -362,12 +361,7 @@ private fun ChatMessageItem(
                                 } else {
                                     AgentAssistantAccent.copy(alpha = 0.30f)
                                 },
-                                shape = RoundedCornerShape(
-                                    topStart = 16.dp,
-                                    topEnd = 16.dp,
-                                    bottomStart = if (isUser) 16.dp else 4.dp,
-                                    bottomEnd = if (isUser) 4.dp else 16.dp,
-                                )
+                                shape = bubbleShape
                             )
                             .padding(
                                 horizontal = if (isUser) 13.dp else 15.dp,
@@ -521,8 +515,7 @@ private fun AssistantMessageHeader(
     val statusColor = when {
         isStreamInterruptedMode(mode = mode, llmStatus = llmStatus) -> WarningOrange
         answerDeltaSource == DeltaSourceModelStream -> AgentAssistantAccent
-        answerDeltaSource == DeltaSourceRuleSummary -> WarningOrange
-        isStreaming -> WarningOrange
+        answerDeltaSource == DeltaSourceRuleSummary || isStreaming -> WarningOrange
         else -> AgentAssistantAccent
     }
     Row(
@@ -974,14 +967,8 @@ private fun InlineToolActivityPill(
 
 internal fun ToolCallRecord.activityLabel(): String =
     when (status) {
-        ToolCallStatus.COMPLETED -> {
-            val resultLabel = resultSummary.shortToolActivityLabel()
-            resultLabel ?: "工具查询完成"
-        }
-        ToolCallStatus.FAILED -> {
-            val resultLabel = resultSummary.shortToolActivityLabel()
-            resultLabel ?: "工具查询失败"
-        }
+        ToolCallStatus.COMPLETED -> resultSummary.shortToolActivityLabel() ?: "工具查询完成"
+        ToolCallStatus.FAILED -> resultSummary.shortToolActivityLabel() ?: "工具查询失败"
         ToolCallStatus.PENDING,
         ToolCallStatus.RUNNING -> {
             val inputLabel = inputSummary.shortToolActivityLabel()
@@ -1009,52 +996,30 @@ internal fun List<ToolCallRecord>.latestVisibleToolCall(nowMs: Long = System.cur
     return latestFinishedCall?.takeIf { it.isRecentlyFinished(nowMs) }
 }
 
-internal fun List<ToolCallRecord>.latestActiveToolCall(): ToolCallRecord? =
-    run {
-        for (index in lastIndex downTo 0) {
-            val call = this[index]
-            if (call.status == ToolCallStatus.RUNNING || call.status == ToolCallStatus.PENDING) {
-                return@run call
-            }
-        }
-        null
-    }
-
-internal fun List<ToolCallRecord>.latestFinishedToolCallCandidate(): ToolCallRecord? =
-    run {
-        for (index in lastIndex downTo 0) {
-            val call = this[index]
-            if (call.status == ToolCallStatus.FAILED || call.status == ToolCallStatus.COMPLETED) {
-                return@run call
-            }
-        }
-        null
-    }
-
 internal fun ToolCallRecord.isRecentlyFinished(nowMs: Long): Boolean {
     val completedAt = completedAt ?: timestamp
     return nowMs - completedAt in 0..CompletedToolPillVisibleMs
 }
 
-internal fun String.readableToolName(): String =
-    when (this) {
-        "cashflow_summary" -> "现金流"
-        "sales_trend" -> "销售趋势"
-        "stock_out_records" -> "缺货记录"
-        "inventory_flow" -> "库存流水"
-        "profit_summary" -> "利润分析"
-        "finance_records" -> "资金明细"
-        "inventory_low_stock_lookup" -> "低库存查询"
-        "product_catalog_lookup" -> "商品查询"
-        "customer_receivable_lookup" -> "客户应收查询"
-        "supplier_payable_lookup" -> "供应商应付查询"
-        "sales_overview_lookup" -> "经营概览查询"
-        "sale_order_lookup" -> "销售单查询"
-        "purchase_order_lookup" -> "采购单查询"
-        "pay_order_lookup" -> "付款单查询"
-        "finance_record_lookup" -> "资金流水查询"
-        else -> replace('_', ' ')
-    }
+private val readableToolNames = mapOf(
+    "cashflow_summary" to "现金流",
+    "sales_trend" to "销售趋势",
+    "stock_out_records" to "缺货记录",
+    "inventory_flow" to "库存流水",
+    "profit_summary" to "利润分析",
+    "finance_records" to "资金明细",
+    "inventory_low_stock_lookup" to "低库存查询",
+    "product_catalog_lookup" to "商品查询",
+    "customer_receivable_lookup" to "客户应收查询",
+    "supplier_payable_lookup" to "供应商应付查询",
+    "sales_overview_lookup" to "经营概览查询",
+    "sale_order_lookup" to "销售单查询",
+    "purchase_order_lookup" to "采购单查询",
+    "pay_order_lookup" to "付款单查询",
+    "finance_record_lookup" to "资金流水查询",
+)
+
+internal fun String.readableToolName(): String = readableToolNames[this] ?: replace('_', ' ')
 
 @Composable
 private fun InlineStreamingStatus(

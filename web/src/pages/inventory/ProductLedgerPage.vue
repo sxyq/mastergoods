@@ -39,25 +39,14 @@ const queryProductId = computed(() => {
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canAdjust = computed(() => session.hasPermission(['inventory:write']))
 const productIndex = computed(() => new Map(products.value.map((item) => [item.id, item] as const)))
-type ProductSearchRow = ProductRecord & {
-  searchText: string
-}
 const selectedProduct = computed(() => {
   if (selectedProductId.value == null) return products.value[0] ?? null
   return productIndex.value.get(selectedProductId.value) ?? products.value[0] ?? null
 })
-const filteredProducts = computed<ProductSearchRow[]>(() => {
+const filteredProducts = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
-  const rows: ProductSearchRow[] = []
-  for (const item of products.value) {
-    const searchText = `${item.name} ${item.code}`.toLowerCase()
-    if (keyword && !searchText.includes(keyword)) continue
-    rows.push({
-      ...item,
-      searchText,
-    })
-  }
-  return rows
+  if (!keyword) return products.value
+  return products.value.filter((item) => `${item.name} ${item.code}`.toLowerCase().includes(keyword))
 })
 const currentBalance = computed(() => ledgerEntries.value[0]?.quantityAfter ?? selectedProduct.value?.stock ?? 0)
 const ledgerSummary = computed(() => ledgerEntries.value.reduce((summary, item) => {
@@ -139,10 +128,7 @@ async function loadLedger(productId: number) {
   }
 }
 
-function quantityLabel(value: number) {
-  if (value > 0) return `+${formatNumber(value)}`
-  return formatNumber(value)
-}
+const quantityLabel = (value: number) => (value > 0 ? `+${formatNumber(value)}` : formatNumber(value))
 </script>
 
 <template>

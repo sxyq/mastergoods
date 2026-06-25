@@ -36,17 +36,9 @@ type SnapshotProductRow = ProductRecord & {
 
 const filteredProducts = computed<SnapshotProductRow[]>(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
-  const rows: SnapshotProductRow[] = []
-  for (const item of products.value) {
-    if (keyword && !item.name.toLowerCase().includes(keyword) && !item.code.toLowerCase().includes(keyword)) {
-      continue
-    }
-    rows.push({
-      ...item,
-      snapshot: snapshotMap.value.get(item.id) ?? null,
-    })
-  }
-  return rows
+  return products.value
+    .filter((item) => !keyword || item.name.toLowerCase().includes(keyword) || item.code.toLowerCase().includes(keyword))
+    .map((item) => ({ ...item, snapshot: snapshotMap.value.get(item.id) ?? null }))
 })
 const completedCount = computed(() => filteredProducts.value.reduce((count, item) => count + (item.snapshot ? 1 : 0), 0))
 const lowStockCount = computed(() => products.value.filter((item) => item.stock < item.safeStock).length)

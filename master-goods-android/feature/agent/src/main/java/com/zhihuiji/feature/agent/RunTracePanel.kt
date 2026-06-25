@@ -56,14 +56,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val ruleSummaryDisabledStatuses = setOf(
-    "disabled",
-    "not_configured",
-    "stream_not_supported",
-    "failed_or_empty",
-    "stream_failed_or_empty",
-)
-
 /**
  * 可折叠的过程轨迹面板。
  *
@@ -176,30 +168,18 @@ private fun RunTraceStatusSummary(runTrace: RunTrace) {
     val isRuleSummary = runTrace.answerDeltaSource == "rule_summary" ||
         runTrace.mode == "tool_query_rule_summary"
 
-    val statusText = when {
-        hasSafety && !safetyResult!!.passed -> "已拦截"
-        hasTools && failedToolCount == toolCalls.size -> "查询失败"
-        failedToolCount > 0 -> "部分失败"
-        isStreamInterrupted -> "流式中断"
-        isModelStream -> "模型流"
-        isRuleSummary -> "规则摘要"
-        hasTools && allToolsDone -> "查询已完成"
-        hasTools -> "查询中..."
-        hasPlan -> "思考中..."
-        hasSafety -> "审查通过"
-        else -> "准备中..."
-    }
-
-    val statusColor = when {
-        hasSafety && !safetyResult!!.passed -> DangerRed
-        hasTools && failedToolCount == toolCalls.size -> DangerRed
-        failedToolCount > 0 -> WarningOrange
-        isStreamInterrupted -> WarningOrange
-        isModelStream -> ZhihuijiPrimary
-        isRuleSummary -> WarningOrange
-        hasTools && allToolsDone -> SuccessGreen
-        hasTools -> WarningOrange
-        else -> TextTertiary
+    val (statusText, statusColor) = when {
+        hasSafety && !safetyResult!!.passed -> "已拦截" to DangerRed
+        hasTools && failedToolCount == toolCalls.size -> "查询失败" to DangerRed
+        failedToolCount > 0 -> "部分失败" to WarningOrange
+        isStreamInterrupted -> "流式中断" to WarningOrange
+        isModelStream -> "模型流" to ZhihuijiPrimary
+        isRuleSummary -> "规则摘要" to WarningOrange
+        hasTools && allToolsDone -> "查询已完成" to SuccessGreen
+        hasTools -> "查询中..." to WarningOrange
+        hasPlan -> "思考中..." to TextTertiary
+        hasSafety -> "审查通过" to TextTertiary
+        else -> "准备中..." to TextTertiary
     }
 
     Box(
@@ -256,8 +236,7 @@ private fun ModelStatusBlock(runTrace: RunTrace) {
         runTrace.planSource?.let { "规划: ${it.planSourceLabel()}" },
         runTrace.answerDeltaSource?.let { "输出: ${it.answerDeltaSourceLabel()}" },
     ).joinToString(" · ")
-    val isRuleSummary = runTrace.llmStatus in ruleSummaryDisabledStatuses ||
-        runTrace.mode == "tool_query_rule_summary" ||
+    val isRuleSummary = isRuleSummaryMode(mode = runTrace.mode, llmStatus = runTrace.llmStatus) ||
         runTrace.answerDeltaSource == "rule_summary"
     val color = if (isRuleSummary || runTrace.isStreamInterrupted()) WarningOrange else ZhihuijiPrimary
 
@@ -316,46 +295,42 @@ private fun SafetyBlock(safety: com.zhihuiji.core.model.v2.agent.SafetyResult) {
     }
 }
 
-private fun String.agentModeLabel(): String =
-    when (this) {
-        "tool_query_llm_synthesized" -> "工具查询 + 模型综合"
-        "tool_query_rule_summary" -> "工具查询 + 规则摘要"
-        "tool_query_failed" -> "工具查询失败"
-        "unsupported_intent" -> "未接入查询"
-        "blocked" -> "安全拦截"
-        else -> this
-    }
+private val agentModeLabels = mapOf(
+    "tool_query_llm_synthesized" to "工具查询 + 模型综合",
+    "tool_query_rule_summary" to "工具查询 + 规则摘要",
+    "tool_query_failed" to "工具查询失败",
+    "unsupported_intent" to "未接入查询",
+    "blocked" to "安全拦截",
+)
+private fun String.agentModeLabel(): String = agentModeLabels[this] ?: this
 
-private fun String.llmStatusLabel(): String =
-    when (this) {
-        "available" -> "可用"
-        "streaming" -> "流式生成中"
-        "stream_interrupted" -> "流式中断"
-        "stream_failed_or_empty" -> "流式失败或空响应"
-        "disabled" -> "已关闭"
-        "not_configured" -> "未配置"
-        "stream_not_supported" -> "当前模型接口不支持流式"
-        "failed_or_empty" -> "返回为空"
-        "not_requested" -> "未调用"
-        else -> this
-    }
+private val llmStatusLabels = mapOf(
+    "available" to "可用",
+    "streaming" to "流式生成中",
+    "stream_interrupted" to "流式中断",
+    "stream_failed_or_empty" to "流式失败或空响应",
+    "disabled" to "已关闭",
+    "not_configured" to "未配置",
+    "stream_not_supported" to "当前模型接口不支持流式",
+    "failed_or_empty" to "返回为空",
+    "not_requested" to "未调用",
+)
+private fun String.llmStatusLabel(): String = llmStatusLabels[this] ?: this
 
-private fun String.planSourceLabel(): String =
-    when (this) {
-        "llm" -> "模型规划"
-        "keyword" -> "关键词规划"
-        "keyword_fallback" -> "关键词兜底规划"
-        "safety" -> "安全策略"
-        "tool" -> "工具结果"
-        else -> this
-    }
+private val planSourceLabels = mapOf(
+    "llm" to "模型规划",
+    "keyword" to "关键词规划",
+    "keyword_fallback" to "关键词兜底规划",
+    "safety" to "安全策略",
+    "tool" to "工具结果",
+)
+private fun String.planSourceLabel(): String = planSourceLabels[this] ?: this
 
-private fun String.answerDeltaSourceLabel(): String =
-    when (this) {
-        "model_stream" -> "模型实时流"
-        "rule_summary" -> "服务端规则摘要"
-        else -> this
-    }
+private val answerDeltaSourceLabels = mapOf(
+    "model_stream" to "模型实时流",
+    "rule_summary" to "服务端规则摘要",
+)
+private fun String.answerDeltaSourceLabel(): String = answerDeltaSourceLabels[this] ?: this
 
 internal fun RunTrace.isStreamInterrupted(): Boolean =
     mode == "tool_query_llm_stream_interrupted" || llmStatus == "stream_interrupted"
@@ -514,9 +489,9 @@ private fun com.zhihuiji.core.model.v2.agent.ToolCallRecord.auditSummary(): Stri
     val parts = listOfNotNull(
         seq?.let { "事件 #$it" },
         conversationId?.let { "会话 $it" },
-        eventId?.let { "事件 ${it.compactMiddle()}" },
-        auditId?.let { "运行 ${it.compactMiddle()}" },
-        traceId?.let { "轨迹 ${it.compactMiddle()}" },
+        eventId?.let { "事件 ${it.compactEvidenceText()}" },
+        auditId?.let { "运行 ${it.compactEvidenceText()}" },
+        traceId?.let { "轨迹 ${it.compactEvidenceText()}" },
         startedAt?.let { "开始 ${it.formatClockTime()}" },
         completedAt?.let { "完成 ${it.formatClockTime()}" },
         durationMs?.let { "耗时 ${it}ms" },
@@ -554,25 +529,10 @@ private fun JsonElement.toEvidenceSummary(): String? {
     return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ") ?: compactJsonText()
 }
 
-private fun JsonObject.stringValue(key: String): String? =
-    this[key]?.jsonPrimitiveOrNull()?.contentOrNull
-
-private fun JsonObject.intValue(key: String): Int? =
-    this[key]?.jsonPrimitiveOrNull()?.intOrNull
-
-private fun JsonObject.booleanValue(key: String): Boolean? =
-    this[key]?.jsonPrimitiveOrNull()?.booleanOrNull
-
-private fun JsonElement.jsonPrimitiveOrNull(): JsonPrimitive? =
-    runCatching { jsonPrimitive }.getOrNull()
-
 private fun JsonElement.compactJsonText(maxLength: Int = 90): String? =
     toString().takeIf { it.isNotBlank() }?.let { raw ->
         if (raw.length <= maxLength) raw else raw.take(maxLength) + "..."
     }
-
-private fun String.compactMiddle(maxLength: Int = 28): String =
-    if (length <= maxLength) this else take(14) + "..." + takeLast(8)
 
 private fun Long.formatClockTime(): String =
     SimpleDateFormat("HH:mm:ss", Locale.CHINA).format(Date(this))

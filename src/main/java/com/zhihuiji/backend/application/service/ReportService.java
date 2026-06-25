@@ -263,23 +263,23 @@ public class ReportService {
             OrderStatus.CANCELLED.code(),
             PageRequest.of(0, safeLimit)
         );
-        List<ReportDto.ProfitByProductReportDto> rows = new ArrayList<>(profitRows.size());
-        for (Object[] row : profitRows) {
-            double totalSalesAmount = safeDouble(row[3]);
-            double totalCostAmount = safeDouble(row[4]);
-            double totalProfit = totalSalesAmount - totalCostAmount;
-            double profitRate = totalSalesAmount <= 0.0 ? 0.0 : (totalProfit / totalSalesAmount) * 100.0;
-            rows.add(new ReportDto.ProfitByProductReportDto(
-                safeLong(row[0]),
-                safeString((String) row[1], ""),
-                safeString((String) row[2], ""),
-                totalSalesAmount,
-                totalCostAmount,
-                totalProfit,
-                profitRate
-            ));
-        }
-        return rows;
+        return profitRows.stream()
+            .map(row -> {
+                double totalSalesAmount = safeDouble(row[3]);
+                double totalCostAmount = safeDouble(row[4]);
+                double totalProfit = totalSalesAmount - totalCostAmount;
+                double profitRate = totalSalesAmount <= 0.0 ? 0.0 : (totalProfit / totalSalesAmount) * 100.0;
+                return new ReportDto.ProfitByProductReportDto(
+                    safeLong(row[0]),
+                    safeString((String) row[1], ""),
+                    safeString((String) row[2], ""),
+                    totalSalesAmount,
+                    totalCostAmount,
+                    totalProfit,
+                    profitRate
+                );
+            })
+            .toList();
     }
 
     public List<ReportDto.ProfitByCustomerReportDto> profitByCustomers(Long startAt, Long endAt, int limit) {
@@ -293,22 +293,22 @@ public class ReportService {
             OrderStatus.CANCELLED.code(),
             PageRequest.of(0, safeLimit)
         );
-        List<ReportDto.ProfitByCustomerReportDto> rows = new ArrayList<>(profitRows.size());
-        for (Object[] row : profitRows) {
-            double totalSalesAmount = safeDouble(row[2]);
-            double totalCostAmount = safeDouble(row[3]);
-            double totalProfit = totalSalesAmount - totalCostAmount;
-            double profitRate = totalSalesAmount <= 0.0 ? 0.0 : (totalProfit / totalSalesAmount) * 100.0;
-            rows.add(new ReportDto.ProfitByCustomerReportDto(
-                row[0] == null ? null : safeLong(row[0]),
-                safeString((String) row[1], "散客"),
-                totalSalesAmount,
-                totalCostAmount,
-                totalProfit,
-                profitRate
-            ));
-        }
-        return rows;
+        return profitRows.stream()
+            .map(row -> {
+                double totalSalesAmount = safeDouble(row[2]);
+                double totalCostAmount = safeDouble(row[3]);
+                double totalProfit = totalSalesAmount - totalCostAmount;
+                double profitRate = totalSalesAmount <= 0.0 ? 0.0 : (totalProfit / totalSalesAmount) * 100.0;
+                return new ReportDto.ProfitByCustomerReportDto(
+                    row[0] == null ? null : safeLong(row[0]),
+                    safeString((String) row[1], "散客"),
+                    totalSalesAmount,
+                    totalCostAmount,
+                    totalProfit,
+                    profitRate
+                );
+            })
+            .toList();
     }
 
     public List<ReportDto.InventoryFlowRecordDto> inventoryFlow(Long startAt, Long endAt, int limit) {
@@ -425,16 +425,14 @@ public class ReportService {
             OrderStatus.CANCELLED.code(),
             PageRequest.of(0, safeLimit)
         );
-        List<ReportDto.CustomerSalesReportDto> rows = new ArrayList<>(customerRows.size());
-        for (Object[] row : customerRows) {
-            rows.add(new ReportDto.CustomerSalesReportDto(
+        return customerRows.stream()
+            .map(row -> new ReportDto.CustomerSalesReportDto(
                 row[0] == null ? null : safeLong(row[0]),
                 safeString((String) row[1], "散客"),
                 safeInt(row[2]),
                 safeDouble(row[3])
-            ));
-        }
-        return rows;
+            ))
+            .toList();
     }
 
     public List<ReportDto.CustomerReceivableReportDto> receivables(int limit) {
@@ -445,33 +443,29 @@ public class ReportService {
             0.0,
             PageRequest.of(0, safeLimit)
         );
-        List<ReportDto.CustomerReceivableReportDto> rows = new ArrayList<>(customers.size());
-        for (CustomerEntity customer : customers) {
-            rows.add(new ReportDto.CustomerReceivableReportDto(
+        return customers.stream()
+            .map(customer -> new ReportDto.CustomerReceivableReportDto(
                 safeLong(customer.getId()),
                 safeString(customer.getName(), ""),
                 safeString(customer.getPhone(), ""),
                 safeDouble(customer.getBalance())
-            ));
-        }
-        return rows;
+            ))
+            .toList();
     }
 
     public List<ReportDto.LowStockProductReportDto> lowStockProducts(int limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         int safeLimit = normalizeLimit(limit);
         List<ProductEntity> products = productRepository.findLowStockProducts(ownerUserId, PageRequest.of(0, safeLimit));
-        List<ReportDto.LowStockProductReportDto> rows = new ArrayList<>(products.size());
-        for (ProductEntity product : products) {
-            rows.add(new ReportDto.LowStockProductReportDto(
+        return products.stream()
+            .map(product -> new ReportDto.LowStockProductReportDto(
                 safeLong(product.getId()),
                 safeString(product.getCode(), ""),
                 safeString(product.getName(), ""),
                 safeDouble(product.getStock()),
                 safeDouble(product.getSafeStock())
-            ));
-        }
-        return rows;
+            ))
+            .toList();
     }
 
     public ReportDto.ReconciliationSummaryReportDto reconciliationSummary(Long startAt, Long endAt) {

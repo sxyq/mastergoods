@@ -1424,16 +1424,16 @@ private fun JsonElement.evidenceQueryWindowSummary(): String? {
     return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ") ?: compactJsonText()
 }
 
-private fun JsonObject.stringValue(key: String): String? =
+internal fun JsonObject.stringValue(key: String): String? =
     this[key]?.jsonPrimitiveOrNull()?.contentOrNull
 
-private fun JsonObject.intValue(key: String): Int? =
+internal fun JsonObject.intValue(key: String): Int? =
     this[key]?.jsonPrimitiveOrNull()?.intOrNull
 
-private fun JsonObject.booleanValue(key: String): Boolean? =
+internal fun JsonObject.booleanValue(key: String): Boolean? =
     this[key]?.jsonPrimitiveOrNull()?.booleanOrNull
 
-private fun JsonElement.jsonPrimitiveOrNull(): JsonPrimitive? =
+internal fun JsonElement.jsonPrimitiveOrNull(): JsonPrimitive? =
     runCatching { jsonPrimitive }.getOrNull()
 
 // ---------- Draft Card ----------

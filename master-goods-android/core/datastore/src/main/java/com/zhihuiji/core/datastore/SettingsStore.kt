@@ -48,12 +48,8 @@ class SettingsStore @Inject constructor(
         private fun stripEndpointVersionSuffix(baseUrl: String): String {
             val uri = runCatching { URI(baseUrl) }.getOrNull() ?: return baseUrl
             val path = uri.path.orEmpty().removeSuffix("/")
-            val canonicalPath = when {
-                path.endsWith("/v1") -> path.removeSuffix("/v1")
-                path.endsWith("/v2") -> path.removeSuffix("/v2")
-                path == "/v1" || path == "/v2" -> ""
-                else -> return baseUrl
-            }
+            val versionSuffix = listOf("/v1", "/v2").firstOrNull { path.endsWith(it) } ?: return baseUrl
+            val canonicalPath = if (path == versionSuffix) "" else path.removeSuffix(versionSuffix)
             val rebuilt = URI(
                 uri.scheme,
                 uri.userInfo,
