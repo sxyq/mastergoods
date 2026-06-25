@@ -119,11 +119,9 @@ public class V2AgentConversationService {
                 conversationId,
                 PageRequest.of(safePage(page), safeLimit(limit, DEFAULT_MESSAGE_LIMIT))
             );
-        List<V2AgentDtos.AgentMessageResponse> responses = new ArrayList<>(recentMessages.size());
-        for (int i = recentMessages.size() - 1; i >= 0; i--) {
-            responses.add(toMessageResponse(recentMessages.get(i)));
-        }
-        return responses;
+        return recentMessages.reversed().stream()
+            .map(this::toMessageResponse)
+            .toList();
     }
 
     @Transactional

@@ -58,11 +58,7 @@ public class V2InventoryService {
             sourceType,
             sourceId
         );
-        List<V2InventoryDtos.LedgerEntryResponse> responses = new java.util.ArrayList<>(rows.size());
-        for (InventoryLedgerEntity row : rows) {
-            responses.add(toLedgerResponse(row));
-        }
-        return responses;
+        return rows.stream().map(this::toLedgerResponse).toList();
     }
 
     @Transactional

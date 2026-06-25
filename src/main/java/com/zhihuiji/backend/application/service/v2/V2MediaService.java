@@ -35,11 +35,7 @@ public class V2MediaService {
     public List<V2MediaDtos.MediaAssetResponse> listAssets() {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         List<MediaAssetEntity> assets = mediaAssetRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
-        List<V2MediaDtos.MediaAssetResponse> responses = new java.util.ArrayList<>(assets.size());
-        for (MediaAssetEntity asset : assets) {
-            responses.add(toAssetResponse(asset));
-        }
-        return responses;
+        return assets.stream().map(this::toAssetResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -113,11 +109,7 @@ public class V2MediaService {
             normalizeRequired(targetType, "targetType 不能为空"),
             targetId
         );
-        List<V2MediaDtos.MediaBindingResponse> responses = new java.util.ArrayList<>(bindings.size());
-        for (MediaBindingEntity binding : bindings) {
-            responses.add(toBindingResponse(binding));
-        }
-        return responses;
+        return bindings.stream().map(this::toBindingResponse).toList();
     }
 
     @Transactional

@@ -31,11 +31,7 @@ public class V2ProductCategoryService {
     public List<V2ProductDtos.CategoryResponse> list() {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         List<ProductCategoryEntity> rows = productCategoryRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId);
-        List<V2ProductDtos.CategoryResponse> responses = new ArrayList<>(rows.size());
-        for (ProductCategoryEntity row : rows) {
-            responses.add(toResponse(row));
-        }
-        return responses;
+        return rows.stream().map(this::toResponse).toList();
     }
 
     public ProductCategoryEntity getOwnedEntity(Long id) {

@@ -82,25 +82,20 @@ public class V2StoreService {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         StoreContext context = ensureStoreContext(ownerUserId);
         List<StoreMembershipEntity> memberships = storeMembershipRepository.findByOwnerUserIdOrderByCreatedAtAsc(ownerUserId);
-        List<Long> memberUserIds = new java.util.ArrayList<>(memberships.size());
-        for (StoreMembershipEntity membership : memberships) {
-            memberUserIds.add(membership.getUserId());
-        }
+        List<Long> memberUserIds = memberships.stream().map(StoreMembershipEntity::getUserId).toList();
         Map<Long, UserEntity> usersById = new java.util.LinkedHashMap<>(memberUserIds.size());
         for (UserEntity user : userRepository.findAllById(memberUserIds)) {
             usersById.put(user.getId(), user);
         }
         Map<Long, Long> activeSessionsByUserId = activeSessionCountsByUserId(memberUserIds);
-        List<V2StoreDtos.MemberResponse> responses = new java.util.ArrayList<>(memberships.size());
-        for (StoreMembershipEntity membership : memberships) {
-            responses.add(toMemberResponse(
+        return memberships.stream()
+            .map(membership -> toMemberResponse(
                 context.store(),
                 membership,
                 usersById.get(membership.getUserId()),
                 activeSessionsByUserId.getOrDefault(membership.getUserId(), 0L)
-            ));
-        }
-        return responses;
+            ))
+            .toList();
     }
 
     @Transactional

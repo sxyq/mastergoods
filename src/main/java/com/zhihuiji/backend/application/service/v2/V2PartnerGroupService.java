@@ -36,11 +36,7 @@ public class V2PartnerGroupService {
     public List<V2PartnerDtos.PartnerGroupResponse> list(String partnerType) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         List<PartnerGroupEntity> rows = partnerGroupRepository.findAllByOwnerUserIdAndPartnerTypeOrderBySortOrderAscNameAsc(ownerUserId, requirePartnerType(partnerType));
-        List<V2PartnerDtos.PartnerGroupResponse> responses = new ArrayList<>(rows.size());
-        for (PartnerGroupEntity row : rows) {
-            responses.add(toResponse(row));
-        }
-        return responses;
+        return rows.stream().map(this::toResponse).toList();
     }
 
     public Map<Long, PartnerGroupEntity> getOwnedEntityMap(String partnerType, Collection<Long> ids) {

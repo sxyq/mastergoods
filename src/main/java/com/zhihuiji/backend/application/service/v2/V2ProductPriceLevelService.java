@@ -38,11 +38,7 @@ public class V2ProductPriceLevelService {
     public List<V2ProductDtos.PriceLevelResponse> list() {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         List<ProductPriceLevelEntity> rows = productPriceLevelRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId);
-        List<V2ProductDtos.PriceLevelResponse> responses = new ArrayList<>(rows.size());
-        for (ProductPriceLevelEntity row : rows) {
-            responses.add(toResponse(row));
-        }
-        return responses;
+        return rows.stream().map(this::toResponse).toList();
     }
 
     public ProductPriceLevelEntity getOwnedEntity(Long id) {

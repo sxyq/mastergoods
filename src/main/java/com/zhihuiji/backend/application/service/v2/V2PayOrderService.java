@@ -44,11 +44,7 @@ public class V2PayOrderService {
         Long createdBefore
     ) {
         List<PayOrderEntity> rows = payOrderService.list(keyword, status, createdAfter, createdBefore);
-        List<V2PayOrderDtos.PayOrderResponse> responses = new java.util.ArrayList<>(rows.size());
-        for (PayOrderEntity row : rows) {
-            responses.add(toResponse(row));
-        }
-        return responses;
+        return rows.stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)

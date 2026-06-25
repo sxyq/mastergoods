@@ -31,11 +31,7 @@ public class V2ProductUnitService {
     public List<V2ProductDtos.UnitResponse> list() {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         List<ProductUnitEntity> rows = productUnitRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId);
-        List<V2ProductDtos.UnitResponse> responses = new ArrayList<>(rows.size());
-        for (ProductUnitEntity row : rows) {
-            responses.add(toResponse(row));
-        }
-        return responses;
+        return rows.stream().map(this::toResponse).toList();
     }
 
     public ProductUnitEntity getOwnedEntity(Long id) {

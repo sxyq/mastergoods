@@ -66,6 +66,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -370,11 +371,10 @@ public class V2SyncService {
     private List<SyncChange> collectProductCategoryChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<ProductCategoryEntity> entities = productCategoryRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (ProductCategoryEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("product_category", entity.getId(), changedAt, since)) continue;
-            rows.add(change("product_category", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((ProductCategoryEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("product_category", entity.getId(), changedAt, since)) c.accept(change("product_category", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "name", entity.getName(),
                 "status", entity.getStatus(),
@@ -382,18 +382,17 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectProductUnitChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<ProductUnitEntity> entities = productUnitRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (ProductUnitEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("product_unit", entity.getId(), changedAt, since)) continue;
-            rows.add(change("product_unit", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((ProductUnitEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("product_unit", entity.getId(), changedAt, since)) c.accept(change("product_unit", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "name", entity.getName(),
                 "status", entity.getStatus(),
@@ -401,18 +400,17 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectProductPriceLevelChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<ProductPriceLevelEntity> entities = productPriceLevelRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (ProductPriceLevelEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("product_price_level", entity.getId(), changedAt, since)) continue;
-            rows.add(change("product_price_level", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((ProductPriceLevelEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("product_price_level", entity.getId(), changedAt, since)) c.accept(change("product_price_level", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "code", entity.getCode(),
                 "name", entity.getName(),
@@ -421,18 +419,17 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectProductSupplierRelationChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<ProductSupplierRelationEntity> entities = productSupplierRelationRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (ProductSupplierRelationEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("product_supplier_relation", entity.getId(), changedAt, since)) continue;
-            rows.add(change("product_supplier_relation", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((ProductSupplierRelationEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("product_supplier_relation", entity.getId(), changedAt, since)) c.accept(change("product_supplier_relation", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "product_id", entity.getProductId(),
                 "supplier_id", entity.getSupplierId(),
@@ -443,19 +440,18 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectPartnerGroupChanges(Long ownerUserId, String partnerType, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         String entityType = "customer".equals(partnerType) ? "customer_group" : "supplier_group";
         List<PartnerGroupEntity> entities = partnerGroupRepository.findChangedByOwnerUserIdAndPartnerType(ownerUserId, partnerType, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (PartnerGroupEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip(entityType, entity.getId(), changedAt, since)) continue;
-            rows.add(change(entityType, entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((PartnerGroupEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip(entityType, entity.getId(), changedAt, since)) c.accept(change(entityType, entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "partner_type", entity.getPartnerType(),
                 "name", entity.getName(),
@@ -464,19 +460,18 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectPartnerContactChanges(Long ownerUserId, String partnerType, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         String entityType = "customer".equals(partnerType) ? "customer_contact" : "supplier_contact";
         List<PartnerContactEntity> entities = partnerContactRepository.findChangedByOwnerUserIdAndPartnerType(ownerUserId, partnerType, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (PartnerContactEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip(entityType, entity.getId(), changedAt, since)) continue;
-            rows.add(change(entityType, entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((PartnerContactEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip(entityType, entity.getId(), changedAt, since)) c.accept(change(entityType, entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "partner_type", entity.getPartnerType(),
                 "partner_id", entity.getPartnerId(),
@@ -487,18 +482,17 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectCustomerChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<CustomerEntity> entities = customerRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (CustomerEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("customer", entity.getId(), changedAt, since)) continue;
-            rows.add(change("customer", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((CustomerEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("customer", entity.getId(), changedAt, since)) c.accept(change("customer", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "name", entity.getName(),
                 "phone", entity.getPhone(),
@@ -515,18 +509,17 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectSupplierChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<SupplierEntity> entities = supplierRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (SupplierEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("supplier", entity.getId(), changedAt, since)) continue;
-            rows.add(change("supplier", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((SupplierEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("supplier", entity.getId(), changedAt, since)) c.accept(change("supplier", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "name", entity.getName(),
                 "phone", entity.getPhone(),
@@ -542,18 +535,17 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectProductChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<ProductEntity> entities = productRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (ProductEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("product", entity.getId(), changedAt, since)) continue;
-            rows.add(change("product", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((ProductEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("product", entity.getId(), changedAt, since)) c.accept(change("product", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "code", entity.getCode(),
                 "name", entity.getName(),
@@ -572,18 +564,17 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectSaleOrderChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<SaleOrderEntity> entities = saleOrderRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (SaleOrderEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("sale_order", entity.getId(), changedAt, since)) continue;
-            rows.add(change("sale_order", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((SaleOrderEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("sale_order", entity.getId(), changedAt, since)) c.accept(change("sale_order", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "order_no", entity.getOrderNo(),
                 "customer_id", entity.getCustomerId(),
@@ -599,8 +590,8 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectSaleOrderItemChanges(Long ownerUserId, CursorToken since) {
@@ -650,11 +641,10 @@ public class V2SyncService {
     private List<SyncChange> collectPurchaseOrderChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<PurchaseOrderEntity> entities = purchaseOrderRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (PurchaseOrderEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("purchase_order", entity.getId(), changedAt, since)) continue;
-            rows.add(change("purchase_order", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((PurchaseOrderEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("purchase_order", entity.getId(), changedAt, since)) c.accept(change("purchase_order", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "order_no", entity.getOrderNo(),
                 "supplier_id", entity.getSupplierId(),
@@ -669,8 +659,8 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectPurchaseOrderItemChanges(Long ownerUserId, CursorToken since) {
@@ -698,11 +688,10 @@ public class V2SyncService {
     private List<SyncChange> collectPayOrderChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<PayOrderEntity> entities = payOrderRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (PayOrderEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("pay_order", entity.getId(), changedAt, since)) continue;
-            rows.add(change("pay_order", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((PayOrderEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("pay_order", entity.getId(), changedAt, since)) c.accept(change("pay_order", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "order_no", entity.getOrderNo(),
                 "supplier_id", entity.getSupplierId(),
@@ -718,18 +707,17 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectFinanceRecordChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<FinanceRecordEntity> entities = financeRecordRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (FinanceRecordEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("finance_record", entity.getId(), changedAt, since)) continue;
-            rows.add(change("finance_record", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((FinanceRecordEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("finance_record", entity.getId(), changedAt, since)) c.accept(change("finance_record", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "record_no", entity.getRecordNo(),
                 "type", entity.getType(),
@@ -743,18 +731,17 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectAccountChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<AccountEntity> entities = accountRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (AccountEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("account", entity.getId(), changedAt, since)) continue;
-            rows.add(change("account", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((AccountEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("account", entity.getId(), changedAt, since)) c.accept(change("account", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "code", entity.getCode(),
                 "name", entity.getName(),
@@ -767,18 +754,17 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectAccountTransferChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<AccountTransferEntity> entities = accountTransferRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (AccountTransferEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("account_transfer", entity.getId(), changedAt, since)) continue;
-            rows.add(change("account_transfer", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((AccountTransferEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("account_transfer", entity.getId(), changedAt, since)) c.accept(change("account_transfer", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "transfer_no", entity.getTransferNo(),
                 "from_account_id", entity.getFromAccountId(),
@@ -790,18 +776,17 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectBillFundLinkChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<BillFundLinkEntity> entities = billFundLinkRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (BillFundLinkEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("bill_fund_link", entity.getId(), changedAt, since)) continue;
-            rows.add(change("bill_fund_link", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((BillFundLinkEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("bill_fund_link", entity.getId(), changedAt, since)) c.accept(change("bill_fund_link", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "bill_type", entity.getBillType(),
                 "bill_id", entity.getBillId(),
@@ -812,8 +797,8 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectInventoryAdjustmentChanges(Long ownerUserId, CursorToken since) {
@@ -891,11 +876,10 @@ public class V2SyncService {
     private List<SyncChange> collectInventoryMonthlyStatsChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<InventoryMonthlyStatsEntity> entities = inventoryMonthlyStatsRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (InventoryMonthlyStatsEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("inventory_monthly_stats", entity.getId(), changedAt, since)) continue;
-            rows.add(change("inventory_monthly_stats", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((InventoryMonthlyStatsEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("inventory_monthly_stats", entity.getId(), changedAt, since)) c.accept(change("inventory_monthly_stats", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "product_id", entity.getProductId(),
                 "product_code", entity.getProductCode(),
@@ -913,18 +897,17 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectSalesReturnChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<SalesReturnEntity> entities = salesReturnRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (SalesReturnEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("sales_return", entity.getId(), changedAt, since)) continue;
-            rows.add(change("sales_return", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((SalesReturnEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("sales_return", entity.getId(), changedAt, since)) c.accept(change("sales_return", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "return_no", entity.getReturnNo(),
                 "original_order_id", entity.getOriginalOrderId(),
@@ -937,8 +920,8 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectSalesReturnItemChanges(Long ownerUserId, CursorToken since) {
@@ -966,11 +949,10 @@ public class V2SyncService {
     private List<SyncChange> collectPurchaseReceiptChanges(Long ownerUserId, CursorToken since) {
         long sinceTimestamp = since.updatedAt();
         List<PurchaseReceiptEntity> entities = purchaseReceiptRepository.findChangedByOwnerUserId(ownerUserId, sinceTimestamp);
-        List<SyncChange> rows = new ArrayList<>(entities.size());
-        for (PurchaseReceiptEntity entity : entities) {
-            long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
-            if (shouldSkip("purchase_receipt", entity.getId(), changedAt, since)) continue;
-            rows.add(change("purchase_receipt", entity.getId(), changedAt, payload(
+        return entities.stream()
+            .mapMulti((PurchaseReceiptEntity entity, Consumer<SyncChange> c) -> {
+                long changedAt = resolveChangedAt(entity.getUpdatedAt(), entity.getCreatedAt());
+                if (!shouldSkip("purchase_receipt", entity.getId(), changedAt, since)) c.accept(change("purchase_receipt", entity.getId(), changedAt, payload(
                 "id", entity.getId(),
                 "receipt_no", entity.getReceiptNo(),
                 "purchase_order_id", entity.getPurchaseOrderId(),
@@ -982,8 +964,8 @@ public class V2SyncService {
                 "created_at", entity.getCreatedAt(),
                 "updated_at", entity.getUpdatedAt()
             )));
-        }
-        return rows;
+            })
+            .toList();
     }
 
     private List<SyncChange> collectPurchaseReceiptItemChanges(Long ownerUserId, CursorToken since) {

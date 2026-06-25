@@ -39,11 +39,7 @@ public class V2PartnerContactService {
         requirePartnerExists(ownerUserId, normalizedPartnerType, partnerId);
         List<PartnerContactEntity> contacts = partnerContactRepository
             .findAllByOwnerUserIdAndPartnerTypeAndPartnerIdOrderByIsPrimaryDescCreatedAtAsc(ownerUserId, normalizedPartnerType, partnerId);
-        List<V2PartnerDtos.PartnerContactResponse> responses = new ArrayList<>(contacts.size());
-        for (PartnerContactEntity contact : contacts) {
-            responses.add(toResponse(contact));
-        }
-        return responses;
+        return contacts.stream().map(this::toResponse).toList();
     }
 
     @Transactional

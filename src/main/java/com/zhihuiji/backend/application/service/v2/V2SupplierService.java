@@ -44,11 +44,7 @@ public class V2SupplierService {
             }
         }
         Map<Long, String> groupNamesById = loadGroupNamesById(groupIds);
-        List<V2PartnerDtos.SupplierResponse> responses = new java.util.ArrayList<>(suppliers.size());
-        for (SupplierEntity supplier : suppliers) {
-            responses.add(toResponse(supplier, groupNamesById));
-        }
-        return responses;
+        return suppliers.stream().map(supplier -> toResponse(supplier, groupNamesById)).toList();
     }
 
     @Transactional(readOnly = true)
