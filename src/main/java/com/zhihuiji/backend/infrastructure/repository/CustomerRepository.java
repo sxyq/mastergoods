@@ -38,14 +38,14 @@ public interface CustomerRepository extends JpaRepository<CustomerEntity, Long> 
     List<CustomerEntity> findAllByOwnerUserId(Long ownerUserId);
 
     @Query("SELECT e FROM CustomerEntity e WHERE e.ownerUserId = :ownerUserId AND COALESCE(e.updatedAt, e.createdAt) >= :sinceTimestamp")
-    List<CustomerEntity> findChangedByOwnerUserId(@org.springframework.data.repository.query.Param("ownerUserId") Long ownerUserId, @org.springframework.data.repository.query.Param("sinceTimestamp") Long sinceTimestamp);
+    List<CustomerEntity> findChangedByOwnerUserId(@Param("ownerUserId") Long ownerUserId, @Param("sinceTimestamp") Long sinceTimestamp);
 
     List<CustomerEntity> findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(Long ownerUserId, Double balance, Pageable pageable);
 
     long countByOwnerUserIdAndGroupId(Long ownerUserId, Long groupId);
 
     @Query("SELECT COALESCE(SUM(CASE WHEN c.balance > 0 THEN c.balance ELSE 0 END), 0) FROM CustomerEntity c WHERE c.ownerUserId = :ownerUserId")
-    Double sumPositiveBalance(@org.springframework.data.repository.query.Param("ownerUserId") Long ownerUserId);
+    Double sumPositiveBalance(@Param("ownerUserId") Long ownerUserId);
 
     long countByOwnerUserIdAndBalanceGreaterThan(Long ownerUserId, Double balance);
 

@@ -27,10 +27,6 @@ data class SaleOrderItemDto(
     @SerialName("product_id") val productId: Long,
     @SerialName("product_code") val productCode: String,
     @SerialName("product_name") val productName: String,
-    @Deprecated("Use parent SaleOrderDto.customerId instead", level = DeprecationLevel.WARNING)
-    @SerialName("customer_id") val customerId: Long? = null,
-    @Deprecated("Use parent SaleOrderDto.customerName instead", level = DeprecationLevel.WARNING)
-    @SerialName("customer_name") val customerName: String? = null,
     val quantity: Double = 0.0,
     @SerialName("unit_price") val unitPrice: Double = 0.0,
     val amount: Double = 0.0,

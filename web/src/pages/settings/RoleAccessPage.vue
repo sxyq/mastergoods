@@ -35,8 +35,6 @@ const demoMemberStats = computed(() => {
   }
   return { enabledEmployees, disabledEmployees }
 })
-const enabledEmployees = computed(() => demoMemberStats.value.enabledEmployees)
-const disabledEmployees = computed(() => demoMemberStats.value.disabledEmployees)
 const apiMembers = ref<StoreMemberRecord[]>([])
 const apiLoading = ref(false)
 const apiSearch = ref('')
@@ -69,11 +67,6 @@ const apiMemberStats = computed(() => {
   }
   return { enabledUsers, disabledUsers, activeSessions, managerCount }
 })
-const apiEnabledUsers = computed(() => apiMemberStats.value.enabledUsers)
-const apiDisabledUsers = computed(() => apiMemberStats.value.disabledUsers)
-const apiActiveSessions = computed(() => apiMemberStats.value.activeSessions)
-const apiManagerCount = computed(() => apiMemberStats.value.managerCount)
-const apiStoreName = computed(() => session.member.value.storeName)
 const demoForm = reactive({
   phone: '13800000008',
   name: '新员工',
@@ -132,7 +125,7 @@ async function submitApiUser() {
       title: apiForm.title.trim() || roleLabels[apiForm.role],
     })
     success.value = `门店成员「${apiForm.nickname}」已创建`
-    apiForm.phone = nextApiPhone()
+    apiForm.phone = nextPhone(apiMembers.value)
     apiForm.nickname = '新店员账号'
     apiForm.password = '123456'
     apiForm.status = 1
@@ -212,7 +205,7 @@ function submitMember() {
   const ok = session.createLocalMember({ ...demoForm })
   if (ok) {
     success.value = `员工「${demoForm.name}」已加入 ${session.member.value.storeName}`
-    demoForm.phone = nextDemoPhone()
+    demoForm.phone = nextPhone(displayMembers.value)
     demoForm.name = '新员工'
     demoForm.title = '门店员工'
   }
@@ -242,21 +235,10 @@ function switchToMember(memberId: string) {
   session.switchMember(memberId)
 }
 
-function nextDemoPhone() {
+function nextPhone(members: Iterable<{ phone: string }>) {
   let maxSuffix = 7
-  for (const member of displayMembers.value) {
+  for (const member of members) {
     const suffix = Number(member.phone.slice(-2))
-    if (Number.isFinite(suffix) && suffix > maxSuffix) {
-      maxSuffix = suffix
-    }
-  }
-  return `138000000${String(maxSuffix + 1).padStart(2, '0')}`
-}
-
-function nextApiPhone() {
-  let maxSuffix = 7
-  for (const user of apiMembers.value) {
-    const suffix = Number(user.phone.slice(-2))
     if (Number.isFinite(suffix) && suffix > maxSuffix) {
       maxSuffix = suffix
     }
@@ -312,26 +294,26 @@ function resetFeedback() {
         <article>
           <span>门店成员</span>
           <strong>{{ apiMembers.length }}</strong>
-          <small>{{ apiStoreName }}</small>
+          <small>{{ session.member.value.storeName }}</small>
         </article>
         <article>
           <span>启用账号</span>
-          <strong>{{ apiEnabledUsers }}</strong>
+          <strong>{{ apiMemberStats.enabledUsers }}</strong>
           <small>可登录真实后端管理端</small>
         </article>
         <article>
           <span>停用账号</span>
-          <strong>{{ apiDisabledUsers }}</strong>
+          <strong>{{ apiMemberStats.disabledUsers }}</strong>
           <small>已禁用登录</small>
         </article>
         <article>
           <span>活跃会话</span>
-          <strong>{{ apiActiveSessions }}</strong>
+          <strong>{{ apiMemberStats.activeSessions }}</strong>
           <small>正在生效的登录会话</small>
         </article>
         <article>
           <span>店长助理</span>
-          <strong>{{ apiManagerCount }}</strong>
+          <strong>{{ apiMemberStats.managerCount }}</strong>
           <small>拥有用户管理权限的协同成员</small>
         </article>
       </template>
@@ -343,12 +325,12 @@ function resetFeedback() {
         </article>
         <article>
           <span>启用员工</span>
-          <strong>{{ enabledEmployees }}</strong>
+          <strong>{{ demoMemberStats.enabledEmployees }}</strong>
           <small>销售、采购、库存、财务、助理等</small>
         </article>
         <article>
           <span>停用账号</span>
-          <strong>{{ disabledEmployees }}</strong>
+          <strong>{{ demoMemberStats.disabledEmployees }}</strong>
           <small>不可切换进入，也不显示业务入口</small>
         </article>
         <article>

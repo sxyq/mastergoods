@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.designsystem.BottomActionBar
 import com.zhihuiji.core.designsystem.GlassScaffold
 import com.zhihuiji.core.designsystem.GlassTopBar
@@ -60,7 +61,7 @@ fun SaleOrderDetailScreen(
                     secondaryText = if (order.status == 0) "编辑单据" else null,
                     onSecondaryClick = { onEditClick(order.id) },
                     totalLabel = "待收金额",
-                    totalAmount = "¥%.2f".format(order.totalAmount - order.paidAmount)
+                    totalAmount = MoneyFormatter.format(order.totalAmount - order.paidAmount)
                 )
             }
         }
@@ -187,9 +188,9 @@ private fun OrderInfoCard(
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
             InfoRow(label = "客户名称", value = order.customerName ?: "-")
-            InfoRow(label = "订单金额", value = "¥%.2f".format(order.totalAmount))
-            InfoRow(label = "已付金额", value = "¥%.2f".format(order.paidAmount))
-            InfoRow(label = "折扣金额", value = "¥%.2f".format(order.discountAmount))
+            InfoRow(label = "订单金额", value = MoneyFormatter.format(order.totalAmount))
+            InfoRow(label = "已付金额", value = MoneyFormatter.format(order.paidAmount))
+            InfoRow(label = "折扣金额", value = MoneyFormatter.format(order.discountAmount))
             InfoRow(label = "创建时间", value = order.createdAtText())
             val notes = order.notes
             if (!notes.isNullOrBlank()) {
@@ -250,7 +251,7 @@ private fun OrderItemCard(
                     color = TextSecondary
                 )
                 Text(
-                    text = "单价: ¥%.2f".format(item.unitPrice),
+                    text = "单价: ${MoneyFormatter.format(item.unitPrice)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
@@ -286,7 +287,7 @@ private fun TotalAmountRow(
             style = MaterialTheme.typography.titleMedium
         )
         Text(
-            text = "¥%.2f".format(totalAmount),
+            text = MoneyFormatter.format(totalAmount),
             style = MaterialTheme.typography.titleLarge,
             color = ZhihuijiPrimary
         )

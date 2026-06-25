@@ -67,7 +67,7 @@ import com.zhihuiji.core.designsystem.TextSecondary
 import com.zhihuiji.core.designsystem.TextTertiary
 import com.zhihuiji.core.designsystem.WarningOrange
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
-import java.util.Locale
+import com.zhihuiji.core.common.MoneyFormatter
 
 private val periodTabs = ReportPeriod.values().map { it.tabLabel }
 private val ReportBottomContentExtraPadding = 96.dp
@@ -981,5 +981,4 @@ private data class FinanceSlice(
 private fun String.toMoneyDouble(): Double =
     filter { it.isDigit() || it == '.' || it == '-' }.toDoubleOrNull() ?: 0.0
 
-private fun Double.formatMoney(): String =
-    String.format(Locale.CHINA, "¥%,.2f", this)
+private fun Double.formatMoney(): String = MoneyFormatter.format(this)

@@ -1,7 +1,6 @@
 package com.zhihuiji.backend.infrastructure.config;
 
 import jakarta.servlet.DispatcherType;
-import java.util.ArrayList;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -88,14 +87,9 @@ public class SecurityConfig {
         if (rawPatterns == null || rawPatterns.isBlank()) {
             return List.of();
         }
-        String[] parts = rawPatterns.split(",");
-        List<String> patterns = new ArrayList<>(parts.length);
-        for (String part : parts) {
-            String pattern = part.trim();
-            if (!pattern.isEmpty()) {
-                patterns.add(pattern);
-            }
-        }
-        return List.copyOf(patterns);
+        return java.util.Arrays.stream(rawPatterns.split(","))
+            .map(String::trim)
+            .filter(s -> !s.isEmpty())
+            .toList();
     }
 }

@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.designsystem.BottomActionBar
 import com.zhihuiji.core.designsystem.GlassScaffold
 import com.zhihuiji.core.designsystem.GlassTopBar
@@ -70,7 +71,7 @@ fun SaleOrderEditScreen(
                     onPrimaryClick = viewModel::saveOrder,
                     primaryEnabled = !uiState.isSaving,
                     totalLabel = "应收合计",
-                    totalAmount = "¥%.2f".format(calculateSaleOrderTotal(uiState))
+                    totalAmount = MoneyFormatter.format(calculateSaleOrderTotal(uiState))
                 )
             }
         }
@@ -230,7 +231,7 @@ private fun SaleOrderEditContent(
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = "¥%.2f".format(totalAmount),
+                text = MoneyFormatter.format(totalAmount),
                 style = MaterialTheme.typography.titleLarge,
                 color = ZhihuijiPrimary
             )

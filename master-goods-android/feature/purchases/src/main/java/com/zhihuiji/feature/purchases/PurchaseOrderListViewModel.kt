@@ -68,10 +68,7 @@ class PurchaseOrderListViewModel @Inject constructor(
             )
             repository.listPurchaseOrders(filter)
                 .onSuccess { orders ->
-                    val items = ArrayList<PurchaseOrderItem>(orders.size)
-                    for (order in orders) {
-                        items.add(order.toPurchaseOrderItem())
-                    }
+                    val items = orders.map { it.toPurchaseOrderItem() }
                     _uiState.update {
                         it.copy(
                             isLoading = false,

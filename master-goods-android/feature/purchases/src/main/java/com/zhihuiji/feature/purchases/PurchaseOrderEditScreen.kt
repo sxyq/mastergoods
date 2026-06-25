@@ -59,6 +59,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.designsystem.BackgroundGradientEnd
 import com.zhihuiji.core.designsystem.GlassBorderSoft
 import com.zhihuiji.core.designsystem.GlassScaffold
@@ -76,6 +77,12 @@ import com.zhihuiji.core.designsystem.WarningOrange
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimaryBright
 import com.zhihuiji.core.designsystem.ZhihuijiPrimaryLight
+
+private val ProductImageGradients = listOf(
+    listOf(Color(0xFFEAF4FF), Color(0xFFD8E2FF)),
+    listOf(Color(0xFFFFF7ED), Color(0xFFFFE5C2)),
+    listOf(Color(0xFFF0FDF8), Color(0xFFCCFBF1)),
+)
 
 @Composable
 fun PurchaseOrderEditScreen(
@@ -592,13 +599,7 @@ private fun ProductImagePlaceholder(
     modifier: Modifier = Modifier,
 ) {
     val brush = remember(index % 3) {
-        Brush.linearGradient(
-            colors = when (index % 3) {
-                0 -> listOf(Color(0xFFEAF4FF), Color(0xFFD8E2FF))
-                1 -> listOf(Color(0xFFFFF7ED), Color(0xFFFFE5C2))
-                else -> listOf(Color(0xFFF0FDF8), Color(0xFFCCFBF1))
-            },
-        )
+        Brush.linearGradient(colors = ProductImageGradients[index % 3])
     }
     Box(
         modifier = modifier
@@ -777,7 +778,7 @@ private fun PurchaseOrderFloatingSummary(
     modifier: Modifier = Modifier,
 ) {
     val totalAmountText = remember(totalAmount) {
-        "%.2f".format(totalAmount)
+        MoneyFormatter.formatWithoutSymbol(totalAmount)
     }
     val bottomScrim = remember {
         Brush.verticalGradient(

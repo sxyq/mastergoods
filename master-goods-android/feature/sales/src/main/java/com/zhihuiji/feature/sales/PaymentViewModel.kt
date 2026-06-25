@@ -104,10 +104,11 @@ class PaymentViewModel @Inject constructor(
     }
 }
 
-fun paymentMethodText(method: Int): String = when (method) {
-    0 -> "现金"
-    1 -> "微信"
-    2 -> "支付宝"
-    3 -> "银行转账"
-    else -> "其他"
-}
+private val paymentMethodLabels = mapOf(
+    0 to "现金",
+    1 to "微信",
+    2 to "支付宝",
+    3 to "银行转账",
+)
+
+fun paymentMethodText(method: Int): String = paymentMethodLabels[method] ?: "其他"

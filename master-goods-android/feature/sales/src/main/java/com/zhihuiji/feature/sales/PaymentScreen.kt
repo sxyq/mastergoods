@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.designsystem.BottomActionBar
 import com.zhihuiji.core.designsystem.GlassSurfaceHigh
 import com.zhihuiji.core.designsystem.GlassSurfaceLow
@@ -77,7 +78,7 @@ fun PaymentScreen(
                     onPrimaryClick = viewModel::pay,
                     primaryEnabled = !uiState.isPaying,
                     totalLabel = "待收金额",
-                    totalAmount = "¥%.2f".format(pendingAmount)
+                    totalAmount = MoneyFormatter.format(pendingAmount)
                 )
             }
         }
@@ -258,11 +259,11 @@ private fun OrderInfoCard(
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
             InfoRow(label = "订单号", value = order.orderNo)
             InfoRow(label = "客户名称", value = order.customerName ?: "-")
-            InfoRow(label = "订单金额", value = "¥%.2f".format(order.totalAmount))
-            InfoRow(label = "已付金额", value = "¥%.2f".format(order.paidAmount))
+            InfoRow(label = "订单金额", value = MoneyFormatter.format(order.totalAmount))
+            InfoRow(label = "已付金额", value = MoneyFormatter.format(order.paidAmount))
             InfoRow(
                 label = "待付金额",
-                value = "¥%.2f".format(order.totalAmount - order.paidAmount)
+                value = MoneyFormatter.format(order.totalAmount - order.paidAmount)
             )
         }
     }

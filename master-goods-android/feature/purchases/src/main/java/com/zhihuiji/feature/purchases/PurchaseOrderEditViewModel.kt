@@ -179,13 +179,7 @@ private fun PurchaseOrderItemV2Dto.toEditItem(): PurchaseEditItem = PurchaseEdit
     unitCost = unitCost.toString(),
 )
 
-private fun List<PurchaseOrderItemV2Dto>.toEditItems(): List<PurchaseEditItem> {
-    val result = ArrayList<PurchaseEditItem>(size)
-    for (item in this) {
-        result.add(item.toEditItem())
-    }
-    return result
-}
+private fun List<PurchaseOrderItemV2Dto>.toEditItems(): List<PurchaseEditItem> = map { it.toEditItem() }
 
 private fun PurchaseEditItem.toCreateRequest(): CreatePurchaseOrderItemV2Request? {
     val qty = quantity.toDoubleOrNull() ?: return null
@@ -199,33 +193,16 @@ private fun PurchaseEditItem.toCreateRequest(): CreatePurchaseOrderItemV2Request
     )
 }
 
-private fun List<PurchaseEditItem>.toCreateRequests(): List<CreatePurchaseOrderItemV2Request> {
-    val result = ArrayList<CreatePurchaseOrderItemV2Request>(size)
-    for (item in this) {
-        val request = item.toCreateRequest() ?: continue
-        result.add(request)
-    }
-    return result
-}
+private fun List<PurchaseEditItem>.toCreateRequests(): List<CreatePurchaseOrderItemV2Request> =
+    mapNotNull { it.toCreateRequest() }
 
-private fun List<PurchaseEditItem>.append(item: PurchaseEditItem): List<PurchaseEditItem> {
-    val result = ArrayList<PurchaseEditItem>(size + 1)
-    result.addAll(this)
-    result.add(item)
-    return result
-}
+private fun List<PurchaseEditItem>.append(item: PurchaseEditItem): List<PurchaseEditItem> = this + item
 
 private fun List<PurchaseEditItem>.removeAtIndex(index: Int): List<PurchaseEditItem> {
     if (index !in indices) {
         throw IndexOutOfBoundsException("Index: $index, Size: $size")
     }
-    val result = ArrayList<PurchaseEditItem>(size - 1)
-    for (i in indices) {
-        if (i != index) {
-            result.add(this[i])
-        }
-    }
-    return result
+    return filterIndexed { i, _ -> i != index }
 }
 
 private inline fun List<PurchaseEditItem>.replaceAt(
@@ -235,10 +212,5 @@ private inline fun List<PurchaseEditItem>.replaceAt(
     if (index !in indices) {
         throw IndexOutOfBoundsException("Index: $index, Size: $size")
     }
-    val result = ArrayList<PurchaseEditItem>(size)
-    for (i in indices) {
-        val item = this[i]
-        result.add(if (i == index) transform(item) else item)
-    }
-    return result
+    return mapIndexed { i, item -> if (i == index) transform(item) else item }
 }

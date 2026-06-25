@@ -38,14 +38,14 @@ data class PurchaseReceiptItem(
     val createdAt: String,
 ) {
     val canConfirm: Boolean get() = status == 0
-    val statusText: String
-        get() = when (status) {
-            0 -> "待收货"
-            1 -> "已入库"
-            2 -> "已取消"
-            else -> "未知"
-        }
+    val statusText: String get() = PURCHASE_RECEIPT_STATUS_TEXT[status] ?: "未知"
 }
+
+private val PURCHASE_RECEIPT_STATUS_TEXT = mapOf(
+    0 to "待收货",
+    1 to "已入库",
+    2 to "已取消",
+)
 
 data class PurchaseReceiptLineItem(
     val id: Long,
@@ -117,10 +117,7 @@ class PurchaseReceiptViewModel @Inject constructor(
         repository.listPurchaseReceipts()
             .onSuccess { receipts ->
                 val sorted = receipts.sortedWith(compareBy<PurchaseReceiptV2Dto> { it.status != 0 }.thenByDescending { it.createdAt })
-                val items = ArrayList<PurchaseReceiptItem>(sorted.size)
-                for (index in sorted.indices) {
-                    items.add(sorted[index].toPurchaseReceiptItem())
-                }
+                val items = sorted.map { it.toPurchaseReceiptItem() }
                 val selectedId = selectId
                     ?.takeIf { id -> items.any { it.id == id } }
                     ?: items.firstOrNull { it.status == 0 }?.id
@@ -167,10 +164,5 @@ private fun PurchaseReceiptItemV2Dto.toPurchaseReceiptLineItem(): PurchaseReceip
         amount = amount,
     )
 
-private fun List<PurchaseReceiptItemV2Dto>.toPurchaseReceiptLineItems(): List<PurchaseReceiptLineItem> {
-    val result = ArrayList<PurchaseReceiptLineItem>(size)
-    for (index in indices) {
-        result.add(get(index).toPurchaseReceiptLineItem())
-    }
-    return result
-}
+private fun List<PurchaseReceiptItemV2Dto>.toPurchaseReceiptLineItems(): List<PurchaseReceiptLineItem> =
+    map { it.toPurchaseReceiptLineItem() }

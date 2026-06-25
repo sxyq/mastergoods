@@ -35,6 +35,7 @@ import com.zhihuiji.core.designsystem.DocumentStatusTone
 import com.zhihuiji.core.designsystem.GlassBorderSoft
 import com.zhihuiji.core.designsystem.GlassSurfaceLow
 import com.zhihuiji.core.designsystem.LiquidGlassCard
+import com.zhihuiji.core.designsystem.TextPrimary
 import com.zhihuiji.core.designsystem.TextSecondary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 
@@ -142,7 +143,7 @@ private fun PurchaseOrderListItem(
             "已收货" -> DocumentStatusTone.SUCCESS
             else -> DocumentStatusTone.PRIMARY
         },
-        amountColor = if (order.status == "已收货") ZhihuijiPrimary else Color(0xFF181C20),
+        amountColor = if (order.status == "已收货") ZhihuijiPrimary else TextPrimary,
         onClick = onClick
     )
 }
@@ -161,7 +162,7 @@ private fun PurchaseOrderStateMessage(
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
-            color = Color(0xFF181C20)
+            color = TextPrimary
         )
         Text(
             text = message,

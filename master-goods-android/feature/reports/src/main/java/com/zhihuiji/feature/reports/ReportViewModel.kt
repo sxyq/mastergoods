@@ -126,13 +126,7 @@ class ReportViewModel @Inject constructor(
                 payableAmount = 0.0,
             )
 
-            val topProductItems = topProducts.getOrNull()?.let { result ->
-                buildList(result.size) {
-                    for (item in result) {
-                        add(item.toTopProductItem())
-                    }
-                }
-            } ?: emptyList()
+            val topProductItems = topProducts.getOrNull()?.map { it.toTopProductItem() } ?: emptyList()
 
             val partnerBalancesFailed = partnerBalancesResult?.isFailure == true
             val failedSections = ArrayList<String>(4).apply {

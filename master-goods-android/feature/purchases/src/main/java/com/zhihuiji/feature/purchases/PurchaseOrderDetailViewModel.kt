@@ -68,12 +68,13 @@ class PurchaseOrderDetailViewModel @Inject constructor(
     }
 }
 
-fun PurchaseOrderV2Dto.statusText(): String = when (status) {
-    0 -> "草稿"
-    1 -> "已确认"
-    2 -> "已取消"
-    else -> "未知"
-}
+fun PurchaseOrderV2Dto.statusText(): String = PURCHASE_ORDER_DETAIL_STATUS_TEXT[status] ?: "未知"
+
+private val PURCHASE_ORDER_DETAIL_STATUS_TEXT = mapOf(
+    0 to "草稿",
+    1 to "已确认",
+    2 to "已取消",
+)
 
 fun PurchaseOrderV2Dto.createdAtText(): String = TimeFormatter.formatDateTime(createdAt)
 

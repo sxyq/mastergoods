@@ -29,6 +29,13 @@ private const val PurchaseReturnConfirmed = 1
 private const val PurchaseReturnCompleted = 2
 private const val PurchaseReturnCancelled = 3
 
+private val PURCHASE_RETURN_STATUS_LABELS = mapOf(
+    PurchaseReturnDraft to "草稿",
+    PurchaseReturnConfirmed to "已确认",
+    PurchaseReturnCompleted to "已完成",
+    PurchaseReturnCancelled to "已取消",
+)
+
 enum class PurchaseReturnMode { CREATE, MANAGE }
 
 data class PurchaseReturnUiState(
@@ -155,13 +162,8 @@ class PurchaseReturnViewModel @Inject constructor(
             sourceResult.fold(
                 onSuccess = { orders ->
                     val sortedOrders = orders.sortedByDescending { it.updatedAt.takeIf { ts -> ts > 0 } ?: it.createdAt }
-                    val mappedOrders = ArrayList<PurchaseReturnSourceOrder>(sortedOrders.size)
-                    val mappedOrdersById = HashMap<Long, PurchaseReturnSourceOrder>(sortedOrders.size * 2)
-                    for (index in sortedOrders.indices) {
-                        val mappedOrder = sortedOrders[index].toSourceOrder()
-                        mappedOrders.add(mappedOrder)
-                        mappedOrdersById[mappedOrder.id] = mappedOrder
-                    }
+                    val mappedOrders = sortedOrders.map { it.toSourceOrder() }
+                    val mappedOrdersById = mappedOrders.associateBy { it.id }
                     val selectedOrderId = currentState.selectedOrderId
                         ?.takeIf(mappedOrdersById::containsKey)
                         ?: mappedOrders.firstOrNull()?.id
@@ -169,13 +171,8 @@ class PurchaseReturnViewModel @Inject constructor(
                     returnResult.fold(
                         onSuccess = { returns ->
                             val sortedReturns = returns.sortedByDescending(PurchaseReturnV2Dto::updatedAt)
-                            val mappedReturns = ArrayList<PurchaseReturnRecord>(sortedReturns.size)
-                            val mappedReturnsById = HashMap<Long, PurchaseReturnRecord>(sortedReturns.size * 2)
-                            for (index in sortedReturns.indices) {
-                                val mappedReturn = sortedReturns[index].toReturnRecord()
-                                mappedReturns.add(mappedReturn)
-                                mappedReturnsById[mappedReturn.id] = mappedReturn
-                            }
+                            val mappedReturns = sortedReturns.map { it.toReturnRecord() }
+                            val mappedReturnsById = mappedReturns.associateBy { it.id }
                             val selectedReturnId = currentState.selectedReturnId
                                 ?.takeIf(mappedReturnsById::containsKey)
                                 ?: mappedReturns.firstOrNull()?.id
@@ -487,13 +484,8 @@ private fun PurchaseReturnSourceLine.toDraftLine(): PurchaseReturnDraftLine =
         unitCostInput = unitCost.formatMoneyInput(),
     )
 
-private fun List<PurchaseReturnSourceLine>.toDraftLines(): List<PurchaseReturnDraftLine> {
-    val draftLines = ArrayList<PurchaseReturnDraftLine>(size)
-    for (index in indices) {
-        draftLines.add(this[index].toDraftLine())
-    }
-    return draftLines
-}
+private fun List<PurchaseReturnSourceLine>.toDraftLines(): List<PurchaseReturnDraftLine> =
+    map { it.toDraftLine() }
 
 private fun PurchaseReturnV2Dto.toReturnRecord(): PurchaseReturnRecord =
     PurchaseReturnRecord(
@@ -528,62 +520,31 @@ private fun PurchaseReturnRefundV2Dto.toRefundRecord(): PurchaseReturnRecordRefu
     )
 
 private fun List<PurchaseReturnDraftLine>.updateAt(index: Int, update: (PurchaseReturnDraftLine) -> PurchaseReturnDraftLine): List<PurchaseReturnDraftLine> =
-    ArrayList<PurchaseReturnDraftLine>(size).also { updated ->
-        for (currentIndex in indices) {
-            val item = this[currentIndex]
-            updated.add(if (currentIndex == index) update(item) else item)
-        }
-    }
+    mapIndexed { i, item -> if (i == index) update(item) else item }
 
 private inline fun <T> List<T>.upsertById(
     item: T,
     idSelector: (T) -> Long,
 ): List<T> {
     val targetId = idSelector(item)
-    val updated = ArrayList<T>(size + 1)
-    var replaced = false
-    for (index in indices) {
-        val current = this[index]
-        if (!replaced && idSelector(current) == targetId) {
-            updated.add(item)
-            replaced = true
-        } else {
-            updated.add(current)
-        }
+    val existingIndex = indexOfFirst { idSelector(it) == targetId }
+    return if (existingIndex >= 0) {
+        mapIndexed { i, current -> if (i == existingIndex) item else current }
+    } else {
+        listOf(item) + this
     }
-    if (!replaced) {
-        updated.add(0, item)
-    }
-    return updated
 }
 
-private fun List<PurchaseReturnSourceOrder>.findById(id: Long): PurchaseReturnSourceOrder? {
-    for (index in indices) {
-        val order = this[index]
-        if (order.id == id) return order
-    }
-    return null
-}
+private fun List<PurchaseReturnSourceOrder>.findById(id: Long): PurchaseReturnSourceOrder? =
+    firstOrNull { it.id == id }
 
-private fun List<PurchaseReturnRecord>.findById(id: Long): PurchaseReturnRecord? {
-    for (index in indices) {
-        val record = this[index]
-        if (record.id == id) return record
-    }
-    return null
-}
+private fun List<PurchaseReturnRecord>.findById(id: Long): PurchaseReturnRecord? =
+    firstOrNull { it.id == id }
 
-private fun Double.formatPurchaseReturnQuantity(): String =
-    if (this % 1.0 == 0.0) "%.0f".format(this) else "%.2f".format(this)
+private fun Double.formatPurchaseReturnQuantity(): String = formatMoneyInput()
 
 private fun Double.formatMoneyInput(): String =
     if (this % 1.0 == 0.0) "%.0f".format(this) else "%.2f".format(this)
 
 private fun purchaseReturnStatusLabel(status: Int): String =
-    when (status) {
-        PurchaseReturnDraft -> "草稿"
-        PurchaseReturnConfirmed -> "已确认"
-        PurchaseReturnCompleted -> "已完成"
-        PurchaseReturnCancelled -> "已取消"
-        else -> "未知"
-    }
+    PURCHASE_RETURN_STATUS_LABELS[status] ?: "未知"

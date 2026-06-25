@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.common.MoneyFormatter
+import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.model.v2.order.SaleOrderItemV2Dto
 import com.zhihuiji.core.model.v2.order.SaleOrderV2Dto
@@ -55,12 +56,7 @@ class SaleOrderDetailViewModel @Inject constructor(
     }
 }
 
-fun SaleOrderV2Dto.statusText(): String = when (status) {
-    0 -> "草稿"
-    1 -> "已完成"
-    2 -> "已取消"
-    else -> "未知"
-}
+fun SaleOrderV2Dto.statusText(): String = StatusLabels.saleOrderStatus(status)
 
 fun SaleOrderV2Dto.createdAtText(): String = TimeFormatter.formatDateTime(createdAt)
 
