@@ -91,10 +91,6 @@ public class LongCatAnthropicClient {
         return supportsStreaming() ? "configured" : "stream_not_supported";
     }
 
-    private boolean usesOpenAiAuth() {
-        return usesOpenAiAuth(wireApi);
-    }
-
     private boolean usesOpenAiAuth(String wireApi) {
         return properties.isRequiresOpenaiAuth()
             || "responses".equalsIgnoreCase(wireApi)
