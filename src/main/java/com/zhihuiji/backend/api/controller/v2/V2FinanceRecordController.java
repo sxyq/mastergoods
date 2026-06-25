@@ -8,7 +8,6 @@ import com.zhihuiji.backend.application.service.FinanceRecordService;
 import com.zhihuiji.backend.domain.entity.FinanceRecordEntity;
 import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
-import java.util.ArrayList;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,10 +40,9 @@ public class V2FinanceRecordController {
             page,
             size
         );
-        List<V2FinanceDtos.FinanceRecordResponse> payload = new ArrayList<>(rows.size());
-        for (FinanceRecordEntity row : rows) {
-            payload.add(toResponse(row));
-        }
+        List<V2FinanceDtos.FinanceRecordResponse> payload = rows.stream()
+            .map(this::toResponse)
+            .toList();
         return ApiResponse.success(payload);
     }
 

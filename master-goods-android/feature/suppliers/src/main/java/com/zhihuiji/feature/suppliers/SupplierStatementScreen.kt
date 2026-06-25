@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.zhihuiji.core.common.MoneyFormatter
+import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.designsystem.AmountTextStyle
 import com.zhihuiji.core.designsystem.BottomActionBar
 import com.zhihuiji.core.designsystem.DangerRed
@@ -192,7 +193,7 @@ private fun SupplierStatementContent(
                         )
                     }
                     StatusPill(
-                        text = if (isActive) "启用" else "停用",
+                        text = StatusLabels.supplierStatus(supplier.status),
                         status = if (isActive) StatusType.NORMAL else StatusType.CANCELLED
                     )
                 }

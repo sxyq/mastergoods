@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.designsystem.BottomActionBar
 import com.zhihuiji.core.designsystem.DangerRed
 import com.zhihuiji.core.designsystem.GlassScaffold
@@ -160,10 +161,7 @@ private fun SupplierDetailScreenContent(
                                         else -> StatusType.CANCELLED
                                     }
                                     StatusPill(
-                                        text = when (supplier.status) {
-                                            1 -> "正常"
-                                            else -> "停用"
-                                        },
+                                        text = StatusLabels.supplierStatus(supplier.status),
                                         status = statusType
                                     )
                                 }

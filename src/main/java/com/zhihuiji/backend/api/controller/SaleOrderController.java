@@ -38,10 +38,9 @@ public class SaleOrderController {
     @PostMapping
     @RequireStorePermission("sales:write")
     public ApiResponse<SaleOrderDto> create(@Valid @RequestBody CreateRequest request) {
-        List<SaleOrderService.SaleItemDraft> items = new java.util.ArrayList<>(request.items().size());
-        for (ItemRequest row : request.items()) {
-            items.add(new SaleOrderService.SaleItemDraft(row.productId(), row.quantity(), row.unitPrice()));
-        }
+        List<SaleOrderService.SaleItemDraft> items = request.items().stream()
+            .map(row -> new SaleOrderService.SaleItemDraft(row.productId(), row.quantity(), row.unitPrice()))
+            .toList();
         return ApiResponse.success(toDto(saleOrderService.create(
             new SaleOrderService.CreateSaleOrderCommand(
                 request.customerId(),
@@ -77,10 +76,9 @@ public class SaleOrderController {
             ParseUtils.parseInteger(paymentStatus)
         );
         List<SaleOrderEntity> rows = PaginationUtils.slice(orders, page, size);
-        List<SaleOrderDto> payload = new java.util.ArrayList<>(rows.size());
-        for (SaleOrderEntity order : rows) {
-            payload.add(toDto(order, saleOrderService.listItems(order.getId())));
-        }
+        List<SaleOrderDto> payload = rows.stream()
+            .map(order -> toDto(order, saleOrderService.listItems(order.getId())))
+            .toList();
         return ApiResponse.success(payload);
     }
 
@@ -133,9 +131,8 @@ public class SaleOrderController {
     }
 
     private SaleOrderDto toDto(SaleOrderEntity order, List<SaleOrderItemEntity> items) {
-        List<SaleOrderItemDto> itemDtos = new java.util.ArrayList<>(items.size());
-        for (SaleOrderItemEntity item : items) {
-            itemDtos.add(new SaleOrderItemDto(
+        List<SaleOrderItemDto> itemDtos = items.stream()
+            .map(item -> new SaleOrderItemDto(
                 item.getId(),
                 item.getOrderId(),
                 item.getProductId(),
@@ -147,8 +144,8 @@ public class SaleOrderController {
                 item.getUnitPrice(),
                 item.getAmount(),
                 item.getCreatedAt()
-            ));
-        }
+            ))
+            .toList();
         return new SaleOrderDto(
             order.getId(),
             order.getOrderNo(),
@@ -180,3 +177,4 @@ public class SaleOrderController {
 
     public record PaymentRequest(Double amount, Integer method, String referenceNo) {}
 }
+

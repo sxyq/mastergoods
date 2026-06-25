@@ -3,6 +3,7 @@ package com.zhihuiji.feature.suppliers
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.common.MoneyFormatter
+import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.model.v2.partner.SupplierV2Dto
 import com.zhihuiji.data.supplier.SupplierV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,11 +24,7 @@ fun SupplierV2Dto.toSupplierItem(): SupplierItem {
         payableAmount = balance,
         payable = MoneyFormatter.format(balance),
         isStopped = status == 0,
-        status = when (status) {
-            1 -> "正常"
-            0 -> "停用"
-            else -> "未知"
-        }
+        status = StatusLabels.supplierStatus(status)
     )
 }
 

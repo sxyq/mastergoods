@@ -62,13 +62,6 @@ class TokenAuthenticator @Inject constructor(
         }
     }
 
-    private fun responseCount(response: Response): Int {
-        var count = 1
-        var prior = response.priorResponse
-        while (prior != null) {
-            count++
-            prior = prior.priorResponse
-        }
-        return count
-    }
+    private fun responseCount(response: Response): Int =
+        generateSequence(response.priorResponse) { it.priorResponse }.count() + 1
 }

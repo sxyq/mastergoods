@@ -105,21 +105,12 @@ class SupplierStatementViewModel @Inject constructor(
                 }
             }.takeIf { it.isNotBlank() }
 
-            val transactions = ArrayList<SupplierStatementTransaction>(purchases.size + payments.size)
-            var purchaseTotal = 0.0
-            for (order in purchases) {
-                transactions.add(order.toStatementTransaction())
-                purchaseTotal += order.totalAmount
-            }
-            var paymentTotal = 0.0
-            for (order in payments) {
-                transactions.add(order.toStatementTransaction())
-                paymentTotal += order.amount
-            }
-            transactions.sortByDescending { it.timestamp }
-            if (transactions.size > 20) {
-                transactions.subList(20, transactions.size).clear()
-            }
+            val purchaseTotal = purchases.sumOf { it.totalAmount }
+            val paymentTotal = payments.sumOf { it.amount }
+            val transactions = (
+                purchases.map { it.toStatementTransaction() } +
+                    payments.map { it.toStatementTransaction() }
+                ).sortedByDescending { it.timestamp }.take(20)
 
             _uiState.update {
                 it.copy(

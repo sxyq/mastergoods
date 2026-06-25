@@ -6,39 +6,34 @@ import java.io.IOException
 
 class NetworkException(val code: Int, message: String) : Exception(message)
 
-suspend fun <T> safeApiCall(block: suspend () -> ApiResponse<T>): Result<T> {
-    return try {
-        val response = block()
-        if (response.code == 0 && response.data != null) {
-            @Suppress("UNCHECKED_CAST")
-            Result.success(response.data as T)
-        } else {
-            Result.failure(NetworkException(response.code, response.message))
-        }
-    } catch (e: HttpException) {
-        Result.failure(NetworkException(e.code(), httpErrorMessage(e.code(), e.message())))
-    } catch (e: IOException) {
-        Result.failure(NetworkException(-1, "网络连接失败，请检查网络设置"))
-    } catch (e: Exception) {
-        Result.failure(NetworkException(-1, e.message ?: "未知错误"))
+@Suppress("UNCHECKED_CAST")
+suspend fun <T> safeApiCall(block: suspend () -> ApiResponse<T>): Result<T> =
+    runSafeApi(block) { response ->
+        if (response.code == 0 && response.data != null) response.data as T else null
     }
-}
 
-suspend fun safeApiUnitCall(block: suspend () -> ApiResponse<*>): Result<Unit> {
-    return try {
-        val response = block()
-        if (response.code == 0) {
-            Result.success(Unit)
-        } else {
-            Result.failure(NetworkException(response.code, response.message))
-        }
-    } catch (e: HttpException) {
-        Result.failure(NetworkException(e.code(), httpErrorMessage(e.code(), e.message())))
-    } catch (e: IOException) {
-        Result.failure(NetworkException(-1, "网络连接失败，请检查网络设置"))
-    } catch (e: Exception) {
-        Result.failure(NetworkException(-1, e.message ?: "未知错误"))
+suspend fun safeApiUnitCall(block: suspend () -> ApiResponse<*>): Result<Unit> =
+    runSafeApi(block) { response ->
+        if (response.code == 0) Unit else null
     }
+
+private suspend fun <T> runSafeApi(
+    block: suspend () -> ApiResponse<*>,
+    onSuccess: (ApiResponse<*>) -> T?,
+): Result<T> = try {
+    val response = block()
+    val data = onSuccess(response)
+    if (data != null) {
+        Result.success(data)
+    } else {
+        Result.failure(NetworkException(response.code, response.message))
+    }
+} catch (e: HttpException) {
+    Result.failure(NetworkException(e.code(), httpErrorMessage(e.code(), e.message())))
+} catch (e: IOException) {
+    Result.failure(NetworkException(-1, "网络连接失败，请检查网络设置"))
+} catch (e: Exception) {
+    Result.failure(NetworkException(-1, e.message ?: "未知错误"))
 }
 
 internal fun httpErrorMessage(code: Int, fallback: String): String = when (code) {

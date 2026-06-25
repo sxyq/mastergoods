@@ -1,8 +1,5 @@
 package com.zhihuiji.feature.products
 
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.designsystem.DangerRed
 import com.zhihuiji.core.designsystem.DividerLight
 import com.zhihuiji.core.designsystem.GlassSurfaceHigh
@@ -129,9 +127,7 @@ private fun StockAdjustScreenContent(
     var selectedType by remember { mutableStateOf(AdjustmentType.LOSS) }
     var quantity by remember { mutableIntStateOf(1) }
     var remarks by remember { mutableStateOf("") }
-    val businessDate = remember {
-        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-    }
+    val businessDate = remember { TimeFormatter.formatDate(System.currentTimeMillis()) }
     val canSubmit = !uiState.isLoading && uiState.productName != null && quantity > 0
     val signedQuantity = quantity * selectedType.submitSign
     val projectedStock = uiState.currentStock + signedQuantity
