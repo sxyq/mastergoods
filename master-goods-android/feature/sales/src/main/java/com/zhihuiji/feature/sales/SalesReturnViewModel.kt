@@ -2,6 +2,7 @@ package com.zhihuiji.feature.sales
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.model.v2.order.ConfirmSalesReturnV2Request
 import com.zhihuiji.core.model.v2.order.SalesReturnItemV2Dto
@@ -41,14 +42,7 @@ data class SalesReturnItem(
 ) {
     val canConfirm: Boolean get() = status == 0
     val remainingRefund: Double get() = (totalAmount - refundAmount).coerceAtLeast(0.0)
-    val statusText: String
-        get() = when (status) {
-            0 -> "待确认"
-            1 -> "已确认"
-            2 -> "已退款"
-            3 -> "已取消"
-            else -> "未知"
-        }
+    val statusText: String get() = StatusLabels.salesReturnStatusLabel(status)
 }
 
 data class SalesReturnLineItem(
@@ -121,26 +115,12 @@ class SalesReturnViewModel @Inject constructor(
         repository.listSalesReturns()
             .onSuccess { rows ->
                 val sortedRows = rows.sortedWith(compareBy<SalesReturnV2Dto> { it.status != 0 }.thenByDescending { it.createdAt })
-                val items = ArrayList<SalesReturnItem>(sortedRows.size)
-                for (row in sortedRows) {
-                    items.add(row.toSalesReturnItem())
-                }
-                var selectedFound = false
-                var firstOpenId: Long? = null
-                var firstAnyId: Long? = null
-                for (item in items) {
-                    if (firstAnyId == null) {
-                        firstAnyId = item.id
-                    }
-                    if (firstOpenId == null && item.status == 0) {
-                        firstOpenId = item.id
-                    }
-                    if (selectId != null && item.id == selectId) {
-                        selectedFound = true
-                    }
-                }
+                val items = sortedRows.map { it.toSalesReturnItem() }
+                val firstAnyId = items.firstOrNull()?.id
+                val firstOpenId = items.firstOrNull { it.status == 0 }?.id
+                val selectedFound = selectId != null && items.any { it.id == selectId }
                 val selectedId = when {
-                    selectId != null && selectedFound -> selectId
+                    selectedFound -> selectId
                     else -> firstOpenId ?: firstAnyId
                 }
                 _uiState.update {

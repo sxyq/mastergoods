@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.designsystem.DangerRed
 import com.zhihuiji.core.designsystem.GlassBorderSoft
 import com.zhihuiji.core.designsystem.GlassScaffold
@@ -486,7 +487,7 @@ private fun SalesReturnLineCard(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = "编码: ${item.productCode} · 单价 ¥%.2f".format(item.unitPrice),
+                            text = "编码: ${item.productCode} · 单价 ${MoneyFormatter.format(item.unitPrice)}",
                             style = MaterialTheme.typography.labelLarge,
                             color = TextSecondary,
                             maxLines = 1,
@@ -503,7 +504,7 @@ private fun SalesReturnLineCard(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "¥%.2f".format(item.unitPrice),
+                        text = MoneyFormatter.format(item.unitPrice),
                         style = MaterialTheme.typography.labelLarge,
                         color = DangerRed,
                     )
@@ -528,7 +529,7 @@ private fun SalesReturnLineCard(
                 color = TextSecondary,
             )
             Text(
-                text = "¥%.2f".format(item.amount),
+                text = MoneyFormatter.format(item.amount),
                 style = MaterialTheme.typography.labelLarge,
                 color = TextPrimary,
             )
@@ -690,7 +691,7 @@ private fun SalesReturnSubmitBar(
                     color = TextSecondary,
                 )
                 Text(
-                    text = "¥%.2f".format(salesReturn.totalAmount),
+                    text = MoneyFormatter.format(salesReturn.totalAmount),
                     style = MaterialTheme.typography.headlineMedium,
                     color = DangerRed,
                 )

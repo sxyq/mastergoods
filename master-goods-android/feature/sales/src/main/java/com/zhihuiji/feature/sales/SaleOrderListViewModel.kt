@@ -3,6 +3,7 @@ package com.zhihuiji.feature.sales
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.common.MoneyFormatter
+import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.model.v2.order.SaleOrderV2Dto
 import com.zhihuiji.core.model.v2.order.SaleOrderV2Filter
 import com.zhihuiji.data.order.SaleOrderV2Repository
@@ -23,12 +24,7 @@ fun SaleOrderV2Dto.toSaleOrderItem(): SaleOrderItem = SaleOrderItem(
     orderNo = orderNo,
     customerName = customerName ?: "",
     amount = MoneyFormatter.format(totalAmount),
-    status = when (status) {
-        0 -> "草稿"
-        1 -> "已完成"
-        2 -> "已取消"
-        else -> "未知"
-    },
+    status = StatusLabels.saleOrderStatus(status),
     paymentStatus = paymentStatusLabel(),
     timeLabel = createdAt.toDisplayTimeLabel()
 )
@@ -80,14 +76,10 @@ class SaleOrderListViewModel @Inject constructor(
             )
             repository.listSaleOrders(filter)
                 .onSuccess { orders ->
-                    val items = ArrayList<SaleOrderItem>(orders.size)
-                    for (order in orders) {
-                        items.add(order.toSaleOrderItem())
-                    }
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            orders = items
+                            orders = orders.map { it.toSaleOrderItem() }
                         )
                     }
                 }

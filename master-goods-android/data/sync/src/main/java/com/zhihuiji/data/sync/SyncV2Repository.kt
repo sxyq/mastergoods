@@ -37,7 +37,6 @@ import com.zhihuiji.core.network.safeApiCall
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
@@ -89,7 +88,7 @@ class SyncV2Repository @Inject constructor(
             applyPulledChanges(response).getOrThrow()
 
             val ackCursor = response.nextCursor.takeIf { it.isNotBlank() }
-            if (!ackCursor.isNullOrBlank() && response.changes.isNotEmpty()) {
+            if (ackCursor != null && response.changes.isNotEmpty()) {
                 acknowledgeCursor(
                     SyncCursorAckV2Request(
                         clientId = clientId,
@@ -383,15 +382,11 @@ class SyncV2Repository @Inject constructor(
         longOrNull(key) ?: default
 
     private fun JsonObject.longOrNull(key: String): Long? =
-        this[key]?.toLongValue()
+        this[key]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
 
     private fun JsonObject.double(key: String, default: Double = 0.0): Double =
         doubleOrNull(key) ?: default
 
     private fun JsonObject.doubleOrNull(key: String): Double? =
-        this[key]?.toDoubleValue()
-
-    private fun JsonElement.toLongValue(): Long? = jsonPrimitive.contentOrNull?.toLongOrNull()
-
-    private fun JsonElement.toDoubleValue(): Double? = jsonPrimitive.contentOrNull?.toDoubleOrNull()
+        this[key]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
 }

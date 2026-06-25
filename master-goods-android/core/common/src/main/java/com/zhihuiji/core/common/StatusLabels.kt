@@ -29,6 +29,10 @@ object StatusLabels {
         const val PAYMENT_REFUND = 2
         const val INVENTORY_OUT = 0
         const val INVENTORY_IN = 1
+        const val SALES_RETURN_DRAFT = 0
+        const val SALES_RETURN_CONFIRMED = 1
+        const val SALES_RETURN_COMPLETED = 2
+        const val SALES_RETURN_CANCELLED = 3
     }
 
     private val SALE_ORDER_STATUS = mapOf(
@@ -97,6 +101,14 @@ object StatusLabels {
         Codes.INVENTORY_OUT to "出库", Codes.INVENTORY_IN to "入库",
     )
     fun inventoryFlowType(code: Int): String = INVENTORY_FLOW_TYPES[code] ?: "未知"
+
+    private val SALES_RETURN_STATUS = mapOf(
+        Codes.SALES_RETURN_DRAFT to "草稿",
+        Codes.SALES_RETURN_CONFIRMED to "已确认",
+        Codes.SALES_RETURN_COMPLETED to "已退款",
+        Codes.SALES_RETURN_CANCELLED to "已取消",
+    )
+    fun salesReturnStatusLabel(code: Int): String = SALES_RETURN_STATUS[code] ?: "未知"
 
     fun stockStatus(stock: Double, safeStock: Double): String = when {
         stock <= EPSILON -> "缺货"
