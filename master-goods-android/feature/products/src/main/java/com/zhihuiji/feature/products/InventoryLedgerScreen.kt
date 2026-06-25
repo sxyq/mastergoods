@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.designsystem.DangerRed
 import com.zhihuiji.core.designsystem.GlassScaffold
 import com.zhihuiji.core.designsystem.GlassSurfaceHigh
@@ -458,8 +459,8 @@ private fun InventoryLedgerItem.auxiliaryText(): String? {
         }
         unitCost?.let {
             appendSeparatorIfNeeded()
-            append("单位成本: ¥")
-            append(it.formatMoney())
+            append("单位成本: ")
+            append(MoneyFormatter.format(it))
         }
         noteText?.let {
             appendSeparatorIfNeeded()
@@ -477,16 +478,14 @@ private fun Double.formatQuantity(): String {
     }
 }
 
-private fun Double.formatMoney(): String =
-    String.format(Locale.US, "%,.2f", this)
+private val ledgerSourceLabels = mapOf(
+    "sale_order" to "销售出库",
+    "sales_return" to "销售退货入库",
+    "purchase_order" to "采购单",
+    "purchase_receipt" to "采购入库",
+    "stock_adjust" to "库存调整",
+    "inventory_snapshot" to "库存盘点",
+)
 
 private fun String.sourceLabel(): String =
-    when (this) {
-        "sale_order" -> "销售出库"
-        "sales_return" -> "销售退货入库"
-        "purchase_order" -> "采购单"
-        "purchase_receipt" -> "采购入库"
-        "stock_adjust" -> "库存调整"
-        "inventory_snapshot" -> "库存盘点"
-        else -> ifBlank { "库存变动" }
-    }
+    ledgerSourceLabels[this] ?: ifBlank { "库存变动" }

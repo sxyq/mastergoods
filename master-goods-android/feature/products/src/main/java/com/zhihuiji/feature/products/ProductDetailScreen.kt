@@ -27,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.common.MoneyFormatter
+import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.designsystem.BottomActionBar
 import com.zhihuiji.core.designsystem.DangerRed
 import com.zhihuiji.core.designsystem.GlassScaffold
@@ -37,6 +39,12 @@ import com.zhihuiji.core.designsystem.StatusType
 import com.zhihuiji.core.designsystem.TextPrimary
 import com.zhihuiji.core.designsystem.TextSecondary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
+
+private val statusLabelToType = mapOf(
+    "缺货" to StatusType.OUT_OF_STOCK,
+    "低库存" to StatusType.LOW_STOCK,
+    "正常" to StatusType.NORMAL,
+)
 
 @Composable
 fun ProductDetailScreen(
@@ -158,18 +166,10 @@ private fun ProductDetailScreenContent(
                                         style = MaterialTheme.typography.headlineSmall,
                                         color = TextPrimary
                                     )
-                                    val statusType = when {
-                                        product.stock <= 0 -> StatusType.OUT_OF_STOCK
-                                        product.stock < product.safeStock -> StatusType.LOW_STOCK
-                                        else -> StatusType.NORMAL
-                                    }
+                                    val statusLabel = StatusLabels.stockStatus(product.stock, product.safeStock)
                                     StatusPill(
-                                        text = when (statusType) {
-                                            StatusType.OUT_OF_STOCK -> "缺货"
-                                            StatusType.LOW_STOCK -> "低库存"
-                                            else -> "正常"
-                                        },
-                                        status = statusType
+                                        text = statusLabel,
+                                        status = statusLabelToType[statusLabel] ?: StatusType.NORMAL
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
@@ -190,8 +190,8 @@ private fun ProductDetailScreenContent(
                                     color = TextPrimary
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
-                                InfoRow(label = "销售价", value = "¥%.2f".format(product.salePrice))
-                                InfoRow(label = "进货价", value = "¥%.2f".format(product.purchasePrice))
+                                InfoRow(label = "销售价", value = MoneyFormatter.format(product.salePrice))
+                                InfoRow(label = "进货价", value = MoneyFormatter.format(product.purchasePrice))
                             }
                         }
 

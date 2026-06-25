@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.designsystem.BottomActionBar
 import com.zhihuiji.core.designsystem.DangerRed
 import com.zhihuiji.core.designsystem.GlassScaffold
@@ -315,19 +316,10 @@ private fun InventoryCountItemCard(
     modifier: Modifier = Modifier,
 ) {
     val extraInfoText = remember(item.snapshotCreatedAt, item.totalValue) {
-        val createdAtText = item.snapshotCreatedAt?.let { "快照 $it" }
-        val totalValueText = item.totalValue?.let { "库存价值 ¥%.2f".format(it) }
-        if (createdAtText == null && totalValueText == null) {
-            null
-        } else {
-            buildString {
-                createdAtText?.let { append(it) }
-                totalValueText?.let {
-                    if (isNotEmpty()) append(" · ")
-                    append(it)
-                }
-            }
-        }
+        listOfNotNull(
+            item.snapshotCreatedAt?.let { "快照 $it" },
+            item.totalValue?.let { "库存价值 ${MoneyFormatter.format(it)}" },
+        ).takeIf { it.isNotEmpty() }?.joinToString(" · ")
     }
 
     LiquidGlassCard(

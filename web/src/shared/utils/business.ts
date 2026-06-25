@@ -240,19 +240,21 @@ function normalizeText(value: string | null | undefined) {
   return (value ?? '').trim().toLowerCase()
 }
 
+const INVENTORY_SOURCE_LABELS: Record<string, string> = {
+  sale_order: '销售出库',
+  sales_return: '销售退货入库',
+  purchase_order: '采购单',
+  purchase_receipt: '采购入库',
+  stock_adjust: '库存调整',
+  inventory_snapshot: '库存盘点',
+  stock_loss: '盘亏调整',
+  stock_gain: '盘盈调整',
+  manual_use: '手工领用',
+  manual_inbound: '补录入库',
+}
+
 export function inventorySourceLabel(sourceType: string | null | undefined) {
-  const normalized = normalizeText(sourceType)
-  if (normalized === 'sale_order') return '销售出库'
-  if (normalized === 'sales_return') return '销售退货入库'
-  if (normalized === 'purchase_order') return '采购单'
-  if (normalized === 'purchase_receipt') return '采购入库'
-  if (normalized === 'stock_adjust') return '库存调整'
-  if (normalized === 'inventory_snapshot') return '库存盘点'
-  if (normalized === 'stock_loss') return '盘亏调整'
-  if (normalized === 'stock_gain') return '盘盈调整'
-  if (normalized === 'manual_use') return '手工领用'
-  if (normalized === 'manual_inbound') return '补录入库'
-  return sourceType?.trim() || '库存变动'
+  return INVENTORY_SOURCE_LABELS[normalizeText(sourceType)] ?? (sourceType?.trim() || '库存变动')
 }
 
 export type ReportPeriodKey = 'today' | 'week' | 'month' | 'custom'
@@ -278,12 +280,14 @@ export function salesTrendBucket(period: ReportPeriodKey) {
   return period === 'today' ? 'hour6' : 'day'
 }
 
+const RISK_LEVEL_LABELS: Record<string, string> = {
+  high: '高风险',
+  medium: '中风险',
+  low: '低风险',
+}
+
 export function riskLevelLabel(level: string | null | undefined) {
-  const normalized = normalizeText(level)
-  if (normalized === 'high') return '高风险'
-  if (normalized === 'medium') return '中风险'
-  if (normalized === 'low') return '低风险'
-  return level?.trim() || '一般'
+  return RISK_LEVEL_LABELS[normalizeText(level)] ?? (level?.trim() || '一般')
 }
 
 export function formatDuration(durationMs: number | null | undefined) {

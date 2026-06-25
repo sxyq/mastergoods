@@ -1,10 +1,7 @@
 import type { AgentChatPayload, AgentObservability, AgentResultBlock } from '@/shared/api/client'
-import { ApiError } from '@/shared/api/client'
+import { ApiError, emitApiAuthEvent, preserveUnsafeIntegers } from '@/shared/api/client'
 import { camelize } from '@/shared/utils/camelize'
 import { API_BASE_URL } from '@/shared/api/config'
-
-const MAX_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER)
-const MIN_SAFE_INTEGER_BIGINT = BigInt(Number.MIN_SAFE_INTEGER)
 
 export type AgentStreamEvent =
   | AgentRunStartedEvent
@@ -334,75 +331,4 @@ function parseEvent(raw: string): AgentStreamEvent | null {
       timestamp: Date.now(),
     }
   }
-}
-
-function emitApiAuthEvent(status: 401 | 403) {
-  if (typeof window === 'undefined') return
-  window.dispatchEvent(new CustomEvent('zhihuiji:web:api-auth', { detail: { status } }))
-}
-
-function preserveUnsafeIntegers(rawText: string) {
-  const chunks: string[] = []
-  let inString = false
-  let isEscaped = false
-  const length = rawText.length
-
-  for (let index = 0; index < length; index += 1) {
-    const char = rawText[index]
-
-    if (inString) {
-      chunks.push(char)
-      if (isEscaped) {
-        isEscaped = false
-      } else if (char === '\\') {
-        isEscaped = true
-      } else if (char === '"') {
-        inString = false
-      }
-      continue
-    }
-
-    if (char === '"') {
-      inString = true
-      chunks.push(char)
-      continue
-    }
-
-    if (char === '-' || isDigit(char)) {
-      let cursor = index + 1
-      while (cursor < length && isNumberTokenChar(rawText[cursor])) {
-        cursor += 1
-      }
-
-      const token = rawText.slice(index, cursor)
-      chunks.push(shouldPreserveInteger(token) ? `"${token}"` : token)
-      index = cursor - 1
-      continue
-    }
-
-    chunks.push(char)
-  }
-
-  return chunks.join('')
-}
-
-function shouldPreserveInteger(token: string) {
-  const startIndex = token[0] === '-' ? 1 : 0
-  const normalizedLength = token.length - startIndex
-  if (normalizedLength < 16) return false
-  for (let index = startIndex; index < token.length; index += 1) {
-    const code = token.charCodeAt(index)
-    if (code < 48 || code > 57) return false
-  }
-  const value = BigInt(token)
-  return value > MAX_SAFE_INTEGER_BIGINT || value < MIN_SAFE_INTEGER_BIGINT
-}
-
-function isDigit(char: string) {
-  const code = char.charCodeAt(0)
-  return code >= 48 && code <= 57
-}
-
-function isNumberTokenChar(char: string) {
-  return isDigit(char) || char === 'e' || char === 'E' || char === '+' || char === '-' || char === '.'
 }

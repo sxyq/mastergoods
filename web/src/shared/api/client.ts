@@ -2038,14 +2038,7 @@ function authHeaders(token: string) {
 
 function buildHeaders(headers: Record<string, string>, body?: BodyInit | null) {
   if (body != null && !hasContentType(headers)) {
-    const nextHeaders: Record<string, string> = {}
-    for (const key in headers) {
-      if (Object.prototype.hasOwnProperty.call(headers, key)) {
-        nextHeaders[key] = headers[key]
-      }
-    }
-    nextHeaders['Content-Type'] = 'application/json'
-    return nextHeaders
+    return { ...headers, 'Content-Type': 'application/json' }
   }
   return headers
 }
@@ -2060,12 +2053,7 @@ function headersToRecord(headers?: HeadersInit): Record<string, string> {
     return record
   }
   if (Array.isArray(headers)) {
-    const record: Record<string, string> = {}
-    for (let index = 0; index < headers.length; index += 1) {
-      const [key, value] = headers[index]
-      record[key] = value
-    }
-    return record
+    return Object.fromEntries(headers) as Record<string, string>
   }
   return headers as Record<string, string>
 }
@@ -2075,12 +2063,7 @@ function hasAuthorization(headers: Record<string, string>) {
 }
 
 function hasContentType(headers: Record<string, string>) {
-  for (const key in headers) {
-    if (Object.prototype.hasOwnProperty.call(headers, key) && key.toLowerCase() === 'content-type') {
-      return true
-    }
-  }
-  return false
+  return Object.keys(headers).some(key => key.toLowerCase() === 'content-type')
 }
 
 function withAuthorization(init: RequestInit, token: string): RequestInit {
@@ -2108,7 +2091,7 @@ async function tryRefreshAccessToken() {
   }
 }
 
-function emitApiAuthEvent(status: 401 | 403) {
+export function emitApiAuthEvent(status: 401 | 403) {
   if (typeof window === 'undefined') return
   window.dispatchEvent(new CustomEvent('zhihuiji:web:api-auth', { detail: { status } }))
 }
@@ -2121,7 +2104,7 @@ function safeParse<T>(rawText: string) {
   }
 }
 
-function preserveUnsafeIntegers(rawText: string) {
+export function preserveUnsafeIntegers(rawText: string) {
   const chunks: string[] = []
   let inString = false
   let isEscaped = false
@@ -2200,14 +2183,7 @@ function buildQuery(params: Record<string, unknown>) {
 }
 
 function mapArray<T, U>(items: readonly T[] | null | undefined, mapper: (item: T) => U): U[] {
-  if (!items || items.length === 0) {
-    return []
-  }
-  const result = new Array<U>(items.length)
-  for (let index = 0; index < items.length; index += 1) {
-    result[index] = mapper(items[index])
-  }
-  return result
+  return (items ?? []).map(mapper)
 }
 
 function toProductWriteBody(payload: ProductWritePayload) {

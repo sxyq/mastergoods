@@ -113,28 +113,34 @@ fun ProductEditScreen(
         onCategorySelect = viewModel::selectCategory,
         onUnitSelect = viewModel::selectUnit,
         onSave = { form, continueAdding ->
+            val categoryId = form.categoryId ?: return@ProductEditScreenContent
+            val unitId = form.unitId ?: return@ProductEditScreenContent
+            val salePrice = form.salePrice.toDoubleOrNull() ?: 0.0
+            val purchasePrice = form.purchasePrice.toDoubleOrNull() ?: 0.0
+            val stock = form.stock.toDoubleOrNull() ?: 0.0
+            val safeStock = form.safeStock.toDoubleOrNull() ?: 0.0
             if (productId != null) {
                 viewModel.updateProduct(
                     productId = productId,
                     name = form.name,
                     code = form.code,
-                    categoryId = form.categoryId ?: return@ProductEditScreenContent,
-                    unitId = form.unitId ?: return@ProductEditScreenContent,
-                    salePrice = form.salePrice.toDoubleOrNull() ?: 0.0,
-                    purchasePrice = form.purchasePrice.toDoubleOrNull() ?: 0.0,
-                    stock = form.stock.toDoubleOrNull() ?: 0.0,
-                    safeStock = form.safeStock.toDoubleOrNull() ?: 0.0,
+                    categoryId = categoryId,
+                    unitId = unitId,
+                    salePrice = salePrice,
+                    purchasePrice = purchasePrice,
+                    stock = stock,
+                    safeStock = safeStock,
                 )
             } else {
                 viewModel.createProduct(
                     name = form.name,
                     code = form.code,
-                    categoryId = form.categoryId ?: return@ProductEditScreenContent,
-                    unitId = form.unitId ?: return@ProductEditScreenContent,
-                    salePrice = form.salePrice.toDoubleOrNull() ?: 0.0,
-                    purchasePrice = form.purchasePrice.toDoubleOrNull() ?: 0.0,
-                    stock = form.stock.toDoubleOrNull() ?: 0.0,
-                    safeStock = form.safeStock.toDoubleOrNull() ?: 0.0,
+                    categoryId = categoryId,
+                    unitId = unitId,
+                    salePrice = salePrice,
+                    purchasePrice = purchasePrice,
+                    stock = stock,
+                    safeStock = safeStock,
                     continueAdding = continueAdding,
                 )
             }

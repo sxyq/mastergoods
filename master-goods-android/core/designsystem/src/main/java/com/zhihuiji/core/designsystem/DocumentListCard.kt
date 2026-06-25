@@ -38,6 +38,7 @@ private val DocumentListCardHeight = 116.dp
 private val DocumentListCardPadding = 14.dp
 private val DocumentListCardDividerTopPadding = 18.dp
 private val DocumentListCardStatusEndPadding = 84.dp
+private val DocumentStatusPillShape = RoundedCornerShape(100.dp)
 
 @Composable
 fun DocumentListCard(
@@ -161,8 +162,8 @@ private fun DocumentStatusPill(
     }
     Box(
         modifier = modifier
-            .border(0.5.dp, color.copy(alpha = 0.20f), RoundedCornerShape(100.dp))
-            .background(color.copy(alpha = 0.10f), RoundedCornerShape(100.dp))
+            .border(0.5.dp, color.copy(alpha = 0.20f), DocumentStatusPillShape)
+            .background(color.copy(alpha = 0.10f), DocumentStatusPillShape)
             .padding(horizontal = 10.dp, vertical = 2.dp)
     ) {
         Text(

@@ -23,6 +23,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
+private val dangerButtonShape = RoundedCornerShape(12.dp)
+
 /**
  * 危险描边按钮
  *
@@ -52,12 +54,9 @@ fun DangerOutlineButton(
             .fillMaxWidth()
             .height(48.dp)
             .scale(scale)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(dangerButtonShape)
             .background(GlassSurfaceHigh)
-            .border(
-                border = BorderStroke(1.dp, DangerRed),
-                shape = RoundedCornerShape(12.dp)
-            )
+            .border(BorderStroke(1.dp, DangerRed), dangerButtonShape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,

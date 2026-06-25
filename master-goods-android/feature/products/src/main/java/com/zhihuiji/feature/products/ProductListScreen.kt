@@ -44,6 +44,8 @@ import com.zhihuiji.core.designsystem.TextTertiary
 import com.zhihuiji.core.designsystem.WarningOrange
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 
+private val stockStatusColor = mapOf("缺货" to DangerRed, "低库存" to WarningOrange)
+
 @Composable
 fun ProductListScreen(
     onNavigateToDetail: (Long) -> Unit = {},
@@ -198,18 +200,11 @@ private fun ProductListItem(
                         maxLines = 1
                     )
                     Text(
-                        text = when (product.status) {
-                            "缺货" -> "缺货"
-                            else -> "库存: ${product.stock}"
-                        },
+                        text = if (product.status == "缺货") "缺货" else "库存: ${product.stock}",
                         fontSize = 12.sp,
                         lineHeight = 16.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = when (product.status) {
-                            "缺货" -> DangerRed
-                            "低库存" -> WarningOrange
-                            else -> TextSecondary
-                        },
+                        color = stockStatusColor[product.status] ?: TextSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )

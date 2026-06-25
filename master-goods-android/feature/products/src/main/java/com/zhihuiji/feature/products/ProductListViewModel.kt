@@ -2,6 +2,8 @@ package com.zhihuiji.feature.products
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.MoneyFormatter
+import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.model.v2.product.ProductV2Dto
 import com.zhihuiji.data.product.ProductV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -12,17 +14,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private val stockStatusFilter = mapOf("normal" to "正常", "low" to "低库存", "out" to "缺货")
+
 fun ProductV2Dto.toProductItem(): ProductItem = ProductItem(
     id = id,
     name = name,
     code = code,
     stock = stock.toInt(),
-    salePrice = "¥%.2f".format(salePrice),
-    status = when {
-        stock <= 0 -> "缺货"
-        stock < safeStock -> "低库存"
-        else -> "正常"
-    }
+    salePrice = MoneyFormatter.format(salePrice),
+    status = StatusLabels.stockStatus(stock, safeStock),
 )
 
 data class ProductItem(
@@ -70,32 +70,10 @@ class ProductListViewModel @Inject constructor(
                 categoryId = currentState.selectedCategoryId
             )
                 .onSuccess { products ->
-                    val filtered = ArrayList<ProductItem>(products.size)
-                    when (currentState.selectedStockStatus) {
-                        "normal" -> {
-                            for (dto in products) {
-                                val item = dto.toProductItem()
-                                if (item.status == "正常") filtered.add(item)
-                            }
-                        }
-                        "low" -> {
-                            for (dto in products) {
-                                val item = dto.toProductItem()
-                                if (item.status == "低库存") filtered.add(item)
-                            }
-                        }
-                        "out" -> {
-                            for (dto in products) {
-                                val item = dto.toProductItem()
-                                if (item.status == "缺货") filtered.add(item)
-                            }
-                        }
-                        else -> {
-                            for (dto in products) {
-                                filtered.add(dto.toProductItem())
-                            }
-                        }
-                    }
+                    val items = products.map { it.toProductItem() }
+                    val filtered = stockStatusFilter[currentState.selectedStockStatus]
+                        ?.let { target -> items.filter { it.status == target } }
+                        ?: items
                     _uiState.update {
                         it.copy(
                             isLoading = false,

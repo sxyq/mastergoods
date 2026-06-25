@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
+private val floatingActionButtonShape = RoundedCornerShape(24.dp)
+
 @Composable
 fun FloatingGlassActionButton(
     text: String,
@@ -31,17 +33,15 @@ fun FloatingGlassActionButton(
         modifier = modifier,
         onClick = onClick,
         blurRadius = 24.dp,
-        shape = RoundedCornerShape(24.dp),
+        shape = floatingActionButtonShape,
         surfaceColor = GlassSurfaceHigh,
         contentPadding = 0.dp
     ) {
         Row(
             modifier = Modifier
                 .background(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(ZhihuijiPrimaryBright, ZhihuijiPrimary)
-                    ),
-                    shape = RoundedCornerShape(24.dp)
+                    brush = Brush.horizontalGradient(listOf(ZhihuijiPrimaryBright, ZhihuijiPrimary)),
+                    shape = floatingActionButtonShape
                 )
                 .padding(horizontal = 18.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.Center,
