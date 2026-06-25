@@ -52,16 +52,15 @@ const orderSummary = computed(() => rawOrders.value.reduce(
     payableAmount: 0,
   },
 ))
-const displayedOrders = filteredOrders
 const payableAmount = computed(() => orderSummary.value.payableAmount)
 const totalAmount = computed(() => orderSummary.value.totalAmount)
-const totalPages = computed(() => Math.max(1, Math.ceil(displayedOrders.value.length / pageSize.value)))
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredOrders.value.length / pageSize.value)))
 const pagedOrders = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
-  return displayedOrders.value.slice(start, start + pageSize.value)
+  return filteredOrders.value.slice(start, start + pageSize.value)
 })
-const pageStart = computed(() => (displayedOrders.value.length === 0 ? 0 : (currentPage.value - 1) * pageSize.value + 1))
-const pageEnd = computed(() => Math.min(currentPage.value * pageSize.value, displayedOrders.value.length))
+const pageStart = computed(() => (filteredOrders.value.length === 0 ? 0 : (currentPage.value - 1) * pageSize.value + 1))
+const pageEnd = computed(() => Math.min(currentPage.value * pageSize.value, filteredOrders.value.length))
 
 const statusTabs = computed(() => [
   { key: 'all' as const, label: '全部', count: rawOrders.value.length },
@@ -293,7 +292,7 @@ function setPage(page: number) {
       </div>
 
       <footer class="pc-pagination">
-        <span>共 <b>{{ displayedOrders.length }}</b> 条记录，当前显示 {{ pageStart }}-{{ pageEnd }} 条</span>
+        <span>共 <b>{{ filteredOrders.length }}</b> 条记录，当前显示 {{ pageStart }}-{{ pageEnd }} 条</span>
         <div>
           <select v-model.number="pageSize">
             <option :value="10">10 条/页</option>

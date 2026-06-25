@@ -36,6 +36,7 @@ import com.zhihuiji.core.designsystem.GlassSurfaceLow
 import com.zhihuiji.core.designsystem.LiquidGlassCard
 import com.zhihuiji.core.designsystem.SuccessGreen
 import com.zhihuiji.core.designsystem.DangerRed
+import com.zhihuiji.core.designsystem.TextPrimary
 import com.zhihuiji.core.designsystem.TextSecondary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 
@@ -132,11 +133,9 @@ private fun FinanceRecordListItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val amountColor = when (record.type) {
-        "收入" -> SuccessGreen
-        "支出" -> DangerRed
-        else -> Color(0xFF181C20)
-    }
+    val isIncome = record.type == "收入"
+    val isExpense = record.type == "支出"
+    val amountColor = if (isIncome) SuccessGreen else if (isExpense) DangerRed else TextPrimary
 
     DocumentListCard(
         modifier = modifier,
@@ -147,13 +146,9 @@ private fun FinanceRecordListItem(
             record.date.isBlank() -> record.account
             else -> "${record.account} · ${record.date}"
         },
-        amount = if (record.type == "支出") "-${record.amount}" else record.amount,
+        amount = if (isExpense) "-${record.amount}" else record.amount,
         statusLabel = record.type,
-        statusTone = when (record.type) {
-            "收入" -> DocumentStatusTone.SUCCESS
-            "支出" -> DocumentStatusTone.DANGER
-            else -> DocumentStatusTone.NEUTRAL
-        },
+        statusTone = if (isIncome) DocumentStatusTone.SUCCESS else if (isExpense) DocumentStatusTone.DANGER else DocumentStatusTone.NEUTRAL,
         amountColor = amountColor,
         onClick = onClick
     )
@@ -173,7 +168,7 @@ private fun FinanceRecordStateMessage(
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
-            color = Color(0xFF181C20)
+            color = TextPrimary
         )
         Text(
             text = message,

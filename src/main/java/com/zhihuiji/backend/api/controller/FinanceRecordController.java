@@ -40,11 +40,7 @@ public class FinanceRecordController {
             page,
             size
         );
-        List<FinanceRecordDto> payload = new java.util.ArrayList<>(rows.size());
-        for (FinanceRecordEntity row : rows) {
-            payload.add(toDto(row));
-        }
-        return ApiResponse.success(payload);
+        return ApiResponse.success(rows.stream().map(this::toDto).toList());
     }
 
     @PostMapping

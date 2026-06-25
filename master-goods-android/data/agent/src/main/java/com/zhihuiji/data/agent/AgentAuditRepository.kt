@@ -24,17 +24,14 @@ class AgentAuditRepository @Inject constructor(
         auditDao.insert(record.toEntity(json))
     }
 
-    fun observeRecent(limit: Int = 100): Flow<List<AgentAuditRecord>> {
-        return auditDao.observeRecent(limit).map { list ->
-            list.map { it.toRecord(json) }
-        }
-    }
+    fun observeRecent(limit: Int = 100): Flow<List<AgentAuditRecord>> =
+        auditDao.observeRecent(limit).toRecords()
 
-    fun observeByConversation(conversationId: Long): Flow<List<AgentAuditRecord>> {
-        return auditDao.observeByConversation(conversationId).map { list ->
-            list.map { it.toRecord(json) }
-        }
-    }
+    fun observeByConversation(conversationId: Long): Flow<List<AgentAuditRecord>> =
+        auditDao.observeByConversation(conversationId).toRecords()
+
+    private fun Flow<List<AgentAuditEntity>>.toRecords(): Flow<List<AgentAuditRecord>> =
+        map { it.map { entity -> entity.toRecord(json) } }
 
     suspend fun deleteOlderThan(days: Int) {
         val cutoff = System.currentTimeMillis() - days * 24 * 60 * 60 * 1000L

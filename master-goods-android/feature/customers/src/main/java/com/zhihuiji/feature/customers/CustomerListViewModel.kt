@@ -3,6 +3,7 @@ package com.zhihuiji.feature.customers
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.common.MoneyFormatter
+import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.model.v2.partner.CustomerV2Dto
 import com.zhihuiji.data.customer.CustomerV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,11 +22,7 @@ fun CustomerV2Dto.toCustomerItem(): CustomerItem = CustomerItem(
     receivableAmount = balance,
     receivable = MoneyFormatter.format(balance),
     hasDebt = status == 1 && balance > 0.0,
-    status = when (status) {
-        1 -> if (balance > 0.0) "欠款" else "正常"
-        0 -> "已停用"
-        else -> "未知"
-    }
+    status = StatusLabels.customerListStatus(status, balance)
 )
 
 data class CustomerListUiState(

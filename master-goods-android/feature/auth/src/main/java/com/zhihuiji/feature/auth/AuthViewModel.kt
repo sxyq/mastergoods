@@ -34,13 +34,13 @@ class AuthViewModel @Inject constructor(
 
     fun login(phone: String, password: String) {
         launchAuth {
-            authRepository.login(phone, password).map { }
+            authRepository.login(phone, password)
         }
     }
 
     fun register(phone: String, password: String, verifyCode: String) {
         launchAuth {
-            authRepository.register(phone, password, verifyCode).map { }
+            authRepository.register(phone, password, verifyCode)
         }
     }
 
@@ -66,7 +66,7 @@ class AuthViewModel @Inject constructor(
         _uiState.update { it.copy(error = null) }
     }
 
-    private fun launchAuth(action: suspend () -> Result<Unit>) {
+    private fun launchAuth(action: suspend () -> Result<*>) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             action()

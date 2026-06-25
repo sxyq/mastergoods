@@ -21,7 +21,7 @@ import {
   type SalesTrendPoint,
 } from '@/shared/api/client'
 import { useSession } from '@/app/stores/session'
-import { formatCurrency, formatDate, formatRelativeDate, saleShippingStatus } from '@/shared/utils/business'
+import { formatCurrency, formatDate, formatRelativeDate, reportRangeForPeriod, saleShippingStatus } from '@/shared/utils/business'
 
 type DashboardPeriod = 'today' | 'week' | 'month'
 
@@ -97,7 +97,7 @@ watch(
   { immediate: true },
 )
 
-const periodRange = computed(() => buildRange(activePeriod.value))
+const periodRange = computed(() => reportRangeForPeriod(activePeriod.value))
 const trendDataset = computed(() => (isDemoMode.value ? demoTrendPoints : trendPoints.value))
 const summaryData = computed(() => {
   if (summary.value) return summary.value
@@ -214,23 +214,6 @@ function useDemoData() {
     { id: 2, taskId: null, title: '应收到期提醒', body: '星锐网络科技有限公司有一笔账款即将到期。', level: 'info', isRead: false, isDelivered: true, createdAt: Date.now() - 8 * 60 * 60 * 1000 },
   ]
   accountBalance.value = 342105.5
-}
-
-function buildRange(period: DashboardPeriod) {
-  const now = new Date()
-  const endAt = now.getTime()
-  const start = new Date(now)
-  if (period === 'today') {
-    start.setHours(0, 0, 0, 0)
-  } else if (period === 'week') {
-    const day = start.getDay() || 7
-    start.setDate(start.getDate() - day + 1)
-    start.setHours(0, 0, 0, 0)
-  } else {
-    start.setDate(1)
-    start.setHours(0, 0, 0, 0)
-  }
-  return { startAt: start.getTime(), endAt }
 }
 
 function buildDemoSummary() {

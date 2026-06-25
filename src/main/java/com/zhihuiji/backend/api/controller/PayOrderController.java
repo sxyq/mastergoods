@@ -47,11 +47,7 @@ public class PayOrderController {
             page,
             size
         );
-        List<PayOrderDto> payload = new java.util.ArrayList<>(rows.size());
-        for (PayOrderEntity row : rows) {
-            payload.add(toDto(row));
-        }
-        return ApiResponse.success(payload);
+        return ApiResponse.success(rows.stream().map(this::toDto).toList());
     }
 
     @GetMapping("/{id}")

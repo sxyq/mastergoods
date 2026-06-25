@@ -45,10 +45,6 @@ class DailyExpenseViewModel @Inject constructor(
         _uiState.update { it.copy(amount = value, error = null) }
     }
 
-    fun updateCategory(value: String) {
-        _uiState.update { it.copy(category = value, error = null) }
-    }
-
     fun selectCategory(value: String) {
         _uiState.update { it.copy(category = value, error = null) }
     }

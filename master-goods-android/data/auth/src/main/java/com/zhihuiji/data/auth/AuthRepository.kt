@@ -16,23 +16,18 @@ class AuthRepository @Inject constructor(
 ) {
     val isLoggedIn = sessionStore.isLoggedIn
 
-    suspend fun login(phone: String, password: String): Result<AuthResult> {
-        return safeApiCall { api.login(LoginRequest(phone, password)) }.onSuccess { auth ->
-            sessionStore.saveSession(auth.token, auth.refreshToken, auth.userId, auth.expiresIn)
-        }
-    }
+    suspend fun login(phone: String, password: String): Result<AuthResult> =
+        safeApiCall { api.login(LoginRequest(phone, password)) }.onSuccess { saveSession(it) }
 
-    suspend fun register(phone: String, password: String, verifyCode: String): Result<AuthResult> {
-        return safeApiCall { api.register(RegisterRequest(phone, password, verifyCode)) }.onSuccess { auth ->
-            sessionStore.saveSession(auth.token, auth.refreshToken, auth.userId, auth.expiresIn)
-        }
-    }
+    suspend fun register(phone: String, password: String, verifyCode: String): Result<AuthResult> =
+        safeApiCall { api.register(RegisterRequest(phone, password, verifyCode)) }.onSuccess { saveSession(it) }
 
     @VisibleForTesting
-    suspend fun refresh(refreshToken: String): Result<AuthResult> {
-        return safeApiCall { api.refresh(RefreshRequest(refreshToken)) }.onSuccess { auth ->
-            sessionStore.saveSession(auth.token, auth.refreshToken, auth.userId, auth.expiresIn)
-        }
+    suspend fun refresh(refreshToken: String): Result<AuthResult> =
+        safeApiCall { api.refresh(RefreshRequest(refreshToken)) }.onSuccess { saveSession(it) }
+
+    private suspend fun saveSession(auth: AuthResult) {
+        sessionStore.saveSession(auth.token, auth.refreshToken, auth.userId, auth.expiresIn)
     }
 
     suspend fun logout() {

@@ -49,10 +49,10 @@ import com.zhihuiji.core.designsystem.TextPrimary
 import com.zhihuiji.core.designsystem.TextSecondary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 
-private val AuthBackgroundBrush = Brush.verticalGradient(
+internal val AuthBackgroundBrush = Brush.verticalGradient(
     colors = listOf(BackgroundGradientStart, BackgroundGradientEnd)
 )
-private val AuthCardShape = RoundedCornerShape(28.dp)
+internal val AuthCardShape = RoundedCornerShape(28.dp)
 private val AuthFieldShape = RoundedCornerShape(14.dp)
 
 @Composable

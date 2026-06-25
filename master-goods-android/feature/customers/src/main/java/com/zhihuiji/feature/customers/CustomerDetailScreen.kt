@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.zhihuiji.core.common.MoneyFormatter
+import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.designsystem.BottomActionBar
 import com.zhihuiji.core.designsystem.DangerRed
 import com.zhihuiji.core.designsystem.GlassScaffold
@@ -38,6 +39,11 @@ import com.zhihuiji.core.designsystem.StatusType
 import com.zhihuiji.core.designsystem.TextPrimary
 import com.zhihuiji.core.designsystem.TextSecondary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
+
+private val customerStatusTypes = mapOf(
+    1 to StatusType.NORMAL,
+    0 to StatusType.CANCELLED
+)
 
 @Composable
 fun CustomerDetailScreen(
@@ -107,7 +113,7 @@ private fun CustomerDetailScreenContent(
                     primaryText = "编辑资料",
                     onPrimaryClick = onNavigateToEdit,
                     totalLabel = "应收余额",
-                    totalAmount = balanceText ?: MoneyFormatter.format(currentCustomer.balance),
+                    totalAmount = balanceText ?: "",
                     totalAmountColor = if (currentCustomer.balance > 0.0) DangerRed else ZhihuijiPrimary
                 )
             }
@@ -163,14 +169,9 @@ private fun CustomerDetailScreenContent(
                                         style = MaterialTheme.typography.headlineSmall,
                                         color = TextPrimary
                                     )
-                                    val (statusText, statusType) = when (currentCustomer.status) {
-                                        1 -> "正常" to StatusType.NORMAL
-                                        0 -> "已停用" to StatusType.CANCELLED
-                                        else -> "未知" to StatusType.PENDING
-                                    }
                                     StatusPill(
-                                        text = statusText,
-                                        status = statusType
+                                        text = StatusLabels.customerStatus(currentCustomer.status),
+                                        status = customerStatusTypes[currentCustomer.status] ?: StatusType.PENDING
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
@@ -207,7 +208,7 @@ private fun CustomerDetailScreenContent(
                                 Spacer(modifier = Modifier.height(12.dp))
                                 InfoRow(
                                     label = "余额（应收款）",
-                                    value = balanceText ?: MoneyFormatter.format(currentCustomer.balance)
+                                    value = balanceText ?: "-"
                                 )
                             }
                         }

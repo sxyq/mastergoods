@@ -26,6 +26,7 @@ import {
   type SupplierWritePayload,
 } from '@/shared/api/client'
 import { useSession } from '@/app/stores/session'
+import { formatCurrency, formatDateTime } from '@/shared/utils/business'
 
 type PartnerKind = 'customer' | 'supplier'
 type DirectoryRecord = CustomerRecord | SupplierRecord
@@ -62,19 +63,6 @@ const statusFilter = ref<'all' | '1' | '0'>('all')
 const groupFilter = ref<string>('all')
 const editingRecordId = ref<number | null>(null)
 const editingGroupId = ref<number | null>(null)
-const currencyFormatter = new Intl.NumberFormat('zh-CN', {
-  style: 'currency',
-  currency: 'CNY',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})
-const dateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-})
 
 const recordForm = reactive({
   name: '',
@@ -346,15 +334,6 @@ function buildSupplierPayload(): SupplierWritePayload {
 function nullableText(value: string) {
   const normalized = value.trim()
   return normalized ? normalized : null
-}
-
-function formatCurrency(value: number) {
-  return currencyFormatter.format(value || 0)
-}
-
-function formatDateTime(timestamp?: number | null) {
-  if (!timestamp) return '--'
-  return dateTimeFormatter.format(timestamp)
 }
 </script>
 

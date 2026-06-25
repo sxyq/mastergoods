@@ -105,7 +105,6 @@ private val paymentMethods = listOf(
     StatusLabels.Codes.METHOD_OTHER to "其他",
 )
 private val expenseCategoryRows = expenseCategories.chunked(4)
-private val paymentMethodRows = paymentMethods.chunked(2)
 private val paymentMethodLabels = paymentMethods.toMap()
 private val roundedCardShape = RoundedCornerShape(12.dp)
 private val bottomScrimBrush = Brush.verticalGradient(
@@ -152,7 +151,6 @@ fun DailyExpenseScreen(
         DailyExpenseContent(
             uiState = uiState,
             onAmountChange = viewModel::updateAmount,
-            onCategoryChange = viewModel::updateCategory,
             onCategorySelected = viewModel::selectCategory,
             onPartnerNameChange = viewModel::updatePartnerName,
             onMethodSelected = viewModel::selectMethod,
@@ -166,7 +164,6 @@ fun DailyExpenseScreen(
 private fun DailyExpenseContent(
     uiState: DailyExpenseUiState,
     onAmountChange: (String) -> Unit,
-    onCategoryChange: (String) -> Unit,
     onCategorySelected: (String) -> Unit,
     onPartnerNameChange: (String) -> Unit,
     onMethodSelected: (Int) -> Unit,
@@ -671,54 +668,5 @@ private fun AttachmentCard() {
                 color = TextSecondary,
             )
         }
-    }
-}
-
-@Composable
-private fun MethodGrid(
-    selectedMethod: Int,
-    onSelected: (Int) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        paymentMethodRows.forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                row.forEach { (method, label) ->
-                    SelectionChip(
-                        label = label,
-                        selected = selectedMethod == method,
-                        onClick = { onSelected(method) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                if (row.size == 1) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SelectionChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    LiquidGlassCard(
-        modifier = modifier,
-        onClick = onClick,
-        surfaceColor = if (selected) GlassSurfaceHigh else GlassSurfaceLow,
-        blurRadius = if (selected) 22.dp else 16.dp,
-        contentPadding = 12.dp,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (selected) ZhihuijiPrimary else TextPrimary,
-        )
     }
 }

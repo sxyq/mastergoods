@@ -170,7 +170,7 @@ private fun CustomerReceivableSummary(
                     color = TextSecondary
                 )
                 Text(
-                    text = formatCurrency(receivableTotal),
+                    text = MoneyFormatter.format(receivableTotal),
                     fontSize = 22.sp,
                     lineHeight = 28.sp,
                     fontWeight = FontWeight.Bold,
@@ -202,26 +202,11 @@ private fun CustomerArchiveCard(
     modifier: Modifier = Modifier
 ) {
     val hasDebt = customer.hasDebt
-    val statusText = when {
-        customer.status == "已停用" -> "已停用"
-        hasDebt -> "有欠款"
-        else -> "已结清"
-    }
-    val statusColor = when {
-        customer.status == "已停用" -> TextTertiary
-        hasDebt -> DangerRed
-        else -> TextSecondary
-    }
-    val avatarColor = when {
-        customer.status == "已停用" -> SurfaceSoft
-        hasDebt -> ZhihuijiPrimary
-        else -> StatusBlueLight
-    }
-    val avatarTextColor = when {
-        customer.status == "已停用" -> TextSecondary
-        hasDebt -> Color.White
-        else -> ZhihuijiPrimary
-    }
+    val isDisabled = customer.status == "已停用"
+    val statusText = if (isDisabled) "已停用" else if (hasDebt) "有欠款" else "已结清"
+    val statusColor = if (isDisabled) TextTertiary else if (hasDebt) DangerRed else TextSecondary
+    val avatarColor = if (isDisabled) SurfaceSoft else if (hasDebt) ZhihuijiPrimary else StatusBlueLight
+    val avatarTextColor = if (isDisabled) TextSecondary else if (hasDebt) Color.White else ZhihuijiPrimary
 
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
@@ -412,5 +397,3 @@ private fun CustomerStateMessage(
 
 private fun archiveInitial(value: String, fallback: String): String =
     value.trim().firstOrNull()?.toString() ?: fallback
-
-private fun formatCurrency(value: Double): String = MoneyFormatter.format(value)
