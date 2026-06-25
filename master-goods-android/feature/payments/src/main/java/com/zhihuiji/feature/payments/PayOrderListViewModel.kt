@@ -73,10 +73,7 @@ class PayOrderListViewModel @Inject constructor(
             )
             repository.listPayOrders(filter)
                 .onSuccess { orders ->
-                    val items = ArrayList<PayOrderItem>(orders.size)
-                    for (order in orders) {
-                        items.add(order.toPayOrderItem())
-                    }
+                    val items = orders.map { it.toPayOrderItem() }
                     _uiState.update {
                         it.copy(
                             isLoading = false,

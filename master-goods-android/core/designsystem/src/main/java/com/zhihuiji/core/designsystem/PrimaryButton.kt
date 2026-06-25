@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -54,9 +53,7 @@ fun PrimaryButton(
             .scale(scale)
             .clip(RoundedCornerShape(12.dp))
             .background(
-                brush = Brush.horizontalGradient(
-                    colors = listOf(ZhihuijiPrimaryBright, ZhihuijiPrimary)
-                ),
+                brush = PrimaryActionGradient,
                 alpha = if (enabled) 1f else 0.5f
             )
             .clickable(

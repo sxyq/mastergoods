@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.designsystem.AmountTextStyle
 import com.zhihuiji.core.designsystem.BottomActionBar
@@ -61,7 +62,7 @@ fun PayOrderDetailScreen(
                     secondaryText = "打印单据",
                     onSecondaryClick = {},
                     totalLabel = "付款金额",
-                    totalAmount = "¥%.2f".format(uiState.order!!.amount)
+                    totalAmount = MoneyFormatter.format(uiState.order!!.amount)
                 )
             }
         }
@@ -168,7 +169,7 @@ private fun PayOrderAmountCard(
             }
 
             Text(
-                text = "¥%.2f".format(order.amount),
+                text = MoneyFormatter.format(order.amount),
                 style = AmountTextStyle,
                 color = ZhihuijiPrimary
             )

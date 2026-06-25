@@ -1,5 +1,6 @@
 package com.zhihuiji.core.designsystem
 
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
 // 主品牌色
@@ -7,6 +8,11 @@ val ZhihuijiPrimary = Color(0xFF005BBF)
 val ZhihuijiPrimaryLight = Color(0xFFD8E2FF)
 val ZhihuijiPrimaryDark = Color(0xFF0C4D96)
 val ZhihuijiPrimaryBright = Color(0xFF1A73E8)
+
+// 主品牌渐变（主按钮/新增按钮等主操作复用）
+val PrimaryActionGradient = Brush.horizontalGradient(
+    colors = listOf(ZhihuijiPrimaryBright, ZhihuijiPrimary)
+)
 
 // 功能色
 val SuccessGreen = Color(0xFF34A853)

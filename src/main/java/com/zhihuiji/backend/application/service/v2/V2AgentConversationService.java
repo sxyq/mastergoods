@@ -55,11 +55,9 @@ public class V2AgentConversationService {
                 ownerUserId,
                 PageRequest.of(safePage(page), safeLimit(limit, DEFAULT_CONVERSATION_LIMIT))
             );
-        List<V2AgentDtos.AgentConversationResponse> responses = new ArrayList<>(rows.size());
-        for (AgentConversationEntity row : rows) {
-            responses.add(toConversationResponse(row));
-        }
-        return responses;
+        return rows.stream()
+            .map(this::toConversationResponse)
+            .toList();
     }
 
     @Transactional(readOnly = true)
@@ -168,11 +166,9 @@ public class V2AgentConversationService {
             ensureConversationOwned(conversationId, ownerUserId);
             rows = agentDraftRepository.findAllByOwnerUserIdAndConversationIdOrderByUpdatedAtDescIdDesc(ownerUserId, conversationId, pageRequest);
         }
-        List<V2AgentDtos.AgentDraftResponse> responses = new ArrayList<>(rows.size());
-        for (AgentDraftEntity row : rows) {
-            responses.add(toDraftResponse(row));
-        }
-        return responses;
+        return rows.stream()
+            .map(this::toDraftResponse)
+            .toList();
     }
 
     @Transactional

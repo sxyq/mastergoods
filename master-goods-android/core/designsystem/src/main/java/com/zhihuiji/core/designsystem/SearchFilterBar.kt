@@ -58,7 +58,6 @@ fun SearchFilterBar(
                 .height(44.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(GlassSurfaceHigh)
-                .then(Modifier)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -123,11 +122,7 @@ fun SearchFilterBar(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
-                            colors = listOf(ZhihuijiPrimaryBright, ZhihuijiPrimary)
-                        )
-                    )
+                    .background(brush = PrimaryActionGradient)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,

@@ -39,11 +39,9 @@ public class V2ImportJobService {
         List<ImportJobEntity> jobs = (status == null || status.isBlank())
             ? importJobRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(ownerUserId)
             : importJobRepository.findAllByOwnerUserIdAndStatusOrderByUpdatedAtDesc(ownerUserId, normalizeStatus(status));
-        List<V2ImportJobDtos.ImportJobResponse> responses = new java.util.ArrayList<>(jobs.size());
-        for (ImportJobEntity job : jobs) {
-            responses.add(toResponse(job));
-        }
-        return responses;
+        return jobs.stream()
+            .map(this::toResponse)
+            .toList();
     }
 
     @Transactional(readOnly = true)

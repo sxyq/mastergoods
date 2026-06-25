@@ -45,11 +45,9 @@ public class V2CustomerService {
             }
         }
         Map<Long, String> groupNamesById = loadGroupNamesById(groupIds);
-        List<V2PartnerDtos.CustomerResponse> responses = new java.util.ArrayList<>(customers.size());
-        for (CustomerEntity customer : customers) {
-            responses.add(toResponse(customer, groupNamesById));
-        }
-        return responses;
+        return customers.stream()
+            .map(customer -> toResponse(customer, groupNamesById))
+            .toList();
     }
 
     @Transactional(readOnly = true)

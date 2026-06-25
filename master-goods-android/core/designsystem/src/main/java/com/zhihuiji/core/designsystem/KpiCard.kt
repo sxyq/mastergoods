@@ -26,6 +26,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
+private val KpiCardShape = RoundedCornerShape(16.dp)
+
 /**
  * KPI 指标卡片
  *
@@ -52,7 +54,7 @@ fun KpiCard(
 ) {
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = KpiCardShape,
         surfaceColor = GlassSurfaceMedium,
         contentPadding = 0.dp
     ) {
@@ -61,7 +63,7 @@ fun KpiCard(
                 .fillMaxWidth()
                 .background(
                     brush = rememberKpiGradient(backgroundColors),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = KpiCardShape
                 )
                 .padding(16.dp)
         ) {

@@ -4,7 +4,6 @@ import com.zhihuiji.backend.api.dto.v2.finance.V2FinanceDtos;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
 import com.zhihuiji.backend.domain.entity.AccountEntity;
 import com.zhihuiji.backend.infrastructure.repository.AccountRepository;
-import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,12 +21,9 @@ public class V2AccountService {
     @Transactional(readOnly = true)
     public List<V2FinanceDtos.AccountResponse> list() {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        List<AccountEntity> rows = accountRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId);
-        List<V2FinanceDtos.AccountResponse> responses = new ArrayList<>(rows.size());
-        for (AccountEntity row : rows) {
-            responses.add(toResponse(row));
-        }
-        return responses;
+        return accountRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId).stream()
+            .map(this::toResponse)
+            .toList();
     }
 
     @Transactional(readOnly = true)

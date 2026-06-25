@@ -23,6 +23,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
+private val SecondaryButtonShape = RoundedCornerShape(12.dp)
+
 /**
  * 次要描边按钮
  *
@@ -52,11 +54,11 @@ fun SecondaryOutlineButton(
             .fillMaxWidth()
             .height(48.dp)
             .scale(scale)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(SecondaryButtonShape)
             .background(GlassSurfaceHigh)
             .border(
                 border = BorderStroke(1.dp, DividerLight),
-                shape = RoundedCornerShape(12.dp)
+                shape = SecondaryButtonShape
             )
             .clickable(
                 interactionSource = interactionSource,

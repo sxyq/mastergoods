@@ -32,25 +32,17 @@ public class V2CashChangeRecordService {
     public List<V2FinanceDtos.CashChangeRecordResponse> list(String orderType, Long orderId, Long accountId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         List<CashChangeRecordEntity> records = cashChangeRecordRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
-        List<CashChangeRecordEntity> matchedRecords = new java.util.ArrayList<>(records.size());
-        for (CashChangeRecordEntity entity : records) {
-            if (orderType != null && !orderType.isBlank() && !entity.getOrderType().equalsIgnoreCase(orderType.trim())) {
-                continue;
-            }
-            if (orderId != null && !orderId.equals(entity.getOrderId())) {
-                continue;
-            }
-            if (accountId != null && !accountId.equals(entity.getAccountId())) {
-                continue;
-            }
-            matchedRecords.add(entity);
-        }
+        String normalizedOrderType = orderType == null || orderType.isBlank() ? null : orderType.trim();
+        List<CashChangeRecordEntity> matchedRecords = records.stream()
+            .filter(entity -> normalizedOrderType == null || entity.getOrderType() == null
+                || entity.getOrderType().equalsIgnoreCase(normalizedOrderType))
+            .filter(entity -> orderId == null || orderId.equals(entity.getOrderId()))
+            .filter(entity -> accountId == null || accountId.equals(entity.getAccountId()))
+            .toList();
         Map<Long, String> accountNamesById = loadAccountNamesById(ownerUserId, matchedRecords);
-        List<V2FinanceDtos.CashChangeRecordResponse> responses = new java.util.ArrayList<>(matchedRecords.size());
-        for (CashChangeRecordEntity entity : matchedRecords) {
-            responses.add(toResponse(entity, accountNamesById));
-        }
-        return responses;
+        return matchedRecords.stream()
+            .map(entity -> toResponse(entity, accountNamesById))
+            .toList();
     }
 
     @Transactional(readOnly = true)

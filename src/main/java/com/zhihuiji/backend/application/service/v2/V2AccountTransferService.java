@@ -7,7 +7,6 @@ import com.zhihuiji.backend.domain.entity.AccountEntity;
 import com.zhihuiji.backend.domain.entity.AccountTransferEntity;
 import com.zhihuiji.backend.infrastructure.repository.AccountRepository;
 import com.zhihuiji.backend.infrastructure.repository.AccountTransferRepository;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,11 +33,9 @@ public class V2AccountTransferService {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         List<AccountTransferEntity> rows = accountTransferRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
         Map<Long, String> accountNamesById = loadAccountNamesById(ownerUserId, rows);
-        List<V2FinanceDtos.AccountTransferResponse> responses = new ArrayList<>(rows.size());
-        for (AccountTransferEntity row : rows) {
-            responses.add(toResponse(row, accountNamesById));
-        }
-        return responses;
+        return rows.stream()
+            .map(row -> toResponse(row, accountNamesById))
+            .toList();
     }
 
     public V2FinanceDtos.AccountTransferResponse get(Long id) {

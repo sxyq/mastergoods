@@ -285,15 +285,7 @@ private fun Modifier.liquidSegmentedIndicatorChrome(
                         )
                     },
                     onDrawSurface = {
-                        drawRect(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = if (isDarkTheme) 0.14f else 0.78f),
-                                    Color(0xFFE8ECF4).copy(alpha = if (isDarkTheme) 0.18f else 0.56f),
-                                    Color(0xFFC9CED8).copy(alpha = if (isDarkTheme) 0.20f else 0.34f)
-                                )
-                            )
-                        )
+                        drawRect(brush = liquidSegmentedIndicatorBrush(isDarkTheme))
                         drawRect(
                             color = Color.White.copy(alpha = if (isDarkTheme) 0.06f else 0.18f)
                         )

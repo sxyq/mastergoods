@@ -2,13 +2,11 @@ package com.zhihuiji.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.datastore.SettingsStore
 import com.zhihuiji.data.auth.AuthRepository
 import com.zhihuiji.data.sync.SyncV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -262,5 +260,5 @@ private suspend fun AuthRepository.isLoggedInSnapshot(): Boolean =
 
 private fun formatTimestamp(value: Long): String {
     val millis = if (value < 10_000_000_000L) value * 1000 else value
-    return SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(millis))
+    return TimeFormatter.formatDateTime(millis)
 }

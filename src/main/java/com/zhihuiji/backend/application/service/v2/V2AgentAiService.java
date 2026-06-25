@@ -220,12 +220,9 @@ public class V2AgentAiService {
     @Transactional(readOnly = true)
     public List<V2AgentDtos.AgentTaskResponse> listTasks() {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        List<AgentTaskEntity> rows = agentTaskRepository.findTop20ByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
-        List<V2AgentDtos.AgentTaskResponse> responses = new ArrayList<>(rows.size());
-        for (int index = 0; index < rows.size(); index += 1) {
-            responses.add(toTaskResponse(rows.get(index)));
-        }
-        return responses;
+        return agentTaskRepository.findTop20ByOwnerUserIdOrderByCreatedAtDesc(ownerUserId).stream()
+            .map(this::toTaskResponse)
+            .toList();
     }
 
     @Transactional(readOnly = true)
@@ -234,11 +231,9 @@ public class V2AgentAiService {
         List<AgentNotificationEntity> rows = unreadOnly
             ? agentNotificationRepository.findTop30ByOwnerUserIdAndIsReadFalseOrderByCreatedAtDesc(ownerUserId)
             : agentNotificationRepository.findTop30ByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
-        List<V2AgentDtos.AgentNotificationResponse> responses = new ArrayList<>(rows.size());
-        for (int index = 0; index < rows.size(); index += 1) {
-            responses.add(toNotificationResponse(rows.get(index)));
-        }
-        return responses;
+        return rows.stream()
+            .map(this::toNotificationResponse)
+            .toList();
     }
 
     @Transactional

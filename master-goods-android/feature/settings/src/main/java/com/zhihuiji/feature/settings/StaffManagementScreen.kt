@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.designsystem.BackgroundGradientEnd
 import com.zhihuiji.core.designsystem.DangerOutlineButton
 import com.zhihuiji.core.designsystem.GlassScaffold
@@ -233,18 +234,11 @@ private fun StaffHeroCard(
     modifier: Modifier = Modifier,
 ) {
     val summary = remember(uiState.staffMembers) {
-        var enabledCount = 0
-        var activeSessions = 0L
-        for (member in uiState.staffMembers) {
-            if (member.status == 1) {
-                enabledCount += 1
-            }
-            activeSessions += member.activeSessions
-        }
+        val enabledCount = uiState.staffMembers.count { it.status == 1 }
         StaffSummary(
             enabledCount = enabledCount,
             disabledCount = uiState.staffMembers.size - enabledCount,
-            activeSessions = activeSessions,
+            activeSessions = uiState.staffMembers.sumOf { it.activeSessions },
         )
     }
 
@@ -550,9 +544,7 @@ private fun StaffMemberCard(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     val visiblePermissionCount = minOf(6, member.permissions.size)
-                    for (index in 0 until visiblePermissionCount) {
-                        SummaryTag(text = member.permissions[index])
-                    }
+                    member.permissions.take(visiblePermissionCount).forEach { SummaryTag(text = it) }
                     if (member.permissions.size > 6) {
                         SummaryTag(text = "+${member.permissions.size - 6}")
                     }
@@ -659,17 +651,17 @@ private data class StaffSummary(
     val activeSessions: Long,
 )
 
-private fun roleLabel(role: String): String =
-    when (role) {
-        "OWNER" -> "店长（总）"
-        "MANAGER" -> "店长助理"
-        "SALES" -> "销售员工"
-        "PURCHASING" -> "采购员工"
-        "WAREHOUSE" -> "仓库员工"
-        "FINANCE" -> "财务员工"
-        "ASSISTANT" -> "AI/只读助理"
-        else -> role
-    }
+private val roleLabels = mapOf(
+    "OWNER" to "店长（总）",
+    "MANAGER" to "店长助理",
+    "SALES" to "销售员工",
+    "PURCHASING" to "采购员工",
+    "WAREHOUSE" to "仓库员工",
+    "FINANCE" to "财务员工",
+    "ASSISTANT" to "AI/只读助理",
+)
+
+private fun roleLabel(role: String): String = roleLabels[role] ?: role
 
 @Composable
 private fun SummaryTag(
@@ -769,6 +761,5 @@ private fun EmptyStaffCard(
 
 private fun formatTimestamp(timestamp: Long): String {
     if (timestamp <= 0L) return "--"
-    val date = java.util.Date(timestamp)
-    return java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.CHINA).format(date)
+    return TimeFormatter.formatDateTime(timestamp)
 }

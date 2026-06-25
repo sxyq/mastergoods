@@ -26,6 +26,16 @@ enum class StatusType {
     CANCELLED    // 作废 - 灰色
 }
 
+private val statusPillColors: Map<StatusType, Pair<Color, Color>> = mapOf(
+    StatusType.NORMAL to (SuccessGreen.copy(alpha = 0.12f) to SuccessGreen),
+    StatusType.LOW_STOCK to (WarningOrange.copy(alpha = 0.12f) to WarningOrange),
+    StatusType.OUT_OF_STOCK to (DangerRed.copy(alpha = 0.12f) to DangerRed),
+    StatusType.PENDING to (ZhihuijiPrimary.copy(alpha = 0.12f) to ZhihuijiPrimary),
+    StatusType.COMPLETED to (TextQuaternary.copy(alpha = 0.15f) to TextTertiary),
+    StatusType.ARCHIVED to (ZhihuijiPrimary.copy(alpha = 0.08f) to TextSecondary),
+    StatusType.CANCELLED to (TextQuaternary.copy(alpha = 0.15f) to TextQuaternary)
+)
+
 /**
  * 状态标签组件
  *
@@ -39,15 +49,7 @@ fun StatusPill(
     text: String,
     status: StatusType = StatusType.NORMAL
 ) {
-    val (backgroundColor, textColor) = when (status) {
-        StatusType.NORMAL -> SuccessGreen.copy(alpha = 0.12f) to SuccessGreen
-        StatusType.LOW_STOCK -> WarningOrange.copy(alpha = 0.12f) to WarningOrange
-        StatusType.OUT_OF_STOCK -> DangerRed.copy(alpha = 0.12f) to DangerRed
-        StatusType.PENDING -> ZhihuijiPrimary.copy(alpha = 0.12f) to ZhihuijiPrimary
-        StatusType.COMPLETED -> TextQuaternary.copy(alpha = 0.15f) to TextTertiary
-        StatusType.ARCHIVED -> ZhihuijiPrimary.copy(alpha = 0.08f) to TextSecondary
-        StatusType.CANCELLED -> TextQuaternary.copy(alpha = 0.15f) to TextQuaternary
-    }
+    val (backgroundColor, textColor) = statusPillColors.getValue(status)
 
     Box(
         modifier = modifier

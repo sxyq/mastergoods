@@ -74,14 +74,8 @@ class TaskNotificationViewModel @Inject constructor(
             val notificationsError = notificationsResult.exceptionOrNull()?.message
             val taskDtos = tasksResult.getOrDefault(emptyList())
             val notificationDtos = notificationsResult.getOrDefault(emptyList())
-            val taskItems = ArrayList<TaskItem>(taskDtos.size)
-            for (dto in taskDtos) {
-                taskItems.add(dto.toTaskItem())
-            }
-            val notificationItems = ArrayList<NotificationItem>(notificationDtos.size)
-            for (dto in notificationDtos) {
-                notificationItems.add(dto.toNotificationItem())
-            }
+            val taskItems = taskDtos.map { it.toTaskItem() }
+            val notificationItems = notificationDtos.map { it.toNotificationItem() }
             _uiState.update {
                 it.copy(
                     isLoading = false,
@@ -104,12 +98,8 @@ class TaskNotificationViewModel @Inject constructor(
             repository.markNotificationRead(notificationId)
                 .onSuccess { updated ->
                     _uiState.update { state ->
-                        val notifications = state.notifications.toMutableList()
-                        for (index in notifications.indices) {
-                            if (notifications[index].id == notificationId) {
-                                notifications[index] = updated.toNotificationItem()
-                                break
-                            }
+                        val notifications = state.notifications.map {
+                            if (it.id == notificationId) updated.toNotificationItem() else it
                         }
                         state.copy(
                             notifications = notifications,
@@ -125,17 +115,8 @@ class TaskNotificationViewModel @Inject constructor(
     fun markAllNotificationsRead() {
         viewModelScope.launch {
             val notifications = _uiState.value.notifications
-            val unreadIds = ArrayList<Long>(notifications.size)
-            for (notification in notifications) {
-                if (!notification.isRead) {
-                    unreadIds.add(notification.id)
-                }
-            }
-            val results = ArrayList<kotlinx.coroutines.Deferred<Result<AgentNotificationDto>>>(unreadIds.size)
-            for (id in unreadIds) {
-                results.add(async { repository.markNotificationRead(id) })
-            }
-            val completedResults = results.awaitAll()
+            val unreadIds = notifications.filter { !it.isRead }.map { it.id }
+            val completedResults = unreadIds.map { async { repository.markNotificationRead(it) } }.awaitAll()
             val lastError = completedResults.firstNotNullOfOrNull { result ->
                 result.exceptionOrNull()?.message
             }

@@ -254,13 +254,13 @@ class StaffManagementViewModel @Inject constructor(
     }
 }
 
-internal fun defaultTitleForRole(role: String): String =
-    when (role) {
-        "MANAGER" -> "店长助理"
-        "SALES" -> "销售员工"
-        "PURCHASING" -> "采购员工"
-        "WAREHOUSE" -> "仓库员工"
-        "FINANCE" -> "财务员工"
-        "ASSISTANT" -> "AI/只读助理"
-        else -> "店员"
-    }
+private val defaultTitleByRole = mapOf(
+    "MANAGER" to "店长助理",
+    "SALES" to "销售员工",
+    "PURCHASING" to "采购员工",
+    "WAREHOUSE" to "仓库员工",
+    "FINANCE" to "财务员工",
+    "ASSISTANT" to "AI/只读助理",
+)
+
+internal fun defaultTitleForRole(role: String): String = defaultTitleByRole[role] ?: "店员"

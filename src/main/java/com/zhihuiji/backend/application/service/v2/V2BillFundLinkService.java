@@ -6,7 +6,6 @@ import com.zhihuiji.backend.domain.entity.AccountEntity;
 import com.zhihuiji.backend.domain.entity.BillFundLinkEntity;
 import com.zhihuiji.backend.infrastructure.repository.AccountRepository;
 import com.zhihuiji.backend.infrastructure.repository.BillFundLinkRepository;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,11 +78,9 @@ public class V2BillFundLinkService {
         for (AccountEntity account : accountRepository.findAllByOwnerUserIdAndIdIn(ownerUserId, accountIds)) {
             accountNames.put(account.getId(), account.getName());
         }
-        List<V2FinanceDtos.BillFundLinkResponse> responses = new ArrayList<>(rows.size());
-        for (BillFundLinkEntity row : rows) {
-            responses.add(toResponse(row, accountNames.get(row.getAccountId())));
-        }
-        return responses;
+        return rows.stream()
+            .map(row -> toResponse(row, accountNames.get(row.getAccountId())))
+            .toList();
     }
 
     private V2FinanceDtos.BillFundLinkResponse toResponse(BillFundLinkEntity entity) {

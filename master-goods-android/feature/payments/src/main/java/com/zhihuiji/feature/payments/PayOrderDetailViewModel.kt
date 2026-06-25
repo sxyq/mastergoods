@@ -3,6 +3,7 @@ package com.zhihuiji.feature.payments
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.model.v2.order.PayOrderV2Dto
 import com.zhihuiji.data.order.PayOrderV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -11,9 +12,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import javax.inject.Inject
 
 data class PayOrderDetailUiState(
@@ -55,6 +53,5 @@ class PayOrderDetailViewModel @Inject constructor(
     }
 }
 
-fun PayOrderV2Dto.createdAtText(): String = if (createdAt > 0) {
-    SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(createdAt))
-} else ""
+fun PayOrderV2Dto.createdAtText(): String =
+    if (createdAt > 0) TimeFormatter.formatDateTime(createdAt) else ""
