@@ -63,11 +63,7 @@ public class V2ProductService {
             priceLevelService,
             supplierRelationService
         );
-        List<V2ProductDtos.ProductResponse> responses = new java.util.ArrayList<>(products.size());
-        for (ProductEntity product : products) {
-            responses.add(toResponse(product, context));
-        }
-        return responses;
+        return products.stream().map(product -> toResponse(product, context)).toList();
     }
 
     @Transactional(readOnly = true)
@@ -85,11 +81,7 @@ public class V2ProductService {
             priceLevelService,
             supplierRelationService
         );
-        List<V2ProductDtos.ProductResponse> responses = new java.util.ArrayList<>(products.size());
-        for (ProductEntity product : products) {
-            responses.add(toResponse(product, context));
-        }
-        return responses;
+        return products.stream().map(product -> toResponse(product, context)).toList();
     }
 
     @Transactional(readOnly = true)

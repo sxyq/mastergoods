@@ -52,11 +52,9 @@ public class V2PurchaseOrderService {
     public List<V2PurchaseOrderDtos.PurchaseOrderResponse> list(String keyword, Integer status) {
         List<PurchaseOrderEntity> orders = purchaseOrderService.list(keyword, status);
         Map<Long, List<PurchaseOrderItemEntity>> itemsByOrderId = findItemsByOrderId(orders);
-        List<V2PurchaseOrderDtos.PurchaseOrderResponse> responses = new ArrayList<>(orders.size());
-        for (PurchaseOrderEntity order : orders) {
-            responses.add(toResponse(order, itemsByOrderId.getOrDefault(order.getId(), List.of())));
-        }
-        return responses;
+        return orders.stream()
+            .map(order -> toResponse(order, itemsByOrderId.getOrDefault(order.getId(), List.of())))
+            .toList();
     }
 
     public V2PurchaseOrderDtos.PurchaseOrderResponse get(Long id) {
@@ -96,10 +94,7 @@ public class V2PurchaseOrderService {
     }
 
     private V2PurchaseOrderDtos.PurchaseOrderResponse toResponse(PurchaseOrderEntity order, List<PurchaseOrderItemEntity> items) {
-        List<V2PurchaseOrderDtos.PurchaseOrderItemResponse> itemResponses = new ArrayList<>(items.size());
-        for (PurchaseOrderItemEntity item : items) {
-            itemResponses.add(toItemResponse(item));
-        }
+        List<V2PurchaseOrderDtos.PurchaseOrderItemResponse> itemResponses = items.stream().map(this::toItemResponse).toList();
         return new V2PurchaseOrderDtos.PurchaseOrderResponse(
             order.getId(),
             order.getOrderNo(),

@@ -119,11 +119,9 @@ public class V2SaleOrderService {
             PageRequest.of(normalizePage(page), normalizeSize(size))
         );
         Map<Long, List<SaleOrderItemEntity>> itemsByOrderId = findItemsByOrderId(ownerUserId, orders);
-        List<V2SaleOrderDtos.SaleOrderResponse> responses = new ArrayList<>(orders.size());
-        for (SaleOrderEntity order : orders) {
-            responses.add(toResponse(order, itemsByOrderId.getOrDefault(order.getId(), List.of())));
-        }
-        return responses;
+        return orders.stream()
+            .map(order -> toResponse(order, itemsByOrderId.getOrDefault(order.getId(), List.of())))
+            .toList();
     }
 
     @Transactional(readOnly = true)
@@ -243,11 +241,7 @@ public class V2SaleOrderService {
     @Transactional(readOnly = true)
     public List<V2SaleOrderDtos.PaymentResponse> listPayments(Long id) {
         List<PaymentEntity> payments = saleOrderService.listPayments(id);
-        List<V2SaleOrderDtos.PaymentResponse> responses = new ArrayList<>(payments.size());
-        for (PaymentEntity payment : payments) {
-            responses.add(toPaymentResponse(payment));
-        }
-        return responses;
+        return payments.stream().map(this::toPaymentResponse).toList();
     }
 
     public void updateStatus(Long id, Integer status) {
@@ -263,10 +257,7 @@ public class V2SaleOrderService {
     }
 
     private V2SaleOrderDtos.SaleOrderResponse toResponse(SaleOrderEntity order, List<SaleOrderItemEntity> items) {
-        List<V2SaleOrderDtos.SaleOrderItemResponse> itemResponses = new ArrayList<>(items.size());
-        for (SaleOrderItemEntity item : items) {
-            itemResponses.add(toItemResponse(item));
-        }
+        List<V2SaleOrderDtos.SaleOrderItemResponse> itemResponses = items.stream().map(this::toItemResponse).toList();
         return new V2SaleOrderDtos.SaleOrderResponse(
             order.getId(),
             order.getOrderNo(),

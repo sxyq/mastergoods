@@ -395,10 +395,7 @@ public class V2PurchaseReturnService {
         if (returns.isEmpty()) {
             return reserved;
         }
-        List<Long> returnIds = new ArrayList<>(returns.size());
-        for (PurchaseReturnEntity purchaseReturn : returns) {
-            returnIds.add(purchaseReturn.getId());
-        }
+        List<Long> returnIds = returns.stream().map(PurchaseReturnEntity::getId).toList();
         List<PurchaseReturnItemEntity> allItems = purchaseReturnItemRepository.findAllByOwnerUserIdAndReturnIdIn(ownerUserId, returnIds);
         for (PurchaseReturnItemEntity item : allItems) {
             String key = productKey(item.getProductId(), item.getProductCode());
@@ -419,10 +416,7 @@ public class V2PurchaseReturnService {
         if (returns.isEmpty()) {
             return List.of();
         }
-        List<Long> returnIds = new ArrayList<>(returns.size());
-        for (PurchaseReturnEntity purchaseReturn : returns) {
-            returnIds.add(purchaseReturn.getId());
-        }
+        List<Long> returnIds = returns.stream().map(PurchaseReturnEntity::getId).toList();
         List<PurchaseReturnItemEntity> allItems = purchaseReturnItemRepository.findAllByOwnerUserIdAndReturnIdIn(ownerUserId, returnIds);
         allItems.sort(Comparator.comparing(PurchaseReturnItemEntity::getCreatedAt));
         Map<Long, List<PurchaseReturnItemEntity>> itemsByReturnId = new HashMap<>();
@@ -437,15 +431,13 @@ public class V2PurchaseReturnService {
             refundsByReturnId.computeIfAbsent(refund.getReturnId(), ignored -> new ArrayList<>()).add(refund);
         }
 
-        List<V2PurchaseReturnDtos.PurchaseReturnResponse> responses = new ArrayList<>(returns.size());
-        for (PurchaseReturnEntity entity : returns) {
-            responses.add(toResponse(
+        return returns.stream()
+            .map(entity -> toResponse(
                 entity,
                 itemsByReturnId.getOrDefault(entity.getId(), List.of()),
                 refundsByReturnId.getOrDefault(entity.getId(), List.of())
-            ));
-        }
-        return responses;
+            ))
+            .toList();
     }
 
     private V2PurchaseReturnDtos.PurchaseReturnResponse toResponse(
@@ -453,14 +445,8 @@ public class V2PurchaseReturnService {
         List<PurchaseReturnItemEntity> items,
         List<PurchaseReturnRefundEntity> refunds
     ) {
-        List<V2PurchaseReturnDtos.PurchaseReturnItemResponse> itemResponses = new ArrayList<>(items.size());
-        for (PurchaseReturnItemEntity item : items) {
-            itemResponses.add(toItemResponse(item));
-        }
-        List<V2PurchaseReturnDtos.PurchaseReturnRefundResponse> refundResponses = new ArrayList<>(refunds.size());
-        for (PurchaseReturnRefundEntity refund : refunds) {
-            refundResponses.add(toRefundResponse(refund));
-        }
+        List<V2PurchaseReturnDtos.PurchaseReturnItemResponse> itemResponses = items.stream().map(this::toItemResponse).toList();
+        List<V2PurchaseReturnDtos.PurchaseReturnRefundResponse> refundResponses = refunds.stream().map(this::toRefundResponse).toList();
         return new V2PurchaseReturnDtos.PurchaseReturnResponse(
             entity.getId(),
             entity.getReturnNo(),

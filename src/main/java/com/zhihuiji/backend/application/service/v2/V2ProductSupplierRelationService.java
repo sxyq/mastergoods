@@ -255,11 +255,9 @@ public class V2ProductSupplierRelationService {
 
     private List<V2ProductDtos.ProductSupplierRelationResponse> buildResponses(List<ProductSupplierRelationEntity> relations) {
         Map<Long, SupplierEntity> suppliersById = loadSuppliers(relations);
-        List<V2ProductDtos.ProductSupplierRelationResponse> responses = new java.util.ArrayList<>(relations.size());
-        for (ProductSupplierRelationEntity relation : relations) {
-            responses.add(toResponse(relation, suppliersById.get(relation.getSupplierId())));
-        }
-        return responses;
+        return relations.stream()
+            .map(relation -> toResponse(relation, suppliersById.get(relation.getSupplierId())))
+            .toList();
     }
 
     private Map<Long, SupplierEntity> loadSuppliers(List<ProductSupplierRelationEntity> relations) {

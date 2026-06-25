@@ -121,11 +121,9 @@ public class V2PurchaseReceiptService {
             ? listWithoutKeyword(ownerUserId, status)
             : purchaseReceiptRepository.search(ownerUserId, normalizedKeyword, status);
         Map<Long, List<PurchaseReceiptItemEntity>> itemsByReceiptId = loadItemsByReceiptId(ownerUserId, receipts);
-        List<V2PurchaseReceiptDtos.PurchaseReceiptResponse> responses = new ArrayList<>(receipts.size());
-        for (PurchaseReceiptEntity receipt : receipts) {
-            responses.add(toResponse(receipt, itemsByReceiptId.getOrDefault(receipt.getId(), List.of())));
-        }
-        return responses;
+        return receipts.stream()
+            .map(receipt -> toResponse(receipt, itemsByReceiptId.getOrDefault(receipt.getId(), List.of())))
+            .toList();
     }
 
     @Transactional(readOnly = true)
@@ -141,11 +139,9 @@ public class V2PurchaseReceiptService {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         List<PurchaseReceiptEntity> receipts = purchaseReceiptRepository.findByOwnerUserIdAndPurchaseOrderIdOrderByCreatedAtDesc(ownerUserId, purchaseOrderId);
         Map<Long, List<PurchaseReceiptItemEntity>> itemsByReceiptId = loadItemsByReceiptId(ownerUserId, receipts);
-        List<V2PurchaseReceiptDtos.PurchaseReceiptResponse> responses = new ArrayList<>(receipts.size());
-        for (PurchaseReceiptEntity receipt : receipts) {
-            responses.add(toResponse(receipt, itemsByReceiptId.getOrDefault(receipt.getId(), List.of())));
-        }
-        return responses;
+        return receipts.stream()
+            .map(receipt -> toResponse(receipt, itemsByReceiptId.getOrDefault(receipt.getId(), List.of())))
+            .toList();
     }
 
     @Transactional
