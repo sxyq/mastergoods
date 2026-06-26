@@ -181,3 +181,7 @@ Flyway migrations in `src/main/resources/db/migration/` follow a deliberate mult
 8. Am I writing a `when` with >2 branches for Int→String? → Convert to `mapOf` lookup table
 9. Am I writing a `for` loop to build a list? → Use `stream().map().toList()` (Backend) / `map{}` (Android)
 10. Am I creating a local `DecimalFormat`/`SimpleDateFormat`? → Use ThreadLocal formatters instead
+11. Am I creating a new database table? → MUST include `owner_user_id BIGINT NOT NULL` + owner-scoped index (follow V7+ pattern)
+12. Am I writing a repository `@Query`? → MUST include `ownerUserId` parameter for multi-tenant isolation
+13. Am I inserting user data via `innerHTML` (Web/JS)? → MUST call `escapeHtml()` first (admin-console pattern)
+14. Am I writing an Android network config? → Keep `cleartextTrafficPermitted="false"` in both debug and release

@@ -69,6 +69,7 @@ public class ProductService {
         return productRepository.save(product);
     }
 
+    @Transactional
     public ProductEntity update(Long id, ProductEntity payload) {
         ProductEntity target = get(id);
         target.setName(payload.getName());

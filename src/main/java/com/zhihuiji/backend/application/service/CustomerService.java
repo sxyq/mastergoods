@@ -29,6 +29,7 @@ public class CustomerService {
             .orElseThrow(() -> new IllegalArgumentException("客户不存在"));
     }
 
+    @Transactional
     public CustomerEntity create(CustomerEntity customer) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         String normalizedPhone = customer.getPhone() == null ? "" : customer.getPhone().trim();
@@ -45,6 +46,7 @@ public class CustomerService {
         return customerRepository.save(customer);
     }
 
+    @Transactional
     public CustomerEntity update(Long id, CustomerEntity payload) {
         CustomerEntity target = get(id);
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
