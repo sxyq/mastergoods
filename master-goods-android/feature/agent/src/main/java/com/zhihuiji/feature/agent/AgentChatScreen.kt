@@ -7,6 +7,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -26,23 +28,32 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Compress
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,6 +68,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -170,106 +183,157 @@ fun AgentChatScreen(
         }
     }
 
-    GlassScaffold(
-        modifier = modifier.fillMaxSize(),
-        topBar = {
-            GlassTopBar(
-                title = "AI 对话",
-                subtitle = if (uiState.isStreaming) "正在分析真实业务数据" else "真实问答与结果块",
-                onNavigationClick = onNavigateBack,
-                actions = {
-                    if (messages.isNotEmpty()) {
-                        IconButton(onClick = viewModel::clearMessages) {
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    LaunchedEffect(uiState.isDrawerOpen) {
+        if (uiState.isDrawerOpen && !drawerState.isOpen) {
+            drawerState.open()
+        } else if (!uiState.isDrawerOpen && drawerState.isOpen) {
+            drawerState.close()
+        }
+    }
+    // 重连中提示
+    val retryMessage = uiState.retryMessage
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                ConversationListPanel(
+                    conversations = uiState.conversations,
+                    currentConversationId = uiState.conversationId,
+                    isLoading = uiState.isLoadingConversations,
+                    onSwitch = viewModel::switchConversation,
+                    onDelete = viewModel::deleteConversation,
+                    onCreateNew = {
+                        viewModel.closeDrawer()
+                        viewModel.clearMessages()
+                    },
+                )
+            }
+        },
+    ) {
+        GlassScaffold(
+            modifier = modifier.fillMaxSize(),
+            topBar = {
+                GlassTopBar(
+                    title = "AI 对话",
+                    subtitle = if (uiState.isStreaming) "正在分析真实业务数据" else "真实问答与结果块",
+                    onNavigationClick = onNavigateBack,
+                    actions = {
+                        IconButton(onClick = viewModel::openDrawer) {
                             Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "清空对话",
-                                tint = TextSecondary
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "会话列表",
+                                tint = TextSecondary,
                             )
+                        }
+                        if (messages.isNotEmpty()) {
+                            IconButton(onClick = viewModel::clearMessages) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "清空对话",
+                                    tint = TextSecondary
+                                )
+                            }
                         }
                     }
-                }
-            )
-        },
-        bottomBar = {
-            ChatInputBar(
-                inputText = uiState.inputText,
-                isStreaming = uiState.isStreaming,
-                canStop = uiState.canStop,
-                onInputChange = viewModel::onInputChange,
-                onSend = viewModel::sendMessage,
-                onStop = viewModel::stopGeneration,
+                )
+            },
+            bottomBar = {
+                ChatInputBar(
+                    inputText = uiState.inputText,
+                    isStreaming = uiState.isStreaming,
+                    canStop = uiState.canStop,
+                    onInputChange = viewModel::onInputChange,
+                    onSend = viewModel::sendMessage,
+                    onStop = viewModel::stopGeneration,
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .imePadding(),
+                )
+            }
+        ) { padding ->
+            Box(
                 modifier = Modifier
-                    .navigationBarsPadding()
-                    .imePadding(),
-            )
-        }
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            when {
-                uiState.messages.isEmpty() && !uiState.isLoading -> {
-                    EmptyChatState()
-                }
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+                when {
+                    uiState.messages.isEmpty() && !uiState.isLoading -> {
+                        EmptyChatState(
+                            onPillClick = { pillText ->
+                                viewModel.onInputChange(pillText)
+                                viewModel.sendMessage()
+                            },
+                        )
+                    }
 
-                else -> {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(
-                            start = AgentChatHorizontalPadding,
-                            top = AgentChatTopPadding,
-                            end = AgentChatHorizontalPadding,
-                            bottom = AgentChatBottomInputClearance,
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(
-                            items = messages,
-                            key = { it.id },
-                            contentType = { message -> "message-${message.role.name.lowercase()}" },
-                        ) { message ->
-                            ChatMessageItem(
-                                message = message,
-                                allowActiveAnimations = message.id == activeStreamingMessageId,
-                                onToggleRunTrace = { viewModel.toggleRunTrace(message.id) },
-                            )
-                        }
+                    else -> {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(
+                                start = AgentChatHorizontalPadding,
+                                top = AgentChatTopPadding,
+                                end = AgentChatHorizontalPadding,
+                                bottom = AgentChatBottomInputClearance,
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(
+                                items = messages,
+                                key = { it.id },
+                                contentType = { message -> "message-${message.role.name.lowercase()}" },
+                            ) { message ->
+                                ChatMessageItem(
+                                    message = message,
+                                    allowActiveAnimations = message.id == activeStreamingMessageId,
+                                    onToggleRunTrace = { viewModel.toggleRunTrace(message.id) },
+                                    onRegenerate = { viewModel.regenerateMessage(message.id) },
+                                )
+                            }
 
-                        val showStandaloneTyping = lastAssistantMessage
-                            .shouldShowStandaloneTypingIndicator(uiState.isStreaming)
-                        if (showStandaloneTyping) {
-                            item(
-                                key = "standalone-typing-indicator",
-                                contentType = "typing-indicator",
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.Start
+                            val showStandaloneTyping = lastAssistantMessage
+                                .shouldShowStandaloneTypingIndicator(uiState.isStreaming)
+                            if (showStandaloneTyping) {
+                                item(
+                                    key = "standalone-typing-indicator",
+                                    contentType = "typing-indicator",
                                 ) {
-                                    StreamWaitingIndicator()
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.Start
+                                    ) {
+                                        StreamWaitingIndicator()
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            // 上下文压缩提示（浮动）
-            uiState.contextCompacted?.let { compacted ->
-                ContextCompactedBanner(
-                    state = compacted,
-                    onDismiss = viewModel::dismissContextCompacted,
-                    modifier = Modifier.align(Alignment.TopCenter)
+                // 上下文压缩提示（浮动）
+                uiState.contextCompacted?.let { compacted ->
+                    ContextCompactedBanner(
+                        state = compacted,
+                        onDismiss = viewModel::dismissContextCompacted,
+                        modifier = Modifier.align(Alignment.TopCenter)
+                    )
+                }
+
+                // 重连中提示（浮动）
+                if (retryMessage != null) {
+                    RetryBanner(
+                        message = retryMessage,
+                        modifier = Modifier.align(Alignment.TopCenter)
+                    )
+                }
+
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier.align(Alignment.BottomCenter)
                 )
             }
-
-            SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier.align(Alignment.BottomCenter)
-            )
         }
     }
 
@@ -288,10 +352,13 @@ private fun ChatMessageItem(
     message: ChatMessage,
     allowActiveAnimations: Boolean,
     onToggleRunTrace: () -> Unit,
+    onRegenerate: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val isUser = message.role == MessageRole.USER
     val runTrace = message.runTrace
+    val clipboardManager = LocalClipboardManager.current
+    var copied by remember(message.id) { mutableStateOf(false) }
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -416,6 +483,19 @@ private fun ChatMessageItem(
                     Spacer(modifier = Modifier.height(8.dp))
                     RealQueryStatusCard()
                 }
+
+                // AI 消息操作栏（复制 / 重新生成），仅非流式且非错误时展示
+                if (!isUser && !message.isStreaming && !message.isError && message.content.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    AssistantMessageActionBar(
+                        copied = copied,
+                        onCopy = {
+                            clipboardManager.setText(AnnotatedString(message.content))
+                            copied = true
+                        },
+                        onRegenerate = onRegenerate,
+                    )
+                }
             }
         }
 
@@ -449,6 +529,93 @@ private fun ChatMessage.displayParts(): List<ChatMessagePart> =
             }
         }
     }
+
+@Composable
+private fun AssistantMessageActionBar(
+    copied: Boolean,
+    onCopy: () -> Unit,
+    onRegenerate: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AssistantActionButton(
+            icon = Icons.Default.ContentCopy,
+            label = if (copied) "已复制" else "复制",
+            onClick = onCopy,
+        )
+        AssistantActionButton(
+            icon = Icons.Default.Refresh,
+            label = "重新生成",
+            onClick = onRegenerate,
+        )
+    }
+}
+
+@Composable
+private fun AssistantActionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(Color.White.copy(alpha = 0.6f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = TextSecondary,
+            modifier = Modifier.size(14.dp),
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = TextSecondary,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
+private fun RetryBanner(
+    message: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .padding(16.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(WarningOrange.copy(alpha = 0.14f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(
+                color = WarningOrange,
+                strokeWidth = 1.8.dp,
+                modifier = Modifier.size(14.dp),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.labelSmall,
+                color = WarningOrange,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+}
 
 private fun ChatMessage.streamingAutoFollowBucket(): Int =
     (content.length / 80) + parts.size
@@ -1153,10 +1320,13 @@ private fun ChatInputBar(
             GlassTextField(
                 value = inputText,
                 onValueChange = onInputChange,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(max = 120.dp)
+                    .verticalScroll(rememberScrollState()),
                 label = null,
                 placeholder = "输入经营问题，AI 会查询真实业务数据...",
-                singleLine = true,
+                singleLine = false,
                 shape = RoundedCornerShape(24.dp),
                 enabled = !isStreaming,
             )
@@ -1198,6 +1368,7 @@ private fun ChatInputBar(
 
 @Composable
 private fun EmptyChatState(
+    onPillClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -1245,7 +1416,11 @@ private fun EmptyChatState(
                         1 -> AgentAssistantAccent
                         else -> WarningOrange
                     }
-                    EmptyStatePill(label, accent)
+                    EmptyStatePill(
+                        text = label,
+                        accent = accent,
+                        onClick = { onPillClick(label) },
+                    )
                 }
             }
         }
@@ -1262,6 +1437,7 @@ internal fun emptyChatPills(): List<String> =
 private fun EmptyStatePill(
     text: String,
     accent: Color,
+    onClick: () -> Unit,
 ) {
     Text(
         text = text,
@@ -1271,6 +1447,7 @@ private fun EmptyStatePill(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
             .background(accent.copy(alpha = 0.10f))
+            .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
     )
 }

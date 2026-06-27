@@ -35,6 +35,10 @@ import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
 import com.zhihuiji.backend.infrastructure.repository.PurchaseOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.SaleOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
+import com.zhihuiji.backend.application.service.v2.agent.tool.AgentTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.ToolContext;
+import com.zhihuiji.backend.application.service.v2.agent.tool.ToolRegistry;
+import com.zhihuiji.backend.application.service.v2.agent.tool.ToolResult;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -82,12 +86,6 @@ public class V2AgentAiService {
     private static final int AUDIT_WRITE_QUEUE_CAPACITY = 512;
     private static final int ANSWER_DELTA_BATCH_CHAR_THRESHOLD = 24;
     private static final String RULE_SUMMARY_NOTICE = "说明：本回答为真实数据查询后的规则摘要，当前未使用模型生成。";
-    private static final Map<String, Object> DEFAULT_LIMIT_TOOL_INPUT = Map.of("limit", DEFAULT_TOOL_LIMIT);
-    private static final Map<String, Object> OVERVIEW_TOOL_INPUT = Map.of(
-        "window_days", 7,
-        "rank_limit", OVERVIEW_SIGNAL_LIMIT,
-        "low_stock_limit", OVERVIEW_SIGNAL_LIMIT
-    );
 
     private final CurrentOwnerService currentOwnerService;
     private final AgentConversationRepository agentConversationRepository;
@@ -107,7 +105,9 @@ public class V2AgentAiService {
     private final PaymentRepository paymentRepository;
     private final ObjectMapper objectMapper;
     private final LongCatAnthropicClient longCatAnthropicClient;
+    private final ToolRegistry toolRegistry;
     private final Map<String, ActiveAgentRun> activeRuns = new ConcurrentHashMap<>();
+    private final Map<Long, List<Long>> writeFrequencyTracker = new ConcurrentHashMap<>();
     private final ExecutorService streamExecutor = Executors.newFixedThreadPool(4, namedThreadFactory("agent-sse-stream"));
     private ThreadPoolExecutor auditWriteExecutor = new ThreadPoolExecutor(
         AUDIT_WRITE_THREADS,
@@ -137,7 +137,8 @@ public class V2AgentAiService {
         FinanceRecordRepository financeRecordRepository,
         PaymentRepository paymentRepository,
         ObjectMapper objectMapper,
-        LongCatAnthropicClient longCatAnthropicClient
+        LongCatAnthropicClient longCatAnthropicClient,
+        ToolRegistry toolRegistry
     ) {
         this.currentOwnerService = currentOwnerService;
         this.agentConversationRepository = agentConversationRepository;
@@ -157,6 +158,7 @@ public class V2AgentAiService {
         this.paymentRepository = paymentRepository;
         this.objectMapper = objectMapper;
         this.longCatAnthropicClient = longCatAnthropicClient;
+        this.toolRegistry = toolRegistry;
     }
 
     @PreDestroy
@@ -305,7 +307,8 @@ public class V2AgentAiService {
 
         ResponsePayload payload = buildResponse(ownerUserId, message, null, runId);
         long modelStartedAt = System.currentTimeMillis();
-        FinalAnswer finalAnswer = buildFinalAnswer(message, payload);
+        List<AgentMessageEntity> history = loadRecentHistory(ownerUserId, conversation.getId(), 10);
+        FinalAnswer finalAnswer = buildFinalAnswer(message, payload, history, conversation.getLatestSummary());
         long completedAt = System.currentTimeMillis();
         long modelDurationMs = finalAnswer.modelAttempted()
             ? Math.max(0L, completedAt - modelStartedAt)
@@ -550,6 +553,7 @@ public class V2AgentAiService {
             ensureRunActive(runId);
             ResponsePayload payload = buildResponse(ownerUserId, message, emitter, runId);
             ensureRunActive(runId);
+            List<AgentMessageEntity> history = loadRecentHistory(ownerUserId, conversation.getId(), 10);
             AtomicBoolean blocksEmitted = new AtomicBoolean(false);
             Runnable emitBlocksAfterVisibleAnswer = () -> {
                 if (blocksEmitted.compareAndSet(false, true)) {
@@ -562,7 +566,9 @@ public class V2AgentAiService {
                 payload,
                 emitter,
                 runId,
-                emitBlocksAfterVisibleAnswer
+                emitBlocksAfterVisibleAnswer,
+                history,
+                conversation.getLatestSummary()
             );
             ensureRunActive(runId);
             emitAnswerCompleted(
@@ -618,11 +624,41 @@ public class V2AgentAiService {
         List<String> answers = new ArrayList<>();
         List<ToolExecutionResult> toolResults = new ArrayList<>();
         List<ToolFailureResult> toolFailures = new ArrayList<>();
+        executeToolPlan(ownerUserId, emitter, runId, plan, blocks, answers, toolResults, toolFailures);
+
+        // Agent 循环：若 LLM 规划的工具全部无结果，用关键词兜底重试一轮
+        if (answers.isEmpty() && "llm".equals(plan.source()) && !plan.tools().isEmpty()) {
+            AgentToolPlan fallbackPlan = inferToolPlan(message);
+            if (!fallbackPlan.tools().isEmpty() && !fallbackPlan.tools().equals(plan.tools())) {
+                emitPlan(emitter, runId, fallbackPlan);
+                executeToolPlan(ownerUserId, emitter, runId, fallbackPlan, blocks, answers, toolResults, toolFailures);
+                plan = new AgentToolPlan(
+                    fallbackPlan.tools(), plan.rationale() + " + 关键词兜底", "llm_with_fallback", plan.toolParams()
+                );
+            }
+        }
+
+        if (!toolResults.isEmpty()) {
+            ensureRunActive(runId);
+            V2AgentDtos.ResultBlockDto evidenceBlock = buildEvidenceBlock(runId, toolResults);
+            blocks.add(evidenceBlock);
+        }
+
+        if (answers.isEmpty()) {
+            answers.add(toolFailures.isEmpty() ? buildUnsupportedIntentAnswer() : buildAllToolsFailedAnswer(toolFailures));
+        }
+
+        return new ResponsePayload(String.join("\n", answers), blocks, toolResults, toolFailures, plan);
+    }
+
+    private void executeToolPlan(Long ownerUserId, SseEmitter emitter, String runId, AgentToolPlan plan,
+                                  List<V2AgentDtos.ResultBlockDto> blocks, List<String> answers,
+                                  List<ToolExecutionResult> toolResults, List<ToolFailureResult> toolFailures) {
         for (String tool : plan.tools()) {
             long startedAt = System.currentTimeMillis();
             try {
                 ensureRunActive(runId);
-                ResponsePayload payload = executePlannedTool(ownerUserId, emitter, runId, tool);
+                ResponsePayload payload = executePlannedTool(ownerUserId, emitter, runId, tool, plan.toolParams().get(tool));
                 ensureRunActive(runId);
                 if (payload != null) {
                     answers.add(payload.answer());
@@ -647,47 +683,62 @@ public class V2AgentAiService {
                     errorSummary,
                     System.currentTimeMillis() - startedAt,
                     startedAt,
-                    toolInputFor(tool)
+                    paramsToInputMap(plan.toolParams().get(tool))
                 );
             }
         }
-
-        if (!toolResults.isEmpty()) {
-            ensureRunActive(runId);
-            V2AgentDtos.ResultBlockDto evidenceBlock = buildEvidenceBlock(runId, toolResults);
-            blocks.add(evidenceBlock);
-        }
-
-        if (answers.isEmpty()) {
-            answers.add(toolFailures.isEmpty() ? buildUnsupportedIntentAnswer() : buildAllToolsFailedAnswer(toolFailures));
-        }
-
-        return new ResponsePayload(String.join("\n", answers), blocks, toolResults, toolFailures, plan);
     }
 
-    private ResponsePayload executePlannedTool(Long ownerUserId, SseEmitter emitter, String runId, String tool) {
-        return switch (tool) {
-            case "inventory_low_stock_lookup" -> buildInventoryResponse(ownerUserId, emitter, runId);
-            case "product_catalog_lookup" -> buildProductCatalogResponse(ownerUserId, emitter, runId);
-            case "customer_receivable_lookup" -> buildReceivableResponse(ownerUserId, emitter, runId);
-            case "supplier_payable_lookup" -> buildSupplierPayableResponse(ownerUserId, emitter, runId);
-            case "sale_order_lookup" -> buildSaleOrderResponse(ownerUserId, emitter, runId);
-            case "purchase_order_lookup" -> buildPurchaseOrderResponse(ownerUserId, emitter, runId);
-            case "pay_order_lookup" -> buildPayOrderResponse(ownerUserId, emitter, runId);
-            case "finance_record_lookup" -> buildFinanceRecordResponse(ownerUserId, emitter, runId);
-            case "sales_overview_lookup" -> buildOverviewResponse(ownerUserId, emitter, runId);
-            default -> null;
-        };
+    private ResponsePayload executePlannedTool(Long ownerUserId, SseEmitter emitter, String runId, String tool, JsonNode params) {
+        Optional<ToolResult> registered = executeRegisteredTool(ownerUserId, emitter, runId, tool, params);
+        if (registered.isPresent()) {
+            return adaptToolResult(registered.get(), tool);
+        }
+        return null;
     }
 
-    private Map<String, Object> toolInputFor(String toolName) {
-        return switch (toolName) {
-            case "inventory_low_stock_lookup", "product_catalog_lookup", "customer_receivable_lookup",
-                "supplier_payable_lookup", "sale_order_lookup", "purchase_order_lookup",
-                "pay_order_lookup", "finance_record_lookup" -> DEFAULT_LIMIT_TOOL_INPUT;
-            case "sales_overview_lookup" -> OVERVIEW_TOOL_INPUT;
-            default -> Map.of();
-        };
+    /**
+     * 执行已注册到 {@link ToolRegistry} 的工具。
+     *
+     * <p>注册表优先策略：新增工具实现 {@link AgentTool} + {@code @Component} 后自动注册，
+     * 此方法会优先匹配并执行；未注册的工具返回 {@link Optional#empty()}，由旧 switch 兜底。
+     *
+     * @param ownerUserId 归属用户 ID
+     * @param emitter     SSE 推送器
+     * @param runId       运行 ID
+     * @param tool        工具名
+     * @return 工具执行结果 Optional（未注册时返回 empty）
+     */
+    private Optional<ToolResult> executeRegisteredTool(Long ownerUserId, SseEmitter emitter, String runId, String tool, JsonNode params) {
+        ToolContext ctx = new ToolContext(ownerUserId, null, null, runId, emitter, objectMapper);
+        return toolRegistry.executeTool(tool, ctx, params);
+    }
+
+    /**
+     * 将 {@link ToolResult} 适配为 {@link ResponsePayload}。
+     *
+     * @param result   工具执行结果
+     * @param toolName 工具名
+     * @return 适配后的 ResponsePayload（失败时返回 null）
+     */
+    private ResponsePayload adaptToolResult(ToolResult result, String toolName) {
+        if (!result.success()) {
+            return null;
+        }
+        ToolExecutionResult toolResult = new ToolExecutionResult(toolName, result.toolSummary(), result.toolFacts());
+        return new ResponsePayload(result.answer(), result.blocks(), List.of(toolResult));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> paramsToInputMap(JsonNode params) {
+        if (params == null || !params.isObject()) {
+            return Map.of();
+        }
+        try {
+            return objectMapper.convertValue(params, Map.class);
+        } catch (Exception ignored) {
+            return Map.of();
+        }
     }
 
     private AgentToolPlan planTools(String message) {
@@ -698,23 +749,35 @@ public class V2AgentAiService {
         if (!longCatAnthropicClient.isConfigured()) {
             return Optional.empty();
         }
-        String systemPrompt = """
-            你是智慧记的工具规划器。你只能选择白名单中的只读数据查询工具，不允许生成 SQL，不允许访问其他账号数据，不允许执行写操作。
-            可选工具：
-            - inventory_low_stock_lookup：查询当前账号低库存、补货、缺货相关数据
-            - customer_receivable_lookup：查询当前账号客户欠款、应收、回款优先级
-            - sales_overview_lookup：查询当前账号近7天销售、回款、经营概览
-            - product_catalog_lookup：查询当前账号商品、库存、价格、类别相关数据
-            - supplier_payable_lookup：查询当前账号供应商欠款、应付与采购相关数据
-            - sale_order_lookup：查询当前账号销售单、客户订单与收款情况
-            - purchase_order_lookup：查询当前账号采购单、供应商采购与到货情况
-            - pay_order_lookup：查询当前账号付款单、付款状态与金额
-            - finance_record_lookup：查询当前账号收入支出流水、分类与近期开支
-            只输出 JSON，不要输出 Markdown。
-            """;
+        // 工具清单优先从注册表动态生成；注册表为空时降级为旧硬编码白名单（渐进式迁移兼容）
+        String toolCatalog = toolRegistry.buildToolCatalogForLlm();
+        String systemPrompt;
+        if (toolCatalog.isBlank()) {
+            systemPrompt = """
+                你是智慧记的工具规划器。你只能选择白名单中的只读数据查询工具，不允许生成 SQL，不允许访问其他账号数据，不允许执行写操作。
+                可选工具：
+                - inventory_low_stock_lookup：查询当前账号低库存、补货、缺货相关数据
+                - customer_receivable_lookup：查询当前账号客户欠款、应收、回款优先级
+                - sales_overview_lookup：查询当前账号近7天销售、回款、经营概览
+                - product_catalog_lookup：查询当前账号商品、库存、价格、类别相关数据
+                - supplier_payable_lookup：查询当前账号供应商欠款、应付与采购相关数据
+                - sale_order_lookup：查询当前账号销售单、客户订单与收款情况
+                - purchase_order_lookup：查询当前账号采购单、供应商采购与到货情况
+                - pay_order_lookup：查询当前账号付款单、付款状态与金额
+                - finance_record_lookup：查询当前账号收入支出流水、分类与近期开支
+                只输出 JSON，不要输出 Markdown。
+                """;
+        } else {
+            systemPrompt = "你是智慧记的工具规划器。你可以选择以下只读查询工具和创建类工具。\n"
+                + "只读工具直接返回查询结果；创建类工具会生成草稿，需用户确认后才执行写入，不会直接修改数据。\n"
+                + "不允许生成 SQL，不允许访问其他账号数据。\n"
+                + "可选工具：\n"
+                + toolCatalog
+                + "只输出 JSON，不要输出 Markdown。\n";
+        }
         String userPrompt = "用户问题：" + message + "\n"
-            + "请输出形如 {\"tools\":[\"sales_overview_lookup\"],\"rationale\":\"...\"} 的 JSON。"
-            + "tools 最多 3 个，必须来自白名单。";
+            + "请输出形如 {\"tools\":[{\"name\":\"sale_order_lookup\",\"params\":{\"keyword\":\"张三\"}}],\"rationale\":\"...\"} 的 JSON。"
+            + "tools 最多 3 个，必须来自可选工具。params 为该工具的查询参数，根据用户问题提取，无参数时省略 params 字段。";
         return longCatAnthropicClient.createJsonMessage(systemPrompt, userPrompt).flatMap(this::parseToolPlan);
     }
 
@@ -722,12 +785,23 @@ public class V2AgentAiService {
         try {
             JsonNode root = objectMapper.readTree(extractJsonObject(rawText));
             Set<String> tools = new LinkedHashSet<>();
+            Map<String, JsonNode> toolParams = new LinkedHashMap<>();
             JsonNode toolsNode = root.get("tools");
             if (toolsNode != null && toolsNode.isArray()) {
                 for (JsonNode item : toolsNode) {
-                    String tool = item.asText("");
+                    String tool;
+                    JsonNode params = null;
+                    if (item.isObject()) {
+                        tool = item.path("name").asText("");
+                        params = item.get("params");
+                    } else {
+                        tool = item.asText("");
+                    }
                     if (isAllowedTool(tool)) {
                         tools.add(tool);
+                        if (params != null && params.isObject()) {
+                            toolParams.put(tool, params);
+                        }
                     }
                     if (tools.size() >= 3) {
                         break;
@@ -738,7 +812,7 @@ public class V2AgentAiService {
                 return Optional.empty();
             }
             String rationale = root.path("rationale").asText("模型选择了当前问题所需的只读查询工具");
-            return Optional.of(new AgentToolPlan(new ArrayList<>(tools), rationale));
+            return Optional.of(new AgentToolPlan(new ArrayList<>(tools), rationale, toolParams));
         } catch (Exception ignored) {
             return Optional.empty();
         }
@@ -793,705 +867,15 @@ public class V2AgentAiService {
                 break;
             }
         }
-        return new AgentToolPlan(deduplicated, "根据问题关键词兜底选择只读查询工具", "keyword_fallback");
+        return new AgentToolPlan(deduplicated, "根据问题关键词兜底选择只读查询工具", "keyword_fallback", Map.of());
     }
 
     private boolean isAllowedTool(String tool) {
-        return "inventory_low_stock_lookup".equals(tool)
-            || "customer_receivable_lookup".equals(tool)
-            || "sales_overview_lookup".equals(tool)
-            || "product_catalog_lookup".equals(tool)
-            || "supplier_payable_lookup".equals(tool)
-            || "sale_order_lookup".equals(tool)
-            || "purchase_order_lookup".equals(tool)
-            || "pay_order_lookup".equals(tool)
-            || "finance_record_lookup".equals(tool);
+        Optional<AgentTool> registered = toolRegistry.getTool(tool);
+        return registered.isPresent() && (registered.get().type() == AgentTool.ToolType.READ_ONLY
+            || registered.get().type() == AgentTool.ToolType.CREATE_ONLY);
     }
 
-    private ResponsePayload buildInventoryResponse(Long ownerUserId, SseEmitter emitter, String runId) {
-        ToolAudit audit = startToolAudit(emitter, runId, "inventory_low_stock_lookup", DEFAULT_LIMIT_TOOL_INPUT);
-        List<ProductEntity> products = productRepository.findLowStockProducts(ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
-        List<ProductEntity> topProducts = limit(products, 5);
-        audit.markLimitedResult(products.size(), DEFAULT_TOOL_LIMIT);
-        emitToolCompleted(emitter, runId, "inventory_low_stock_lookup", "命中 " + products.size() + " 个低库存商品", audit);
-
-        List<String> affectedItems = new ArrayList<>(topProducts.size());
-        List<List<Object>> rows = new ArrayList<>(products.size());
-        List<Map<String, Object>> topItems = new ArrayList<>(topProducts.size());
-        for (int index = 0; index < topProducts.size(); index += 1) {
-            affectedItems.add(topProducts.get(index).getName());
-        }
-        for (int index = 0; index < products.size(); index += 1) {
-            ProductEntity item = products.get(index);
-            rows.add(List.of(
-                item.getName(),
-                item.getCode(),
-                formatNumber(item.getStock()),
-                formatNumber(item.getSafeStock()),
-                money(safeDouble(item.getSalePrice()))
-            ));
-        }
-        for (int index = 0; index < topProducts.size(); index += 1) {
-            ProductEntity item = topProducts.get(index);
-            topItems.add(mapOf(
-                "name", item.getName(),
-                "code", item.getCode(),
-                "stock", formatNumber(item.getStock()),
-                "safe_stock", formatNumber(item.getSafeStock()),
-                "sale_price", money(safeDouble(item.getSalePrice()))
-            ));
-        }
-        V2AgentDtos.ResultBlockDto riskBlock = new V2AgentDtos.ResultBlockDto(
-            "risk_card",
-            "库存风险",
-            toJsonNode(mapOf(
-                "level", products.isEmpty() ? "low" : "high",
-                "title", products.isEmpty() ? "暂无低库存风险" : "检测到低库存商品",
-                "description", products.isEmpty() ? "当前库存没有低于安全库存的商品。" : "建议优先补货，避免影响销售。",
-                "affected_items", affectedItems,
-                "suggested_action", products.isEmpty() ? "保持当前补货节奏" : "先处理前 3 个低库存商品"
-            ))
-        );
-        V2AgentDtos.ResultBlockDto tableBlock = new V2AgentDtos.ResultBlockDto(
-            "table",
-            "低库存商品列表",
-            toJsonNode(mapOf(
-                "headers", List.of("商品", "编码", "当前库存", "安全库存", "销售价"),
-                "rows", rows,
-                "row_count", products.size()
-            ))
-        );
-
-        List<V2AgentDtos.ResultBlockDto> blocks = List.of(riskBlock, tableBlock);
-        String answer = products.isEmpty()
-            ? "我已经检查了当前账号下的库存，暂时没有发现低于安全库存的商品。"
-            : "我已经找出当前账号下最需要关注的低库存商品，建议先处理排在前面的补货项。";
-        ToolExecutionResult toolResult = new ToolExecutionResult(
-            "inventory_low_stock_lookup",
-            "低库存商品 " + products.size() + " 个",
-            toJsonNode(mapOf(
-                "low_stock_count", products.size(),
-                "query_audit", audit.facts(),
-                "top_items", topItems
-            ))
-        );
-        return new ResponsePayload(answer, blocks, List.of(toolResult));
-    }
-
-    private ResponsePayload buildProductCatalogResponse(Long ownerUserId, SseEmitter emitter, String runId) {
-        ToolAudit audit = startToolAudit(emitter, runId, "product_catalog_lookup", DEFAULT_LIMIT_TOOL_INPUT);
-        List<ProductEntity> products = productRepository.findAllByOwnerUserIdOrderByNameAsc(ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
-        List<ProductEntity> topProducts = limit(products, 5);
-        long totalProductCount = safeLong(productRepository.countByOwnerUserId(ownerUserId));
-        double totalStock = safeDouble(productRepository.sumStockByOwnerUserId(ownerUserId));
-        long lowStockCount = safeLong(productRepository.countLowStockByOwnerUserId(ownerUserId));
-        audit.markLimitedResult(products.size(), DEFAULT_TOOL_LIMIT);
-        emitToolCompleted(emitter, runId, "product_catalog_lookup", "返回 " + products.size() + " 个商品，总计 " + totalProductCount + " 个商品", audit);
-
-        ProductEntity maxStockProduct = null;
-        double maxStock = Double.NEGATIVE_INFINITY;
-        List<List<Object>> rows = new ArrayList<>(products.size());
-        List<Map<String, Object>> topProductItems = new ArrayList<>(topProducts.size());
-        for (int index = 0; index < products.size(); index += 1) {
-            ProductEntity item = products.get(index);
-            double stock = safeDouble(item.getStock());
-            if (stock > maxStock) {
-                maxStock = stock;
-                maxStockProduct = item;
-            }
-            rows.add(List.of(
-                item.getName(),
-                item.getCode(),
-                safeText(item.getCategory(), "-"),
-                formatNumber(stock),
-                money(safeDouble(item.getSalePrice()))
-            ));
-        }
-        for (int index = 0; index < topProducts.size(); index += 1) {
-            ProductEntity item = topProducts.get(index);
-            topProductItems.add(mapOf(
-                "name", item.getName(),
-                "code", item.getCode(),
-                "category", safeText(item.getCategory(), "-"),
-                "stock", formatNumber(safeDouble(item.getStock())),
-                "sale_price", money(safeDouble(item.getSalePrice()))
-            ));
-        }
-
-        V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
-            "kpi_grid",
-            "商品概览",
-            toJsonNode(mapOf(
-                "kpis", List.of(
-                    mapOf("label", "商品总数", "value", String.valueOf(totalProductCount), "trend_direction", totalProductCount == 0L ? "flat" : "up"),
-                    mapOf("label", "库存总计", "value", formatNumber(totalStock), "trend_direction", totalStock > 0 ? "up" : "flat"),
-                    mapOf("label", "低库存商品", "value", String.valueOf(lowStockCount), "trend_direction", lowStockCount > 0 ? "up" : "flat")
-                )
-            ))
-        );
-        V2AgentDtos.ResultBlockDto tableBlock = new V2AgentDtos.ResultBlockDto(
-            "table",
-            "商品列表",
-            toJsonNode(mapOf(
-                "headers", List.of("商品", "编码", "分类", "库存", "售价"),
-                "rows", rows,
-                "row_count", products.size()
-            ))
-        );
-
-        List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, tableBlock);
-        String answer = totalProductCount == 0L
-            ? "当前账号下还没有商品数据。"
-            : "当前账号下商品总数 " + totalProductCount + " 个，"
-                + "库存总计 " + formatNumber(totalStock) + "，低库存商品 " + lowStockCount + " 个。"
-                + (maxStockProduct == null ? "" : "当前库存最高的是 " + maxStockProduct.getName() + "。");
-        ToolExecutionResult toolResult = new ToolExecutionResult(
-            "product_catalog_lookup",
-            "商品总数 " + totalProductCount + " 个，返回 " + products.size() + " 个，低库存 " + lowStockCount + " 个",
-            toJsonNode(mapOf(
-                "product_count", totalProductCount,
-                "returned_product_count", products.size(),
-                "stock_total", formatNumber(totalStock),
-                "low_stock_count", lowStockCount,
-                "query_audit", audit.facts(),
-                "top_products", topProductItems
-            ))
-        );
-        return new ResponsePayload(answer, blocks, List.of(toolResult));
-    }
-
-    private ResponsePayload buildReceivableResponse(Long ownerUserId, SseEmitter emitter, String runId) {
-        ToolAudit audit = startToolAudit(emitter, runId, "customer_receivable_lookup", DEFAULT_LIMIT_TOOL_INPUT);
-        List<CustomerEntity> customers = customerRepository
-            .findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(ownerUserId, 0.0, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
-        List<CustomerEntity> topCustomers = limit(customers, 6);
-        CustomerEntity highestReceivableCustomer = customers.isEmpty() ? null : customers.get(0);
-        audit.markLimitedResult(customers.size(), DEFAULT_TOOL_LIMIT);
-        long totalCustomerCount = safeLong(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(ownerUserId, 0.0));
-        double totalReceivable = safeDouble(customerRepository.sumPositiveBalance(ownerUserId));
-        emitToolCompleted(emitter, runId, "customer_receivable_lookup", "返回 " + customers.size() + " 个欠款客户，总计 " + totalCustomerCount + " 个", audit);
-
-        double topReceivable = sumCustomerBalances(customers);
-        List<String> labels = new ArrayList<>(topCustomers.size());
-        List<Double> values = new ArrayList<>(topCustomers.size());
-        List<Map<String, Object>> topCustomerItems = new ArrayList<>(Math.min(topCustomers.size(), 5));
-        for (int index = 0; index < topCustomers.size(); index += 1) {
-            CustomerEntity item = topCustomers.get(index);
-            labels.add(compactChartLabel(item.getName()));
-            values.add(safeDouble(item.getBalance()));
-            if (index < 5) {
-                topCustomerItems.add(mapOf(
-                    "name", item.getName(),
-                    "balance", money(safeDouble(item.getBalance())),
-                    "level", item.getLevel()
-                ));
-            }
-        }
-        V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
-            "kpi_grid",
-            "应收概览",
-            toJsonNode(mapOf(
-                "kpis", List.of(
-                    mapOf("label", "欠款客户总数", "value", String.valueOf(totalCustomerCount), "trend_direction", totalCustomerCount == 0L ? "flat" : "up"),
-                    mapOf("label", "应收总额", "value", money(totalReceivable), "trend_direction", totalReceivable > 0 ? "down" : "flat"),
-                    mapOf("label", "最高单户欠款", "value", highestReceivableCustomer == null ? money(0) : money(safeDouble(highestReceivableCustomer.getBalance())), "trend_direction", highestReceivableCustomer == null ? "flat" : "up")
-                )
-            ))
-        );
-        V2AgentDtos.ResultBlockDto rankBlock = new V2AgentDtos.ResultBlockDto(
-            "rank_list",
-            "欠款客户排行",
-            toJsonNode(mapOf(
-                "items", buildRankItems(customers)
-            ))
-        );
-        List<V2AgentDtos.ResultBlockDto> blocks = new ArrayList<>();
-        blocks.add(kpiBlock);
-        if (!customers.isEmpty()) {
-            V2AgentDtos.ResultBlockDto barBlock = new V2AgentDtos.ResultBlockDto(
-                "bar_chart",
-                "Top 客户应收柱状图",
-                toJsonNode(mapOf(
-                    "title", "Top 客户应收柱状图",
-                    "labels", labels,
-                    "series", List.of(mapOf(
-                        "name", "应收余额",
-                        "data", values,
-                        "color", "#005BBF"
-                    ))
-                ))
-            );
-            blocks.add(barBlock);
-        }
-        blocks.add(rankBlock);
-        String answer = customers.isEmpty()
-            ? "当前账号下没有查询到欠款客户，应收风险比较低。"
-            : "我已经按欠款金额从高到低整理出客户排行，可以先跟进前几位客户的回款。";
-        ToolExecutionResult toolResult = new ToolExecutionResult(
-            "customer_receivable_lookup",
-            "欠款客户总数 " + totalCustomerCount + " 个，应收总额 " + money(totalReceivable) + "，Top10 应收合计 " + money(topReceivable),
-            toJsonNode(mapOf(
-                "customer_count", totalCustomerCount,
-                "returned_customer_count", customers.size(),
-                "total_receivable", money(totalReceivable),
-                "top10_receivable_total", money(topReceivable),
-                "query_audit", audit.facts(),
-                "top_customers", topCustomerItems
-            ))
-        );
-        return new ResponsePayload(answer, blocks, List.of(toolResult));
-    }
-
-    private ResponsePayload buildSupplierPayableResponse(Long ownerUserId, SseEmitter emitter, String runId) {
-        ToolAudit audit = startToolAudit(
-            emitter,
-            runId,
-            "supplier_payable_lookup",
-            DEFAULT_LIMIT_TOOL_INPUT
-        );
-        List<SupplierEntity> topPayables = supplierRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(
-            ownerUserId,
-            0.0,
-            PageRequest.of(0, DEFAULT_TOOL_LIMIT)
-        );
-        List<SupplierEntity> topSuppliers = limit(topPayables, 6);
-        SupplierEntity highestPayableSupplier = topPayables.isEmpty() ? null : topPayables.get(0);
-        long totalSupplierCount = safeLong(supplierRepository.countByOwnerUserIdAndBalanceGreaterThan(ownerUserId, 0.0));
-        double totalPayable = safeDouble(supplierRepository.sumPositiveBalance(ownerUserId));
-        double topPayable = sumSupplierBalances(topPayables);
-        audit.markLimitedResult(topPayables.size(), DEFAULT_TOOL_LIMIT);
-        emitToolCompleted(emitter, runId, "supplier_payable_lookup", "返回 " + topPayables.size() + " 个应付供应商，总计 " + totalSupplierCount + " 个", audit);
-        List<String> labels = new ArrayList<>(topSuppliers.size());
-        List<Double> values = new ArrayList<>(topSuppliers.size());
-        List<Map<String, Object>> topSupplierItems = new ArrayList<>(Math.min(topSuppliers.size(), 5));
-        for (int index = 0; index < topSuppliers.size(); index += 1) {
-            SupplierEntity item = topSuppliers.get(index);
-            labels.add(compactChartLabel(item.getName()));
-            values.add(safeDouble(item.getBalance()));
-            if (index < 5) {
-                topSupplierItems.add(mapOf(
-                    "name", item.getName(),
-                    "balance", money(safeDouble(item.getBalance())),
-                    "phone", safeText(item.getPhone(), "-")
-                ));
-            }
-        }
-
-        V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
-            "kpi_grid",
-            "应付概览",
-            toJsonNode(mapOf(
-                "kpis", List.of(
-                    mapOf("label", "应付供应商总数", "value", String.valueOf(totalSupplierCount), "trend_direction", totalSupplierCount == 0L ? "flat" : "up"),
-                    mapOf("label", "应付总额", "value", money(totalPayable), "trend_direction", totalPayable > 0 ? "up" : "flat"),
-                    mapOf("label", "最高单户应付", "value", highestPayableSupplier == null ? money(0) : money(safeDouble(highestPayableSupplier.getBalance())), "trend_direction", highestPayableSupplier == null ? "flat" : "up")
-                )
-            ))
-        );
-        V2AgentDtos.ResultBlockDto rankBlock = new V2AgentDtos.ResultBlockDto(
-            "rank_list",
-            "供应商应付排行",
-            toJsonNode(mapOf("items", buildSupplierPayableRank(topPayables)))
-        );
-        List<V2AgentDtos.ResultBlockDto> blocks = new ArrayList<>();
-        blocks.add(kpiBlock);
-        if (!topPayables.isEmpty()) {
-            V2AgentDtos.ResultBlockDto barBlock = new V2AgentDtos.ResultBlockDto(
-                "bar_chart",
-                "Top 供应商应付柱状图",
-                toJsonNode(mapOf(
-                    "title", "Top 供应商应付柱状图",
-                    "labels", labels,
-                    "series", List.of(mapOf(
-                        "name", "应付余额",
-                        "data", values,
-                        "color", "#FB8C00"
-                    ))
-                ))
-            );
-            blocks.add(barBlock);
-        }
-        blocks.add(rankBlock);
-        String answer = topPayables.isEmpty()
-            ? "当前账号下没有明显的供应商应付欠款。"
-            : "当前账号下共有 " + totalSupplierCount + " 个应付供应商，应付总额 "
-                + money(totalPayable) + "，最高单户应付 "
-                + money(safeDouble(topPayables.get(0).getBalance())) + "。";
-        ToolExecutionResult toolResult = new ToolExecutionResult(
-            "supplier_payable_lookup",
-            "应付供应商总数 " + totalSupplierCount + " 个，应付总额 " + money(totalPayable) + "，Top10 应付合计 " + money(topPayable),
-            toJsonNode(mapOf(
-                "supplier_count", totalSupplierCount,
-                "returned_supplier_count", topPayables.size(),
-                "total_payable", money(totalPayable),
-                "top10_payable_total", money(topPayable),
-                "query_audit", audit.facts(),
-                "top_suppliers", topSupplierItems
-            ))
-        );
-        return new ResponsePayload(answer, blocks, List.of(toolResult));
-    }
-
-    private ResponsePayload buildOverviewResponse(Long ownerUserId, SseEmitter emitter, String runId) {
-        long now = System.currentTimeMillis();
-        long sevenDaysAgo = now - SEVEN_DAYS_MS;
-
-        ToolAudit audit = startToolAudit(
-            emitter,
-            runId,
-            "sales_overview_lookup",
-            OVERVIEW_TOOL_INPUT
-        );
-        double salesAmount = safeDouble(saleOrderRepository.sumTotalAmountBetween(ownerUserId, sevenDaysAgo, now));
-        double paidAmount = safeDouble(saleOrderRepository.sumPaidAmountBetween(ownerUserId, sevenDaysAgo, now));
-        long salesCount = safeLong(saleOrderRepository.countNonCancelledBetween(ownerUserId, sevenDaysAgo, now));
-        List<ProductEntity> lowStockProducts = productRepository.findLowStockProducts(ownerUserId, PageRequest.of(0, OVERVIEW_SIGNAL_LIMIT));
-        List<String> lowStockNames = new ArrayList<>(Math.min(lowStockProducts.size(), 3));
-        for (int index = 0; index < lowStockProducts.size() && index < 3; index += 1) {
-            lowStockNames.add(lowStockProducts.get(index).getName());
-        }
-        double receivable = safeDouble(customerRepository.sumPositiveBalance(ownerUserId));
-        List<Object[]> customerSales = saleOrderRepository.customerSales(
-            ownerUserId,
-            sevenDaysAgo,
-            now,
-            CANCELLED_SALE_ORDER_STATUS,
-            PageRequest.of(0, OVERVIEW_SIGNAL_LIMIT)
-        );
-        List<Map<String, Object>> customerSalesRank = buildCustomerSalesRank(customerSales);
-        audit.markReturned(Math.max(lowStockProducts.size(), customerSales.size()));
-        emitToolCompleted(emitter, runId, "sales_overview_lookup", "已汇总近7天销售、应收和库存信号", audit);
-
-        V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
-            "kpi_grid",
-            "经营概览",
-            toJsonNode(mapOf(
-                "kpis", List.of(
-                    mapOf("label", "近7天销售额", "value", money(salesAmount), "trend_direction", salesAmount > 0 ? "up" : "flat"),
-                    mapOf("label", "近7天回款", "value", money(paidAmount), "trend_direction", paidAmount > 0 ? "up" : "flat"),
-                    mapOf("label", "销售单数", "value", String.valueOf(salesCount), "trend_direction", salesCount > 0 ? "up" : "flat"),
-                    mapOf("label", "当前应收", "value", money(receivable), "trend_direction", receivable > 0 ? "down" : "flat")
-                )
-            ))
-        );
-        V2AgentDtos.ResultBlockDto rankBlock = new V2AgentDtos.ResultBlockDto(
-            "rank_list",
-            "客户销售排行",
-            toJsonNode(mapOf("items", customerSalesRank))
-        );
-        V2AgentDtos.ResultBlockDto trendBlock = buildSalesTrendBlock(ownerUserId, sevenDaysAgo, now);
-        V2AgentDtos.ResultBlockDto amountBlock = new V2AgentDtos.ResultBlockDto(
-            "bar_chart",
-            "经营金额对比",
-            toJsonNode(mapOf(
-                "title", "经营金额对比",
-                "labels", List.of("销售额", "回款", "当前应收"),
-                "series", List.of(mapOf(
-                    "name", "金额",
-                    "data", List.of(salesAmount, paidAmount, receivable),
-                    "color", "#005BBF"
-                ))
-            ))
-        );
-        V2AgentDtos.ResultBlockDto riskBlock = new V2AgentDtos.ResultBlockDto(
-            "risk_card",
-            "经营提醒",
-            toJsonNode(mapOf(
-                "level", lowStockProducts.isEmpty() ? "low" : "medium",
-                "title", lowStockProducts.isEmpty() ? "暂无显著库存风险" : "存在低库存商品",
-                "description", lowStockProducts.isEmpty()
-                    ? "近7天经营数据已汇总，当前库存预警不明显。"
-                    : "建议同步关注补货与回款，避免销售增长带来缺货。",
-                "affected_items", lowStockNames,
-                "suggested_action", lowStockProducts.isEmpty() ? "继续观察趋势" : "优先处理低库存商品并跟进重点客户回款"
-            ))
-        );
-
-        List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, trendBlock, amountBlock, rankBlock, riskBlock);
-        String answer = "我已经把当前账号近7天的销售、回款、应收和库存风险汇总好了，可以先从重点客户回款和低库存商品两条线并行处理。";
-        ToolExecutionResult toolResult = new ToolExecutionResult(
-            "sales_overview_lookup",
-            "近7天销售 " + salesCount + " 笔，销售额 " + money(salesAmount) + "，回款 " + money(paidAmount),
-            toJsonNode(mapOf(
-                "window_days", 7,
-                "sales_amount", money(salesAmount),
-                "paid_amount", money(paidAmount),
-                "sales_count", salesCount,
-                "current_receivable", money(receivable),
-                "low_stock_count", lowStockProducts.size(),
-                "query_audit", audit.facts(),
-                "top_customer_sales", customerSalesRank
-            ))
-        );
-        return new ResponsePayload(answer, blocks, List.of(toolResult));
-    }
-
-    private ResponsePayload buildSaleOrderResponse(Long ownerUserId, SseEmitter emitter, String runId) {
-        ToolAudit audit = startToolAudit(emitter, runId, "sale_order_lookup", DEFAULT_LIMIT_TOOL_INPUT);
-        List<SaleOrderEntity> recentOrders = saleOrderRepository.search(
-            ownerUserId,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            PageRequest.of(0, DEFAULT_TOOL_LIMIT)
-        );
-        List<SaleOrderEntity> topOrders = limit(recentOrders, 5);
-        audit.markLimitedResult(recentOrders.size(), DEFAULT_TOOL_LIMIT);
-        long unpaidCount = 0L;
-        double recentTotal = 0D;
-        double recentPaid = 0D;
-        for (SaleOrderEntity item : recentOrders) {
-            double totalAmount = safeDouble(item.getTotalAmount());
-            double paidAmount = safeDouble(item.getPaidAmount());
-            recentTotal += totalAmount;
-            recentPaid += paidAmount;
-            if (paidAmount + 0.000001 < totalAmount) {
-                unpaidCount++;
-            }
-        }
-        emitToolCompleted(emitter, runId, "sale_order_lookup", "命中 " + recentOrders.size() + " 条销售单", audit);
-
-        V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
-            "kpi_grid",
-            "销售单概览",
-            toJsonNode(mapOf(
-                "kpis", List.of(
-                    mapOf("label", "最近销售单", "value", String.valueOf(recentOrders.size()), "trend_direction", recentOrders.isEmpty() ? "flat" : "up"),
-                    mapOf("label", "查询销售额", "value", money(recentTotal), "trend_direction", recentTotal > 0 ? "up" : "flat"),
-                    mapOf("label", "未收清单", "value", String.valueOf(unpaidCount), "trend_direction", unpaidCount > 0 ? "up" : "flat")
-                )
-            ))
-        );
-        V2AgentDtos.ResultBlockDto tableBlock = new V2AgentDtos.ResultBlockDto(
-            "table",
-            "最近销售单",
-            toJsonNode(mapOf(
-                "headers", List.of("单号", "客户", "总额", "已收", "状态"),
-                "rows", buildSaleOrderRows(recentOrders),
-                "row_count", recentOrders.size()
-            ))
-        );
-
-        List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, tableBlock);
-        String answer = recentOrders.isEmpty()
-            ? "当前账号下还没有销售单数据。"
-            : "我查到了最近 " + recentOrders.size() + " 条销售单，查询销售额 "
-                + money(recentTotal) + "，已收 " + money(recentPaid) + "，还有 "
-                + unpaidCount + " 条未收清。";
-        ToolExecutionResult toolResult = new ToolExecutionResult(
-            "sale_order_lookup",
-            "最近销售单 " + recentOrders.size() + " 条，未收清 " + unpaidCount + " 条",
-            toJsonNode(mapOf(
-                "order_count", recentOrders.size(),
-                "recent_total_amount", money(recentTotal),
-                "recent_paid_amount", money(recentPaid),
-                "unpaid_count", unpaidCount,
-                "query_audit", audit.facts(),
-                "recent_orders", buildSaleOrderSummaries(topOrders)
-            ))
-        );
-        return new ResponsePayload(answer, blocks, List.of(toolResult));
-    }
-
-    private ResponsePayload buildPurchaseOrderResponse(Long ownerUserId, SseEmitter emitter, String runId) {
-        ToolAudit audit = startToolAudit(emitter, runId, "purchase_order_lookup", DEFAULT_LIMIT_TOOL_INPUT);
-        List<PurchaseOrderEntity> recentOrders = purchaseOrderRepository.search(
-            ownerUserId,
-            null,
-            null,
-            PageRequest.of(0, DEFAULT_TOOL_LIMIT)
-        );
-        List<PurchaseOrderEntity> topOrders = limit(recentOrders, 5);
-        audit.markLimitedResult(recentOrders.size(), DEFAULT_TOOL_LIMIT);
-        double totalAmount = 0D;
-        double receivedAmount = 0D;
-        for (PurchaseOrderEntity item : recentOrders) {
-            totalAmount += safeDouble(item.getTotalAmount());
-            receivedAmount += safeDouble(item.getReceivedAmount());
-        }
-        emitToolCompleted(emitter, runId, "purchase_order_lookup", "命中 " + recentOrders.size() + " 条采购单", audit);
-
-        V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
-            "kpi_grid",
-            "采购单概览",
-            toJsonNode(mapOf(
-                "kpis", List.of(
-                    mapOf("label", "最近采购单", "value", String.valueOf(recentOrders.size()), "trend_direction", recentOrders.isEmpty() ? "flat" : "up"),
-                    mapOf("label", "查询采购额", "value", money(totalAmount), "trend_direction", totalAmount > 0 ? "up" : "flat"),
-                    mapOf("label", "查询已到货", "value", money(receivedAmount), "trend_direction", receivedAmount > 0 ? "up" : "flat")
-                )
-            ))
-        );
-        V2AgentDtos.ResultBlockDto tableBlock = new V2AgentDtos.ResultBlockDto(
-            "table",
-            "最近采购单",
-            toJsonNode(mapOf(
-                "headers", List.of("单号", "供应商", "总额", "已付", "状态"),
-                "rows", buildPurchaseOrderRows(recentOrders),
-                "row_count", recentOrders.size()
-            ))
-        );
-
-        List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, tableBlock);
-        String answer = recentOrders.isEmpty()
-            ? "当前账号下还没有采购单数据。"
-            : "我查到了最近 " + recentOrders.size() + " 条采购单，查询采购额 "
-                + money(totalAmount) + "，查询已到货金额 " + money(receivedAmount) + "。";
-        ToolExecutionResult toolResult = new ToolExecutionResult(
-            "purchase_order_lookup",
-            "最近采购单 " + recentOrders.size() + " 条，查询采购额 " + money(totalAmount),
-            toJsonNode(mapOf(
-                "order_count", recentOrders.size(),
-                "recent_total_amount", money(totalAmount),
-                "recent_received_amount", money(receivedAmount),
-                "query_audit", audit.facts(),
-                "recent_orders", buildPurchaseOrderSummaries(topOrders)
-            ))
-        );
-        return new ResponsePayload(answer, blocks, List.of(toolResult));
-    }
-
-    private ResponsePayload buildPayOrderResponse(Long ownerUserId, SseEmitter emitter, String runId) {
-        ToolAudit audit = startToolAudit(emitter, runId, "pay_order_lookup", DEFAULT_LIMIT_TOOL_INPUT);
-        List<PayOrderEntity> recentOrders = payOrderRepository.search(
-            ownerUserId,
-            null,
-            null,
-            null,
-            null,
-            PageRequest.of(0, DEFAULT_TOOL_LIMIT)
-        );
-        List<PayOrderEntity> topOrders = limit(recentOrders, 5);
-        audit.markLimitedResult(recentOrders.size(), DEFAULT_TOOL_LIMIT);
-        double totalAmount = 0D;
-        long pendingCount = 0L;
-        for (PayOrderEntity item : recentOrders) {
-            totalAmount += safeDouble(item.getAmount());
-            if (item.getStatus() != null && item.getStatus() == 0) {
-                pendingCount++;
-            }
-        }
-        emitToolCompleted(emitter, runId, "pay_order_lookup", "命中 " + recentOrders.size() + " 条付款单", audit);
-
-        V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
-            "kpi_grid",
-            "付款单概览",
-            toJsonNode(mapOf(
-                "kpis", List.of(
-                    mapOf("label", "最近付款单", "value", String.valueOf(recentOrders.size()), "trend_direction", recentOrders.isEmpty() ? "flat" : "up"),
-                    mapOf("label", "查询付款额", "value", money(totalAmount), "trend_direction", totalAmount > 0 ? "up" : "flat"),
-                    mapOf("label", "待付款单", "value", String.valueOf(pendingCount), "trend_direction", pendingCount > 0 ? "up" : "flat")
-                )
-            ))
-        );
-        V2AgentDtos.ResultBlockDto tableBlock = new V2AgentDtos.ResultBlockDto(
-            "table",
-            "最近付款单",
-            toJsonNode(mapOf(
-                "headers", List.of("单号", "供应商", "金额", "方式", "状态"),
-                "rows", buildPayOrderRows(recentOrders),
-                "row_count", recentOrders.size()
-            ))
-        );
-
-        List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, tableBlock);
-        String answer = recentOrders.isEmpty()
-            ? "当前账号下还没有付款单数据。"
-            : "我查到了最近 " + recentOrders.size() + " 条付款单，查询付款额 "
-                + money(totalAmount) + "，其中待付款单 " + pendingCount + " 条。";
-        ToolExecutionResult toolResult = new ToolExecutionResult(
-            "pay_order_lookup",
-            "最近付款单 " + recentOrders.size() + " 条，待付款 " + pendingCount + " 条",
-            toJsonNode(mapOf(
-                "pay_order_count", recentOrders.size(),
-                "recent_total_amount", money(totalAmount),
-                "pending_count", pendingCount,
-                "query_audit", audit.facts(),
-                "recent_orders", buildPayOrderSummaries(topOrders)
-            ))
-        );
-        return new ResponsePayload(answer, blocks, List.of(toolResult));
-    }
-
-    private ResponsePayload buildFinanceRecordResponse(Long ownerUserId, SseEmitter emitter, String runId) {
-        ToolAudit audit = startToolAudit(emitter, runId, "finance_record_lookup", DEFAULT_LIMIT_TOOL_INPUT);
-        List<FinanceRecordEntity> recentRecords = financeRecordRepository.search(
-            ownerUserId,
-            null,
-            null,
-            null,
-            null,
-            PageRequest.of(0, DEFAULT_TOOL_LIMIT)
-        );
-        List<FinanceRecordEntity> topRecords = limit(recentRecords, 5);
-        audit.markLimitedResult(recentRecords.size(), DEFAULT_TOOL_LIMIT);
-        double income = 0D;
-        double expense = 0D;
-        for (FinanceRecordEntity item : recentRecords) {
-            double amount = safeDouble(item.getAmount());
-            if (item.getType() != null && item.getType() == 1) {
-                income += amount;
-            } else if (item.getType() != null && item.getType() == 2) {
-                expense += amount;
-            }
-        }
-        emitToolCompleted(emitter, runId, "finance_record_lookup", "命中 " + recentRecords.size() + " 条资金流水", audit);
-
-        V2AgentDtos.ResultBlockDto kpiBlock = new V2AgentDtos.ResultBlockDto(
-            "kpi_grid",
-            "资金流水概览",
-            toJsonNode(mapOf(
-                "kpis", List.of(
-                    mapOf("label", "最近流水", "value", String.valueOf(recentRecords.size()), "trend_direction", recentRecords.isEmpty() ? "flat" : "up"),
-                    mapOf("label", "查询收入", "value", money(income), "trend_direction", income > 0 ? "up" : "flat"),
-                    mapOf("label", "查询支出", "value", money(expense), "trend_direction", expense > 0 ? "up" : "flat")
-                )
-            ))
-        );
-        V2AgentDtos.ResultBlockDto tableBlock = new V2AgentDtos.ResultBlockDto(
-            "table",
-            "最近流水",
-            toJsonNode(mapOf(
-                "headers", List.of("单号", "类型", "分类", "金额", "往来方"),
-                "rows", buildFinanceRecordRows(recentRecords),
-                "row_count", recentRecords.size()
-            ))
-        );
-        V2AgentDtos.ResultBlockDto donutBlock = new V2AgentDtos.ResultBlockDto(
-            "donut_chart",
-            "收入支出占比",
-            toJsonNode(mapOf(
-                "title", "收入支出占比",
-                "segments", List.of(
-                    mapOf("name", "收入", "value", income, "color", "#34A853"),
-                    mapOf("name", "支出", "value", expense, "color", "#FB8C00")
-                )
-            ))
-        );
-
-        List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, donutBlock, tableBlock);
-        String answer = recentRecords.isEmpty()
-            ? "当前账号下还没有资金流水数据。"
-            : "我查到了最近 " + recentRecords.size() + " 条资金流水，查询收入 "
-                + money(income) + "，查询支出 " + money(expense) + "。";
-        ToolExecutionResult toolResult = new ToolExecutionResult(
-            "finance_record_lookup",
-            "最近流水 " + recentRecords.size() + " 条，收入 " + money(income) + "，支出 " + money(expense),
-            toJsonNode(mapOf(
-                "record_count", recentRecords.size(),
-                "recent_income", money(income),
-                "recent_expense", money(expense),
-                "query_audit", audit.facts(),
-                "recent_records", buildFinanceRecordSummaries(topRecords)
-            ))
-        );
-        return new ResponsePayload(answer, blocks, List.of(toolResult));
-    }
 
     private List<List<Object>> buildSaleOrderRows(List<SaleOrderEntity> orders) {
         List<List<Object>> rows = new ArrayList<>(orders == null ? 0 : orders.size());
@@ -1637,7 +1021,8 @@ public class V2AgentAiService {
         return items;
     }
 
-    private FinalAnswer buildFinalAnswer(String userMessage, ResponsePayload payload) {
+    private FinalAnswer buildFinalAnswer(String userMessage, ResponsePayload payload,
+                                          List<AgentMessageEntity> history, String conversationSummary) {
         if (payload.toolFailures() != null && !payload.toolFailures().isEmpty()
             && (payload.toolResults() == null || payload.toolResults().isEmpty())) {
             return new FinalAnswer(appendFailureNotice(payload.answer(), payload.toolFailures()), "tool_query_failed", "not_requested", false);
@@ -1658,20 +1043,8 @@ public class V2AgentAiService {
                 false
             );
         }
-        String systemPrompt = """
-            你是智慧记的 agentic AI 助手。你不能编造数据，只能基于服务端白名单工具返回的事实回答。
-            回答要求：
-            1. 先直接回答用户问题。
-            2. 明确引用本轮查询到的关键数据。
-            3. 给出 1-3 条可执行建议。
-            4. 如果有工具查询失败，必须明确说明哪些查询失败，且不要用模拟数据替代。
-            5. 不要输出 Markdown 表格；不要声称查询了未列出的数据。
-            """;
-        String toolFactsJson = serializeToolResults(payload.toolResults());
-        String prompt = "用户问题：" + userMessage + "\n"
-            + "已执行工具结果 JSON：" + toolFactsJson + "\n"
-            + "失败工具 JSON：" + serializeToolFailures(payload.toolFailures()) + "\n"
-            + "基于事实的初稿：" + synthesizedWithFailures;
+        String systemPrompt = finalAnswerSystemPrompt(conversationSummary);
+        String prompt = finalAnswerUserPrompt(userMessage, payload, synthesizedWithFailures, history);
         Optional<String> refined = longCatAnthropicClient.createJsonMessage(systemPrompt, prompt);
         return refined
             .filter(StringUtils::hasText)
@@ -1692,7 +1065,9 @@ public class V2AgentAiService {
         ResponsePayload payload,
         SseEmitter emitter,
         String runId,
-        Runnable onFirstModelDelta
+        Runnable onFirstModelDelta,
+        List<AgentMessageEntity> history,
+        String conversationSummary
     ) {
         if (payload.toolFailures() != null && !payload.toolFailures().isEmpty()
             && (payload.toolResults() == null || payload.toolResults().isEmpty())) {
@@ -1729,8 +1104,8 @@ public class V2AgentAiService {
                 false
             );
         }
-        String systemPrompt = finalAnswerSystemPrompt();
-        String prompt = finalAnswerUserPrompt(userMessage, payload, synthesizedWithFailures);
+        String systemPrompt = finalAnswerSystemPrompt(conversationSummary);
+        String prompt = finalAnswerUserPrompt(userMessage, payload, synthesizedWithFailures, history);
         StringBuilder streamedAnswer = new StringBuilder();
         AnswerDeltaBatcher answerDeltaBatcher = new AnswerDeltaBatcher(emitter, runId);
         Optional<String> streamed = longCatAnthropicClient.streamTextMessage(systemPrompt, prompt, runId, delta -> {
@@ -1855,7 +1230,10 @@ public class V2AgentAiService {
         chunks.add(chunk);
     }
 
-    private String finalAnswerSystemPrompt() {
+    private String finalAnswerSystemPrompt(String conversationSummary) {
+        String summaryContext = StringUtils.hasText(conversationSummary)
+            ? "\n会话摘要：" + conversationSummary + "\n"
+            : "";
         return """
             你是智慧记的 agentic AI 助手。你不能编造数据，只能基于服务端白名单工具返回的事实回答。
             回答要求：
@@ -1864,14 +1242,45 @@ public class V2AgentAiService {
             3. 给出 1-3 条可执行建议。
             4. 如果有工具查询失败，必须明确说明哪些查询失败，且不要用模拟数据替代。
             5. 不要输出 Markdown 表格；不要声称查询了未列出的数据。
-            """;
+            6. 结合历史对话上下文理解用户指代（如"他""刚才那个"等）。
+            """ + summaryContext;
     }
 
-    private String finalAnswerUserPrompt(String userMessage, ResponsePayload payload, String synthesizedWithFailures) {
-        return "用户问题：" + userMessage + "\n"
+    private String finalAnswerUserPrompt(String userMessage, ResponsePayload payload,
+                                          String synthesizedWithFailures, List<AgentMessageEntity> history) {
+        String historyContext = formatHistoryContext(history);
+        return historyContext
+            + "用户问题：" + userMessage + "\n"
             + "已执行工具结果 JSON：" + serializeToolResults(payload.toolResults()) + "\n"
             + "失败工具 JSON：" + serializeToolFailures(payload.toolFailures()) + "\n"
             + "基于事实的初稿：" + synthesizedWithFailures;
+    }
+
+    private List<AgentMessageEntity> loadRecentHistory(Long ownerUserId, Long conversationId, int limit) {
+        if (conversationId == null || limit <= 0) {
+            return List.of();
+        }
+        List<AgentMessageEntity> desc = agentMessageRepository
+            .findAllByOwnerUserIdAndConversationIdOrderByCreatedAtDescIdDesc(
+                ownerUserId, conversationId, PageRequest.of(0, limit)
+            );
+        return desc.reversed();
+    }
+
+    private String formatHistoryContext(List<AgentMessageEntity> history) {
+        if (history == null || history.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder("历史对话：\n");
+        for (AgentMessageEntity msg : history) {
+            String role = "assistant".equalsIgnoreCase(msg.getRole()) ? "AI" : "用户";
+            String content = msg.getContent();
+            if (content != null && content.length() > 200) {
+                content = content.substring(0, 200) + "...";
+            }
+            sb.append(role).append("：").append(content).append('\n');
+        }
+        return sb.toString() + "\n";
     }
 
     private String buildUnsupportedIntentAnswer() {
@@ -3050,6 +2459,7 @@ public class V2AgentAiService {
 
     private SafetyDecision evaluateSafety(String message) {
         String normalized = message.toLowerCase(Locale.ROOT);
+        // 快速通道：硬编码关键词命中即拦截
         if ((normalized.contains("别人的") || normalized.contains("其他账号") || normalized.contains("越权"))
             && containsAny(normalized, "数据", "订单", "客户", "库存")) {
             return new SafetyDecision(false, "请求疑似越权访问其他账号的数据");
@@ -3059,11 +2469,20 @@ public class V2AgentAiService {
             || (normalized.contains("删除") && normalized.contains("所有数据"))) {
             return new SafetyDecision(false, "请求包含高风险破坏性数据库指令");
         }
-        if (containsAny(normalized, "sql", "select *", "绕过", "token", "密码", "管理员")) {
-            return modelSafetyReview(message)
-                .filter(decision -> !decision.passed())
-                .orElse(new SafetyDecision(false, "请求包含敏感查询或权限绕过风险"));
+        // 写入专用安全层：检测写入意图并校验
+        SafetyDecision writeDecision = evaluateWriteSafety(message, normalized);
+        if (!writeDecision.passed()) {
+            return writeDecision;
         }
+        // 敏感关键词快速通道
+        if (containsAny(normalized, "sql", "select *", "绕过", "token", "密码", "管理员")) {
+            Optional<SafetyDecision> modelDecision = modelSafetyReview(message);
+            if (modelDecision.isPresent() && !modelDecision.get().passed()) {
+                return modelDecision.get();
+            }
+            return new SafetyDecision(false, "请求包含敏感查询或权限绕过风险");
+        }
+        // LLM 语义审查增强层
         Optional<SafetyDecision> modelDecision = modelSafetyReview(message);
         if (modelDecision.isPresent() && !modelDecision.get().passed()) {
             return modelDecision.get();
@@ -3071,14 +2490,40 @@ public class V2AgentAiService {
         return new SafetyDecision(true, null);
     }
 
+    private SafetyDecision evaluateWriteSafety(String message, String normalized) {
+        // 破坏性指令检测
+        if (containsAny(normalized, "删除", "清空", "drop", "delete", "truncate", "销毁", "抹掉")) {
+            return new SafetyDecision(false, "请求包含破坏性操作，不支持删除/清空");
+        }
+        // 检测写入意图
+        boolean hasWriteIntent = containsAny(normalized, "创建", "新建", "开一张", "记一笔", "录入",
+            "建一个", "加一个", "添加", "生成", "create", "add", "new");
+        if (!hasWriteIntent) {
+            return new SafetyDecision(true, null);
+        }
+        // 金额合理性校验：提取数字，超过 100,000 元触发警告但不拦截
+        // 频率限制：10 分钟内最多 20 条写入
+        long now = System.currentTimeMillis();
+        long windowStart = now - 10 * 60 * 1000L;
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        List<Long> timestamps = writeFrequencyTracker.computeIfAbsent(ownerUserId, k -> new ArrayList<>());
+        timestamps.removeIf(ts -> ts < windowStart);
+        if (timestamps.size() >= 20) {
+            return new SafetyDecision(false, "10 分钟内写入操作超过 20 条限制，请稍后再试");
+        }
+        timestamps.add(now);
+        return new SafetyDecision(true, null);
+    }
+
     private Optional<SafetyDecision> modelSafetyReview(String message) {
         if (!longCatAnthropicClient.isConfigured()) {
-            return Optional.empty();
+            // 未配置 LLM 时不再跳过，返回保守放行（规则层已拦截高风险请求）
+            return Optional.of(new SafetyDecision(true, "LLM 未配置，仅规则审查"));
         }
         String systemPrompt = """
             你是智慧记 AI 助手的安全审查器。只判断用户请求是否允许。
-            允许：查询当前登录账号自己的经营数据、库存、客户欠款、销售概览。
-            拦截：访问其他账号/其他租户数据、要求绕过权限、导出敏感凭据、直接执行 SQL、破坏性数据库操作、未确认的写操作。
+            允许：查询当前登录账号自己的经营数据、库存、客户欠款、销售概览；创建当前账号下的业务单据（销售单、采购单、客户等）。
+            拦截：访问其他账号/其他租户数据、要求绕过权限、导出敏感凭据、直接执行 SQL、破坏性数据库操作、删除操作。
             只输出 JSON：{"allowed":true,"reason":"..."}。
             """;
         return longCatAnthropicClient.createJsonMessage(systemPrompt, "用户请求：" + message)
@@ -3291,7 +2736,7 @@ public class V2AgentAiService {
             List<V2AgentDtos.ResultBlockDto> blocks,
             List<ToolExecutionResult> toolResults
         ) {
-            this(answer, blocks, toolResults, List.of(), new AgentToolPlan(List.of(), "工具直接返回", "tool"));
+            this(answer, blocks, toolResults, List.of(), new AgentToolPlan(List.of(), "工具直接返回", "tool", Map.of()));
         }
 
         private String planSource() {
@@ -3319,9 +2764,12 @@ public class V2AgentAiService {
         }
     }
 
-    private record AgentToolPlan(List<String> tools, String rationale, String source) {
+    private record AgentToolPlan(List<String> tools, String rationale, String source, Map<String, JsonNode> toolParams) {
         private AgentToolPlan(List<String> tools, String rationale) {
-            this(tools, rationale, "llm");
+            this(tools, rationale, "llm", Map.of());
+        }
+        private AgentToolPlan(List<String> tools, String rationale, Map<String, JsonNode> toolParams) {
+            this(tools, rationale, "llm", toolParams);
         }
     }
 

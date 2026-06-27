@@ -119,7 +119,10 @@ public final class StoreAccessPolicy {
             StorePermission.AGENT_WRITE,
             StorePermission.DATABASE_MANAGE,
             StorePermission.SETTINGS_MANAGE,
-            StorePermission.USERS_MANAGE
+            StorePermission.USERS_MANAGE,
+            StorePermission.CREDITS_VIEW,
+            StorePermission.POSTERS_VIEW,
+            StorePermission.POSTERS_WRITE
         )),
         MANAGER("店长助理", Set.of(
             StorePermission.DASHBOARD_VIEW,
@@ -135,7 +138,10 @@ public final class StoreAccessPolicy {
             StorePermission.REPORTS_VIEW,
             StorePermission.AGENT_VIEW,
             StorePermission.AGENT_WRITE,
-            StorePermission.USERS_MANAGE
+            StorePermission.USERS_MANAGE,
+            StorePermission.CREDITS_VIEW,
+            StorePermission.POSTERS_VIEW,
+            StorePermission.POSTERS_WRITE
         )),
         SALES("销售员工", Set.of(
             StorePermission.DASHBOARD_VIEW,
@@ -143,7 +149,8 @@ public final class StoreAccessPolicy {
             StorePermission.SALES_WRITE,
             StorePermission.ARCHIVES_VIEW,
             StorePermission.FINANCE_VIEW,
-            StorePermission.AGENT_VIEW
+            StorePermission.AGENT_VIEW,
+            StorePermission.POSTERS_VIEW
         )),
         PURCHASING("采购员工", Set.of(
             StorePermission.DASHBOARD_VIEW,
@@ -151,14 +158,16 @@ public final class StoreAccessPolicy {
             StorePermission.PURCHASE_WRITE,
             StorePermission.ARCHIVES_VIEW,
             StorePermission.FINANCE_VIEW,
-            StorePermission.AGENT_VIEW
+            StorePermission.AGENT_VIEW,
+            StorePermission.POSTERS_VIEW
         )),
         WAREHOUSE("仓库员工", Set.of(
             StorePermission.DASHBOARD_VIEW,
             StorePermission.ARCHIVES_VIEW,
             StorePermission.INVENTORY_VIEW,
             StorePermission.INVENTORY_WRITE,
-            StorePermission.AGENT_VIEW
+            StorePermission.AGENT_VIEW,
+            StorePermission.POSTERS_VIEW
         )),
         FINANCE("财务员工", Set.of(
             StorePermission.DASHBOARD_VIEW,
@@ -167,12 +176,15 @@ public final class StoreAccessPolicy {
             StorePermission.REPORTS_VIEW,
             StorePermission.SALES_VIEW,
             StorePermission.PURCHASE_VIEW,
-            StorePermission.AGENT_VIEW
+            StorePermission.AGENT_VIEW,
+            StorePermission.CREDITS_VIEW,
+            StorePermission.POSTERS_VIEW
         )),
         ASSISTANT("AI/只读助理", Set.of(
             StorePermission.DASHBOARD_VIEW,
             StorePermission.REPORTS_VIEW,
-            StorePermission.AGENT_VIEW
+            StorePermission.AGENT_VIEW,
+            StorePermission.POSTERS_VIEW
         ));
 
         private final String defaultTitle;
@@ -209,7 +221,10 @@ public final class StoreAccessPolicy {
         AGENT_WRITE("agent:write"),
         DATABASE_MANAGE("database:manage"),
         SETTINGS_MANAGE("settings:manage"),
-        USERS_MANAGE("users:manage");
+        USERS_MANAGE("users:manage"),
+        CREDITS_VIEW("credits:view"),
+        POSTERS_VIEW("posters:view"),
+        POSTERS_WRITE("posters:write");
 
         private final String code;
 

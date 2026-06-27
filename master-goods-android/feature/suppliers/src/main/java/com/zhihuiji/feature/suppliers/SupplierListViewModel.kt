@@ -19,6 +19,7 @@ fun SupplierV2Dto.toSupplierItem(): SupplierItem {
     return SupplierItem(
         id = id,
         name = name,
+        groupName = groupName,
         contactName = contact.first,
         contactPhone = contact.second,
         payableAmount = balance,
@@ -39,6 +40,7 @@ data class SupplierListUiState(
 data class SupplierItem(
     val id: Long,
     val name: String,
+    val groupName: String?,
     val contactName: String,
     val contactPhone: String,
     val payableAmount: Double,

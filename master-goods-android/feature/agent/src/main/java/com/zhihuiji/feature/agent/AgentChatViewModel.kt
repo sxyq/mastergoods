@@ -3,6 +3,7 @@ package com.zhihuiji.feature.agent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.model.v2.agent.AgentChatRequest
+import com.zhihuiji.core.model.v2.agent.AgentConversationDto
 import com.zhihuiji.core.model.v2.agent.AgentMessageDto
 import com.zhihuiji.core.model.v2.agent.AgentStreamEvent
 import com.zhihuiji.core.model.v2.agent.ChatMessage
@@ -64,6 +65,9 @@ data class AgentChatUiState(
     val showDraftConfirm: DraftConfirmState? = null,
     val contextCompacted: ContextCompactedState? = null,
     val retryState: RetryState = RetryState(),
+    val conversations: List<AgentConversationDto> = emptyList(),
+    val isLoadingConversations: Boolean = false,
+    val isDrawerOpen: Boolean = false,
 ) {
     /** 重连中提示文案，供 UI 直接展示 */
     val retryMessage: String?
@@ -111,8 +115,126 @@ class AgentChatViewModel @Inject constructor(
     /** 当前运行的审计记录构建器 */
     private var currentAuditBuilder: AuditRecordBuilder? = null
 
+    init {
+        // 监听 SSE 重连状态，更新 UI 提示“重连中...”
+        viewModelScope.launch {
+            repository.retryState.collect { retry ->
+                _uiState.update { it.copy(retryState = retry) }
+            }
+        }
+    }
+
     fun onInputChange(text: String) {
         _uiState.update { it.copy(inputText = text) }
+    }
+
+    fun openDrawer() {
+        _uiState.update { it.copy(isDrawerOpen = true) }
+        if (_uiState.value.conversations.isEmpty() && !_uiState.value.isLoadingConversations) {
+            loadConversations()
+        }
+    }
+
+    fun closeDrawer() {
+        _uiState.update { it.copy(isDrawerOpen = false) }
+    }
+
+    fun loadConversations() {
+        if (_uiState.value.isLoadingConversations) return
+        _uiState.update { it.copy(isLoadingConversations = true) }
+        viewModelScope.launch {
+            repository.listConversations(page = 0, limit = 50)
+                .onSuccess { conversations ->
+                    _uiState.update {
+                        it.copy(
+                            conversations = conversations,
+                            isLoadingConversations = false,
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isLoadingConversations = false,
+                            error = e.message ?: "加载会话列表失败",
+                        )
+                    }
+                }
+        }
+    }
+
+    fun switchConversation(id: Long) {
+        if (id <= 0) return
+        // 关闭抽屉，清空当前对话并加载目标会话消息
+        closeDrawer()
+        if (_uiState.value.conversationId == id && _uiState.value.messages.isNotEmpty()) return
+        clearMessages()
+        viewModelScope.launch {
+            loadConversationMessages(id, forceReload = true)
+        }
+    }
+
+    fun deleteConversation(id: Long) {
+        if (id <= 0) return
+        viewModelScope.launch {
+            repository.deleteConversation(id)
+                .onSuccess {
+                    _uiState.update { state ->
+                        val updated = state.conversations.filterNot { it.id == id }
+                        val activeCleared = if (state.conversationId == id) {
+                            state.copy(
+                                conversations = updated,
+                                conversationId = null,
+                                messages = emptyList(),
+                                currentRunId = null,
+                                isStreaming = false,
+                                canStop = false,
+                            )
+                        } else {
+                            state.copy(conversations = updated)
+                        }
+                        activeCleared
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = e.message ?: "删除会话失败") }
+                }
+        }
+    }
+
+    /**
+     * 重新生成指定助手消息：删除该消息及其前一条用户消息，重新发起请求。
+     */
+    fun regenerateMessage(messageId: String) {
+        if (_uiState.value.isStreaming) return
+        val messages = _uiState.value.messages
+        val targetIndex = messages.indexOfFirst { it.id == messageId }
+        if (targetIndex < 0) return
+        val target = messages[targetIndex]
+        if (target.role != MessageRole.ASSISTANT) return
+
+        // 找到该助手消息前最近的一条用户消息
+        var userIndex = targetIndex - 1
+        while (userIndex >= 0 && messages[userIndex].role != MessageRole.USER) {
+            userIndex--
+        }
+        if (userIndex < 0) return
+        val userContent = messages[userIndex].content.trim()
+        if (userContent.isEmpty()) return
+
+        // 删除这两条消息，重置输入框，重新发送
+        val toRemove = if (userIndex == targetIndex - 1) {
+            setOf(messages[userIndex].id, messages[targetIndex].id)
+        } else {
+            setOf(messages[targetIndex].id)
+        }
+        _uiState.update { state ->
+            state.copy(
+                messages = state.messages.filterNot { it.id in toRemove },
+                inputText = userContent,
+            )
+        }
+        sendMessage()
     }
 
     fun startConversation(

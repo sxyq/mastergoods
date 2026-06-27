@@ -8,6 +8,7 @@ import com.zhihuiji.core.common.StatusLabels
 import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.model.v2.order.SaleOrderItemV2Dto
 import com.zhihuiji.core.model.v2.order.SaleOrderV2Dto
+import com.zhihuiji.core.model.v2.order.SalePaymentV2Dto
 import com.zhihuiji.data.order.SaleOrderV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +22,7 @@ data class SaleOrderDetailUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val order: SaleOrderV2Dto? = null,
+    val payments: List<SalePaymentV2Dto> = emptyList(),
 )
 
 @HiltViewModel
@@ -43,7 +45,14 @@ class SaleOrderDetailViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             repository.getSaleOrder(orderId)
                 .onSuccess { order ->
-                    _uiState.update { it.copy(isLoading = false, order = order) }
+                    val paymentsResult = repository.listPayments(orderId)
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            order = order,
+                            payments = paymentsResult.getOrDefault(emptyList())
+                        )
+                    }
                 }
                 .onFailure { error ->
                     _uiState.update { it.copy(isLoading = false, error = error.message) }

@@ -25,14 +25,18 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.zhihuiji.core.common.MoneyFormatter
+import com.zhihuiji.core.common.StatusLabels
+import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.designsystem.BottomActionBar
 import com.zhihuiji.core.designsystem.GlassScaffold
 import com.zhihuiji.core.designsystem.GlassTopBar
 import com.zhihuiji.core.designsystem.LiquidGlassCard
 import com.zhihuiji.core.designsystem.StatusPill
 import com.zhihuiji.core.designsystem.StatusType
+import com.zhihuiji.core.designsystem.TextPrimary
 import com.zhihuiji.core.designsystem.TextSecondary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
+import com.zhihuiji.core.model.v2.order.SalePaymentV2Dto
 
 @Composable
 fun SaleOrderDetailScreen(
@@ -101,7 +105,7 @@ fun SaleOrderDetailScreen(
                 }
 
                 uiState.order != null -> {
-                    SaleOrderDetailContent(order = uiState.order!!)
+                    SaleOrderDetailContent(order = uiState.order!!, payments = uiState.payments)
                 }
             }
         }
@@ -111,6 +115,7 @@ fun SaleOrderDetailScreen(
 @Composable
 private fun SaleOrderDetailContent(
     order: com.zhihuiji.core.model.v2.order.SaleOrderV2Dto,
+    payments: List<SalePaymentV2Dto>,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -144,6 +149,24 @@ private fun SaleOrderDetailContent(
         item {
             Spacer(modifier = Modifier.height(8.dp))
             TotalAmountRow(totalAmount = order.totalAmount)
+        }
+
+        if (payments.isNotEmpty()) {
+            item {
+                Text(
+                    text = "收款记录",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextPrimary,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            items(
+                items = payments,
+                key = { it.id }
+            ) { payment ->
+                PaymentRecordCard(payment = payment)
+            }
         }
     }
 }
@@ -291,5 +314,44 @@ private fun TotalAmountRow(
             style = MaterialTheme.typography.titleLarge,
             color = ZhihuijiPrimary
         )
+    }
+}
+
+@Composable
+private fun PaymentRecordCard(
+    payment: SalePaymentV2Dto,
+    modifier: Modifier = Modifier,
+) {
+    LiquidGlassCard(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = 0.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = StatusLabels.paymentType(payment.type),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Text(
+                    text = MoneyFormatter.format(payment.amount),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = ZhihuijiPrimary
+                )
+            }
+            InfoRow(label = "收款方式", value = StatusLabels.paymentMethod(payment.method))
+            val referenceNo = payment.referenceNo
+            if (!referenceNo.isNullOrBlank()) {
+                InfoRow(label = "凭证号", value = referenceNo)
+            }
+            InfoRow(label = "收款时间", value = TimeFormatter.formatDateTime(payment.createdAt))
+        }
     }
 }

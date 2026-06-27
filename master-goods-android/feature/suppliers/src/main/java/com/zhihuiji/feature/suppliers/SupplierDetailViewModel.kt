@@ -14,7 +14,9 @@ import javax.inject.Inject
 data class SupplierDetail(
     val id: Long,
     val name: String,
+    val groupName: String?,
     val primaryContactName: String?,
+    val primaryContactPhone: String?,
     val phone: String,
     val address: String?,
     val balance: Double,
@@ -47,7 +49,9 @@ class SupplierDetailViewModel @Inject constructor(
                             supplier = SupplierDetail(
                                 id = dto.id,
                                 name = dto.name,
+                                groupName = dto.groupName,
                                 primaryContactName = dto.primaryContactName,
+                                primaryContactPhone = dto.primaryContactPhone,
                                 phone = dto.phone,
                                 address = dto.address,
                                 balance = dto.balance,

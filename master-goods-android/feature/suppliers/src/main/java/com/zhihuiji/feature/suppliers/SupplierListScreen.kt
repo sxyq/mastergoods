@@ -204,14 +204,34 @@ private fun SupplierArchiveCard(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Text(
-                            text = "联系人与电话",
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextSecondary,
-                            maxLines = 1
-                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "联系人与电话",
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextSecondary,
+                                maxLines = 1
+                            )
+                            if (!supplier.groupName.isNullOrBlank()) {
+                                Text(
+                                    text = "|",
+                                    fontSize = 12.sp,
+                                    color = GlassBorderSoft
+                                )
+                                Text(
+                                    text = supplier.groupName,
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp,
+                                    color = TextSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
                     }
                 }
                 StatusBadge(

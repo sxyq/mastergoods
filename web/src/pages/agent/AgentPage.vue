@@ -87,10 +87,14 @@ interface UiMessage {
 }
 
 interface MarkdownSection {
-  type: 'heading' | 'list' | 'paragraph'
+  type: 'heading' | 'list' | 'ordered-list' | 'paragraph' | 'code' | 'table'
   level?: number
   text?: string
   items?: string[]
+  code?: string
+  lang?: string
+  tableHeaders?: string[]
+  tableRows?: string[][]
 }
 
 interface BlockDerivedState {
@@ -153,6 +157,9 @@ const blockDerivedCache = new WeakMap<AgentResultBlock, BlockDerivedState>()
 const messageById = new Map<string, UiMessage>()
 const HEADING_SECTION_REGEX = /^(#{1,3})\s+(.+)$/
 const BULLET_SECTION_REGEX = /^[-*]\s+/
+const ORDERED_LIST_REGEX = /^\d+\.\s+(.+)$/
+const CODE_FENCE_REGEX = /^```(.*)$/
+const TABLE_SEPARATOR_REGEX = /^[\s|:-]+$/
 
 watch(
   [() => session.source.value, () => session.token.value],

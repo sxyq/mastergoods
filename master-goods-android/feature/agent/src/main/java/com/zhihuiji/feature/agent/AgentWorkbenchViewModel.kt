@@ -3,6 +3,10 @@ package com.zhihuiji.feature.agent
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.model.v2.agent.KpiCardItem
+import com.zhihuiji.core.model.v2.agent.PendingDraftItem
+import com.zhihuiji.core.model.v2.agent.RecentConversationItem
+import com.zhihuiji.core.model.v2.agent.RiskAlertItem
 import com.zhihuiji.data.agent.AgentV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +22,12 @@ data class AgentWorkbenchUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val isRemoteSynced: Boolean = false,
+    val todaySummary: String? = null,
+    val kpiCards: List<KpiCardItem> = emptyList(),
+    val quickQuestions: List<String> = emptyList(),
+    val pendingDrafts: List<PendingDraftItem> = emptyList(),
+    val riskAlerts: List<RiskAlertItem> = emptyList(),
+    val recentConversations: List<RecentConversationItem> = emptyList(),
 )
 
 @HiltViewModel
@@ -41,6 +51,12 @@ class AgentWorkbenchViewModel @Inject constructor(
                             isLoading = false,
                             isRemoteSynced = true,
                             greeting = dto.greeting.ifBlank { state.greeting },
+                            todaySummary = dto.todaySummary,
+                            kpiCards = dto.kpiCards,
+                            quickQuestions = dto.quickQuestions,
+                            pendingDrafts = dto.pendingDrafts,
+                            riskAlerts = dto.riskAlerts,
+                            recentConversations = dto.recentConversations,
                         )
                     }
                 }

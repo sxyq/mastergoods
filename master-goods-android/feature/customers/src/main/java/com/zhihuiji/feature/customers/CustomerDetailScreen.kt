@@ -180,6 +180,9 @@ private fun CustomerDetailScreenContent(
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = TextSecondary
                                 )
+                                if (!currentCustomer.groupName.isNullOrBlank()) {
+                                    InfoRow(label = "分组", value = currentCustomer.groupName)
+                                }
                             }
                         }
 
@@ -193,6 +196,8 @@ private fun CustomerDetailScreenContent(
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 InfoRow(label = "手机号", value = currentCustomer.phone)
+                                InfoRow(label = "联系人", value = currentCustomer.primaryContactName ?: "-")
+                                InfoRow(label = "联系电话", value = currentCustomer.primaryContactPhone ?: "-")
                                 InfoRow(label = "地址", value = currentCustomer.address ?: "-")
                             }
                         }

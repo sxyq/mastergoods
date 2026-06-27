@@ -166,6 +166,9 @@ private fun SupplierDetailScreenContent(
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
+                                if (!supplier.groupName.isNullOrBlank()) {
+                                    InfoRow(label = "分组", value = supplier.groupName)
+                                }
                                 if (supplier.primaryContactName != null) {
                                     Text(
                                         text = "联系人: ${supplier.primaryContactName}",
@@ -186,6 +189,8 @@ private fun SupplierDetailScreenContent(
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 InfoRow(label = "手机号", value = supplier.phone)
+                                InfoRow(label = "联系人", value = supplier.primaryContactName ?: "-")
+                                InfoRow(label = "联系电话", value = supplier.primaryContactPhone ?: "-")
                                 if (supplier.address != null) {
                                     InfoRow(label = "地址", value = supplier.address)
                                 }

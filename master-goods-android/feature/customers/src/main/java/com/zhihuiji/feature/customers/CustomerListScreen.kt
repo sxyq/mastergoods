@@ -296,6 +296,21 @@ private fun CustomerArchiveCard(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
+                            if (!customer.groupName.isNullOrBlank()) {
+                                Text(
+                                    text = "|",
+                                    fontSize = 13.sp,
+                                    color = GlassBorderSoft
+                                )
+                                Text(
+                                    text = customer.groupName,
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp,
+                                    color = TextSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }

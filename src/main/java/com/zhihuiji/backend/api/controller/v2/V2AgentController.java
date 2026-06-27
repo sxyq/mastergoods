@@ -4,6 +4,7 @@ import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
 import com.zhihuiji.backend.application.service.v2.V2AgentAiService;
 import com.zhihuiji.backend.application.service.v2.V2AgentConversationService;
+import com.zhihuiji.backend.application.service.v2.agent.AgentDraftConfirmService;
 import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -23,13 +24,16 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class V2AgentController {
     private final V2AgentConversationService v2AgentConversationService;
     private final V2AgentAiService v2AgentAiService;
+    private final AgentDraftConfirmService agentDraftConfirmService;
 
     public V2AgentController(
         V2AgentConversationService v2AgentConversationService,
-        V2AgentAiService v2AgentAiService
+        V2AgentAiService v2AgentAiService,
+        AgentDraftConfirmService agentDraftConfirmService
     ) {
         this.v2AgentConversationService = v2AgentConversationService;
         this.v2AgentAiService = v2AgentAiService;
+        this.agentDraftConfirmService = agentDraftConfirmService;
     }
 
     @GetMapping("/conversations")
@@ -104,6 +108,24 @@ public class V2AgentController {
     @RequireStorePermission("agent:write")
     public ApiResponse<V2AgentDtos.AgentDraftResponse> createDraft(@Valid @RequestBody V2AgentDtos.AgentDraftCreateRequest request) {
         return ApiResponse.success(v2AgentConversationService.createDraft(request));
+    }
+
+    @GetMapping("/drafts/pending")
+    @RequireStorePermission("agent:view")
+    public ApiResponse<List<V2AgentDtos.AgentDraftResponse>> listPendingDrafts() {
+        return ApiResponse.success(agentDraftConfirmService.listPendingDrafts());
+    }
+
+    @PostMapping("/drafts/{id}/confirm")
+    @RequireStorePermission("agent:write")
+    public ApiResponse<V2AgentDtos.AgentDraftResponse> confirmDraft(@PathVariable Long id) {
+        return ApiResponse.success(agentDraftConfirmService.confirmDraft(id));
+    }
+
+    @PostMapping("/drafts/{id}/cancel")
+    @RequireStorePermission("agent:write")
+    public ApiResponse<V2AgentDtos.AgentDraftResponse> cancelDraft(@PathVariable Long id) {
+        return ApiResponse.success(agentDraftConfirmService.cancelDraft(id));
     }
 
     @PutMapping("/drafts/{id}")
