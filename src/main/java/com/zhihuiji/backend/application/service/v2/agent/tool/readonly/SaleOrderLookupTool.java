@@ -119,6 +119,9 @@ public class SaleOrderLookupTool extends ToolSupport {
         );
 
         List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, tableBlock);
+        if (recentOrders.isEmpty() && hasMeaningfulFilter(keyword, status, minTotal, maxTotal, createdAfter, createdBefore, productKeyword, paymentStatus)) {
+            return ToolResult.emptyInsufficient("按当前条件未匹配到销售单，建议放宽筛选后重试");
+        }
         String answer = recentOrders.isEmpty()
             ? "当前账号下还没有销售单数据。"
             : "我查到了最近 " + recentOrders.size() + " 条销售单，查询销售额 "
@@ -183,5 +186,23 @@ public class SaleOrderLookupTool extends ToolSupport {
 
     private String safeText(String value, String fallback) {
         return StringUtils.hasText(value) ? value : fallback;
+    }
+
+    private boolean hasMeaningfulFilter(String keyword,
+                                        Integer status,
+                                        Double minTotal,
+                                        Double maxTotal,
+                                        Long createdAfter,
+                                        Long createdBefore,
+                                        String productKeyword,
+                                        Integer paymentStatus) {
+        return StringUtils.hasText(keyword)
+            || status != null
+            || minTotal != null
+            || maxTotal != null
+            || createdAfter != null
+            || createdBefore != null
+            || StringUtils.hasText(productKeyword)
+            || paymentStatus != null;
     }
 }

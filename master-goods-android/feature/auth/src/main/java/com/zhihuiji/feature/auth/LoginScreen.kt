@@ -13,8 +13,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.CircularProgressIndicator
@@ -64,6 +67,8 @@ fun LoginScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showServerEditor by remember { mutableStateOf(false) }
+    var serverDraft by remember { mutableStateOf("") }
 
     LaunchedEffect(uiState.isLoggedIn) {
         if (uiState.isLoggedIn) {
@@ -81,10 +86,26 @@ fun LoginScreen(
     Box(modifier = modifier.fillMaxSize()) {
         LoginContent(
             isLoading = uiState.isLoading,
+            canEditBaseUrl = uiState.canEditBaseUrl,
             onLogin = { phone, password -> viewModel.login(phone, password) },
+            onOpenServerEditor = {
+                serverDraft = uiState.serverUrl
+                showServerEditor = true
+            },
             onNavigateToRegister = onNavigateToRegister,
             modifier = Modifier.fillMaxSize()
         )
+        if (showServerEditor && uiState.canEditBaseUrl) {
+            ServerAddressDialog(
+                value = serverDraft,
+                onValueChange = { serverDraft = it },
+                onDismiss = { showServerEditor = false },
+                onConfirm = {
+                    viewModel.saveBaseUrl(serverDraft)
+                    showServerEditor = false
+                },
+            )
+        }
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.BottomCenter)
@@ -95,7 +116,9 @@ fun LoginScreen(
 @Composable
 private fun LoginContent(
     isLoading: Boolean,
+    canEditBaseUrl: Boolean,
     onLogin: (String, String) -> Unit,
+    onOpenServerEditor: () -> Unit,
     onNavigateToRegister: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -130,12 +153,17 @@ private fun LoginContent(
                     Box(
                         modifier = Modifier
                             .size(72.dp)
-                            .background(GlassSurfaceLow, CircleShape),
+                            .background(GlassSurfaceLow, CircleShape)
+                            .pointerInput(canEditBaseUrl) {
+                                if (canEditBaseUrl) {
+                                    detectTapGestures(onLongPress = { onOpenServerEditor() })
+                                }
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Store,
-                            contentDescription = null,
+                            contentDescription = if (canEditBaseUrl) "服务器入口" else null,
                             tint = ZhihuijiPrimary,
                             modifier = Modifier.size(36.dp)
                         )
@@ -228,5 +256,49 @@ internal fun AuthOutlinedField(
         keyboardOptions = keyboardOptions,
         modifier = Modifier.fillMaxWidth(),
         shape = AuthFieldShape
+    )
+}
+
+@Composable
+private fun ServerAddressDialog(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = "服务器地址", color = TextPrimary) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "仅用于 debug 构建的本地或联调环境切换。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                )
+                GlassTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    label = "例如 http://10.0.2.2:18080/zhihuiji/",
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Done,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = AuthFieldShape,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = value.isNotBlank()) {
+                Text("保存", color = ZhihuijiPrimary)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消", color = TextSecondary)
+            }
+        },
     )
 }

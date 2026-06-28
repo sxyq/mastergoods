@@ -123,6 +123,42 @@ class AgentV2RepositoryTest {
     }
 
     @Test
+    fun confirmDraftDelegatesToConfirmAgentDraftV2AndSucceeds() = runBlocking {
+        var invokedMethod: String? = null
+        var invokedId: Long? = null
+        val api = fakeApi { methodName, args ->
+            invokedMethod = methodName
+            invokedId = args?.get(0) as Long
+            ApiResponse(code = 0, message = "ok", data = AgentDraftDto(id = invokedId ?: 0L, draftType = "create_sale_order"))
+        }
+
+        val repository = AgentV2Repository(api, fakeSseClient, json)
+        val result = repository.confirmDraft(6L)
+
+        assertTrue(result.isSuccess)
+        assertEquals("confirmAgentDraftV2", invokedMethod)
+        assertEquals(6L, invokedId)
+    }
+
+    @Test
+    fun cancelDraftDelegatesToCancelAgentDraftV2AndSucceeds() = runBlocking {
+        var invokedMethod: String? = null
+        var invokedId: Long? = null
+        val api = fakeApi { methodName, args ->
+            invokedMethod = methodName
+            invokedId = args?.get(0) as Long
+            ApiResponse(code = 0, message = "ok", data = AgentDraftDto(id = invokedId ?: 0L, draftType = "create_sale_order"))
+        }
+
+        val repository = AgentV2Repository(api, fakeSseClient, json)
+        val result = repository.cancelDraft(7L)
+
+        assertTrue(result.isSuccess)
+        assertEquals("cancelAgentDraftV2", invokedMethod)
+        assertEquals(7L, invokedId)
+    }
+
+    @Test
     fun deleteConversationDelegatesToDeleteAgentConversationV2AndSucceeds() = runBlocking {
         var invokedMethod: String? = null
         var invokedId: Long? = null

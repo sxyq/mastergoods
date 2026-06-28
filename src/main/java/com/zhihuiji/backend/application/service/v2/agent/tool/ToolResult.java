@@ -91,4 +91,16 @@ public record ToolResult(
     public static ToolResult empty(String toolSummary) {
         return new ToolResult(true, "", EMPTY_BLOCKS, NullNode.getInstance(), toolSummary, null, false);
     }
+
+    /**
+     * 构造空结果但标记为不充分。
+     *
+     * <p>适用于“带过滤条件未命中，值得由 Agent 放宽条件再补查一轮”的场景。
+     *
+     * @param toolSummary 执行摘要
+     * @return 不充分空结果
+     */
+    public static ToolResult emptyInsufficient(String toolSummary) {
+        return new ToolResult(true, "", EMPTY_BLOCKS, NullNode.getInstance(), toolSummary, null, true);
+    }
 }

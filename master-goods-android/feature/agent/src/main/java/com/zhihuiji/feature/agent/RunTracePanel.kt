@@ -27,7 +27,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -400,6 +403,14 @@ private fun ToolCallItem(call: com.zhihuiji.core.model.v2.agent.ToolCallRecord) 
     ) {
         call.auditSummary()
     }
+    val hasDetails = call.inputSummary != null ||
+        queryWindowSummary != null ||
+        call.toolCallId != null ||
+        call.resultSummary != null ||
+        evidenceSummary != null ||
+        auditSummary != null
+    // 工具调用详情二级折叠：仅在存在详情时可展开
+    var expanded by remember(call.toolCallId ?: call.toolName) { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -408,7 +419,12 @@ private fun ToolCallItem(call: com.zhihuiji.core.model.v2.agent.ToolCallRecord) 
             .background(Color.White.copy(alpha = 0.5f))
             .padding(8.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded },
+        ) {
             Icon(
                 imageVector = statusIcon,
                 contentDescription = null,
@@ -433,54 +449,67 @@ private fun ToolCallItem(call: com.zhihuiji.core.model.v2.agent.ToolCallRecord) 
                 style = MaterialTheme.typography.labelSmall,
                 color = statusColor,
             )
+            Spacer(modifier = Modifier.weight(1f))
+            if (hasDetails) {
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = if (expanded) "折叠" else "展开",
+                    tint = TextTertiary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
-        call.inputSummary?.let { input ->
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "输入: $input",
-                style = MaterialTheme.typography.labelSmall,
-                color = TextTertiary,
-            )
-        }
-        queryWindowSummary?.let { scope ->
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "范围: $scope",
-                style = MaterialTheme.typography.labelSmall,
-                color = TextTertiary,
-            )
-        }
-        call.toolCallId?.let { toolCallId ->
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "调用: $toolCallId",
-                style = MaterialTheme.typography.labelSmall,
-                color = TextTertiary,
-            )
-        }
-        call.resultSummary?.let { result ->
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = if (call.status == ToolCallStatus.FAILED) "错误: $result" else "结果: $result",
-                style = MaterialTheme.typography.labelSmall,
-                color = if (call.status == ToolCallStatus.FAILED) DangerRed else TextSecondary,
-            )
-        }
-        evidenceSummary?.let { evidence ->
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "依据: $evidence",
-                style = MaterialTheme.typography.labelSmall,
-                color = TextSecondary,
-            )
-        }
-        auditSummary?.let { audit ->
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = audit,
-                style = MaterialTheme.typography.labelSmall,
-                color = if (call.isTruncated == true) WarningOrange else TextTertiary,
-            )
+        AnimatedVisibility(visible = expanded) {
+            Column {
+                call.inputSummary?.let { input ->
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "输入: $input",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextTertiary,
+                    )
+                }
+                queryWindowSummary?.let { scope ->
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "范围: $scope",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextTertiary,
+                    )
+                }
+                call.toolCallId?.let { toolCallId ->
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "调用: $toolCallId",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextTertiary,
+                    )
+                }
+                call.resultSummary?.let { result ->
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (call.status == ToolCallStatus.FAILED) "错误: $result" else "结果: $result",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (call.status == ToolCallStatus.FAILED) DangerRed else TextSecondary,
+                    )
+                }
+                evidenceSummary?.let { evidence ->
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "依据: $evidence",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary,
+                    )
+                }
+                auditSummary?.let { audit ->
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = audit,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (call.isTruncated == true) WarningOrange else TextTertiary,
+                    )
+                }
+            }
         }
     }
 }

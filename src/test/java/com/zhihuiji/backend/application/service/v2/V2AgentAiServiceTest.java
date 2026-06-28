@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -22,19 +23,34 @@ import com.zhihuiji.backend.domain.entity.AgentDraftEntity;
 import com.zhihuiji.backend.domain.entity.AgentMessageEntity;
 import com.zhihuiji.backend.domain.entity.AgentRunAuditEventEntity;
 import com.zhihuiji.backend.domain.entity.AgentRunAuditEntity;
+import com.zhihuiji.backend.domain.entity.AccountEntity;
+import com.zhihuiji.backend.domain.entity.AccountTransferEntity;
+import com.zhihuiji.backend.domain.entity.CashChangeRecordEntity;
+import com.zhihuiji.backend.domain.entity.FinanceRecordEntity;
+import com.zhihuiji.backend.domain.entity.InventoryMonthlyStatsEntity;
+import com.zhihuiji.backend.domain.entity.PaymentEntity;
 import com.zhihuiji.backend.domain.entity.ProductEntity;
+import com.zhihuiji.backend.domain.entity.PurchaseOrderEntity;
+import com.zhihuiji.backend.domain.entity.PurchaseReceiptEntity;
+import com.zhihuiji.backend.domain.entity.PurchaseReturnEntity;
+import com.zhihuiji.backend.domain.entity.SaleOrderEntity;
+import com.zhihuiji.backend.domain.entity.SalesReturnEntity;
 import com.zhihuiji.backend.domain.entity.SupplierEntity;
 import com.zhihuiji.backend.application.service.v2.agent.component.RunAuditService;
 import com.zhihuiji.backend.application.service.v2.agent.component.SafetyDecision;
 import com.zhihuiji.backend.application.service.v2.agent.component.SafetyGuard;
 import com.zhihuiji.backend.application.service.v2.agent.component.SseStreamEmitter;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolRegistry;
+import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.AccountHealthLookupTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.CustomerProfileLookupTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.CustomerReceivableLookupTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.FinanceRecordLookupTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.InventoryLowStockLookupTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.InventoryPanoramaLookupTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.PayOrderLookupTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.ProductCatalogLookupTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.PurchaseOrderLookupTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.PurchaseTrackingLookupTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.ReceivablePayableLookupTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.SaleOrderLookupTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.SalesOverviewLookupTool;
@@ -54,13 +70,21 @@ import com.zhihuiji.backend.infrastructure.repository.AgentNotificationRepositor
 import com.zhihuiji.backend.infrastructure.repository.AgentRunAuditEventRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentRunAuditRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentTaskRepository;
+import com.zhihuiji.backend.infrastructure.repository.AccountRepository;
+import com.zhihuiji.backend.infrastructure.repository.AccountTransferRepository;
+import com.zhihuiji.backend.infrastructure.repository.CashChangeRecordRepository;
 import com.zhihuiji.backend.infrastructure.repository.CustomerRepository;
 import com.zhihuiji.backend.infrastructure.repository.FinanceRecordRepository;
+import com.zhihuiji.backend.infrastructure.repository.InventoryMonthlyStatsRepository;
 import com.zhihuiji.backend.infrastructure.repository.PayOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.PaymentRepository;
 import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
 import com.zhihuiji.backend.infrastructure.repository.PurchaseOrderRepository;
+import com.zhihuiji.backend.infrastructure.repository.PurchaseReceiptRepository;
+import com.zhihuiji.backend.infrastructure.repository.PurchaseReturnRepository;
+import com.zhihuiji.backend.infrastructure.repository.SaleOrderItemRepository;
 import com.zhihuiji.backend.infrastructure.repository.SaleOrderRepository;
+import com.zhihuiji.backend.infrastructure.repository.SalesReturnRepository;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
 import java.lang.reflect.Field;
 import java.lang.reflect.Constructor;
@@ -98,6 +122,9 @@ class V2AgentAiServiceTest {
     @Mock private AgentNotificationRepository agentNotificationRepository;
     @Mock private AgentRunAuditRepository agentRunAuditRepository;
     @Mock private AgentRunAuditEventRepository agentRunAuditEventRepository;
+    @Mock private AccountRepository accountRepository;
+    @Mock private AccountTransferRepository accountTransferRepository;
+    @Mock private CashChangeRecordRepository cashChangeRecordRepository;
     @Mock private ProductRepository productRepository;
     @Mock private CustomerRepository customerRepository;
     @Mock private SupplierRepository supplierRepository;
@@ -106,6 +133,11 @@ class V2AgentAiServiceTest {
     @Mock private PayOrderRepository payOrderRepository;
     @Mock private FinanceRecordRepository financeRecordRepository;
     @Mock private PaymentRepository paymentRepository;
+    @Mock private SalesReturnRepository salesReturnRepository;
+    @Mock private SaleOrderItemRepository saleOrderItemRepository;
+    @Mock private InventoryMonthlyStatsRepository inventoryMonthlyStatsRepository;
+    @Mock private PurchaseReceiptRepository purchaseReceiptRepository;
+    @Mock private PurchaseReturnRepository purchaseReturnRepository;
     @Mock private LongCatAnthropicClient longCatAnthropicClient;
 
     private V2AgentAiService service;
@@ -132,10 +164,14 @@ class V2AgentAiServiceTest {
         safetyGuard = new SafetyGuard(longCatAnthropicClient, objectMapper, currentOwnerService);
         toolRegistry = new ToolRegistry(java.util.List.of(
             new CustomerReceivableLookupTool(customerRepository),
+            new CustomerProfileLookupTool(customerRepository, saleOrderRepository, paymentRepository, salesReturnRepository, objectMapper),
             new SupplierPayableLookupTool(supplierRepository),
+            new AccountHealthLookupTool(accountRepository, accountTransferRepository, cashChangeRecordRepository, financeRecordRepository, objectMapper),
             new ProductCatalogLookupTool(productRepository),
+            new InventoryPanoramaLookupTool(productRepository, inventoryMonthlyStatsRepository, saleOrderItemRepository, objectMapper),
             new SaleOrderLookupTool(saleOrderRepository),
             new PurchaseOrderLookupTool(purchaseOrderRepository),
+            new PurchaseTrackingLookupTool(purchaseOrderRepository, purchaseReceiptRepository, purchaseReturnRepository, objectMapper),
             new PayOrderLookupTool(payOrderRepository),
             new FinanceRecordLookupTool(financeRecordRepository),
             new ReceivablePayableLookupTool(customerRepository, supplierRepository),
@@ -1312,6 +1348,272 @@ class V2AgentAiServiceTest {
     }
 
     @Test
+    void customerProfileLookupProvidesCustomerInsightAndCollectionSuggestion() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        com.zhihuiji.backend.domain.entity.CustomerEntity matchedCustomer = customer(1L, "张三商贸", 600.0);
+        matchedCustomer.setPhone("13812345678");
+        matchedCustomer.setLevel(2);
+        when(customerRepository.search(1L, "张三商贸", null, null)).thenReturn(List.of(matchedCustomer));
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(matchedCustomer));
+        when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(1L);
+        when(customerRepository.sumPositiveBalance(1L)).thenReturn(600.0);
+
+        SaleOrderEntity order1 = saleOrder(11L, 1L, "SO-001", "张三商贸", 500.0, 300.0, 1_720_000_000_000L);
+        SaleOrderEntity order2 = saleOrder(12L, 1L, "SO-002", "张三商贸", 200.0, 200.0, 1_721_000_000_000L);
+        when(saleOrderRepository.search(1L, "张三商贸", null, null, null, null, null, null, null))
+            .thenReturn(List.of(order2, order1));
+
+        PaymentEntity payment1 = payment(101L, 12L, 200.0, 1, 1_721_000_100_000L);
+        PaymentEntity payment2 = payment(102L, 11L, 300.0, 1, 1_720_000_100_000L);
+        when(paymentRepository.findByOwnerUserIdAndOrderIdOrderByCreatedAtAsc(1L, 12L)).thenReturn(List.of(payment1));
+        when(paymentRepository.findByOwnerUserIdAndOrderIdOrderByCreatedAtAsc(1L, 11L)).thenReturn(List.of(payment2));
+
+        SalesReturnEntity salesReturn = salesReturn(201L, 11L, "SR-001", "张三商贸", 50.0, 20.0, 1_721_000_200_000L);
+        when(salesReturnRepository.findByOwnerUserIdAndOriginalOrderIdOrderByCreatedAtDesc(1L, 12L)).thenReturn(List.of());
+        when(salesReturnRepository.findByOwnerUserIdAndOriginalOrderIdOrderByCreatedAtDesc(1L, 11L)).thenReturn(List.of(salesReturn));
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "看下张三商贸的客户画像和催收建议", false)
+        );
+
+        assertEquals("keyword_fallback", response.planSource());
+        assertTrue(response.planSummary().contains("customer_profile_lookup"), response.planSummary());
+        assertTrue(response.toolCalls().stream().anyMatch(tool -> "customer_profile_lookup".equals(tool.toolName())));
+        assertTrue(response.answer().contains("张三商贸"), response.answer());
+        assertTrue(response.answer().contains("累计销售额 ¥700.00"), response.answer());
+        assertTrue(response.answer().contains("当前欠款 ¥600.00"), response.answer());
+        assertTrue(response.answer().contains("付款习惯偏微信"), response.answer());
+        assertTrue(response.blocks().stream().anyMatch(block ->
+            "kpi_grid".equals(block.blockType())
+                && block.data().toString().contains("累计销售额")
+                && block.data().toString().contains("¥700.00")
+                && block.data().toString().contains("当前欠款")
+                && block.data().toString().contains("¥600.00")
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("customer_name") && "张三商贸".equals(ref.value())
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("balance") && "¥600.00".equals(ref.value())
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("payment_habit") && "微信".equals(ref.value())
+        ));
+    }
+
+    @Test
+    void inferToolPlanBuildsCustomerKeywordParamsForProfileAndReceivableTools() throws Exception {
+        Object plan = inferToolPlan("看下张三商贸的客户画像和催收建议");
+
+        List<String> tools = extractPlannedTools(plan);
+        JsonNode profileParams = extractToolParams(plan, "customer_profile_lookup");
+        JsonNode receivableParams = extractToolParams(plan, "customer_receivable_lookup");
+
+        assertTrue(tools.contains("customer_profile_lookup"), tools.toString());
+        assertTrue(tools.contains("customer_receivable_lookup"), tools.toString());
+        assertNotNull(profileParams);
+        assertNotNull(receivableParams);
+        assertEquals("张三商贸", profileParams.path("keyword").asText());
+        assertEquals("张三商贸", receivableParams.path("keyword").asText());
+    }
+
+    @Test
+    void keywordFallbackUsesRecentConversationContextForCustomerFollowUpQuestion() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        AgentConversationEntity conversation = conversation(301L);
+        conversation.setLatestSummary("刚才查询了客户张三商贸的客户画像，当前欠款 ¥600.00。");
+        when(agentConversationRepository.findByIdAndOwnerUserId(301L, 1L)).thenReturn(Optional.of(conversation));
+        when(agentMessageRepository.findAllByOwnerUserIdAndConversationIdOrderByCreatedAtDescIdDesc(1L, 301L, PageRequest.of(0, 10)))
+            .thenReturn(List.of(
+                message(702L, 301L, "assistant", "刚才查询了客户张三商贸的客户画像，当前欠款 ¥600.00。", 20L),
+                message(701L, 301L, "user", "帮我看下张三商贸的客户画像", 10L)
+            ));
+
+        com.zhihuiji.backend.domain.entity.CustomerEntity matchedCustomer = customer(1L, "张三商贸", 600.0);
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(matchedCustomer));
+        when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(1L);
+        when(customerRepository.sumPositiveBalance(1L)).thenReturn(600.0);
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(301L, "刚才那个客户的欠款呢", false)
+        );
+
+        assertEquals("keyword_fallback", response.planSource());
+        assertFalse(response.toolCalls().isEmpty());
+        V2AgentDtos.AgentToolCallDto toolCall = response.toolCalls().get(0);
+        assertEquals("customer_receivable_lookup", toolCall.toolName());
+        assertTrue(toolCall.inputSummary().contains("张三商贸"), toolCall.inputSummary());
+        assertTrue(response.answer().contains("¥600.00"), response.answer());
+    }
+
+    @Test
+    void inventoryPanoramaLookupProvidesInventoryHealthInsight() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        ProductEntity product = product(1L, "P001", "矿泉水", 12.0, 20.0, 3.5);
+        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+            .thenReturn(List.of(product));
+        when(inventoryMonthlyStatsRepository.findByOwnerUserIdAndProductIdAndYearAndMonth(any(), any(), any(), any()))
+            .thenReturn(Optional.of(inventoryMonthlyStats(1L, 1L, "P001", "矿泉水", 20.0, 12.0)));
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "看下矿泉水的库存全景和库存周转", false)
+        );
+
+        assertEquals("keyword_fallback", response.planSource());
+        assertTrue(response.planSummary().contains("inventory_panorama_lookup"), response.planSummary());
+        assertTrue(response.toolCalls().stream().anyMatch(tool -> "inventory_panorama_lookup".equals(tool.toolName())));
+        assertTrue(response.answer().contains("矿泉水"), response.answer());
+        assertTrue(response.answer().contains("当前库存 12"), response.answer());
+        assertTrue(response.answer().contains("安全库存 20"), response.answer());
+        assertTrue(response.answer().contains("近30天销量 12"), response.answer());
+        assertTrue(response.answer().contains("建议补货量 28"), response.answer());
+        assertTrue(response.blocks().stream().anyMatch(block ->
+            "table".equals(block.blockType())
+                && block.title().contains("商品库存全景")
+                && block.data().toString().contains("矿泉水")
+                && block.data().toString().contains("28")
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("商品名称") && "矿泉水".equals(ref.value())
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("建议补货量") && "28".equals(ref.value())
+        ));
+    }
+
+    @Test
+    void inferToolPlanBuildsProductKeywordParamsForInventoryPanoramaTool() throws Exception {
+        Object plan = inferToolPlan("看下矿泉水的库存全景和库存周转");
+
+        List<String> tools = extractPlannedTools(plan);
+        JsonNode params = extractToolParams(plan, "inventory_panorama_lookup");
+
+        assertTrue(tools.contains("inventory_panorama_lookup"), tools.toString());
+        assertNotNull(params);
+        assertEquals("矿泉水", params.path("keyword").asText());
+    }
+
+    @Test
+    void purchaseTrackingLookupProvidesReceiptAndReturnChainInsight() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        PurchaseOrderEntity order = purchaseOrder(21L, "PO-001", "可口供应链", 1200.0, 800.0, 900.0, 1_721_000_000_000L);
+        when(purchaseOrderRepository.search(1L, "可口供应链", null)).thenReturn(List.of(order));
+
+        PurchaseReceiptEntity receipt1 = purchaseReceipt(31L, 21L, "PR-001", "可口供应链", 600.0, 1, 1_721_000_100_000L);
+        PurchaseReceiptEntity receipt2 = purchaseReceipt(32L, 21L, "PR-002", "可口供应链", 300.0, 1, 1_721_000_200_000L);
+        when(purchaseReceiptRepository.findByOwnerUserIdAndPurchaseOrderIdOrderByCreatedAtDesc(1L, 21L))
+            .thenReturn(List.of(receipt2, receipt1));
+
+        PurchaseReturnEntity purchaseReturn = purchaseReturn(41L, 21L, "PTR-001", "可口供应链", 120.0, 80.0, 2, 1_721_000_300_000L);
+        when(purchaseReturnRepository.findByOwnerUserIdAndPurchaseOrderIdOrderByCreatedAtDesc(1L, 21L))
+            .thenReturn(List.of(purchaseReturn));
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "看下可口供应链的采购跟踪和入库退货", false)
+        );
+
+        assertEquals("keyword_fallback", response.planSource());
+        assertTrue(response.planSummary().contains("purchase_tracking_lookup"), response.planSummary());
+        assertTrue(response.toolCalls().stream().anyMatch(tool -> "purchase_tracking_lookup".equals(tool.toolName())));
+        assertTrue(response.answer().contains("PO-001"), response.answer());
+        assertTrue(response.answer().contains("可口供应链"), response.answer());
+        assertTrue(response.answer().contains("采购总额 ¥1200.00"), response.answer());
+        assertTrue(response.answer().contains("已到货 ¥900.00"), response.answer());
+        assertTrue(response.answer().contains("待付款 ¥400.00"), response.answer());
+        assertTrue(response.answer().contains("关联入库 2 条"), response.answer());
+        assertTrue(response.answer().contains("退货 1 条"), response.answer());
+        assertTrue(response.blocks().stream().anyMatch(block ->
+            "table".equals(block.blockType())
+                && block.title().contains("关联采购入库单")
+                && block.data().toString().contains("PR-001")
+                && block.data().toString().contains("PR-002")
+        ));
+        assertTrue(response.blocks().stream().anyMatch(block ->
+            "table".equals(block.blockType())
+                && block.title().contains("关联采购退货单")
+                && block.data().toString().contains("PTR-001")
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("采购单号") && "PO-001".equals(ref.value())
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("入库单数") && "2条".equals(ref.value())
+        ));
+    }
+
+    @Test
+    void inferToolPlanBuildsPurchaseKeywordParamsForPurchaseTrackingTool() throws Exception {
+        Object plan = inferToolPlan("看下可口供应链的采购跟踪和入库退货");
+
+        List<String> tools = extractPlannedTools(plan);
+        JsonNode params = extractToolParams(plan, "purchase_tracking_lookup");
+
+        assertTrue(tools.contains("purchase_tracking_lookup"), tools.toString());
+        assertNotNull(params);
+        assertEquals("可口供应链", params.path("keyword").asText());
+    }
+
+    @Test
+    void accountHealthLookupProvidesAccountBalanceFlowAndRiskInsight() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        when(accountRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(1L)).thenReturn(List.of(
+            account(11L, "WX", "微信账户", 3, 5200.0, false, 1, "日常收款"),
+            account(12L, "BANK", "招商银行", 1, 1800.0, true, 1, "默认结算"),
+            account(13L, "CASH", "备用金", 0, 0.0, false, 0, "线下零用")
+        ));
+        long now = System.currentTimeMillis();
+        when(accountTransferRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(
+            accountTransfer(21L, "AT-002", 11L, 12L, 300.0, 1.0, 1, "周转", now - 3_600_000L),
+            accountTransfer(22L, "AT-001", 12L, 11L, 500.0, 2.0, 1, "调拨", now - 7_200_000L)
+        ));
+        when(cashChangeRecordRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(
+            cashChange(31L, "sale_order", 901L, 100.0, 120.0, 20.0, 11L, "找零", now - 5_400_000L),
+            cashChange(32L, "sale_order", 902L, 80.0, 80.0, 0.0, 12L, "整单收款", now - 2_700_000L)
+        ));
+        when(financeRecordRepository.cashflowSummary(any(), any(), any(), any(), any()))
+            .thenReturn(new Object[]{9800.0, 7600.0, 6L});
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "看下账户健康和收支比", false)
+        );
+
+        assertEquals("keyword_fallback", response.planSource());
+        assertTrue(response.planSummary().contains("account_health_lookup"), response.planSummary());
+        assertTrue(response.toolCalls().stream().anyMatch(tool -> "account_health_lookup".equals(tool.toolName())));
+        assertTrue(response.answer().contains("账户总余额 ¥7000.00"), response.answer());
+        assertTrue(response.answer().contains("收支比 1.29"), response.answer());
+        assertTrue(response.answer().contains("低余额账户 1 个"), response.answer());
+        assertTrue(response.answer().contains("近期转账 2 条"), response.answer());
+        assertTrue(response.blocks().stream().anyMatch(block ->
+            "table".equals(block.blockType())
+                && block.title().contains("重点账户健康明细")
+                && block.data().toString().contains("微信账户")
+                && block.data().toString().contains("招商银行")
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("账户总余额") && "¥7000.00".equals(ref.value())
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("低余额账户") && "1个".equals(ref.value())
+        ));
+    }
+
+    @Test
+    void inferToolPlanBuildsAccountKeywordParamsForAccountHealthTool() throws Exception {
+        Object plan = inferToolPlan("看下微信账户的账户健康和最近30天收支比");
+
+        List<String> tools = extractPlannedTools(plan);
+        JsonNode params = extractToolParams(plan, "account_health_lookup");
+
+        assertTrue(tools.contains("account_health_lookup"), tools.toString());
+        assertNotNull(params);
+        assertEquals("微信账户", params.path("keyword").asText());
+        assertEquals(30, params.path("window_days").asInt());
+    }
+
+    @Test
     void inferToolPlanBuildsCreateCustomerDraftParamsFromNaturalLanguage() throws Exception {
         Object plan = inferToolPlan("新建客户张三 电话13812345678 备注重点跟进");
         List<String> tools = extractPlannedTools(plan);
@@ -1402,6 +1704,36 @@ class V2AgentAiServiceTest {
         ));
         verify(agentDraftRepository).save(any(AgentDraftEntity.class));
         verify(longCatAnthropicClient).createMessageWithTools(anyString(), anyString(), any());
+    }
+
+    @Test
+    void chatRetriesWithDeterministicRecoveryWhenFirstFilteredToolResultIsInsufficient() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.configurationStatus()).thenReturn("configured");
+        when(longCatAnthropicClient.createMessageWithTools(anyString(), anyString(), any())).thenReturn(Optional.empty());
+        when(longCatAnthropicClient.createJsonMessage(anyString(), contains("用户问题：查一下张三上个月的销售单")))
+            .thenReturn(Optional.of("""
+                {"tools":[{"name":"sale_order_lookup","params":{"keyword":"张三","created_after":1717171200000}}],"rationale":"先按用户给的时间和客户条件精确查询"}
+                """));
+        when(longCatAnthropicClient.createJsonMessage(anyString(), contains("已执行工具结果 JSON")))
+            .thenReturn(Optional.empty());
+
+        when(saleOrderRepository.search(1L, "张三", null, null, null, 1717171200000L, null, null, null, PageRequest.of(0, 10)))
+            .thenReturn(List.of());
+        SaleOrderEntity recoveredOrder = saleOrder(51L, 9L, "SO-RECOVER-001", "张三商贸", 880.0, 500.0, 1_719_000_000_000L);
+        when(saleOrderRepository.search(1L, "张三", null, null, null, null, null, null, null, PageRequest.of(0, 10)))
+            .thenReturn(List.of(recoveredOrder));
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "查一下张三上个月的销售单", false)
+        );
+
+        assertEquals("deterministic_recovery", response.planSource());
+        assertTrue(response.planSummary().contains("sale_order_lookup"), response.planSummary());
+        assertTrue(response.answer().contains("SO-RECOVER-001"), response.answer());
+        assertTrue(response.answer().contains("查询销售额 ¥880.00"), response.answer());
+        verify(saleOrderRepository).search(1L, "张三", null, null, null, 1717171200000L, null, null, null, PageRequest.of(0, 10));
+        verify(saleOrderRepository).search(1L, "张三", null, null, null, null, null, null, null, PageRequest.of(0, 10));
     }
 
     @Test
@@ -1504,9 +1836,14 @@ class V2AgentAiServiceTest {
     }
 
     private Object inferToolPlan(String message) throws Exception {
-        Method method = V2AgentAiService.class.getDeclaredMethod("inferToolPlan", String.class);
+        Method method = V2AgentAiService.class.getDeclaredMethod(
+            "inferToolPlan",
+            String.class,
+            List.class,
+            String.class
+        );
         method.setAccessible(true);
-        return method.invoke(service, message);
+        return method.invoke(service, message, List.of(), null);
     }
 
     @SuppressWarnings("unchecked")
@@ -1528,9 +1865,9 @@ class V2AgentAiServiceTest {
         Class<?> toolResultClass = Class.forName(
             "com.zhihuiji.backend.application.service.v2.V2AgentAiService$ToolExecutionResult"
         );
-        Constructor<?> constructor = toolResultClass.getDeclaredConstructor(String.class, String.class, JsonNode.class);
+        Constructor<?> constructor = toolResultClass.getDeclaredConstructor(String.class, String.class, JsonNode.class, boolean.class);
         constructor.setAccessible(true);
-        return constructor.newInstance(toolName, summary, facts);
+        return constructor.newInstance(toolName, summary, facts, false);
     }
 
     @SuppressWarnings("unchecked")
@@ -1637,6 +1974,18 @@ class V2AgentAiServiceTest {
         return entity;
     }
 
+    private static AgentMessageEntity message(Long id, Long conversationId, String role, String content, long createdAt) {
+        AgentMessageEntity entity = new AgentMessageEntity();
+        setId(entity, id);
+        entity.setOwnerUserId(1L);
+        entity.setConversationId(conversationId);
+        entity.setRole(role);
+        entity.setMessageType("text");
+        entity.setContent(content);
+        entity.setCreatedAt(createdAt);
+        return entity;
+    }
+
     private static ProductEntity product(Long id, String code, String name, double stock, double safeStock, double salePrice) {
         ProductEntity entity = new ProductEntity();
         entity.setId(id);
@@ -1683,6 +2032,235 @@ class V2AgentAiServiceTest {
         entity.setStatus(1);
         entity.setSyncStatus(0);
         entity.setSyncVersion(1L);
+        entity.setCreatedAt(1L);
+        entity.setUpdatedAt(1L);
+        return entity;
+    }
+
+    private static SaleOrderEntity saleOrder(Long id, Long customerId, String orderNo, String customerName, double totalAmount, double paidAmount, long createdAt) {
+        SaleOrderEntity entity = new SaleOrderEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setCustomerId(customerId);
+        entity.setOrderNo(orderNo);
+        entity.setCustomerName(customerName);
+        entity.setSubtotalAmount(totalAmount);
+        entity.setDiscountAmount(0.0);
+        entity.setTotalAmount(totalAmount);
+        entity.setPaidAmount(paidAmount);
+        entity.setStatus(1);
+        entity.setSyncStatus(0);
+        entity.setSyncVersion(1L);
+        entity.setCreatedAt(createdAt);
+        entity.setUpdatedAt(createdAt);
+        return entity;
+    }
+
+    private static PaymentEntity payment(Long id, Long orderId, double amount, int method, long createdAt) {
+        PaymentEntity entity = new PaymentEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setOrderId(orderId);
+        entity.setAmount(amount);
+        entity.setMethod(method);
+        entity.setType(1);
+        entity.setReferenceNo("REF-" + id);
+        entity.setCreatedAt(createdAt);
+        return entity;
+    }
+
+    private static SalesReturnEntity salesReturn(Long id, Long originalOrderId, String returnNo, String customerName, double totalAmount, double refundAmount, long createdAt) {
+        SalesReturnEntity entity = new SalesReturnEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setOriginalOrderId(originalOrderId);
+        entity.setReturnNo(returnNo);
+        entity.setCustomerName(customerName);
+        entity.setTotalAmount(totalAmount);
+        entity.setRefundAmount(refundAmount);
+        entity.setStatus(1);
+        entity.setCreatedAt(createdAt);
+        entity.setUpdatedAt(createdAt);
+        return entity;
+    }
+
+    private static PurchaseOrderEntity purchaseOrder(
+        Long id,
+        String orderNo,
+        String supplierName,
+        double totalAmount,
+        double paidAmount,
+        double receivedAmount,
+        long createdAt
+    ) {
+        PurchaseOrderEntity entity = new PurchaseOrderEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setSupplierId(1L);
+        entity.setOrderNo(orderNo);
+        entity.setSupplierName(supplierName);
+        entity.setTotalAmount(totalAmount);
+        entity.setPaidAmount(paidAmount);
+        entity.setReceivedAmount(receivedAmount);
+        entity.setSettlementMethod(1);
+        entity.setStatus(1);
+        entity.setSyncStatus(0);
+        entity.setSyncVersion(1L);
+        entity.setCreatedAt(createdAt);
+        entity.setUpdatedAt(createdAt);
+        return entity;
+    }
+
+    private static PurchaseReceiptEntity purchaseReceipt(
+        Long id,
+        Long purchaseOrderId,
+        String receiptNo,
+        String supplierName,
+        double totalAmount,
+        int status,
+        long createdAt
+    ) {
+        PurchaseReceiptEntity entity = new PurchaseReceiptEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setPurchaseOrderId(purchaseOrderId);
+        entity.setSupplierId(1L);
+        entity.setReceiptNo(receiptNo);
+        entity.setSupplierName(supplierName);
+        entity.setTotalAmount(totalAmount);
+        entity.setStatus(status);
+        entity.setCreatedAt(createdAt);
+        entity.setUpdatedAt(createdAt);
+        return entity;
+    }
+
+    private static PurchaseReturnEntity purchaseReturn(
+        Long id,
+        Long purchaseOrderId,
+        String returnNo,
+        String supplierName,
+        double totalAmount,
+        double refundAmount,
+        int status,
+        long createdAt
+    ) {
+        PurchaseReturnEntity entity = new PurchaseReturnEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setPurchaseOrderId(purchaseOrderId);
+        entity.setSupplierId(1L);
+        entity.setReturnNo(returnNo);
+        entity.setSupplierName(supplierName);
+        entity.setTotalAmount(totalAmount);
+        entity.setRefundAmount(refundAmount);
+        entity.setStatus(status);
+        entity.setCreatedAt(createdAt);
+        entity.setUpdatedAt(createdAt);
+        return entity;
+    }
+
+    private static AccountEntity account(
+        Long id,
+        String code,
+        String name,
+        int type,
+        double balance,
+        boolean isDefault,
+        int status,
+        String notes
+    ) {
+        AccountEntity entity = new AccountEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setCode(code);
+        entity.setName(name);
+        entity.setType(type);
+        entity.setBalance(balance);
+        entity.setIsDefault(isDefault);
+        entity.setStatus(status);
+        entity.setSortOrder(0);
+        entity.setNotes(notes);
+        entity.setCreatedAt(1L);
+        entity.setUpdatedAt(1L);
+        return entity;
+    }
+
+    private static AccountTransferEntity accountTransfer(
+        Long id,
+        String transferNo,
+        Long fromAccountId,
+        Long toAccountId,
+        double amount,
+        double fee,
+        int status,
+        String notes,
+        long createdAt
+    ) {
+        AccountTransferEntity entity = new AccountTransferEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setTransferNo(transferNo);
+        entity.setFromAccountId(fromAccountId);
+        entity.setToAccountId(toAccountId);
+        entity.setAmount(amount);
+        entity.setFee(fee);
+        entity.setStatus(status);
+        entity.setNotes(notes);
+        entity.setCreatedAt(createdAt);
+        entity.setUpdatedAt(createdAt);
+        return entity;
+    }
+
+    private static CashChangeRecordEntity cashChange(
+        Long id,
+        String orderType,
+        Long orderId,
+        double receivable,
+        double received,
+        double changeAmount,
+        Long accountId,
+        String notes,
+        long createdAt
+    ) {
+        CashChangeRecordEntity entity = new CashChangeRecordEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setOrderType(orderType);
+        entity.setOrderId(orderId);
+        entity.setReceivable(receivable);
+        entity.setReceived(received);
+        entity.setChangeAmount(changeAmount);
+        entity.setAccountId(accountId);
+        entity.setStatus(1);
+        entity.setNotes(notes);
+        entity.setCreatedAt(createdAt);
+        entity.setUpdatedAt(createdAt);
+        return entity;
+    }
+
+    private static InventoryMonthlyStatsEntity inventoryMonthlyStats(
+        Long id,
+        Long productId,
+        String productCode,
+        String productName,
+        double quantityBegin,
+        double quantityOut
+    ) {
+        InventoryMonthlyStatsEntity entity = new InventoryMonthlyStatsEntity();
+        entity.setId(id);
+        entity.setOwnerUserId(1L);
+        entity.setProductId(productId);
+        entity.setProductCode(productCode);
+        entity.setProductName(productName);
+        entity.setYear(2026);
+        entity.setMonth(6);
+        entity.setQuantityBegin(quantityBegin);
+        entity.setQuantityIn(0.0);
+        entity.setQuantityOut(quantityOut);
+        entity.setQuantityAdjust(0.0);
+        entity.setQuantityEnd(Math.max(0.0, quantityBegin - quantityOut));
+        entity.setTotalCostIn(0.0);
+        entity.setTotalCostOut(0.0);
         entity.setCreatedAt(1L);
         entity.setUpdatedAt(1L);
         return entity;

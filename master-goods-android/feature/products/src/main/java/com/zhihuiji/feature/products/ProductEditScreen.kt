@@ -1,5 +1,9 @@
 package com.zhihuiji.feature.products
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -20,6 +24,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,6 +35,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.AddAPhoto
 import androidx.compose.material.icons.outlined.Badge
@@ -56,6 +63,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -79,6 +88,8 @@ import com.zhihuiji.core.designsystem.TextTertiary
 import com.zhihuiji.core.designsystem.WarningOrange
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimaryBright
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 
 private val productActionPrimaryBrush = Brush.horizontalGradient(
     listOf(ZhihuijiPrimaryBright, ZhihuijiPrimary),
@@ -93,6 +104,7 @@ fun ProductEditScreen(
     viewModel: ProductEditViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     LaunchedEffect(productId) {
         if (productId != null) {
@@ -112,6 +124,8 @@ fun ProductEditScreen(
         onNavigateBack = onNavigateBack,
         onCategorySelect = viewModel::selectCategory,
         onUnitSelect = viewModel::selectUnit,
+        onUploadImage = { uri -> viewModel.uploadImage(uri, context) },
+        onDeleteImage = viewModel::deleteImage,
         onSave = { form, continueAdding ->
             val categoryId = form.categoryId ?: return@ProductEditScreenContent
             val unitId = form.unitId ?: return@ProductEditScreenContent
@@ -166,8 +180,10 @@ private fun ProductEditScreenContent(
     onNavigateBack: () -> Unit,
     onCategorySelect: (ProductCategoryV2Dto) -> Unit,
     onUnitSelect: (ProductUnitV2Dto) -> Unit,
+    onUploadImage: (Uri) -> Unit,
+    onDeleteImage: (Long) -> Unit,
     onSave: (ProductEditForm, Boolean) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     var name by remember(uiState.name) { mutableStateOf(uiState.name) }
     var code by remember(uiState.code) { mutableStateOf(uiState.code) }
@@ -210,7 +226,14 @@ private fun ProductEditScreenContent(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    ProductImageUploadCard()
+                    ProductImageUploadCard(
+                        images = uiState.images,
+                        isUploading = uiState.isUploading,
+                        isEditMode = uiState.isEditMode,
+                        authToken = uiState.authToken,
+                        onUploadImage = onUploadImage,
+                        onDeleteImage = onDeleteImage,
+                    )
 
                     ProductFormSection(title = "基本信息") {
                         ProductInputField(
@@ -389,7 +412,22 @@ private fun ProductEditTopBar(
 }
 
 @Composable
-private fun ProductImageUploadCard(modifier: Modifier = Modifier) {
+private fun ProductImageUploadCard(
+    images: List<ProductImageUi>,
+    isUploading: Boolean,
+    isEditMode: Boolean,
+    authToken: String?,
+    onUploadImage: (Uri) -> Unit,
+    onDeleteImage: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri != null) onUploadImage(uri)
+    }
+
     LiquidGlassCard(
         modifier = modifier
             .fillMaxWidth()
@@ -398,39 +436,135 @@ private fun ProductImageUploadCard(modifier: Modifier = Modifier) {
         surfaceColor = GlassSurfaceHigh,
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (images.isNotEmpty()) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    items(images, key = { image -> image.assetId }) { image ->
+                        ProductImageThumbnail(
+                            url = image.url,
+                            authToken = authToken,
+                            canDelete = image.bindingId != null,
+                            onDelete = { image.bindingId?.let(onDeleteImage) },
+                        )
+                    }
+                }
+            }
+
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(SurfaceGray.copy(alpha = 0.5f))
+                    .clickable(enabled = !isUploading && isEditMode) {
+                        launcher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    }
+                    .padding(vertical = 24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    if (isUploading) {
+                        CircularProgressIndicator(
+                            color = ZhihuijiPrimary,
+                            modifier = Modifier.size(32.dp),
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(SurfaceWhite.copy(alpha = 0.7f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.AddAPhoto,
+                                contentDescription = "点击上传商品图片",
+                                tint = TextTertiary,
+                                modifier = Modifier.size(28.dp),
+                            )
+                        }
+                        Text(
+                            text = if (isEditMode) "点击上传商品图片" else "保存商品后可上传图片",
+                            color = TextSecondary,
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                        Text(
+                            text = "支持 JPG, PNG 格式",
+                            color = TextTertiary,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProductImageThumbnail(
+    url: String,
+    authToken: String?,
+    canDelete: Boolean,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val request = remember(url, authToken) {
+        ImageRequest.Builder(context)
+            .data(url)
+            .apply {
+                if (!authToken.isNullOrBlank()) {
+                    addHeader("Authorization", "Bearer $authToken")
+                }
+            }
+            .build()
+    }
+    Box(
+        modifier = modifier
+            .size(80.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(SurfaceGray),
+    ) {
+        AsyncImage(
+            model = request,
+            contentDescription = "商品图片",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        if (canDelete) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .size(22.dp)
                     .clip(CircleShape)
-                    .background(SurfaceGray),
-                contentAlignment = Alignment.Center
+                    .background(Color(0xCC000000))
+                    .clickable(onClick = onDelete),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.AddAPhoto,
-                    contentDescription = "点击上传商品图片",
-                    tint = TextTertiary,
-                    modifier = Modifier.size(32.dp)
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "删除图片",
+                    tint = SurfaceWhite,
+                    modifier = Modifier.size(14.dp),
                 )
             }
-            Text(
-                text = "点击上传商品图片",
-                color = TextSecondary,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-            Text(
-                text = "支持 JPG, PNG 格式",
-                color = TextTertiary,
-                fontSize = 12.sp,
-                lineHeight = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 4.dp)
-            )
         }
     }
 }
@@ -555,7 +689,7 @@ private fun ProductContractNotice(
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "图片上传、扫码、批发价等级和首选供应商关系还没有完整写入流程，本页先禁用展示，避免产生模拟数据。",
+                text = "图片上传需先保存商品；扫码、批发价等级和首选供应商关系待后续接入。",
                 style = MaterialTheme.typography.labelSmall,
                 color = TextSecondary,
             )

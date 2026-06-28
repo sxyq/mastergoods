@@ -2,11 +2,13 @@ package com.zhihuiji.feature.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.datastore.SettingsStore
 import com.zhihuiji.data.auth.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -15,18 +17,22 @@ data class AuthUiState(
     val isLoggedIn: Boolean = false,
     val isSessionReady: Boolean = false,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val serverUrl: String = "",
+    val canEditBaseUrl: Boolean = false,
 )
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val settingsStore: SettingsStore,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
     init {
+        observeServerConfig()
         viewModelScope.launch {
             restoreSession()
         }
@@ -57,6 +63,15 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    fun saveBaseUrl(url: String) {
+        viewModelScope.launch {
+            runCatching { settingsStore.saveBaseUrl(url) }
+                .onFailure { throwable ->
+                    _uiState.update { it.copy(error = throwable.message ?: "服务器地址保存失败") }
+                }
+        }
+    }
+
     private suspend fun restoreSession() {
         val restored = authRepository.restoreSessionIfNeeded()
         _uiState.update { it.copy(isSessionReady = true, isLoggedIn = restored) }
@@ -76,6 +91,25 @@ class AuthViewModel @Inject constructor(
                 .onFailure { throwable ->
                     _uiState.update { it.copy(isLoading = false, error = throwable.message) }
                 }
+        }
+    }
+
+    private fun observeServerConfig() {
+        _uiState.update {
+            it.copy(
+                serverUrl = settingsStore.peekBaseUrl(),
+                canEditBaseUrl = settingsStore.isBaseUrlEditable(),
+            )
+        }
+        viewModelScope.launch {
+            settingsStore.baseUrl.collectLatest { baseUrl ->
+                _uiState.update {
+                    it.copy(
+                        serverUrl = baseUrl,
+                        canEditBaseUrl = settingsStore.isBaseUrlEditable(),
+                    )
+                }
+            }
         }
     }
 }

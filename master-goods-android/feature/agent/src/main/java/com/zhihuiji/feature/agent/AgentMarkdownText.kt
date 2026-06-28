@@ -36,6 +36,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -47,6 +48,31 @@ import com.zhihuiji.core.designsystem.TextPrimary
 import com.zhihuiji.core.designsystem.TextSecondary
 import com.zhihuiji.core.designsystem.TextTertiary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
+import org.commonmark.node.BlockQuote
+import org.commonmark.node.BulletList
+import org.commonmark.node.Code
+import org.commonmark.node.Document
+import org.commonmark.node.Emphasis
+import org.commonmark.node.FencedCodeBlock
+import org.commonmark.node.HardLineBreak
+import org.commonmark.node.Heading
+import org.commonmark.node.IndentedCodeBlock
+import org.commonmark.node.Link
+import org.commonmark.node.ListItem
+import org.commonmark.node.Node
+import org.commonmark.node.OrderedList
+import org.commonmark.node.Paragraph
+import org.commonmark.node.SoftLineBreak
+import org.commonmark.node.StrongEmphasis
+import org.commonmark.node.Text
+import org.commonmark.node.ThematicBreak
+import org.commonmark.parser.Parser
+import org.commonmark.ext.gfm.tables.TableBlock
+import org.commonmark.ext.gfm.tables.TableBody
+import org.commonmark.ext.gfm.tables.TableCell
+import org.commonmark.ext.gfm.tables.TableHead
+import org.commonmark.ext.gfm.tables.TableRow
+import org.commonmark.ext.gfm.tables.TablesExtension
 
 @Composable
 fun AgentMarkdownText(
@@ -151,6 +177,9 @@ private fun MarkdownList(block: MarkdownBlock.ListBlock, contentColor: Color) {
 private fun MarkdownCodeBlock(block: MarkdownBlock.CodeBlock) {
     val clipboardManager = LocalClipboardManager.current
     var copyLabel by remember(block.code) { mutableStateOf("复制") }
+    val highlightedCode = remember(block.language, block.code) {
+        syntaxHighlightCode(block.code, block.language)
+    }
 
     Column(
         modifier = Modifier
@@ -188,7 +217,7 @@ private fun MarkdownCodeBlock(block: MarkdownBlock.CodeBlock) {
             )
         }
         Text(
-            text = block.code,
+            text = highlightedCode,
             style = MaterialTheme.typography.bodySmall.merge(
                 TextStyle(fontFamily = FontFamily.Monospace)
             ),
@@ -338,12 +367,8 @@ private fun MarkdownBlock.stableKey(index: Int): String =
         is MarkdownBlock.Table -> "table-$index-${headers.hashCode()}-${rows.hashCode()}"
     }
 
-private val HeadingRegex = Regex("^(#{1,6})\\s+(.+)$")
-private val UnorderedListRegex = Regex("^[-*+]\\s+(.+)$")
-private val OrderedListRegex = Regex("^\\d+[.)]\\s+(.+)$")
+// commonmark 核心不解析 GFM 任务列表项，保留此正则用于 ListItem 文本的复选框识别
 private val TaskListRegex = Regex("^\\[([ xX])]\\s+(.+)$")
-private val DividerRegex = Regex("^[-*_]{3,}$")
-private val TableSeparatorRegex = Regex(":?-{3,}:?")
 private val MarkdownLinkStyles = TextLinkStyles(
     style = SpanStyle(
         color = ZhihuijiPrimary,
@@ -351,234 +376,326 @@ private val MarkdownLinkStyles = TextLinkStyles(
         textDecoration = TextDecoration.Underline,
     )
 )
+private val CodeKeywordColor = Color(0xFF93C5FD)
+private val CodeStringColor = Color(0xFFF9A8D4)
+private val CodeCommentColor = Color(0xFF86EFAC)
+private val CodeNumberColor = Color(0xFFFCD34D)
+private val KotlinLikeKeywords = setOf(
+    "abstract", "as", "break", "class", "continue", "data", "do", "else", "false", "for", "fun",
+    "if", "in", "interface", "internal", "is", "null", "object", "open", "override", "package",
+    "private", "protected", "public", "return", "sealed", "super", "suspend", "this", "throw",
+    "true", "try", "typealias", "val", "var", "when", "while"
+)
+private val JavaScriptKeywords = setOf(
+    "async", "await", "break", "case", "catch", "class", "const", "continue", "default", "else",
+    "export", "extends", "false", "finally", "for", "from", "function", "if", "import", "let",
+    "new", "null", "return", "super", "switch", "this", "throw", "true", "try", "typeof",
+    "undefined", "var", "while", "yield"
+)
+private val JsonKeywords = setOf("true", "false", "null")
+private val SqlKeywords = setOf(
+    "select", "from", "where", "and", "or", "join", "left", "right", "inner", "outer", "on",
+    "group", "by", "order", "limit", "offset", "insert", "into", "values", "update", "set",
+    "delete", "create", "table", "alter", "drop", "as", "case", "when", "then", "else", "end"
+)
+private val ShellKeywords = setOf(
+    "if", "then", "else", "fi", "for", "in", "do", "done", "case", "esac", "while", "function",
+    "export", "local", "return", "echo", "exit"
+)
+
+/**
+ * commonmark 解析器单例，启用 GFM 表格扩展。
+ *
+ * 块级结构由 commonmark AST 解析（正确处理嵌套列表、缩进代码块、围栏代码块、引用等边界情况）；
+ * 行内文本通过 [Node.inlineMarkdownSource] 重构为 Markdown 源串，再交由 [inlineMarkdown] 渲染，
+ * 以保留已有的行内样式（粗体/斜体/代码/链接）与语法高亮逻辑。
+ */
+private val commonmarkParser: Parser by lazy {
+    Parser.builder()
+        .extensions(listOf(TablesExtension.create()))
+        .build()
+}
 
 private fun parseMarkdown(markdown: String): List<MarkdownBlock> {
-    if (!hasMarkdownBlockSyntax(markdown)) {
-        return listOf(MarkdownBlock.Paragraph(markdown.trim()))
-    }
-    val lines = markdown.replace("\r\n", "\n").split("\n")
+    if (markdown.isBlank()) return listOf(MarkdownBlock.Paragraph(""))
+    val document = commonmarkParser.parse(markdown)
     val blocks = mutableListOf<MarkdownBlock>()
-    var index = 0
+    var child: Node? = document.firstChild
+    while (child != null) {
+        mapNodeToBlock(child)?.let { blocks += it }
+        child = child.next
+    }
+    return blocks.ifEmpty { listOf(MarkdownBlock.Paragraph(markdown.trim())) }
+}
 
-    while (index < lines.size) {
-        val line = lines[index]
-        val trimmed = line.trim()
-        if (trimmed.isBlank()) {
-            index++
-            continue
-        }
+private fun mapNodeToBlock(node: Node): MarkdownBlock? = when (node) {
+    is Heading -> MarkdownBlock.Heading(node.level, node.inlineMarkdownSource())
+    is Paragraph -> MarkdownBlock.Paragraph(node.inlineMarkdownSource())
+    is BulletList -> MarkdownBlock.ListBlock(ordered = false, items = node.listItems())
+    is OrderedList -> MarkdownBlock.ListBlock(ordered = true, items = node.listItems())
+    is FencedCodeBlock -> MarkdownBlock.CodeBlock(
+        language = node.info.trim(),
+        code = node.literal.trimEnd('\n'),
+    )
+    is IndentedCodeBlock -> MarkdownBlock.CodeBlock(
+        language = "",
+        code = node.literal.trimEnd('\n'),
+    )
+    is BlockQuote -> MarkdownBlock.Quote(node.quoteText())
+    is ThematicBreak -> MarkdownBlock.Divider
+    is TableBlock -> node.toMarkdownTable()
+    else -> null
+}
 
-        if (trimmed.startsWith("```")) {
-            val language = trimmed.removePrefix("```").trim()
-            val code = StringBuilder()
-            index++
-            while (index < lines.size && !lines[index].trim().startsWith("```")) {
-                code.appendLine(lines[index])
-                index++
+/**
+ * 将节点的行内子节点重构为 Markdown 源串，供 [inlineMarkdown] 解析。
+ *
+ * commonmark 把行内格式拆成 AST 节点（StrongEmphasis/Emphasis/Code/Link 等），
+ * 这里按 CommonMark 规范重新拼回 marker，使下游正则渲染器可继续工作。
+ */
+private fun Node.inlineMarkdownSource(): String {
+    val sb = StringBuilder()
+    var child: Node? = firstChild
+    while (child != null) {
+        sb.append(child.toMarkdownSource())
+        child = child.next
+    }
+    return sb.toString()
+}
+
+private fun Node.toMarkdownSource(): String = when (this) {
+    is Text -> literal
+    is StrongEmphasis -> "**" + inlineMarkdownSource() + "**"
+    is Emphasis -> "*" + inlineMarkdownSource() + "*"
+    is Code -> "`" + literal + "`"
+    is Link -> {
+        val label = inlineMarkdownSource()
+        val dest = destination
+        if (dest.isNullOrBlank()) label else "[$label]($dest)"
+    }
+    is SoftLineBreak -> "\n"
+    is HardLineBreak -> "\n"
+    else -> inlineMarkdownSource()
+}
+
+private fun Node.listItems(): List<MarkdownListItem> {
+    val items = mutableListOf<MarkdownListItem>()
+    var child: Node? = firstChild
+    while (child != null) {
+        if (child is ListItem) {
+            val text = child.inlineMarkdownSource().trim()
+            // commonmark 核心不解析 GFM 任务列表，[ ]/[x] 保留为字面文本，这里补识别
+            val task = TaskListRegex.find(text)
+            if (task != null) {
+                items += MarkdownListItem(
+                    text = task.groupValues[2].trim(),
+                    checked = task.groupValues[1].equals("x", ignoreCase = true),
+                )
+            } else {
+                items += MarkdownListItem(text)
             }
-            if (index < lines.size) index++
-            blocks += MarkdownBlock.CodeBlock(language, code.toString())
-            continue
         }
+        child = child.next
+    }
+    return items
+}
 
-        if (isTableStart(lines, index)) {
-            val headers = parseTableRow(lines[index])
-            index += 2
-            val rows = mutableListOf<List<String>>()
-            while (index < lines.size && hasTableDelimiter(lines[index]) && lines[index].trim().isNotBlank()) {
-                rows += parseTableRow(lines[index])
-                index++
+private fun Node.quoteText(): String {
+    val parts = mutableListOf<String>()
+    var child: Node? = firstChild
+    while (child != null) {
+        if (child is Paragraph) {
+            parts += child.inlineMarkdownSource()
+        } else if (child is BlockQuote) {
+            parts += child.quoteText()
+        }
+        child = child.next
+    }
+    return parts.joinToString("\n")
+}
+
+private fun TableBlock.toMarkdownTable(): MarkdownBlock.Table {
+    val headers = mutableListOf<String>()
+    val rows = mutableListOf<List<String>>()
+    var child: Node? = firstChild
+    while (child != null) {
+        when (child) {
+            is TableHead -> {
+                var row: Node? = child.firstChild
+                while (row != null) {
+                    if (row is TableRow) headers.addAll(row.cells())
+                    row = row.next
+                }
             }
-            blocks += MarkdownBlock.Table(headers, rows)
-            continue
-        }
-
-        val heading = headingMatch(trimmed)
-        if (heading != null) {
-            blocks += MarkdownBlock.Heading(heading.first, heading.second)
-            index++
-            continue
-        }
-
-        if (DividerRegex.matches(trimmed)) {
-            blocks += MarkdownBlock.Divider
-            index++
-            continue
-        }
-
-        if (trimmed.startsWith(">")) {
-            val parts = mutableListOf<String>()
-            while (index < lines.size && lines[index].trim().startsWith(">")) {
-                parts += lines[index].trim().removePrefix(">").trim()
-                index++
+            is TableBody -> {
+                var row: Node? = child.firstChild
+                while (row != null) {
+                    if (row is TableRow) rows += row.cells()
+                    row = row.next
+                }
             }
-            blocks += MarkdownBlock.Quote(parts.joinToString("\n"))
-            continue
         }
-
-        val firstListItem = listMatch(trimmed)
-        if (firstListItem != null) {
-            val ordered = firstListItem.first
-            val items = mutableListOf(firstListItem.second)
-            index++
-            while (index < lines.size) {
-                val match = listMatch(lines[index].trim())
-                if (match == null || match.first != ordered) break
-                items += match.second
-                index++
-            }
-            blocks += MarkdownBlock.ListBlock(ordered, items)
-            continue
-        }
-
-        val paragraph = mutableListOf(trimmed)
-        index++
-        while (index < lines.size) {
-            val next = lines[index].trim()
-            if (next.isBlank() || next.startsWith("```") || headingMatch(next) != null ||
-                next.startsWith(">") || listMatch(next) != null || DividerRegex.matches(next) ||
-                isTableStart(lines, index)
-            ) {
-                break
-            }
-            paragraph += next
-            index++
-        }
-        blocks += MarkdownBlock.Paragraph(paragraph.joinToString(" "))
+        child = child.next
     }
-
-    return blocks.ifEmpty { listOf(MarkdownBlock.Paragraph(markdown)) }
+    return MarkdownBlock.Table(headers, rows)
 }
 
-private fun hasMarkdownBlockSyntax(markdown: String): Boolean {
-    if (markdown.indexOfAny(charArrayOf('\n', '#', '-', '*', '+', '>', '`', '|')) < 0) {
-        return false
-    }
-    for (line in markdown.lineSequence()) {
-        val trimmed = line.trim()
-        if (trimmed.startsWith("```") ||
-            headingMatch(trimmed) != null ||
-            trimmed.startsWith(">") ||
-            listMatch(trimmed) != null ||
-            DividerRegex.matches(trimmed) ||
-            hasTableDelimiter(trimmed)
-        ) {
-            return true
-        }
-    }
-    return false
-}
-
-private fun headingMatch(line: String): Pair<Int, String>? {
-    val match = HeadingRegex.find(line) ?: return null
-    return match.groupValues[1].length to match.groupValues[2].trim()
-}
-
-private fun listMatch(line: String): Pair<Boolean, MarkdownListItem>? {
-    UnorderedListRegex.find(line)?.let {
-        val rawItem = it.groupValues[1].trim()
-        return false to parseTaskListItem(rawItem)
-    }
-    OrderedListRegex.find(line)?.let {
-        return true to MarkdownListItem(it.groupValues[1].trim())
-    }
-    return null
-}
-
-private fun parseTaskListItem(rawItem: String): MarkdownListItem {
-    val task = TaskListRegex.find(rawItem)
-    return if (task == null) {
-        MarkdownListItem(rawItem)
-    } else {
-        MarkdownListItem(
-            text = task.groupValues[2].trim(),
-            checked = task.groupValues[1].equals("x", ignoreCase = true),
-        )
-    }
-}
-
-private fun isTableStart(lines: List<String>, index: Int): Boolean {
-    if (index + 1 >= lines.size) return false
-    val header = lines[index].trim()
-    val separator = lines[index + 1].trim()
-    if (!hasTableDelimiter(header) || !hasTableDelimiter(separator)) return false
-
-    val headerCells = parseTableRow(header)
-    val separatorCells = parseTableRow(separator)
-    return headerCells.size >= 2 &&
-        separatorCells.size == headerCells.size &&
-        separatorCells.all { cell -> TableSeparatorRegex.matches(cell.trim()) }
-}
-
-private fun hasTableDelimiter(line: String): Boolean {
-    var inCodeSpan = false
-    var index = 0
-    while (index < line.length) {
-        val char = line[index]
-        when {
-            char == '\\' && index + 1 < line.length -> index++
-            char == '`' -> inCodeSpan = !inCodeSpan
-            char == '|' && !inCodeSpan -> return true
-        }
-        index++
-    }
-    return false
-}
-
-private fun parseTableRow(line: String): List<String> {
-    val normalized = line.trim().trimUnescapedBoundaryPipes()
+private fun TableRow.cells(): List<String> {
     val cells = mutableListOf<String>()
-    val current = StringBuilder()
-    var inCodeSpan = false
-    var index = 0
-
-    while (index < normalized.length) {
-        val char = normalized[index]
-        when {
-            char == '\\' && index + 1 < normalized.length && normalized[index + 1] == '|' && !inCodeSpan -> {
-                current.append('|')
-                index++
-            }
-
-            char == '`' -> {
-                inCodeSpan = !inCodeSpan
-                current.append(char)
-            }
-
-            char == '|' && !inCodeSpan -> {
-                cells += current.toString().trim()
-                current.clear()
-            }
-
-            else -> current.append(char)
+    var child: Node? = firstChild
+    while (child != null) {
+        if (child is TableCell) {
+            cells += child.inlineMarkdownSource().trim()
         }
-        index++
+        child = child.next
     }
-
-    cells += current.toString().trim()
     return cells
 }
 
-private fun String.trimUnescapedBoundaryPipes(): String {
-    var start = 0
-    var end = length
-    if (start < end && this[start] == '|') {
-        start++
+internal fun syntaxHighlightCode(code: String, language: String): AnnotatedString = buildAnnotatedString {
+    if (code.isEmpty()) {
+        return@buildAnnotatedString
     }
-    if (start < end && this[end - 1] == '|' && !isEscaped(end - 1)) {
-        end--
+    val profile = codeLanguageProfile(language)
+    var index = 0
+    while (index < code.length) {
+        val current = code[index]
+        val next = code.getOrNull(index + 1)
+        val lineCommentPrefix = profile.lineCommentPrefixes.firstOrNull { prefix ->
+            code.startsWith(prefix, index)
+        }
+        when {
+            profile.supportsBlockComments && current == '/' && next == '*' -> {
+                val end = code.indexOf("*/", startIndex = index + 2)
+                val until = if (end >= 0) end + 2 else code.length
+                appendStyled(code.substring(index, until), CodeCommentColor)
+                index = until
+            }
+
+            lineCommentPrefix != null -> {
+                val end = code.indexOf('\n', startIndex = index).let { if (it >= 0) it else code.length }
+                appendStyled(code.substring(index, end), CodeCommentColor)
+                index = end
+            }
+
+            current == '"' || current == '\'' || current == '`' -> {
+                val end = findStringLiteralEnd(code, index, current)
+                appendStyled(code.substring(index, end), CodeStringColor)
+                index = end
+            }
+
+            current.isDigit() -> {
+                val end = findNumberLiteralEnd(code, index)
+                appendStyled(code.substring(index, end), CodeNumberColor)
+                index = end
+            }
+
+            current.isIdentifierStart() -> {
+                val end = findIdentifierEnd(code, index)
+                val token = code.substring(index, end)
+                if (profile.keywords.contains(token.lowercase())) {
+                    appendStyled(token, CodeKeywordColor)
+                } else {
+                    append(token)
+                }
+                index = end
+            }
+
+            else -> {
+                append(current)
+                index++
+            }
+        }
     }
-    return substring(start, end)
 }
 
-private fun String.isEscaped(index: Int): Boolean {
-    var slashCount = 0
-    var cursor = index - 1
-    while (cursor >= 0 && this[cursor] == '\\') {
-        slashCount++
-        cursor--
+private fun AnnotatedString.Builder.appendStyled(text: String, color: Color) {
+    withStyle(SpanStyle(color = color)) {
+        append(text)
     }
-    return slashCount % 2 == 1
+}
+
+private fun findStringLiteralEnd(code: String, startIndex: Int, quote: Char): Int {
+    var index = startIndex + 1
+    while (index < code.length) {
+        val current = code[index]
+        if (current == '\\') {
+            index += 2
+            continue
+        }
+        if (current == quote) {
+            return index + 1
+        }
+        index++
+    }
+    return code.length
+}
+
+private fun findNumberLiteralEnd(code: String, startIndex: Int): Int {
+    var index = startIndex + 1
+    while (index < code.length) {
+        val current = code[index]
+        if (current.isDigit() || current == '.' || current == '_' || current == 'x' || current == 'X') {
+            index++
+            continue
+        }
+        break
+    }
+    return index
+}
+
+private fun findIdentifierEnd(code: String, startIndex: Int): Int {
+    var index = startIndex + 1
+    while (index < code.length && code[index].isIdentifierPart()) {
+        index++
+    }
+    return index
+}
+
+private fun Char.isIdentifierStart(): Boolean = isLetter() || this == '_' || this == '$'
+
+private fun Char.isIdentifierPart(): Boolean = isLetterOrDigit() || this == '_' || this == '$'
+
+private data class CodeLanguageProfile(
+    val keywords: Set<String>,
+    val lineCommentPrefixes: List<String>,
+    val supportsBlockComments: Boolean,
+)
+
+private fun codeLanguageProfile(language: String): CodeLanguageProfile {
+    val normalized = language.trim().lowercase()
+    return when {
+        normalized in setOf("kotlin", "kt", "java", "kts") -> CodeLanguageProfile(
+            keywords = KotlinLikeKeywords,
+            lineCommentPrefixes = listOf("//"),
+            supportsBlockComments = true,
+        )
+        normalized in setOf("javascript", "js", "typescript", "ts", "tsx", "jsx") -> CodeLanguageProfile(
+            keywords = JavaScriptKeywords,
+            lineCommentPrefixes = listOf("//"),
+            supportsBlockComments = true,
+        )
+        normalized == "json" -> CodeLanguageProfile(
+            keywords = JsonKeywords,
+            lineCommentPrefixes = emptyList(),
+            supportsBlockComments = false,
+        )
+        normalized in setOf("sql", "mysql", "sqlite", "postgresql", "postgres") -> CodeLanguageProfile(
+            keywords = SqlKeywords,
+            lineCommentPrefixes = listOf("--"),
+            supportsBlockComments = true,
+        )
+        normalized in setOf("bash", "sh", "shell", "zsh") -> CodeLanguageProfile(
+            keywords = ShellKeywords,
+            lineCommentPrefixes = listOf("#"),
+            supportsBlockComments = false,
+        )
+        else -> CodeLanguageProfile(
+            keywords = KotlinLikeKeywords,
+            lineCommentPrefixes = listOf("//", "#"),
+            supportsBlockComments = true,
+        )
+    }
 }
 
 internal fun inlineMarkdown(text: String, contentColor: Color): AnnotatedString =

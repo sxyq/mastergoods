@@ -609,7 +609,7 @@ export interface FinanceRecordCreatePayload {
 }
 
 export interface AccountRecord {
-  id: number
+  id: EntityId
   code: string
   name: string
   type: number
@@ -620,6 +620,93 @@ export interface AccountRecord {
   notes: string | null
   createdAt: number
   updatedAt: number
+}
+
+export interface AccountWritePayload {
+  code: string
+  name: string
+  type: number
+  balance?: number | null
+  isDefault?: boolean | null
+  status?: number | null
+  sortOrder?: number | null
+  notes?: string | null
+}
+
+export interface AccountTransferRecord {
+  id: EntityId
+  transferNo: string
+  fromAccountId: EntityId
+  fromAccountName: string
+  toAccountId: EntityId
+  toAccountName: string
+  amount: number
+  fee: number | null
+  status: number
+  notes: string | null
+  createdAt: number
+  updatedAt: number
+}
+
+export interface AccountTransferPayload {
+  fromAccountId: EntityId
+  toAccountId: EntityId
+  amount: number
+  fee?: number | null
+  notes?: string | null
+}
+
+export interface ContactRecord {
+  id: EntityId
+  partnerType: string
+  partnerId: EntityId
+  name: string
+  phone: string | null
+  title: string | null
+  isPrimary: boolean
+  createdAt: number
+  updatedAt: number
+}
+
+export interface ContactWritePayload {
+  partnerId: EntityId
+  name: string
+  phone?: string | null
+  title?: string | null
+  isPrimary?: boolean | null
+}
+
+export interface MediaAssetRecord {
+  id: EntityId
+  assetType: string
+  storageProvider: string
+  bucketName: string | null
+  objectKey: string
+  originalFileName: string
+  mimeType: string
+  sizeBytes: number
+  checksum: string | null
+  width: number | null
+  height: number | null
+  metadataJson: string | null
+  createdAt: number
+  updatedAt: number
+}
+
+export interface MediaBindingRecord {
+  id: EntityId
+  assetId: EntityId
+  targetType: string
+  targetId: EntityId
+  sortOrder: number
+  createdAt: number
+}
+
+export interface MediaBindingCreatePayload {
+  assetId: EntityId
+  targetType: string
+  targetId: EntityId
+  sortOrder?: number | null
 }
 
 export interface InventoryLedgerCreatePayload {
@@ -1661,6 +1748,161 @@ export async function fetchAccounts(token: string) {
   })
 }
 
+export async function fetchAccount(token: string, id: EntityId) {
+  return request<AccountRecord>(`/v2/accounts/${id}`, {
+    headers: authHeaders(token),
+  })
+}
+
+export async function createAccount(token: string, payload: AccountWritePayload) {
+  return request<AccountRecord>('/v2/accounts', {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(toAccountWriteBody(payload)),
+  })
+}
+
+export async function updateAccount(token: string, id: EntityId, payload: AccountWritePayload) {
+  return request<AccountRecord>(`/v2/accounts/${id}`, {
+    method: 'PUT',
+    headers: authHeaders(token),
+    body: JSON.stringify(toAccountWriteBody(payload)),
+  })
+}
+
+export async function deleteAccount(token: string, id: EntityId) {
+  return request<void>(`/v2/accounts/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+}
+
+export async function fetchAccountTransfers(token: string) {
+  return request<AccountTransferRecord[]>('/v2/account-transfers', {
+    headers: authHeaders(token),
+  })
+}
+
+export async function fetchAccountTransfer(token: string, id: EntityId) {
+  return request<AccountTransferRecord>(`/v2/account-transfers/${id}`, {
+    headers: authHeaders(token),
+  })
+}
+
+export async function createAccountTransfer(token: string, payload: AccountTransferPayload) {
+  return request<AccountTransferRecord>('/v2/account-transfers', {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(toAccountTransferBody(payload)),
+  })
+}
+
+export async function fetchCustomerContacts(token: string, customerId: EntityId) {
+  return request<ContactRecord[]>(`/v2/customer-contacts${buildQuery({ customer_id: customerId })}`, {
+    headers: authHeaders(token),
+  })
+}
+
+export async function fetchSupplierContacts(token: string, supplierId: EntityId) {
+  return request<ContactRecord[]>(`/v2/supplier-contacts${buildQuery({ supplier_id: supplierId })}`, {
+    headers: authHeaders(token),
+  })
+}
+
+export async function createCustomerContact(token: string, payload: ContactWritePayload) {
+  return request<ContactRecord>('/v2/customer-contacts', {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(toContactWriteBody(payload)),
+  })
+}
+
+export async function updateCustomerContact(token: string, id: EntityId, payload: ContactWritePayload) {
+  return request<ContactRecord>(`/v2/customer-contacts/${id}`, {
+    method: 'PUT',
+    headers: authHeaders(token),
+    body: JSON.stringify(toContactWriteBody(payload)),
+  })
+}
+
+export async function deleteCustomerContact(token: string, id: EntityId) {
+  return request<void>(`/v2/customer-contacts/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+}
+
+export async function createSupplierContact(token: string, payload: ContactWritePayload) {
+  return request<ContactRecord>('/v2/supplier-contacts', {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(toContactWriteBody(payload)),
+  })
+}
+
+export async function updateSupplierContact(token: string, id: EntityId, payload: ContactWritePayload) {
+  return request<ContactRecord>(`/v2/supplier-contacts/${id}`, {
+    method: 'PUT',
+    headers: authHeaders(token),
+    body: JSON.stringify(toContactWriteBody(payload)),
+  })
+}
+
+export async function deleteSupplierContact(token: string, id: EntityId) {
+  return request<void>(`/v2/supplier-contacts/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+}
+
+export async function fetchMediaBindings(token: string, targetType: string, targetId: EntityId) {
+  return request<MediaBindingRecord[]>(`/v2/media/bindings${buildQuery({ target_type: targetType, target_id: targetId })}`, {
+    headers: authHeaders(token),
+  })
+}
+
+export async function createMediaBinding(token: string, payload: MediaBindingCreatePayload) {
+  return request<MediaBindingRecord>('/v2/media/bindings', {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({
+      asset_id: payload.assetId,
+      target_type: payload.targetType,
+      target_id: payload.targetId,
+      sort_order: payload.sortOrder ?? null,
+    }),
+  })
+}
+
+export async function deleteMediaBinding(token: string, id: EntityId) {
+  return request<void>(`/v2/media/bindings/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+}
+
+export async function uploadMediaAsset(token: string, file: File, assetType: string = 'product_image') {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('asset_type', assetType)
+  return request<MediaAssetRecord>('/v2/media/assets/upload', {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: formData,
+  })
+}
+
+export async function deleteMediaAsset(token: string, id: EntityId) {
+  return request<void>(`/v2/media/assets/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+}
+
+export function mediaAssetContentUrl(id: EntityId): string {
+  return `${API_BASE_URL}/v2/media/assets/${id}/content`
+}
+
 export async function fetchPurchaseReceipts(token: string, params: {
   keyword?: string
   status?: number
@@ -2051,6 +2293,9 @@ function authHeaders(token: string) {
 }
 
 function buildHeaders(headers: Record<string, string>, body?: BodyInit | null) {
+  if (body instanceof FormData) {
+    return headers
+  }
   if (body != null && !hasContentType(headers)) {
     return { ...headers, 'Content-Type': 'application/json' }
   }
@@ -2281,6 +2526,39 @@ function toPurchaseReceiptBody(payload: PurchaseReceiptWritePayload) {
       unit_cost: item.unitCost,
     })),
     notes: payload.notes ?? null,
+  }
+}
+
+function toAccountWriteBody(payload: AccountWritePayload) {
+  return {
+    code: payload.code,
+    name: payload.name,
+    type: payload.type,
+    balance: payload.balance ?? null,
+    is_default: payload.isDefault ?? null,
+    status: payload.status ?? null,
+    sort_order: payload.sortOrder ?? null,
+    notes: payload.notes ?? null,
+  }
+}
+
+function toAccountTransferBody(payload: AccountTransferPayload) {
+  return {
+    from_account_id: payload.fromAccountId,
+    to_account_id: payload.toAccountId,
+    amount: payload.amount,
+    fee: payload.fee ?? null,
+    notes: payload.notes ?? null,
+  }
+}
+
+function toContactWriteBody(payload: ContactWritePayload) {
+  return {
+    partner_id: payload.partnerId,
+    name: payload.name,
+    phone: payload.phone ?? null,
+    title: payload.title ?? null,
+    is_primary: payload.isPrimary ?? null,
   }
 }
 

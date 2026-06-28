@@ -3,6 +3,7 @@ package com.zhihuiji.backend.application.service.v2;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
 import com.zhihuiji.backend.domain.entity.AgentConversationEntity;
@@ -282,9 +283,9 @@ public class V2AgentAiService {
             );
         }
 
-        ResponsePayload payload = buildResponse(ownerUserId, message, null, runId);
-        long modelStartedAt = System.currentTimeMillis();
         List<AgentMessageEntity> history = loadRecentHistory(ownerUserId, conversation.getId(), 10);
+        ResponsePayload payload = buildResponse(ownerUserId, message, history, conversation.getLatestSummary(), null, runId);
+        long modelStartedAt = System.currentTimeMillis();
         FinalAnswer finalAnswer = buildFinalAnswer(message, payload, history, conversation.getLatestSummary());
         long completedAt = System.currentTimeMillis();
         long modelDurationMs = finalAnswer.modelAttempted()
@@ -527,9 +528,9 @@ public class V2AgentAiService {
                 "timestamp", System.currentTimeMillis()
             )));
             runAuditService.ensureRunActive(runId);
-            ResponsePayload payload = buildResponse(ownerUserId, message, emitter, runId);
-            runAuditService.ensureRunActive(runId);
             List<AgentMessageEntity> history = loadRecentHistory(ownerUserId, conversation.getId(), 10);
+            ResponsePayload payload = buildResponse(ownerUserId, message, history, conversation.getLatestSummary(), emitter, runId);
+            runAuditService.ensureRunActive(runId);
             AtomicBoolean blocksEmitted = new AtomicBoolean(false);
             Runnable emitBlocksAfterVisibleAnswer = () -> {
                 if (blocksEmitted.compareAndSet(false, true)) {
@@ -589,11 +590,22 @@ public class V2AgentAiService {
     }
 
     private ResponsePayload buildResponse(Long ownerUserId, String message) {
-        return buildResponse(ownerUserId, message, null, null);
+        return buildResponse(ownerUserId, message, List.of(), null, null, null);
     }
 
     private ResponsePayload buildResponse(Long ownerUserId, String message, SseEmitter emitter, String runId) {
-        AgentToolPlan plan = planTools(message);
+        return buildResponse(ownerUserId, message, List.of(), null, emitter, runId);
+    }
+
+    private ResponsePayload buildResponse(
+        Long ownerUserId,
+        String message,
+        List<AgentMessageEntity> history,
+        String conversationSummary,
+        SseEmitter emitter,
+        String runId
+    ) {
+        AgentToolPlan plan = planTools(message, history, conversationSummary);
         emitPlan(emitter, runId, plan);
         boolean createIntentPlan = containsCreateOnlyTool(plan);
 
@@ -606,8 +618,25 @@ public class V2AgentAiService {
             emitDraftCreatedEvents(emitter, runId, toolResults);
         }
 
+        boolean recoveredByDeterministicRetry = false;
+        if (!createIntentPlan && hasInsufficientToolResults(toolResults)) {
+            Optional<AgentToolPlan> recoveryPlan = buildDeterministicRecoveryPlan(plan, toolResults);
+            if (recoveryPlan.isPresent()) {
+                AgentToolPlan retryPlan = recoveryPlan.get();
+                emitPlan(emitter, runId, retryPlan);
+                executeToolPlan(ownerUserId, emitter, runId, retryPlan, blocks, answers, toolResults, toolFailures);
+                plan = new AgentToolPlan(
+                    mergeTools(plan.tools(), retryPlan.tools()),
+                    plan.rationale() + " + 条件放宽补查",
+                    "deterministic_recovery",
+                    mergeToolParams(plan.toolParams(), retryPlan.toolParams())
+                );
+                recoveredByDeterministicRetry = true;
+            }
+        }
+
         // ReAct 多轮迭代：每轮工具执行后，由 LLM 判断是否需要补充查询，最多 MAX_AGENT_ITERATIONS 轮
-        for (int iteration = 2; !createIntentPlan && iteration <= MAX_AGENT_ITERATIONS; iteration++) {
+        for (int iteration = 2; !createIntentPlan && !recoveredByDeterministicRetry && iteration <= MAX_AGENT_ITERATIONS; iteration++) {
             if (!longCatAnthropicClient.isConfigured()) {
                 break;
             }
@@ -628,7 +657,7 @@ public class V2AgentAiService {
 
         // 兼容降级：若 LLM 规划的工具全部无结果且未触发迭代，用关键词兜底重试一轮
         if (!createIntentPlan && answers.isEmpty() && "llm".equals(plan.source()) && !plan.tools().isEmpty()) {
-            AgentToolPlan fallbackPlan = inferToolPlan(message);
+            AgentToolPlan fallbackPlan = inferToolPlan(message, history, conversationSummary);
             if (!fallbackPlan.tools().isEmpty() && !fallbackPlan.tools().equals(plan.tools())) {
                 emitPlan(emitter, runId, fallbackPlan);
                 executeToolPlan(ownerUserId, emitter, runId, fallbackPlan, blocks, answers, toolResults, toolFailures);
@@ -638,9 +667,10 @@ public class V2AgentAiService {
             }
         }
 
-        if (!toolResults.isEmpty()) {
+        List<ToolExecutionResult> effectiveToolResults = collapseToolResultsForPresentation(toolResults);
+        if (!effectiveToolResults.isEmpty()) {
             runAuditService.ensureRunActive(runId);
-            V2AgentDtos.ResultBlockDto evidenceBlock = buildEvidenceBlock(runId, toolResults);
+            V2AgentDtos.ResultBlockDto evidenceBlock = buildEvidenceBlock(runId, effectiveToolResults);
             blocks.add(evidenceBlock);
         }
 
@@ -649,6 +679,21 @@ public class V2AgentAiService {
         }
 
         return new ResponsePayload(String.join("\n", answers), blocks, toolResults, toolFailures, plan);
+    }
+
+    private List<ToolExecutionResult> collapseToolResultsForPresentation(List<ToolExecutionResult> toolResults) {
+        if (toolResults == null || toolResults.isEmpty()) {
+            return List.of();
+        }
+        Map<String, ToolExecutionResult> collapsed = new LinkedHashMap<>();
+        for (ToolExecutionResult result : toolResults) {
+            if (result == null) {
+                continue;
+            }
+            collapsed.remove(result.toolName());
+            collapsed.put(result.toolName(), result);
+        }
+        return new ArrayList<>(collapsed.values());
     }
 
     private boolean containsCreateOnlyTool(AgentToolPlan plan) {
@@ -738,6 +783,89 @@ public class V2AgentAiService {
         return longCatAnthropicClient.createJsonMessage(systemPrompt, userPrompt).flatMap(this::parseToolPlan);
     }
 
+    private boolean hasInsufficientToolResults(List<ToolExecutionResult> toolResults) {
+        if (toolResults == null || toolResults.isEmpty()) {
+            return false;
+        }
+        for (ToolExecutionResult result : toolResults) {
+            if (result != null && result.insufficient()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Optional<AgentToolPlan> buildDeterministicRecoveryPlan(AgentToolPlan currentPlan, List<ToolExecutionResult> toolResults) {
+        if (currentPlan == null || currentPlan.tools() == null || currentPlan.tools().isEmpty()
+            || toolResults == null || toolResults.isEmpty()) {
+            return Optional.empty();
+        }
+        List<String> tools = new ArrayList<>();
+        Map<String, JsonNode> relaxedParams = new LinkedHashMap<>();
+        for (ToolExecutionResult result : toolResults) {
+            if (result == null || !result.insufficient() || !currentPlan.tools().contains(result.toolName())) {
+                continue;
+            }
+            JsonNode originalParams = currentPlan.toolParams().get(result.toolName());
+            JsonNode retryParams = relaxToolParams(result.toolName(), originalParams);
+            if (retryParams == null) {
+                continue;
+            }
+            if (originalParams != null && originalParams.equals(retryParams)) {
+                continue;
+            }
+            if (!tools.contains(result.toolName())) {
+                tools.add(result.toolName());
+                relaxedParams.put(result.toolName(), retryParams);
+            }
+        }
+        if (tools.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new AgentToolPlan(
+            tools,
+            "首轮精确条件未命中，自动放宽筛选再补查一轮",
+            "deterministic_recovery",
+            relaxedParams
+        ));
+    }
+
+    private JsonNode relaxToolParams(String toolName, JsonNode originalParams) {
+        if (originalParams == null || !originalParams.isObject()) {
+            return null;
+        }
+        ObjectNode relaxed = objectMapper.createObjectNode();
+        switch (toolName) {
+            case "sale_order_lookup" -> {
+                copyTextParam(originalParams, relaxed, "keyword");
+                if (!relaxed.has("keyword")) {
+                    copyTextParam(originalParams, relaxed, "product_keyword");
+                }
+            }
+            case "purchase_order_lookup", "pay_order_lookup" -> copyTextParam(originalParams, relaxed, "keyword");
+            case "finance_record_lookup" -> {
+                copyTextParam(originalParams, relaxed, "keyword");
+                if (!relaxed.has("keyword") && originalParams.hasNonNull("type")) {
+                    relaxed.set("type", originalParams.get("type"));
+                }
+            }
+            default -> {
+                return null;
+            }
+        }
+        return relaxed;
+    }
+
+    private void copyTextParam(JsonNode source, ObjectNode target, String fieldName) {
+        if (source == null || target == null || !StringUtils.hasText(fieldName)) {
+            return;
+        }
+        JsonNode value = source.get(fieldName);
+        if (value != null && value.isTextual() && StringUtils.hasText(value.asText())) {
+            target.put(fieldName, value.asText());
+        }
+    }
+
     private List<String> mergeTools(List<String> existing, List<String> additional) {
         List<String> merged = new ArrayList<>(existing);
         for (String tool : additional) {
@@ -767,7 +895,9 @@ public class V2AgentAiService {
                 runAuditService.ensureRunActive(runId);
                 if (payload != null) {
                     populateToolAudit(audit, payload.toolResults());
-                    answers.add(payload.answer());
+                    if (StringUtils.hasText(payload.answer())) {
+                        answers.add(payload.answer());
+                    }
                     blocks.addAll(payload.blocks());
                     toolResults.addAll(payload.toolResults());
                     sseStreamEmitter.emitToolCompleted(
@@ -861,7 +991,7 @@ public class V2AgentAiService {
         if (!result.success()) {
             return null;
         }
-        ToolExecutionResult toolResult = new ToolExecutionResult(toolName, result.toolSummary(), result.toolFacts());
+        ToolExecutionResult toolResult = new ToolExecutionResult(toolName, result.toolSummary(), result.toolFacts(), result.insufficient());
         return new ResponsePayload(result.answer(), result.blocks(), List.of(toolResult));
     }
 
@@ -877,17 +1007,22 @@ public class V2AgentAiService {
         }
     }
 
-    private AgentToolPlan planTools(String message) {
-        return planToolsWithLlm(message).orElseGet(() -> inferToolPlan(message));
+    private AgentToolPlan planTools(String message, List<AgentMessageEntity> history, String conversationSummary) {
+        return planToolsWithLlm(message, history, conversationSummary)
+            .orElseGet(() -> inferToolPlan(message, history, conversationSummary));
     }
 
-    private Optional<AgentToolPlan> planToolsWithLlm(String message) {
+    private Optional<AgentToolPlan> planToolsWithLlm(
+        String message,
+        List<AgentMessageEntity> history,
+        String conversationSummary
+    ) {
         if (!longCatAnthropicClient.isConfigured()) {
             return Optional.empty();
         }
         // 优先尝试原生 Function Calling（Anthropic Messages API 的 tool_use block）
         // 不支持或模型未返回 tool_use 时降级到 JSON 字符串解析路径
-        Optional<AgentToolPlan> nativePlan = planToolsWithNativeFunctionCalling(message);
+        Optional<AgentToolPlan> nativePlan = planToolsWithNativeFunctionCalling(message, history, conversationSummary);
         if (nativePlan.isPresent()) {
             return nativePlan;
         }
@@ -918,7 +1053,13 @@ public class V2AgentAiService {
                 + toolCatalog
                 + "只输出 JSON，不要输出 Markdown。\n";
         }
-        String userPrompt = "用户问题：" + message + "\n"
+        String historyContext = formatHistoryContext(history);
+        String summaryContext = StringUtils.hasText(conversationSummary)
+            ? "会话摘要：" + conversationSummary + "\n"
+            : "";
+        String userPrompt = historyContext
+            + summaryContext
+            + "用户问题：" + message + "\n"
             + "请输出形如 {\"tools\":[{\"name\":\"sale_order_lookup\",\"params\":{\"keyword\":\"张三\"}}],\"rationale\":\"...\"} 的 JSON。"
             + "tools 最多 3 个，必须来自可选工具。params 为该工具的查询参数，根据用户问题提取，无参数时省略 params 字段。";
         return longCatAnthropicClient.createJsonMessage(systemPrompt, userPrompt).flatMap(this::parseToolPlan);
@@ -937,16 +1078,25 @@ public class V2AgentAiService {
      * @param message 用户问题
      * @return 工具规划 Optional；无 tool_use 返回时为 empty
      */
-    private Optional<AgentToolPlan> planToolsWithNativeFunctionCalling(String message) {
+    private Optional<AgentToolPlan> planToolsWithNativeFunctionCalling(
+        String message,
+        List<AgentMessageEntity> history,
+        String conversationSummary
+    ) {
         List<LongCatAnthropicClient.ToolDefinition> nativeTools = buildNativeToolDefinitions();
         if (nativeTools.isEmpty()) {
             return Optional.empty();
         }
+        String summaryContext = StringUtils.hasText(conversationSummary)
+            ? "\n当前会话摘要：" + conversationSummary
+            : "";
         String systemPrompt = "你是智慧记的工具规划器。根据用户问题选择最相关的只读查询工具或创建类工具。\n"
             + "只读工具直接返回查询结果；创建类工具生成草稿，需用户确认后才执行写入。\n"
-            + "不允许生成 SQL，不允许访问其他账号数据。最多选择 3 个工具。";
+            + "不允许生成 SQL，不允许访问其他账号数据。最多选择 3 个工具。"
+            + summaryContext;
+        String planningMessage = formatHistoryContext(history) + "用户问题：" + message;
         Optional<LongCatAnthropicClient.ToolUseResponse> response =
-            longCatAnthropicClient.createMessageWithTools(systemPrompt, message, nativeTools);
+            longCatAnthropicClient.createMessageWithTools(systemPrompt, planningMessage, nativeTools);
         if (response.isEmpty() || !response.get().hasToolUses()) {
             return Optional.empty();
         }
@@ -1063,9 +1213,9 @@ public class V2AgentAiService {
         return rawText;
     }
 
-    private AgentToolPlan inferToolPlan(String message) {
+    private AgentToolPlan inferToolPlan(String message, List<AgentMessageEntity> history, String conversationSummary) {
         String normalized = message.toLowerCase(Locale.ROOT);
-        Optional<AgentToolPlan> createPlan = inferCreateToolPlan(message, normalized);
+        Optional<AgentToolPlan> createPlan = inferCreateToolPlan(message, normalized, history, conversationSummary);
         if (createPlan.isPresent()) {
             return createPlan.get();
         }
@@ -1152,52 +1302,84 @@ public class V2AgentAiService {
                 break;
             }
         }
-        return new AgentToolPlan(deduplicated, "根据问题关键词兜底选择已接入工具", "keyword_fallback", Map.of());
+        Map<String, JsonNode> toolParams = inferKeywordFallbackToolParams(message, deduplicated, history, conversationSummary);
+        return new AgentToolPlan(deduplicated, "根据问题关键词兜底选择已接入工具", "keyword_fallback", toolParams);
     }
 
-    private Optional<AgentToolPlan> inferCreateToolPlan(String message, String normalized) {
+    private Map<String, JsonNode> inferKeywordFallbackToolParams(
+        String message,
+        List<String> tools,
+        List<AgentMessageEntity> history,
+        String conversationSummary
+    ) {
+        if (tools == null || tools.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, JsonNode> toolParams = new LinkedHashMap<>();
+        for (String tool : tools) {
+            JsonNode params = switch (tool) {
+                case "customer_receivable_lookup", "customer_profile_lookup" ->
+                    buildCustomerKeywordParams(message, history, conversationSummary);
+                case "inventory_panorama_lookup" -> buildProductKeywordParams(message, history, conversationSummary);
+                case "purchase_tracking_lookup" -> buildPurchaseKeywordParams(message, history, conversationSummary);
+                case "account_health_lookup" -> buildAccountKeywordParams(message, history, conversationSummary);
+                default -> null;
+            };
+            if (params != null && !params.isEmpty()) {
+                toolParams.put(tool, params);
+            }
+        }
+        return toolParams;
+    }
+
+    private Optional<AgentToolPlan> inferCreateToolPlan(
+        String message,
+        String normalized,
+        List<AgentMessageEntity> history,
+        String conversationSummary
+    ) {
         if (!looksLikeCreateIntent(normalized)) {
             return Optional.empty();
         }
         if (containsAny(normalized, "客户") && isAllowedTool("create_customer")) {
-            JsonNode params = buildCreateCustomerParams(message);
+            JsonNode params = buildCreateCustomerParams(message, history, conversationSummary);
             if (hasTextParam(params, "name")) {
                 return Optional.of(createOnlyPlan("create_customer", params, "根据自然语言兜底生成客户草稿"));
             }
         }
         if (containsAny(normalized, "供应商") && isAllowedTool("create_supplier")) {
-            JsonNode params = buildCreateSupplierParams(message);
+            JsonNode params = buildCreateSupplierParams(message, history, conversationSummary);
             if (hasTextParam(params, "name")) {
                 return Optional.of(createOnlyPlan("create_supplier", params, "根据自然语言兜底生成供应商草稿"));
             }
         }
         if (containsAny(normalized, "商品", "产品", "sku") && isAllowedTool("create_product")) {
-            JsonNode params = buildCreateProductParams(message);
+            JsonNode params = buildCreateProductParams(message, history, conversationSummary);
             if (hasTextParam(params, "name") && hasTextParam(params, "code")) {
                 return Optional.of(createOnlyPlan("create_product", params, "根据自然语言兜底生成商品草稿"));
             }
         }
         if (containsAny(normalized, "付款单", "付款") && isAllowedTool("create_pay_order")) {
-            JsonNode params = buildCreatePayOrderParams(message);
+            JsonNode params = buildCreatePayOrderParams(message, history, conversationSummary);
             if (hasTextParam(params, "supplier_name") && hasNumericParam(params, "amount")) {
                 return Optional.of(createOnlyPlan("create_pay_order", params, "根据自然语言兜底生成付款单草稿"));
             }
         }
         if (containsAny(normalized, "流水", "记账", "记一笔", "收入", "支出", "报销", "开支", "费用", "finance", "expense", "income")
             && isAllowedTool("create_finance_record")) {
-            JsonNode params = buildCreateFinanceRecordParams(message, normalized);
+            JsonNode params = buildCreateFinanceRecordParams(message, normalized, history, conversationSummary);
             if (hasNumericParam(params, "amount") && hasNumericParam(params, "type")) {
                 return Optional.of(createOnlyPlan("create_finance_record", params, "根据自然语言兜底生成资金流水草稿"));
             }
         }
         if (containsAny(normalized, "采购单", "采购订单") && isAllowedTool("create_purchase_order")) {
-            JsonNode params = buildCreatePurchaseOrderParams(message);
+            JsonNode params = buildCreatePurchaseOrderParams(message, history, conversationSummary);
             if (hasTextParam(params, "supplier_name")) {
                 return Optional.of(createOnlyPlan("create_purchase_order", params, "根据自然语言兜底生成采购单草稿"));
             }
         }
         if (containsAny(normalized, "销售单", "销售订单", "开单", "下单") && isAllowedTool("create_sale_order")) {
-            JsonNode params = buildCreateSaleOrderParams(message);
+            JsonNode params = buildCreateSaleOrderParams(message, history, conversationSummary);
             if (hasTextParam(params, "customer_name")) {
                 return Optional.of(createOnlyPlan("create_sale_order", params, "根据自然语言兜底生成销售单草稿"));
             }
@@ -1214,31 +1396,33 @@ public class V2AgentAiService {
         );
     }
 
-    private JsonNode buildCreateCustomerParams(String message) {
+    private JsonNode buildCreateCustomerParams(String message, List<AgentMessageEntity> history, String conversationSummary) {
         var params = objectMapper.createObjectNode();
         putText(params, "name", firstNonBlank(
             extractNamedValue(message, "(?:客户名称|客户名|姓名|名称)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})"),
             extractNamedValue(message, "(?:新建|新增|创建|添加)客户\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})"),
-            extractNamedValue(message, "客户\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})")
+            extractNamedValue(message, "客户\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})"),
+            findRecentEntityHint(history, conversationSummary, "customer")
         ));
         putText(params, "phone", extractNamedValue(message, "(1\\d{10})"));
         putText(params, "remark", extractRemark(message));
         return params;
     }
 
-    private JsonNode buildCreateSupplierParams(String message) {
+    private JsonNode buildCreateSupplierParams(String message, List<AgentMessageEntity> history, String conversationSummary) {
         var params = objectMapper.createObjectNode();
         putText(params, "name", firstNonBlank(
             extractNamedValue(message, "(?:供应商名称|供应商名|名称)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
             extractNamedValue(message, "(?:新建|新增|创建|添加)供应商\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
-            extractNamedValue(message, "供应商\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})")
+            extractNamedValue(message, "供应商\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
+            findRecentEntityHint(history, conversationSummary, "supplier")
         ));
         putText(params, "phone", extractNamedValue(message, "(1\\d{10})"));
         putText(params, "remark", extractRemark(message));
         return params;
     }
 
-    private JsonNode buildCreateProductParams(String message) {
+    private JsonNode buildCreateProductParams(String message, List<AgentMessageEntity> history, String conversationSummary) {
         var params = objectMapper.createObjectNode();
         putText(params, "code", firstNonBlank(
             extractNamedValue(message, "(?:编码|商品编码|code|CODE|sku|SKU)\\s*[:：]?\\s*([A-Za-z0-9_-]{2,32})"),
@@ -1247,7 +1431,8 @@ public class V2AgentAiService {
         putText(params, "name", firstNonBlank(
             extractNamedValue(message, "(?:商品名称|产品名称|名称)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})"),
             extractNamedValue(message, "(?:新建|新增|创建|添加)商品\\s*[A-Za-z0-9_-]{2,32}\\s+([\\p{IsHan}A-Za-z0-9_-]{2,32})"),
-            extractNamedValue(message, "(?:商品|产品)\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})")
+            extractNamedValue(message, "(?:商品|产品)\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})"),
+            findRecentEntityHint(history, conversationSummary, "product")
         ));
         putDouble(params, "price", extractDecimal(message, "(?:售价|销售价|单价|价格)\\s*[:：]?\\s*([0-9]+(?:\\.[0-9]+)?)"));
         putDouble(params, "cost", extractDecimal(message, "(?:成本|成本价|进价|采购价)\\s*[:：]?\\s*([0-9]+(?:\\.[0-9]+)?)"));
@@ -1255,13 +1440,42 @@ public class V2AgentAiService {
         return params;
     }
 
-    private JsonNode buildCreateSaleOrderParams(String message) {
+    private JsonNode buildAccountKeywordParams(String message, List<AgentMessageEntity> history, String conversationSummary) {
+        var params = objectMapper.createObjectNode();
+        String keyword = firstNonBlank(
+            extractNamedValue(message, "看下\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})的(?:账户健康|账户概览|收支比)"),
+            extractNamedValue(message, "查看\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})的(?:账户健康|账户概览|收支比)"),
+            extractNamedValue(message, "查询\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})的(?:账户健康|账户概览|收支比)"),
+            extractNamedValue(message, "(?:账户|资金账户)\\s*[:：]\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
+            findRecentEntityHint(history, conversationSummary, "account")
+        );
+        if (StringUtils.hasText(keyword)) {
+            String normalizedKeyword = keyword.trim().toLowerCase(Locale.ROOT);
+            boolean genericOnly = normalizedKeyword.equals("账户")
+                || normalizedKeyword.equals("资金账户")
+                || normalizedKeyword.equals("账户健康")
+                || normalizedKeyword.equals("账户概览")
+                || normalizedKeyword.equals("收支比");
+            if (!genericOnly
+                && !containsAny(normalizedKeyword, "健康", "收支比", "概览")) {
+                putText(params, "keyword", keyword);
+            }
+        }
+        Integer windowDays = extractInteger(message, "(\\d{1,3})\\s*(?:天|日)");
+        if (windowDays != null) {
+            params.put("window_days", Math.max(1, Math.min(180, windowDays)));
+        }
+        return params;
+    }
+
+    private JsonNode buildCreateSaleOrderParams(String message, List<AgentMessageEntity> history, String conversationSummary) {
         var params = objectMapper.createObjectNode();
         putText(params, "customer_name", firstNonBlank(
             extractNamedValue(message, "(?:客户名称|客户名)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})"),
             extractNamedValue(message, "帮\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})\\s*(?:开|下|做).{0,8}(?:销售单|销售订单|订单)"),
             extractNamedValue(message, "给\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})\\s*(?:开|下|做).{0,8}(?:销售单|销售订单|订单)"),
-            extractNamedValue(message, "为\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})\\s*(?:开|下|做).{0,8}(?:销售单|销售订单|订单)")
+            extractNamedValue(message, "为\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})\\s*(?:开|下|做).{0,8}(?:销售单|销售订单|订单)"),
+            findRecentEntityHint(history, conversationSummary, "customer")
         ));
         putText(params, "remark", firstNonBlank(
             extractRemark(message),
@@ -1270,12 +1484,13 @@ public class V2AgentAiService {
         return params;
     }
 
-    private JsonNode buildCreatePurchaseOrderParams(String message) {
+    private JsonNode buildCreatePurchaseOrderParams(String message, List<AgentMessageEntity> history, String conversationSummary) {
         var params = objectMapper.createObjectNode();
         putText(params, "supplier_name", firstNonBlank(
             extractNamedValue(message, "(?:供应商名称|供应商名)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
             extractNamedValue(message, "向\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})\\s*(?:下|开|做).{0,8}(?:采购单|采购订单)"),
-            extractNamedValue(message, "给\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})\\s*(?:下|开|做).{0,8}(?:采购单|采购订单)")
+            extractNamedValue(message, "给\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})\\s*(?:下|开|做).{0,8}(?:采购单|采购订单)"),
+            findRecentEntityHint(history, conversationSummary, "supplier")
         ));
         putText(params, "remark", firstNonBlank(
             extractRemark(message),
@@ -1284,12 +1499,13 @@ public class V2AgentAiService {
         return params;
     }
 
-    private JsonNode buildCreatePayOrderParams(String message) {
+    private JsonNode buildCreatePayOrderParams(String message, List<AgentMessageEntity> history, String conversationSummary) {
         var params = objectMapper.createObjectNode();
         putText(params, "supplier_name", firstNonBlank(
             extractNamedValue(message, "(?:供应商名称|供应商名)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
             extractNamedValue(message, "给\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})\\s*(?:付|付款|打款)"),
-            extractNamedValue(message, "向\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})\\s*(?:付|付款|打款)")
+            extractNamedValue(message, "向\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})\\s*(?:付|付款|打款)"),
+            findRecentEntityHint(history, conversationSummary, "supplier")
         ));
         putDouble(params, "amount", firstNonNull(
             extractDecimal(message, "(?:金额|付款金额|支付金额)\\s*[:：]?\\s*([0-9]+(?:\\.[0-9]+)?)"),
@@ -1302,7 +1518,12 @@ public class V2AgentAiService {
         return params;
     }
 
-    private JsonNode buildCreateFinanceRecordParams(String message, String normalized) {
+    private JsonNode buildCreateFinanceRecordParams(
+        String message,
+        String normalized,
+        List<AgentMessageEntity> history,
+        String conversationSummary
+    ) {
         var params = objectMapper.createObjectNode();
         Integer type = inferFinanceRecordType(normalized);
         if (type != null) {
@@ -1320,11 +1541,121 @@ public class V2AgentAiService {
         putText(params, "partner_name", firstNonBlank(
             extractNamedValue(message, "(?:往来方|对方|对象)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
             extractNamedValue(message, "给\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})\\s*(?:报销|付款|打款|转账)"),
-            extractNamedValue(message, "向\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})\\s*(?:收款|收费|付款|打款|转账)")
+            extractNamedValue(message, "向\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})\\s*(?:收款|收费|付款|打款|转账)"),
+            findRecentEntityHint(history, conversationSummary, "customer"),
+            findRecentEntityHint(history, conversationSummary, "supplier")
         ));
         putText(params, "remark", firstNonBlank(
             extractRemark(message),
             message
+        ));
+        return params;
+    }
+
+    private JsonNode buildCustomerKeywordParams(String message, List<AgentMessageEntity> history, String conversationSummary) {
+        var params = objectMapper.createObjectNode();
+        String keyword = firstNonBlank(
+            extractNamedValue(message, "看下\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})的(?:客户画像|客户分析|客户档案)"),
+            extractNamedValue(message, "看下\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})的催收建议"),
+            extractNamedValue(message, "查看\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})的(?:客户画像|客户分析|客户档案|催收建议|应收|欠款)"),
+            extractNamedValue(message, "查询\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})的(?:客户画像|客户分析|客户档案|催收建议|应收|欠款)"),
+            extractNamedValue(message, "(?:客户画像|客户分析|客户档案)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
+            extractNamedValue(message, "(?:客户|客户名|客户名称)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
+            findRecentEntityHint(history, conversationSummary, "customer")
+        );
+        if (StringUtils.hasText(keyword) && !isInvalidContextCarryKeyword(keyword) && !isGenericCustomerKeyword(keyword)) {
+            putText(params, "keyword", keyword);
+        } else {
+            String contextKeyword = findRecentEntityHint(history, conversationSummary, "customer");
+            if (StringUtils.hasText(contextKeyword) && !isGenericCustomerKeyword(contextKeyword)) {
+                putText(params, "keyword", contextKeyword);
+            }
+        }
+        return params;
+    }
+
+    private boolean isGenericCustomerKeyword(String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return true;
+        }
+        String normalizedKeyword = keyword.trim().toLowerCase(Locale.ROOT);
+        if (containsAny(normalizedKeyword, "供应商", "应付", "采购")) {
+            return true;
+        }
+        if (normalizedKeyword.endsWith("情况")) {
+            String base = normalizedKeyword.substring(0, normalizedKeyword.length() - 2);
+            if (base.equals("客户应收")
+                || base.equals("客户欠款")
+                || base.equals("客户回款")
+                || base.equals("应收")
+                || base.equals("欠款")
+                || base.equals("回款")
+                || base.equals("客户画像")
+                || base.equals("客户分析")
+                || base.equals("客户档案")
+                || base.equals("催收建议")) {
+                return true;
+            }
+        }
+        return normalizedKeyword.equals("客户")
+            || normalizedKeyword.equals("客户名")
+            || normalizedKeyword.equals("客户名称")
+            || normalizedKeyword.equals("客户画像")
+            || normalizedKeyword.equals("客户分析")
+            || normalizedKeyword.equals("客户档案")
+            || normalizedKeyword.equals("催收建议")
+            || normalizedKeyword.equals("应收")
+            || normalizedKeyword.equals("欠款")
+            || normalizedKeyword.equals("回款")
+            || normalizedKeyword.equals("客户应收")
+            || normalizedKeyword.equals("客户欠款")
+            || normalizedKeyword.equals("客户回款")
+            || normalizedKeyword.equals("应收情况")
+            || normalizedKeyword.equals("欠款情况")
+            || normalizedKeyword.equals("回款情况")
+            || normalizedKeyword.equals("客户应收情况")
+            || normalizedKeyword.equals("客户欠款情况")
+            || normalizedKeyword.equals("客户回款情况");
+    }
+
+    private boolean isInvalidContextCarryKeyword(String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return true;
+        }
+        String normalizedKeyword = keyword.trim().toLowerCase(Locale.ROOT);
+        return normalizedKeyword.equals("那个客户")
+            || normalizedKeyword.equals("刚才那个客户")
+            || normalizedKeyword.equals("这个客户")
+            || normalizedKeyword.equals("的欠款")
+            || normalizedKeyword.equals("的欠款呢")
+            || normalizedKeyword.equals("欠款呢")
+            || normalizedKeyword.startsWith("的")
+            || normalizedKeyword.startsWith("那个")
+            || normalizedKeyword.startsWith("这个");
+    }
+
+    private JsonNode buildProductKeywordParams(String message, List<AgentMessageEntity> history, String conversationSummary) {
+        var params = objectMapper.createObjectNode();
+        putText(params, "keyword", firstNonBlank(
+            extractNamedValue(message, "看下\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})的(?:库存全景|库存健康|库存周转)"),
+            extractNamedValue(message, "查看\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})的(?:库存全景|库存健康|库存周转)"),
+            extractNamedValue(message, "查询\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})的(?:库存全景|库存健康|库存周转)"),
+            extractNamedValue(message, "(?:库存全景|库存健康|库存周转)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
+            extractNamedValue(message, "(?:商品|货品|SKU|sku)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
+            findRecentEntityHint(history, conversationSummary, "product")
+        ));
+        return params;
+    }
+
+    private JsonNode buildPurchaseKeywordParams(String message, List<AgentMessageEntity> history, String conversationSummary) {
+        var params = objectMapper.createObjectNode();
+        putText(params, "keyword", firstNonBlank(
+            extractNamedValue(message, "看下\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})的(?:采购跟踪|采购进度|入库退货)"),
+            extractNamedValue(message, "查看\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})的(?:采购跟踪|采购进度|入库退货)"),
+            extractNamedValue(message, "查询\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})的(?:采购跟踪|采购进度|入库退货)"),
+            extractNamedValue(message, "(?:采购跟踪|采购进度|入库退货)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
+            extractNamedValue(message, "(?:采购单|采购订单|供应商)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
+            findRecentEntityHint(history, conversationSummary, "supplier")
         ));
         return params;
     }
@@ -1369,6 +1700,52 @@ public class V2AgentAiService {
         }
     }
 
+    private String findRecentEntityHint(List<AgentMessageEntity> history, String conversationSummary, String entityKind) {
+        String fromSummary = findEntityHintInText(conversationSummary, entityKind);
+        if (StringUtils.hasText(fromSummary)) {
+            return fromSummary;
+        }
+        if (history == null || history.isEmpty()) {
+            return null;
+        }
+        for (int index = history.size() - 1; index >= 0; index--) {
+            AgentMessageEntity message = history.get(index);
+            if (message == null) {
+                continue;
+            }
+            String hint = findEntityHintInText(message.getContent(), entityKind);
+            if (StringUtils.hasText(hint)) {
+                return hint;
+            }
+        }
+        return null;
+    }
+
+    private String findEntityHintInText(String text, String entityKind) {
+        if (!StringUtils.hasText(text) || !StringUtils.hasText(entityKind)) {
+            return null;
+        }
+        return switch (entityKind) {
+            case "customer" -> firstNonBlank(
+                extractNamedValue(text, "客户[「“\\\"]?([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})[」”\\\"]?"),
+                extractNamedValue(text, "([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})(?:商贸|超市|门店|公司)")
+            );
+            case "supplier" -> firstNonBlank(
+                extractNamedValue(text, "供应商[「“\\\"]?([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})[」”\\\"]?"),
+                extractNamedValue(text, "([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})(?:供货|批发|贸易)")
+            );
+            case "product" -> firstNonBlank(
+                extractNamedValue(text, "(?:商品|货品|SKU)[「“\\\"]?([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})[」”\\\"]?"),
+                extractNamedValue(text, "([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})(?:库存全景|库存健康|库存周转)")
+            );
+            case "account" -> firstNonBlank(
+                extractNamedValue(text, "(?:账户|资金账户)[「“\\\"]?([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})[」”\\\"]?"),
+                extractNamedValue(text, "默认账户[「“\\\"]?([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})[」”\\\"]?")
+            );
+            default -> null;
+        };
+    }
+
     private String extractNamedValue(String message, String regex) {
         return extractNamedValue(message, regex, 1);
     }
@@ -1392,6 +1769,18 @@ public class V2AgentAiService {
         try {
             return Double.parseDouble(text);
         } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private Integer extractInteger(String message, String regex) {
+        String text = extractNamedValue(message, regex);
+        if (!StringUtils.hasText(text)) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(text);
+        } catch (NumberFormatException ex) {
             return null;
         }
     }
@@ -1639,10 +2028,11 @@ public class V2AgentAiService {
         if (payload.toolResults() == null || payload.toolResults().isEmpty()) {
             return new FinalAnswer(payload.answer(), "unsupported_intent", "not_requested", false);
         }
-        String synthesized = synthesizeAnswer(userMessage, payload.toolResults(), payload.answer());
+        List<ToolExecutionResult> effectiveToolResults = collapseToolResultsForPresentation(payload.toolResults());
+        String synthesized = synthesizeAnswer(userMessage, effectiveToolResults, payload.answer());
         String synthesizedWithFailures = appendQueryBoundaryNotice(
             appendFailureNotice(synthesized, payload.toolFailures()),
-            payload.toolResults()
+            effectiveToolResults
         );
         if (!longCatAnthropicClient.isConfigured()) {
             return new FinalAnswer(
@@ -1659,7 +2049,7 @@ public class V2AgentAiService {
             .filter(StringUtils::hasText)
             .map(String::trim)
             .map(answer -> appendFailureNotice(answer, payload.toolFailures()))
-            .map(answer -> appendQueryBoundaryNotice(answer, payload.toolResults()))
+            .map(answer -> appendQueryBoundaryNotice(answer, effectiveToolResults))
             .map(answer -> new FinalAnswer(answer, "tool_query_llm_synthesized", "available", true))
             .orElseGet(() -> new FinalAnswer(
                 withRuleSummaryNotice(synthesizedWithFailures),
@@ -1688,10 +2078,11 @@ public class V2AgentAiService {
             emitDeterministicAnswerDeltas(emitter, runId, payload.answer(), "rule_summary", onFirstModelDelta);
             return new FinalAnswer(payload.answer(), "unsupported_intent", "not_requested", false);
         }
-        String synthesized = synthesizeAnswer(userMessage, payload.toolResults(), payload.answer());
+        List<ToolExecutionResult> effectiveToolResults = collapseToolResultsForPresentation(payload.toolResults());
+        String synthesized = synthesizeAnswer(userMessage, effectiveToolResults, payload.answer());
         String synthesizedWithFailures = appendQueryBoundaryNotice(
             appendFailureNotice(synthesized, payload.toolFailures()),
-            payload.toolResults()
+            effectiveToolResults
         );
         if (!longCatAnthropicClient.isConfigured()) {
             String ruleSummaryAnswer = withRuleSummaryNotice(synthesizedWithFailures);
@@ -1730,7 +2121,7 @@ public class V2AgentAiService {
             .filter(StringUtils::hasText)
             .map(String::trim)
             .map(answer -> appendFailureNotice(answer, payload.toolFailures()))
-            .map(answer -> appendQueryBoundaryNotice(answer, payload.toolResults()))
+            .map(answer -> appendQueryBoundaryNotice(answer, effectiveToolResults))
             .map(answer -> emitServerNoticeTailIfNeeded(emitter, runId, streamedAnswer.toString(), answer))
             .map(answer -> new FinalAnswer(answer, "tool_query_llm_streamed", "streaming", true))
             .orElseGet(() -> streamFallbackFinalAnswer(
@@ -1956,28 +2347,27 @@ public class V2AgentAiService {
     }
 
     private List<V2AgentDtos.AgentToolCallDto> toToolCallDtos(String runId, ResponsePayload payload) {
-        int estimatedSize = (payload.toolResults() == null ? 0 : payload.toolResults().size())
+        List<ToolExecutionResult> effectiveToolResults = collapseToolResultsForPresentation(payload.toolResults());
+        int estimatedSize = effectiveToolResults.size()
             + (payload.toolFailures() == null ? 0 : payload.toolFailures().size());
         List<V2AgentDtos.AgentToolCallDto> calls = new ArrayList<>(estimatedSize);
-        if (payload.toolResults() != null) {
-            for (ToolExecutionResult result : payload.toolResults()) {
-                Map<String, Object> audit = result.queryAudit();
-                calls.add(new V2AgentDtos.AgentToolCallDto(
-                    RunAuditService.toolCallId(runId, result.toolName()),
-                    result.toolName(),
-                    "completed",
-                    compactJson(audit.get("tool_input")),
-                    toJsonNode(audit),
-                    asInteger(audit.get("returned_count")),
-                    asInteger(audit.get("total_count")),
-                    asInteger(audit.get("limit")),
-                    asBoolean(audit.get("is_truncated")),
-                    asLong(audit.get("duration_ms")),
-                    result.summary(),
-                    null,
-                    null
-                ));
-            }
+        for (ToolExecutionResult result : effectiveToolResults) {
+            Map<String, Object> audit = result.queryAudit();
+            calls.add(new V2AgentDtos.AgentToolCallDto(
+                RunAuditService.toolCallId(runId, result.toolName()),
+                result.toolName(),
+                "completed",
+                compactJson(audit.get("tool_input")),
+                toJsonNode(audit),
+                asInteger(audit.get("returned_count")),
+                asInteger(audit.get("total_count")),
+                asInteger(audit.get("limit")),
+                asBoolean(audit.get("is_truncated")),
+                asLong(audit.get("duration_ms")),
+                result.summary(),
+                null,
+                null
+            ));
         }
         if (payload.toolFailures() != null) {
             for (ToolFailureResult failure : payload.toolFailures()) {
@@ -2002,14 +2392,15 @@ public class V2AgentAiService {
     }
 
     private List<V2AgentDtos.AgentEvidenceRefDto> toEvidenceRefs(String runId, ResponsePayload payload) {
+        List<ToolExecutionResult> effectiveToolResults = collapseToolResultsForPresentation(payload.toolResults());
         List<V2AgentDtos.AgentEvidenceRefDto> refs = new ArrayList<>(
-            payload.toolResults() == null ? 0 : payload.toolResults().size() * 2
+            effectiveToolResults.size() * 2
         );
-        if (payload.toolResults() == null) {
+        if (effectiveToolResults.isEmpty()) {
             return refs;
         }
         int index = 1;
-        for (ToolExecutionResult result : payload.toolResults()) {
+        for (ToolExecutionResult result : effectiveToolResults) {
             Map<String, Object> audit = result.queryAudit();
             List<Map<String, String>> evidenceItems = evidenceItemsFor(result);
             if (evidenceItems.isEmpty()) {
@@ -2051,10 +2442,42 @@ public class V2AgentAiService {
                 addEvidenceItem(items, result, "库存总计", "stock_total", null);
                 addEvidenceItem(items, result, "低库存商品数", "low_stock_count", "个");
             }
+            case "inventory_panorama_lookup" -> {
+                addEvidenceItem(items, result, "商品名称", "product_name", null);
+                addEvidenceItem(items, result, "当前库存", "current_stock", null);
+                addEvidenceItem(items, result, "安全库存", "safe_stock", null);
+                addEvidenceItem(items, result, "近30天销量", "recent_sales_quantity", null);
+                addEvidenceItem(items, result, "周转天数", "turnover_days", null);
+                addEvidenceItem(items, result, "建议补货量", "suggested_restock", null);
+            }
+            case "purchase_tracking_lookup" -> {
+                addEvidenceItem(items, result, "采购单号", "order_no", null);
+                addEvidenceItem(items, result, "供应商", "supplier_name", null);
+                addEvidenceItem(items, result, "采购总额", "total_amount", null);
+                addEvidenceItem(items, result, "已到货", "received_amount", null);
+                addEvidenceItem(items, result, "待付款", "outstanding_amount", null);
+                addEvidenceItem(items, result, "入库单数", "receipt_count", "条");
+                addEvidenceItem(items, result, "退货单数", "return_count", "条");
+            }
+            case "account_health_lookup" -> {
+                addEvidenceItem(items, result, "账户总数", "account_count", "个");
+                addEvidenceItem(items, result, "账户总余额", "total_balance", null);
+                addEvidenceItem(items, result, "收支比", "income_expense_ratio", null);
+                addEvidenceItem(items, result, "低余额账户", "low_balance_count", "个");
+                addEvidenceItem(items, result, "近期转账", "transfer_count", "条");
+                addEvidenceItem(items, result, "默认账户", "default_account_name", null);
+            }
             case "customer_receivable_lookup" -> {
                 addEvidenceItem(items, result, "欠款客户数", "customer_count", "个");
                 addEvidenceItem(items, result, "应收总额", "total_receivable", null);
                 addEvidenceItem(items, result, "Top10 应收合计", "top10_receivable_total", null);
+            }
+            case "customer_profile_lookup" -> {
+                addEvidenceItem(items, result, "客户名称", "customer_name", null);
+                addEvidenceItem(items, result, "订单数", "order_count", "笔");
+                addEvidenceItem(items, result, "累计销售额", "total_sales_amount", null);
+                addEvidenceItem(items, result, "当前欠款", "balance", null);
+                addEvidenceItem(items, result, "付款习惯", "payment_habit", null);
             }
             case "supplier_payable_lookup" -> {
                 addEvidenceItem(items, result, "应付供应商数", "supplier_count", "个");
@@ -2269,6 +2692,47 @@ public class V2AgentAiService {
                     String lowStockCount = factText(toolResult, "low_stock_count", "低库存商品数量");
                     findings.add("商品侧商品总数 " + count + " 个，库存总计 " + stockTotal + "，低库存商品 " + lowStockCount + " 个。");
                 }
+                case "inventory_panorama_lookup" -> {
+                    String productName = factText(toolResult, "product_name", "商品名称");
+                    String currentStock = factText(toolResult, "current_stock", "当前库存");
+                    String safeStock = factText(toolResult, "safe_stock", "安全库存");
+                    String recentSalesQuantity = factText(toolResult, "recent_sales_quantity", "近30天销量");
+                    String turnoverDays = factText(toolResult, "turnover_days", "周转天数");
+                    String suggestedRestock = factText(toolResult, "suggested_restock", "建议补货量");
+                    findings.add("商品「" + productName + "」当前库存 " + currentStock
+                        + "，安全库存 " + safeStock
+                        + "，近30天销量 " + recentSalesQuantity
+                        + "，周转天数 " + turnoverDays
+                        + "，建议补货量 " + suggestedRestock + "。");
+                    actions.add("优先复核「" + productName + "」的安全库存和补货节奏。");
+                }
+                case "purchase_tracking_lookup" -> {
+                    String orderNo = factText(toolResult, "order_no", "采购单号");
+                    String supplierName = factText(toolResult, "supplier_name", "供应商");
+                    String totalAmount = factText(toolResult, "total_amount", "采购总额");
+                    String receivedAmount = factText(toolResult, "received_amount", "已到货");
+                    String outstandingAmount = factText(toolResult, "outstanding_amount", "待付款");
+                    String receiptCount = factText(toolResult, "receipt_count", "入库单数");
+                    String returnCount = factText(toolResult, "return_count", "退货单数");
+                    findings.add("采购单「" + orderNo + "」供应商为 " + supplierName
+                        + "，采购总额 " + totalAmount
+                        + "，已到货 " + receivedAmount
+                        + "，待付款 " + outstandingAmount
+                        + "；关联入库 " + receiptCount + " 条，退货 " + returnCount + " 条。");
+                    actions.add("继续核对「" + orderNo + "」的到货、退货和付款闭环。");
+                }
+                case "account_health_lookup" -> {
+                    String accountCount = factText(toolResult, "account_count", "账户总数");
+                    String totalBalance = factText(toolResult, "total_balance", "账户总余额");
+                    String ratio = factText(toolResult, "income_expense_ratio", "收支比");
+                    String lowBalanceCount = factText(toolResult, "low_balance_count", "低余额账户数");
+                    String transferCount = factText(toolResult, "transfer_count", "近期转账数");
+                    String defaultAccountName = factText(toolResult, "default_account_name", "默认账户");
+                    findings.add("账户侧共 " + accountCount + " 个账户，账户总余额 " + totalBalance
+                        + "，收支比 " + ratio
+                        + "，低余额账户 " + lowBalanceCount + " 个，近期转账 " + transferCount + " 条。");
+                    actions.add("优先复核默认账户「" + defaultAccountName + "」及低余额账户的资金调度。");
+                }
                 case "customer_receivable_lookup" -> {
                     Integer count = factInt(toolResult, "customer_count");
                     String countText = factText(toolResult, "customer_count", "客户数量");
@@ -2279,6 +2743,16 @@ public class V2AgentAiService {
                     if (count != null && count > 0) {
                         actions.add("先跟进欠款最高的 2 到 3 位客户，缩短回款周期。");
                     }
+                }
+                case "customer_profile_lookup" -> {
+                    String customerName = factText(toolResult, "customer_name", "客户名称");
+                    String totalSalesAmount = factText(toolResult, "total_sales_amount", "累计销售额");
+                    String balance = factText(toolResult, "balance", "当前欠款");
+                    String paymentHabit = factText(toolResult, "payment_habit", "付款习惯");
+                    String collectionSuggestion = factText(toolResult, "collection_suggestion", "催收建议");
+                    findings.add("客户「" + customerName + "」累计销售额 " + totalSalesAmount
+                        + "，当前欠款 " + balance + "，付款习惯偏" + paymentHabit + "。");
+                    actions.add(collectionSuggestion);
                 }
                 case "supplier_payable_lookup" -> {
                     Integer count = factInt(toolResult, "supplier_count");
@@ -2301,7 +2775,13 @@ public class V2AgentAiService {
                     String count = factText(toolResult, "order_count", "销售单数量");
                     String unpaidCount = factText(toolResult, "unpaid_count", "未收清数量");
                     String total = factText(toolResult, "recent_total_amount", "销售额");
-                    findings.add("销售单侧最近查询 " + count + " 条，销售额 " + total + "，未收清 " + unpaidCount + " 条。");
+                    String firstOrderNo = factArrayItemText(toolResult, "recent_orders", 0, "order_no");
+                    String firstCustomerName = factArrayItemText(toolResult, "recent_orders", 0, "customer_name");
+                    String leadOrder = StringUtils.hasText(firstOrderNo)
+                        ? "，例如订单 " + firstOrderNo
+                            + (StringUtils.hasText(firstCustomerName) ? "（" + firstCustomerName + "）" : "")
+                        : "";
+                    findings.add("销售单侧最近查询 " + count + " 条，查询销售额 " + total + "，未收清 " + unpaidCount + " 条" + leadOrder + "。");
                 }
                 case "purchase_order_lookup" -> {
                     String count = factText(toolResult, "order_count", "采购单数量");
@@ -2367,6 +2847,22 @@ public class V2AgentAiService {
             return null;
         }
         return Math.max(0, toolResult.facts().path(fieldName).asInt());
+    }
+
+    private String factArrayItemText(ToolExecutionResult toolResult, String arrayFieldName, int index, String childFieldName) {
+        if (toolResult == null || toolResult.facts() == null) {
+            return null;
+        }
+        JsonNode arrayNode = toolResult.facts().path(arrayFieldName);
+        if (!arrayNode.isArray() || index < 0 || index >= arrayNode.size()) {
+            return null;
+        }
+        JsonNode childNode = arrayNode.path(index).path(childFieldName);
+        if (childNode.isMissingNode() || childNode.isNull()) {
+            return null;
+        }
+        String value = childNode.asText();
+        return StringUtils.hasText(value) ? value : null;
     }
 
     private AgentConversationEntity resolveConversation(Long conversationId, Long ownerUserId, String message, long now) {
@@ -2823,7 +3319,7 @@ public class V2AgentAiService {
 
     private record FinalAnswer(String answer, String mode, String llmStatus, boolean modelAttempted) {}
 
-    private record ToolExecutionResult(String toolName, String summary, JsonNode facts) {
+    private record ToolExecutionResult(String toolName, String summary, JsonNode facts, boolean insufficient) {
         private String toolCallId() {
             return "tool:" + toolName;
         }

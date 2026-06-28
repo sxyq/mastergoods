@@ -82,11 +82,15 @@ import com.zhihuiji.core.model.v2.sync.SyncPullV2Request
 import com.zhihuiji.core.model.v2.sync.SyncPullV2Response
 import com.zhihuiji.core.model.v2.sync.SyncUploadV2Request
 import com.zhihuiji.core.model.v2.sync.SyncUploadV2Response
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.PUT
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -567,6 +571,12 @@ interface ZhihuijiV2Api {
     @POST("v2/agent/drafts")
     suspend fun createAgentDraftV2(@Body body: CreateAgentDraftRequest): ApiResponse<AgentDraftDto>
 
+    @POST("v2/agent/drafts/{id}/confirm")
+    suspend fun confirmAgentDraftV2(@Path("id") id: Long): ApiResponse<AgentDraftDto>
+
+    @POST("v2/agent/drafts/{id}/cancel")
+    suspend fun cancelAgentDraftV2(@Path("id") id: Long): ApiResponse<AgentDraftDto>
+
     @PUT("v2/agent/drafts/{id}")
     suspend fun updateAgentDraftV2(@Path("id") id: Long, @Body body: UpdateAgentDraftRequest): ApiResponse<AgentDraftDto>
 
@@ -605,6 +615,13 @@ interface ZhihuijiV2Api {
 
     @POST("v2/media/assets")
     suspend fun createMediaAssetV2(@Body body: CreateMediaAssetRequest): ApiResponse<MediaAssetDto>
+
+    @Multipart
+    @POST("v2/media/assets/upload")
+    suspend fun uploadMediaAssetV2(
+        @Part file: MultipartBody.Part,
+        @Part("asset_type") assetType: RequestBody,
+    ): ApiResponse<MediaAssetDto>
 
     @DELETE("v2/media/assets/{id}")
     suspend fun deleteMediaAssetV2(@Path("id") id: Long): ApiResponse<Unit>

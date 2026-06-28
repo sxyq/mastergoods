@@ -26,6 +26,8 @@ class ZhihuijiV2ApiContractTest {
             "createAgentConversationV2" to "v2/agent/conversations",
             "createAgentMessageV2" to "v2/agent/conversations/{conversationId}/messages",
             "createAgentDraftV2" to "v2/agent/drafts",
+            "confirmAgentDraftV2" to "v2/agent/drafts/{id}/confirm",
+            "cancelAgentDraftV2" to "v2/agent/drafts/{id}/cancel",
             "cancelAgentRunV2" to "v2/agent/runs/{runId}/cancel",
             "createMediaAssetV2" to "v2/media/assets",
             "createMediaBindingV2" to "v2/media/bindings",

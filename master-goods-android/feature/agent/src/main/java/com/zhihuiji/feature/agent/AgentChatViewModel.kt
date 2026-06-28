@@ -20,7 +20,6 @@ import com.zhihuiji.core.model.v2.agent.SafetyAuditResult
 import com.zhihuiji.core.model.v2.agent.ToolAuditRecord
 import com.zhihuiji.core.model.v2.agent.ToolCallRecord
 import com.zhihuiji.core.model.v2.agent.ToolCallStatus
-import com.zhihuiji.core.model.v2.agent.UpdateAgentDraftRequest
 import com.zhihuiji.core.network.RetryState
 import com.zhihuiji.data.agent.AgentAuditRepository
 import com.zhihuiji.data.agent.AgentV2Repository
@@ -237,6 +236,28 @@ class AgentChatViewModel @Inject constructor(
         sendMessage()
     }
 
+    fun editAndResend(messageId: String, newText: String) {
+        if (_uiState.value.isStreaming) return
+        val trimmedText = newText.trim()
+        if (trimmedText.isEmpty()) return
+        val messages = _uiState.value.messages
+        val targetIndex = messages.indexOfFirst { it.id == messageId }
+        if (targetIndex < 0) return
+        val target = messages[targetIndex]
+        if (target.role != MessageRole.USER) return
+
+        _uiState.update { state ->
+            state.copy(
+                messages = state.messages.take(targetIndex),
+                inputText = trimmedText,
+                error = null,
+                showDraftConfirm = null,
+                contextCompacted = null,
+            )
+        }
+        sendMessage(trimmedText)
+    }
+
     fun startConversation(
         conversationId: Long?,
         initialQuestion: String?,
@@ -302,8 +323,8 @@ class AgentChatViewModel @Inject constructor(
     /**
      * 发送消息（流式 SSE 版本）
      */
-    fun sendMessage() {
-        val text = _uiState.value.inputText.trim()
+    fun sendMessage(prefilledText: String? = null) {
+        val text = prefilledText?.trim().orEmpty().ifBlank { _uiState.value.inputText.trim() }
         if (text.isEmpty() || _uiState.value.isStreaming) return
 
         val userMessage = ChatMessage(
@@ -1007,30 +1028,28 @@ class AgentChatViewModel @Inject constructor(
         _uiState.update { it.copy(contextCompacted = null) }
     }
 
-    fun archiveDraftFromDialog(draftId: Long) {
+    fun confirmDraftFromDialog(draftId: Long) {
         viewModelScope.launch {
-            val draftResult = repository.listDrafts(_uiState.value.conversationId)
-            val draft = draftResult.getOrNull()?.firstOrNull { it.id == draftId }
-            if (draft == null) {
-                _uiState.update { it.copy(error = "草稿不存在或已处理", showDraftConfirm = null) }
-                return@launch
-            }
-            repository.updateDraft(
-                draftId,
-                UpdateAgentDraftRequest(
-                    conversationId = draft.conversationId,
-                    draftType = draft.draftType,
-                    title = draft.title,
-                    contentJson = draft.contentJson,
-                    status = "archived",
-                )
-            ).onSuccess {
+            repository.confirmDraft(draftId).onSuccess {
+                currentAuditBuilder?.draftInfo = currentAuditBuilder?.draftInfo?.copy(userConfirmed = true)
                 _uiState.update { state ->
-                    state.copy(showDraftConfirm = null)
+                    state.copy(showDraftConfirm = null, error = "草稿已确认执行")
                 }
-                saveAuditRecord()
             }.onFailure { e ->
-                _uiState.update { it.copy(error = e.message ?: "草稿归档失败") }
+                _uiState.update { it.copy(error = e.message ?: "草稿确认失败") }
+            }
+        }
+    }
+
+    fun cancelDraftFromDialog(draftId: Long) {
+        viewModelScope.launch {
+            repository.cancelDraft(draftId).onSuccess {
+                currentAuditBuilder?.draftInfo = currentAuditBuilder?.draftInfo?.copy(userConfirmed = false)
+                _uiState.update { state ->
+                    state.copy(showDraftConfirm = null, error = "草稿已取消")
+                }
+            }.onFailure { e ->
+                _uiState.update { it.copy(error = e.message ?: "草稿取消失败") }
             }
         }
     }

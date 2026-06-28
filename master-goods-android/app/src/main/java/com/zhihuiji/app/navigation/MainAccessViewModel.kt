@@ -135,10 +135,18 @@ fun routeAccessRule(route: String?): RouteAccessRule {
             archivesViewRule
         normalized == DetailRoutes.CUSTOMER_EDIT || normalized.startsWith("customer_edit/") || normalized == DetailRoutes.CUSTOMER_CREATE ->
             archivesWriteRule
+        normalized == DetailRoutes.CUSTOMER_CONTACT_LIST || normalized.startsWith("customer_contact_list/") ->
+            archivesViewRule
+        normalized == DetailRoutes.CUSTOMER_CONTACT_EDIT || normalized.startsWith("customer_contact_edit/") || normalized == DetailRoutes.CUSTOMER_CONTACT_CREATE || normalized.startsWith("customer_contact_create/") ->
+            archivesWriteRule
 
         normalized == DetailRoutes.SUPPLIER_DETAIL || normalized.startsWith("supplier_detail/") ->
             archivesViewRule
         normalized == DetailRoutes.SUPPLIER_EDIT || normalized.startsWith("supplier_edit/") || normalized == DetailRoutes.SUPPLIER_CREATE ->
+            archivesWriteRule
+        normalized == DetailRoutes.SUPPLIER_CONTACT_LIST || normalized.startsWith("supplier_contact_list/") ->
+            archivesViewRule
+        normalized == DetailRoutes.SUPPLIER_CONTACT_EDIT || normalized.startsWith("supplier_contact_edit/") || normalized == DetailRoutes.SUPPLIER_CONTACT_CREATE || normalized.startsWith("supplier_contact_create/") ->
             archivesWriteRule
         normalized == DetailRoutes.SUPPLIER_STATEMENT || normalized.startsWith("supplier_statement/") ->
             financeViewRule
@@ -166,6 +174,12 @@ fun routeAccessRule(route: String?): RouteAccessRule {
         normalized == DetailRoutes.FINANCE_RECORD_DETAIL || normalized.startsWith("finance_record_detail/") ->
             financeViewRule
         normalized == DetailRoutes.DAILY_EXPENSE ->
+            financeWriteRule
+        normalized == DetailRoutes.ACCOUNT_LIST ->
+            financeViewRule
+        normalized == DetailRoutes.ACCOUNT_EDIT || normalized.startsWith("account_edit/") || normalized == DetailRoutes.ACCOUNT_CREATE ->
+            financeWriteRule
+        normalized == DetailRoutes.ACCOUNT_TRANSFER_LIST || normalized == DetailRoutes.ACCOUNT_TRANSFER ->
             financeWriteRule
 
         normalized == DetailRoutes.DRAFT_LIST || normalized == DetailRoutes.TASK_NOTIFICATION ->

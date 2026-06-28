@@ -103,6 +103,9 @@ public class PayOrderLookupTool extends ToolSupport {
         );
 
         List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, tableBlock);
+        if (recentOrders.isEmpty() && hasMeaningfulFilter(keyword, status, createdAfter, createdBefore)) {
+            return ToolResult.emptyInsufficient("按当前条件未匹配到付款单，建议放宽筛选后重试");
+        }
         String answer = recentOrders.isEmpty()
             ? "当前账号下还没有付款单数据。"
             : "我查到了最近 " + recentOrders.size() + " 条付款单，查询付款额 "
@@ -175,5 +178,9 @@ public class PayOrderLookupTool extends ToolSupport {
 
     private String safeText(String value, String fallback) {
         return StringUtils.hasText(value) ? value : fallback;
+    }
+
+    private boolean hasMeaningfulFilter(String keyword, Integer status, Long createdAfter, Long createdBefore) {
+        return StringUtils.hasText(keyword) || status != null || createdAfter != null || createdBefore != null;
     }
 }

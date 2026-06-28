@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSession } from '@/app/stores/session'
 import {
+  cancelAgentDraftAction,
   cancelAgentRun,
+  confirmAgentDraft,
   createAgentConversation,
   createAgentDraft,
   deleteAgentConversation,
@@ -105,6 +107,52 @@ interface BlockDerivedState {
   objectEntries: [string, unknown][]
 }
 
+type DraftEditorMode =
+  | 'custom'
+  | 'customer'
+  | 'supplier'
+  | 'product'
+  | 'sale_order'
+  | 'purchase_order'
+  | 'pay_order'
+  | 'finance_record'
+
+interface DraftLineForm {
+  productId: string
+  productCode: string
+  productName: string
+  quantity: string
+  unitPrice: string
+}
+
+interface DraftEditorForm {
+  name: string
+  phone: string
+  groupId: string
+  level: string
+  status: string
+  code: string
+  categoryId: string
+  unitId: string
+  salePrice: string
+  purchasePrice: string
+  stock: string
+  safeStock: string
+  customerId: string
+  customerName: string
+  supplierId: string
+  supplierName: string
+  amount: string
+  accountId: string
+  discountAmount: string
+  settlementMethod: string
+  warehouseId: string
+  method: string
+  referenceNo: string
+  notes: string
+  items: DraftLineForm[]
+}
+
 const route = useRoute()
 const session = useSession()
 
@@ -133,6 +181,10 @@ const draftType = ref('note')
 const draftContentJson = ref('')
 const draftStatus = ref<'active' | 'archived'>('active')
 const draftSaving = ref(false)
+const mobileSidebarOpen = ref(false)
+const mobileSidepanelOpen = ref(false)
+const dismissedDraftIds = ref<Set<string>>(new Set())
+const draftActionPendingIds = ref<Set<string>>(new Set())
 const canWrite = computed(() => session.hasPermission(['agent:write']))
 const canView = computed(() => session.hasPermission(['agent:view']))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
@@ -160,6 +212,29 @@ const BULLET_SECTION_REGEX = /^[-*]\s+/
 const ORDERED_LIST_REGEX = /^\d+\.\s+(.+)$/
 const CODE_FENCE_REGEX = /^```(.*)$/
 const TABLE_SEPARATOR_REGEX = /^[\s|:-]+$/
+const INLINE_LINK_REGEX = /\[([^\]]+)\]\(([^)]+)\)/g
+const INLINE_BOLD_REGEX = /\*\*([^*]+)\*\*/g
+const INLINE_CODE_REGEX = /`([^`]+)`/g
+const SAFE_LINK_SCHEME_REGEX = /^(https?:\/\/|mailto:)/i
+const draftTypeSuggestions = [
+  'note',
+  'create_customer',
+  'create_supplier',
+  'create_product',
+  'create_sale_order',
+  'create_purchase_order',
+  'create_pay_order',
+  'create_finance_record',
+]
+const draftForm = reactive(createEmptyDraftForm())
+const draftEditorMode = computed<DraftEditorMode>(() => draftEditorModeForType(draftType.value))
+const draftStructuredPreview = computed(() => {
+  const payload = buildStructuredDraftPayload(draftType.value)
+  if (!payload) {
+    return draftContentJson.value
+  }
+  return JSON.stringify(payload, null, 2)
+})
 
 watch(
   [() => session.source.value, () => session.token.value],
@@ -580,6 +655,25 @@ async function retryPage() {
   await loadPage()
 }
 
+function closeMobilePanels() {
+  mobileSidebarOpen.value = false
+  mobileSidepanelOpen.value = false
+}
+
+function toggleMobileSidebar() {
+  mobileSidebarOpen.value = !mobileSidebarOpen.value
+  if (mobileSidebarOpen.value) {
+    mobileSidepanelOpen.value = false
+  }
+}
+
+function toggleMobileSidepanel() {
+  mobileSidepanelOpen.value = !mobileSidepanelOpen.value
+  if (mobileSidepanelOpen.value) {
+    mobileSidebarOpen.value = false
+  }
+}
+
 async function openAudit(runId: string) {
   if (!session.token.value) return
   auditLoading.value = true
@@ -625,6 +719,7 @@ function openCreateDraftEditor() {
   draftType.value = 'note'
   draftContentJson.value = ''
   draftStatus.value = 'active'
+  overwriteDraftForm(createEmptyDraftForm())
   isDraftEditorOpen.value = true
 }
 
@@ -634,26 +729,35 @@ function openEditDraftEditor(draft: AgentDraft) {
   draftType.value = draft.draftType
   draftContentJson.value = draft.contentJson
   draftStatus.value = draft.status === 'archived' ? 'archived' : 'active'
+  populateDraftForm(draft.draftType, draft.contentJson)
   isDraftEditorOpen.value = true
 }
 
 async function saveDraft() {
   if (!session.token.value || !canWrite.value) return
-  if (!draftTitle.value.trim() || !draftType.value.trim() || !draftContentJson.value.trim()) return
+  const normalizedTitle = draftTitle.value.trim()
+  const normalizedType = draftType.value.trim()
+  const contentJson = draftStructuredPreview.value.trim()
+  if (!normalizedTitle || !normalizedType || !contentJson) return
+  const validationError = validateDraftEditor()
+  if (validationError) {
+    error.value = validationError
+    return
+  }
   draftSaving.value = true
   try {
     if (editingDraftId.value) {
       await updateAgentDraft(session.token.value, editingDraftId.value, {
-        draftType: draftType.value,
-        title: draftTitle.value,
-        contentJson: draftContentJson.value,
+        draftType: normalizedType,
+        title: normalizedTitle,
+        contentJson,
         status: draftStatus.value,
       })
     } else {
       await createAgentDraft(session.token.value, {
-        draftType: draftType.value,
-        title: draftTitle.value,
-        contentJson: draftContentJson.value,
+        draftType: normalizedType,
+        title: normalizedTitle,
+        contentJson,
         status: draftStatus.value,
       })
     }
@@ -664,6 +768,32 @@ async function saveDraft() {
   } finally {
     draftSaving.value = false
   }
+}
+
+function validateDraftEditor(): string {
+  if (draftEditorMode.value === 'customer' || draftEditorMode.value === 'supplier') {
+    if (!draftForm.name.trim()) return '名称不能为空'
+  }
+  if (draftEditorMode.value === 'product') {
+    if (!draftForm.code.trim()) return '商品编码不能为空'
+    if (!draftForm.name.trim()) return '商品名称不能为空'
+  }
+  if (draftEditorMode.value === 'sale_order') {
+    if (!draftForm.customerName.trim()) return '客户名称不能为空'
+  }
+  if (draftEditorMode.value === 'purchase_order') {
+    if (!draftForm.supplierName.trim()) return '供应商名称不能为空'
+  }
+  if (draftEditorMode.value === 'pay_order') {
+    if (!draftForm.supplierName.trim()) return '供应商名称不能为空'
+    if (!draftForm.amount.trim()) return '付款金额不能为空'
+  }
+  if (draftEditorMode.value === 'finance_record') {
+    if (!draftForm.amount.trim()) return '金额不能为空'
+    if (!draftForm.categoryId.trim() && !draftForm.name.trim()) return '分类不能为空'
+    if (!draftForm.status.trim()) return '类型不能为空'
+  }
+  return ''
 }
 
 async function removeDraft(draft: AgentDraft) {
@@ -677,12 +807,349 @@ async function removeDraft(draft: AgentDraft) {
   }
 }
 
+function markDraftActionPending(draftId: string | number, pending: boolean) {
+  const next = new Set(draftActionPendingIds.value)
+  const key = String(draftId)
+  if (pending) next.add(key)
+  else next.delete(key)
+  draftActionPendingIds.value = next
+}
+
+function isDraftActionPending(draftId: string | number) {
+  return draftActionPendingIds.value.has(String(draftId))
+}
+
+async function confirmPendingDraft(draftEvent: AgentDraftCreatedEvent) {
+  if (!session.token.value || !canWrite.value) return
+  markDraftActionPending(draftEvent.draftId, true)
+  try {
+    await confirmAgentDraft(session.token.value, draftEvent.draftId)
+    dismissDraft(draftEvent.draftId)
+    await loadDrafts()
+  } catch (confirmErr) {
+    error.value = confirmErr instanceof Error ? confirmErr.message : '草稿确认失败'
+  } finally {
+    markDraftActionPending(draftEvent.draftId, false)
+  }
+}
+
+async function cancelPendingDraft(draftEvent: AgentDraftCreatedEvent) {
+  if (!session.token.value || !canWrite.value) return
+  markDraftActionPending(draftEvent.draftId, true)
+  try {
+    await cancelAgentDraftAction(session.token.value, draftEvent.draftId)
+    dismissDraft(draftEvent.draftId)
+    await loadDrafts()
+  } catch (cancelErr) {
+    error.value = cancelErr instanceof Error ? cancelErr.message : '草稿取消失败'
+  } finally {
+    markDraftActionPending(draftEvent.draftId, false)
+  }
+}
+
+function createEmptyDraftLine(): DraftLineForm {
+  return {
+    productId: '',
+    productCode: '',
+    productName: '',
+    quantity: '',
+    unitPrice: '',
+  }
+}
+
+function createEmptyDraftForm(): DraftEditorForm {
+  return {
+    name: '',
+    phone: '',
+    groupId: '',
+    level: '1',
+    status: '1',
+    code: '',
+    categoryId: '',
+    unitId: '',
+    salePrice: '',
+    purchasePrice: '',
+    stock: '',
+    safeStock: '0',
+    customerId: '',
+    customerName: '',
+    supplierId: '',
+    supplierName: '',
+    amount: '',
+    accountId: '',
+    discountAmount: '',
+    settlementMethod: '',
+    warehouseId: '',
+    method: '',
+    referenceNo: '',
+    notes: '',
+    items: [createEmptyDraftLine()],
+  }
+}
+
+function overwriteDraftForm(next: DraftEditorForm) {
+  draftForm.name = next.name
+  draftForm.phone = next.phone
+  draftForm.groupId = next.groupId
+  draftForm.level = next.level
+  draftForm.status = next.status
+  draftForm.code = next.code
+  draftForm.categoryId = next.categoryId
+  draftForm.unitId = next.unitId
+  draftForm.salePrice = next.salePrice
+  draftForm.purchasePrice = next.purchasePrice
+  draftForm.stock = next.stock
+  draftForm.safeStock = next.safeStock
+  draftForm.customerId = next.customerId
+  draftForm.customerName = next.customerName
+  draftForm.supplierId = next.supplierId
+  draftForm.supplierName = next.supplierName
+  draftForm.amount = next.amount
+  draftForm.accountId = next.accountId
+  draftForm.discountAmount = next.discountAmount
+  draftForm.settlementMethod = next.settlementMethod
+  draftForm.warehouseId = next.warehouseId
+  draftForm.method = next.method
+  draftForm.referenceNo = next.referenceNo
+  draftForm.notes = next.notes
+  draftForm.items = next.items.length > 0 ? next.items : [createEmptyDraftLine()]
+}
+
+function draftEditorModeForType(type: string): DraftEditorMode {
+  const normalized = type.trim().toLowerCase()
+  if (normalized === 'create_customer') return 'customer'
+  if (normalized === 'create_supplier') return 'supplier'
+  if (normalized === 'create_product') return 'product'
+  if (normalized === 'create_sale_order') return 'sale_order'
+  if (normalized === 'create_purchase_order') return 'purchase_order'
+  if (normalized === 'create_pay_order') return 'pay_order'
+  if (normalized === 'create_finance_record') return 'finance_record'
+  return 'custom'
+}
+
+function populateDraftForm(type: string, contentJson: string) {
+  const next = createEmptyDraftForm()
+  const parsed = parseDraftContent(contentJson)
+  if (!parsed) {
+    overwriteDraftForm(next)
+    return
+  }
+  next.name = readDraftText(parsed, 'name')
+  next.phone = readDraftText(parsed, 'phone')
+  next.groupId = readDraftText(parsed, 'group_id', 'groupId')
+  next.level = readDraftText(parsed, 'level') || next.level
+  next.status = readDraftText(parsed, 'status') || next.status
+  next.code = readDraftText(parsed, 'code')
+  next.categoryId = readDraftText(parsed, 'category_id', 'categoryId')
+  next.unitId = readDraftText(parsed, 'unit_id', 'unitId')
+  next.salePrice = readDraftText(parsed, 'sale_price', 'salePrice')
+  next.purchasePrice = readDraftText(parsed, 'purchase_price', 'purchasePrice')
+  next.stock = readDraftText(parsed, 'stock')
+  next.safeStock = readDraftText(parsed, 'safe_stock', 'safeStock') || next.safeStock
+  next.customerId = readDraftText(parsed, 'customer_id', 'customerId')
+  next.customerName = readDraftText(parsed, 'customer_name', 'customerName', 'customer')
+  next.supplierId = readDraftText(parsed, 'supplier_id', 'supplierId')
+  next.supplierName = readDraftText(parsed, 'supplier_name', 'supplierName', 'supplier')
+  next.amount = readDraftText(parsed, 'amount')
+  next.accountId = readDraftText(parsed, 'account_id', 'accountId')
+  next.discountAmount = readDraftText(parsed, 'discount_amount', 'discountAmount')
+  next.settlementMethod = readDraftText(parsed, 'settlement_method', 'settlementMethod')
+  next.warehouseId = readDraftText(parsed, 'warehouse_id', 'warehouseId')
+  next.method = readDraftText(parsed, 'method')
+  next.referenceNo = readDraftText(parsed, 'reference_no', 'referenceNo')
+  next.name = readDraftText(parsed, 'category') || next.name
+  next.status = readDraftText(parsed, 'type') || next.status
+  next.supplierName = readDraftText(parsed, 'partner_name', 'partnerName')
+  next.notes = readDraftText(parsed, 'notes', 'remark', 'note')
+
+  const items = readDraftItems(parsed, type)
+  if (items.length > 0) {
+    next.items = items
+  }
+  overwriteDraftForm(next)
+}
+
+function parseDraftContent(contentJson: string): Record<string, unknown> | null {
+  if (!contentJson.trim()) return null
+  try {
+    const parsed = JSON.parse(contentJson)
+    return isRecord(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function readDraftText(parsed: Record<string, unknown>, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = parsed[key]
+    if (typeof value === 'string') return value
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  }
+  return ''
+}
+
+function readDraftItems(parsed: Record<string, unknown>, type: string): DraftLineForm[] {
+  const source = parsed.items
+  if (!Array.isArray(source)) return []
+  const nextItems: DraftLineForm[] = []
+  for (let index = 0; index < source.length; index += 1) {
+    const item = source[index]
+    if (!isRecord(item)) continue
+    nextItems.push({
+      productId: readDraftText(item, 'product_id', 'productId'),
+      productCode: readDraftText(item, 'product_code', 'productCode'),
+      productName: readDraftText(item, 'product_name', 'productName'),
+      quantity: readDraftText(item, 'quantity'),
+      unitPrice: readDraftText(item, type.toLowerCase().includes('purchase') ? 'unit_cost' : 'unit_price', 'price'),
+    })
+  }
+  return nextItems
+}
+
+function addDraftItemRow() {
+  draftForm.items = [...draftForm.items, createEmptyDraftLine()]
+}
+
+function removeDraftItemRow(index: number) {
+  if (draftForm.items.length <= 1) {
+    draftForm.items = [createEmptyDraftLine()]
+    return
+  }
+  draftForm.items = draftForm.items.filter((_, itemIndex) => itemIndex !== index)
+}
+
+function parseOptionalNumber(value: string): number | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const numeric = Number(trimmed)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+function structuredStringOrNull(value: string): string | null {
+  const trimmed = value.trim()
+  return trimmed ? trimmed : null
+}
+
+function buildStructuredDraftPayload(type: string): Record<string, unknown> | null {
+  const mode = draftEditorModeForType(type)
+  if (mode === 'custom') {
+    return null
+  }
+  if (mode === 'customer') {
+    return {
+      name: draftForm.name.trim(),
+      phone: structuredStringOrNull(draftForm.phone) ?? '',
+      level: parseOptionalNumber(draftForm.level) ?? 1,
+      group_id: parseOptionalNumber(draftForm.groupId),
+      notes: structuredStringOrNull(draftForm.notes),
+      status: parseOptionalNumber(draftForm.status) ?? 1,
+    }
+  }
+  if (mode === 'supplier') {
+    return {
+      name: draftForm.name.trim(),
+      phone: structuredStringOrNull(draftForm.phone) ?? '',
+      group_id: parseOptionalNumber(draftForm.groupId),
+      notes: structuredStringOrNull(draftForm.notes),
+      status: parseOptionalNumber(draftForm.status) ?? 1,
+    }
+  }
+  if (mode === 'product') {
+    return {
+      code: draftForm.code.trim(),
+      name: draftForm.name.trim(),
+      category_id: parseOptionalNumber(draftForm.categoryId),
+      unit_id: parseOptionalNumber(draftForm.unitId),
+      sale_price: parseOptionalNumber(draftForm.salePrice) ?? 0,
+      purchase_price: parseOptionalNumber(draftForm.purchasePrice) ?? 0,
+      stock: parseOptionalNumber(draftForm.stock) ?? 0,
+      safe_stock: parseOptionalNumber(draftForm.safeStock) ?? 0,
+      status: parseOptionalNumber(draftForm.status) ?? 1,
+    }
+  }
+  if (mode === 'sale_order') {
+    return {
+      customer_id: parseOptionalNumber(draftForm.customerId),
+      customer_name: draftForm.customerName.trim(),
+      items: buildStructuredDraftItems('sale_order'),
+      notes: structuredStringOrNull(draftForm.notes),
+      discount_amount: parseOptionalNumber(draftForm.discountAmount),
+    }
+  }
+  if (mode === 'purchase_order') {
+    return {
+      supplier_id: parseOptionalNumber(draftForm.supplierId),
+      supplier_name: draftForm.supplierName.trim(),
+      items: buildStructuredDraftItems('purchase_order'),
+      settlement_method: structuredStringOrNull(draftForm.settlementMethod),
+      warehouse_id: parseOptionalNumber(draftForm.warehouseId),
+      notes: structuredStringOrNull(draftForm.notes),
+      status: parseOptionalNumber(draftForm.status),
+    }
+  }
+  if (mode === 'finance_record') {
+    return {
+      type: parseOptionalNumber(draftForm.status) ?? 2,
+      category: draftForm.name.trim(),
+      partnerName: structuredStringOrNull(draftForm.supplierName),
+      amount: parseOptionalNumber(draftForm.amount) ?? 0,
+      method: parseOptionalNumber(draftForm.method),
+      notes: structuredStringOrNull(draftForm.notes),
+    }
+  }
+  return {
+    supplier_id: parseOptionalNumber(draftForm.supplierId),
+    supplier_name: draftForm.supplierName.trim(),
+    amount: parseOptionalNumber(draftForm.amount) ?? 0,
+    method: structuredStringOrNull(draftForm.method),
+    reference_no: structuredStringOrNull(draftForm.referenceNo),
+    notes: structuredStringOrNull(draftForm.notes),
+    account_id: parseOptionalNumber(draftForm.accountId),
+    status: parseOptionalNumber(draftForm.status),
+  }
+}
+
+function buildStructuredDraftItems(type: 'sale_order' | 'purchase_order') {
+  const items: Record<string, unknown>[] = []
+  for (const item of draftForm.items) {
+    if (
+      !item.productId.trim()
+      && !item.productCode.trim()
+      && !item.productName.trim()
+      && !item.quantity.trim()
+      && !item.unitPrice.trim()
+    ) {
+      continue
+    }
+    items.push({
+      product_id: parseOptionalNumber(item.productId),
+      ...(type === 'purchase_order' ? { product_code: structuredStringOrNull(item.productCode) } : {}),
+      product_name: structuredStringOrNull(item.productName),
+      quantity: parseOptionalNumber(item.quantity),
+      ...(type === 'purchase_order'
+        ? { unit_cost: parseOptionalNumber(item.unitPrice) }
+        : { unit_price: parseOptionalNumber(item.unitPrice) }),
+    })
+  }
+  return items
+}
+
 function normalizeRole(role: string): UiRole {
   const normalized = role.trim().toLowerCase()
   if (normalized === 'assistant') return 'assistant'
   if (normalized === 'system') return 'system'
   return 'user'
 }
+
+watch([mobileSidebarOpen, mobileSidepanelOpen], ([sidebarOpen, sidepanelOpen]) => {
+  if (typeof document === 'undefined') return
+  document.body.style.overflow = sidebarOpen || sidepanelOpen ? 'hidden' : ''
+})
+
+onBeforeUnmount(() => {
+  if (typeof document === 'undefined') return
+  document.body.style.overflow = ''
+})
 
 function createEmptyRunTrace(): UiRunTrace {
   return {
@@ -704,6 +1171,36 @@ function localId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function renderInlineMarkdown(text: string): string {
+  if (!text) return ''
+  const escaped = escapeHtml(text)
+  return escaped
+    .replace(INLINE_LINK_REGEX, (_match, label: string, url: string) => {
+      const trimmed = url.trim()
+      if (SAFE_LINK_SCHEME_REGEX.test(trimmed)) {
+        return `<a href="${trimmed}" target="_blank" rel="noopener">${label}</a>`
+      }
+      return label
+    })
+    .replace(INLINE_BOLD_REGEX, '<strong>$1</strong>')
+    .replace(INLINE_CODE_REGEX, '<code>$1</code>')
+}
+
+function parseTableRow(line: string): string[] {
+  const trimmed = line.trim()
+  if (!trimmed.startsWith('|')) return []
+  const inner = trimmed.replace(/^\|/, '').replace(/\|$/, '')
+  return inner.split('|').map((cell) => cell.trim())
+}
+
 function renderMarkdownSections(content: string): MarkdownSection[] {
   const normalized = content.trim()
   if (!normalized) {
@@ -715,13 +1212,27 @@ function renderMarkdownSections(content: string): MarkdownSection[] {
   }
   const lines = normalized.split(/\r?\n/)
   const sections: MarkdownSection[] = []
-  let listBuffer: string[] = []
+  let bulletBuffer: string[] = []
+  let orderedBuffer: string[] = []
   let paragraphBuffer: string[] = []
+  let codeBuffer: string[] = []
+  let codeLang = ''
+  let inCode = false
+  let tableHeaders: string[] = []
+  let tableRows: string[][] = []
+  let inTable = false
 
-  const flushList = () => {
-    if (listBuffer.length > 0) {
-      sections.push({ type: 'list', items: listBuffer })
-      listBuffer = []
+  const flushBullet = () => {
+    if (bulletBuffer.length > 0) {
+      sections.push({ type: 'list', items: bulletBuffer })
+      bulletBuffer = []
+    }
+  }
+
+  const flushOrdered = () => {
+    if (orderedBuffer.length > 0) {
+      sections.push({ type: 'ordered-list', items: orderedBuffer })
+      orderedBuffer = []
     }
   }
 
@@ -732,17 +1243,76 @@ function renderMarkdownSections(content: string): MarkdownSection[] {
     }
   }
 
+  const flushTable = () => {
+    if (tableHeaders.length > 0) {
+      sections.push({ type: 'table', tableHeaders, tableRows })
+    }
+    tableHeaders = []
+    tableRows = []
+    inTable = false
+  }
+
   for (const rawLine of lines) {
     const line = rawLine.trim()
-    if (!line) {
-      flushList()
-      flushParagraph()
+
+    if (inCode) {
+      const closeFence = line.match(CODE_FENCE_REGEX)
+      if (closeFence) {
+        sections.push({ type: 'code', code: codeBuffer.join('\n'), lang: codeLang })
+        codeBuffer = []
+        codeLang = ''
+        inCode = false
+      } else {
+        codeBuffer.push(rawLine)
+      }
       continue
     }
+
+    const openFence = line.match(CODE_FENCE_REGEX)
+    if (openFence) {
+      flushBullet()
+      flushOrdered()
+      flushParagraph()
+      flushTable()
+      inCode = true
+      codeLang = openFence[1] || ''
+      continue
+    }
+
+    if (!line) {
+      flushBullet()
+      flushOrdered()
+      flushParagraph()
+      flushTable()
+      continue
+    }
+
+    if (line.startsWith('|')) {
+      const cells = parseTableRow(line)
+      if (cells.length > 0) {
+        if (!inTable) {
+          tableHeaders = cells
+          inTable = true
+        } else if (TABLE_SEPARATOR_REGEX.test(line)) {
+          // separator row, skip
+        } else {
+          tableRows.push(cells)
+        }
+        flushBullet()
+        flushOrdered()
+        flushParagraph()
+        continue
+      }
+    } else if (inTable) {
+      flushTable()
+    }
+
     const heading = line.match(HEADING_SECTION_REGEX)
     if (heading) {
-      flushList()
+      flushBullet()
+      flushOrdered()
       flushParagraph()
+      flushTable()
       sections.push({
         type: 'heading',
         level: heading[1].length,
@@ -750,22 +1320,206 @@ function renderMarkdownSections(content: string): MarkdownSection[] {
       })
       continue
     }
+
     if (BULLET_SECTION_REGEX.test(line)) {
+      flushOrdered()
       flushParagraph()
-      listBuffer.push(line.replace(BULLET_SECTION_REGEX, '').trim())
+      flushTable()
+      bulletBuffer.push(line.replace(BULLET_SECTION_REGEX, '').trim())
       continue
     }
-    flushList()
+
+    const ordered = line.match(ORDERED_LIST_REGEX)
+    if (ordered) {
+      flushBullet()
+      flushParagraph()
+      flushTable()
+      orderedBuffer.push(ordered[1].trim())
+      continue
+    }
+
+    flushBullet()
+    flushOrdered()
+    flushTable()
     paragraphBuffer.push(line)
   }
 
-  flushList()
+  flushBullet()
+  flushOrdered()
   flushParagraph()
+  if (inCode) {
+    sections.push({ type: 'code', code: codeBuffer.join('\n'), lang: codeLang })
+  }
+  flushTable()
+
   if (markdownSectionsCache.size > 256) {
     markdownSectionsCache.clear()
   }
   markdownSectionsCache.set(normalized, sections)
   return sections
+}
+
+function toolStatusLabel(status: string): string {
+  if (status === 'running') return '执行中'
+  if (status === 'completed') return '已完成'
+  if (status === 'failed') return '失败'
+  return status
+}
+
+function visibleToolCall(trace: UiRunTrace | null): UiToolCall | null {
+  if (!trace || trace.toolCalls.length === 0) return null
+  for (let index = trace.toolCalls.length - 1; index >= 0; index -= 1) {
+    if (trace.toolCalls[index].status === 'running') {
+      return trace.toolCalls[index]
+    }
+  }
+  return trace.toolCalls[trace.toolCalls.length - 1]
+}
+
+function toolProgressTitle(toolCall: UiToolCall | null): string {
+  if (!toolCall) return ''
+  if (toolCall.status === 'running') return '正在执行工具'
+  if (toolCall.status === 'failed') return '最近工具失败'
+  return '最近完成工具'
+}
+
+function toolProgressSummary(toolCall: UiToolCall | null): string {
+  if (!toolCall) return ''
+  return toolCall.resultSummary || toolCall.inputSummary || toolCall.errorMessage || '等待更多进度...'
+}
+
+function draftIcon(draftType: string): string {
+  const type = draftType.toLowerCase()
+  if (type.includes('sale')) return '销'
+  if (type.includes('purchase')) return '采'
+  if (type.includes('customer')) return '客'
+  if (type.includes('supplier')) return '供'
+  return '草'
+}
+
+function draftTypeLabel(draftType: string): string {
+  const type = draftType.toLowerCase()
+  if (type.includes('sale') && type.includes('order')) return '销售单草稿'
+  if (type.includes('purchase') && type.includes('order')) return '采购单草稿'
+  if (type.includes('customer')) return '客户新建草稿'
+  if (type.includes('supplier')) return '供应商新建草稿'
+  if (type.includes('note')) return '备注草稿'
+  return draftType
+}
+
+function pushDraftField(
+  fields: { label: string; value: string }[],
+  obj: Record<string, unknown>,
+  key: string,
+  label: string,
+) {
+  const value = readDraftDisplayValue(obj, key)
+  if (value != null) {
+    fields.push({ label, value })
+  }
+}
+
+function readDraftDisplayValue(obj: Record<string, unknown>, key: string): string | null {
+  const candidates = [key, toSnakeCaseKey(key), toCamelCaseKey(key)]
+  for (const candidate of candidates) {
+    const value = obj[candidate]
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      return String(value)
+    }
+  }
+  return null
+}
+
+function toSnakeCaseKey(value: string): string {
+  return value.replace(/[A-Z]/g, (segment) => `_${segment.toLowerCase()}`)
+}
+
+function toCamelCaseKey(value: string): string {
+  return value.replace(/_([a-z])/g, (_, char: string) => char.toUpperCase())
+}
+
+function renderDraftContent(draft: {
+  draftType: string
+  title: string
+  draftId?: string | number
+  contentJson?: string
+}): string {
+  const type = draft.draftType.toLowerCase()
+  const fields: { label: string; value: string }[] = []
+  let parsed: Record<string, unknown> | null = null
+  if (draft.contentJson) {
+    try {
+      const obj = JSON.parse(draft.contentJson)
+      if (isRecord(obj)) parsed = obj
+    } catch {
+      // keep parsed null, fall back below
+    }
+  }
+
+  if (parsed) {
+    if (type.includes('sale')) {
+      pushDraftField(fields, parsed, 'customerName', '客户')
+      pushDraftField(fields, parsed, 'customer', '客户')
+      pushDraftField(fields, parsed, 'discountAmount', '优惠')
+      if (Array.isArray(parsed.items)) fields.push({ label: '商品行数', value: String(parsed.items.length) })
+      else if (Array.isArray(parsed.lines)) fields.push({ label: '商品行数', value: String(parsed.lines.length) })
+      pushDraftField(fields, parsed, 'notes', '备注')
+      pushDraftField(fields, parsed, 'remark', '备注')
+    } else if (type.includes('purchase')) {
+      pushDraftField(fields, parsed, 'supplierName', '供应商')
+      pushDraftField(fields, parsed, 'supplier', '供应商')
+      if (Array.isArray(parsed.items)) fields.push({ label: '商品行数', value: String(parsed.items.length) })
+      else if (Array.isArray(parsed.lines)) fields.push({ label: '商品行数', value: String(parsed.lines.length) })
+      pushDraftField(fields, parsed, 'notes', '备注')
+    } else if (type.includes('pay')) {
+      pushDraftField(fields, parsed, 'supplierName', '供应商')
+      pushDraftField(fields, parsed, 'amount', '金额')
+      pushDraftField(fields, parsed, 'accountId', '账户 ID')
+      pushDraftField(fields, parsed, 'referenceNo', '参考号')
+      pushDraftField(fields, parsed, 'notes', '备注')
+    } else if (type.includes('finance')) {
+      pushDraftField(fields, parsed, 'type', '类型')
+      pushDraftField(fields, parsed, 'category', '分类')
+      pushDraftField(fields, parsed, 'amount', '金额')
+      pushDraftField(fields, parsed, 'partnerName', '往来方')
+      pushDraftField(fields, parsed, 'notes', '备注')
+    } else if (type.includes('product')) {
+      pushDraftField(fields, parsed, 'code', '编码')
+      pushDraftField(fields, parsed, 'name', '名称')
+      pushDraftField(fields, parsed, 'salePrice', '售价')
+      pushDraftField(fields, parsed, 'purchasePrice', '成本价')
+      pushDraftField(fields, parsed, 'stock', '库存')
+    } else if (type.includes('customer') || type.includes('supplier')) {
+      pushDraftField(fields, parsed, 'name', '名称')
+      pushDraftField(fields, parsed, 'phone', '电话')
+      pushDraftField(fields, parsed, 'contact', '联系方式')
+      pushDraftField(fields, parsed, 'email', '邮箱')
+      pushDraftField(fields, parsed, 'notes', '备注')
+    }
+  }
+
+  if (fields.length === 0) {
+    if (draft.draftId != null) {
+      fields.push({ label: '草稿 ID', value: String(draft.draftId) })
+    }
+    if (draft.contentJson) {
+      fields.push({ label: '原始内容', value: draft.contentJson })
+    }
+  }
+
+  const rows = fields
+    .map(
+      (field) =>
+        `<div class="agent-draft-row"><span>${escapeHtml(field.label)}</span><strong>${escapeHtml(field.value)}</strong></div>`,
+    )
+    .join('')
+  return `<dl class="agent-draft-rows">${rows}</dl>`
+}
+
+function dismissDraft(draftId: string | number) {
+  const next = new Set(dismissedDraftIds.value)
+  next.add(String(draftId))
+  dismissedDraftIds.value = next
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -932,12 +1686,27 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
     />
 
     <section class="agent-layout" v-if="canView">
-      <aside class="panel agent-sidebar">
+      <button
+        v-if="mobileSidebarOpen || mobileSidepanelOpen"
+        type="button"
+        class="agent-mobile-backdrop"
+        aria-label="关闭移动端面板"
+        @click="closeMobilePanels"
+      ></button>
+      <aside class="panel agent-sidebar" :class="{ 'is-mobile-open': mobileSidebarOpen }">
         <div class="panel-head">
           <div>
             <p class="eyebrow">会话列表</p>
             <h3>最近会话</h3>
           </div>
+          <button
+            type="button"
+            class="ghost-action agent-mobile-close"
+            aria-label="关闭会话列表"
+            @click="closeMobilePanels"
+          >
+            关闭
+          </button>
         </div>
         <div class="agent-conversation-list">
           <button
@@ -946,7 +1715,7 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
             type="button"
             class="agent-conversation-item"
             :class="{ active: sameEntityId(conversation.id, selectedConversationId) }"
-            @click="selectedConversationId = conversation.id"
+            @click="selectedConversationId = conversation.id; closeMobilePanels()"
           >
             <div>
               <strong>{{ conversation.title }}</strong>
@@ -960,9 +1729,27 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
 
       <article class="panel agent-chat-panel">
         <div class="panel-head">
-          <div>
-            <p class="eyebrow">对话区</p>
-            <h3>{{ selectedConversationTitle }}</h3>
+          <div class="agent-chat-head">
+            <button
+              type="button"
+              class="ghost-action agent-mobile-toggle"
+              aria-label="打开会话列表"
+              @click="toggleMobileSidebar"
+            >
+              会话
+            </button>
+            <button
+              type="button"
+              class="ghost-action agent-mobile-toggle"
+              aria-label="打开工作台"
+              @click="toggleMobileSidepanel"
+            >
+              工作台
+            </button>
+            <div>
+              <p class="eyebrow">对话区</p>
+              <h3>{{ selectedConversationTitle }}</h3>
+            </div>
           </div>
           <span class="session-source">{{ currentRunId || '等待提问' }}</span>
         </div>
@@ -978,15 +1765,43 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
               <strong>{{ message.role === 'user' ? '你' : message.role === 'assistant' ? '智慧记 AI' : '系统' }}</strong>
               <span>{{ formatDateTime(message.createdAt) }}</span>
             </header>
+            <div
+              v-if="message.role === 'assistant' && visibleToolCall(message.runTrace)"
+              class="agent-live-tool-banner"
+              :data-status="visibleToolCall(message.runTrace)?.status"
+            >
+              <span class="agent-live-tool-banner__label">{{ toolProgressTitle(visibleToolCall(message.runTrace)) }}</span>
+              <strong class="agent-live-tool-banner__name">{{ visibleToolCall(message.runTrace)?.toolName }}</strong>
+              <span class="agent-live-tool-banner__status">{{ toolStatusLabel(visibleToolCall(message.runTrace)?.status || '') }}</span>
+              <span class="agent-live-tool-banner__summary">{{ toolProgressSummary(visibleToolCall(message.runTrace)) }}</span>
+            </div>
             <div class="agent-markdown" v-if="message.content">
               <template v-for="(section, index) in renderMarkdownSections(message.content)" :key="`${message.id}-${index}`">
-                <h4 v-if="section.type === 'heading' && section.level === 1">{{ section.text }}</h4>
-                <h5 v-else-if="section.type === 'heading' && section.level === 2">{{ section.text }}</h5>
-                <h6 v-else-if="section.type === 'heading'">{{ section.text }}</h6>
+                <h4 v-if="section.type === 'heading' && section.level === 1" v-html="renderInlineMarkdown(section.text || '')"></h4>
+                <h5 v-else-if="section.type === 'heading' && section.level === 2" v-html="renderInlineMarkdown(section.text || '')"></h5>
+                <h6 v-else-if="section.type === 'heading'" v-html="renderInlineMarkdown(section.text || '')"></h6>
                 <ul v-else-if="section.type === 'list'">
-                  <li v-for="item in section.items" :key="item">{{ item }}</li>
+                  <li v-for="(item, itemIndex) in section.items" :key="itemIndex" v-html="renderInlineMarkdown(item)"></li>
                 </ul>
-                <p v-else>{{ section.text }}</p>
+                <ol v-else-if="section.type === 'ordered-list'">
+                  <li v-for="(item, itemIndex) in section.items" :key="itemIndex" v-html="renderInlineMarkdown(item)"></li>
+                </ol>
+                <pre v-else-if="section.type === 'code'" class="agent-markdown__code"><code>{{ section.code }}</code></pre>
+                <div v-else-if="section.type === 'table'" class="agent-markdown__table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th v-for="(header, headerIndex) in section.tableHeaders" :key="headerIndex" v-html="renderInlineMarkdown(header)"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(row, rowIndex) in section.tableRows" :key="rowIndex">
+                        <td v-for="(cell, cellIndex) in row" :key="cellIndex" v-html="renderInlineMarkdown(cell)"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p v-else v-html="renderInlineMarkdown(section.text || '')"></p>
               </template>
             </div>
             <p v-else-if="message.isStreaming" class="agent-markdown__placeholder">正在生成...</p>
@@ -1024,13 +1839,25 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
 
                 <div v-if="message.runTrace.toolCalls.length" class="agent-trace-block">
                   <strong>工具调用</strong>
-                  <ul>
-                    <li v-for="toolCall in message.runTrace.toolCalls" :key="toolCall.key">
-                      {{ toolCall.toolName }} / {{ toolCall.status }}
-                      <small>{{ toolCall.inputSummary || toolCall.resultSummary || toolCall.errorMessage }}</small>
-                      <small v-if="toolCall.durationMs">{{ formatDuration(toolCall.durationMs) }}</small>
-                    </li>
-                  </ul>
+                  <div class="agent-tool-pills">
+                    <div
+                      v-for="toolCall in message.runTrace.toolCalls"
+                      :key="toolCall.key"
+                      class="agent-tool-pill"
+                      :data-status="toolCall.status"
+                    >
+                      <span class="agent-tool-pill__dot" aria-hidden="true"></span>
+                      <span class="agent-tool-pill__name">{{ toolCall.toolName }}</span>
+                      <span class="agent-tool-pill__status">{{ toolStatusLabel(toolCall.status) }}</span>
+                      <span v-if="toolCall.durationMs" class="agent-tool-pill__duration">{{ formatDuration(toolCall.durationMs) }}</span>
+                      <small
+                        v-if="toolCall.inputSummary || toolCall.resultSummary || toolCall.errorMessage"
+                        class="agent-tool-pill__summary"
+                      >
+                        {{ toolCall.inputSummary || toolCall.resultSummary || toolCall.errorMessage }}
+                      </small>
+                    </div>
+                  </div>
                 </div>
 
                 <div v-if="message.runTrace.resultBlocks.length" class="agent-trace-block">
@@ -1067,9 +1894,38 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
                   </div>
                 </div>
 
-                <div v-if="message.runTrace.draft" class="agent-trace-block">
+                <div
+                  v-if="message.runTrace.draft && !dismissedDraftIds.has(String(message.runTrace.draft.draftId))"
+                  class="agent-trace-block"
+                >
                   <strong>待确认草稿</strong>
-                  <p>{{ message.runTrace.draft.title }} / {{ message.runTrace.draft.draftType }}</p>
+                  <div class="agent-draft-card">
+                    <div class="agent-draft-card__head">
+                      <span class="agent-draft-card__icon" aria-hidden="true">{{ draftIcon(message.runTrace.draft.draftType) }}</span>
+                      <div class="agent-draft-card__head-text">
+                        <strong>{{ message.runTrace.draft.title }}</strong>
+                        <span>{{ draftTypeLabel(message.runTrace.draft.draftType) }}</span>
+                      </div>
+                    </div>
+                    <div class="agent-draft-card__body" v-html="renderDraftContent(message.runTrace.draft)"></div>
+                    <div class="agent-draft-card__actions">
+                      <button
+                        type="button"
+                        :disabled="isDraftActionPending(message.runTrace.draft.draftId)"
+                        @click="confirmPendingDraft(message.runTrace.draft)"
+                      >
+                        {{ isDraftActionPending(message.runTrace.draft.draftId) ? '处理中...' : '确认' }}
+                      </button>
+                      <button
+                        type="button"
+                        class="ghost-action"
+                        :disabled="isDraftActionPending(message.runTrace.draft.draftId)"
+                        @click="cancelPendingDraft(message.runTrace.draft)"
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div v-if="message.runTrace.compacted" class="agent-trace-block">
@@ -1092,12 +1948,20 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
         </div>
       </article>
 
-      <aside class="panel agent-sidepanel">
+      <aside class="panel agent-sidepanel" :class="{ 'is-mobile-open': mobileSidepanelOpen }">
         <div class="panel-head">
           <div>
             <p class="eyebrow">工作台</p>
             <h3>{{ workbench?.greeting || '智慧记 AI 助手' }}</h3>
           </div>
+          <button
+            type="button"
+            class="ghost-action agent-mobile-close"
+            aria-label="关闭工作台"
+            @click="closeMobilePanels"
+          >
+            关闭
+          </button>
         </div>
 
         <div class="detail-stack">
@@ -1142,8 +2006,11 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
               </label>
               <label class="compact-field">
                 <span>类型</span>
-                <input v-model="draftType" type="text" placeholder="例如 note" />
+                <input v-model="draftType" type="text" list="agent-draft-type-options" placeholder="例如 create_customer" />
               </label>
+              <datalist id="agent-draft-type-options">
+                <option v-for="typeOption in draftTypeSuggestions" :key="typeOption" :value="typeOption"></option>
+              </datalist>
               <label class="compact-field">
                 <span>状态</span>
                 <select v-model="draftStatus">
@@ -1151,9 +2018,203 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
                   <option value="archived">archived</option>
                 </select>
               </label>
-              <label class="compact-field">
+              <div v-if="draftEditorMode === 'customer' || draftEditorMode === 'supplier'" class="draft-editor-structured">
+                <div class="draft-editor-grid">
+                  <label class="compact-field">
+                    <span>名称</span>
+                    <input v-model="draftForm.name" type="text" placeholder="例如 张三 / 华北供应商" />
+                  </label>
+                  <label class="compact-field">
+                    <span>电话</span>
+                    <input v-model="draftForm.phone" type="text" placeholder="联系电话" />
+                  </label>
+                  <label class="compact-field">
+                    <span>分组 ID</span>
+                    <input v-model="draftForm.groupId" type="text" placeholder="可留空" />
+                  </label>
+                  <label v-if="draftEditorMode === 'customer'" class="compact-field">
+                    <span>等级</span>
+                    <input v-model="draftForm.level" type="text" placeholder="默认 1" />
+                  </label>
+                  <label class="compact-field draft-editor-grid__full">
+                    <span>备注</span>
+                    <textarea v-model="draftForm.notes" rows="3" placeholder="补充说明"></textarea>
+                  </label>
+                </div>
+              </div>
+              <div v-else-if="draftEditorMode === 'product'" class="draft-editor-structured">
+                <div class="draft-editor-grid">
+                  <label class="compact-field">
+                    <span>编码</span>
+                    <input v-model="draftForm.code" type="text" placeholder="商品编码" />
+                  </label>
+                  <label class="compact-field">
+                    <span>名称</span>
+                    <input v-model="draftForm.name" type="text" placeholder="商品名称" />
+                  </label>
+                  <label class="compact-field">
+                    <span>分类 ID</span>
+                    <input v-model="draftForm.categoryId" type="text" placeholder="可留空" />
+                  </label>
+                  <label class="compact-field">
+                    <span>单位 ID</span>
+                    <input v-model="draftForm.unitId" type="text" placeholder="可留空" />
+                  </label>
+                  <label class="compact-field">
+                    <span>售价</span>
+                    <input v-model="draftForm.salePrice" type="text" placeholder="0.00" />
+                  </label>
+                  <label class="compact-field">
+                    <span>成本价</span>
+                    <input v-model="draftForm.purchasePrice" type="text" placeholder="0.00" />
+                  </label>
+                  <label class="compact-field">
+                    <span>库存</span>
+                    <input v-model="draftForm.stock" type="text" placeholder="0" />
+                  </label>
+                  <label class="compact-field">
+                    <span>安全库存</span>
+                    <input v-model="draftForm.safeStock" type="text" placeholder="0" />
+                  </label>
+                </div>
+              </div>
+              <div v-else-if="draftEditorMode === 'pay_order'" class="draft-editor-structured">
+                <div class="draft-editor-grid">
+                  <label class="compact-field">
+                    <span>供应商 ID</span>
+                    <input v-model="draftForm.supplierId" type="text" placeholder="可留空" />
+                  </label>
+                  <label class="compact-field">
+                    <span>供应商名称</span>
+                    <input v-model="draftForm.supplierName" type="text" placeholder="供应商名称" />
+                  </label>
+                  <label class="compact-field">
+                    <span>金额</span>
+                    <input v-model="draftForm.amount" type="text" placeholder="0.00" />
+                  </label>
+                  <label class="compact-field">
+                    <span>账户 ID</span>
+                    <input v-model="draftForm.accountId" type="text" placeholder="可留空" />
+                  </label>
+                  <label class="compact-field">
+                    <span>付款方式</span>
+                    <input v-model="draftForm.method" type="text" placeholder="例如 bank_transfer" />
+                  </label>
+                  <label class="compact-field">
+                    <span>参考号</span>
+                    <input v-model="draftForm.referenceNo" type="text" placeholder="可留空" />
+                  </label>
+                  <label class="compact-field draft-editor-grid__full">
+                    <span>备注</span>
+                    <textarea v-model="draftForm.notes" rows="3" placeholder="付款说明"></textarea>
+                  </label>
+                </div>
+              </div>
+              <div v-else-if="draftEditorMode === 'finance_record'" class="draft-editor-structured">
+                <div class="draft-editor-grid">
+                  <label class="compact-field">
+                    <span>类型</span>
+                    <select v-model="draftForm.status">
+                      <option value="1">收入</option>
+                      <option value="2">支出</option>
+                    </select>
+                  </label>
+                  <label class="compact-field">
+                    <span>分类</span>
+                    <input v-model="draftForm.name" type="text" placeholder="例如 办公用品 / 销售收入" />
+                  </label>
+                  <label class="compact-field">
+                    <span>金额</span>
+                    <input v-model="draftForm.amount" type="text" placeholder="0.00" />
+                  </label>
+                  <label class="compact-field">
+                    <span>往来方</span>
+                    <input v-model="draftForm.supplierName" type="text" placeholder="可留空" />
+                  </label>
+                  <label class="compact-field">
+                    <span>方式</span>
+                    <input v-model="draftForm.method" type="text" placeholder="数字编码，可留空" />
+                  </label>
+                  <label class="compact-field draft-editor-grid__full">
+                    <span>备注</span>
+                    <textarea v-model="draftForm.notes" rows="3" placeholder="流水说明"></textarea>
+                  </label>
+                </div>
+              </div>
+              <div v-else-if="draftEditorMode === 'sale_order' || draftEditorMode === 'purchase_order'" class="draft-editor-structured">
+                <div class="draft-editor-grid">
+                  <label v-if="draftEditorMode === 'sale_order'" class="compact-field">
+                    <span>客户 ID</span>
+                    <input v-model="draftForm.customerId" type="text" placeholder="可留空" />
+                  </label>
+                  <label v-else class="compact-field">
+                    <span>供应商 ID</span>
+                    <input v-model="draftForm.supplierId" type="text" placeholder="可留空" />
+                  </label>
+                  <label v-if="draftEditorMode === 'sale_order'" class="compact-field">
+                    <span>客户名称</span>
+                    <input v-model="draftForm.customerName" type="text" placeholder="客户名称" />
+                  </label>
+                  <label v-else class="compact-field">
+                    <span>供应商名称</span>
+                    <input v-model="draftForm.supplierName" type="text" placeholder="供应商名称" />
+                  </label>
+                  <label v-if="draftEditorMode === 'sale_order'" class="compact-field">
+                    <span>优惠金额</span>
+                    <input v-model="draftForm.discountAmount" type="text" placeholder="可留空" />
+                  </label>
+                  <label v-else class="compact-field">
+                    <span>结算方式</span>
+                    <input v-model="draftForm.settlementMethod" type="text" placeholder="可留空" />
+                  </label>
+                  <label v-if="draftEditorMode === 'purchase_order'" class="compact-field">
+                    <span>仓库 ID</span>
+                    <input v-model="draftForm.warehouseId" type="text" placeholder="可留空" />
+                  </label>
+                  <label class="compact-field draft-editor-grid__full">
+                    <span>备注</span>
+                    <textarea v-model="draftForm.notes" rows="3" placeholder="单据说明"></textarea>
+                  </label>
+                </div>
+                <div class="draft-line-editor">
+                  <div class="draft-line-editor__head">
+                    <strong>商品行</strong>
+                    <button type="button" class="ghost-action" @click="addDraftItemRow">新增一行</button>
+                  </div>
+                  <div v-for="(item, itemIndex) in draftForm.items" :key="`draft-item-${itemIndex}`" class="draft-line-row">
+                    <label class="compact-field">
+                      <span>商品 ID</span>
+                      <input v-model="item.productId" type="text" placeholder="可留空" />
+                    </label>
+                    <label v-if="draftEditorMode === 'purchase_order'" class="compact-field">
+                      <span>商品编码</span>
+                      <input v-model="item.productCode" type="text" placeholder="可留空" />
+                    </label>
+                    <label class="compact-field">
+                      <span>商品名称</span>
+                      <input v-model="item.productName" type="text" placeholder="商品名称" />
+                    </label>
+                    <label class="compact-field">
+                      <span>数量</span>
+                      <input v-model="item.quantity" type="text" placeholder="0" />
+                    </label>
+                    <label class="compact-field">
+                      <span>{{ draftEditorMode === 'purchase_order' ? '成本价' : '单价' }}</span>
+                      <input v-model="item.unitPrice" type="text" placeholder="0.00" />
+                    </label>
+                    <button type="button" class="ghost-action danger-link draft-line-row__remove" @click="removeDraftItemRow(itemIndex)">
+                      删除本行
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <label v-else class="compact-field">
                 <span>内容</span>
-                <textarea v-model="draftContentJson" rows="4" placeholder="草稿内容（JSON 或文本）"></textarea>
+                <textarea v-model="draftContentJson" rows="6" placeholder="草稿内容（JSON 或文本）"></textarea>
+              </label>
+              <label v-if="draftEditorMode !== 'custom'" class="compact-field">
+                <span>JSON 预览</span>
+                <textarea :value="draftStructuredPreview" rows="8" readonly class="draft-editor-preview"></textarea>
               </label>
               <div class="form-actions">
                 <button type="button" :disabled="draftSaving" @click="saveDraft">{{ draftSaving ? '保存中...' : '保存' }}</button>
@@ -1250,8 +2311,74 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
 }
 
 .agent-markdown :deep(p),
-.agent-markdown :deep(ul) {
+.agent-markdown :deep(ul),
+.agent-markdown :deep(ol) {
   margin: 0;
+}
+
+.agent-markdown :deep(ul),
+.agent-markdown :deep(ol) {
+  padding-left: 22px;
+}
+
+.agent-markdown :deep(strong) {
+  font-weight: 800;
+}
+
+.agent-markdown :deep(a) {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.agent-markdown :deep(code) {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.08);
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+.agent-markdown__code {
+  margin: 0;
+  padding: 12px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #0d1117;
+  color: #e6edf3;
+}
+
+.agent-markdown__code code {
+  background: transparent;
+  color: inherit;
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.agent-markdown__table {
+  overflow-x: auto;
+}
+
+.agent-markdown__table table {
+  width: 100%;
+  min-width: 0;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.agent-markdown__table th,
+.agent-markdown__table td {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.agent-markdown__table th {
+  background: #fafbfc;
+  color: var(--muted);
+  font-weight: 800;
 }
 
 .agent-markdown__placeholder {
@@ -1325,5 +2452,314 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
   display: grid;
   gap: 8px;
   margin-top: 8px;
+}
+
+.draft-editor-structured {
+  display: grid;
+  gap: 10px;
+}
+
+.draft-editor-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.draft-editor-grid__full {
+  grid-column: 1 / -1;
+}
+
+.draft-line-editor {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.draft-line-editor__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.draft-line-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  padding: 10px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.draft-line-row__remove {
+  align-self: end;
+}
+
+.draft-editor-preview {
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.agent-chat-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.agent-mobile-toggle,
+.agent-mobile-close {
+  display: none;
+}
+
+.agent-mobile-backdrop {
+  display: none;
+}
+
+.agent-tool-pills {
+  display: grid;
+  gap: 8px;
+}
+
+.agent-tool-pill {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12px;
+}
+
+.agent-tool-pill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+
+.agent-tool-pill[data-status="running"] .agent-tool-pill__dot {
+  background: #2563eb;
+  animation: agent-tool-pulse 1.2s ease-in-out infinite;
+}
+
+.agent-tool-pill[data-status="completed"] .agent-tool-pill__dot {
+  background: var(--green);
+}
+
+.agent-tool-pill[data-status="failed"] .agent-tool-pill__dot {
+  background: var(--red);
+}
+
+.agent-tool-pill__name {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.agent-tool-pill__status {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.agent-tool-pill[data-status="running"] .agent-tool-pill__status {
+  color: #2563eb;
+}
+
+.agent-tool-pill[data-status="completed"] .agent-tool-pill__status {
+  color: var(--green);
+}
+
+.agent-tool-pill[data-status="failed"] .agent-tool-pill__status {
+  color: var(--red);
+}
+
+.agent-tool-pill__duration {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.agent-tool-pill__summary {
+  width: 100%;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.agent-live-tool-banner {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #eef4ff;
+  border: 1px solid #c7d8ff;
+}
+
+.agent-live-tool-banner__label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #3157a6;
+}
+
+.agent-live-tool-banner__name {
+  font-size: 14px;
+  color: #16315f;
+}
+
+.agent-live-tool-banner__status {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.agent-live-tool-banner__summary {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #4b5563;
+}
+
+.agent-live-tool-banner[data-status="completed"] {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.agent-live-tool-banner[data-status="completed"] .agent-live-tool-banner__label,
+.agent-live-tool-banner[data-status="completed"] .agent-live-tool-banner__name,
+.agent-live-tool-banner[data-status="completed"] .agent-live-tool-banner__status {
+  color: #166534;
+}
+
+.agent-live-tool-banner[data-status="failed"] {
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+
+.agent-live-tool-banner[data-status="failed"] .agent-live-tool-banner__label,
+.agent-live-tool-banner[data-status="failed"] .agent-live-tool-banner__name,
+.agent-live-tool-banner[data-status="failed"] .agent-live-tool-banner__status {
+  color: #be123c;
+}
+
+@keyframes agent-tool-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.3);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0);
+  }
+}
+
+.agent-draft-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 2px dashed #d4a017;
+  border-radius: var(--radius);
+  background: #fffbea;
+}
+
+.agent-draft-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.agent-draft-card__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: #fde68a;
+  color: #92400e;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.agent-draft-card__head-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.agent-draft-card__head-text strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.agent-draft-card__head-text span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.agent-draft-card__body {
+  font-size: 13px;
+}
+
+.agent-draft-card__body :deep(.agent-draft-rows) {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.agent-draft-card__body :deep(.agent-draft-row) {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.agent-draft-card__body :deep(.agent-draft-row span) {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.agent-draft-card__body :deep(.agent-draft-row strong) {
+  color: var(--text);
+  font-size: 13px;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.agent-draft-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 767px) {
+  .agent-mobile-toggle,
+  .agent-mobile-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 12px;
+  }
+
+  .agent-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    border: 0;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(2px);
+  }
 }
 </style>

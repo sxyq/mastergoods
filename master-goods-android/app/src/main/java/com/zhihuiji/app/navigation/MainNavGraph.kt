@@ -16,9 +16,15 @@ import com.zhihuiji.feature.agent.AgentChatScreen
 import com.zhihuiji.feature.agent.AgentWorkbenchScreen
 import com.zhihuiji.feature.agent.DraftListScreen
 import com.zhihuiji.feature.agent.TaskNotificationScreen
+import com.zhihuiji.feature.customers.ContactEditScreen
+import com.zhihuiji.feature.customers.CustomerContactListScreen
 import com.zhihuiji.feature.customers.CustomerDetailScreen
 import com.zhihuiji.feature.customers.CustomerEditScreen
 import com.zhihuiji.feature.dashboard.DashboardScreen
+import com.zhihuiji.feature.finance.AccountEditScreen
+import com.zhihuiji.feature.finance.AccountListScreen
+import com.zhihuiji.feature.finance.AccountTransferListScreen
+import com.zhihuiji.feature.finance.AccountTransferScreen
 import com.zhihuiji.feature.finance.DailyExpenseScreen
 import com.zhihuiji.feature.finance.FinanceRecordDetailScreen
 import com.zhihuiji.feature.payments.PayOrderDetailScreen
@@ -36,6 +42,8 @@ import com.zhihuiji.feature.sales.SaleOrderDetailScreen
 import com.zhihuiji.feature.sales.SaleOrderEditScreen
 import com.zhihuiji.feature.sales.PaymentScreen
 import com.zhihuiji.feature.sales.SalesReturnScreen
+import com.zhihuiji.feature.suppliers.SupplierContactEditScreen
+import com.zhihuiji.feature.suppliers.SupplierContactListScreen
 import com.zhihuiji.feature.suppliers.SupplierDetailScreen
 import com.zhihuiji.feature.suppliers.SupplierEditScreen
 import com.zhihuiji.feature.suppliers.SupplierStatementScreen
@@ -82,6 +90,20 @@ object DetailRoutes {
     const val FINANCE_RECORD_DETAIL = "finance_record_detail/{recordId}"
     const val DAILY_EXPENSE = "daily_expense"
 
+    const val ACCOUNT_LIST = "account_list"
+    const val ACCOUNT_EDIT = "account_edit/{accountId}"
+    const val ACCOUNT_CREATE = "account_create"
+    const val ACCOUNT_TRANSFER_LIST = "account_transfer_list"
+    const val ACCOUNT_TRANSFER = "account_transfer"
+
+    const val CUSTOMER_CONTACT_LIST = "customer_contact_list/{customerId}"
+    const val CUSTOMER_CONTACT_EDIT = "customer_contact_edit/{customerId}/{contactId}"
+    const val CUSTOMER_CONTACT_CREATE = "customer_contact_create/{customerId}"
+
+    const val SUPPLIER_CONTACT_LIST = "supplier_contact_list/{supplierId}"
+    const val SUPPLIER_CONTACT_EDIT = "supplier_contact_edit/{supplierId}/{contactId}"
+    const val SUPPLIER_CONTACT_CREATE = "supplier_contact_create/{supplierId}"
+
     const val DRAFT_LIST = "draft_list"
     const val TASK_NOTIFICATION = "task_notification"
     const val AGENT_CHAT = "agent_chat?initialQuestion={initialQuestion}&conversationId={conversationId}"
@@ -103,6 +125,13 @@ fun purchaseOrderDetailRoute(orderId: Long) = "purchase_order_detail/$orderId"
 fun purchaseOrderEditRoute(orderId: Long) = "purchase_order_edit/$orderId"
 fun payOrderDetailRoute(orderId: Long) = "pay_order_detail/$orderId"
 fun financeRecordDetailRoute(recordId: Long) = "finance_record_detail/$recordId"
+fun accountEditRoute(accountId: Long) = "account_edit/$accountId"
+fun customerContactListRoute(customerId: Long) = "customer_contact_list/$customerId"
+fun customerContactEditRoute(customerId: Long, contactId: Long) = "customer_contact_edit/$customerId/$contactId"
+fun customerContactCreateRoute(customerId: Long) = "customer_contact_create/$customerId"
+fun supplierContactListRoute(supplierId: Long) = "supplier_contact_list/$supplierId"
+fun supplierContactEditRoute(supplierId: Long, contactId: Long) = "supplier_contact_edit/$supplierId/$contactId"
+fun supplierContactCreateRoute(supplierId: Long) = "supplier_contact_create/$supplierId"
 fun taskNotificationRoute(initialTab: Int = 0) = "${DetailRoutes.TASK_NOTIFICATION}?initialTab=$initialTab"
 fun agentChatRoute(initialQuestion: String? = null, conversationId: Long? = null): String {
     val encodedQuestion = java.net.URLEncoder.encode(initialQuestion ?: "", Charsets.UTF_8.name())
@@ -123,6 +152,16 @@ private val customerIdArguments = longRouteArguments("customerId")
 private val supplierIdArguments = longRouteArguments("supplierId")
 private val orderIdArguments = longRouteArguments("orderId")
 private val recordIdArguments = longRouteArguments("recordId")
+private val accountIdArguments = longRouteArguments("accountId")
+private val contactIdArguments = longRouteArguments("contactId")
+private val customerContactEditArguments = listOf(
+    navArgument("customerId") { type = NavType.LongType },
+    navArgument("contactId") { type = NavType.LongType }
+)
+private val supplierContactEditArguments = listOf(
+    navArgument("supplierId") { type = NavType.LongType },
+    navArgument("contactId") { type = NavType.LongType }
+)
 private val agentChatArguments = listOf(
     navArgument("initialQuestion") {
         type = NavType.StringType
@@ -327,6 +366,57 @@ fun MainNavGraph(
                 )
             }
 
+            // 客户联系人列表/编辑
+            permissionComposable(
+                route = DetailRoutes.CUSTOMER_CONTACT_LIST,
+                accessState = accessState,
+                navController = navController,
+                arguments = customerIdArguments
+            ) { backStackEntry ->
+                val customerId = backStackEntry.arguments?.getLong("customerId") ?: 0L
+                CustomerContactListScreen(
+                    customerId = customerId,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToEdit = { contactId ->
+                        val route = if (contactId == null) {
+                            customerContactCreateRoute(customerId)
+                        } else {
+                            customerContactEditRoute(customerId, contactId)
+                        }
+                        navController.navigateIfAllowed(accessState, route)
+                    }
+                )
+            }
+            permissionComposable(
+                route = DetailRoutes.CUSTOMER_CONTACT_EDIT,
+                accessState = accessState,
+                navController = navController,
+                arguments = customerContactEditArguments
+            ) { backStackEntry ->
+                val customerId = backStackEntry.arguments?.getLong("customerId") ?: 0L
+                val contactId = backStackEntry.arguments?.getLong("contactId") ?: 0L
+                ContactEditScreen(
+                    customerId = customerId,
+                    contactId = if (contactId > 0L) contactId else null,
+                    onNavigateBack = { navController.popBackStack() },
+                    onSaveSuccess = { navController.popBackStack() }
+                )
+            }
+            permissionComposable(
+                route = DetailRoutes.CUSTOMER_CONTACT_CREATE,
+                accessState = accessState,
+                navController = navController,
+                arguments = customerIdArguments
+            ) { backStackEntry ->
+                val customerId = backStackEntry.arguments?.getLong("customerId") ?: 0L
+                ContactEditScreen(
+                    customerId = customerId,
+                    contactId = null,
+                    onNavigateBack = { navController.popBackStack() },
+                    onSaveSuccess = { navController.popBackStack() }
+                )
+            }
+
             // 供应商详情/编辑
             permissionComposable(
                 route = DetailRoutes.SUPPLIER_DETAIL,
@@ -370,6 +460,57 @@ fun MainNavGraph(
             permissionComposable(DetailRoutes.SUPPLIER_CREATE, accessState, navController) {
                 SupplierEditScreen(
                     supplierId = null,
+                    onNavigateBack = { navController.popBackStack() },
+                    onSaveSuccess = { navController.popBackStack() }
+                )
+            }
+
+            // 供应商联系人列表/编辑
+            permissionComposable(
+                route = DetailRoutes.SUPPLIER_CONTACT_LIST,
+                accessState = accessState,
+                navController = navController,
+                arguments = supplierIdArguments
+            ) { backStackEntry ->
+                val supplierId = backStackEntry.arguments?.getLong("supplierId") ?: 0L
+                SupplierContactListScreen(
+                    supplierId = supplierId,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToEdit = { contactId ->
+                        val route = if (contactId == null) {
+                            supplierContactCreateRoute(supplierId)
+                        } else {
+                            supplierContactEditRoute(supplierId, contactId)
+                        }
+                        navController.navigateIfAllowed(accessState, route)
+                    }
+                )
+            }
+            permissionComposable(
+                route = DetailRoutes.SUPPLIER_CONTACT_EDIT,
+                accessState = accessState,
+                navController = navController,
+                arguments = supplierContactEditArguments
+            ) { backStackEntry ->
+                val supplierId = backStackEntry.arguments?.getLong("supplierId") ?: 0L
+                val contactId = backStackEntry.arguments?.getLong("contactId") ?: 0L
+                SupplierContactEditScreen(
+                    supplierId = supplierId,
+                    contactId = if (contactId > 0L) contactId else null,
+                    onNavigateBack = { navController.popBackStack() },
+                    onSaveSuccess = { navController.popBackStack() }
+                )
+            }
+            permissionComposable(
+                route = DetailRoutes.SUPPLIER_CONTACT_CREATE,
+                accessState = accessState,
+                navController = navController,
+                arguments = supplierIdArguments
+            ) { backStackEntry ->
+                val supplierId = backStackEntry.arguments?.getLong("supplierId") ?: 0L
+                SupplierContactEditScreen(
+                    supplierId = supplierId,
+                    contactId = null,
                     onNavigateBack = { navController.popBackStack() },
                     onSaveSuccess = { navController.popBackStack() }
                 )
@@ -502,6 +643,55 @@ fun MainNavGraph(
                             }
                         }
                     }
+                )
+            }
+
+            // 资金账户列表/编辑
+            permissionComposable(DetailRoutes.ACCOUNT_LIST, accessState, navController) {
+                AccountListScreen(
+                    onNavigateToEdit = { accountId ->
+                        val route = if (accountId == null) {
+                            DetailRoutes.ACCOUNT_CREATE
+                        } else {
+                            accountEditRoute(accountId)
+                        }
+                        navController.navigateIfAllowed(accessState, route)
+                    }
+                )
+            }
+            permissionComposable(
+                route = DetailRoutes.ACCOUNT_EDIT,
+                accessState = accessState,
+                navController = navController,
+                arguments = accountIdArguments
+            ) { backStackEntry ->
+                val accountId = backStackEntry.arguments?.getLong("accountId")
+                AccountEditScreen(
+                    accountId = accountId,
+                    onNavigateBack = { navController.popBackStack() },
+                    onSaveSuccess = { navController.popBackStack() }
+                )
+            }
+            permissionComposable(DetailRoutes.ACCOUNT_CREATE, accessState, navController) {
+                AccountEditScreen(
+                    accountId = null,
+                    onNavigateBack = { navController.popBackStack() },
+                    onSaveSuccess = { navController.popBackStack() }
+                )
+            }
+
+            // 账户转账
+            permissionComposable(DetailRoutes.ACCOUNT_TRANSFER_LIST, accessState, navController) {
+                AccountTransferListScreen(
+                    onNavigateToTransfer = {
+                        navController.navigateIfAllowed(accessState, DetailRoutes.ACCOUNT_TRANSFER)
+                    }
+                )
+            }
+            permissionComposable(DetailRoutes.ACCOUNT_TRANSFER, accessState, navController) {
+                AccountTransferScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onTransferSuccess = { navController.popBackStack() }
                 )
             }
 

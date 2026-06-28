@@ -8,6 +8,9 @@ import com.zhihuiji.backend.infrastructure.repository.MediaAssetRepository;
 import com.zhihuiji.backend.infrastructure.repository.MediaBindingRepository;
 import com.zhihuiji.backend.infrastructure.storage.MediaStorageService;
 import java.util.List;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -42,6 +45,31 @@ public class V2MediaService {
     public V2MediaDtos.MediaAssetResponse getAsset(Long id) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         return toAssetResponse(getOwnedAsset(id, ownerUserId));
+    }
+
+    /**
+     * 读取媒体文件的二进制内容，用于前端图片展示。
+     *
+     * <p>前端通过 {@code GET /v2/media/assets/{id}/content} 加载图片，
+     * 返回带正确 Content-Type 与 7 天缓存头的字节流。
+     */
+    @Transactional(readOnly = true)
+    public ResponseEntity<byte[]> readAssetContent(Long id) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        MediaAssetEntity entity = getOwnedAsset(id, ownerUserId);
+        try {
+            byte[] data = mediaStorageService.load(entity.getObjectKey());
+            String mime = entity.getMimeType();
+            MediaType contentType = (mime != null && !mime.isBlank())
+                ? MediaType.parseMediaType(mime)
+                : MediaType.APPLICATION_OCTET_STREAM;
+            return ResponseEntity.ok()
+                .contentType(contentType)
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=604800")
+                .body(data);
+        } catch (Exception e) {
+            throw new IllegalStateException("读取媒体文件失败: " + id, e);
+        }
     }
 
     @Transactional

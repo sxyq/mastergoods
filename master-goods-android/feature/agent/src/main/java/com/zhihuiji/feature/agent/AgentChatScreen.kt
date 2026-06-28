@@ -1,16 +1,22 @@
 package com.zhihuiji.feature.agent
 
+import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -40,6 +46,7 @@ import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -69,6 +76,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -106,6 +114,11 @@ private data class ChatTailState(
     val lastMessage: ChatMessage?,
     val lastAssistantMessage: ChatMessage?,
     val activeStreamingMessage: ChatMessage?,
+)
+
+private data class EditUserMessageState(
+    val messageId: String,
+    val originalText: String,
 )
 
 @Composable
@@ -184,6 +197,7 @@ fun AgentChatScreen(
     }
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
+    var editUserMessageState by remember { mutableStateOf<EditUserMessageState?>(null) }
     LaunchedEffect(uiState.isDrawerOpen) {
         if (uiState.isDrawerOpen && !drawerState.isOpen) {
             drawerState.open()
@@ -290,6 +304,16 @@ fun AgentChatScreen(
                                     allowActiveAnimations = message.id == activeStreamingMessageId,
                                     onToggleRunTrace = { viewModel.toggleRunTrace(message.id) },
                                     onRegenerate = { viewModel.regenerateMessage(message.id) },
+                                    onEditUserMessage = {
+                                        editUserMessageState = EditUserMessageState(
+                                            messageId = message.id,
+                                            originalText = message.content,
+                                        )
+                                    },
+                                    onFollowUp = { text ->
+                                        viewModel.onInputChange(text)
+                                        viewModel.sendMessage()
+                                    },
                                 )
                             }
 
@@ -341,23 +365,39 @@ fun AgentChatScreen(
     uiState.showDraftConfirm?.let { draft ->
         DraftConfirmDialog(
             draft = draft,
-            onArchive = { viewModel.archiveDraftFromDialog(draft.draftId) },
+            onConfirm = { viewModel.confirmDraftFromDialog(draft.draftId) },
+            onCancelDraft = { viewModel.cancelDraftFromDialog(draft.draftId) },
             onDismiss = viewModel::dismissDraftConfirm,
+        )
+    }
+
+    editUserMessageState?.let { editState ->
+        EditUserMessageDialog(
+            initialText = editState.originalText,
+            onDismiss = { editUserMessageState = null },
+            onConfirm = { updatedText ->
+                viewModel.editAndResend(editState.messageId, updatedText)
+                editUserMessageState = null
+            },
         )
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun ChatMessageItem(
     message: ChatMessage,
     allowActiveAnimations: Boolean,
     onToggleRunTrace: () -> Unit,
     onRegenerate: () -> Unit,
+    onEditUserMessage: () -> Unit,
+    onFollowUp: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val isUser = message.role == MessageRole.USER
     val runTrace = message.runTrace
     val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
     var copied by remember(message.id) { mutableStateOf(false) }
 
     Row(
@@ -417,6 +457,10 @@ private fun ChatMessageItem(
                     )
                     Box(
                         modifier = Modifier
+                            .combinedClickable(
+                                onClick = {},
+                                onLongClick = if (isUser) onEditUserMessage else null,
+                            )
                             .clip(bubbleShape)
                             .background(
                                 brush = if (isUser) AgentUserBubbleBrush else AgentAssistantBubbleBrush
@@ -484,7 +528,7 @@ private fun ChatMessageItem(
                     RealQueryStatusCard()
                 }
 
-                // AI 消息操作栏（复制 / 重新生成），仅非流式且非错误时展示
+                // AI 消息操作栏（复制 / 重新生成 / 分享），仅非流式且非错误时展示
                 if (!isUser && !message.isStreaming && !message.isError && message.content.isNotBlank()) {
                     Spacer(modifier = Modifier.height(6.dp))
                     AssistantMessageActionBar(
@@ -494,7 +538,16 @@ private fun ChatMessageItem(
                             copied = true
                         },
                         onRegenerate = onRegenerate,
+                        onShare = {
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, message.content)
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "分享回答"))
+                        },
                     )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FollowUpChips(onFollowUp = onFollowUp)
                 }
             }
         }
@@ -518,6 +571,56 @@ private fun ChatMessageItem(
     }
 }
 
+@Composable
+private fun EditUserMessageDialog(
+    initialText: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var text by remember(initialText) { mutableStateOf(initialText) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "编辑后重发",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "将删除这条消息及其后的上下文，并用编辑后的内容重新提问。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                )
+                GlassTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    placeholder = "请输入新的问题",
+                    minLines = 4,
+                    maxLines = 8,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(text) },
+                enabled = text.isNotBlank(),
+            ) {
+                Text("重发")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        },
+    )
+}
+
 private fun ChatMessage.displayParts(): List<ChatMessagePart> =
     parts.ifEmpty {
         ArrayList<ChatMessagePart>(1 + blocks.size).apply {
@@ -535,6 +638,7 @@ private fun AssistantMessageActionBar(
     copied: Boolean,
     onCopy: () -> Unit,
     onRegenerate: () -> Unit,
+    onShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -553,6 +657,11 @@ private fun AssistantMessageActionBar(
             icon = Icons.Default.Refresh,
             label = "重新生成",
             onClick = onRegenerate,
+        )
+        AssistantActionButton(
+            icon = Icons.Default.Share,
+            label = "分享",
+            onClick = onShare,
         )
     }
 }
@@ -586,6 +695,43 @@ private fun AssistantActionButton(
             fontWeight = FontWeight.SemiBold,
         )
     }
+}
+
+private val FollowUpChipTexts = listOf("详细说说", "还有其他方法吗", "导出表格")
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FollowUpChips(
+    onFollowUp: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FlowRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        FollowUpChipTexts.forEach { text ->
+            FollowUpChip(text = text, onClick = { onFollowUp(text) })
+        }
+    }
+}
+
+@Composable
+private fun FollowUpChip(
+    text: String,
+    onClick: () -> Unit,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = AgentAssistantAccent,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(AgentAssistantAccent.copy(alpha = 0.08f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+    )
 }
 
 @Composable
@@ -853,16 +999,24 @@ private fun AssistantTextPart(
     modifier: Modifier = Modifier,
 ) {
     if (markdown.isBlank()) return
+    // 逐字渐显：首次进入组合时由 false→true 触发淡入；renderIdentity 变化时重新触发
+    var visible by remember(renderIdentity) { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         AssistantTextSourceLabel()
-        AgentMarkdownText(
-            markdown = markdown,
-            contentColor = TextPrimary,
-            renderIdentity = renderIdentity,
-        )
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(animationSpec = tween(300)),
+        ) {
+            AgentMarkdownText(
+                markdown = markdown,
+                contentColor = TextPrimary,
+                renderIdentity = renderIdentity,
+            )
+        }
     }
 }
 
@@ -1498,12 +1652,13 @@ private fun ContextCompactedBanner(
 @Composable
 private fun DraftConfirmDialog(
     draft: DraftConfirmState,
-    onArchive: () -> Unit,
+    onConfirm: () -> Unit,
+    onCancelDraft: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("仅归档草稿") },
+        title = { Text("确认草稿") },
         text = {
             Column {
                 Text("AI 已生成一份 ${draft.draftType} 草稿：")
@@ -1516,20 +1671,20 @@ private fun DraftConfirmDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "当前版本还未接入业务执行接口。这里仅归档草稿，不会修改商品、单据或资金数据。",
+                    text = "确认后会调用后端草稿确认接口执行真实创建；取消则会将该草稿标记为 cancelled。",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = onArchive) {
-                Text("仅归档", color = ZhihuijiPrimary)
+            TextButton(onClick = onConfirm) {
+                Text("确认执行", color = ZhihuijiPrimary)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
+            TextButton(onClick = onCancelDraft) {
+                Text("取消草稿")
             }
         }
     )

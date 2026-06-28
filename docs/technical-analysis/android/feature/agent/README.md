@@ -45,6 +45,15 @@
 | 跨域经营建议 | 待验证 | 与商品/单据/财务/库存扩域一起演进 |
 | ChatGPT-like agent 回复体验 | 待验证 | Android 已取消本地拆字假流式，要求 `answer_delta(model_stream)` 来自服务端真实模型流；`result_block` 早于首段回答时先 pending，避免先数据后回答；工具提示短暂展示并自动收敛。仍需真实 provider SSE、真机截图 / 录屏和审计对账。 |
 
+## 第三章 P1 对标收口
+
+| 项目 | 状态 | 当前实现 | 本轮验证 | 剩余边界 |
+|---|---|---|---|---|
+| P1-1 代码语法高亮 | 已验证 | `AgentMarkdownText.kt` 已为代码块补轻量 token 着色，覆盖 Kotlin/Java、JS/TS、JSON、SQL、Shell，并保留语言标签和复制入口 | `:feature:agent:compileDebugKotlin`、`AgentMarkdownTextParserTest.syntaxHighlightCodeKeepsTextAndAppliesStyles` 已通过 | 当前是轻量高亮，不是 Prism4j / Shiki 级完整语法树；仍需真机截图验证长代码块视觉 |
+| P1-2 编辑用户消息 | 待验证 | `AgentChatViewModel.editAndResend(...)`、`regenerateMessage(...)` 与 `AgentChatScreen.kt` 长按编辑 / 重发入口已存在 | 已复核源码链路存在且接在当前聊天主流程上 | 仍需真机交互和端到端重发证据 |
+| P1-3 SSE 重连提示 | 待验证 | `AgentSseClient.retryState` 已被 `AgentChatViewModel` collect，`AgentChatScreen.kt` 已显示 `retryMessage` | 已复核 `retryState -> retryMessage -> UI banner` 链路存在 | 仍需真实断网 / 重连截图和日志 |
+| P1-4 工作台增强 | 待验证 | `AgentWorkbenchViewModel` 已消费 `todaySummary`、`kpiCards`、`quickQuestions`、`pendingDrafts`、`riskAlerts`、`recentConversations`，`AgentWorkbenchScreen.kt` 已渲染对应区块 | 已复核字段消费和 UI 渲染入口存在 | 当前仍受后端干净入口合同约束，真实字段联调与截图证据待补 |
+
 ## UI 统一约束
 
 - 本模块后续新增业务必须继续复用当前设计图对应的页面母版，不允许因为领域变厚就切换成另一套视觉语言。

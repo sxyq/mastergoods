@@ -16,7 +16,7 @@
 |---|---|---|---|
 | `agent_conversations` | 已接入，仍需端到端联调证据 | `AgentConversationEntity/Repository`、`V2AgentConversationService`、`/v2/agent/conversations/*` | owner 隔离、标题 / 状态更新、删除时消息与草稿级联、closed / archived 会话拒绝继续写入 |
 | `agent_messages` | 已接入，仍需真实问答链路证据 | `AgentMessageEntity/Repository`、`/v2/agent/conversations/{conversationId}/messages` | user / assistant 消息保存、结构化 result block JSON 持久化、会话摘要刷新、owner 校验 |
-| `agent_drafts` | 已接入，P0 只允许诚实归档 | `AgentDraftEntity/Repository`、`/v2/agent/drafts/*` | `archived` 不代表执行成功；P1 前不得把确认按钮包装成真实写单；后续需补 confirm / reject / executing / executed / failed 状态机 |
+| `agent_drafts` | 已接入，P0 已支持真实落库草稿，P1 继续补状态机 | `AgentDraftEntity/Repository`、`/v2/agent/drafts/*`、`V2AgentAiService keyword fallback/native_tool_use create-only planner` | `archived` 不代表执行成功；当前无 LLM 时已可将自然语言兜底提取为 `create_*` 草稿参数并落库，Anthropic Messages / `chat_completions` / `responses` 已可通过 `plan_source=native_tool_use` 直接选中 `CREATE_ONLY` 工具，且流式链路会发送真实 `draft_created` 事件；当前剩余 blocker 已收敛为真实 HTTP/SSE 抓包、复杂单据/多工具规划覆盖，以及 P1 状态机；P1 前后续仍需补 confirm / reject / executing / executed / failed 状态机 |
 | `agent_tasks` | 已接入，仍需真实来源证据 | `AgentTaskEntity/Repository`、`/v2/agent/tasks` | 任务不得来自生产 demo seed；接口失败不能伪装成“暂无任务”；任务结果需关联真实 run 或真实后台任务 |
 | `agent_notifications` | 已接入，仍需真实来源证据 | `AgentNotificationEntity/Repository`、`/v2/agent/notifications`、mark read 接口 | 通知不得来自生产 demo seed；任务 / 通知分 tab 失败要诚实展示；已读状态 owner-aware |
 | `agent_run_audits` | 已接入 run 摘要审计，仍需真实 DB / SSE 对账 | `AgentRunAuditEntity/Repository`、`GET /v2/agent/runs/{runId}/audit` | run 状态、mode、llmStatus、planSource、toolCount、eventCount、auditId、traceId、错误码和耗时必须能对上 HTTP / SSE |
@@ -61,6 +61,21 @@ Tool call 是真实查询的最小证据单位。当前实现里没有独立 `ag
 - `next_cursor`
 
 后续若新增 `agent_tool_calls` 表，必须与 `agent_run_audit_events` 和 `AgentToolCallDto` 保持同一 `tool_call_id`。
+
+补充边界：
+
+- `CREATE_ONLY` 工具同样属于真实 tool call，但结果是“已落库草稿”而不是直接写业务单据。
+- 当前 `keyword_fallback` 已支持对 `create_customer`、`create_supplier`、`create_product`、`create_sale_order`、`create_purchase_order`、`create_pay_order`、`create_finance_record` 生成参数并执行落草稿。
+- 当前 `receivable_payable_lookup` 已作为真实只读工具接入注册表，返回应收总额、应付总额、净敞口和重点往来方，不再只是白名单占位名。
+- 当前 `customer_profile_lookup` 已作为真实只读工具接入注册表，可按客户关键词汇总订单、收款、退货、欠款、付款习惯和催收建议，并在 `evidence_refs` 暴露 `customer_name`、`total_sales_amount`、`balance`、`payment_habit` 等字段级依据。
+- 当前 `plan_source=native_tool_use` 已支持 Anthropic Messages、`chat_completions` 和 `responses` 路径直接选中注册工具；剩余缺口主要在真实 SSE 证据、复杂多工具规划和更完整的端到端验收。
+- 当前 `V2AgentAiService` 已把最近 10 条 `agent_messages` 和 `conversation.latestSummary` 真正接入到工具规划链路：它们不仅进入最终回答 prompt，也进入 `planToolsWithLlm()`、`planToolsWithNativeFunctionCalling()`、`inferToolPlan()` 以及若干 `keyword_fallback` 参数提取函数。无模型场景下，追问“刚才那个客户/那个商品/那家供应商”时，服务层现在可以优先从最近消息中回填客户、商品、供应商、账户实体；这属于 `C1 多轮对话上下文` 的第一段真实接入，不等于完整长期记忆或复杂指代消解。
+- 当前 `V2AgentAiService` 已具备第一版真实 Agent 循环：当 `sale_order_lookup`、`purchase_order_lookup`、`pay_order_lookup`、`finance_record_lookup` 在“有筛选条件但结果为空”时返回 insufficient，服务层会先生成 `plan_source=deterministic_recovery` 的放宽筛选补查；若未触发这条确定性补查且 LLM 可用，仍可继续进入 `plan_source=react_iterated` 的后续补充规划。当前这解决的是“首轮空结果自动补查”的最小闭环，不等于 `C1 多轮上下文` 已完成。
+- 当前 `inventory_panorama_lookup` 已作为真实只读工具接入注册表，可按商品关键词输出当前库存、安全库存、近 30 天销量、周转天数和建议补货量，并在 `evidence_refs` 暴露 `product_name`、`current_stock`、`recent_sales_quantity`、`turnover_days`、`suggested_restock` 等字段级依据。
+- 当前 `purchase_tracking_lookup` 已作为真实只读工具接入注册表，可按采购单或供应商关键词汇总采购总额、已到货金额、待付款金额、关联入库单、关联退货单与跟踪建议，并在 `evidence_refs` 暴露 `order_no`、`supplier_name`、`received_amount`、`outstanding_amount`、`receipt_count`、`return_count` 等字段级依据。
+- 当前 `account_health_lookup` 已作为真实只读工具接入注册表，可按账户关键词汇总账户总余额、近窗口收支比、活跃账户、低余额账户、近期账户转账与资金变动，并在 `evidence_refs` 暴露 `total_balance`、`income_expense_ratio`、`low_balance_count`、`transfer_count`、`default_account_name` 等字段级依据。
+- 原计划第四章这一组智能经营工具（I2~I6）现在都已经从“关键词白名单挂名”收口为真实注册工具；剩余缺口主要转到复杂多工具规划、真实 SSE 证据和端到端验收。
+- 流式链路在 `CREATE_ONLY` 工具成功后会发送真实 `draft_created` 事件；这不等价于业务单据已执行成功。
 
 ### 3.3 Result Block
 

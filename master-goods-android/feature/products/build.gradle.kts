@@ -35,9 +35,11 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:designsystem"))
     implementation(project(":data:product"))
+    implementation(project(":data:agent"))
     implementation(project(":data:sync"))
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 
@@ -53,6 +55,8 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
 
     implementation(libs.kotlinx.coroutines.core)
+
+    implementation(libs.coil.compose)
 
     debugImplementation(libs.compose.ui.tooling)
 }

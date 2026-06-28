@@ -29,6 +29,7 @@ dependencies {
     implementation(project(":core:model"))
     api(project(":core:network"))
     implementation(project(":core:database"))
+    implementation(project(":core:datastore"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.core)

@@ -192,6 +192,17 @@ class AgentMarkdownTextParserTest {
         assertEquals("不要丢失[缺少右括号](https://example.com", rendered)
     }
 
+    @Test
+    fun syntaxHighlightCodeKeepsTextAndAppliesStyles() {
+        val rendered = syntaxHighlightCode(
+            "fun greet() {\n    val name = \"李四\" // 注释\n    return 42\n}",
+            "kotlin"
+        )
+
+        assertEquals("fun greet() {\n    val name = \"李四\" // 注释\n    return 42\n}", rendered.text)
+        assertTrue(rendered.spanStyles.any { it.item.color.value != 0uL })
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun parseTableRow(line: String): List<String> {
         val method = markdownFileClass.getDeclaredMethod("parseTableRow", String::class.java)

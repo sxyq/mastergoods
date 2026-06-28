@@ -45,6 +45,9 @@ export const pcDesktopScreens: StitchScreen[] = [
   plannedPcScreen('P15', 'reports', '经营报表', '/reports', '报表', ['reports:view'], mobileImage('28', '32d2d1d993a84090b927b119cceb6675')),
   plannedPcScreen('P16', 'agent', 'AI 智能助手', '/agent', 'AI', ['agent:view'], mobileImage('32', 'bb4cfaeb86aa4862ba26a7eca264b4e6')),
   plannedPcScreen('P17', 'settings', '系统设置', '/settings', '系统', ['users:manage', 'database:manage', 'settings:manage'], mobileImage('01', '67429855c01c456d984034f3cb0b8ec4'), 'any'),
+  plannedPcScreen('P18', 'finance-accounts', '资金账户', '/finance/accounts', '财务', ['finance:view'], mobileImage('16', 'b70cadecc87e49d583075e0b7a71b38b')),
+  plannedPcScreen('P19', 'finance-transfers', '账户转账', '/finance/transfers', '财务', ['finance:write'], mobileImage('05', '624955bd91ed45fa9d4093c2fe7259fa')),
+  plannedPcScreen('P20', 'archives-contacts', '客户/供应商联系人', '/archives/contacts', '档案', ['archives:view'], mobileImage('03', 'd750377ad8d04dbfb8e502c0092798fc')),
   pcScreen('02', 'e8d81fc900d54197ba485cb076d1205c', '智慧记 Web PC 管理端产品规划', '/planning', '系统', ['settings:manage'], 0, 0),
 ]
 

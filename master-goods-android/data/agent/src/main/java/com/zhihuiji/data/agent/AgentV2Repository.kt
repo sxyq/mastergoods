@@ -83,6 +83,12 @@ class AgentV2Repository @Inject constructor(
     suspend fun createDraft(request: CreateAgentDraftRequest): Result<AgentDraftDto> =
         safeApiCall { api.createAgentDraftV2(request) }
 
+    suspend fun confirmDraft(id: Long): Result<AgentDraftDto> =
+        safeApiCall { api.confirmAgentDraftV2(id) }
+
+    suspend fun cancelDraft(id: Long): Result<AgentDraftDto> =
+        safeApiCall { api.cancelAgentDraftV2(id) }
+
     suspend fun updateDraft(id: Long, request: UpdateAgentDraftRequest): Result<AgentDraftDto> =
         safeApiCall { api.updateAgentDraftV2(id, request) }
 

@@ -95,6 +95,9 @@ public class PurchaseOrderLookupTool extends ToolSupport {
         );
 
         List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, tableBlock);
+        if (recentOrders.isEmpty() && hasMeaningfulFilter(keyword, status)) {
+            return ToolResult.emptyInsufficient("按当前条件未匹配到采购单，建议放宽筛选后重试");
+        }
         String answer = recentOrders.isEmpty()
             ? "当前账号下还没有采购单数据。"
             : "我查到了最近 " + recentOrders.size() + " 条采购单，查询采购额 "
@@ -158,5 +161,9 @@ public class PurchaseOrderLookupTool extends ToolSupport {
 
     private String safeText(String value, String fallback) {
         return StringUtils.hasText(value) ? value : fallback;
+    }
+
+    private boolean hasMeaningfulFilter(String keyword, Integer status) {
+        return StringUtils.hasText(keyword) || status != null;
     }
 }

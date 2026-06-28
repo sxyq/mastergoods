@@ -7,6 +7,7 @@ import com.zhihuiji.backend.infrastructure.security.RequireStorePermission;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,6 +36,11 @@ public class V2MediaController {
     @GetMapping("/assets/{id}")
     public ApiResponse<V2MediaDtos.MediaAssetResponse> getAsset(@PathVariable Long id) {
         return ApiResponse.success(v2MediaService.getAsset(id));
+    }
+
+    @GetMapping("/assets/{id}/content")
+    public ResponseEntity<byte[]> getAssetContent(@PathVariable Long id) {
+        return v2MediaService.readAssetContent(id);
     }
 
     @PostMapping("/assets")

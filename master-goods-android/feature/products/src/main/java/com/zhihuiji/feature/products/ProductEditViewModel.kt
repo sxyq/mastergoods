@@ -1,12 +1,18 @@
 package com.zhihuiji.feature.products
 
+import android.content.ContentResolver
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.model.v2.media.CreateMediaBindingRequest
 import com.zhihuiji.core.model.v2.product.ProductCategoryV2Dto
 import com.zhihuiji.core.model.v2.product.ProductPriceValueWriteV2Request
 import com.zhihuiji.core.model.v2.product.ProductSupplierRelationWriteV2Request
 import com.zhihuiji.core.model.v2.product.ProductUnitV2Dto
 import com.zhihuiji.core.model.v2.product.ProductWriteV2Request
+import com.zhihuiji.data.agent.MediaV2Repository
 import com.zhihuiji.data.product.ProductV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
@@ -17,6 +23,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+data class ProductImageUi(
+    val bindingId: Long?,
+    val assetId: Long,
+    val url: String,
+    val fileName: String = "",
+)
 
 data class ProductEditUiState(
     val isLoading: Boolean = false,
@@ -39,15 +52,21 @@ data class ProductEditUiState(
     val units: List<ProductUnitV2Dto> = emptyList(),
     val preservedPriceLevels: List<ProductPriceValueWriteV2Request> = emptyList(),
     val preservedSupplierRelations: List<ProductSupplierRelationWriteV2Request> = emptyList(),
+    val images: List<ProductImageUi> = emptyList(),
+    val isUploading: Boolean = false,
+    val authToken: String? = null,
 )
 
 @HiltViewModel
 class ProductEditViewModel @Inject constructor(
-    private val repository: ProductV2Repository
+    private val repository: ProductV2Repository,
+    private val mediaRepository: MediaV2Repository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProductEditUiState())
     val uiState: StateFlow<ProductEditUiState> = _uiState.asStateFlow()
+
+    private var currentProductId: Long? = null
 
     init {
         loadReferenceData()
@@ -83,8 +102,9 @@ class ProductEditViewModel @Inject constructor(
     }
 
     fun loadProduct(productId: Long) {
+        currentProductId = productId
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true, error = null, authToken = mediaRepository.peekAuthToken()) }
             repository.getProduct(productId)
                 .onSuccess { dto ->
                     _uiState.update {
@@ -120,6 +140,7 @@ class ProductEditViewModel @Inject constructor(
                             },
                         )
                     }
+                    loadImages(productId)
                 }
                 .onFailure { error ->
                     _uiState.update { it.copy(isLoading = false, error = error.message) }
@@ -212,4 +233,83 @@ class ProductEditViewModel @Inject constructor(
     fun consumeSaveSuccess() {
         _uiState.update { it.copy(isSaved = false) }
     }
+
+    fun uploadImage(uri: Uri, context: Context) {
+        val productId = currentProductId ?: run {
+            _uiState.update { it.copy(error = "请先保存商品后再上传图片") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUploading = true, error = null) }
+            val resolver = context.contentResolver
+            val mimeType = resolver.getType(uri) ?: "image/jpeg"
+            val fileName = readDisplayName(resolver, uri)
+            val bytes = runCatching {
+                resolver.openInputStream(uri)?.use { it.readBytes() }
+            }.getOrNull()
+            if (bytes == null) {
+                _uiState.update { it.copy(isUploading = false, error = "读取图片失败") }
+                return@launch
+            }
+            mediaRepository.uploadAsset(bytes, fileName, mimeType)
+                .onSuccess { asset ->
+                    val sortOrder = _uiState.value.images.size
+                    mediaRepository.createBinding(
+                        CreateMediaBindingRequest(
+                            assetId = asset.id,
+                            targetType = "product",
+                            targetId = productId,
+                            sortOrder = sortOrder,
+                        )
+                    ).onSuccess {
+                        loadImages(productId)
+                    }.onFailure { error ->
+                        _uiState.update { it.copy(isUploading = false, error = error.message) }
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(isUploading = false, error = error.message) }
+                }
+        }
+    }
+
+    fun deleteImage(bindingId: Long) {
+        val productId = currentProductId ?: return
+        viewModelScope.launch {
+            mediaRepository.deleteBinding(bindingId)
+                .onSuccess { loadImages(productId) }
+                .onFailure { error ->
+                    _uiState.update { it.copy(error = error.message) }
+                }
+        }
+    }
+
+    private suspend fun loadImages(productId: Long) {
+        mediaRepository.listBindings("product", productId)
+            .onSuccess { bindings ->
+                val images = bindings.map { binding ->
+                    ProductImageUi(
+                        bindingId = binding.id.takeIf { it > 0L },
+                        assetId = binding.assetId,
+                        url = mediaRepository.contentUrlFor(binding.assetId),
+                    )
+                }
+                _uiState.update { it.copy(images = images, isUploading = false) }
+            }
+            .onFailure { error ->
+                _uiState.update { it.copy(isUploading = false, error = error.message) }
+            }
+    }
+
+    private fun readDisplayName(resolver: ContentResolver, uri: Uri): String {
+        resolver.query(uri, null, null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (nameIndex >= 0 && cursor.moveToFirst()) {
+                return cursor.getString(nameIndex).ifBlank { defaultFileName() }
+            }
+        }
+        return defaultFileName()
+    }
+
+    private fun defaultFileName(): String = "image_${System.currentTimeMillis()}"
 }

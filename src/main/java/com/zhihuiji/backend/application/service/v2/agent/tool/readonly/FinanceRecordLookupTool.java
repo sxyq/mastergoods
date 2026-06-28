@@ -116,6 +116,9 @@ public class FinanceRecordLookupTool extends ToolSupport {
         );
 
         List<V2AgentDtos.ResultBlockDto> blocks = List.of(kpiBlock, donutBlock, tableBlock);
+        if (recentRecords.isEmpty() && hasMeaningfulFilter(keyword, type, createdAfter, createdBefore)) {
+            return ToolResult.emptyInsufficient("按当前条件未匹配到资金流水，建议放宽筛选后重试");
+        }
         String answer = recentRecords.isEmpty()
             ? "当前账号下还没有资金流水数据。"
             : "我查到了最近 " + recentRecords.size() + " 条资金流水，查询收入 "
@@ -177,5 +180,9 @@ public class FinanceRecordLookupTool extends ToolSupport {
 
     private String safeText(String value, String fallback) {
         return StringUtils.hasText(value) ? value : fallback;
+    }
+
+    private boolean hasMeaningfulFilter(String keyword, Integer type, Long createdAfter, Long createdBefore) {
+        return StringUtils.hasText(keyword) || type != null || createdAfter != null || createdBefore != null;
     }
 }

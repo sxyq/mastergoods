@@ -26,6 +26,18 @@ export const PURCHASE_RETURN_CONFIRMED = 1
 export const PURCHASE_RETURN_COMPLETED = 2
 export const PURCHASE_RETURN_CANCELLED = 3
 
+export const ACCOUNT_TYPE_CASH = 0
+export const ACCOUNT_TYPE_BANK = 1
+export const ACCOUNT_TYPE_ALIPAY = 2
+export const ACCOUNT_TYPE_WECHAT = 3
+
+export const ACCOUNT_ACTIVE = 1
+export const ACCOUNT_DISABLED = 0
+
+export const ACCOUNT_TRANSFER_PENDING = 0
+export const ACCOUNT_TRANSFER_COMPLETED = 1
+export const ACCOUNT_TRANSFER_CANCELLED = 2
+
 const CURRENCY_FORMATTER = new Intl.NumberFormat('zh-CN', {
   style: 'currency',
   currency: 'CNY',
@@ -227,6 +239,27 @@ export function financeMethodLabel(method: number | null | undefined) {
   if (method === METHOD_ALIPAY) return '支付宝'
   if (method === METHOD_BANK) return '银行卡'
   if (method === METHOD_OTHER) return '其他'
+  return '--'
+}
+
+export function accountTypeLabel(type: number | null | undefined) {
+  if (type === ACCOUNT_TYPE_CASH) return '现金'
+  if (type === ACCOUNT_TYPE_BANK) return '银行'
+  if (type === ACCOUNT_TYPE_ALIPAY) return '支付宝'
+  if (type === ACCOUNT_TYPE_WECHAT) return '微信'
+  return '--'
+}
+
+export function accountStatusLabel(status: number | null | undefined) {
+  if (status === ACCOUNT_ACTIVE) return '启用'
+  if (status === ACCOUNT_DISABLED) return '停用'
+  return '--'
+}
+
+export function accountTransferStatusLabel(status: number | null | undefined) {
+  if (status === ACCOUNT_TRANSFER_PENDING) return '待处理'
+  if (status === ACCOUNT_TRANSFER_COMPLETED) return '已完成'
+  if (status === ACCOUNT_TRANSFER_CANCELLED) return '已取消'
   return '--'
 }
 
