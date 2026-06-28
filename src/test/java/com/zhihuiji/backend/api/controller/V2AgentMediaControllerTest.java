@@ -19,6 +19,7 @@ import com.zhihuiji.backend.application.service.SessionAccessService;
 import com.zhihuiji.backend.application.service.v2.V2AgentAiService;
 import com.zhihuiji.backend.application.service.v2.V2AgentConversationService;
 import com.zhihuiji.backend.application.service.v2.V2MediaService;
+import com.zhihuiji.backend.application.service.v2.agent.AgentDraftConfirmService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,8 @@ class V2AgentMediaControllerTest {
     private V2MediaService v2MediaService;
     @MockBean
     private SessionAccessService sessionAccessService;
+    @MockBean
+    private AgentDraftConfirmService agentDraftConfirmService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 

@@ -73,9 +73,13 @@ public class InventoryLedgerLookupTool extends ToolSupport {
             ).getContent();
         }
         if (StringUtils.hasText(sourceType)) {
-            records = records.stream()
-                .filter(item -> sourceType.equalsIgnoreCase(item.getSourceType()))
-                .toList();
+            List<InventoryLedgerEntity> filtered = new ArrayList<>(records.size());
+            for (InventoryLedgerEntity item : records) {
+                if (sourceType.equalsIgnoreCase(item.getSourceType())) {
+                    filtered.add(item);
+                }
+            }
+            records = filtered;
         }
         List<InventoryLedgerEntity> limited = limit(records, DEFAULT_TOOL_LIMIT);
         List<InventoryLedgerEntity> topRecords = limit(limited, 5);

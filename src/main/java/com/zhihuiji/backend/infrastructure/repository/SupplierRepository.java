@@ -45,6 +45,8 @@ public interface SupplierRepository extends JpaRepository<SupplierEntity, Long> 
 
     long countByOwnerUserIdAndGroupId(Long ownerUserId, Long groupId);
 
+    long countByOwnerUserId(Long ownerUserId);
+
     @Query("SELECT COALESCE(SUM(CASE WHEN s.balance > 0 THEN s.balance ELSE 0 END), 0) FROM SupplierEntity s WHERE s.ownerUserId = :ownerUserId")
     Double sumPositiveBalance(@org.springframework.data.repository.query.Param("ownerUserId") Long ownerUserId);
 

@@ -18,11 +18,34 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
 import com.zhihuiji.backend.domain.entity.AgentConversationEntity;
+import com.zhihuiji.backend.domain.entity.AgentDraftEntity;
 import com.zhihuiji.backend.domain.entity.AgentMessageEntity;
 import com.zhihuiji.backend.domain.entity.AgentRunAuditEventEntity;
 import com.zhihuiji.backend.domain.entity.AgentRunAuditEntity;
 import com.zhihuiji.backend.domain.entity.ProductEntity;
 import com.zhihuiji.backend.domain.entity.SupplierEntity;
+import com.zhihuiji.backend.application.service.v2.agent.component.RunAuditService;
+import com.zhihuiji.backend.application.service.v2.agent.component.SafetyDecision;
+import com.zhihuiji.backend.application.service.v2.agent.component.SafetyGuard;
+import com.zhihuiji.backend.application.service.v2.agent.component.SseStreamEmitter;
+import com.zhihuiji.backend.application.service.v2.agent.tool.ToolRegistry;
+import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.CustomerReceivableLookupTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.FinanceRecordLookupTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.InventoryLowStockLookupTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.PayOrderLookupTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.ProductCatalogLookupTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.PurchaseOrderLookupTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.ReceivablePayableLookupTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.SaleOrderLookupTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.SalesOverviewLookupTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.SupplierPayableLookupTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.write.CreateCustomerTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.write.CreateFinanceRecordTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.write.CreatePayOrderTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.write.CreateProductTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.write.CreatePurchaseOrderTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.write.CreateSaleOrderTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.write.CreateSupplierTool;
 import com.zhihuiji.backend.infrastructure.ai.LongCatAnthropicClient;
 import com.zhihuiji.backend.infrastructure.repository.AgentConversationRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentDraftRepository;
@@ -88,12 +111,44 @@ class V2AgentAiServiceTest {
     private V2AgentAiService service;
     private Map<String, AgentRunAuditEntity> runAudits;
     private List<AgentRunAuditEventEntity> runAuditEvents;
+    private ObjectMapper objectMapper;
+    private RunAuditService runAuditService;
+    private SseStreamEmitter sseStreamEmitter;
+    private SafetyGuard safetyGuard;
+    private ToolRegistry toolRegistry;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
         runAudits = new HashMap<>();
         runAuditEvents = new CopyOnWriteArrayList<>();
+        objectMapper = new ObjectMapper();
+        runAuditService = new RunAuditService(
+            agentRunAuditRepository,
+            agentRunAuditEventRepository,
+            objectMapper
+        );
+        sseStreamEmitter = new SseStreamEmitter(objectMapper, runAuditService);
+        safetyGuard = new SafetyGuard(longCatAnthropicClient, objectMapper, currentOwnerService);
+        toolRegistry = new ToolRegistry(java.util.List.of(
+            new CustomerReceivableLookupTool(customerRepository),
+            new SupplierPayableLookupTool(supplierRepository),
+            new ProductCatalogLookupTool(productRepository),
+            new SaleOrderLookupTool(saleOrderRepository),
+            new PurchaseOrderLookupTool(purchaseOrderRepository),
+            new PayOrderLookupTool(payOrderRepository),
+            new FinanceRecordLookupTool(financeRecordRepository),
+            new ReceivablePayableLookupTool(customerRepository, supplierRepository),
+            new SalesOverviewLookupTool(saleOrderRepository, productRepository, customerRepository),
+            new InventoryLowStockLookupTool(productRepository),
+            new CreateCustomerTool(agentDraftRepository),
+            new CreateSupplierTool(agentDraftRepository),
+            new CreateProductTool(agentDraftRepository),
+            new CreateSaleOrderTool(agentDraftRepository),
+            new CreatePurchaseOrderTool(agentDraftRepository),
+            new CreatePayOrderTool(agentDraftRepository),
+            new CreateFinanceRecordTool(agentDraftRepository)
+        ));
         service = new V2AgentAiService(
             currentOwnerService,
             agentConversationRepository,
@@ -111,8 +166,12 @@ class V2AgentAiServiceTest {
             payOrderRepository,
             financeRecordRepository,
             paymentRepository,
-            new ObjectMapper(),
-            longCatAnthropicClient
+            objectMapper,
+            longCatAnthropicClient,
+            toolRegistry,
+            runAuditService,
+            sseStreamEmitter,
+            safetyGuard
         );
         when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
         when(longCatAnthropicClient.isConfigured()).thenReturn(false);
@@ -127,6 +186,13 @@ class V2AgentAiServiceTest {
             return entity;
         });
         when(agentMessageRepository.save(any(AgentMessageEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(agentDraftRepository.save(any(AgentDraftEntity.class))).thenAnswer(invocation -> {
+            AgentDraftEntity entity = invocation.getArgument(0);
+            if (entity.getId() == null) {
+                setId(entity, 501L);
+            }
+            return entity;
+        });
         when(agentRunAuditRepository.save(any(AgentRunAuditEntity.class))).thenAnswer(invocation -> {
             AgentRunAuditEntity entity = invocation.getArgument(0);
             runAudits.put(entity.getRunId(), entity);
@@ -637,6 +703,63 @@ class V2AgentAiServiceTest {
     }
 
     @Test
+    void streamNativeToolUseCreateCustomerEmitsDraftCreatedEvent() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.configurationStatus()).thenReturn("configured");
+        when(longCatAnthropicClient.supportsStreaming()).thenReturn(false);
+        when(longCatAnthropicClient.streamingUnavailableStatus()).thenReturn("stream_not_supported");
+        when(longCatAnthropicClient.createMessageWithTools(anyString(), anyString(), any()))
+            .thenReturn(Optional.of(new LongCatAnthropicClient.ToolUseResponse(
+                List.of(new LongCatAnthropicClient.ToolUseBlock(
+                    "call_stream_1",
+                    "create_customer",
+                    objectMapper.createObjectNode()
+                        .put("name", "李四")
+                        .put("phone", "13812345678")
+                        .put("remark", "流式草稿")
+                )),
+                "直接生成客户草稿"
+            )));
+        CapturingEmitter emitter = new CapturingEmitter();
+
+        service.runChatStream(1L, conversation(113L), "帮我新建客户李四 电话13812345678", "run-draft-stream", emitter);
+
+        String planDelta = firstPayload(emitter, "\"event_type\":\"plan_delta\"");
+        assertTrue(planDelta.contains("\"plan_source\":\"native_tool_use\""), planDelta);
+        assertTrue(planDelta.contains("create_customer"), planDelta);
+
+        String toolCompleted = firstPayload(emitter, "\"event_type\":\"tool_completed\"");
+        assertTrue(toolCompleted.contains("\"tool_name\":\"create_customer\""), toolCompleted);
+
+        String draftCreated = firstPayload(emitter, "\"event_type\":\"draft_created\"");
+        assertTrue(draftCreated.contains("\"draft_id\":501"), draftCreated);
+        assertTrue(draftCreated.contains("\"draft_type\":\"create_customer\""), draftCreated);
+        assertTrue(draftCreated.contains("\"tool_name\":\"create_customer\""), draftCreated);
+        assertTrue(draftCreated.contains("新建客户：李四"), draftCreated);
+
+        String answerCompleted = firstPayload(emitter, "\"event_type\":\"answer_completed\"");
+        assertTrue(answerCompleted.contains("\"plan_source\":\"native_tool_use\""), answerCompleted);
+        assertTrue(answerCompleted.contains("生成草稿 新建客户：李四"), answerCompleted);
+
+        assertTrue(
+            firstPayloadIndex(emitter, "\"event_type\":\"tool_completed\"")
+                < firstPayloadIndex(emitter, "\"event_type\":\"draft_created\""),
+            String.join("\n", emitter.payloads)
+        );
+        assertTrue(
+            firstPayloadIndex(emitter, "\"event_type\":\"draft_created\"")
+                < firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""),
+            String.join("\n", emitter.payloads)
+        );
+
+        assertTrue(runAuditEvents.stream().anyMatch(event -> "draft_created".equals(event.getEventType())
+            && event.getPayloadJson().contains("\"draft_type\":\"create_customer\"")));
+        assertTrue(runAuditEvents.stream().anyMatch(event -> "plan_delta".equals(event.getEventType())
+            && event.getPayloadJson().contains("\"plan_source\":\"native_tool_use\"")));
+        verify(agentDraftRepository).save(any(AgentDraftEntity.class));
+    }
+
+    @Test
     void slowAuditEventWriteDoesNotBlockVisibleStreamPayloads() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
@@ -1120,6 +1243,168 @@ class V2AgentAiServiceTest {
     }
 
     @Test
+    void inferToolPlanCoversAdvancedAnalyticsKeywords() throws Exception {
+        Object plan = inferToolPlan("请做智能补货、异常预警和多维交叉分析");
+        List<String> tools = extractPlannedTools(plan);
+
+        assertTrue(tools.contains("smart_restock_lookup"), tools.toString());
+        assertTrue(tools.contains("anomaly_alert_lookup"), tools.toString());
+        assertTrue(tools.contains("cross_analysis_lookup"), tools.toString());
+    }
+
+    @Test
+    void inferToolPlanCoversOperationsKeywordsForStoreAndExport() throws Exception {
+        Object plan = inferToolPlan("查看门店信息、同步状态、导入任务，并给我导出数据");
+        List<String> tools = extractPlannedTools(plan);
+
+        assertTrue(tools.contains("store_info_lookup"), tools.toString());
+        assertTrue(tools.contains("sync_status_lookup"), tools.toString());
+        assertTrue(tools.contains("import_job_lookup"), tools.toString());
+        assertTrue(tools.contains("data_export_tool"), tools.toString());
+    }
+
+    @Test
+    void receivablePayableLookupProvidesCombinedReconciliationSummary() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(customer(1L, "张三商贸", 300.0), customer(2L, "李四超市", 120.0)));
+        when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(5L);
+        when(customerRepository.sumPositiveBalance(1L)).thenReturn(1500.0);
+        when(supplierRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of(supplier(1L, "晨光供货", 260.0), supplier(2L, "万联批发", 80.0)));
+        when(supplierRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(4L);
+        when(supplierRepository.sumPositiveBalance(1L)).thenReturn(900.0);
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "请帮我做应收应付对账", false)
+        );
+
+        assertEquals("keyword_fallback", response.planSource());
+        assertTrue(response.planSummary().contains("receivable_payable_lookup"), response.planSummary());
+        assertTrue(response.toolCalls().stream().anyMatch(tool -> "receivable_payable_lookup".equals(tool.toolName())));
+        assertTrue(response.answer().contains("应收总额 ¥1500.00"), response.answer());
+        assertTrue(response.answer().contains("应付总额 ¥900.00"), response.answer());
+        assertTrue(response.answer().contains("净敞口 ¥600.00"), response.answer());
+        assertTrue(response.blocks().stream().anyMatch(block ->
+            "kpi_grid".equals(block.blockType())
+                && block.data().toString().contains("应收总额")
+                && block.data().toString().contains("¥1500.00")
+                && block.data().toString().contains("应付总额")
+                && block.data().toString().contains("¥900.00")
+                && block.data().toString().contains("净敞口")
+                && block.data().toString().contains("¥600.00")
+        ));
+        assertTrue(response.blocks().stream().anyMatch(block ->
+            "rank_list".equals(block.blockType()) && block.title().contains("重点应收客户")
+        ));
+        assertTrue(response.blocks().stream().anyMatch(block ->
+            "rank_list".equals(block.blockType()) && block.title().contains("重点应付供应商")
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("total_receivable") && "¥1500.00".equals(ref.value())
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("total_payable") && "¥900.00".equals(ref.value())
+        ));
+        assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
+            ref.label().contains("net_exposure") && "¥600.00".equals(ref.value())
+        ));
+    }
+
+    @Test
+    void inferToolPlanBuildsCreateCustomerDraftParamsFromNaturalLanguage() throws Exception {
+        Object plan = inferToolPlan("新建客户张三 电话13812345678 备注重点跟进");
+        List<String> tools = extractPlannedTools(plan);
+        JsonNode params = extractToolParams(plan, "create_customer");
+
+        assertEquals(List.of("create_customer"), tools);
+        assertEquals("张三", params.path("name").asText());
+        assertEquals("13812345678", params.path("phone").asText());
+        assertEquals("重点跟进", params.path("remark").asText());
+    }
+
+    @Test
+    void inferToolPlanBuildsCreateProductDraftParamsFromNaturalLanguage() throws Exception {
+        Object plan = inferToolPlan("创建商品 编码A001 名称矿泉水 售价2.5 成本1.8 库存20");
+        List<String> tools = extractPlannedTools(plan);
+        JsonNode params = extractToolParams(plan, "create_product");
+
+        assertEquals(List.of("create_product"), tools);
+        assertEquals("A001", params.path("code").asText());
+        assertEquals("矿泉水", params.path("name").asText());
+        assertEquals(2.5D, params.path("price").asDouble(), 0.0001D);
+        assertEquals(1.8D, params.path("cost").asDouble(), 0.0001D);
+        assertEquals(20D, params.path("stock").asDouble(), 0.0001D);
+    }
+
+    @Test
+    void inferToolPlanBuildsCreateFinanceRecordDraftParamsFromNaturalLanguage() throws Exception {
+        Object plan = inferToolPlan("记一笔办公用品支出 200 块 备注采购打印纸");
+        List<String> tools = extractPlannedTools(plan);
+        JsonNode params = extractToolParams(plan, "create_finance_record");
+
+        assertEquals(List.of("create_finance_record"), tools);
+        assertEquals(2, params.path("type").asInt());
+        assertEquals(200D, params.path("amount").asDouble(), 0.0001D);
+        assertEquals("办公用品", params.path("category").asText());
+        assertEquals("采购打印纸", params.path("remark").asText());
+    }
+
+    @Test
+    void chatCreateSaleOrderMessageFallsBackToDraftGenerationWithoutLlm() {
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "帮张三开一张销售单 备注月底送货", false)
+        );
+
+        assertEquals("keyword_fallback", response.planSource());
+        assertTrue(response.planSummary().contains("create_sale_order"), response.planSummary());
+        assertEquals(1, response.toolCalls().size());
+        assertEquals("create_sale_order", response.toolCalls().get(0).toolName());
+        assertTrue(response.answer().contains("销售单草稿"), response.answer());
+        assertTrue(response.blocks().stream().anyMatch(block ->
+            ("draft".equals(block.blockType()) || "draft_card".equals(block.blockType()))
+                && "create_sale_order".equals(block.data().path("draft_type").asText())
+                && "张三".equals(block.data().path("customer_name").asText())
+        ));
+        verify(agentDraftRepository).save(any(AgentDraftEntity.class));
+    }
+
+    @Test
+    void chatUsesNativeToolUsePlanForCreateCustomerDraftWhenAvailable() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.configurationStatus()).thenReturn("configured");
+        when(longCatAnthropicClient.createMessageWithTools(anyString(), anyString(), any()))
+            .thenReturn(Optional.of(new LongCatAnthropicClient.ToolUseResponse(
+                List.of(new LongCatAnthropicClient.ToolUseBlock(
+                    "call_1",
+                    "create_customer",
+                    objectMapper.createObjectNode()
+                        .put("name", "李四")
+                        .put("phone", "13812345678")
+                        .put("remark", "原生工具调用")
+                )),
+                "直接生成客户草稿"
+            )));
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "帮我新建客户李四 电话13812345678", false)
+        );
+
+        assertEquals("native_tool_use", response.planSource());
+        assertTrue(response.planSummary().contains("create_customer"), response.planSummary());
+        assertEquals(1, response.toolCalls().size());
+        assertEquals("create_customer", response.toolCalls().get(0).toolName());
+        assertTrue(response.answer().contains("生成草稿 新建客户：李四"), response.answer());
+        assertTrue(response.blocks().stream().anyMatch(block ->
+            ("draft".equals(block.blockType()) || "draft_card".equals(block.blockType()))
+                && "create_customer".equals(block.data().path("draft_type").asText())
+                && block.data().path("title").asText().contains("李四")
+        ));
+        verify(agentDraftRepository).save(any(AgentDraftEntity.class));
+        verify(longCatAnthropicClient).createMessageWithTools(anyString(), anyString(), any());
+    }
+
+    @Test
     void ruleSummaryDoesNotInventZeroSalesOverviewFieldsWhenFactsAreMissing() throws Exception {
         Object toolResult = toolExecutionResult(
             "sales_overview_lookup",
@@ -1218,6 +1503,27 @@ class V2AgentAiServiceTest {
         return (String) method.invoke(service, userMessage, toolResults, fallbackAnswer);
     }
 
+    private Object inferToolPlan(String message) throws Exception {
+        Method method = V2AgentAiService.class.getDeclaredMethod("inferToolPlan", String.class);
+        method.setAccessible(true);
+        return method.invoke(service, message);
+    }
+
+    @SuppressWarnings("unchecked")
+    private JsonNode extractToolParams(Object plan, String toolName) throws Exception {
+        Method method = plan.getClass().getDeclaredMethod("toolParams");
+        method.setAccessible(true);
+        Map<String, JsonNode> toolParams = (Map<String, JsonNode>) method.invoke(plan);
+        return toolParams.get(toolName);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> extractPlannedTools(Object plan) throws Exception {
+        Method method = plan.getClass().getDeclaredMethod("tools");
+        method.setAccessible(true);
+        return (List<String>) method.invoke(plan);
+    }
+
     private static Object toolExecutionResult(String toolName, String summary, JsonNode facts) throws Exception {
         Class<?> toolResultClass = Class.forName(
             "com.zhihuiji.backend.application.service.v2.V2AgentAiService$ToolExecutionResult"
@@ -1229,28 +1535,17 @@ class V2AgentAiServiceTest {
 
     @SuppressWarnings("unchecked")
     private void registerActiveRun(Long ownerUserId, String runId, Long conversationId, SseEmitter emitter) throws Exception {
-        Field activeRunsField = V2AgentAiService.class.getDeclaredField("activeRuns");
-        activeRunsField.setAccessible(true);
-        Map<String, Object> activeRuns = (Map<String, Object>) activeRunsField.get(service);
-        Class<?> activeRunClass = Class.forName(
-            "com.zhihuiji.backend.application.service.v2.V2AgentAiService$ActiveAgentRun"
-        );
-        Constructor<?> constructor = activeRunClass.getDeclaredConstructor(
-            Long.class,
-            String.class,
-            Long.class,
-            SseEmitter.class
-        );
-        constructor.setAccessible(true);
-        activeRuns.put(runId, constructor.newInstance(ownerUserId, runId, conversationId, emitter));
+        // activeRuns 已迁移到 RunAuditService，ActiveAgentRun 为其 public static 内部类
+        Object activeRun = new RunAuditService.ActiveAgentRun(ownerUserId, runId, conversationId, emitter);
+        runAuditService.registerRun((RunAuditService.ActiveAgentRun) activeRun);
     }
 
     private void replaceAuditWriteExecutor(ThreadPoolExecutor executor) throws Exception {
-        Field auditExecutorField = V2AgentAiService.class.getDeclaredField("auditWriteExecutor");
+        Field auditExecutorField = RunAuditService.class.getDeclaredField("auditWriteExecutor");
         auditExecutorField.setAccessible(true);
-        ThreadPoolExecutor previous = (ThreadPoolExecutor) auditExecutorField.get(service);
+        ThreadPoolExecutor previous = (ThreadPoolExecutor) auditExecutorField.get(runAuditService);
         previous.shutdownNow();
-        auditExecutorField.set(service, executor);
+        auditExecutorField.set(runAuditService, executor);
     }
 
     private static String firstPayload(CapturingEmitter emitter, String marker) {

@@ -196,10 +196,13 @@ public class AgentDraftConfirmService {
                 v2ProductService.create(objectMapper.readValue(contentJson, V2ProductDtos.ProductWriteRequest.class));
             case "create_finance_record" ->
                 financeRecordService.create(objectMapper.readValue(contentJson, FinanceRecordService.CreateCommand.class));
-            case "create_inventory_adjustment" ->
+            case "create_inventory_adjustment", "inventory_adjustment" ->
                 v2InventoryService.createLedgerEntry(objectMapper.readValue(contentJson, V2InventoryDtos.LedgerEntryCreateRequest.class));
             case "create_account_transfer" ->
                 v2AccountTransferService.create(objectMapper.readValue(contentJson, V2FinanceDtos.AccountTransferCreateRequest.class));
+            case "media_upload" -> {
+                // 媒体上传草稿仅用于承载上传意图与参数，确认后由前端继续执行真实上传。
+            }
             default -> throw new BusinessException("不支持的草稿类型：" + draftType);
         }
     }

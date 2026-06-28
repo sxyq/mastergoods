@@ -164,7 +164,13 @@ public abstract class ToolSupport implements AgentTool {
             return defaultValue;
         }
         try {
-            return node.asInt(defaultValue);
+            if (node.isNumber()) {
+                return node.intValue();
+            }
+            if (node.isTextual()) {
+                return Integer.parseInt(node.asText().trim());
+            }
+            return defaultValue == null ? node.asInt() : node.asInt(defaultValue);
         } catch (Exception ignored) {
             return defaultValue;
         }
@@ -184,7 +190,13 @@ public abstract class ToolSupport implements AgentTool {
             return defaultValue;
         }
         try {
-            return node.asLong(defaultValue);
+            if (node.isNumber()) {
+                return node.longValue();
+            }
+            if (node.isTextual()) {
+                return Long.parseLong(node.asText().trim());
+            }
+            return defaultValue == null ? node.asLong() : node.asLong(defaultValue);
         } catch (Exception ignored) {
             return defaultValue;
         }
@@ -204,7 +216,13 @@ public abstract class ToolSupport implements AgentTool {
             return defaultValue;
         }
         try {
-            return node.asDouble(defaultValue);
+            if (node.isNumber()) {
+                return node.doubleValue();
+            }
+            if (node.isTextual()) {
+                return Double.parseDouble(node.asText().trim());
+            }
+            return defaultValue == null ? node.asDouble() : node.asDouble(defaultValue);
         } catch (Exception ignored) {
             return defaultValue;
         }

@@ -11,6 +11,8 @@ public interface StoreMembershipRepository extends JpaRepository<StoreMembership
 
     Optional<StoreMembershipEntity> findByOwnerUserIdAndUserId(Long ownerUserId, Long userId);
 
+    long countByOwnerUserId(Long ownerUserId);
+
     List<StoreMembershipEntity> findByOwnerUserIdOrderByCreatedAtAsc(Long ownerUserId);
 
     List<StoreMembershipEntity> findByOwnerUserIdAndUserIdIn(Long ownerUserId, Collection<Long> userIds);

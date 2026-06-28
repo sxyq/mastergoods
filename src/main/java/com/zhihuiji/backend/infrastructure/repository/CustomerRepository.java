@@ -44,6 +44,8 @@ public interface CustomerRepository extends JpaRepository<CustomerEntity, Long> 
 
     long countByOwnerUserIdAndGroupId(Long ownerUserId, Long groupId);
 
+    long countByOwnerUserId(Long ownerUserId);
+
     @Query("SELECT COALESCE(SUM(CASE WHEN c.balance > 0 THEN c.balance ELSE 0 END), 0) FROM CustomerEntity c WHERE c.ownerUserId = :ownerUserId")
     Double sumPositiveBalance(@Param("ownerUserId") Long ownerUserId);
 

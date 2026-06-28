@@ -35,6 +35,10 @@ import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
 import com.zhihuiji.backend.infrastructure.repository.PurchaseOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.SaleOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
+import com.zhihuiji.backend.application.service.v2.agent.component.RunAuditService;
+import com.zhihuiji.backend.application.service.v2.agent.component.SafetyDecision;
+import com.zhihuiji.backend.application.service.v2.agent.component.SafetyGuard;
+import com.zhihuiji.backend.application.service.v2.agent.component.SseStreamEmitter;
 import com.zhihuiji.backend.application.service.v2.agent.tool.AgentTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolContext;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolRegistry;
@@ -53,17 +57,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import jakarta.annotation.PreDestroy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -80,11 +79,9 @@ public class V2AgentAiService {
     private static final ZoneId CHART_ZONE = ZoneId.of("Asia/Shanghai");
     private static final DateTimeFormatter MONTH_DAY_FORMATTER = DateTimeFormatter.ofPattern("MM/dd");
     private static final int DEFAULT_TOOL_LIMIT = 10;
+    private static final int MAX_AGENT_ITERATIONS = 3;
     private static final int SUPPLIER_SCAN_LIMIT = 50;
     private static final int OVERVIEW_SIGNAL_LIMIT = 5;
-    private static final int AUDIT_WRITE_THREADS = 2;
-    private static final int AUDIT_WRITE_QUEUE_CAPACITY = 512;
-    private static final int ANSWER_DELTA_BATCH_CHAR_THRESHOLD = 24;
     private static final String RULE_SUMMARY_NOTICE = "说明：本回答为真实数据查询后的规则摘要，当前未使用模型生成。";
 
     private final CurrentOwnerService currentOwnerService;
@@ -106,18 +103,10 @@ public class V2AgentAiService {
     private final ObjectMapper objectMapper;
     private final LongCatAnthropicClient longCatAnthropicClient;
     private final ToolRegistry toolRegistry;
-    private final Map<String, ActiveAgentRun> activeRuns = new ConcurrentHashMap<>();
-    private final Map<Long, List<Long>> writeFrequencyTracker = new ConcurrentHashMap<>();
-    private final ExecutorService streamExecutor = Executors.newFixedThreadPool(4, namedThreadFactory("agent-sse-stream"));
-    private ThreadPoolExecutor auditWriteExecutor = new ThreadPoolExecutor(
-        AUDIT_WRITE_THREADS,
-        AUDIT_WRITE_THREADS,
-        0L,
-        TimeUnit.MILLISECONDS,
-        new ArrayBlockingQueue<>(AUDIT_WRITE_QUEUE_CAPACITY),
-        namedThreadFactory("agent-audit-write"),
-        new ThreadPoolExecutor.AbortPolicy()
-    );
+    private final RunAuditService runAuditService;
+    private final SseStreamEmitter sseStreamEmitter;
+    private final SafetyGuard safetyGuard;
+    private final ExecutorService streamExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     public V2AgentAiService(
         CurrentOwnerService currentOwnerService,
@@ -138,7 +127,10 @@ public class V2AgentAiService {
         PaymentRepository paymentRepository,
         ObjectMapper objectMapper,
         LongCatAnthropicClient longCatAnthropicClient,
-        ToolRegistry toolRegistry
+        ToolRegistry toolRegistry,
+        RunAuditService runAuditService,
+        SseStreamEmitter sseStreamEmitter,
+        SafetyGuard safetyGuard
     ) {
         this.currentOwnerService = currentOwnerService;
         this.agentConversationRepository = agentConversationRepository;
@@ -159,29 +151,14 @@ public class V2AgentAiService {
         this.objectMapper = objectMapper;
         this.longCatAnthropicClient = longCatAnthropicClient;
         this.toolRegistry = toolRegistry;
+        this.runAuditService = runAuditService;
+        this.sseStreamEmitter = sseStreamEmitter;
+        this.safetyGuard = safetyGuard;
     }
 
     @PreDestroy
     public void shutdownStreamExecutor() {
         streamExecutor.shutdownNow();
-        auditWriteExecutor.shutdown();
-        try {
-            if (!auditWriteExecutor.awaitTermination(2, TimeUnit.SECONDS)) {
-                auditWriteExecutor.shutdownNow();
-            }
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            auditWriteExecutor.shutdownNow();
-        }
-    }
-
-    private static ThreadFactory namedThreadFactory(String prefix) {
-        AtomicInteger sequence = new AtomicInteger(1);
-        return runnable -> {
-            Thread thread = new Thread(runnable, prefix + "-" + sequence.getAndIncrement());
-            thread.setDaemon(true);
-            return thread;
-        };
     }
 
     @Transactional(readOnly = true)
@@ -257,15 +234,15 @@ public class V2AgentAiService {
         saveMessage(ownerUserId, conversation.getId(), "user", "text", message, null, now);
 
         String runId = UUID.randomUUID().toString();
-        createRunAudit(ownerUserId, conversation.getId(), runId, runStartedAt);
-        SafetyDecision safetyDecision = evaluateSafety(message);
-        String auditId = auditIdFor(runId);
-        String traceId = traceIdFor(runId);
+        runAuditService.createRunAudit(ownerUserId, conversation.getId(), runId, runStartedAt);
+        SafetyDecision safetyDecision = safetyGuard.evaluateSafety(message);
+        String auditId = RunAuditService.auditIdFor(runId);
+        String traceId = RunAuditService.traceIdFor(runId);
         if (!safetyDecision.passed()) {
             String blockedAnswer = "这个请求涉及越权或高风险操作，我不能直接执行。你可以改成只查询当前账号下的合规数据范围。";
             persistAssistantResponse(ownerUserId, conversation, blockedAnswer, List.of(), now);
             long blockedCompletedAt = System.currentTimeMillis();
-            finishRunAudit(
+            runAuditService.finishRunAudit(
                 ownerUserId,
                 runId,
                 "blocked",
@@ -301,7 +278,7 @@ public class V2AgentAiService {
                 ),
                 auditId,
                 traceId,
-                observabilityFor(runId, auditId, traceId)
+                SseStreamEmitter.observabilityFor(runId, auditId, traceId)
             );
         }
 
@@ -314,7 +291,7 @@ public class V2AgentAiService {
             ? Math.max(0L, completedAt - modelStartedAt)
             : 0L;
         persistAssistantResponse(ownerUserId, conversation, finalAnswer.answer(), payload.blocks(), System.currentTimeMillis());
-        finishRunAudit(
+        runAuditService.finishRunAudit(
             ownerUserId,
             runId,
             "completed",
@@ -351,7 +328,7 @@ public class V2AgentAiService {
             ),
             auditId,
             traceId,
-            observabilityFor(runId, auditId, traceId)
+            SseStreamEmitter.observabilityFor(runId, auditId, traceId)
         );
     }
 
@@ -362,22 +339,22 @@ public class V2AgentAiService {
         AgentConversationEntity conversation = resolveConversation(request.conversationId(), ownerUserId, message, now);
         saveMessage(ownerUserId, conversation.getId(), "user", "text", message, null, now);
         String runId = UUID.randomUUID().toString();
-        createRunAudit(ownerUserId, conversation.getId(), runId, now);
+        runAuditService.createRunAudit(ownerUserId, conversation.getId(), runId, now);
 
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
-        ActiveAgentRun activeRun = new ActiveAgentRun(ownerUserId, runId, conversation.getId(), emitter);
-        activeRuns.put(runId, activeRun);
-        emitter.onCompletion(() -> activeRuns.remove(runId));
-        emitter.onTimeout(() -> activeRuns.remove(runId));
-        emitter.onError(ignored -> activeRuns.remove(runId));
+        RunAuditService.ActiveAgentRun activeRun = new RunAuditService.ActiveAgentRun(ownerUserId, runId, conversation.getId(), emitter);
+        runAuditService.registerRun(activeRun);
+        emitter.onCompletion(() -> runAuditService.removeRun(runId));
+        emitter.onTimeout(() -> runAuditService.removeRun(runId));
+        emitter.onError(ignored -> runAuditService.removeRun(runId));
         CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
             try {
                 runChatStream(ownerUserId, conversation, message, runId, emitter);
-            } catch (AgentRunCancelledException ignored) {
+            } catch (RunAuditService.AgentRunCancelledException ignored) {
                 // cancelRun 已向客户端发送 run_cancelled；worker 负责收尾关闭 emitter。
                 activeRun.complete();
             } catch (Exception ex) {
-                finishRunAudit(
+                runAuditService.finishRunAudit(
                     ownerUserId,
                     runId,
                     "failed",
@@ -390,7 +367,7 @@ public class V2AgentAiService {
                     System.currentTimeMillis()
                 );
                 try {
-                    sendEvent(emitter, eventMap("error", Map.of(
+                    sseStreamEmitter.sendEvent(emitter, SseStreamEmitter.eventMap("error", Map.of(
                         "run_id", runId,
                         "code", "STREAM_ERROR",
                         "message", ex.getMessage() != null ? ex.getMessage() : "stream failed",
@@ -401,7 +378,7 @@ public class V2AgentAiService {
                 }
                 emitter.completeWithError(ex);
             } finally {
-                activeRuns.remove(runId);
+                runAuditService.removeRun(runId);
             }
         }, streamExecutor);
         activeRun.attachFuture(future);
@@ -411,7 +388,7 @@ public class V2AgentAiService {
     public V2AgentDtos.AgentRunCancelResponse cancelRun(String runId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         String normalizedRunId = normalizeRequired(runId, "run_id 不能为空");
-        ActiveAgentRun activeRun = activeRuns.get(normalizedRunId);
+        RunAuditService.ActiveAgentRun activeRun = runAuditService.getActiveRun(normalizedRunId);
         if (activeRun == null || !activeRun.ownerUserId().equals(ownerUserId)) {
             return new V2AgentDtos.AgentRunCancelResponse(normalizedRunId, "not_found", false);
         }
@@ -420,8 +397,8 @@ public class V2AgentAiService {
         }
         activeRun.cancel();
         longCatAnthropicClient.cancelStream(normalizedRunId);
-        emitRunCancelled(activeRun.emitter(), normalizedRunId, "用户已停止生成");
-        finishRunAudit(
+        sseStreamEmitter.emitRunCancelled(activeRun.emitter(), normalizedRunId, "用户已停止生成");
+        runAuditService.finishRunAudit(
             ownerUserId,
             normalizedRunId,
             "cancelled",
@@ -435,7 +412,7 @@ public class V2AgentAiService {
         );
         if (activeRun.cancelFutureIfNotStarted()) {
             activeRun.complete();
-            activeRuns.remove(normalizedRunId);
+            runAuditService.removeRun(normalizedRunId);
         }
         return new V2AgentDtos.AgentRunCancelResponse(normalizedRunId, "cancelled", true);
     }
@@ -443,7 +420,7 @@ public class V2AgentAiService {
     public V2AgentDtos.AgentRunAuditResponse getRunAudit(String runId) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         String normalizedRunId = normalizeRequired(runId, "run_id 不能为空");
-        awaitRunAuditEvents(normalizedRunId);
+        runAuditService.awaitRunAuditEvents(normalizedRunId);
         AgentRunAuditEntity audit = agentRunAuditRepository.findByRunIdAndOwnerUserId(normalizedRunId, ownerUserId)
             .orElseThrow(() -> new IllegalArgumentException("run audit not found"));
         List<V2AgentDtos.AgentRunAuditEventResponse> events = agentRunAuditEventRepository
@@ -465,7 +442,7 @@ public class V2AgentAiService {
             audit.getAuditWriteFailedCount(),
             Boolean.TRUE.equals(audit.getAuditLossy()),
             audit.getEmittedEventCount(),
-            auditWarnings(audit),
+            runAuditService.auditWarnings(audit),
             audit.getAuditId(),
             audit.getTraceId(),
             audit.getErrorCode(),
@@ -484,42 +461,41 @@ public class V2AgentAiService {
         String runId,
         SseEmitter emitter
     ) throws IOException {
-        boolean registeredForDirectRun = activeRuns.putIfAbsent(
-            runId,
-            new ActiveAgentRun(ownerUserId, runId, conversation.getId(), emitter)
-        ) == null;
-        ensureRunAuditStarted(ownerUserId, conversation.getId(), runId, System.currentTimeMillis());
+        boolean registeredForDirectRun = runAuditService.registerRunIfAbsent(
+            new RunAuditService.ActiveAgentRun(ownerUserId, runId, conversation.getId(), emitter)
+        );
+        runAuditService.ensureRunAuditStarted(ownerUserId, conversation.getId(), runId, System.currentTimeMillis());
         try {
-            String auditId = auditIdFor(runId);
-            String traceId = traceIdFor(runId);
-            sendEvent(emitter, eventMap("run_started", Map.of(
+            String auditId = RunAuditService.auditIdFor(runId);
+            String traceId = RunAuditService.traceIdFor(runId);
+            sseStreamEmitter.sendEvent(emitter, SseStreamEmitter.eventMap("run_started", Map.of(
                 "run_id", runId,
                 "conversation_id", conversation.getId(),
                 "audit_id", auditId,
                 "trace_id", traceId,
-                "observability", observabilityFor(runId, auditId, traceId),
+                "observability", SseStreamEmitter.observabilityFor(runId, auditId, traceId),
                 "timestamp", System.currentTimeMillis()
             )));
-            ensureRunActive(runId);
+            runAuditService.ensureRunActive(runId);
 
-            sendEvent(emitter, eventMap("safety_check_started", Map.of(
+            sseStreamEmitter.sendEvent(emitter, SseStreamEmitter.eventMap("safety_check_started", Map.of(
                 "run_id", runId,
                 "timestamp", System.currentTimeMillis()
             )));
-            ensureRunActive(runId);
+            runAuditService.ensureRunActive(runId);
 
-            SafetyDecision safetyDecision = evaluateSafety(message);
+            SafetyDecision safetyDecision = safetyGuard.evaluateSafety(message);
             if (!safetyDecision.passed()) {
-                sendEvent(emitter, eventMap("safety_check_blocked", mapOf(
+                sseStreamEmitter.sendEvent(emitter, SseStreamEmitter.eventMap("safety_check_blocked", mapOf(
                     "run_id", runId,
                     "reason", safetyDecision.reason(),
                     "suggested_action", "改成仅查询当前登录账号可见的数据",
                     "timestamp", System.currentTimeMillis()
                 )));
                 String blockedAnswer = "这个请求涉及越权或高风险操作，我不能直接执行。";
-                emitAnswerCompleted(emitter, runId, blockedAnswer, "blocked", "not_requested", "safety");
+                sseStreamEmitter.emitAnswerCompleted(emitter, runId, blockedAnswer, "blocked", "not_requested", "safety");
                 persistAssistantResponse(ownerUserId, conversation, blockedAnswer, List.of(), System.currentTimeMillis());
-                sendEvent(emitter, eventMap("run_completed", mapOf(
+                sseStreamEmitter.sendEvent(emitter, SseStreamEmitter.eventMap("run_completed", mapOf(
                     "run_id", runId,
                     "final_answer", blockedAnswer,
                     "mode", "blocked",
@@ -527,10 +503,10 @@ public class V2AgentAiService {
                     "plan_source", "safety",
                     "audit_id", auditId,
                     "trace_id", traceId,
-                    "observability", observabilityFor(runId, auditId, traceId),
+                    "observability", SseStreamEmitter.observabilityFor(runId, auditId, traceId),
                     "timestamp", System.currentTimeMillis()
                 )));
-                finishRunAudit(
+                runAuditService.finishRunAudit(
                     ownerUserId,
                     runId,
                     "blocked",
@@ -546,19 +522,19 @@ public class V2AgentAiService {
                 return;
             }
 
-            sendEvent(emitter, eventMap("safety_check_passed", Map.of(
+            sseStreamEmitter.sendEvent(emitter, SseStreamEmitter.eventMap("safety_check_passed", Map.of(
                 "run_id", runId,
                 "timestamp", System.currentTimeMillis()
             )));
-            ensureRunActive(runId);
+            runAuditService.ensureRunActive(runId);
             ResponsePayload payload = buildResponse(ownerUserId, message, emitter, runId);
-            ensureRunActive(runId);
+            runAuditService.ensureRunActive(runId);
             List<AgentMessageEntity> history = loadRecentHistory(ownerUserId, conversation.getId(), 10);
             AtomicBoolean blocksEmitted = new AtomicBoolean(false);
             Runnable emitBlocksAfterVisibleAnswer = () -> {
                 if (blocksEmitted.compareAndSet(false, true)) {
-                    emitBlocks(emitter, runId, payload.blocks());
-                    ensureRunActive(runId);
+                    sseStreamEmitter.emitBlocks(emitter, runId, payload.blocks());
+                    runAuditService.ensureRunActive(runId);
                 }
             };
             FinalAnswer finalAnswer = buildFinalAnswerForStream(
@@ -570,8 +546,8 @@ public class V2AgentAiService {
                 history,
                 conversation.getLatestSummary()
             );
-            ensureRunActive(runId);
-            emitAnswerCompleted(
+            runAuditService.ensureRunActive(runId);
+            sseStreamEmitter.emitAnswerCompleted(
                 emitter,
                 runId,
                 finalAnswer.answer(),
@@ -581,7 +557,7 @@ public class V2AgentAiService {
             );
             emitBlocksAfterVisibleAnswer.run();
             persistAssistantResponse(ownerUserId, conversation, finalAnswer.answer(), payload.blocks(), System.currentTimeMillis());
-            sendEvent(emitter, eventMap("run_completed", mapOf(
+            sseStreamEmitter.sendEvent(emitter, SseStreamEmitter.eventMap("run_completed", mapOf(
                 "run_id", runId,
                 "final_answer", finalAnswer.answer(),
                 "mode", finalAnswer.mode(),
@@ -589,10 +565,10 @@ public class V2AgentAiService {
                 "plan_source", payload.planSource(),
                 "audit_id", auditId,
                 "trace_id", traceId,
-                "observability", observabilityFor(runId, auditId, traceId),
+                "observability", SseStreamEmitter.observabilityFor(runId, auditId, traceId),
                 "timestamp", System.currentTimeMillis()
             )));
-            finishRunAudit(
+            runAuditService.finishRunAudit(
                 ownerUserId,
                 runId,
                 "completed",
@@ -607,7 +583,7 @@ public class V2AgentAiService {
             emitter.complete();
         } finally {
             if (registeredForDirectRun) {
-                activeRuns.remove(runId);
+                runAuditService.removeRun(runId);
             }
         }
     }
@@ -619,15 +595,39 @@ public class V2AgentAiService {
     private ResponsePayload buildResponse(Long ownerUserId, String message, SseEmitter emitter, String runId) {
         AgentToolPlan plan = planTools(message);
         emitPlan(emitter, runId, plan);
+        boolean createIntentPlan = containsCreateOnlyTool(plan);
 
         List<V2AgentDtos.ResultBlockDto> blocks = new ArrayList<>();
         List<String> answers = new ArrayList<>();
         List<ToolExecutionResult> toolResults = new ArrayList<>();
         List<ToolFailureResult> toolFailures = new ArrayList<>();
         executeToolPlan(ownerUserId, emitter, runId, plan, blocks, answers, toolResults, toolFailures);
+        if (createIntentPlan) {
+            emitDraftCreatedEvents(emitter, runId, toolResults);
+        }
 
-        // Agent 循环：若 LLM 规划的工具全部无结果，用关键词兜底重试一轮
-        if (answers.isEmpty() && "llm".equals(plan.source()) && !plan.tools().isEmpty()) {
+        // ReAct 多轮迭代：每轮工具执行后，由 LLM 判断是否需要补充查询，最多 MAX_AGENT_ITERATIONS 轮
+        for (int iteration = 2; !createIntentPlan && iteration <= MAX_AGENT_ITERATIONS; iteration++) {
+            if (!longCatAnthropicClient.isConfigured()) {
+                break;
+            }
+            Optional<AgentToolPlan> nextPlan = planNextIteration(message, toolResults, iteration);
+            if (nextPlan.isEmpty()) {
+                break;
+            }
+            AgentToolPlan iterationPlan = nextPlan.get();
+            emitPlan(emitter, runId, iterationPlan);
+            executeToolPlan(ownerUserId, emitter, runId, iterationPlan, blocks, answers, toolResults, toolFailures);
+            plan = new AgentToolPlan(
+                mergeTools(plan.tools(), iterationPlan.tools()),
+                plan.rationale() + " + 迭代补充(" + iteration + ")",
+                "react_iterated",
+                mergeToolParams(plan.toolParams(), iterationPlan.toolParams())
+            );
+        }
+
+        // 兼容降级：若 LLM 规划的工具全部无结果且未触发迭代，用关键词兜底重试一轮
+        if (!createIntentPlan && answers.isEmpty() && "llm".equals(plan.source()) && !plan.tools().isEmpty()) {
             AgentToolPlan fallbackPlan = inferToolPlan(message);
             if (!fallbackPlan.tools().isEmpty() && !fallbackPlan.tools().equals(plan.tools())) {
                 emitPlan(emitter, runId, fallbackPlan);
@@ -639,7 +639,7 @@ public class V2AgentAiService {
         }
 
         if (!toolResults.isEmpty()) {
-            ensureRunActive(runId);
+            runAuditService.ensureRunActive(runId);
             V2AgentDtos.ResultBlockDto evidenceBlock = buildEvidenceBlock(runId, toolResults);
             blocks.add(evidenceBlock);
         }
@@ -651,24 +651,137 @@ public class V2AgentAiService {
         return new ResponsePayload(String.join("\n", answers), blocks, toolResults, toolFailures, plan);
     }
 
+    private boolean containsCreateOnlyTool(AgentToolPlan plan) {
+        if (plan == null || plan.tools() == null || plan.tools().isEmpty()) {
+            return false;
+        }
+        for (String toolName : plan.tools()) {
+            Optional<AgentTool> tool = toolRegistry.getTool(toolName);
+            if (tool.isPresent() && tool.get().type() == AgentTool.ToolType.CREATE_ONLY) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void emitDraftCreatedEvents(SseEmitter emitter, String runId, List<ToolExecutionResult> toolResults) {
+        if (emitter == null || !StringUtils.hasText(runId) || toolResults == null || toolResults.isEmpty()) {
+            return;
+        }
+        for (ToolExecutionResult toolResult : toolResults) {
+            JsonNode facts = toolResult.facts();
+            if (facts == null || facts.isMissingNode()) {
+                continue;
+            }
+            long draftId = facts.path("draft_id").asLong(0L);
+            if (draftId <= 0L) {
+                continue;
+            }
+            try {
+                sseStreamEmitter.sendEvent(emitter, SseStreamEmitter.eventMap("draft_created", mapOf(
+                    "run_id", runId,
+                    "draft_id", draftId,
+                    "draft_type", facts.path("draft_type").asText("unknown"),
+                    "title", facts.path("title").asText(""),
+                    "status", facts.path("status").asText("active"),
+                    "tool_name", toolResult.toolName(),
+                    "summary", toolResult.summary(),
+                    "timestamp", System.currentTimeMillis()
+                )));
+            } catch (IOException ex) {
+                throw new IllegalStateException("发送 draft_created 失败", ex);
+            }
+        }
+    }
+
+    /**
+     * ReAct 迭代：基于已收集的工具结果，询问 LLM 是否需要补充查询。
+     *
+     * <p>将用户问题与已执行工具的摘要拼成提示，由 LLM 决定是否追加工具调用。
+     * 终止条件（返回 empty）：
+     * <ul>
+     *   <li>达到 {@link #MAX_AGENT_ITERATIONS} 上限</li>
+     *   <li>LLM 未配置</li>
+     *   <li>已有工具结果且 LLM 判断无需继续</li>
+     *   <li>LLM 返回的 JSON 无有效工具</li>
+     * </ul>
+     *
+     * @param message      用户原始问题
+     * @param toolResults  已收集的工具结果
+     * @param iteration    当前迭代轮次（从 2 开始）
+     * @return 下一轮工具规划 Optional；无需继续时为 empty
+     */
+    private Optional<AgentToolPlan> planNextIteration(String message, List<ToolExecutionResult> toolResults, int iteration) {
+        if (iteration > MAX_AGENT_ITERATIONS || !longCatAnthropicClient.isConfigured()) {
+            return Optional.empty();
+        }
+        String toolCatalog = toolRegistry.buildToolCatalogForLlm();
+        if (toolCatalog.isBlank()) {
+            return Optional.empty();
+        }
+        StringBuilder contextBuilder = new StringBuilder();
+        for (ToolExecutionResult result : toolResults) {
+            contextBuilder.append("- ").append(result.toolName()).append("：").append(result.summary()).append('\n');
+        }
+        String executedContext = contextBuilder.length() > 0
+            ? "已执行工具及结果摘要：\n" + contextBuilder
+            : "上一轮工具未返回有效结果。\n";
+        String systemPrompt = "你是智慧记的工具规划器。根据用户问题与已查询结果，判断是否需要补充查询其他工具。\n"
+            + "可选工具：\n"
+            + toolCatalog
+            + "若已收集到足够信息回答用户问题，输出 {\"tools\":[]}。\n"
+            + "若需要补充查询，输出 {\"tools\":[{\"name\":\"...\",\"params\":{...}}],\"rationale\":\"...\"}，最多 2 个补充工具。\n"
+            + "只输出 JSON，不要输出 Markdown。";
+        String userPrompt = "用户问题：" + message + "\n"
+            + executedContext
+            + "请判断是否需要补充查询。";
+        return longCatAnthropicClient.createJsonMessage(systemPrompt, userPrompt).flatMap(this::parseToolPlan);
+    }
+
+    private List<String> mergeTools(List<String> existing, List<String> additional) {
+        List<String> merged = new ArrayList<>(existing);
+        for (String tool : additional) {
+            if (!merged.contains(tool)) {
+                merged.add(tool);
+            }
+        }
+        return merged;
+    }
+
+    private Map<String, JsonNode> mergeToolParams(Map<String, JsonNode> existing, Map<String, JsonNode> additional) {
+        Map<String, JsonNode> merged = new LinkedHashMap<>(existing);
+        merged.putAll(additional);
+        return merged;
+    }
+
     private void executeToolPlan(Long ownerUserId, SseEmitter emitter, String runId, AgentToolPlan plan,
                                   List<V2AgentDtos.ResultBlockDto> blocks, List<String> answers,
                                   List<ToolExecutionResult> toolResults, List<ToolFailureResult> toolFailures) {
         for (String tool : plan.tools()) {
+            Map<String, Object> toolInput = defaultToolInput(plan.toolParams().get(tool));
+            SseStreamEmitter.ToolAudit audit = sseStreamEmitter.startToolAudit(emitter, runId, tool, toolInput);
             long startedAt = System.currentTimeMillis();
             try {
-                ensureRunActive(runId);
+                runAuditService.ensureRunActive(runId);
                 ResponsePayload payload = executePlannedTool(ownerUserId, emitter, runId, tool, plan.toolParams().get(tool));
-                ensureRunActive(runId);
+                runAuditService.ensureRunActive(runId);
                 if (payload != null) {
+                    populateToolAudit(audit, payload.toolResults());
                     answers.add(payload.answer());
                     blocks.addAll(payload.blocks());
                     toolResults.addAll(payload.toolResults());
+                    sseStreamEmitter.emitToolCompleted(
+                        emitter,
+                        runId,
+                        tool,
+                        payload.toolResults().isEmpty() ? "工具执行完成" : payload.toolResults().get(0).summary(),
+                        audit
+                    );
                 }
-            } catch (AgentRunCancelledException ex) {
+            } catch (RunAuditService.AgentRunCancelledException ex) {
                 throw ex;
             } catch (Exception ex) {
-                if (isStreamEmissionFailure(ex)) {
+                if (SseStreamEmitter.isStreamEmissionFailure(ex)) {
                     if (ex instanceof RuntimeException runtimeException) {
                         throw runtimeException;
                     }
@@ -676,14 +789,14 @@ public class V2AgentAiService {
                 }
                 String errorSummary = safeToolErrorSummary(ex);
                 toolFailures.add(new ToolFailureResult(tool, errorSummary));
-                emitToolFailed(
+                sseStreamEmitter.emitToolFailed(
                     emitter,
                     runId,
                     tool,
                     errorSummary,
                     System.currentTimeMillis() - startedAt,
                     startedAt,
-                    paramsToInputMap(plan.toolParams().get(tool))
+                    toolInput
                 );
             }
         }
@@ -710,8 +823,31 @@ public class V2AgentAiService {
      * @return 工具执行结果 Optional（未注册时返回 empty）
      */
     private Optional<ToolResult> executeRegisteredTool(Long ownerUserId, SseEmitter emitter, String runId, String tool, JsonNode params) {
-        ToolContext ctx = new ToolContext(ownerUserId, null, null, runId, emitter, objectMapper);
+        ToolContext ctx = new ToolContext(ownerUserId, null, null, runId, null, objectMapper);
         return toolRegistry.executeTool(tool, ctx, params);
+    }
+
+    private Map<String, Object> defaultToolInput(JsonNode params) {
+        Map<String, Object> input = paramsToInputMap(params);
+        if (input.isEmpty()) {
+            return Map.of("limit", 10);
+        }
+        return input;
+    }
+
+    private void populateToolAudit(SseStreamEmitter.ToolAudit audit, List<ToolExecutionResult> results) {
+        if (results == null || results.isEmpty()) {
+            return;
+        }
+        Map<String, Object> queryAudit = results.get(0).queryAudit();
+        Integer returnedCount = asInteger(queryAudit.get("returned_count"));
+        Integer limit = asInteger(queryAudit.get("limit"));
+        Boolean isTruncated = asBoolean(queryAudit.get("is_truncated"));
+        if (returnedCount != null && limit != null) {
+            audit.markLimitedResult(returnedCount, limit, Boolean.TRUE.equals(isTruncated));
+        } else if (returnedCount != null) {
+            audit.markReturned(returnedCount);
+        }
     }
 
     /**
@@ -749,6 +885,13 @@ public class V2AgentAiService {
         if (!longCatAnthropicClient.isConfigured()) {
             return Optional.empty();
         }
+        // 优先尝试原生 Function Calling（Anthropic Messages API 的 tool_use block）
+        // 不支持或模型未返回 tool_use 时降级到 JSON 字符串解析路径
+        Optional<AgentToolPlan> nativePlan = planToolsWithNativeFunctionCalling(message);
+        if (nativePlan.isPresent()) {
+            return nativePlan;
+        }
+        // 降级路径：prompt + JSON 解析（兼容 Chat Completions / Responses API 及不支持 tool_use 的模型）
         // 工具清单优先从注册表动态生成；注册表为空时降级为旧硬编码白名单（渐进式迁移兼容）
         String toolCatalog = toolRegistry.buildToolCatalogForLlm();
         String systemPrompt;
@@ -779,6 +922,96 @@ public class V2AgentAiService {
             + "请输出形如 {\"tools\":[{\"name\":\"sale_order_lookup\",\"params\":{\"keyword\":\"张三\"}}],\"rationale\":\"...\"} 的 JSON。"
             + "tools 最多 3 个，必须来自可选工具。params 为该工具的查询参数，根据用户问题提取，无参数时省略 params 字段。";
         return longCatAnthropicClient.createJsonMessage(systemPrompt, userPrompt).flatMap(this::parseToolPlan);
+    }
+
+    /**
+     * 原生 Function Calling 规划路径。
+     *
+     * <p>从 {@link ToolRegistry} 构建原生 {@code ToolDefinition} 列表，调用
+     * {@link LongCatAnthropicClient#createMessageWithTools}；模型返回 {@code tool_use}
+     * block 时直接转为 {@link AgentToolPlan}，无需正则提取 JSON。
+     *
+     * <p>仅 Anthropic Messages API 支持此路径；其他 wireApi 或模型未返回 tool_use 时返回 empty，
+     * 由 {@link #planToolsWithLlm} 降级到 JSON 字符串解析。
+     *
+     * @param message 用户问题
+     * @return 工具规划 Optional；无 tool_use 返回时为 empty
+     */
+    private Optional<AgentToolPlan> planToolsWithNativeFunctionCalling(String message) {
+        List<LongCatAnthropicClient.ToolDefinition> nativeTools = buildNativeToolDefinitions();
+        if (nativeTools.isEmpty()) {
+            return Optional.empty();
+        }
+        String systemPrompt = "你是智慧记的工具规划器。根据用户问题选择最相关的只读查询工具或创建类工具。\n"
+            + "只读工具直接返回查询结果；创建类工具生成草稿，需用户确认后才执行写入。\n"
+            + "不允许生成 SQL，不允许访问其他账号数据。最多选择 3 个工具。";
+        Optional<LongCatAnthropicClient.ToolUseResponse> response =
+            longCatAnthropicClient.createMessageWithTools(systemPrompt, message, nativeTools);
+        if (response.isEmpty() || !response.get().hasToolUses()) {
+            return Optional.empty();
+        }
+        List<String> tools = new ArrayList<>();
+        Map<String, JsonNode> toolParams = new LinkedHashMap<>();
+        for (LongCatAnthropicClient.ToolUseBlock toolUse : response.get().toolUses()) {
+            String toolName = toolUse.name();
+            if (!isAllowedTool(toolName) || tools.size() >= 3) {
+                continue;
+            }
+            if (tools.contains(toolName)) {
+                continue;
+            }
+            tools.add(toolName);
+            JsonNode input = toolUse.input();
+            if (input != null && input.isObject() && input.size() > 0) {
+                toolParams.put(toolName, input);
+            }
+        }
+        if (tools.isEmpty()) {
+            return Optional.empty();
+        }
+        String rationale = response.get().text() != null && !response.get().text().isBlank()
+            ? response.get().text()
+            : "模型通过原生 Function Calling 选择工具";
+        return Optional.of(new AgentToolPlan(tools, rationale, "native_tool_use", toolParams));
+    }
+
+    /**
+     * 从 {@link ToolRegistry} 构建原生 Function Calling 的工具定义列表。
+     *
+     * <p>合并只读工具与创建类工具，将每个工具的 {@link AgentTool#parameterSchema()}（JsonNode）
+     * 转为 {@code Map<String, Object>} 作为 {@code input_schema}。
+     *
+     * @return 工具定义列表；注册表为空时返回空列表
+     */
+    private List<LongCatAnthropicClient.ToolDefinition> buildNativeToolDefinitions() {
+        List<AgentTool> allTools = new ArrayList<>();
+        allTools.addAll(toolRegistry.listReadOnlyTools());
+        allTools.addAll(toolRegistry.listCreateTools());
+        if (allTools.isEmpty()) {
+            return List.of();
+        }
+        List<LongCatAnthropicClient.ToolDefinition> nativeTools = new ArrayList<>(allTools.size());
+        for (AgentTool tool : allTools) {
+            Map<String, Object> inputSchema = convertSchemaToMap(tool.parameterSchema());
+            nativeTools.add(new LongCatAnthropicClient.ToolDefinition(
+                tool.name(),
+                tool.description(),
+                inputSchema
+            ));
+        }
+        return nativeTools;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> convertSchemaToMap(JsonNode schema) {
+        if (schema == null || schema.isNull() || !schema.isObject()) {
+            return Map.of("type", "object", "properties", Map.of());
+        }
+        try {
+            return objectMapper.convertValue(schema, Map.class);
+        } catch (Exception ignored) {
+            return Map.of("type", "object", "properties", Map.of());
+        }
     }
 
     private Optional<AgentToolPlan> parseToolPlan(String rawText) {
@@ -832,49 +1065,425 @@ public class V2AgentAiService {
 
     private AgentToolPlan inferToolPlan(String message) {
         String normalized = message.toLowerCase(Locale.ROOT);
+        Optional<AgentToolPlan> createPlan = inferCreateToolPlan(message, normalized);
+        if (createPlan.isPresent()) {
+            return createPlan.get();
+        }
         Set<String> tools = new LinkedHashSet<>();
+        if (containsAny(normalized, "智能补货", "补货建议", "restock", "reorder", "replenishment")) {
+            tools.add("smart_restock_lookup");
+        }
         if (containsAny(normalized, "库存", "补货", "低库存", "缺货", "inventory", "stock", "low stock", "replenish")) {
             tools.add("inventory_low_stock_lookup");
+        }
+        if (containsAny(normalized, "库存全景", "库存健康", "库存周转", "panorama", "turnover")) {
+            tools.add("inventory_panorama_lookup");
         }
         if (containsAny(normalized, "商品", "sku", "品类", "目录", "售价", "进价", "product", "catalog", "price")) {
             tools.add("product_catalog_lookup");
         }
+        if (containsAny(normalized, "商品供应商", "供应商关联", "供货关系", "supplier relation", "vendor relation")) {
+            tools.add("product_supplier_relation_lookup");
+        }
+        if (containsAny(normalized, "价格等级", "价目", "price level", "pricing tier")) {
+            tools.add("product_price_level_lookup");
+        }
         if (containsAny(normalized, "欠款", "应收", "客户", "回款", "receivable", "customer", "collection")) {
             tools.add("customer_receivable_lookup");
+        }
+        if (containsAny(normalized, "客户画像", "客户分析", "客户档案", "profile", "customer insights")) {
+            tools.add("customer_profile_lookup");
         }
         if (containsAny(normalized, "供应商", "应付", "采购", "到货", "收货", "supplier", "payable", "purchase", "procurement")) {
             tools.add("supplier_payable_lookup");
             tools.add("purchase_order_lookup");
         }
+        if (containsAny(normalized, "供应商对账", "对账单", "statement", "supplier statement")) {
+            tools.add("supplier_statement_lookup");
+        }
+        if (containsAny(normalized, "采购跟踪", "采购进度", "入库退货", "tracking", "receipt flow")) {
+            tools.add("purchase_tracking_lookup");
+        }
         if (containsAny(normalized, "销售单", "订单", "成交", "收款", "付款情况", "sale order", "sales order", "order", "deal")) {
             tools.add("sale_order_lookup");
+        }
+        if (containsAny(normalized, "销售全链路", "销售链路", "退货收款", "full chain", "return flow")) {
+            tools.add("sales_full_chain_lookup");
         }
         if (containsAny(normalized, "付款单", "已付款", "待付款", "payment", "paid", "unpaid")) {
             tools.add("pay_order_lookup");
         }
+        if (containsAny(normalized, "账户健康", "收支比", "账户概览", "account health", "cash ratio")) {
+            tools.add("account_health_lookup");
+        }
         if (containsAny(normalized, "流水", "收入", "支出", "财务", "费用", "开支", "finance", "cashflow", "income", "expense")) {
             tools.add("finance_record_lookup");
         }
+        if (containsAny(normalized, "交叉分析", "多维分析", "综合分析", "cross analysis", "multi dimension")) {
+            tools.add("cross_analysis_lookup");
+        }
+        if (containsAny(normalized, "异常预警", "异常", "风险预警", "anomaly", "alert")) {
+            tools.add("anomaly_alert_lookup");
+        }
+        if (containsAny(normalized, "应收应付", "往来对账", "对账汇总", "reconciliation", "receivable payable")) {
+            tools.add("receivable_payable_lookup");
+        }
         if (containsAny(normalized, "经营", "概览", "销售", "最近", "7天", "七天", "business", "overview", "sales", "recent", "7 days")) {
             tools.add("sales_overview_lookup");
+        }
+        if (containsAny(normalized, "导出", "导出数据", "下载csv", "下载json", "export")) {
+            tools.add("data_export_tool");
+        }
+        if (containsAny(normalized, "门店", "店铺信息", "store info", "shop info")) {
+            tools.add("store_info_lookup");
+        }
+        if (containsAny(normalized, "导入任务", "导入状态", "import job", "import status")) {
+            tools.add("import_job_lookup");
+        }
+        if (containsAny(normalized, "同步状态", "同步任务", "sync status", "sync job")) {
+            tools.add("sync_status_lookup");
         }
         List<String> deduplicated = new ArrayList<>();
         for (String tool : tools) {
             if (isAllowedTool(tool)) {
                 deduplicated.add(tool);
             }
-            if (deduplicated.size() >= 4) {
+            if (deduplicated.size() >= 6) {
                 break;
             }
         }
-        return new AgentToolPlan(deduplicated, "根据问题关键词兜底选择只读查询工具", "keyword_fallback", Map.of());
+        return new AgentToolPlan(deduplicated, "根据问题关键词兜底选择已接入工具", "keyword_fallback", Map.of());
+    }
+
+    private Optional<AgentToolPlan> inferCreateToolPlan(String message, String normalized) {
+        if (!looksLikeCreateIntent(normalized)) {
+            return Optional.empty();
+        }
+        if (containsAny(normalized, "客户") && isAllowedTool("create_customer")) {
+            JsonNode params = buildCreateCustomerParams(message);
+            if (hasTextParam(params, "name")) {
+                return Optional.of(createOnlyPlan("create_customer", params, "根据自然语言兜底生成客户草稿"));
+            }
+        }
+        if (containsAny(normalized, "供应商") && isAllowedTool("create_supplier")) {
+            JsonNode params = buildCreateSupplierParams(message);
+            if (hasTextParam(params, "name")) {
+                return Optional.of(createOnlyPlan("create_supplier", params, "根据自然语言兜底生成供应商草稿"));
+            }
+        }
+        if (containsAny(normalized, "商品", "产品", "sku") && isAllowedTool("create_product")) {
+            JsonNode params = buildCreateProductParams(message);
+            if (hasTextParam(params, "name") && hasTextParam(params, "code")) {
+                return Optional.of(createOnlyPlan("create_product", params, "根据自然语言兜底生成商品草稿"));
+            }
+        }
+        if (containsAny(normalized, "付款单", "付款") && isAllowedTool("create_pay_order")) {
+            JsonNode params = buildCreatePayOrderParams(message);
+            if (hasTextParam(params, "supplier_name") && hasNumericParam(params, "amount")) {
+                return Optional.of(createOnlyPlan("create_pay_order", params, "根据自然语言兜底生成付款单草稿"));
+            }
+        }
+        if (containsAny(normalized, "流水", "记账", "记一笔", "收入", "支出", "报销", "开支", "费用", "finance", "expense", "income")
+            && isAllowedTool("create_finance_record")) {
+            JsonNode params = buildCreateFinanceRecordParams(message, normalized);
+            if (hasNumericParam(params, "amount") && hasNumericParam(params, "type")) {
+                return Optional.of(createOnlyPlan("create_finance_record", params, "根据自然语言兜底生成资金流水草稿"));
+            }
+        }
+        if (containsAny(normalized, "采购单", "采购订单") && isAllowedTool("create_purchase_order")) {
+            JsonNode params = buildCreatePurchaseOrderParams(message);
+            if (hasTextParam(params, "supplier_name")) {
+                return Optional.of(createOnlyPlan("create_purchase_order", params, "根据自然语言兜底生成采购单草稿"));
+            }
+        }
+        if (containsAny(normalized, "销售单", "销售订单", "开单", "下单") && isAllowedTool("create_sale_order")) {
+            JsonNode params = buildCreateSaleOrderParams(message);
+            if (hasTextParam(params, "customer_name")) {
+                return Optional.of(createOnlyPlan("create_sale_order", params, "根据自然语言兜底生成销售单草稿"));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private AgentToolPlan createOnlyPlan(String toolName, JsonNode params, String rationale) {
+        return new AgentToolPlan(
+            List.of(toolName),
+            rationale,
+            "keyword_fallback",
+            Map.of(toolName, params)
+        );
+    }
+
+    private JsonNode buildCreateCustomerParams(String message) {
+        var params = objectMapper.createObjectNode();
+        putText(params, "name", firstNonBlank(
+            extractNamedValue(message, "(?:客户名称|客户名|姓名|名称)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})"),
+            extractNamedValue(message, "(?:新建|新增|创建|添加)客户\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})"),
+            extractNamedValue(message, "客户\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})")
+        ));
+        putText(params, "phone", extractNamedValue(message, "(1\\d{10})"));
+        putText(params, "remark", extractRemark(message));
+        return params;
+    }
+
+    private JsonNode buildCreateSupplierParams(String message) {
+        var params = objectMapper.createObjectNode();
+        putText(params, "name", firstNonBlank(
+            extractNamedValue(message, "(?:供应商名称|供应商名|名称)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
+            extractNamedValue(message, "(?:新建|新增|创建|添加)供应商\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
+            extractNamedValue(message, "供应商\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})")
+        ));
+        putText(params, "phone", extractNamedValue(message, "(1\\d{10})"));
+        putText(params, "remark", extractRemark(message));
+        return params;
+    }
+
+    private JsonNode buildCreateProductParams(String message) {
+        var params = objectMapper.createObjectNode();
+        putText(params, "code", firstNonBlank(
+            extractNamedValue(message, "(?:编码|商品编码|code|CODE|sku|SKU)\\s*[:：]?\\s*([A-Za-z0-9_-]{2,32})"),
+            extractNamedValue(message, "(?:新建|新增|创建|添加)商品\\s*([A-Za-z0-9_-]{2,32})\\s+([\\p{IsHan}A-Za-z0-9_-]{2,32})", 1)
+        ));
+        putText(params, "name", firstNonBlank(
+            extractNamedValue(message, "(?:商品名称|产品名称|名称)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})"),
+            extractNamedValue(message, "(?:新建|新增|创建|添加)商品\\s*[A-Za-z0-9_-]{2,32}\\s+([\\p{IsHan}A-Za-z0-9_-]{2,32})"),
+            extractNamedValue(message, "(?:商品|产品)\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})")
+        ));
+        putDouble(params, "price", extractDecimal(message, "(?:售价|销售价|单价|价格)\\s*[:：]?\\s*([0-9]+(?:\\.[0-9]+)?)"));
+        putDouble(params, "cost", extractDecimal(message, "(?:成本|成本价|进价|采购价)\\s*[:：]?\\s*([0-9]+(?:\\.[0-9]+)?)"));
+        putDouble(params, "stock", extractDecimal(message, "(?:库存|期初库存|数量)\\s*[:：]?\\s*([0-9]+(?:\\.[0-9]+)?)"));
+        return params;
+    }
+
+    private JsonNode buildCreateSaleOrderParams(String message) {
+        var params = objectMapper.createObjectNode();
+        putText(params, "customer_name", firstNonBlank(
+            extractNamedValue(message, "(?:客户名称|客户名)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})"),
+            extractNamedValue(message, "帮\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})\\s*(?:开|下|做).{0,8}(?:销售单|销售订单|订单)"),
+            extractNamedValue(message, "给\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})\\s*(?:开|下|做).{0,8}(?:销售单|销售订单|订单)"),
+            extractNamedValue(message, "为\\s*([\\p{IsHan}A-Za-z0-9_-]{2,32})\\s*(?:开|下|做).{0,8}(?:销售单|销售订单|订单)")
+        ));
+        putText(params, "remark", firstNonBlank(
+            extractRemark(message),
+            message
+        ));
+        return params;
+    }
+
+    private JsonNode buildCreatePurchaseOrderParams(String message) {
+        var params = objectMapper.createObjectNode();
+        putText(params, "supplier_name", firstNonBlank(
+            extractNamedValue(message, "(?:供应商名称|供应商名)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
+            extractNamedValue(message, "向\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})\\s*(?:下|开|做).{0,8}(?:采购单|采购订单)"),
+            extractNamedValue(message, "给\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})\\s*(?:下|开|做).{0,8}(?:采购单|采购订单)")
+        ));
+        putText(params, "remark", firstNonBlank(
+            extractRemark(message),
+            message
+        ));
+        return params;
+    }
+
+    private JsonNode buildCreatePayOrderParams(String message) {
+        var params = objectMapper.createObjectNode();
+        putText(params, "supplier_name", firstNonBlank(
+            extractNamedValue(message, "(?:供应商名称|供应商名)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
+            extractNamedValue(message, "给\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})\\s*(?:付|付款|打款)"),
+            extractNamedValue(message, "向\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})\\s*(?:付|付款|打款)")
+        ));
+        putDouble(params, "amount", firstNonNull(
+            extractDecimal(message, "(?:金额|付款金额|支付金额)\\s*[:：]?\\s*([0-9]+(?:\\.[0-9]+)?)"),
+            extractDecimal(message, "([0-9]+(?:\\.[0-9]+)?)\\s*(?:元|块)")
+        ));
+        putText(params, "remark", firstNonBlank(
+            extractRemark(message),
+            message
+        ));
+        return params;
+    }
+
+    private JsonNode buildCreateFinanceRecordParams(String message, String normalized) {
+        var params = objectMapper.createObjectNode();
+        Integer type = inferFinanceRecordType(normalized);
+        if (type != null) {
+            params.put("type", type);
+        }
+        putDouble(params, "amount", firstNonNull(
+            extractDecimal(message, "(?:金额|支出|收入|报销|费用|开支)\\s*[:：]?\\s*([0-9]+(?:\\.[0-9]+)?)"),
+            extractDecimal(message, "([0-9]+(?:\\.[0-9]+)?)\\s*(?:元|块)")
+        ));
+        putText(params, "category", firstNonBlank(
+            extractNamedValue(message, "(?:分类|类目)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,32})"),
+            extractNamedValue(message, "记一笔\\s*([\\p{IsHan}]{2,16})(?:收入|支出|费用|开支|报销)"),
+            extractNamedValue(message, "([\\p{IsHan}]{2,16})(?:收入|支出|费用|开支|报销)")
+        ));
+        putText(params, "partner_name", firstNonBlank(
+            extractNamedValue(message, "(?:往来方|对方|对象)\\s*[:：]?\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})"),
+            extractNamedValue(message, "给\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})\\s*(?:报销|付款|打款|转账)"),
+            extractNamedValue(message, "向\\s*([\\p{IsHan}A-Za-z0-9_\\-()（）]{2,40})\\s*(?:收款|收费|付款|打款|转账)")
+        ));
+        putText(params, "remark", firstNonBlank(
+            extractRemark(message),
+            message
+        ));
+        return params;
+    }
+
+    private Integer inferFinanceRecordType(String normalized) {
+        if (!StringUtils.hasText(normalized)) {
+            return null;
+        }
+        if (containsAny(normalized, "收入", "收款", "入账", "到账", "income")) {
+            return 1;
+        }
+        if (containsAny(normalized, "支出", "费用", "开支", "报销", "付款", "expense")) {
+            return 2;
+        }
+        return null;
+    }
+
+    private boolean looksLikeCreateIntent(String normalized) {
+        return containsAny(normalized, "新建", "新增", "创建", "添加", "生成草稿", "建一个", "建个")
+            || containsAny(normalized, "记一笔", "记账", "记个", "报销一笔")
+            || (containsAny(normalized, "开单", "开一张", "开个", "下一张", "下一笔")
+            && containsAny(normalized, "销售单", "销售订单", "采购单", "采购订单", "付款单", "付款"));
+    }
+
+    private boolean hasTextParam(JsonNode params, String fieldName) {
+        return params != null && StringUtils.hasText(params.path(fieldName).asText(null));
+    }
+
+    private boolean hasNumericParam(JsonNode params, String fieldName) {
+        return params != null && params.hasNonNull(fieldName) && params.path(fieldName).isNumber();
+    }
+
+    private void putText(JsonNode params, String fieldName, String value) {
+        if (params instanceof com.fasterxml.jackson.databind.node.ObjectNode objectNode && StringUtils.hasText(value)) {
+            objectNode.put(fieldName, value.trim());
+        }
+    }
+
+    private void putDouble(JsonNode params, String fieldName, Double value) {
+        if (params instanceof com.fasterxml.jackson.databind.node.ObjectNode objectNode && value != null) {
+            objectNode.put(fieldName, value);
+        }
+    }
+
+    private String extractNamedValue(String message, String regex) {
+        return extractNamedValue(message, regex, 1);
+    }
+
+    private String extractNamedValue(String message, String regex, int group) {
+        if (!StringUtils.hasText(message)) {
+            return null;
+        }
+        Matcher matcher = Pattern.compile(regex, Pattern.CASE_INSENSITIVE).matcher(message);
+        if (!matcher.find()) {
+            return null;
+        }
+        return normalizeExtractedText(matcher.group(group));
+    }
+
+    private Double extractDecimal(String message, String regex) {
+        String text = extractNamedValue(message, regex);
+        if (!StringUtils.hasText(text)) {
+            return null;
+        }
+        try {
+            return Double.parseDouble(text);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private String extractRemark(String message) {
+        return firstNonBlank(
+            extractNamedValue(message, "(?:备注|说明)\\s*[:：]?\\s*([^，。,；;]+)"),
+            extractNamedValue(message, "(?:备注|说明)\\s+(.+)$")
+        );
+    }
+
+    private String normalizeExtractedText(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.replaceAll("^[\\s:：,，。;；]+|[\\s,，。;；]+$", "").trim();
+    }
+
+    private String firstNonBlank(String... candidates) {
+        for (String candidate : candidates) {
+            if (StringUtils.hasText(candidate)) {
+                return candidate.trim();
+            }
+        }
+        return null;
+    }
+
+    @SafeVarargs
+    private final <T> T firstNonNull(T... candidates) {
+        for (T candidate : candidates) {
+            if (candidate != null) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private boolean isAllowedTool(String tool) {
         Optional<AgentTool> registered = toolRegistry.getTool(tool);
-        return registered.isPresent() && (registered.get().type() == AgentTool.ToolType.READ_ONLY
-            || registered.get().type() == AgentTool.ToolType.CREATE_ONLY);
+        if (registered.isPresent()) {
+            return registered.get().type() == AgentTool.ToolType.READ_ONLY
+                || registered.get().type() == AgentTool.ToolType.CREATE_ONLY;
+        }
+        // 注册表未命中时回退到内置只读工具白名单（兼容 ToolRegistry 为空的测试场景；
+        // 生产环境 ToolRegistry 自动扫描 @Component 工具，不会走到此处）
+        return ALLOWED_READONLY_TOOLS.contains(tool);
     }
+
+    /** 内置只读工具白名单，用于注册表为空时的兜底鉴权。 */
+    private static final java.util.Set<String> ALLOWED_READONLY_TOOLS = java.util.Set.of(
+        "inventory_low_stock_lookup",
+        "product_catalog_lookup",
+        "customer_receivable_lookup",
+        "supplier_payable_lookup",
+        "purchase_order_lookup",
+        "sale_order_lookup",
+        "pay_order_lookup",
+        "finance_record_lookup",
+        "sales_overview_lookup",
+        "sales_return_lookup",
+        "purchase_receipt_lookup",
+        "purchase_return_lookup",
+        "inventory_ledger_lookup",
+        "inventory_snapshot_lookup",
+        "payment_lookup",
+        "account_balance_lookup",
+        "account_transfer_lookup",
+        "cash_change_lookup",
+        "product_category_lookup",
+        "partner_group_lookup",
+        "partner_contact_lookup",
+        "sales_trend_lookup",
+        "cashflow_summary_lookup",
+        "inventory_adjustment_lookup",
+        "report_query",
+        "sales_full_chain_lookup",
+        "purchase_tracking_lookup",
+        "inventory_panorama_lookup",
+        "customer_profile_lookup",
+        "account_health_lookup",
+        "receivable_payable_lookup",
+        "supplier_statement_lookup",
+        "product_supplier_relation_lookup",
+        "product_price_level_lookup",
+        "import_job_lookup",
+        "sync_status_lookup",
+        "smart_restock_lookup",
+        "cross_analysis_lookup",
+        "anomaly_alert_lookup",
+        "data_export_tool",
+        "store_info_lookup"
+    );
 
 
     private List<List<Object>> buildSaleOrderRows(List<SaleOrderEntity> orders) {
@@ -1107,9 +1716,9 @@ public class V2AgentAiService {
         String systemPrompt = finalAnswerSystemPrompt(conversationSummary);
         String prompt = finalAnswerUserPrompt(userMessage, payload, synthesizedWithFailures, history);
         StringBuilder streamedAnswer = new StringBuilder();
-        AnswerDeltaBatcher answerDeltaBatcher = new AnswerDeltaBatcher(emitter, runId);
+        SseStreamEmitter.AnswerDeltaBatcher answerDeltaBatcher = sseStreamEmitter.newAnswerDeltaBatcher(emitter, runId);
         Optional<String> streamed = longCatAnthropicClient.streamTextMessage(systemPrompt, prompt, runId, delta -> {
-            ensureRunActive(runId);
+            runAuditService.ensureRunActive(runId);
             streamedAnswer.append(delta);
             boolean emittedVisibleDelta = answerDeltaBatcher.accept(delta, "model_stream");
             if (emittedVisibleDelta) {
@@ -1150,7 +1759,7 @@ public class V2AgentAiService {
         }
         String serverNoticeTail = normalizedFinalAnswer.substring(visibleAnswer.length());
         if (StringUtils.hasText(serverNoticeTail)) {
-            emitAnswerDeltaUnchecked(emitter, runId, serverNoticeTail, "server_notice");
+            sseStreamEmitter.emitAnswerDeltaUnchecked(emitter, runId, serverNoticeTail, "server_notice");
         }
         return finalAnswer;
     }
@@ -1192,7 +1801,7 @@ public class V2AgentAiService {
         }
         boolean emittedVisibleDelta = false;
         for (String chunk : chunkAnswerForVisibleStream(answer)) {
-            emitAnswerDeltaUnchecked(emitter, runId, chunk, deltaSource);
+            sseStreamEmitter.emitAnswerDeltaUnchecked(emitter, runId, chunk, deltaSource);
             if (!emittedVisibleDelta) {
                 emittedVisibleDelta = true;
                 onFirstVisibleDelta.run();
@@ -1315,7 +1924,7 @@ public class V2AgentAiService {
         if (toolResults != null) {
             for (ToolExecutionResult result : toolResults) {
                 Map<String, Object> audit = result.queryAudit();
-                String toolCallId = toolCallId(runId, result.toolName());
+                String toolCallId = RunAuditService.toolCallId(runId, result.toolName());
                 items.add(mapOf(
                     "label", result.toolName(),
                     "value", result.summary(),
@@ -1354,7 +1963,7 @@ public class V2AgentAiService {
             for (ToolExecutionResult result : payload.toolResults()) {
                 Map<String, Object> audit = result.queryAudit();
                 calls.add(new V2AgentDtos.AgentToolCallDto(
-                    toolCallId(runId, result.toolName()),
+                    RunAuditService.toolCallId(runId, result.toolName()),
                     result.toolName(),
                     "completed",
                     compactJson(audit.get("tool_input")),
@@ -1373,7 +1982,7 @@ public class V2AgentAiService {
         if (payload.toolFailures() != null) {
             for (ToolFailureResult failure : payload.toolFailures()) {
                 calls.add(new V2AgentDtos.AgentToolCallDto(
-                    toolCallId(runId, failure.toolName()),
+                    RunAuditService.toolCallId(runId, failure.toolName()),
                     failure.toolName(),
                     "failed",
                     null,
@@ -1406,7 +2015,7 @@ public class V2AgentAiService {
             if (evidenceItems.isEmpty()) {
                 refs.add(new V2AgentDtos.AgentEvidenceRefDto(
                     "evidence-" + index++,
-                    toolCallId(runId, result.toolName()),
+                    RunAuditService.toolCallId(runId, result.toolName()),
                     result.toolName(),
                     result.toolName(),
                     result.summary(),
@@ -1418,7 +2027,7 @@ public class V2AgentAiService {
             for (Map<String, String> item : evidenceItems) {
                 refs.add(new V2AgentDtos.AgentEvidenceRefDto(
                     "evidence-" + index++,
-                    toolCallId(runId, result.toolName()),
+                    RunAuditService.toolCallId(runId, result.toolName()),
                     result.toolName(),
                     item.get("label"),
                     item.get("value"),
@@ -1451,6 +2060,13 @@ public class V2AgentAiService {
                 addEvidenceItem(items, result, "应付供应商数", "supplier_count", "个");
                 addEvidenceItem(items, result, "应付总额", "total_payable", null);
                 addEvidenceItem(items, result, "Top10 应付合计", "top10_payable_total", null);
+            }
+            case "receivable_payable_lookup" -> {
+                addEvidenceItem(items, result, "应收客户数", "receivable_customer_count", "个");
+                addEvidenceItem(items, result, "应付供应商数", "payable_supplier_count", "个");
+                addEvidenceItem(items, result, "应收总额", "total_receivable", null);
+                addEvidenceItem(items, result, "应付总额", "total_payable", null);
+                addEvidenceItem(items, result, "净敞口", "net_exposure", null);
             }
             case "sales_overview_lookup" -> {
                 addEvidenceItem(items, result, "近7天销售额", "sales_amount", null);
@@ -1543,29 +2159,6 @@ public class V2AgentAiService {
             return bool;
         }
         return null;
-    }
-
-    private String toolCallId(String runId, String toolName) {
-        return (StringUtils.hasText(runId) ? runId : "run") + ":" + safeText(toolName, "tool");
-    }
-
-    private String auditIdFor(String runId) {
-        return toolCallId(runId, "audit");
-    }
-
-    private String traceIdFor(String runId) {
-        return toolCallId(runId, "trace");
-    }
-
-    private V2AgentDtos.AgentObservabilityDto observabilityFor(String runId, String auditId, String traceId) {
-        String safeRunId = safeText(runId, "run");
-        return new V2AgentDtos.AgentObservabilityDto(
-            safeRunId,
-            safeRunId,
-            traceId,
-            auditId,
-            "agent-run:" + safeRunId
-        );
     }
 
     private String appendFailureNotice(String answer, List<ToolFailureResult> toolFailures) {
@@ -1838,23 +2431,6 @@ public class V2AgentAiService {
         return objectMapper.valueToTree(value);
     }
 
-    private void emitBlocks(SseEmitter emitter, String runId, List<V2AgentDtos.ResultBlockDto> blocks) {
-        if (emitter == null || runId == null) {
-            return;
-        }
-        for (V2AgentDtos.ResultBlockDto block : blocks) {
-            try {
-                sendEvent(emitter, eventMap("result_block", mapOf(
-                    "run_id", runId,
-                    "block", block,
-                    "timestamp", System.currentTimeMillis()
-                )));
-            } catch (IOException ex) {
-                throw new IllegalStateException("发送 result_block 失败", ex);
-            }
-        }
-    }
-
     private void emitPlan(SseEmitter emitter, String runId, AgentToolPlan plan) {
         if (emitter == null || runId == null || plan == null) {
             return;
@@ -1863,7 +2439,7 @@ public class V2AgentAiService {
             String content = plan.tools().isEmpty()
                 ? plan.rationale() + "：当前问题未匹配到已接入的真实查询工具"
                 : plan.rationale() + "：" + String.join("、", plan.tools());
-            sendEvent(emitter, eventMap("plan_delta", mapOf(
+            sseStreamEmitter.sendEvent(emitter, SseStreamEmitter.eventMap("plan_delta", mapOf(
                 "run_id", runId,
                 "plan_source", plan.source(),
                 "content", content,
@@ -1874,447 +2450,14 @@ public class V2AgentAiService {
         }
     }
 
-    private void emitToolStarted(SseEmitter emitter, String runId, String toolName, Map<String, Object> toolInput) {
-        if (emitter == null || runId == null) {
-            return;
-        }
-        try {
-            sendEvent(emitter, eventMap("tool_started", mapOf(
-                "run_id", runId,
-                "tool_call_id", toolCallId(runId, toolName),
-                "tool_name", toolName,
-                "input_summary", toolInputSummary(toolName, toolInput),
-                "query_window", queryWindowFor(toolInput),
-                "tool_input", toolInput,
-                "started_at", System.currentTimeMillis(),
-                "audit_id", auditIdFor(runId),
-                "trace_id", traceIdFor(runId),
-                "timestamp", System.currentTimeMillis()
-            )));
-        } catch (IOException ex) {
-            throw new IllegalStateException("发送 tool_started 失败", ex);
-        }
-    }
-
-    private ToolAudit startToolAudit(
-        SseEmitter emitter,
-        String runId,
-        String toolName,
-        Map<String, Object> toolInput
-    ) {
-        ToolAudit audit = new ToolAudit(toolName, toolInput, System.currentTimeMillis());
-        emitToolStarted(emitter, runId, toolName, toolInput);
-        return audit;
-    }
-
-    private void emitToolCompleted(SseEmitter emitter, String runId, String toolName, String resultSummary) {
-        emitToolCompleted(emitter, runId, toolName, resultSummary, null);
-    }
-
-    private void emitToolCompleted(
-        SseEmitter emitter,
-        String runId,
-        String toolName,
-        String resultSummary,
-        ToolAudit audit
-    ) {
-        if (emitter == null || runId == null) {
-            return;
-        }
-        try {
-            Map<String, Object> payload = mapOf(
-                "run_id", runId,
-                "tool_call_id", toolCallId(runId, toolName),
-                "tool_name", toolName,
-                "result_summary", resultSummary,
-                "audit_id", auditIdFor(runId),
-                "trace_id", traceIdFor(runId),
-                "timestamp", System.currentTimeMillis()
-            );
-            if (audit != null) {
-                payload.putAll(audit.eventFields());
-            }
-            sendEvent(emitter, eventMap("tool_completed", payload));
-        } catch (IOException ex) {
-            throw new IllegalStateException("发送 tool_completed 失败", ex);
-        }
-    }
-
-    private void emitToolFailed(SseEmitter emitter, String runId, String toolName, String safeMessage, long durationMs) {
-        emitToolFailed(emitter, runId, toolName, safeMessage, durationMs, System.currentTimeMillis(), Map.of());
-    }
-
-    private void emitToolFailed(
-        SseEmitter emitter,
-        String runId,
-        String toolName,
-        String safeMessage,
-        long durationMs,
-        long startedAt,
-        Map<String, Object> toolInput
-    ) {
-        if (emitter == null || runId == null) {
-            return;
-        }
-        long completedAt = System.currentTimeMillis();
-        try {
-            sendEvent(emitter, eventMap("tool_failed", mapOf(
-                "run_id", runId,
-                "tool_call_id", toolCallId(runId, toolName),
-                "tool_name", toolName,
-                "input_summary", toolInputSummary(toolName, toolInput),
-                "query_window", queryWindowFor(toolInput),
-                "error_code", "TOOL_QUERY_FAILED",
-                "safe_message", safeMessage,
-                "error_summary", safeMessage,
-                "duration_ms", Math.max(0L, durationMs),
-                "started_at", startedAt,
-                "completed_at", completedAt,
-                "audit_id", auditIdFor(runId),
-                "trace_id", traceIdFor(runId),
-                "timestamp", completedAt
-            )));
-        } catch (IOException ex) {
-            throw new IllegalStateException("发送 tool_failed 失败", ex);
-        }
-    }
-
-    private static String toolInputSummary(String toolName, Map<String, Object> toolInput) {
-        String label = switch (toolName) {
-            case "inventory_low_stock_lookup" -> "查询当前账号低库存商品";
-            case "product_catalog_lookup" -> "查询当前账号商品目录";
-            case "customer_receivable_lookup" -> "查询当前账号客户应收余额";
-            case "supplier_payable_lookup" -> "查询当前账号供应商应付余额";
-            case "sales_overview_lookup" -> "汇总当前账号近 7 天经营信号";
-            case "sale_order_lookup" -> "查询当前账号最近销售单";
-            case "purchase_order_lookup" -> "查询当前账号最近采购单";
-            case "pay_order_lookup" -> "查询当前账号最近付款单";
-            case "finance_record_lookup" -> "查询当前账号最近资金流水";
-            default -> "执行当前账号只读查询";
-        };
-        Map<String, Object> safeInput = toolInput == null ? Map.of() : toolInput;
-        if (safeInput.isEmpty()) {
-            return label;
-        }
-        return label + "，参数 " + safeInput;
-    }
-
-    private static Map<String, Object> queryWindowFor(Map<String, Object> toolInput) {
-        Map<String, Object> window = new LinkedHashMap<>();
-        window.put("owner_scope", "current_owner");
-        if (toolInput != null) {
-            window.putAll(toolInput);
-        }
-        return window;
-    }
-
-    private void emitAnswerCompleted(
-        SseEmitter emitter,
-        String runId,
-        String answer,
-        String mode,
-        String llmStatus,
-        String planSource
-    ) throws IOException {
-        if (!StringUtils.hasText(answer)) {
-            return;
-        }
-        String auditId = auditIdFor(runId);
-        String traceId = traceIdFor(runId);
-        sendEvent(emitter, eventMap("answer_completed", mapOf(
-            "run_id", runId,
-            "answer", answer,
-            "mode", mode,
-            "llm_status", llmStatus,
-            "plan_source", planSource,
-            "audit_id", auditId,
-            "trace_id", traceId,
-            "observability", observabilityFor(runId, auditId, traceId),
-            "timestamp", System.currentTimeMillis()
-        )));
-    }
-
-    private void emitAnswerDeltaUnchecked(
-        SseEmitter emitter,
-        String runId,
-        String delta,
-        String deltaSource
-    ) {
-        if (!StringUtils.hasText(delta)) {
-            return;
-        }
-        try {
-            String auditId = auditIdFor(runId);
-            String traceId = traceIdFor(runId);
-            sendEvent(emitter, eventMap("answer_delta", mapOf(
-                "run_id", runId,
-                "delta", delta,
-                "delta_source", deltaSource,
-                "audit_id", auditId,
-                "trace_id", traceId,
-                "observability", observabilityFor(runId, auditId, traceId),
-                "timestamp", System.currentTimeMillis()
-            )));
-        } catch (IOException ex) {
-            throw new IllegalStateException("发送 answer_delta 失败", ex);
-        }
-    }
-
-    private final class AnswerDeltaBatcher {
-        private final SseEmitter emitter;
-        private final String runId;
-        private final StringBuilder buffer = new StringBuilder();
-        private String deltaSource;
-        private boolean emittedAnyDelta;
-
-        private AnswerDeltaBatcher(SseEmitter emitter, String runId) {
-            this.emitter = emitter;
-            this.runId = runId;
-        }
-
-        private boolean accept(String delta, String nextDeltaSource) {
-            if (!StringUtils.hasText(delta)) {
-                return false;
-            }
-            if (!StringUtils.hasText(deltaSource)) {
-                deltaSource = nextDeltaSource;
-            }
-            if (!deltaSource.equals(nextDeltaSource)) {
-                flush();
-                deltaSource = nextDeltaSource;
-            }
-            buffer.append(delta);
-            if (!emittedAnyDelta || buffer.length() >= ANSWER_DELTA_BATCH_CHAR_THRESHOLD) {
-                flush();
-                return true;
-            }
-            return false;
-        }
-
-        private void flush() {
-            if (!StringUtils.hasText(buffer.toString())) {
-                buffer.setLength(0);
-                return;
-            }
-            emitAnswerDeltaUnchecked(emitter, runId, buffer.toString(), deltaSource);
-            buffer.setLength(0);
-            emittedAnyDelta = true;
-        }
-    }
-
-    private void sendEvent(SseEmitter emitter, Map<String, Object> payload) throws IOException {
-        Object runId = payload.get("run_id");
-        boolean cancellationEvent = "run_cancelled".equals(payload.get("event_type"));
-        if (runId instanceof String runIdText) {
-            if (!cancellationEvent) {
-                ensureRunActive(runIdText);
-            }
-            ActiveAgentRun activeRun = activeRuns.get(runIdText);
-            if (activeRun != null) {
-                payload.putIfAbsent("conversation_id", activeRun.conversationId());
-                payload.putIfAbsent("seq", activeRun.nextSeq());
-                payload.putIfAbsent("event_id", runIdText + ":" + payload.get("seq"));
-            }
-        }
-        payload.putIfAbsent("timestamp", System.currentTimeMillis());
-        String payloadJson = objectMapper.writeValueAsString(payload);
-        emitter.send(SseEmitter.event().data(payloadJson));
-        if (runId instanceof String runIdText) {
-            queueRunAuditEvent(runIdText, payload, payloadJson);
-        }
-    }
-
-    private void createRunAudit(Long ownerUserId, Long conversationId, String runId, long startedAt) {
-        AgentRunAuditEntity entity = new AgentRunAuditEntity();
-        entity.setOwnerUserId(ownerUserId);
-        entity.setConversationId(conversationId);
-        entity.setRunId(runId);
-        entity.setAuditId(auditIdFor(runId));
-        entity.setTraceId(traceIdFor(runId));
-        entity.setStatus("running");
-        entity.setStartedAt(startedAt);
-        entity.setUpdatedAt(startedAt);
-        entity.setEventCount(0);
-        entity.setAuditWriteDroppedCount(0);
-        entity.setAuditWriteFailedCount(0);
-        entity.setAuditLossy(false);
-        entity.setEmittedEventCount(0);
-        agentRunAuditRepository.save(entity);
-    }
-
-    private void ensureRunAuditStarted(Long ownerUserId, Long conversationId, String runId, long startedAt) {
-        if (agentRunAuditRepository.findByRunId(runId).isEmpty()) {
-            createRunAudit(ownerUserId, conversationId, runId, startedAt);
-        }
-    }
-
-    private void finishRunAudit(
-        Long ownerUserId,
-        String runId,
-        String status,
-        String mode,
-        String llmStatus,
-        String planSource,
-        Integer toolCount,
-        String errorCode,
-        String errorMessage,
-        long completedAt
-    ) {
-        awaitRunAuditEvents(runId);
-        agentRunAuditRepository.findByRunIdAndOwnerUserId(runId, ownerUserId).ifPresent(entity -> {
-            entity.setStatus(status);
-            entity.setMode(mode);
-            entity.setLlmStatus(llmStatus);
-            entity.setPlanSource(planSource);
-            entity.setToolCount(toolCount);
-            entity.setErrorCode(errorCode);
-            entity.setErrorMessage(truncate(errorMessage, 1000));
-            entity.setCompletedAt(completedAt);
-            entity.setUpdatedAt(completedAt);
-            entity.setEventCount(currentRunEventCount(runId));
-            int droppedCount = currentRunAuditDroppedCount(runId);
-            int failedCount = currentRunAuditFailedCount(runId);
-            entity.setAuditWriteDroppedCount(droppedCount);
-            entity.setAuditWriteFailedCount(failedCount);
-            entity.setAuditLossy(droppedCount > 0 || failedCount > 0);
-            entity.setEmittedEventCount(currentRunEmittedEventCount(runId, entity.getEventCount()));
-            agentRunAuditRepository.save(entity);
-        });
-    }
-
-    private int currentRunEventCount(String runId) {
-        return Math.toIntExact(agentRunAuditEventRepository.countByRunId(runId));
-    }
-
-    private int currentRunAuditDroppedCount(String runId) {
-        ActiveAgentRun activeRun = activeRuns.get(runId);
-        return activeRun == null ? 0 : activeRun.droppedAuditEventCount();
-    }
-
-    private int currentRunAuditFailedCount(String runId) {
-        ActiveAgentRun activeRun = activeRuns.get(runId);
-        return activeRun == null ? 0 : activeRun.failedAuditEventCount();
-    }
-
-    private int currentRunEmittedEventCount(String runId, Integer fallback) {
-        ActiveAgentRun activeRun = activeRuns.get(runId);
-        if (activeRun == null) {
-            return Math.max(0, fallback == null ? 0 : fallback);
-        }
-        return activeRun.emittedEventCount();
-    }
-
-    private void queueRunAuditEvent(String runId, Map<String, Object> payload, String payloadJson) {
-        ActiveAgentRun activeRun = activeRuns.get(runId);
-        Runnable writeTask = () -> persistRunAuditEvent(runId, payload, payloadJson);
-        if (activeRun == null) {
-            try {
-                CompletableFuture.runAsync(writeTask, auditWriteExecutor).join();
-            } catch (RejectedExecutionException ex) {
-                // run 已不在 activeRuns 中时无法可靠回写 drop 计数；避免重新阻塞 SSE 线程。
-            }
-            return;
-        }
-        activeRun.enqueueAuditWrite(writeTask, auditWriteExecutor);
-    }
-
-    private void awaitRunAuditEvents(String runId) {
-        ActiveAgentRun activeRun = activeRuns.get(runId);
-        if (activeRun != null) {
-            activeRun.awaitAuditWrites();
-        }
-    }
-
-    private void persistRunAuditEvent(String runId, Map<String, Object> payload, String payloadJson) {
-        Object eventId = payload.get("event_id");
-        Object seq = payload.get("seq");
-        Object eventType = payload.get("event_type");
-        if (!(eventId instanceof String eventIdText) || !(seq instanceof Number seqNumber) || !(eventType instanceof String eventTypeText)) {
-            return;
-        }
-        AgentRunAuditEventEntity entity = new AgentRunAuditEventEntity();
-        entity.setRunId(runId);
-        entity.setEventId(eventIdText);
-        entity.setSeq(seqNumber.intValue());
-        entity.setEventType(eventTypeText);
-        entity.setPayloadJson(payloadJson);
-        entity.setCreatedAt(System.currentTimeMillis());
-        agentRunAuditEventRepository.save(entity);
-    }
-
     private V2AgentDtos.AgentRunAuditEventResponse toRunAuditEventResponse(AgentRunAuditEventEntity entity) {
         return new V2AgentDtos.AgentRunAuditEventResponse(
             entity.getEventId(),
             entity.getSeq(),
             entity.getEventType(),
-            parseAuditPayload(entity.getPayloadJson()),
+            runAuditService.parseAuditPayload(entity.getPayloadJson()),
             entity.getCreatedAt()
         );
-    }
-
-    private List<String> auditWarnings(AgentRunAuditEntity audit) {
-        List<String> warnings = new ArrayList<>();
-        int droppedCount = Math.max(0, audit.getAuditWriteDroppedCount() == null ? 0 : audit.getAuditWriteDroppedCount());
-        int failedCount = Math.max(0, audit.getAuditWriteFailedCount() == null ? 0 : audit.getAuditWriteFailedCount());
-        if (droppedCount > 0) {
-            warnings.add("audit_events_dropped:" + droppedCount);
-        }
-        if (failedCount > 0) {
-            warnings.add("audit_events_write_failed:" + failedCount);
-        }
-        return warnings;
-    }
-
-    private JsonNode parseAuditPayload(String payloadJson) {
-        try {
-            return objectMapper.readTree(payloadJson);
-        } catch (JsonProcessingException ex) {
-            return toJsonNode(mapOf(
-                "parse_error", true,
-                "raw", truncate(payloadJson, 1000)
-            ));
-        }
-    }
-
-    private String truncate(String value, int maxLength) {
-        if (value == null || value.length() <= maxLength) {
-            return value;
-        }
-        return value.substring(0, Math.max(0, maxLength));
-    }
-
-    private void ensureRunActive(String runId) {
-        if (runId == null) {
-            return;
-        }
-        ActiveAgentRun activeRun = activeRuns.get(runId);
-        if (activeRun != null && activeRun.cancelled()) {
-            throw new AgentRunCancelledException(runId);
-        }
-    }
-
-    private void emitRunCancelled(SseEmitter emitter, String runId, String reason) {
-        try {
-            String auditId = auditIdFor(runId);
-            String traceId = traceIdFor(runId);
-            sendEvent(emitter, eventMap("run_cancelled", mapOf(
-                "run_id", runId,
-                "reason", reason,
-                "audit_id", auditId,
-                "trace_id", traceId,
-                "observability", observabilityFor(runId, auditId, traceId),
-                "timestamp", System.currentTimeMillis()
-            )));
-        } catch (Exception ignored) {
-            // 客户端可能已经断开；取消状态仍以 API 返回为准。
-        }
-    }
-
-    private Map<String, Object> eventMap(String eventType, Map<String, Object> payload) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("event_type", eventType);
-        result.putAll(payload);
-        return result;
     }
 
     private Map<String, Object> mapOf(Object... values) {
@@ -2323,17 +2466,6 @@ public class V2AgentAiService {
             result.put(String.valueOf(values[i]), values[i + 1]);
         }
         return result;
-    }
-
-    private boolean isStreamEmissionFailure(Throwable ex) {
-        if (ex == null) {
-            return false;
-        }
-        String message = ex.getMessage();
-        if (message != null && message.startsWith("发送 ")) {
-            return true;
-        }
-        return isStreamEmissionFailure(ex.getCause());
     }
 
     private String safeToolErrorSummary(Throwable ex) {
@@ -2455,88 +2587,6 @@ public class V2AgentAiService {
     private String compactChartLabel(String value) {
         String text = safeText(value, "-").trim();
         return text.length() <= 8 ? text : text.substring(0, 8) + "...";
-    }
-
-    private SafetyDecision evaluateSafety(String message) {
-        String normalized = message.toLowerCase(Locale.ROOT);
-        // 快速通道：硬编码关键词命中即拦截
-        if ((normalized.contains("别人的") || normalized.contains("其他账号") || normalized.contains("越权"))
-            && containsAny(normalized, "数据", "订单", "客户", "库存")) {
-            return new SafetyDecision(false, "请求疑似越权访问其他账号的数据");
-        }
-        if ((normalized.contains("drop table") || normalized.contains("delete from") || normalized.contains("truncate"))
-            || (normalized.contains("清空") && normalized.contains("数据库"))
-            || (normalized.contains("删除") && normalized.contains("所有数据"))) {
-            return new SafetyDecision(false, "请求包含高风险破坏性数据库指令");
-        }
-        // 写入专用安全层：检测写入意图并校验
-        SafetyDecision writeDecision = evaluateWriteSafety(message, normalized);
-        if (!writeDecision.passed()) {
-            return writeDecision;
-        }
-        // 敏感关键词快速通道
-        if (containsAny(normalized, "sql", "select *", "绕过", "token", "密码", "管理员")) {
-            Optional<SafetyDecision> modelDecision = modelSafetyReview(message);
-            if (modelDecision.isPresent() && !modelDecision.get().passed()) {
-                return modelDecision.get();
-            }
-            return new SafetyDecision(false, "请求包含敏感查询或权限绕过风险");
-        }
-        // LLM 语义审查增强层
-        Optional<SafetyDecision> modelDecision = modelSafetyReview(message);
-        if (modelDecision.isPresent() && !modelDecision.get().passed()) {
-            return modelDecision.get();
-        }
-        return new SafetyDecision(true, null);
-    }
-
-    private SafetyDecision evaluateWriteSafety(String message, String normalized) {
-        // 破坏性指令检测
-        if (containsAny(normalized, "删除", "清空", "drop", "delete", "truncate", "销毁", "抹掉")) {
-            return new SafetyDecision(false, "请求包含破坏性操作，不支持删除/清空");
-        }
-        // 检测写入意图
-        boolean hasWriteIntent = containsAny(normalized, "创建", "新建", "开一张", "记一笔", "录入",
-            "建一个", "加一个", "添加", "生成", "create", "add", "new");
-        if (!hasWriteIntent) {
-            return new SafetyDecision(true, null);
-        }
-        // 金额合理性校验：提取数字，超过 100,000 元触发警告但不拦截
-        // 频率限制：10 分钟内最多 20 条写入
-        long now = System.currentTimeMillis();
-        long windowStart = now - 10 * 60 * 1000L;
-        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        List<Long> timestamps = writeFrequencyTracker.computeIfAbsent(ownerUserId, k -> new ArrayList<>());
-        timestamps.removeIf(ts -> ts < windowStart);
-        if (timestamps.size() >= 20) {
-            return new SafetyDecision(false, "10 分钟内写入操作超过 20 条限制，请稍后再试");
-        }
-        timestamps.add(now);
-        return new SafetyDecision(true, null);
-    }
-
-    private Optional<SafetyDecision> modelSafetyReview(String message) {
-        if (!longCatAnthropicClient.isConfigured()) {
-            // 未配置 LLM 时不再跳过，返回保守放行（规则层已拦截高风险请求）
-            return Optional.of(new SafetyDecision(true, "LLM 未配置，仅规则审查"));
-        }
-        String systemPrompt = """
-            你是智慧记 AI 助手的安全审查器。只判断用户请求是否允许。
-            允许：查询当前登录账号自己的经营数据、库存、客户欠款、销售概览；创建当前账号下的业务单据（销售单、采购单、客户等）。
-            拦截：访问其他账号/其他租户数据、要求绕过权限、导出敏感凭据、直接执行 SQL、破坏性数据库操作、删除操作。
-            只输出 JSON：{"allowed":true,"reason":"..."}。
-            """;
-        return longCatAnthropicClient.createJsonMessage(systemPrompt, "用户请求：" + message)
-            .flatMap(raw -> {
-                try {
-                    JsonNode root = objectMapper.readTree(extractJsonObject(raw));
-                    boolean allowed = root.path("allowed").asBoolean(false);
-                    String reason = root.path("reason").asText(allowed ? null : "模型安全审查未通过");
-                    return Optional.of(new SafetyDecision(allowed, allowed ? null : reason));
-                } catch (Exception ignored) {
-                    return Optional.empty();
-                }
-            });
     }
 
     private boolean containsAny(String text, String... keywords) {
@@ -2722,8 +2772,6 @@ public class V2AgentAiService {
         };
     }
 
-    private record SafetyDecision(boolean passed, String reason) {}
-
     private record ResponsePayload(
         String answer,
         List<V2AgentDtos.ResultBlockDto> blocks,
@@ -2808,214 +2856,4 @@ public class V2AgentAiService {
     }
 
     private record ToolFailureResult(String toolName, String safeMessage) {}
-
-    private static final class ActiveAgentRun {
-        private final Long ownerUserId;
-        private final String runId;
-        private final Long conversationId;
-        private final SseEmitter emitter;
-        private final AtomicInteger eventSequence = new AtomicInteger(1);
-        private final AtomicInteger droppedAuditEventCount = new AtomicInteger(0);
-        private final AtomicInteger failedAuditEventCount = new AtomicInteger(0);
-        private final Object auditLock = new Object();
-        private CompletableFuture<Void> auditWriteChain = CompletableFuture.completedFuture(null);
-        private volatile boolean cancelled;
-        private volatile CompletableFuture<?> future;
-
-        private ActiveAgentRun(Long ownerUserId, String runId, Long conversationId, SseEmitter emitter) {
-            this.ownerUserId = ownerUserId;
-            this.runId = runId;
-            this.conversationId = conversationId;
-            this.emitter = emitter;
-        }
-
-        private Long ownerUserId() {
-            return ownerUserId;
-        }
-
-        private SseEmitter emitter() {
-            return emitter;
-        }
-
-        private Long conversationId() {
-            return conversationId;
-        }
-
-        private int nextSeq() {
-            return eventSequence.getAndIncrement();
-        }
-
-        private int emittedEventCount() {
-            return Math.max(0, eventSequence.get() - 1);
-        }
-
-        private void enqueueAuditWrite(Runnable writeTask, ExecutorService executor) {
-            synchronized (auditLock) {
-                auditWriteChain = auditWriteChain
-                    .handle((ignoredResult, ignoredError) -> null)
-                    .thenCompose(ignored -> submitAuditWrite(writeTask, executor));
-            }
-        }
-
-        private int droppedAuditEventCount() {
-            return droppedAuditEventCount.get();
-        }
-
-        private int failedAuditEventCount() {
-            return failedAuditEventCount.get();
-        }
-
-        private CompletableFuture<Void> submitAuditWrite(Runnable writeTask, ExecutorService executor) {
-            CompletableFuture<Void> result = new CompletableFuture<>();
-            try {
-                executor.execute(() -> {
-                    try {
-                        writeTask.run();
-                    } catch (RuntimeException ignored) {
-                        failedAuditEventCount.incrementAndGet();
-                        // 审计事件写入失败不应阻断后续 SSE 事件或污染同一 run 的队列。
-                    } finally {
-                        result.complete(null);
-                    }
-                });
-            } catch (RejectedExecutionException ex) {
-                droppedAuditEventCount.incrementAndGet();
-                result.complete(null);
-            }
-            return result;
-        }
-
-        private void awaitAuditWrites() {
-            CompletableFuture<Void> currentChain;
-            synchronized (auditLock) {
-                currentChain = auditWriteChain;
-            }
-            currentChain.join();
-        }
-
-        private boolean cancelled() {
-            return cancelled;
-        }
-
-        private void cancel() {
-            this.cancelled = true;
-        }
-
-        private void attachFuture(CompletableFuture<?> future) {
-            this.future = future;
-            if (cancelled && future != null) {
-                future.cancel(true);
-            }
-        }
-
-        private boolean cancelFutureIfNotStarted() {
-            CompletableFuture<?> currentFuture = future;
-            if (currentFuture != null) {
-                return currentFuture.cancel(true);
-            }
-            return false;
-        }
-
-        private void complete() {
-            try {
-                emitter.complete();
-            } catch (Exception ignored) {
-                // 已断开的 SSE 不需要额外处理。
-            }
-        }
-    }
-
-    private static final class AgentRunCancelledException extends RuntimeException {
-        private AgentRunCancelledException(String runId) {
-            super("Agent run cancelled: " + runId);
-        }
-    }
-
-    private static final class ToolAudit {
-        private final String toolName;
-        private final Map<String, Object> toolInput;
-        private final long startedAt;
-        private Integer returnedCount;
-        private Integer totalCount;
-        private Integer limit;
-        private boolean truncated;
-
-        private ToolAudit(String toolName, Map<String, Object> toolInput, long startedAt) {
-            this.toolName = toolName;
-            this.toolInput = toolInput == null ? Map.of() : toolInput;
-            this.startedAt = startedAt;
-        }
-
-        private void markReturned(int returnedCount) {
-            this.returnedCount = Math.max(0, returnedCount);
-        }
-
-        private void markLimitedResult(int returnedCount, int limit) {
-            markLimitedResult(returnedCount, limit, returnedCount >= limit);
-        }
-
-        private void markLimitedResult(int returnedCount, int limit, boolean maybeTruncated) {
-            this.returnedCount = Math.max(0, returnedCount);
-            this.limit = Math.max(0, limit);
-            this.truncated = maybeTruncated;
-        }
-
-        private void markListResult(List<?> sourceRows, int returnedCount, int limit) {
-            this.returnedCount = Math.max(0, returnedCount);
-            this.totalCount = sourceRows == null ? 0 : sourceRows.size();
-            this.limit = Math.max(0, limit);
-            this.truncated = this.totalCount > this.returnedCount;
-        }
-
-        private Map<String, Object> eventFields() {
-            Map<String, Object> fields = new LinkedHashMap<>();
-            long completedAt = System.currentTimeMillis();
-            fields.put("input_summary", toolInputSummary(toolName, toolInput));
-            fields.put("query_window", queryWindowFor(toolInput));
-            fields.put("started_at", startedAt);
-            fields.put("completed_at", completedAt);
-            fields.put("duration_ms", Math.max(0L, completedAt - startedAt));
-            if (returnedCount != null) {
-                fields.put("returned_count", returnedCount);
-            }
-            if (totalCount != null) {
-                fields.put("total_count", totalCount);
-            }
-            if (limit != null) {
-                fields.put("limit", limit);
-            }
-            fields.put("is_truncated", truncated);
-            fields.put("next_cursor", nextCursor());
-            fields.put("evidence", evidenceSummary());
-            return fields;
-        }
-
-        private Map<String, Object> facts() {
-            Map<String, Object> fields = eventFields();
-            fields.put("tool_name", toolName);
-            fields.put("tool_input", toolInput);
-            return fields;
-        }
-
-        private String nextCursor() {
-            if (!truncated || limit == null || returnedCount == null) {
-                return null;
-            }
-            return "offset:" + returnedCount + ":limit:" + limit;
-        }
-
-        private Map<String, Object> evidenceSummary() {
-            Map<String, Object> evidence = new LinkedHashMap<>();
-            evidence.put("source", "tool:" + toolName);
-            evidence.put("scope", "current_owner");
-            if (returnedCount != null) {
-                evidence.put("returned_count", returnedCount);
-            }
-            if (totalCount != null) {
-                evidence.put("total_count", totalCount);
-            }
-            evidence.put("is_truncated", truncated);
-            return evidence;
-        }
-    }
 }
