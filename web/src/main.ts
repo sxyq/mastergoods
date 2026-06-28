@@ -13,6 +13,9 @@ const router = createRouter({
 router.beforeEach((to) => {
   const session = useSession()
   if (to.path === '/login') {
+    if (router.currentRoute.value.path === '/403' && session.source.value === 'api') {
+      return true
+    }
     return session.isAuthenticated.value ? '/dashboard' : true
   }
   if (!session.hasAppSession.value) return '/login'

@@ -25,12 +25,25 @@
 
 | 项目 | 数量 |
 |---|---:|
-| 台账总行数 | 7274 |
+| 台账总行数 | 7285 |
 | 文件行 | 726 |
-| 函数/方法/组件/路由等符号行 | 6548 |
-| backend 行 | 3869 |
-| android 行 | 2743 |
-| web 行 | 662 |
+| 函数/方法/组件/路由等符号行 | 6559 |
+| backend 行 | 3881 |
+| android 行 | 2738 |
+| web 行 | 666 |
+
+## 当前闭环状态
+
+| 维度 | 数量 |
+|---|---:|
+| `visit_status=REVIEWED` | 7285 |
+| `review_status=REVIEWED` | 5681 |
+| `review_status=OPTIMIZED` | 420 |
+| `review_status=VERIFIED` | 1184 |
+| `review_status=BLOCKED` | 0 |
+
+- 当前 CSV 已无 `PENDING` / `VISITED` 行，函数级访问标记保持闭环。
+- 2026-06-28 又补入 `web/src/main.ts` 的路由守卫与 API auth 事件处理器、`ForbiddenPage.vue::reauthenticate`，并把 `DashboardPage.vue` 已删除的 `buildRange` 旧记录校准为当前实际的 `watch` 回调。
 
 ## 执行规则
 
@@ -220,5 +233,10 @@
 | 2026-06-28 | Web EntityId 查询参数收口 | `ProductEditPage`、`FinanceRecordPage`、`InventoryAdjustPage`、`ProductLedgerPage` 改为 `readQueryId` + `sameEntityId` 路径，`client.ts` 的商品 / 库存流水相关 path/query/body ID 签名收口为 `EntityId`，去掉 `Number()` 对雪花 ID 的精度截断；`npm run build` 通过。 |
 | 2026-06-28 | 遗留 V1 库存调整入口十进制收口 | `ProductAdjustStockRequest` 与 `ProductService.adjustStock` 改为 `BigDecimal` 入口计算，再落回现有 `Double` 持久化字段，避免旧 `adjust-stock` 路径在服务层先被 `Double delta` 吃掉精度；`ProductServiceTest` 增加小数库存增减回归，`./gradlew test --tests com.zhihuiji.backend.application.service.ProductServiceTest` 通过。 |
 | 2026-06-28 | 台账符号与状态校准 | 已把本轮新增的 `appendMarkdownLink`、`inlineMarkdownLeavesUnsupportedSchemeAsPlainText`、`inlineMarkdownAnnotated`、`mutableProductAndCustomerOperationsStayTransactional`、`assertTransactional` 补入 CSV，并把遗留 `visited/clean`、`visited/reviewed` 旧状态归一为标准 `REVIEWED/REVIEWED`。 |
+| 2026-06-28 | Web Dashboard 初始化次序修复 | `DashboardPage.vue` 将 `accountBalance` 提前声明，并把 `watch(..., { immediate: true })` 移到 `periodRange` 等依赖之后，修复真实 API 登录首屏的 `Cannot access 'accountBalance' / 'periodRange' before initialization` TDZ 错误；`npm run build` 与浏览器真实登录验证通过。 |
+| 2026-06-28 | Web 403 重登死锁修复 | `web/src/main.ts` 为当前位于 `/403` 的 API 会话放行 `/login`，`ForbiddenPage.vue` 增加“重新登录”按钮并执行 `logout + router.replace('/login')`，修复 token/权限漂移后无法重新认证的死锁；`npm run build` 与真实 `403 -> 登录 -> 回到 dashboard` 流程验证通过。 |
+| 2026-06-28 | Web 真实路由链路复验 | 使用真实账号验证 `finance/records/detail?id=1357334732875426798`、`archives/products/edit?id=1`、`inventory/adjust?productId=1`、`inventory/product-ledger?productId=1` 均可正常加载，说明 EntityId 收口后的真实详情链路保持可用。 |
+| 2026-06-28 | 后端 fresh H2 运行态确认 | 旧本地 `.gradle-local` H2 库因 `store_memberships.owner_user_id` 缺列导致真实 Web 登录后 500；切到 fresh H2 后，`/v1/auth/login` 与 `/v2/stores/current` 成功返回，确认为本地历史库漂移而非当前源码登录逻辑缺陷。 |
+| 2026-06-28 | Android 启动采样与 blocker 记录 | 已落地 emulator 启动 artifacts，并确认 debug `SettingsStore.DEFAULT_BASE_URL` 默认指向 `http://117.72.79.106/zhihuiji/`；当前还需把 baseUrl 切到 `10.0.2.2:18080` 后，再继续做本地登录链路和更可靠的 gfxinfo/trace 采样。 |
 | 2026-06-26 | 全台账重新审核（按 spec 7 退出条件） | 对 7276 行（726 文件行 + 6550 符号行）逐行重审并回写：`visit_status` 归一为 REVIEWED/BLOCKED、`review_status` 归一为 REVIEWED/VERIFIED/OPTIMIZED/BLOCKED、`reviewer` 统一为 `trae-security-review`、`action` 归一为 audit_only/optimized/blocked、`notes` 补齐 `sec_review=pass\|findings:N; evidence=` 前缀、`security_risk`/`performance_risk`/`visited_at` 填满无空字段；OPTIMIZED 行 `validation` 已填命令+结果。安全复核覆盖 SecurityConfig/TokenAuthenticationFilter/StorePermissionInterceptor/CurrentOwnerService、40 个 controller（@RequireStorePermission 全覆盖）、52 个 repository（ownerUserId 参数化 JPQL 全覆盖、无字符串拼接注入）、NetworkModule（CertificatePinner+HTTPS 强制）、V7 多租户隔离迁移。 |
 | 2026-06-26 | 退出条件全满足 | ①全行 `visit_status`≥REVIEWED/BLOCKED，无 PENDING/VISITED ②backend(8类)×android(5类)×web(6类) 函数矩阵覆盖 ③REVIEWED/OPTIMIZED 行 `notes` 含 `sec_review=` 前缀 100% ④OPTIMIZED 行 `validation` 已填且验证通过 ⑤CSV 无空字段（BLOCKED 行 notes 写明阻塞原因）⑥`git diff --stat` 源码新增文件=0、净源码行=0≤0（AGENTS.md +4 为审计清单文档，按用户裁定不计入源码精简；CSV 为台账回写净0）⑦本进度日志已追加。关键 finding：release `AndroidManifest.xml` 的 `profileable android:shell="true"`(L, baseline-profile 生成用)；UserEntity/SessionEntity 缺 `@JsonIgnore`（纵深防御建议，无 controller 直返实体汇端，按 spec 不计漏洞）。 |

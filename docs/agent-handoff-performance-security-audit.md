@@ -35,99 +35,116 @@
 - `docs/performance-security-function-audit-2026-06-23.csv`
 - `docs/performance-security-function-audit-2026-06-23.md`
 
-这两份文件是后续所有工作的“单一事实来源”。每次读完文件或函数，都要同步回写 CSV，必要时再补一条 Markdown 进度日志。
+这两份文件仍然是后续所有工作的“单一事实来源”。每次读完文件或函数，都要同步回写 CSV，必要时再补一条 Markdown 进度日志。
 
-### 已完成并验证的 Android 低风险优化
+### 2.1 当前台账真实状态
 
-#### auth
+- 函数级访问闭环已经达成，不再是“还有几千个 PENDING 没看”的状态。
+- 当前 CSV 统计是：
+  - 总行数：`7285`
+  - 文件行：`726`
+  - 符号行：`6559`
+  - backend：`3881`
+  - android：`2738`
+  - web：`666`
+  - `visit_status=REVIEWED`：`7285`
+  - `review_status=REVIEWED`：`5681`
+  - `review_status=OPTIMIZED`：`420`
+  - `review_status=VERIFIED`：`1184`
+  - `review_status=BLOCKED`：`0`
 
-- `master-goods-android/feature/auth/src/main/java/com/zhihuiji/feature/auth/AuthViewModel.kt`
-- `master-goods-android/feature/auth/src/main/java/com/zhihuiji/feature/auth/LoginScreen.kt`
-- `master-goods-android/feature/auth/src/main/java/com/zhihuiji/feature/auth/RegisterScreen.kt`
+### 2.2 已经落地并验证过的代表性优化
 
-做过的事：
+- Android：
+  - `feature:auth`、`feature:customers`、`feature:finance` 都做过低风险减分配/共享 formatter/remember 缓存类优化，并有模块编译验证。
+  - 更大范围的 Android/Compose/ViewModel 优化和读查已经持续回写在主台账与 `docs/performance-security-function-audit-2026-06-23.md` 的进度日志里。
+- Web：
+  - 已完成 EntityId 查询参数收口，避免 `Number()` 吃掉雪花 ID 精度。
+  - 本轮新增修复了 `DashboardPage.vue` 的初始化时序 TDZ 问题，以及 `/403` 后无法重新登录的死锁问题。
+  - 当前 `cd web && npm run build` 已再次通过。
+- 后端：
+  - 已完成多批 owner-scoped 查询、事务边界、权限鉴权、报表/库存/媒体/资金链路的低风险压缩与安全复核。
+  - 当前 fresh H2 本地运行态下，`/v1/auth/login` 与 `/v2/stores/current` 已确认成功。
 
-- login / register 复用共享 auth coroutine 包装
-- logout 的 loading 清理改成 finally 语义
-- 登录/注册页把背景刷、圆角形状提成文件级常量
+### 2.3 本轮新补的函数级台账修正
 
-验证：
+这次又把下面这些“代码变了但 CSV 还没跟上”的点补齐了：
 
-- `./gradlew :feature:auth:compileDebugKotlin`
-
-#### customers
-
-- `master-goods-android/feature/customers/src/main/java/com/zhihuiji/feature/customers/CustomerListViewModel.kt`
-- `master-goods-android/feature/customers/src/main/java/com/zhihuiji/feature/customers/CustomerDetailScreen.kt`
-- `master-goods-android/feature/customers/src/main/java/com/zhihuiji/feature/customers/CustomerEditScreen.kt`
-
-做过的事：
-
-- 列表页改成单次预分配循环
-- 详情页统一使用共享 `MoneyFormatter`
-- 详情页余额文本做记忆化
-- 编辑页表单状态按加载 snapshot 键控同步，避免 stale blank fields
-
-验证：
-
-- `./gradlew :feature:customers:compileDebugKotlin`
-
-#### finance
-
-已处理并验证的文件：
-
-- `master-goods-android/feature/finance/src/main/java/com/zhihuiji/feature/finance/FinanceViewModel.kt`
-- `master-goods-android/feature/finance/src/main/java/com/zhihuiji/feature/finance/DailyExpenseViewModel.kt`
-- `master-goods-android/feature/finance/src/main/java/com/zhihuiji/feature/finance/FinanceRecordListScreen.kt`
-- `master-goods-android/feature/finance/src/main/java/com/zhihuiji/feature/finance/DailyExpenseScreen.kt`
-- `master-goods-android/feature/finance/src/main/java/com/zhihuiji/feature/finance/FinanceRecordDetailScreen.kt`
-
-做过的事：
-
-- `FinanceViewModel`
-  - 缓存 filter 快照
-  - 预分配 `ArrayList`
-  - 抽出 `buildFinanceTitle`
-  - 统一金额格式化为共享 `MoneyFormatter`
-- `DailyExpenseViewModel`
-  - `amountText` 改用共享 `MoneyFormatter`
-- `FinanceRecordListScreen`
-  - meta 文本从 `listOf + filter + joinToString` 改为直接分支拼接
-- `DailyExpenseScreen`
-  - 复用文件级 `roundedCardShape`
-  - 预计算类别行、账户行、账户标签
-  - 减少 card / selector / attachment / chip 的重复 shape 分配
-- `FinanceRecordDetailScreen`
-  - `remember(uiState.records, recordId)` 缓存当前记录查找
-  - 缓存 amount color，减少重组时重复扫描
-
-验证：
-
-- `./gradlew :feature:finance:compileDebugKotlin`
+- `web/src/main.ts`
+  - 新增台账条目：
+    - `router.beforeEach`
+    - `router.afterEach`
+    - `zhihuijiWebApiAuthHandler`
+- `web/src/pages/ForbiddenPage.vue`
+  - 新增台账条目：
+    - `reauthenticate`
+- `web/src/pages/dashboard/DashboardPage.vue`
+  - 将已删除的 `buildRange` 旧符号记录，校准为当前真实存在的 `watch` 回调记录
+  - 同步修正当前源码行号
 
 ## 3. 目前剩余内容
 
-当前最新台账统计：
+现在“剩余内容”的定义已经变了，不再是大量 `PENDING` 文件，而是下面几类真实待办：
 
-- 剩余 `PENDING`：`7164`
-- 剩余文件：`705`
-- 分布：
-  - backend：`3879`
-  - android：`2623`
-  - web：`662`
+### 3.1 运行态证据还没完全闭环
 
-结论很直接：现在只完成了很小一部分，剩余仍然很多，不能缩窄成“只做某几个模块”。
+- Web：
+  - 当前 3 个真实修复文件还没单独 commit：
+    - `web/src/pages/dashboard/DashboardPage.vue`
+    - `web/src/pages/ForbiddenPage.vue`
+    - `web/src/main.ts`
+  - 这 3 个文件已通过 `npm run build`，并且真实浏览器链路已验证：
+    - `/403 -> 重新登录 -> /login -> /dashboard`
+    - `finance/records/detail?id=1357334732875426798`
+    - `archives/products/edit?id=1`
+    - `inventory/adjust?productId=1`
+    - `inventory/product-ledger?productId=1`
+- 后端：
+  - 旧本地 H2 库会触发 `store_memberships.owner_user_id` 缺列导致 500。
+  - 这不是当前源码逻辑 bug，而是历史本地库漂移。
+  - fresh H2 下已确认：
+    - `POST /v1/auth/login` 成功
+    - `GET /v2/stores/current` 成功
+    - 返回 `role=OWNER`
+    - 权限包含 `dashboard:view`
+- Android：
+  - 冷启动采样 artifacts 已经拿到，但还缺“连本地后端完成一条真实业务链路”的复验。
+  - 当前 debug 默认 baseUrl 在：
+    - `master-goods-android/core/datastore/src/main/java/com/zhihuiji/core/datastore/SettingsStore.kt`
+    - 默认值：`http://117.72.79.106/zhihuiji/`
+  - 因此 Android 现在默认打的是远端，不是本地 `10.0.2.2:18080`。
 
-### 还没开始的大块内容
+### 3.2 当前 dirty worktree 需要做 delta 审计，而不是盲提全量 commit
 
-大多数剩余工作仍在这几类区域：
+当前仓库不是干净状态，存在很多并行改动，尤其集中在：
 
-- Android 其他 feature 模块
-- Android core / data / app 导航 / 安全 / database / network
-- Web 的 `web/src/app`、`web/src/pages`、`web/src/shared`
-- 后端 controller / service / repository / DTO / migration / test
+- `src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java`
+- `src/main/java/com/zhihuiji/backend/infrastructure/ai/LongCatAnthropicClient.java`
+- `src/main/java/com/zhihuiji/backend/application/service/v2/agent/...`
+- `master-goods-android/feature/agent/...`
+- `web/src/pages/agent/AgentPage.vue`
+- `web/src/shared/api/contracts.ts`
+- `web/src/style.css`
+- `docs/spec/...`
 
-继续工作时，以 CSV 里的 `PENDING` 顺序为准，不要凭印象挑文件。
+这意味着：
+
+1. 不要 `git add .`
+2. 不要把“本轮审计修复”与“并行 agent 大改”混在一个提交里
+3. 下一个 Agent 需要把这些 dirty 文件当成“增量再审计对象”，而不是默认继承旧台账结论
+
+### 3.3 Android 还缺的关键下一步
+
+最值得优先推进的是：
+
+1. 找到现有设置入口或最小代价方式，把 debug baseUrl 切到 `http://10.0.2.2:18080/`
+2. 让 Android 用本地后端完成真实登录
+3. 沿商品/库存主线再抓一轮：
+   - screenshot
+   - `gfxinfo`
+   - logcat
+   - 必要时 Perfetto / simpleperf
+4. 把这些运行态证据继续回写到主台账和进度文档
 
 ## 4. 工作流程
 
@@ -272,19 +289,20 @@
 
 可以直接这么交接：
 
-> 继续按 `docs/performance-security-function-audit-2026-06-23.csv` 的 `PENDING` 顺序审计三端所有文件和函数。目标仍然是函数级全覆盖记录 + 功能/UI 不变的低风险性能优化 + 安全风险检查。先 `git status --short`，不要碰工作树里的无关既有改动。每处理完一个文件或一批函数，立刻回写 CSV/MD，并用对应模块编译或测试验证。
+> 三端函数级访问台账已经闭环，当前主台账见 `docs/performance-security-function-audit-2026-06-23.csv`。请先 `git status --short`，不要碰工作树里的并行改动，也不要 `git add .`。优先继续做 dirty 文件的 delta 审计、Web 当前 3 个修复的独立提交准备、以及 Android baseUrl 切到 `10.0.2.2:18080` 后的本地登录与性能采样。每处理完一个文件或一批函数，立刻回写 CSV/MD，并用对应模块编译、测试或真实运行证据验证。
 
 ## 7. 当前最后确认
 
-最近已经验证通过的 Android 改动包括：
+截至这次交接，最重要的事实是：
 
-- `feature:auth`
-- `feature:customers`
-- `feature:finance`
-
-最新 finance 相关收尾文件是：
-
-- `DailyExpenseScreen.kt`
-- `FinanceRecordDetailScreen.kt`
-
-这两个文件已经回写到台账，并且 `./gradlew :feature:finance:compileDebugKotlin` 通过。
+1. 函数级台账不是半成品，当前已经做到 `visit_status` 全 `REVIEWED`。
+2. 但总目标还没完成，因为“全链路运行态复验 + dirty 增量改动再审计 + Android 本地后端链路”还没完全闭环。
+3. 当前最新、最值得单独提交的一组文件是：
+   - `web/src/pages/dashboard/DashboardPage.vue`
+   - `web/src/pages/ForbiddenPage.vue`
+   - `web/src/main.ts`
+   - `docs/performance-security-function-audit-2026-06-23.csv`
+   - `docs/performance-security-function-audit-2026-06-23.md`
+   - `docs/agent-handoff-performance-security-audit.md`
+4. 适合这组文件的中文 commit 题目是：
+   - `修复 Web 看板初始化时序与 403 重登死锁，并同步审计台账`

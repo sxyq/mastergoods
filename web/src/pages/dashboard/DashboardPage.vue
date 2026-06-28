@@ -59,6 +59,7 @@ const saleOrders = ref<SaleOrder[]>([])
 const purchaseOrders = ref<PurchaseOrder[]>([])
 const workbench = ref<AgentWorkbench | null>(null)
 const notifications = ref<AgentNotification[]>([])
+const accountBalance = ref(0)
 const isDemoMode = computed(() => session.source.value !== 'api' || !session.token.value)
 
 const demoTrendPoints: SalesTrendPoint[] = [
@@ -85,18 +86,6 @@ const demoWorkbench: AgentWorkbench = {
   warnings: [],
 }
 
-watch(
-  [() => session.source.value, () => session.token.value, activePeriod],
-  async () => {
-    if (isDemoMode.value) {
-      useDemoData()
-      return
-    }
-    await loadDashboard()
-  },
-  { immediate: true },
-)
-
 const periodRange = computed(() => reportRangeForPeriod(activePeriod.value))
 const trendDataset = computed(() => (isDemoMode.value ? demoTrendPoints : trendPoints.value))
 const summaryData = computed(() => {
@@ -120,6 +109,18 @@ const inventoryRingStyle = computed(() => {
   const warningEnd = normalEnd + inventoryStats.value.warningPercent
   return `conic-gradient(#18a34a 0 ${normalEnd}%, #c4cad3 ${normalEnd}% ${warningEnd}%, #e64646 ${warningEnd}% 100%)`
 })
+
+watch(
+  [() => session.source.value, () => session.token.value, activePeriod],
+  async () => {
+    if (isDemoMode.value) {
+      useDemoData()
+      return
+    }
+    await loadDashboard()
+  },
+  { immediate: true },
+)
 
 async function loadDashboard() {
   if (!session.token.value) return
@@ -186,8 +187,6 @@ async function loadDashboard() {
     loading.value = false
   }
 }
-
-const accountBalance = ref(0)
 
 function useDemoData() {
   summary.value = {
