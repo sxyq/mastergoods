@@ -12,6 +12,7 @@ import {
   type ProductUnitRecord,
   type ProductWritePayload,
 } from '@/shared/api/client'
+import { readQueryId } from '@/shared/utils/id'
 import { formatDateTime } from '@/shared/utils/business'
 
 const route = useRoute()
@@ -27,10 +28,7 @@ const success = ref('')
 const lastUpdatedAt = ref<number | null>(null)
 
 const productId = computed(() => {
-  const raw = route.query.id
-  const first = Array.isArray(raw) ? raw[0] : raw
-  const parsed = Number(first)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+  return readQueryId(route.query.id)
 })
 const isEditMode = computed(() => productId.value != null)
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))

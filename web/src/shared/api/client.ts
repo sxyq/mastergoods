@@ -623,7 +623,7 @@ export interface AccountRecord {
 }
 
 export interface InventoryLedgerCreatePayload {
-  productId: number
+  productId: EntityId
   sourceType: string
   sourceId?: EntityId | null
   sourceNo?: string | null
@@ -1292,7 +1292,7 @@ export async function fetchProducts(token: string, params: {
   })
 }
 
-export async function fetchProduct(token: string, id: number) {
+export async function fetchProduct(token: string, id: EntityId) {
   return request<ProductRecord>(`/v2/products/${id}`, {
     headers: authHeaders(token),
   })
@@ -1306,7 +1306,7 @@ export async function createProduct(token: string, payload: ProductWritePayload)
   })
 }
 
-export async function updateProduct(token: string, id: number, payload: ProductWritePayload) {
+export async function updateProduct(token: string, id: EntityId, payload: ProductWritePayload) {
   return request<ProductRecord>(`/v2/products/${id}`, {
     method: 'PUT',
     headers: authHeaders(token),
@@ -1314,7 +1314,7 @@ export async function updateProduct(token: string, id: number, payload: ProductW
   })
 }
 
-export async function deleteProduct(token: string, id: number) {
+export async function deleteProduct(token: string, id: EntityId) {
   return request<void>(`/v2/products/${id}`, {
     method: 'DELETE',
     headers: authHeaders(token),
@@ -1564,7 +1564,7 @@ export async function fetchTopReceivableCustomers(token: string, limit = 10) {
 }
 
 export async function fetchInventoryLedger(token: string, params: {
-  productId?: number
+  productId?: EntityId
   startAt?: number
   endAt?: number
 } = {}) {
@@ -1964,6 +1964,20 @@ export async function updateAgentDraft(token: string, id: EntityId, payload: Age
 export async function deleteAgentDraft(token: string, id: EntityId) {
   return request<void>(`/v2/agent/drafts/${id}`, {
     method: 'DELETE',
+    headers: authHeaders(token),
+  })
+}
+
+export async function confirmAgentDraft(token: string, id: EntityId) {
+  return request<AgentDraft>(`/v2/agent/drafts/${id}/confirm`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  })
+}
+
+export async function cancelAgentDraftAction(token: string, id: EntityId) {
+  return request<AgentDraft>(`/v2/agent/drafts/${id}/cancel`, {
+    method: 'POST',
     headers: authHeaders(token),
   })
 }

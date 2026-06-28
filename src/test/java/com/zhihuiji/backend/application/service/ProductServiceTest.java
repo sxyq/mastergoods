@@ -11,6 +11,8 @@ import com.zhihuiji.backend.domain.entity.InventoryAdjustmentEntity;
 import com.zhihuiji.backend.domain.entity.ProductEntity;
 import com.zhihuiji.backend.infrastructure.repository.InventoryAdjustmentRepository;
 import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
+import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.transaction.annotation.Transactional;
 
 class ProductServiceTest {
     @Mock
@@ -95,18 +98,18 @@ class ProductServiceTest {
     @Test
     void adjustStockRecordsInflowAndOutflowAndRejectsInvalidDelta() {
         ProductEntity target = product("P1", 10.0);
-        target.setStock(10.0);
+        target.setStock(10.1);
         target.setSyncVersion(1L);
         when(productRepository.findByIdForUpdate(1L, 1L)).thenReturn(Optional.of(target));
         when(productRepository.save(any(ProductEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(inventoryAdjustmentRepository.save(any(InventoryAdjustmentEntity.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
-        ProductEntity afterInflow = productService.adjustStock(1L, 5.0, "补货", "admin");
-        assertEquals(15.0, afterInflow.getStock());
+        ProductEntity afterInflow = productService.adjustStock(1L, new BigDecimal("0.2"), "补货", "admin");
+        assertEquals(0, BigDecimal.valueOf(afterInflow.getStock()).compareTo(new BigDecimal("10.3")));
 
-        ProductEntity afterOutflow = productService.adjustStock(1L, -3.0, "盘点扣减", "admin");
-        assertEquals(12.0, afterOutflow.getStock());
+        ProductEntity afterOutflow = productService.adjustStock(1L, new BigDecimal("-0.3"), "盘点扣减", "admin");
+        assertEquals(0, BigDecimal.valueOf(afterOutflow.getStock()).compareTo(BigDecimal.TEN));
 
         ArgumentCaptor<InventoryAdjustmentEntity> captor = ArgumentCaptor.forClass(InventoryAdjustmentEntity.class);
         verify(inventoryAdjustmentRepository, org.mockito.Mockito.times(2)).save(captor.capture());
@@ -114,9 +117,11 @@ class ProductServiceTest {
         assertEquals(0, captor.getAllValues().get(1).getFlowType());
         assertEquals("admin", captor.getAllValues().get(0).getOperatorName());
         assertEquals(1L, captor.getAllValues().get(0).getOwnerUserId());
+        assertEquals(0, BigDecimal.valueOf(captor.getAllValues().get(0).getQuantity()).compareTo(new BigDecimal("0.2")));
+        assertEquals(0, BigDecimal.valueOf(captor.getAllValues().get(1).getQuantity()).compareTo(new BigDecimal("0.3")));
 
-        assertThrows(IllegalArgumentException.class, () -> productService.adjustStock(1L, 0.0, "无效", "admin"));
-        assertThrows(IllegalArgumentException.class, () -> productService.adjustStock(1L, -100.0, "超扣", "admin"));
+        assertThrows(IllegalArgumentException.class, () -> productService.adjustStock(1L, BigDecimal.ZERO, "无效", "admin"));
+        assertThrows(IllegalArgumentException.class, () -> productService.adjustStock(1L, new BigDecimal("-100.0"), "超扣", "admin"));
     }
 
     @Test
@@ -128,6 +133,17 @@ class ProductServiceTest {
         assertEquals(null, productService.findByCode(null));
         assertEquals(null, productService.findByCode(" "));
         assertEquals("P1", productService.findByCode(" P1 ").getCode());
+    }
+
+    @Test
+    void mutableProductAndCustomerOperationsStayTransactional() throws Exception {
+        assertTransactional(ProductService.class, "create", ProductEntity.class);
+        assertTransactional(ProductService.class, "update", Long.class, ProductEntity.class);
+        assertTransactional(ProductService.class, "delete", Long.class);
+        assertTransactional(ProductService.class, "adjustStock", Long.class, BigDecimal.class, String.class, String.class);
+        assertTransactional(CustomerService.class, "create", com.zhihuiji.backend.domain.entity.CustomerEntity.class);
+        assertTransactional(CustomerService.class, "update", Long.class, com.zhihuiji.backend.domain.entity.CustomerEntity.class);
+        assertTransactional(CustomerService.class, "delete", Long.class);
     }
 
     private static ProductEntity product(String code, Double salePrice) {
@@ -158,5 +174,12 @@ class ProductServiceTest {
         } catch (ReflectiveOperationException ex) {
             throw new AssertionError(ex);
         }
+    }
+
+    private static void assertTransactional(Class<?> type, String methodName, Class<?>... parameterTypes)
+        throws NoSuchMethodException {
+        Method method = type.getDeclaredMethod(methodName, parameterTypes);
+        Transactional transactional = method.getAnnotation(Transactional.class);
+        assertNotNull(transactional, () -> type.getSimpleName() + "::" + methodName + " should be transactional");
     }
 }

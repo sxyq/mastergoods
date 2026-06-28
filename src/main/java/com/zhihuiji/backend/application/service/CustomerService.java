@@ -71,6 +71,7 @@ public class CustomerService {
         return customerRepository.save(target);
     }
 
+    @Transactional
     public void delete(Long id) {
         customerRepository.delete(get(id));
     }

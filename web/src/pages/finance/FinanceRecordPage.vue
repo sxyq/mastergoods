@@ -16,6 +16,7 @@ import {
   formatCurrency,
   formatDateTime,
 } from '@/shared/utils/business'
+import { readQueryId, sameEntityId, type EntityId } from '@/shared/utils/id'
 
 const route = useRoute()
 const router = useRouter()
@@ -27,17 +28,12 @@ const loading = ref(false)
 const error = ref('')
 const searchKeyword = ref('')
 const typeFilter = ref('all')
-const selectedRecordId = ref<number | null>(null)
+const selectedRecordId = ref<EntityId | null>(null)
 
-const queryRecordId = computed(() => {
-  const raw = route.query.id
-  const first = Array.isArray(raw) ? raw[0] : raw
-  const parsed = Number(first)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
-})
+const queryRecordId = computed(() => readQueryId(route.query.id))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canWrite = computed(() => session.hasPermission(['finance:write']))
-const recordIndex = computed(() => new Map(records.value.map((item) => [item.id, item] as const)))
+const recordIndex = computed(() => new Map(records.value.map((item) => [String(item.id), item] as const)))
 const recordSummary = computed(() => records.value.reduce((summary, item) => {
   if (item.type === FINANCE_INCOME) {
     summary.totalIncome += item.amount
@@ -56,7 +52,7 @@ const recordSummary = computed(() => records.value.reduce((summary, item) => {
 const accountBalanceTotal = computed(() => accounts.value.reduce((sum, item) => sum + item.balance, 0))
 const selectedRecord = computed(() => {
   if (selectedRecordId.value == null) return records.value[0] ?? null
-  return recordIndex.value.get(selectedRecordId.value) ?? records.value[0] ?? null
+  return recordIndex.value.get(String(selectedRecordId.value)) ?? records.value[0] ?? null
 })
 const totalIncome = computed(() => recordSummary.value.totalIncome)
 const totalExpense = computed(() => recordSummary.value.totalExpense)
@@ -174,7 +170,7 @@ async function loadPage() {
               <tr
                 v-for="record in records"
                 :key="record.id"
-                :class="{ selected: record.id === selectedRecord?.id }"
+                :class="{ selected: sameEntityId(record.id, selectedRecord?.id) }"
                 @click="selectedRecordId = record.id"
               >
                 <td>{{ record.recordNo }}</td>

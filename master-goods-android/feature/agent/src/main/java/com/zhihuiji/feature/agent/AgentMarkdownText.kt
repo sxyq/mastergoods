@@ -344,6 +344,13 @@ private val OrderedListRegex = Regex("^\\d+[.)]\\s+(.+)$")
 private val TaskListRegex = Regex("^\\[([ xX])]\\s+(.+)$")
 private val DividerRegex = Regex("^[-*_]{3,}$")
 private val TableSeparatorRegex = Regex(":?-{3,}:?")
+private val MarkdownLinkStyles = TextLinkStyles(
+    style = SpanStyle(
+        color = ZhihuijiPrimary,
+        fontWeight = FontWeight.SemiBold,
+        textDecoration = TextDecoration.Underline,
+    )
+)
 
 private fun parseMarkdown(markdown: String): List<MarkdownBlock> {
     if (!hasMarkdownBlockSyntax(markdown)) {
@@ -593,26 +600,10 @@ internal fun inlineMarkdown(text: String, contentColor: Color): AnnotatedString 
                             val label = text.substring(index + 1, labelEnd).ifBlank {
                                 text.substring(labelEnd + 2, urlEnd).trim()
                             }
-                            val url = normalizeMarkdownUrl(
-                                markdownLinkDestination(text.substring(labelEnd + 2, urlEnd))
+                            appendMarkdownLink(
+                                label = label,
+                                rawDestination = text.substring(labelEnd + 2, urlEnd),
                             )
-                            pushLink(
-                                LinkAnnotation.Url(
-                                    url = url,
-                                    styles = TextLinkStyles(
-                                        style = SpanStyle(
-                                            color = ZhihuijiPrimary,
-                                            fontWeight = FontWeight.SemiBold,
-                                            textDecoration = TextDecoration.Underline,
-                                        )
-                                    )
-                                )
-                            )
-                            append(label)
-                            if (!label.equals(url, ignoreCase = true)) {
-                                append(" ($url)")
-                            }
-                            pop()
                             index = urlEnd + 1
                         } else {
                             append(text[index])
@@ -718,20 +709,42 @@ private fun hasInlineMarkdownSyntax(text: String): Boolean =
         text.contains("www.", ignoreCase = true)
 
 private fun AnnotatedString.Builder.appendVisibleUrlLink(rawUrl: String) {
-    val url = normalizeMarkdownUrl(rawUrl)
+    val url = normalizeMarkdownUrl(rawUrl) ?: rawUrl.trim()
     pushLink(
         LinkAnnotation.Url(
             url = url,
-            styles = TextLinkStyles(
-                style = SpanStyle(
-                    color = ZhihuijiPrimary,
-                    fontWeight = FontWeight.SemiBold,
-                    textDecoration = TextDecoration.Underline,
-                )
-            )
+            styles = MarkdownLinkStyles
         )
     )
     append(url)
+    pop()
+}
+
+private fun AnnotatedString.Builder.appendMarkdownLink(
+    label: String,
+    rawDestination: String,
+) {
+    val destination = markdownLinkDestination(rawDestination)
+    val normalizedUrl = normalizeMarkdownUrl(destination)
+    val visibleDestination = normalizedUrl ?: destination.trim()
+    if (normalizedUrl == null) {
+        append(label)
+        if (visibleDestination.isNotBlank() && !label.equals(visibleDestination, ignoreCase = true)) {
+            append(" ($visibleDestination)")
+        }
+        return
+    }
+
+    pushLink(
+        LinkAnnotation.Url(
+            url = normalizedUrl,
+            styles = MarkdownLinkStyles
+        )
+    )
+    append(label)
+    if (!label.equals(normalizedUrl, ignoreCase = true)) {
+        append(" ($normalizedUrl)")
+    }
     pop()
 }
 
@@ -836,14 +849,15 @@ private fun markdownLinkDestination(raw: String): String {
     return destination.trim()
 }
 
-private fun normalizeMarkdownUrl(url: String): String {
+private fun normalizeMarkdownUrl(url: String): String? {
     val trimmed = url.trim()
     return when {
+        trimmed.isBlank() -> null
         trimmed.startsWith("http://", ignoreCase = true) ||
             trimmed.startsWith("https://", ignoreCase = true) ||
             trimmed.startsWith("mailto:", ignoreCase = true) ||
             trimmed.startsWith("tel:", ignoreCase = true) -> trimmed
         trimmed.startsWith("www.", ignoreCase = true) -> "https://$trimmed"
-        else -> trimmed
+        else -> null
     }
 }

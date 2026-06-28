@@ -15,6 +15,7 @@ import {
   inventorySourceLabel,
   inventoryTrendLabel,
 } from '@/shared/utils/business'
+import { readQueryId, sameEntityId, type EntityId } from '@/shared/utils/id'
 
 const route = useRoute()
 const router = useRouter()
@@ -27,21 +28,16 @@ const loadingLedger = ref(false)
 const error = ref('')
 const searchKeyword = ref('')
 const rangeDays = ref('30')
-const selectedProductId = ref<number | null>(null)
+const selectedProductId = ref<EntityId | null>(null)
 const pageReady = ref(false)
 
-const queryProductId = computed(() => {
-  const raw = route.query.productId
-  const first = Array.isArray(raw) ? raw[0] : raw
-  const parsed = Number(first)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
-})
+const queryProductId = computed(() => readQueryId(route.query.productId))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canAdjust = computed(() => session.hasPermission(['inventory:write']))
-const productIndex = computed(() => new Map(products.value.map((item) => [item.id, item] as const)))
+const productIndex = computed(() => new Map(products.value.map((item) => [String(item.id), item] as const)))
 const selectedProduct = computed(() => {
   if (selectedProductId.value == null) return products.value[0] ?? null
-  return productIndex.value.get(selectedProductId.value) ?? products.value[0] ?? null
+  return productIndex.value.get(String(selectedProductId.value)) ?? products.value[0] ?? null
 })
 const filteredProducts = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
@@ -111,7 +107,7 @@ async function loadPage() {
   }
 }
 
-async function loadLedger(productId: number) {
+async function loadLedger(productId: EntityId) {
   if (!session.token.value) return
   loadingLedger.value = true
   error.value = ''
@@ -216,7 +212,7 @@ const quantityLabel = (value: number) => (value > 0 ? `+${formatNumber(value)}` 
               <tr
                 v-for="product in filteredProducts"
                 :key="product.id"
-                :class="{ selected: product.id === selectedProduct?.id }"
+                :class="{ selected: sameEntityId(product.id, selectedProduct?.id) }"
                 @click="selectedProductId = product.id"
               >
                 <td>{{ product.code }}</td>

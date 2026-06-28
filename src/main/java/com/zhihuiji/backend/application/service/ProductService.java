@@ -4,6 +4,7 @@ import com.zhihuiji.backend.domain.entity.InventoryAdjustmentEntity;
 import com.zhihuiji.backend.domain.entity.ProductEntity;
 import com.zhihuiji.backend.infrastructure.repository.InventoryAdjustmentRepository;
 import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
+import java.math.BigDecimal;
 import java.util.List;
 import com.zhihuiji.backend.api.common.IdGenerator;
 import org.springframework.stereotype.Service;
@@ -55,6 +56,7 @@ public class ProductService {
             .orElse(null);
     }
 
+    @Transactional
     public ProductEntity create(ProductEntity product) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         if (productRepository.findByOwnerUserIdAndCode(ownerUserId, product.getCode()).isPresent()) {
@@ -86,24 +88,25 @@ public class ProductService {
         return productRepository.save(target);
     }
 
+    @Transactional
     public void delete(Long id) {
         productRepository.delete(get(id));
     }
 
     @Transactional
-    public ProductEntity adjustStock(Long id, Double delta, String reason, String operator) {
-        if (delta == null || Math.abs(delta) < 0.000001) {
+    public ProductEntity adjustStock(Long id, BigDecimal delta, String reason, String operator) {
+        if (delta == null || delta.compareTo(BigDecimal.ZERO) == 0) {
             throw new IllegalArgumentException("库存调整值不能为空或0");
         }
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         ProductEntity target = productRepository.findByIdForUpdate(ownerUserId, id)
             .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
         long now = System.currentTimeMillis();
-        double nextStock = target.getStock() + delta;
-        if (nextStock < 0) {
+        BigDecimal nextStock = BigDecimal.valueOf(target.getStock()).add(delta);
+        if (nextStock.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("库存不足，无法扣减");
         }
-        target.setStock(nextStock);
+        target.setStock(nextStock.doubleValue());
         target.setUpdatedAt(now);
         target.setSyncStatus(0);
         target.setSyncVersion(target.getSyncVersion() == null ? 1L : target.getSyncVersion() + 1);
@@ -115,8 +118,8 @@ public class ProductService {
         adjustment.setProductId(saved.getId());
         adjustment.setProductCode(saved.getCode());
         adjustment.setProductName(saved.getName());
-        adjustment.setQuantity(Math.abs(delta));
-        adjustment.setFlowType(delta > 0 ? FLOW_IN : FLOW_OUT);
+        adjustment.setQuantity(delta.abs().doubleValue());
+        adjustment.setFlowType(delta.signum() > 0 ? FLOW_IN : FLOW_OUT);
         adjustment.setReason(reason);
         adjustment.setOperatorName(operator);
         adjustment.setCreatedAt(now);

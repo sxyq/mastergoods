@@ -15,6 +15,7 @@ import {
   formatNumber,
   inventoryTrendLabel,
 } from '@/shared/utils/business'
+import { readQueryId, sameEntityId, type EntityId } from '@/shared/utils/id'
 
 const route = useRoute()
 const router = useRouter()
@@ -27,7 +28,7 @@ const submitting = ref(false)
 const error = ref('')
 const success = ref('')
 const searchKeyword = ref('')
-const selectedProductId = ref<number | null>(null)
+const selectedProductId = ref<EntityId | null>(null)
 
 const form = reactive({
   adjustmentType: '盘亏',
@@ -43,18 +44,13 @@ const adjustmentOptions = [
   { label: '入库补录', sign: 1, sourceType: 'MANUAL_INBOUND' },
 ]
 
-const queryProductId = computed(() => {
-  const raw = route.query.productId
-  const first = Array.isArray(raw) ? raw[0] : raw
-  const parsed = Number(first)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
-})
+const queryProductId = computed(() => readQueryId(route.query.productId))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canWrite = computed(() => session.hasPermission(['inventory:write']))
-const productIndex = computed(() => new Map(products.value.map((item) => [item.id, item] as const)))
+const productIndex = computed(() => new Map(products.value.map((item) => [String(item.id), item] as const)))
 const selectedProduct = computed(() => {
   if (selectedProductId.value == null) return products.value[0] ?? null
-  return productIndex.value.get(selectedProductId.value) ?? products.value[0] ?? null
+  return productIndex.value.get(String(selectedProductId.value)) ?? products.value[0] ?? null
 })
 const filteredProducts = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
@@ -105,7 +101,7 @@ async function loadPage() {
   }
 }
 
-async function loadLedger(productId: number) {
+async function loadLedger(productId: EntityId) {
   if (!session.token.value) return
   ledgerEntries.value = await fetchInventoryLedger(session.token.value, { productId })
 }
@@ -186,7 +182,7 @@ async function submitAdjustment() {
               <tr
                 v-for="product in filteredProducts"
                 :key="product.id"
-                :class="{ selected: product.id === selectedProduct?.id }"
+                :class="{ selected: sameEntityId(product.id, selectedProduct?.id) }"
                 @click="selectedProductId = product.id"
               >
                 <td>{{ product.code }}</td>

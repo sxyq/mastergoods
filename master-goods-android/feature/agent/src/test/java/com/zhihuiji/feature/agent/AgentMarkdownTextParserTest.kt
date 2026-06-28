@@ -2,6 +2,7 @@ package com.zhihuiji.feature.agent
 
 import androidx.compose.ui.text.AnnotatedString
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AgentMarkdownTextParserTest {
@@ -128,6 +129,14 @@ class AgentMarkdownTextParserTest {
     }
 
     @Test
+    fun inlineMarkdownLeavesUnsupportedSchemeAsPlainText() {
+        val rendered = inlineMarkdownAnnotated("查看[危险链接](javascript:alert(1))")
+
+        assertEquals("查看危险链接 (javascript:alert(1))", rendered.text)
+        assertTrue(rendered.getLinkAnnotations(0, rendered.length).isEmpty())
+    }
+
+    @Test
     fun inlineMarkdownAutolinksBareHttpsUrlFromModelAnswer() {
         val rendered = inlineMarkdownText("来源 https://example.com/report/123 已核对。")
 
@@ -198,12 +207,16 @@ class AgentMarkdownTextParserTest {
     }
 
     private fun inlineMarkdownText(text: String): String {
+        return inlineMarkdownAnnotated(text).text
+    }
+
+    private fun inlineMarkdownAnnotated(text: String): AnnotatedString {
         val method = markdownFileClass.declaredMethods.first { method ->
             method.name.startsWith("inlineMarkdown") &&
                 method.parameterTypes.toList() == listOf(String::class.java, Long::class.javaPrimitiveType)
         }
         method.isAccessible = true
-        return (method.invoke(null, text, 0L) as AnnotatedString).text
+        return method.invoke(null, text, 0L) as AnnotatedString
     }
 
     private fun codeBlockText(block: Any): String {
