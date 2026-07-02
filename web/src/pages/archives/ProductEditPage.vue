@@ -1,18 +1,25 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from '@/app/stores/session'
 import {
+  createMediaBinding,
   createProduct,
+  deleteMediaAsset,
+  deleteMediaBinding,
+  fetchMediaBindings,
   fetchProduct,
   fetchProductCategories,
   fetchProductUnits,
+  mediaAssetContentUrl,
   updateProduct,
+  uploadMediaAsset,
+  type MediaBindingRecord,
   type ProductCategoryRecord,
   type ProductUnitRecord,
   type ProductWritePayload,
 } from '@/shared/api/client'
-import { readQueryId } from '@/shared/utils/id'
+import { readQueryId, type EntityId } from '@/shared/utils/id'
 import { formatDateTime } from '@/shared/utils/business'
 
 const route = useRoute()
@@ -26,6 +33,14 @@ const saving = ref(false)
 const error = ref('')
 const success = ref('')
 const lastUpdatedAt = ref<number | null>(null)
+
+const mediaBindings = ref<MediaBindingRecord[]>([])
+const imageBlobUrls = ref<Map<string, string>>(new Map())
+const mediaLoading = ref(false)
+const mediaError = ref('')
+const mediaSuccess = ref('')
+const uploading = ref(false)
+const selectedFile = ref<File | null>(null)
 
 const productId = computed(() => {
   return readQueryId(route.query.id)
@@ -61,9 +76,17 @@ watch(
   async () => {
     if (!isApiSource.value || !session.token.value) {
       error.value = ''
+      mediaBindings.value = []
+      revokeBlobUrls()
       return
     }
     await loadPage()
+    if (productId.value) {
+      await loadMediaBindings()
+    } else {
+      mediaBindings.value = []
+      revokeBlobUrls()
+    }
   },
   { immediate: true },
 )
@@ -111,8 +134,8 @@ async function submitForm() {
     const payload: ProductWritePayload = {
       code: form.code.trim(),
       name: form.name.trim(),
-      categoryId: Number(form.categoryId),
-      unitId: Number(form.unitId),
+      categoryId: form.categoryId,
+      unitId: form.unitId,
       salePrice: Number(form.salePrice || 0),
       purchasePrice: Number(form.purchasePrice || 0),
       stock: Number(form.stock || 0),
@@ -148,6 +171,97 @@ function resetForm() {
 function goBack() {
   router.push('/archives/products')
 }
+
+async function loadMediaBindings() {
+  if (!session.token.value || !productId.value) return
+  mediaLoading.value = true
+  mediaError.value = ''
+  try {
+    mediaBindings.value = await fetchMediaBindings(session.token.value, 'product', productId.value)
+    await Promise.all(mediaBindings.value.map((binding) => loadImageBlobUrl(binding.assetId)))
+  } catch (loadErr) {
+    mediaError.value = loadErr instanceof Error ? loadErr.message : '商品图片加载失败'
+  } finally {
+    mediaLoading.value = false
+  }
+}
+
+async function loadImageBlobUrl(assetId: EntityId) {
+  if (!session.token.value) return
+  const key = String(assetId)
+  if (imageBlobUrls.value.has(key)) return
+  try {
+    const response = await fetch(mediaAssetContentUrl(assetId), {
+      headers: { Authorization: `Bearer ${session.token.value}` },
+    })
+    if (!response.ok) return
+    const blob = await response.blob()
+    if (imageBlobUrls.value.has(key)) return
+    const next = new Map(imageBlobUrls.value)
+    next.set(key, URL.createObjectURL(blob))
+    imageBlobUrls.value = next
+  } catch {
+    // ignore single image load failure
+  }
+}
+
+function imageUrl(assetId: EntityId) {
+  return imageBlobUrls.value.get(String(assetId)) || ''
+}
+
+function onFileSelected(event: Event) {
+  const target = event.target as HTMLInputElement
+  selectedFile.value = target.files && target.files[0] ? target.files[0] : null
+}
+
+async function uploadImage() {
+  if (!session.token.value || !productId.value || !selectedFile.value) return
+  uploading.value = true
+  mediaError.value = ''
+  mediaSuccess.value = ''
+  try {
+    const asset = await uploadMediaAsset(session.token.value, selectedFile.value, 'product_image')
+    await createMediaBinding(session.token.value, {
+      assetId: asset.id,
+      targetType: 'product',
+      targetId: productId.value,
+    })
+    mediaSuccess.value = `图片「${asset.originalFileName}」已上传`
+    selectedFile.value = null
+    const fileInput = document.querySelector<HTMLInputElement>('#product-image-input')
+    if (fileInput) fileInput.value = ''
+    await loadMediaBindings()
+  } catch (uploadErr) {
+    mediaError.value = uploadErr instanceof Error ? uploadErr.message : '图片上传失败'
+  } finally {
+    uploading.value = false
+  }
+}
+
+async function removeImage(binding: MediaBindingRecord) {
+  if (!session.token.value) return
+  if (!window.confirm('确认删除该商品图片？')) return
+  uploading.value = true
+  mediaError.value = ''
+  mediaSuccess.value = ''
+  try {
+    await deleteMediaBinding(session.token.value, binding.id)
+    await deleteMediaAsset(session.token.value, binding.assetId)
+    mediaSuccess.value = '图片已删除'
+    await loadMediaBindings()
+  } catch (removeErr) {
+    mediaError.value = removeErr instanceof Error ? removeErr.message : '图片删除失败'
+  } finally {
+    uploading.value = false
+  }
+}
+
+function revokeBlobUrls() {
+  imageBlobUrls.value.forEach((url) => URL.revokeObjectURL(url))
+  imageBlobUrls.value = new Map()
+}
+
+onUnmounted(revokeBlobUrls)
 </script>
 
 <template>
@@ -255,6 +369,41 @@ function goBack() {
           </article>
         </div>
       </aside>
+    </section>
+
+    <section v-if="isEditMode && isApiSource" class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">商品图片 / Media</p>
+          <h3>商品图片管理</h3>
+        </div>
+        <span class="session-source">{{ mediaBindings.length }} 张图片</span>
+      </div>
+
+      <p v-if="mediaError" class="form-error">{{ mediaError }}</p>
+      <p v-else-if="mediaSuccess" class="form-success">{{ mediaSuccess }}</p>
+      <p v-if="mediaLoading" class="form-success">正在加载商品图片...</p>
+
+      <div class="partner-form product-form">
+        <label class="wide-field">
+          <span>选择图片</span>
+          <input id="product-image-input" type="file" accept="image/*" :disabled="!canWrite || uploading" @change="onFileSelected" />
+        </label>
+        <div class="form-actions wide-field">
+          <button type="button" :disabled="!canWrite || uploading || !selectedFile" @click="uploadImage">
+            {{ uploading ? '上传中...' : '上传图片' }}
+          </button>
+        </div>
+      </div>
+
+      <div v-if="mediaBindings.length > 0" class="product-image-grid">
+        <figure v-for="binding in mediaBindings" :key="binding.id" class="product-image-item">
+          <img v-if="imageUrl(binding.assetId)" :src="imageUrl(binding.assetId)" alt="商品图片" style="width:120px;height:120px;object-fit:cover;border-radius:8px;" />
+          <span v-else class="material-symbols-outlined">image</span>
+          <button type="button" class="ghost-action" :disabled="!canWrite || uploading" @click="removeImage(binding)">删除</button>
+        </figure>
+      </div>
+      <p v-else-if="!mediaLoading" class="muted">暂无商品图片，请上传。</p>
     </section>
   </section>
 </template>

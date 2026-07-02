@@ -13,7 +13,7 @@ import {
   type PurchaseOrderWritePayload,
   type SupplierRecord,
 } from '@/shared/api/client'
-import { readQueryId } from '@/shared/utils/id'
+import { entityIdKey, readQueryId } from '@/shared/utils/id'
 import { formatCurrency } from '@/shared/utils/business'
 
 interface LineItemForm {
@@ -51,13 +51,13 @@ const orderId = computed(() => readQueryId(route.query.id))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const isEditMode = computed(() => orderId.value != null)
 const canWrite = computed(() => session.hasPermission(['purchase:write']))
-const supplierById = computed(() => new Map(suppliers.value.map((item) => [item.id, item] as const)))
-const productById = computed(() => new Map(products.value.map((item) => [item.id, item] as const)))
+const supplierById = computed(() => new Map(suppliers.value.map((item) => [entityIdKey(item.id), item] as const)))
+const productById = computed(() => new Map(products.value.map((item) => [entityIdKey(item.id), item] as const)))
 const normalizedItems = computed(() => {
   return lines.value
     .filter((line) => Number(line.quantity) > 0 && (line.productId || line.productCode.trim() || line.productName.trim()))
     .map((line) => ({
-      productId: line.productId ? Number(line.productId) : null,
+      productId: line.productId || null,
       productCode: line.productCode.trim() || null,
       productName: line.productName.trim() || null,
       quantity: Number(line.quantity || 0),
@@ -123,13 +123,13 @@ function removeLine(index: number) {
 }
 
 function syncSupplier(supplierId: string) {
-  const supplier = supplierById.value.get(Number(supplierId))
+  const supplier = supplierById.value.get(entityIdKey(supplierId))
   form.supplierId = supplierId
   form.supplierName = supplier?.name || ''
 }
 
 function syncProduct(index: number, productId: string) {
-  const product = productById.value.get(Number(productId))
+  const product = productById.value.get(entityIdKey(productId))
   const current = lines.value[index]
   current.productId = productId
   if (product) {
@@ -140,7 +140,7 @@ function syncProduct(index: number, productId: string) {
 }
 
 function productFor(line: LineItemForm) {
-  return productById.value.get(Number(line.productId))
+  return productById.value.get(entityIdKey(line.productId))
 }
 
 function lineUnitCost(line: LineItemForm) {
@@ -162,7 +162,7 @@ async function submitForm(next: 'detail' | 'receipt' = 'detail') {
     }
 
     const payload: PurchaseOrderWritePayload = {
-      supplierId: form.supplierId ? Number(form.supplierId) : null,
+      supplierId: form.supplierId || null,
       supplierName: form.supplierName.trim() || null,
       notes: form.notes.trim() || null,
       items: normalizedItems.value,

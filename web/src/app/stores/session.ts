@@ -1,6 +1,7 @@
 import { computed, reactive } from 'vue'
 import { canAccess, demoMembers, roleLabels, rolePermissions, type Permission, type StoreMember, type StoreRole } from '@/entities/auth/roles'
 import * as authApi from '@/shared/api/client'
+import { readQueryId } from '@/shared/utils/id'
 
 export type SessionSource = 'api' | 'demo' | ''
 
@@ -24,7 +25,7 @@ const state = reactive({
   currentMemberStatus: Number(localStorage.getItem('zhihuiji.web.memberStatus') ?? 1) as 0 | 1,
   token: localStorage.getItem('zhihuiji.web.token') ?? '',
   refreshToken: localStorage.getItem('zhihuiji.web.refreshToken') ?? '',
-  userId: Number(localStorage.getItem('zhihuiji.web.userId') ?? 0),
+  userId: readStoredEntityId('zhihuiji.web.userId'),
   phone: localStorage.getItem('zhihuiji.web.phone') ?? '13800000001',
   nickname: localStorage.getItem('zhihuiji.web.nickname') ?? '老板',
   storeId: localStorage.getItem('zhihuiji.web.storeId') ?? 'store-main',
@@ -60,7 +61,7 @@ const activeMemberRoleIndex = computed(() => {
 const member = computed<StoreMember>(() => {
   if (state.source === 'api') {
     return {
-      id: state.userId ? String(state.userId) : 'api-user',
+      id: state.userId || 'api-user',
       name: state.nickname,
       role: state.currentRole,
       phone: state.phone,
@@ -212,7 +213,7 @@ export function useSession() {
     const nextMember = localMemberIndex.value.get(memberId) ?? state.localMembers[0]
     state.token = ''
     state.refreshToken = ''
-    state.userId = 0
+    state.userId = ''
     state.currentMemberId = nextMember.id
     state.currentRole = nextMember.role
     state.permissions = rolePermissions[nextMember.role]
@@ -299,7 +300,7 @@ export function useSession() {
 function applyAuthPayload(payload: authApi.AuthPayload, phone: string) {
   state.token = payload.token
   state.refreshToken = payload.refreshToken
-  state.userId = payload.userId
+  state.userId = String(payload.userId)
   state.phone = phone
   state.nickname = phone
   state.storeId = `owner-${payload.userId}`
@@ -311,13 +312,13 @@ function applyAuthPayload(payload: authApi.AuthPayload, phone: string) {
 function applyRefreshedAuthPayload(payload: authApi.AuthPayload) {
   state.token = payload.token
   state.refreshToken = payload.refreshToken
-  state.userId = payload.userId || state.userId
+  state.userId = payload.userId ? String(payload.userId) : state.userId
   state.source = 'api'
   persist()
 }
 
 function applyProfile(profile: authApi.UserProfile) {
-  state.userId = profile.id
+  state.userId = String(profile.id)
   state.phone = profile.phone
   state.nickname = profile.nickname
   state.source = 'api'
@@ -339,7 +340,7 @@ function applyStoreContext(profile: authApi.CurrentStoreProfile) {
 function logoutInternal() {
   state.token = ''
   state.refreshToken = ''
-  state.userId = 0
+  state.userId = ''
   state.source = ''
   state.currentRole = 'OWNER'
   state.currentMemberId = 'u-owner'
@@ -397,6 +398,12 @@ function readStoredPermissions(): Permission[] {
   } catch {
     return isDemoSource ? rolePermissions[readStoredRole()] : []
   }
+}
+
+function readStoredEntityId(key: string) {
+  const stored = localStorage.getItem(key)
+  if (!stored) return ''
+  return readQueryId(stored) ?? ''
 }
 
 function readStoredMembers(): StoreMember[] {

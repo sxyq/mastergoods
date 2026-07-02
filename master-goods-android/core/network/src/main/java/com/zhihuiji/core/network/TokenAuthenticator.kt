@@ -28,7 +28,7 @@ class TokenAuthenticator @Inject constructor(
 
         return try {
             val refreshBaseUrl = settingsStore.peekBaseUrl()
-            if (!BuildConfig.ALLOW_CLEARTEXT_BASE_URL && !SettingsStore.isTrustedReleaseBaseUrl(refreshBaseUrl)) {
+            if (BuildConfig.ENFORCE_TRUSTED_BASE_URL && !SettingsStore.isTrustedReleaseBaseUrl(refreshBaseUrl)) {
                 return null
             }
             val body = json.encodeToString(RefreshRequest.serializer(), RefreshRequest(refreshToken))

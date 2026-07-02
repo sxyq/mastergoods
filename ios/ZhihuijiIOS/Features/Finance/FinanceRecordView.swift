@@ -75,6 +75,48 @@ struct FinanceRecordView: View {
                 }
                 .buttonStyle(.plain)
 
+                NavigationLink {
+                    AccountListView()
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("资金账户")
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                            Text("管理现金、银行、支付宝、微信等收款账户与余额。")
+                                .font(ZhihuijiTheme.Typography.body)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                    }
+                    .padding(16)
+                    .glassCard()
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink {
+                    AccountTransferView()
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("账户转账")
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                            Text("在资金账户之间进行转账，自动调整双方余额。")
+                                .font(ZhihuijiTheme.Typography.body)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                    }
+                    .padding(16)
+                    .glassCard()
+                }
+                .buttonStyle(.plain)
+
                 if actionPolicy.canWriteFinance {
                     financeCreateForm
                 } else {

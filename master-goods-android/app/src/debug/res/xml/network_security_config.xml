@@ -6,10 +6,4 @@
         </trust-anchors>
     </base-config>
 
-    <domain-config cleartextTrafficPermitted="true">
-        <domain>10.0.2.2</domain>
-        <domain>localhost</domain>
-        <domain>127.0.0.1</domain>
-        <domain>117.72.79.106</domain>
-    </domain-config>
 </network-security-config>

@@ -666,6 +666,82 @@ final class APIClient {
         let _: EmptyPayload = try await send(path: "/v2/media/bindings/\(id.rawValue)", method: "DELETE")
     }
 
+    // MARK: - Accounts (FE6)
+
+    func fetchAccounts() async throws -> [AccountRecord] {
+        try await send(.accounts)
+    }
+
+    func fetchAccount(id: EntityID) async throws -> AccountRecord {
+        try await send(path: "/v2/accounts/\(id.rawValue)")
+    }
+
+    func createAccount(payload: AccountWritePayload) async throws -> AccountRecord {
+        try await send(.accounts, method: "POST", body: payload)
+    }
+
+    func updateAccount(id: EntityID, payload: AccountWritePayload) async throws -> AccountRecord {
+        try await send(path: "/v2/accounts/\(id.rawValue)", method: "PUT", body: payload)
+    }
+
+    func deleteAccount(id: EntityID) async throws {
+        let _: EmptyPayload = try await send(path: "/v2/accounts/\(id.rawValue)", method: "DELETE")
+    }
+
+    // MARK: - Account Transfers (FE7)
+
+    func fetchAccountTransfers() async throws -> [AccountTransferRecord] {
+        try await send(.accountTransfers)
+    }
+
+    func fetchAccountTransfer(id: EntityID) async throws -> AccountTransferRecord {
+        try await send(path: "/v2/account-transfers/\(id.rawValue)")
+    }
+
+    func createAccountTransfer(payload: AccountTransferCreatePayload) async throws -> AccountTransferRecord {
+        try await send(.accountTransfers, method: "POST", body: payload)
+    }
+
+    // MARK: - Partner Contacts (FE8)
+
+    func fetchCustomerContacts(customerId: EntityID) async throws -> [ContactRecord] {
+        try await send(
+            .customerContacts,
+            queryItems: [URLQueryItem(name: "customer_id", value: customerId.rawValue)]
+        )
+    }
+
+    func fetchSupplierContacts(supplierId: EntityID) async throws -> [ContactRecord] {
+        try await send(
+            .supplierContacts,
+            queryItems: [URLQueryItem(name: "supplier_id", value: supplierId.rawValue)]
+        )
+    }
+
+    func createCustomerContact(payload: ContactWritePayload) async throws -> ContactRecord {
+        try await send(.customerContacts, method: "POST", body: payload)
+    }
+
+    func updateCustomerContact(id: EntityID, payload: ContactWritePayload) async throws -> ContactRecord {
+        try await send(path: "/v2/customer-contacts/\(id.rawValue)", method: "PUT", body: payload)
+    }
+
+    func deleteCustomerContact(id: EntityID) async throws {
+        let _: EmptyPayload = try await send(path: "/v2/customer-contacts/\(id.rawValue)", method: "DELETE")
+    }
+
+    func createSupplierContact(payload: ContactWritePayload) async throws -> ContactRecord {
+        try await send(.supplierContacts, method: "POST", body: payload)
+    }
+
+    func updateSupplierContact(id: EntityID, payload: ContactWritePayload) async throws -> ContactRecord {
+        try await send(path: "/v2/supplier-contacts/\(id.rawValue)", method: "PUT", body: payload)
+    }
+
+    func deleteSupplierContact(id: EntityID) async throws {
+        let _: EmptyPayload = try await send(path: "/v2/supplier-contacts/\(id.rawValue)", method: "DELETE")
+    }
+
     func fetchSyncHealth() async throws -> SyncHealthRecord {
         try await send(.syncHealth)
     }

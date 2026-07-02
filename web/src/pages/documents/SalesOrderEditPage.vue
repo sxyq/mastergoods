@@ -14,7 +14,7 @@ import {
   type SaleOrderCreatePayload,
   type SaleOrderUpdateDraftPayload,
 } from '@/shared/api/client'
-import { readQueryId } from '@/shared/utils/id'
+import { entityIdKey, readQueryId } from '@/shared/utils/id'
 import { formatCurrency } from '@/shared/utils/business'
 
 interface LineItemForm {
@@ -50,8 +50,8 @@ const orderId = computed(() => readQueryId(route.query.id))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const isEditMode = computed(() => orderId.value != null)
 const canWrite = computed(() => session.hasPermission(['sales:write']))
-const customerIndex = computed(() => new Map(customers.value.map((item) => [item.id, item] as const)))
-const productIndex = computed(() => new Map(products.value.map((item) => [item.id, item] as const)))
+const customerIndex = computed(() => new Map(customers.value.map((item) => [entityIdKey(item.id), item] as const)))
+const productIndex = computed(() => new Map(products.value.map((item) => [entityIdKey(item.id), item] as const)))
 const subtotalAmount = computed(() => lines.value.reduce((sum, line) => sum + lineAmount(line), 0))
 const totalQuantity = computed(() => lines.value.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0))
 const orderAmount = computed(() => Math.max(0, subtotalAmount.value - (Number(form.discountAmount) || 0)))
@@ -59,7 +59,7 @@ const filledLineCount = computed(() => lines.value.reduce((count, line) => count
 const lineRows = computed(() => lines.value.map((line, index) => ({
   index,
   line,
-  product: line.productId ? productIndex.value.get(Number(line.productId)) ?? null : null,
+  product: line.productId ? productIndex.value.get(entityIdKey(line.productId)) ?? null : null,
   amount: lineAmount(line),
 })))
 const canSubmit = computed(() => canWrite.value && isApiSource.value && !saving.value && filledLineCount.value > 0)
@@ -130,13 +130,13 @@ function removeLine(index: number) {
 }
 
 function syncCustomer(customerId: string) {
-  const customer = customerIndex.value.get(Number(customerId))
+  const customer = customerIndex.value.get(entityIdKey(customerId))
   form.customerId = customerId
   form.customerName = customer?.name || ''
 }
 
 function syncProduct(index: number, productId: string) {
-  const product = productIndex.value.get(Number(productId))
+  const product = productIndex.value.get(entityIdKey(productId))
   lines.value[index].productId = productId
   if (product) {
     lines.value[index].unitPrice = String(product.salePrice)
@@ -166,7 +166,7 @@ async function submitForm(shouldConfirm: boolean) {
     const items = lines.value
       .filter((line) => line.productId && Number(line.quantity) > 0)
       .map((line) => ({
-        productId: Number(line.productId),
+        productId: line.productId,
         quantity: Number(line.quantity),
         unitPrice: Number(line.unitPrice || 0) * (Math.max(0, Number(line.discountPercent) || 0) / 100),
       }))
@@ -181,7 +181,7 @@ async function submitForm(shouldConfirm: boolean) {
           items,
         } satisfies SaleOrderUpdateDraftPayload)
       : await createSaleOrder(session.token.value, {
-          customerId: form.customerId ? Number(form.customerId) : null,
+          customerId: form.customerId || null,
           customerName: form.customerName.trim() || null,
           discountAmount: Number(form.discountAmount || 0),
           notes: form.notes.trim() || null,

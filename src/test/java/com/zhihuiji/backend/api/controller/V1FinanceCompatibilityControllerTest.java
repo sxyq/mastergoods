@@ -45,7 +45,7 @@ class V1FinanceCompatibilityControllerTest {
 
         mockMvc.perform(get("/v1/finance-records"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data[0].record_no").value("FR001"))
+            .andExpect(jsonPath("$.data[0].recordNo").value("FR001"))
             .andExpect(jsonPath("$.data[0].account_id").doesNotExist())
             .andExpect(jsonPath("$.data[0].account_name").doesNotExist())
             .andExpect(jsonPath("$.data[0].link_type").doesNotExist())

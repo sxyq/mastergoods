@@ -31,14 +31,14 @@ export class ApiError extends Error {
 }
 
 export interface AuthPayload {
-  userId: number
+  userId: EntityId
   token: string
   refreshToken: string
   expiresIn: number
 }
 
 export interface UserProfile {
-  id: number
+  id: EntityId
   phone: string
   nickname: string
   status: number
@@ -47,8 +47,8 @@ export interface UserProfile {
 export interface CurrentStoreProfile {
   storeId: EntityId
   storeName: string
-  ownerUserId: number
-  currentUserId: number
+  ownerUserId: EntityId
+  currentUserId: EntityId
   currentUserName: string
   currentUserPhone: string
   role: StoreRole
@@ -61,7 +61,7 @@ export interface CurrentStoreProfile {
 }
 
 export interface StoreMemberRecord {
-  userId: number
+  userId: EntityId
   phone: string
   nickname: string
   role: StoreRole
@@ -105,7 +105,7 @@ export interface AdminSummary {
 }
 
 export interface AdminUser {
-  id: number
+  id: EntityId
   phone: string
   nickname: string
   status: number
@@ -129,10 +129,10 @@ export interface AdminUpdateUserPayload {
 }
 
 export interface PartnerRecord {
-  id: number
+  id: EntityId
   name: string
   phone: string
-  groupId: number | null
+  groupId: EntityId | null
   groupName: string | null
   primaryContactName: string | null
   primaryContactPhone: string | null
@@ -145,7 +145,7 @@ export interface PartnerRecord {
 }
 
 export interface PartnerGroupRecord {
-  id: number
+  id: EntityId
   partnerType: string
   name: string
   status: number
@@ -170,7 +170,7 @@ export interface CustomerWritePayload {
   name: string
   phone: string
   level: number
-  groupId?: number | null
+  groupId?: EntityId | null
   primaryContactName?: string | null
   primaryContactPhone?: string | null
   address?: string | null
@@ -182,7 +182,7 @@ export interface CustomerWritePayload {
 export interface SupplierWritePayload {
   name: string
   phone: string
-  groupId?: number | null
+  groupId?: EntityId | null
   primaryContactName?: string | null
   primaryContactPhone?: string | null
   address?: string | null
@@ -194,10 +194,10 @@ export interface SupplierWritePayload {
 export interface SaleOrderItem {
   id: EntityId
   orderId: EntityId
-  productId: number
+  productId: EntityId
   productCode: string
   productName: string
-  customerId: number | null
+  customerId: EntityId | null
   customerName: string | null
   quantity: number
   unitPrice: number
@@ -208,7 +208,7 @@ export interface SaleOrderItem {
 export interface SaleOrder {
   id: EntityId
   orderNo: string
-  customerId: number | null
+  customerId: EntityId | null
   customerName: string | null
   items: SaleOrderItem[]
   subtotalAmount: number
@@ -222,13 +222,13 @@ export interface SaleOrder {
 }
 
 export interface SaleOrderCreateItemPayload {
-  productId?: number | null
+  productId?: EntityId | null
   quantity: number
   unitPrice: number
 }
 
 export interface SaleOrderCreatePayload {
-  customerId?: number | null
+  customerId?: EntityId | null
   customerName?: string | null
   items: SaleOrderCreateItemPayload[]
   notes?: string | null
@@ -264,33 +264,33 @@ export interface PaymentRecord {
 export interface PayOrder {
   id: EntityId
   orderNo: string
-  supplierId: number | null
+  supplierId: EntityId | null
   supplierName: string | null
   amount: number
   method: number
   referenceNo: string | null
   notes: string | null
-  accountId: number | null
+  accountId: EntityId | null
   status: number
   createdAt: number
   updatedAt: number
 }
 
 export interface PayOrderCreatePayload {
-  supplierId?: number | null
+  supplierId?: EntityId | null
   supplierName?: string | null
   amount: number
   method: number
   referenceNo?: string | null
   notes?: string | null
-  accountId?: number | null
+  accountId?: EntityId | null
   status?: number | null
 }
 
 export interface PurchaseOrderItem {
   id: EntityId
   orderId: EntityId
-  productId: number | null
+  productId: EntityId | null
   productCode: string | null
   productName: string | null
   quantity: number
@@ -302,7 +302,7 @@ export interface PurchaseOrderItem {
 export interface PurchaseOrder {
   id: EntityId
   orderNo: string
-  supplierId: number | null
+  supplierId: EntityId | null
   supplierName: string | null
   items: PurchaseOrderItem[]
   totalAmount: number
@@ -315,7 +315,7 @@ export interface PurchaseOrder {
 }
 
 export interface PurchaseOrderCreateItemPayload {
-  productId?: number | null
+  productId?: EntityId | null
   productCode?: string | null
   productName?: string | null
   quantity: number
@@ -323,7 +323,7 @@ export interface PurchaseOrderCreateItemPayload {
 }
 
 export interface PurchaseOrderWritePayload {
-  supplierId?: number | null
+  supplierId?: EntityId | null
   supplierName?: string | null
   items: PurchaseOrderCreateItemPayload[]
   notes?: string | null
@@ -331,7 +331,7 @@ export interface PurchaseOrderWritePayload {
 }
 
 export interface ProductPriceLevelValue {
-  levelId: number
+  levelId: EntityId
   code: string
   name: string
   price: number
@@ -340,9 +340,9 @@ export interface ProductPriceLevelValue {
 }
 
 export interface ProductSupplierRelation {
-  id: number
-  productId: number
-  supplierId: number
+  id: EntityId
+  productId: EntityId
+  supplierId: EntityId
   supplierName: string
   supplierPhone: string | null
   isDefault: boolean
@@ -354,12 +354,12 @@ export interface ProductSupplierRelation {
 }
 
 export interface ProductRecord {
-  id: number
+  id: EntityId
   code: string
   name: string
-  categoryId: number | null
+  categoryId: EntityId | null
   categoryName: string | null
-  unitId: number | null
+  unitId: EntityId | null
   unitName: string | null
   salePrice: number
   purchasePrice: number
@@ -374,7 +374,7 @@ export interface ProductRecord {
 }
 
 export interface ProductCategoryRecord {
-  id: number
+  id: EntityId
   name: string
   status: number
   sortOrder: number | null
@@ -383,7 +383,7 @@ export interface ProductCategoryRecord {
 }
 
 export interface ProductUnitRecord {
-  id: number
+  id: EntityId
   name: string
   status: number
   sortOrder: number | null
@@ -392,13 +392,13 @@ export interface ProductUnitRecord {
 }
 
 export interface ProductPriceLevelWritePayload {
-  levelId: number
+  levelId: EntityId
   price: number
 }
 
 export interface ProductSupplierRelationWritePayload {
-  productId: number
-  supplierId: number
+  productId: EntityId
+  supplierId: EntityId
   isDefault?: boolean | null
   purchasePriority?: number | null
   lastPurchasePrice?: number | null
@@ -408,8 +408,8 @@ export interface ProductSupplierRelationWritePayload {
 export interface ProductWritePayload {
   code: string
   name: string
-  categoryId: number
-  unitId: number
+  categoryId: EntityId
+  unitId: EntityId
   salePrice: number
   purchasePrice: number
   priceLevels?: ProductPriceLevelWritePayload[]
@@ -450,9 +450,9 @@ export interface RefundRecordReportItem {
 export interface StockOutRecordReportItem {
   orderId: EntityId
   orderNo: string
-  customerId: number | null
+  customerId: EntityId | null
   customerName: string | null
-  productId: number
+  productId: EntityId
   productCode: string
   productName: string
   quantity: number
@@ -463,7 +463,7 @@ export interface StockOutRecordReportItem {
 }
 
 export interface TopProductReportItem {
-  productId: number
+  productId: EntityId
   productCode: string
   productName: string
   totalQuantity: number
@@ -471,7 +471,7 @@ export interface TopProductReportItem {
 }
 
 export interface ProfitByProductReportItem {
-  productId: number
+  productId: EntityId
   productCode: string
   productName: string
   totalSalesAmount: number
@@ -481,7 +481,7 @@ export interface ProfitByProductReportItem {
 }
 
 export interface ProfitByCustomerReportItem {
-  customerId: number | null
+  customerId: EntityId | null
   customerName: string | null
   totalSalesAmount: number
   totalCostAmount: number
@@ -492,7 +492,7 @@ export interface ProfitByCustomerReportItem {
 export interface InventoryFlowReportItem {
   orderId: EntityId
   orderNo: string
-  productId: number
+  productId: EntityId
   productCode: string
   productName: string
   quantity: number
@@ -506,14 +506,14 @@ export interface InventoryFlowReportItem {
 }
 
 export interface CustomerSalesReportItem {
-  customerId: number | null
+  customerId: EntityId | null
   customerName: string | null
   totalOrders: number
   totalAmount: number
 }
 
 export interface CustomerReceivableReportItem {
-  customerId: number
+  customerId: EntityId
   customerName: string
   phone: string | null
   balance: number
@@ -549,7 +549,7 @@ export interface ReconciliationSummaryReport {
 }
 
 export interface LowStockReportItem {
-  productId: number
+  productId: EntityId
   productCode: string
   productName: string
   stock: number
@@ -558,10 +558,10 @@ export interface LowStockReportItem {
 
 export interface InventoryLedgerEntry {
   id: EntityId
-  productId: number
+  productId: EntityId
   productCode: string
   productName: string
-  warehouseId: number | null
+  warehouseId: EntityId | null
   quantityBefore: number
   quantityChange: number
   quantityAfter: number
@@ -574,11 +574,11 @@ export interface InventoryLedgerEntry {
 }
 
 export interface InventorySnapshot {
-  id: number
-  productId: number
+  id: EntityId
+  productId: EntityId
   productCode: string
   productName: string
-  warehouseId: number | null
+  warehouseId: EntityId | null
   quantity: number
   unitCost: number | null
   totalValue: number | null
@@ -587,7 +587,7 @@ export interface InventorySnapshot {
 }
 
 export interface FinanceRecord {
-  id: number
+  id: EntityId
   recordNo: string
   type: number
   category: string | null
@@ -716,20 +716,20 @@ export interface InventoryLedgerCreatePayload {
   sourceNo?: string | null
   quantityChange: number
   unitCost?: number | null
-  warehouseId?: number | null
+  warehouseId?: EntityId | null
   notes?: string | null
 }
 
 export interface InventorySnapshotCreatePayload {
-  productId: number
+  productId: EntityId
   snapshotDate: number
-  warehouseId?: number | null
+  warehouseId?: EntityId | null
 }
 
 export interface PurchaseReceiptItem {
   id: EntityId
   receiptId: EntityId
-  productId: number | null
+  productId: EntityId | null
   productCode: string | null
   productName: string | null
   quantity: number
@@ -742,7 +742,7 @@ export interface PurchaseReceipt {
   id: EntityId
   receiptNo: string
   purchaseOrderId: EntityId | null
-  supplierId: number | null
+  supplierId: EntityId | null
   supplierName: string | null
   items: PurchaseReceiptItem[]
   totalAmount: number
@@ -753,7 +753,7 @@ export interface PurchaseReceipt {
 }
 
 export interface PurchaseReceiptCreateItemPayload {
-  productId?: number | null
+  productId?: EntityId | null
   productCode?: string | null
   productName?: string | null
   quantity: number
@@ -762,7 +762,7 @@ export interface PurchaseReceiptCreateItemPayload {
 
 export interface PurchaseReceiptWritePayload {
   purchaseOrderId?: EntityId | null
-  supplierId?: number | null
+  supplierId?: EntityId | null
   supplierName?: string | null
   items: PurchaseReceiptCreateItemPayload[]
   notes?: string | null
@@ -771,7 +771,7 @@ export interface PurchaseReceiptWritePayload {
 export interface PurchaseReturnItem {
   id: EntityId
   returnId: EntityId
-  productId: number | null
+  productId: EntityId | null
   productCode: string | null
   productName: string | null
   quantity: number
@@ -793,7 +793,7 @@ export interface PurchaseReturn {
   id: EntityId
   returnNo: string
   purchaseOrderId: EntityId | null
-  supplierId: number | null
+  supplierId: EntityId | null
   supplierName: string | null
   items: PurchaseReturnItem[]
   refunds: PurchaseReturnRefund[]
@@ -806,7 +806,7 @@ export interface PurchaseReturn {
 }
 
 export interface PurchaseReturnCreateItemPayload {
-  productId?: number | null
+  productId?: EntityId | null
   productCode?: string | null
   productName?: string | null
   quantity: number
@@ -815,7 +815,7 @@ export interface PurchaseReturnCreateItemPayload {
 
 export interface PurchaseReturnWritePayload {
   purchaseOrderId?: EntityId | null
-  supplierId?: number | null
+  supplierId?: EntityId | null
   supplierName?: string | null
   items: PurchaseReturnCreateItemPayload[]
   notes?: string | null
@@ -834,7 +834,7 @@ export interface PurchaseReturnRefundPayload {
 export interface SalesReturnItem {
   id: EntityId
   returnId: EntityId
-  productId: number | null
+  productId: EntityId | null
   productCode: string | null
   productName: string | null
   quantity: number
@@ -847,7 +847,7 @@ export interface SalesReturn {
   id: EntityId
   returnNo: string
   originalOrderId: EntityId | null
-  customerId: number | null
+  customerId: EntityId | null
   customerName: string | null
   items: SalesReturnItem[]
   totalAmount: number
@@ -859,14 +859,14 @@ export interface SalesReturn {
 }
 
 export interface SalesReturnCreateItemPayload {
-  productId?: number | null
+  productId?: EntityId | null
   quantity: number
   unitPrice?: number | null
 }
 
 export interface SalesReturnCreatePayload {
   originalOrderId?: EntityId | null
-  customerId?: number | null
+  customerId?: EntityId | null
   customerName?: string | null
   items: SalesReturnCreateItemPayload[]
   notes?: string | null
@@ -892,7 +892,7 @@ export interface SyncHealth {
 }
 
 export interface ImportJob {
-  id: number
+  id: EntityId
   clientId: string
   sourceType: string
   sourceUri: string | null
@@ -919,7 +919,7 @@ export interface LegacySqliteImportPayload {
 }
 
 export interface ImportResult {
-  userId: number
+  userId: EntityId
   phone: string
   nickname: string
   legacyDbPath: string
@@ -948,13 +948,13 @@ export interface AgentWorkbench {
   }>
   quickQuestions: string[]
   recentConversations: Array<{
-    id: number
+    id: EntityId
     title: string
     lastMessageAt: number
     messageCount: number
   }>
   pendingDrafts: Array<{
-    id: number
+    id: EntityId
     draftType: string
     title: string
     createdAt: number
@@ -976,7 +976,7 @@ export interface AgentWorkbench {
 }
 
 export interface AgentTask {
-  id: number
+  id: EntityId
   taskType: string
   title: string
   triggerSource: string
@@ -991,8 +991,8 @@ export interface AgentTask {
 }
 
 export interface AgentNotification {
-  id: number
-  taskId: number | null
+  id: EntityId
+  taskId: EntityId | null
   title: string
   body: string
   level: string
@@ -1081,7 +1081,7 @@ export interface AgentRunAuditEvent {
 
 export interface AgentRunAudit {
   runId: string
-  ownerUserId: number | null
+  ownerUserId: EntityId | null
   conversationId: EntityId | null
   status: string
   mode: string | null
@@ -1232,7 +1232,7 @@ export async function createStoreMember(token: string, payload: StoreMemberCreat
   })
 }
 
-export async function updateStoreMember(token: string, userId: number, payload: StoreMemberUpdatePayload) {
+export async function updateStoreMember(token: string, userId: EntityId, payload: StoreMemberUpdatePayload) {
   return request<StoreMemberRecord>(`/v2/stores/current/members/${userId}`, {
     method: 'PUT',
     headers: authHeaders(token),
@@ -1362,8 +1362,8 @@ export async function updatePurchaseOrder(token: string, id: EntityId, payload: 
 export async function fetchProducts(token: string, params: {
   keyword?: string
   status?: number
-  categoryId?: number
-  unitId?: number
+  categoryId?: EntityId
+  unitId?: EntityId
   page?: number
   size?: number
 } = {}) {
@@ -1423,7 +1423,7 @@ export async function fetchProductUnits(token: string) {
 export async function fetchCustomers(token: string, params: {
   keyword?: string
   status?: number
-  groupId?: number
+  groupId?: EntityId
   page?: number
   size?: number
 } = {}) {
@@ -1446,7 +1446,7 @@ export async function createCustomer(token: string, payload: CustomerWritePayloa
   })
 }
 
-export async function updateCustomer(token: string, id: number, payload: CustomerWritePayload) {
+export async function updateCustomer(token: string, id: EntityId, payload: CustomerWritePayload) {
   return request<CustomerRecord>(`/v2/customers/${id}`, {
     method: 'PUT',
     headers: authHeaders(token),
@@ -1454,7 +1454,7 @@ export async function updateCustomer(token: string, id: number, payload: Custome
   })
 }
 
-export async function deleteCustomer(token: string, id: number) {
+export async function deleteCustomer(token: string, id: EntityId) {
   return request<void>(`/v2/customers/${id}`, {
     method: 'DELETE',
     headers: authHeaders(token),
@@ -1475,7 +1475,7 @@ export async function createCustomerGroup(token: string, payload: PartnerGroupPa
   })
 }
 
-export async function updateCustomerGroup(token: string, id: number, payload: PartnerGroupPayload) {
+export async function updateCustomerGroup(token: string, id: EntityId, payload: PartnerGroupPayload) {
   return request<PartnerGroupRecord>(`/v2/customer-groups/${id}`, {
     method: 'PUT',
     headers: authHeaders(token),
@@ -1483,7 +1483,7 @@ export async function updateCustomerGroup(token: string, id: number, payload: Pa
   })
 }
 
-export async function deleteCustomerGroup(token: string, id: number) {
+export async function deleteCustomerGroup(token: string, id: EntityId) {
   return request<void>(`/v2/customer-groups/${id}`, {
     method: 'DELETE',
     headers: authHeaders(token),
@@ -1493,7 +1493,7 @@ export async function deleteCustomerGroup(token: string, id: number) {
 export async function fetchSuppliers(token: string, params: {
   keyword?: string
   status?: number
-  groupId?: number
+  groupId?: EntityId
   page?: number
   size?: number
 } = {}) {
@@ -1516,7 +1516,7 @@ export async function createSupplier(token: string, payload: SupplierWritePayloa
   })
 }
 
-export async function updateSupplier(token: string, id: number, payload: SupplierWritePayload) {
+export async function updateSupplier(token: string, id: EntityId, payload: SupplierWritePayload) {
   return request<SupplierRecord>(`/v2/suppliers/${id}`, {
     method: 'PUT',
     headers: authHeaders(token),
@@ -1524,7 +1524,7 @@ export async function updateSupplier(token: string, id: number, payload: Supplie
   })
 }
 
-export async function deleteSupplier(token: string, id: number) {
+export async function deleteSupplier(token: string, id: EntityId) {
   return request<void>(`/v2/suppliers/${id}`, {
     method: 'DELETE',
     headers: authHeaders(token),
@@ -1545,7 +1545,7 @@ export async function createSupplierGroup(token: string, payload: PartnerGroupPa
   })
 }
 
-export async function updateSupplierGroup(token: string, id: number, payload: PartnerGroupPayload) {
+export async function updateSupplierGroup(token: string, id: EntityId, payload: PartnerGroupPayload) {
   return request<PartnerGroupRecord>(`/v2/supplier-groups/${id}`, {
     method: 'PUT',
     headers: authHeaders(token),
@@ -1553,7 +1553,7 @@ export async function updateSupplierGroup(token: string, id: number, payload: Pa
   })
 }
 
-export async function deleteSupplierGroup(token: string, id: number) {
+export async function deleteSupplierGroup(token: string, id: EntityId) {
   return request<void>(`/v2/supplier-groups/${id}`, {
     method: 'DELETE',
     headers: authHeaders(token),

@@ -74,3 +74,59 @@ struct SupplierWritePayload: Codable, Equatable {
     let balance: Double?
     let status: Int?
 }
+
+// MARK: - Contact (FE8 联系人)
+
+struct ContactRecord: Identifiable, Codable, Equatable {
+    let id: EntityID
+    let partnerType: String
+    let partnerId: EntityID
+    let name: String
+    let phone: String?
+    let title: String?
+    let isPrimary: Bool
+    let createdAt: Int64
+    let updatedAt: Int64
+}
+
+struct ContactWritePayload: Codable, Equatable {
+    let partnerId: EntityID
+    let name: String
+    let phone: String?
+    let title: String?
+    let isPrimary: Bool?
+}
+
+enum PartnerContactKind: String, CaseIterable, Identifiable {
+    case customer
+    case supplier
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .customer: return "客户"
+        case .supplier: return "供应商"
+        }
+    }
+
+    var apiPath: String {
+        switch self {
+        case .customer: return "/v2/customer-contacts"
+        case .supplier: return "/v2/supplier-contacts"
+        }
+    }
+
+    var queryParam: String {
+        switch self {
+        case .customer: return "customer_id"
+        case .supplier: return "supplier_id"
+        }
+    }
+}
+
+extension ContactRecord {
+    var kind: PartnerContactKind? {
+        PartnerContactKind(rawValue: partnerType)
+    }
+}

@@ -5,9 +5,9 @@ import org.junit.Test
 
 class SettingsStoreTest {
     @Test
-    fun normalizeBaseUrl_debugBuildKeeps117Host() {
+    fun normalizeBaseUrl_mapsLegacy117HostToCurrentEdgeApi() {
         assertEquals(
-            "http://117.72.79.106/zhihuiji/v1/",
+            SettingsStore.DEFAULT_BASE_URL,
             SettingsStore.normalizeBaseUrl(" http://117.72.79.106/zhihuiji/v1 ", allowDebug117Host = true),
         )
     }
@@ -25,6 +25,22 @@ class SettingsStoreTest {
         assertEquals(
             SettingsStore.DEFAULT_BASE_URL,
             SettingsStore.normalizeBaseUrl("http://124.222.153.108/zhihuiji/v1/", allowDebug117Host = true),
+        )
+    }
+
+    @Test
+    fun normalizeBaseUrl_keepsCurrentEdgeApiPath() {
+        assertEquals(
+            SettingsStore.DEFAULT_BASE_URL,
+            SettingsStore.normalizeBaseUrl(" https://sxyq27.online/zhj-api/v1 ", allowDebug117Host = true),
+        )
+    }
+
+    @Test
+    fun normalizeBaseUrl_forcesHttpsForPersistedHttpUrls() {
+        assertEquals(
+            "https://example.com/zhihuiji/",
+            SettingsStore.normalizeBaseUrl("http://example.com/zhihuiji/v2/", allowDebug117Host = true),
         )
     }
 }

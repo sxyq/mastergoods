@@ -167,7 +167,7 @@ class AgentSseClientCancellationTest {
     }
 
     @Test
-    fun chatStream_normalizesLegacyBaseUrlBeforeOpeningSseEndpoint() = runBlocking {
+    fun chatStream_mapsLegacyBaseUrlToCurrentEdgeBeforeOpeningSseEndpoint() = runBlocking {
         var capturedUrl = ""
         val client = AgentSseClient(
             okHttpClient = OkHttpClient(),
@@ -185,7 +185,7 @@ class AgentSseClientCancellationTest {
         client.chatStream("""{"message":"库存","stream":true}""").toList()
 
         assertEquals(
-            "http://117.72.79.106/zhihuiji/v2/agent/chat/stream",
+            "https://sxyq27.online/zhj-api/v2/agent/chat/stream",
             capturedUrl,
         )
     }

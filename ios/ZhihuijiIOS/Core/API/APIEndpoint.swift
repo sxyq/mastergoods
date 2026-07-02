@@ -18,6 +18,10 @@ enum APIEndpoint {
     case agentWorkbench
     case mediaAssets
     case mediaBindings
+    case accounts
+    case accountTransfers
+    case customerContacts
+    case supplierContacts
     case syncHealth
     case importJobs
 
@@ -57,6 +61,14 @@ enum APIEndpoint {
             return "/v2/media/assets"
         case .mediaBindings:
             return "/v2/media/bindings"
+        case .accounts:
+            return "/v2/accounts"
+        case .accountTransfers:
+            return "/v2/account-transfers"
+        case .customerContacts:
+            return "/v2/customer-contacts"
+        case .supplierContacts:
+            return "/v2/supplier-contacts"
         case .syncHealth:
             return "/v2/sync/health"
         case .importJobs:

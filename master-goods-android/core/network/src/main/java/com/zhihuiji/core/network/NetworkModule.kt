@@ -16,6 +16,7 @@ import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -64,12 +65,17 @@ object NetworkModule {
     @Singleton
     fun provideBaseUrlInterceptor(settingsStore: SettingsStore): Interceptor = Interceptor { chain ->
         val currentBaseUrl = settingsStore.peekBaseUrl()
-        val newBaseUrl = currentBaseUrl.toHttpUrl()
-        check(BuildConfig.ALLOW_CLEARTEXT_BASE_URL || newBaseUrl.isHttps) {
-            "Release builds require an HTTPS base URL"
+        val resolvedBaseUrl = if (
+            BuildConfig.ENFORCE_TRUSTED_BASE_URL &&
+            !SettingsStore.isTrustedReleaseBaseUrl(currentBaseUrl)
+        ) {
+            NetworkConfig.DEFAULT_FALLBACK_URL
+        } else {
+            currentBaseUrl
         }
-        check(BuildConfig.ALLOW_CLEARTEXT_BASE_URL || SettingsStore.isTrustedReleaseBaseUrl(currentBaseUrl)) {
-            "Release builds require a trusted production host"
+        val newBaseUrl = resolvedBaseUrl.toHttpUrl()
+        if (!BuildConfig.ALLOW_CLEARTEXT_BASE_URL && !newBaseUrl.isHttps) {
+            throw IOException("HTTPS base URL required")
         }
         val originalRequest = chain.request()
         val newUrl = rewriteUrlForBaseUrl(

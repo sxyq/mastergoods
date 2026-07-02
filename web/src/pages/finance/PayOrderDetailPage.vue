@@ -154,7 +154,7 @@ async function loadOrders() {
   }
 }
 
-function accountName(accountId: number | null) {
+function accountName(accountId: EntityId | null) {
   return accountId == null ? '--' : accountIndex.value.get(String(accountId))?.name || '--'
 }
 
@@ -164,7 +164,7 @@ async function handleCreatePayOrder() {
   error.value = ''
   success.value = ''
   try {
-    const supplierId = createForm.supplierId ? Number(createForm.supplierId) : null
+    const supplierId = createForm.supplierId || null
     const created = await createPayOrder(session.token.value, {
       supplierId,
       supplierName: supplierId ? null : createForm.supplierName.trim(),
@@ -172,7 +172,7 @@ async function handleCreatePayOrder() {
       method: Number(createForm.method),
       referenceNo: createForm.referenceNo.trim() || null,
       notes: createForm.notes.trim() || null,
-      accountId: createForm.accountId ? Number(createForm.accountId) : null,
+      accountId: createForm.accountId || null,
       status: Number(createForm.status),
     })
     success.value = `已创建付款单 ${created.orderNo}`

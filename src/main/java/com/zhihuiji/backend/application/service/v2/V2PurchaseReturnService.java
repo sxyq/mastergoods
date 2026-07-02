@@ -396,7 +396,9 @@ public class V2PurchaseReturnService {
             return reserved;
         }
         List<Long> returnIds = returns.stream().map(PurchaseReturnEntity::getId).toList();
-        List<PurchaseReturnItemEntity> allItems = purchaseReturnItemRepository.findAllByOwnerUserIdAndReturnIdIn(ownerUserId, returnIds);
+        List<PurchaseReturnItemEntity> allItems = new ArrayList<>(
+            purchaseReturnItemRepository.findAllByOwnerUserIdAndReturnIdIn(ownerUserId, returnIds)
+        );
         for (PurchaseReturnItemEntity item : allItems) {
             String key = productKey(item.getProductId(), item.getProductCode());
             reserved.put(key, reserved.getOrDefault(key, 0.0) + safeDouble(item.getQuantity()));
@@ -417,14 +419,18 @@ public class V2PurchaseReturnService {
             return List.of();
         }
         List<Long> returnIds = returns.stream().map(PurchaseReturnEntity::getId).toList();
-        List<PurchaseReturnItemEntity> allItems = purchaseReturnItemRepository.findAllByOwnerUserIdAndReturnIdIn(ownerUserId, returnIds);
+        List<PurchaseReturnItemEntity> allItems = new ArrayList<>(
+            purchaseReturnItemRepository.findAllByOwnerUserIdAndReturnIdIn(ownerUserId, returnIds)
+        );
         allItems.sort(Comparator.comparing(PurchaseReturnItemEntity::getCreatedAt));
         Map<Long, List<PurchaseReturnItemEntity>> itemsByReturnId = new HashMap<>();
         for (PurchaseReturnItemEntity item : allItems) {
             itemsByReturnId.computeIfAbsent(item.getReturnId(), ignored -> new ArrayList<>()).add(item);
         }
 
-        List<PurchaseReturnRefundEntity> allRefunds = purchaseReturnRefundRepository.findAllByOwnerUserIdAndReturnIdIn(ownerUserId, returnIds);
+        List<PurchaseReturnRefundEntity> allRefunds = new ArrayList<>(
+            purchaseReturnRefundRepository.findAllByOwnerUserIdAndReturnIdIn(ownerUserId, returnIds)
+        );
         allRefunds.sort(Comparator.comparing(PurchaseReturnRefundEntity::getCreatedAt));
         Map<Long, List<PurchaseReturnRefundEntity>> refundsByReturnId = new HashMap<>();
         for (PurchaseReturnRefundEntity refund : allRefunds) {

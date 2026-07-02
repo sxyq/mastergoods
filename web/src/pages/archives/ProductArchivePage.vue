@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSession } from '@/app/stores/session'
 import {
   fetchLowStockProducts,
+  fetchMediaBindings,
   fetchProductCategories,
   fetchProducts,
+  mediaAssetContentUrl,
   type ProductCategoryRecord,
   type ProductRecord,
 } from '@/shared/api/client'
@@ -13,6 +15,7 @@ import {
   formatCurrency,
   formatNumber,
 } from '@/shared/utils/business'
+import { entityIdKey, type EntityId } from '@/shared/utils/id'
 
 const router = useRouter()
 const session = useSession()
@@ -27,6 +30,7 @@ const statusFilter = ref('all')
 const categoryFilter = ref('all')
 const pageSize = ref(10)
 const currentPage = ref(1)
+const productThumbs = ref<Map<string, string>>(new Map())
 
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
 const canWrite = computed(() => session.hasPermission(['archives:write']))
@@ -89,7 +93,7 @@ async function loadProducts() {
       fetchProducts(session.token.value, {
         keyword: searchKeyword.value.trim() || undefined,
         status: statusFilter.value === 'all' ? undefined : Number(statusFilter.value),
-        categoryId: categoryFilter.value === 'all' ? undefined : Number(categoryFilter.value),
+        categoryId: categoryFilter.value === 'all' ? undefined : categoryFilter.value,
         page: 0,
         size: 200,
       }),
@@ -110,15 +114,15 @@ function openCreate() {
   router.push('/archives/products/edit')
 }
 
-function openEdit(productId: number) {
+function openEdit(productId: EntityId) {
   router.push({ path: '/archives/products/edit', query: { id: String(productId) } })
 }
 
-function openInventoryAdjust(productId: number) {
+function openInventoryAdjust(productId: EntityId) {
   router.push({ path: '/inventory/adjust', query: { productId: String(productId) } })
 }
 
-function openProductLedger(productId: number) {
+function openProductLedger(productId: EntityId) {
   router.push({ path: '/inventory/product-ledger', query: { productId: String(productId) } })
 }
 
@@ -141,6 +145,46 @@ function productStockTone(product: ProductRecord) {
 function setPage(page: number) {
   currentPage.value = Math.min(Math.max(page, 1), totalPages.value)
 }
+
+watch(pagedProducts, () => {
+  loadVisibleThumbs()
+})
+
+async function loadVisibleThumbs() {
+  if (!session.token.value || !isApiSource.value) return
+  await Promise.all(pagedProducts.value.map((product) => loadProductThumb(product.id)))
+}
+
+async function loadProductThumb(productId: EntityId) {
+  if (!session.token.value) return
+  const key = entityIdKey(productId)
+  if (productThumbs.value.has(key)) return
+  try {
+    const bindings = await fetchMediaBindings(session.token.value, 'product', productId)
+    const first = bindings[0]
+    if (!first) return
+    const response = await fetch(mediaAssetContentUrl(first.assetId), {
+      headers: { Authorization: `Bearer ${session.token.value}` },
+    })
+    if (!response.ok) return
+    const blob = await response.blob()
+    if (productThumbs.value.has(key)) return
+    const next = new Map(productThumbs.value)
+    next.set(key, URL.createObjectURL(blob))
+    productThumbs.value = next
+  } catch {
+    // ignore thumb load failure
+  }
+}
+
+function thumbUrl(productId: EntityId) {
+  return productThumbs.value.get(entityIdKey(productId)) || ''
+}
+
+onUnmounted(() => {
+  productThumbs.value.forEach((url) => URL.revokeObjectURL(url))
+  productThumbs.value = new Map()
+})
 </script>
 
 <template>
@@ -221,7 +265,8 @@ function setPage(page: number) {
               <td class="pc-check-cell"><input type="checkbox" /></td>
               <td>
                 <div class="product-thumb">
-                  <span class="material-symbols-outlined">{{ product.status === 1 ? 'image' : 'image_not_supported' }}</span>
+                  <img v-if="thumbUrl(product.id)" :src="thumbUrl(product.id)" alt="商品图片" style="width:40px;height:40px;object-fit:cover;border-radius:4px;" />
+                  <span v-else class="material-symbols-outlined">{{ product.status === 1 ? 'image' : 'image_not_supported' }}</span>
                 </div>
               </td>
               <td class="amount-strong">{{ product.code }}</td>

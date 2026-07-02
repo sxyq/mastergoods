@@ -7,7 +7,7 @@
 当前结论必须保守：
 
 - 自动化测试和本地编译可以作为局部通过证据。
-- 真机、117 环境、性能稳定性、安全发布清单，只有拿到真实命令输出、截图、日志或报告后才能改为已完成。
+- 真机、生产环境、性能稳定性、安全发布清单，只有拿到真实命令输出、截图、日志或报告后才能改为已完成。
 - 不允许把 `assembleDebug` 或后端定向测试通过等同于发布完成。
 - 2026-06-03 这批本地 PASS 证据来自 dirty worktree，统一代码态见 `docs/acceptance-evidence/b11/20260603-code-state.md`；其语义应解读为“当前在途工作树上的本地复验结果”，不是干净发布候选证明。
 - 若某条结论依赖 `tools/b11_acceptance_check.sh` 内部固定 selector，而原始 `.log` 仅能直接证明 `BUILD SUCCESSFUL`，矩阵必须显式写成“脚本化定向覆盖”，不能误写成原始日志独立证明了完整覆盖面。
@@ -40,21 +40,21 @@
 
 | 验收项 | 当前状态 | 当前证据 | 仍需补齐 |
 |---|---|---|---|
-| 后端 `/v2` service 测试 | 本地已验证（脚本化定向覆盖） | `20260603-1709-backend-smoke.md` 记录了 `backend-smoke` 脚本所用 selector；原始日志 `20260603-backend-smoke.log` 只能直接证明该次定向任务 `BUILD SUCCESSFUL in 10s`，覆盖面需结合脚本与说明解读 | 如进入发布候选，仍建议追加后端全量 `test` 日志或更细命中清单 |
-| 后端 `/v2` controller 测试 | 本地已验证（脚本化定向覆盖） | `20260603-1709-backend-smoke.md` 记录了 `backend-smoke` 脚本所用 selector；原始日志本身不单独列出命中类名，需要结合脚本说明解读 `api.controller.V2*` 覆盖 | 如进入发布候选，仍建议追加后端全量 `test` 日志或更细命中清单 |
-| 后端 migration SQL 测试 | 本地已验证（脚本化定向覆盖） | `20260603-1709-backend-smoke.md` 记录了 `backend-smoke` 脚本所用 selector；原始日志本身不单独列出命中类名，需要结合脚本说明解读 `infrastructure.db.*` 覆盖 | 如进入发布候选，仍建议追加真实数据库 Flyway 迁移日志 |
-| 后端 `/v1` compatibility 回归 | 本地已验证（脚本化定向覆盖） | `20260603-1709-backend-smoke.md` 记录了 `backend-smoke` 脚本所用 selector；原始日志本身不单独列出命中类名，需要结合脚本说明解读 `V1*CompatibilityControllerTest` 覆盖 | 仍需联动真实 `/v1` 客户端同步 payload 回归 |
+| 后端 `/v2` service 测试 | 本地已验证（当前工作树） | `20260630-1512-backend-recovery-summary.md` 与 `20260630-1512-backend-smoke-pass.log` 已证明修复当前工作树阻塞后，`backend-smoke` 再次通过 | 仍缺生产运行现场与发布级运行验收 |
+| 后端 `/v2` controller 测试 | 本地已验证（当前工作树） | `20260630-1512-backend-recovery-summary.md` 与 `20260630-1512-backend-smoke-pass.log` 已证明脚本化 smoke 在当前工作树通过 | 仍缺更细粒度生产现场验收 |
+| 后端 migration SQL 测试 | 本地已验证（脚本化 smoke 覆盖） | `20260630-1512-backend-smoke-pass.log` 证明当前工作树下 `backend-smoke` 通过；按本矩阵口径可作为当前本地门禁恢复通过的证据 | 仍建议在发布候选阶段保留更细原始日志或定向 migration 记录 |
+| 后端 `/v1` compatibility 回归 | 本地已验证（当前工作树） | 当前真实响应字段为 camelCase `recordNo`，相关测试已与现行契约对齐；`20260630-1512-backend-smoke-pass.log` 已证明当前工作树下 compatibility 命中集通过 | 仍缺生产现场回归 |
 | Android `/v2` model 序列化 | 本地已验证（定向单测） | `20260603-1709-android-contract.md`：最新补档日志 `20260603-android-contract.log` 输出 `BUILD SUCCESSFUL in 2s`，对应 `:core:model:testDebugUnitTest` | 如进入发布候选，仍建议追加全量 Android unit test |
 | Android `/v2` network 契约 | 本地已验证（定向单测） | `20260603-1709-android-contract.md`：最新补档日志 `20260603-android-contract.log` 对应 `:core:network:testDebugUnitTest` | 仍需真实后端 HTTP 联调确认 |
-| Android `/v2` repository 委派 | 本地已验证（定向单测） | `20260603-1709-android-contract.md` 已覆盖 `:data:agent:testDebugUnitTest` 与 `:data:finance:testDebugUnitTest`；本轮新增 `20260603-2354-android-repository-delegation.md`，并跑通 `:data:product:testDebugUnitTest`、`:data:customer:testDebugUnitTest`、`:data:supplier:testDebugUnitTest`、`:data:order:testDebugUnitTest`、`:data:sync:testDebugUnitTest`，补齐 `product/customer/supplier/order/sync` 的委派层定向单测 | 仍需真实后端 HTTP 联调，且本轮 `20260603-2354` 证据以摘要和会话命令输出为准，未单独补档 `.log` |
-| Android `assembleDebug` | 本地已验证（构建链） | `20260603-1709-android-assemble.md`：最新补档日志 `20260603-android-assemble.log` 输出 `BUILD SUCCESSFUL in 7s`；`20260604-0915-android-ui-targeted-compile.md` 补强证明最新 `dashboard/reports/agent/app` UI 收口后的定向 Kotlin 编译通过；`20260604-0227-android-ui-honesty-final-compile.md` 进一步补强证明商品/客户/供应商/销售/采购/付款这组详情编辑页诚实态收口后的定向 Kotlin 编译通过；`20260604-0930-android-assemble.md` 进一步补强证明最新 UI 收口后的整包 `android-assemble` 仍通过 | 已证明 debug 构建链可用，且最新 UI 收口未打坏局部模块与整包 debug 构建；仍需真机安装、截图和主流程 smoke |
-| Android `assembleRelease` | 本地已验证（构建链） | `20260603-1730-android-assemble-release.md`：补档日志 `20260603-android-assemble-release.log` 输出 `BUILD SUCCESSFUL in 1m 34s`；`20260604-0945-android-assemble-release.md` 进一步补强证明最新 UI 收口后的 release 构建链仍通过，包含 R8、资源收缩与 lintVital | 已证明 release 构建链在最新 UI 收口后仍可用；仍需 release 包安装、运行期截图与证书 pin 现场确认 |
-| 真机登录与主流程 | 待验证 | `20260603-1712-emulator-blocked.md`：当前宿主无 `adb` / `emulator`，本机无法继续做 UI smoke 与截图取证；该阻塞条目执行当时未单独归档完整代码态元数据，因此这里只能证明“工具链阻塞已发生” | 需要在有 Android SDK platform-tools / emulator 或已连接真机的环境中完成登录、商品、客户、供应商、销售、采购、付款、财务、报表、设置截图，并补完整元数据 |
-| 真机 `/v2` 同步链路 | 待验证 | `20260603-1712-emulator-blocked.md`：当前宿主无 `adb` / `emulator`，本机无法继续做同步链路取证；该阻塞条目执行当时未单独归档完整代码态元数据，因此这里只能证明“工具链阻塞已发生” | 需要在有 Android SDK platform-tools / emulator 或已连接真机的环境中触发同步，补服务端日志、本地数据落库证据与完整元数据 |
-| 后端 `bootJar` 发布构建 | 本地已验证（构建链） | `20260603-1732-backend-bootjar.md`：最新补档日志 `20260603-backend-bootjar.log` 输出 `BUILD SUCCESSFUL in 1s` | 已证明后端发布 jar 构建链可用；仍不替代 117 主机启动与健康检查 |
-| 117 环境联调 | 待验证 | `20260603-1720-117-release-static-checklist.md` 已确认 117 compose、runtime Dockerfile、prod profile 与健康检查入口存在，`20260603-1732-backend-bootjar.md` 已证明 jar 构建链可用；但当前静态清单缺执行当时单独归档的代码态元数据，且无真实主机运行证据 | 需要环境地址、版本、服务状态、接口 smoke 日志，并补更完整的现场元数据 |
-| 性能稳定性 | 待验证 | 未见本轮 CPU、内存、帧率、接口时延证据 | 需要列表、图表、同步、上传、大单据流的性能记录 |
-| 安全发布清单 | 待验证 | `20260603-1720-android-release-security-checklist.md` 已确认 Android release 的混淆、签名摘要、主机白名单、运行时防护、证书绑定入口，但该静态清单执行当时未单独归档完整代码态元数据；`20260603-1730-android-assemble-release.md` 仅补强本地 release 构建链；后端 prod profile 与 117 静态入口见 `20260603-1720-117-release-static-checklist.md`，jar 构建见 `20260603-1732-backend-bootjar.md` | 仍需 release 动态验收、真实 117 smoke、敏感日志与安全头现场证据，并补更完整的现场元数据 |
+| Android `/v2` repository 委派 | 本地已验证（定向单测） | `20260603-1709-android-contract.md` 已覆盖 `:data:agent:testDebugUnitTest` 与 `:data:finance:testDebugUnitTest`；本轮新增 `20260603-2354-android-repository-delegation.md`，并跑通 `:data:product:testDebugUnitTest`、`:data:customer:testDebugUnitTest`、`:data:supplier:testDebugUnitTest`、`:data:order:testDebugUnitTest`、`:data:sync:testDebugUnitTest`，补齐 `product/customer/supplier/order/sync` 的委派层定向单测；`20260630-1326-android-web-current-status.md` 与 `20260630-1351-web-id-entityid-build.md` 证明相关改动后的工作树仍可通过 Android 定向单测和 Web 构建 | 仍需真实后端 HTTP 联调，且 `20260603-2354` 证据以摘要和会话命令输出为准，未单独补档 `.log` |
+| Android `assembleDebug` | 本地已验证（构建链） | `20260603-1709-android-assemble.md`：最新补档日志 `20260603-android-assemble.log` 输出 `BUILD SUCCESSFUL in 7s`；`20260604-0915-android-ui-targeted-compile.md` 补强证明最新 `dashboard/reports/agent/app` UI 收口后的定向 Kotlin 编译通过；`20260604-0227-android-ui-honesty-final-compile.md` 进一步补强证明商品/客户/供应商/销售/采购/付款这组详情编辑页诚实态收口后的定向 Kotlin 编译通过；`20260604-0930-android-assemble.md` 进一步补强证明最新 UI 收口后的整包 `android-assemble` 仍通过；`20260630-1326-android-web-current-status.md` 再次证明当前 Android 网络修复工作树上 `:core:datastore:testDebugUnitTest`、`:core:network:testDebugUnitTest` 与 `:app:assembleDebug` 通过 | 已证明 debug 构建链可用，且最新网络与 ID 收口未打坏整包 debug 构建；仍需真机安装、截图和主流程 smoke |
+| Android `assembleRelease` | 本地已验证（构建链） | `20260603-1730-android-assemble-release.md`：补档日志 `20260603-android-assemble-release.log` 输出 `BUILD SUCCESSFUL in 1m 34s`；`20260604-0945-android-assemble-release.md` 进一步补强证明最新 UI 收口后的 release 构建链仍通过，包含 R8、资源收缩与 lintVital；`20260630-1342-android-assemble-release.md` 再次证明当前 Android 网络修复工作树上的 `:core:network:testDebugUnitTest`、`compileReleaseKotlin` 与 `assembleRelease` 通过 | 已证明 release 构建链在当前工作树仍可用；仍需 release 包安装、运行期截图与证书 pin 现场确认 |
+| 真机登录与主流程 | 本地已验证（真机 + 本地 HTTPS 隧道） | `20260630-1508-android-device-local-https-home-smoke.md` 已证明当前 Mac 可识别设备 `d715a3a4`，App 已安装，`pm clear` 后冷启动登录链路可进入首页，并已实测打开 `单据 / 档案 / 报表 / 助手` 四个一级页签；截图已归档到 `docs/acceptance-evidence/b11/screenshots/` | 仍缺更深层业务编辑/保存、同步/导入、媒体/AI 深链路、性能采样与生产环境主流程 |
+| 真机 `/v2` 同步链路 | 部分已验证 | `20260630-1552-sync-import-media-ai-local-validation.md` 已证明本地 owner 作用域下 `sync health -> upload -> pull -> ack -> 实体回查` 闭环成立；真机侧仍只有首页与一级页签 smoke | 仍需把真机实际触发同步、服务端日志与端侧落库证据串成一条现场链 |
+| 后端 `bootJar` 发布构建 | 本地已验证（构建链） | `20260630-1512-backend-recovery-summary.md` 与 `20260630-1512-backend-bootjar-pass.log` 已证明当前工作树 `bootJar` 通过；历史补档见 `20260603-1732-backend-bootjar.md` | 已证明后端发布 jar 构建链可用；仍不替代生产主机运行与健康检查 |
+| 当前生产拓扑只读核验 | 本地已验证（服务器只读） | `20260630-1338-124-154-readonly-status.md` 已确认 `124` 为公网边缘/Nginx 入口，`154` 为应用主机，且 `zhihuiji154-backend`、数据库、Redis、`new-api`、`filecodebox` 均在线；公网 `https://sxyq27.online/zhj-api/v1/sync/health` 与 154 本地 `http://127.0.0.1:18080/v1/sync/health` 都能返回真实后端响应 | 已证明当前不是“后端未部署”阻塞；仍需结合真机或发布流程完成业务联调、性能和发布验收 |
+| 性能稳定性 | 部分已验证 | `20260630-1556-android-device-home-tabs-gfx-mem.md` 已提供真机 `d715a3a4` 首页/一级页签流的 `gfxinfo` 与 `meminfo` 基础采样 | 仍需列表、图表、同步、上传、大单据、AI 流式等更重场景的专项性能记录 |
+| 安全发布清单 | 部分已验证 | 除既有 Android release / 生产拓扑只读证据外，`20260630-1552-sync-import-media-ai-local-validation.md` 已补充媒体上传超限从误报 `500` 收口到明确 `413` 的真实错误语义回归 | 仍需 release 动态验收、真实生产链路 smoke、敏感日志与安全头现场证据，并补更完整的现场元数据 |
 
 ## 推荐本地命令
 
@@ -124,7 +124,7 @@ JAVA_HOME=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home ./master-goods-a
 当前本机阻塞：
 
 - 证据见 [20260603-1712-emulator-blocked.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/acceptance-evidence/b11/android/20260603-1712-emulator-blocked.md)
-- 当前宿主无 `adb` / `emulator`，因此下面清单并非“尚未执行但随时可跑”，而是“需要切换到具备 Android 工具链或真机接入的环境后继续”
+- 当前宿主现在可直接调用 Android SDK `adb`，但 `adb devices -l` 返回空列表；因此下面清单当前并非“宿主缺工具”，而是“需要让真机重新被这台 Mac 识别，或切到能看到设备的环境后继续”
 
 | 流程 | 证据要求 | 状态 |
 |---|---|---|
@@ -159,5 +159,5 @@ JAVA_HOME=/Users/sunyiyang/.local/jdks/temurin-21/Contents/Home ./master-goods-a
 ## B11 当前收口口径
 
 - `B11 自动化验收入口`：本文件与 `tools/b11_acceptance_check.sh` 建立后可视为已做。
-- `B11 本地测试/编译结果`：2026-06-03 已完成 `backend-smoke`、`android-contract`、`android-assemble`、`android-assemble-release`、`backend-bootjar` 五条本地复验，原始日志已补档到 `docs/acceptance-evidence/b11/`；2026-06-04 又补了四条与最新 UI 收口直接相关的证据：一条 `dashboard/reports/agent/app` 的定向 Kotlin 编译、一条 `products/customers/suppliers/sales/purchases/payments/app` 的定向 Kotlin 编译、一条整包 `android-assemble`、一条整包 `android-assemble-release`。其语义仍是 dirty worktree 上的本地/定向复验结果，不是干净发布候选证明。
-- `B11 真机/117/性能/安全发布`：当前仍待验证；其中真机/模拟器 UI smoke 在本机已被明确证明为工具链阻塞，后续必须切到具备 Android 工具链或真机接入的环境，再以证据目录中的日志、截图或报告升级状态。
+- `B11 本地测试/编译结果`：2026-06-03 曾完成 `backend-smoke`、`android-contract`、`android-assemble`、`android-assemble-release`、`backend-bootjar` 五条本地复验，原始日志已补档到 `docs/acceptance-evidence/b11/`；2026-06-04 又补了四条与最新 UI 收口直接相关的证据；2026-06-30 再补了 `20260630-1326-android-web-current-status.md`、`20260630-1342-android-assemble-release.md`、`20260630-1351-web-id-entityid-build.md`、`20260630-1406-backend-smoke-current-failures.md` 与 `20260630-1512-backend-recovery-summary.md`。其中 Android/Web 构建、后端 smoke 与 bootJar 在当前工作树都已有最新通过证据。
+- `B11 真机/生产环境/性能/安全发布`：当前仍待验证；但真机 UI smoke 已从“无设备在线”推进到“当前 Mac 可识别真机、可进首页并打开四个一级页签”，本地又新增拿到了 `sync/import/media` 的真实后端闭环、AI 无 provider 时的真实退化语义，以及一份真机 `gfxinfo/meminfo` 基础采样。剩余缺口集中在真机实际同步/上传/AI 深链路、重场景性能、以及生产环境发布级验收。服务器端当前已通过只读核验证明 `124`/`154` 拓扑在线，但这仍不等于发布级完成。

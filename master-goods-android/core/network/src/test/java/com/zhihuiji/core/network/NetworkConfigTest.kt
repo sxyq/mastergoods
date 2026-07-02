@@ -7,39 +7,39 @@ import org.junit.Test
 
 class NetworkConfigTest {
     @Test
-    fun defaultBaseUrl_targetsEditableDebugHost() {
-        assertEquals("http://117.72.79.106/zhihuiji/", NetworkConfig.defaultBaseUrl)
+    fun defaultBaseUrl_targetsCurrentEdgeApi() {
+        assertEquals("https://sxyq27.online/zhj-api/", NetworkConfig.defaultBaseUrl)
     }
 
     @Test
     fun normalizeBaseUrl_trimsAndAppendsTrailingSlash() {
         assertEquals(
-            "http://117.72.79.106/zhihuiji/",
-            NetworkConfig.normalizeBaseUrl(" http://117.72.79.106/zhihuiji/v1 "),
+            "https://sxyq27.online/zhj-api/",
+            NetworkConfig.normalizeBaseUrl(" https://sxyq27.online/zhj-api/v1 "),
         )
     }
 
     @Test
     fun normalizeBaseUrl_stripsPersistedEndpointVersionSuffixes() {
         assertEquals(
-            "http://117.72.79.106/zhihuiji/",
-            NetworkConfig.normalizeBaseUrl("http://117.72.79.106/zhihuiji/v2/"),
+            "https://sxyq27.online/zhj-api/",
+            NetworkConfig.normalizeBaseUrl("https://sxyq27.online/zhj-api/v2/"),
         )
         assertEquals(
-            "http://117.72.79.106/",
-            NetworkConfig.normalizeBaseUrl("http://117.72.79.106/v1"),
+            "https://sxyq27.online/",
+            NetworkConfig.normalizeBaseUrl("https://sxyq27.online/v1"),
         )
     }
 
     @Test
     fun endpointUrl_doesNotDuplicateApiVersionWhenLegacyBaseUrlWasPersisted() {
         assertEquals(
-            "http://117.72.79.106/zhihuiji/v1/auth/refresh",
-            NetworkConfig.endpointUrl("http://117.72.79.106/zhihuiji/v1/", "v1/auth/refresh"),
+            "https://sxyq27.online/zhj-api/v1/auth/refresh",
+            NetworkConfig.endpointUrl("https://sxyq27.online/zhj-api/v1/", "v1/auth/refresh"),
         )
         assertEquals(
-            "http://117.72.79.106/zhihuiji/v2/agent/chat/stream",
-            NetworkConfig.endpointUrl("http://117.72.79.106/zhihuiji/v1/", "/v2/agent/chat/stream"),
+            "https://sxyq27.online/zhj-api/v2/agent/chat/stream",
+            NetworkConfig.endpointUrl("https://sxyq27.online/zhj-api/v1/", "/v2/agent/chat/stream"),
         )
     }
 
@@ -48,6 +48,10 @@ class NetworkConfigTest {
         assertEquals(
             NetworkConfig.defaultBaseUrl,
             NetworkConfig.normalizeBaseUrl("http://124.222.153.108/zhihuiji/v1/"),
+        )
+        assertEquals(
+            NetworkConfig.defaultBaseUrl,
+            NetworkConfig.normalizeBaseUrl("http://117.72.79.106/zhihuiji/v1/"),
         )
     }
 
@@ -61,12 +65,12 @@ class NetworkConfigTest {
     @Test
     fun rewriteUrlForBaseUrl_preservesConfiguredPathPrefix() {
         val rewritten = NetworkModule.rewriteUrlForBaseUrl(
-            originalUrl = "http://117.72.79.106/zhihuiji/v1/auth/login".toHttpUrl(),
-            newBaseUrl = "http://117.72.79.106/zhihuiji/".toHttpUrl(),
+            originalUrl = "https://sxyq27.online/zhj-api/v1/auth/login".toHttpUrl(),
+            newBaseUrl = "https://sxyq27.online/zhj-api/".toHttpUrl(),
         )
 
         assertEquals(
-            "http://117.72.79.106/zhihuiji/v1/auth/login",
+            "https://sxyq27.online/zhj-api/v1/auth/login",
             rewritten.toString(),
         )
     }
@@ -74,12 +78,12 @@ class NetworkConfigTest {
     @Test
     fun rewriteUrlForBaseUrl_keepsQueryParameters() {
         val rewritten = NetworkModule.rewriteUrlForBaseUrl(
-            originalUrl = "http://117.72.79.106/zhihuiji/v1/products?page=2&keyword=abc".toHttpUrl(),
-            newBaseUrl = "http://117.72.79.106/zhihuiji/".toHttpUrl(),
+            originalUrl = "https://sxyq27.online/zhj-api/v1/products?page=2&keyword=abc".toHttpUrl(),
+            newBaseUrl = "https://sxyq27.online/zhj-api/".toHttpUrl(),
         )
 
         assertEquals(
-            "http://117.72.79.106/zhihuiji/v1/products?page=2&keyword=abc",
+            "https://sxyq27.online/zhj-api/v1/products?page=2&keyword=abc",
             rewritten.toString(),
         )
     }

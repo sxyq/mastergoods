@@ -1025,6 +1025,10 @@ function parseOptionalNumber(value: string): number | null {
   return Number.isFinite(numeric) ? numeric : null
 }
 
+function parseOptionalEntityId(value: string): string | null {
+  return readQueryId(value)
+}
+
 function structuredStringOrNull(value: string): string | null {
   const trimmed = value.trim()
   return trimmed ? trimmed : null
@@ -1040,36 +1044,36 @@ function buildStructuredDraftPayload(type: string): Record<string, unknown> | nu
       name: draftForm.name.trim(),
       phone: structuredStringOrNull(draftForm.phone) ?? '',
       level: parseOptionalNumber(draftForm.level) ?? 1,
-      group_id: parseOptionalNumber(draftForm.groupId),
+      group_id: parseOptionalEntityId(draftForm.groupId),
       notes: structuredStringOrNull(draftForm.notes),
       status: parseOptionalNumber(draftForm.status) ?? 1,
     }
   }
   if (mode === 'supplier') {
-    return {
-      name: draftForm.name.trim(),
-      phone: structuredStringOrNull(draftForm.phone) ?? '',
-      group_id: parseOptionalNumber(draftForm.groupId),
-      notes: structuredStringOrNull(draftForm.notes),
-      status: parseOptionalNumber(draftForm.status) ?? 1,
-    }
+      return {
+        name: draftForm.name.trim(),
+        phone: structuredStringOrNull(draftForm.phone) ?? '',
+        group_id: parseOptionalEntityId(draftForm.groupId),
+        notes: structuredStringOrNull(draftForm.notes),
+        status: parseOptionalNumber(draftForm.status) ?? 1,
+      }
   }
   if (mode === 'product') {
-    return {
-      code: draftForm.code.trim(),
-      name: draftForm.name.trim(),
-      category_id: parseOptionalNumber(draftForm.categoryId),
-      unit_id: parseOptionalNumber(draftForm.unitId),
-      sale_price: parseOptionalNumber(draftForm.salePrice) ?? 0,
-      purchase_price: parseOptionalNumber(draftForm.purchasePrice) ?? 0,
-      stock: parseOptionalNumber(draftForm.stock) ?? 0,
+      return {
+        code: draftForm.code.trim(),
+        name: draftForm.name.trim(),
+        category_id: parseOptionalEntityId(draftForm.categoryId),
+        unit_id: parseOptionalEntityId(draftForm.unitId),
+        sale_price: parseOptionalNumber(draftForm.salePrice) ?? 0,
+        purchase_price: parseOptionalNumber(draftForm.purchasePrice) ?? 0,
+        stock: parseOptionalNumber(draftForm.stock) ?? 0,
       safe_stock: parseOptionalNumber(draftForm.safeStock) ?? 0,
       status: parseOptionalNumber(draftForm.status) ?? 1,
     }
   }
   if (mode === 'sale_order') {
     return {
-      customer_id: parseOptionalNumber(draftForm.customerId),
+      customer_id: parseOptionalEntityId(draftForm.customerId),
       customer_name: draftForm.customerName.trim(),
       items: buildStructuredDraftItems('sale_order'),
       notes: structuredStringOrNull(draftForm.notes),
@@ -1078,11 +1082,11 @@ function buildStructuredDraftPayload(type: string): Record<string, unknown> | nu
   }
   if (mode === 'purchase_order') {
     return {
-      supplier_id: parseOptionalNumber(draftForm.supplierId),
+      supplier_id: parseOptionalEntityId(draftForm.supplierId),
       supplier_name: draftForm.supplierName.trim(),
       items: buildStructuredDraftItems('purchase_order'),
       settlement_method: structuredStringOrNull(draftForm.settlementMethod),
-      warehouse_id: parseOptionalNumber(draftForm.warehouseId),
+      warehouse_id: parseOptionalEntityId(draftForm.warehouseId),
       notes: structuredStringOrNull(draftForm.notes),
       status: parseOptionalNumber(draftForm.status),
     }
@@ -1098,13 +1102,13 @@ function buildStructuredDraftPayload(type: string): Record<string, unknown> | nu
     }
   }
   return {
-    supplier_id: parseOptionalNumber(draftForm.supplierId),
+    supplier_id: parseOptionalEntityId(draftForm.supplierId),
     supplier_name: draftForm.supplierName.trim(),
     amount: parseOptionalNumber(draftForm.amount) ?? 0,
     method: structuredStringOrNull(draftForm.method),
     reference_no: structuredStringOrNull(draftForm.referenceNo),
     notes: structuredStringOrNull(draftForm.notes),
-    account_id: parseOptionalNumber(draftForm.accountId),
+    account_id: parseOptionalEntityId(draftForm.accountId),
     status: parseOptionalNumber(draftForm.status),
   }
 }
@@ -1122,7 +1126,7 @@ function buildStructuredDraftItems(type: 'sale_order' | 'purchase_order') {
       continue
     }
     items.push({
-      product_id: parseOptionalNumber(item.productId),
+      product_id: parseOptionalEntityId(item.productId),
       ...(type === 'purchase_order' ? { product_code: structuredStringOrNull(item.productCode) } : {}),
       product_name: structuredStringOrNull(item.productName),
       quantity: parseOptionalNumber(item.quantity),

@@ -7,7 +7,7 @@ plugins {
 }
 
 val pinnedHost = providers.gradleProperty("ZHIHUIJI_PINNED_HOST")
-    .orElse("api.zhihuiji.com")
+    .orElse("sxyq27.online")
     .get()
 val pinnedSha256Pins = providers.gradleProperty("ZHIHUIJI_CERT_PINS")
     .orElse("")
@@ -40,7 +40,8 @@ android {
     buildTypes {
         debug {
             buildConfigField("boolean", "NETWORK_LOGGING_ENABLED", "true")
-            buildConfigField("boolean", "ALLOW_CLEARTEXT_BASE_URL", "true")
+            buildConfigField("boolean", "ALLOW_CLEARTEXT_BASE_URL", "false")
+            buildConfigField("boolean", "ENFORCE_TRUSTED_BASE_URL", "false")
             buildConfigField("boolean", "CERT_PINNING_ENABLED", "false")
             buildConfigField("String", "PINNED_HOST", "\"$pinnedHost\"")
             buildConfigField("String", "PINNED_SHA256_PINS", "\"\"")
@@ -48,6 +49,7 @@ android {
         release {
             buildConfigField("boolean", "NETWORK_LOGGING_ENABLED", "false")
             buildConfigField("boolean", "ALLOW_CLEARTEXT_BASE_URL", "false")
+            buildConfigField("boolean", "ENFORCE_TRUSTED_BASE_URL", "true")
             buildConfigField("boolean", "CERT_PINNING_ENABLED", certPinningEnabled.toString())
             buildConfigField("String", "PINNED_HOST", "\"$pinnedHost\"")
             buildConfigField("String", "PINNED_SHA256_PINS", "\"$pinnedSha256Pins\"")

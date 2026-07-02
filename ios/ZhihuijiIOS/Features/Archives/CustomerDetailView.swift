@@ -15,6 +15,7 @@ struct CustomerDetailView: View {
                     headerCard(customer)
                     basicInfoSection(customer)
                     contactSection(customer)
+                    contactListEntry
                     businessSection
                 } else {
                     LoadingStateView(message: "正在加载客户详情...")
@@ -88,6 +89,29 @@ struct CustomerDetailView: View {
                 ("备注", customer.notes),
             ]
         )
+    }
+
+    private var contactListEntry: some View {
+        NavigationLink {
+            ContactListView(kind: .customer, partnerId: customerId)
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("联系人管理")
+                        .font(ZhihuijiTheme.Typography.bodyMedium)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                    Text("管理该客户的多个联系人，可设置主要联系人。")
+                        .font(ZhihuijiTheme.Typography.body)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+            }
+            .padding(16)
+            .glassCard()
+        }
+        .buttonStyle(.plain)
     }
 
     private var businessSection: some View {

@@ -24,6 +24,9 @@ import ProductLedgerPage from '@/pages/inventory/ProductLedgerPage.vue'
 import InventorySnapshotPage from '@/pages/inventory/InventorySnapshotPage.vue'
 import FinanceRecordPage from '@/pages/finance/FinanceRecordPage.vue'
 import DailyExpensePage from '@/pages/finance/DailyExpensePage.vue'
+import AccountListPage from '@/pages/finance/AccountListPage.vue'
+import AccountTransferPage from '@/pages/finance/AccountTransferPage.vue'
+import ContactListPage from '@/pages/archives/ContactListPage.vue'
 import ReportsPage from '@/pages/reports/ReportsPage.vue'
 import AgentPage from '@/pages/agent/AgentPage.vue'
 import StitchScreenPage from '@/pages/StitchScreenPage.vue'
@@ -40,6 +43,7 @@ const screenComponentByRoute: Record<string, Component> = {
   '/archives/products/edit': ProductEditPage,
   '/archives/customers': PartnerArchivePage,
   '/archives/suppliers': PartnerArchivePage,
+  '/archives/contacts': ContactListPage,
   '/documents/sales': SalesOrderListPage,
   '/documents/sales/edit': SalesOrderEditPage,
   '/documents/sales/detail': SalesOrderDetailPage,
@@ -56,6 +60,8 @@ const screenComponentByRoute: Record<string, Component> = {
   '/inventory/snapshots': InventorySnapshotPage,
   '/finance/records/detail': FinanceRecordPage,
   '/finance/daily-expense': DailyExpensePage,
+  '/finance/accounts': AccountListPage,
+  '/finance/transfers': AccountTransferPage,
   '/reports': ReportsPage,
   '/agent': AgentPage,
   '/planning': PlanningOverviewPage,

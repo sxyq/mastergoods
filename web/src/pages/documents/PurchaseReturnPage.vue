@@ -36,7 +36,7 @@ import {
 type PageMode = 'manage' | 'create'
 
 interface ReturnDraftItem {
-  productId: number | null
+  productId: EntityId | null
   productName: string
   productCode: string
   quantity: string

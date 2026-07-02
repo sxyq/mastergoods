@@ -16,6 +16,7 @@ struct SupplierDetailView: View {
                     statementEntryCard(supplier)
                     basicInfoSection(supplier)
                     contactSection(supplier)
+                    contactListEntry
                     businessSection
                 } else {
                     LoadingStateView(message: "正在加载供应商详情...")
@@ -110,6 +111,29 @@ struct SupplierDetailView: View {
                 ("备注", supplier.notes),
             ]
         )
+    }
+
+    private var contactListEntry: some View {
+        NavigationLink {
+            ContactListView(kind: .supplier, partnerId: supplierId)
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("联系人管理")
+                        .font(ZhihuijiTheme.Typography.bodyMedium)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                    Text("管理该供应商的多个联系人，可设置主要联系人。")
+                        .font(ZhihuijiTheme.Typography.body)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+            }
+            .padding(16)
+            .glassCard()
+        }
+        .buttonStyle(.plain)
     }
 
     private var businessSection: some View {

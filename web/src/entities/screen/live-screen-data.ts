@@ -34,6 +34,7 @@ import {
   type SupplierRecord,
 } from '@/shared/api/client'
 import type { PageMetric, PageSummaryItem } from './page-models'
+import { entityIdKey } from '@/shared/utils/id'
 import {
   financeTypeLabel,
   formatCurrency,
@@ -280,9 +281,9 @@ function mapPurchaseOrders(orders: PurchaseOrder[]): ScreenLiveData {
 }
 
 function mapProducts(products: ProductRecord[], lowStockProducts: ProductRecord[]): ScreenLiveData {
-  const lowStockIds = new Set<number>()
+  const lowStockIds = new Set<string>()
   for (let index = 0; index < lowStockProducts.length; index += 1) {
-    lowStockIds.add(lowStockProducts[index].id)
+    lowStockIds.add(entityIdKey(lowStockProducts[index].id))
   }
   const sorted = [...products].sort((a, b) => b.updatedAt - a.updatedAt)
   const rows: ScreenLiveRow[] = new Array(sorted.length)
@@ -571,7 +572,7 @@ function mapInventorySnapshots(snapshots: InventorySnapshot[], entries: Inventor
   let totalValue = 0
   let todayEntryCount = 0
   const today = Date.now()
-  const productIds = new Set<number>()
+  const productIds = new Set<string>()
   for (let index = 0; index < snapshots.length; index += 1) {
     const snapshot = snapshots[index]
     if (normalizedKeyword) {
@@ -583,8 +584,9 @@ function mapInventorySnapshots(snapshots: InventorySnapshot[], entries: Inventor
     }
     filtered[filteredCount++] = snapshot
     totalValue += snapshot.totalValue || 0
-    if (!productIds.has(snapshot.productId)) {
-      productIds.add(snapshot.productId)
+    const productIdKey = entityIdKey(snapshot.productId)
+    if (!productIds.has(productIdKey)) {
+      productIds.add(productIdKey)
       uniqueProductCount += 1
     }
   }
@@ -791,10 +793,10 @@ function purchaseStatusTokens(order: PurchaseOrder) {
   return tokens
 }
 
-function productStatusTokens(product: ProductRecord, lowStockIds: Set<number>) {
+function productStatusTokens(product: ProductRecord, lowStockIds: Set<string>) {
   const tokens: string[] = []
   tokens.push(product.status === 1 ? '启用' : '停用')
-  if (lowStockIds.has(product.id)) tokens.push('低库存')
+  if (lowStockIds.has(entityIdKey(product.id))) tokens.push('低库存')
   if (Date.now() - product.updatedAt <= 7 * DAY_MS) tokens.push('最近更新')
   return tokens
 }

@@ -1,5 +1,9 @@
 export type EntityId = string | number
 
+export function entityIdKey(value: EntityId | null | undefined) {
+  return value === null || value === undefined ? '' : String(value)
+}
+
 export function readQueryId(value: string | null | Array<string | null> | undefined) {
   const raw = Array.isArray(value) ? value[0] : value
   if (typeof raw !== 'string') return null

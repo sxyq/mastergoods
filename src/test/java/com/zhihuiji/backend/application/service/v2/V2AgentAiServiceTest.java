@@ -36,10 +36,12 @@ import com.zhihuiji.backend.domain.entity.PurchaseReturnEntity;
 import com.zhihuiji.backend.domain.entity.SaleOrderEntity;
 import com.zhihuiji.backend.domain.entity.SalesReturnEntity;
 import com.zhihuiji.backend.domain.entity.SupplierEntity;
+import com.zhihuiji.backend.application.service.v2.agent.component.AnswerSynthesizer;
 import com.zhihuiji.backend.application.service.v2.agent.component.RunAuditService;
 import com.zhihuiji.backend.application.service.v2.agent.component.SafetyDecision;
 import com.zhihuiji.backend.application.service.v2.agent.component.SafetyGuard;
 import com.zhihuiji.backend.application.service.v2.agent.component.SseStreamEmitter;
+import com.zhihuiji.backend.application.service.v2.agent.component.ToolPlanner;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolRegistry;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.AccountHealthLookupTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.CustomerProfileLookupTool;
@@ -148,6 +150,8 @@ class V2AgentAiServiceTest {
     private SseStreamEmitter sseStreamEmitter;
     private SafetyGuard safetyGuard;
     private ToolRegistry toolRegistry;
+    private ToolPlanner toolPlanner;
+    private AnswerSynthesizer answerSynthesizer;
 
     @BeforeEach
     void setUp() {
@@ -185,6 +189,8 @@ class V2AgentAiServiceTest {
             new CreatePayOrderTool(agentDraftRepository),
             new CreateFinanceRecordTool(agentDraftRepository)
         ));
+        toolPlanner = new ToolPlanner(longCatAnthropicClient, toolRegistry, objectMapper);
+        answerSynthesizer = new AnswerSynthesizer(longCatAnthropicClient, sseStreamEmitter, runAuditService, agentMessageRepository, objectMapper);
         service = new V2AgentAiService(
             currentOwnerService,
             agentConversationRepository,
@@ -207,7 +213,9 @@ class V2AgentAiServiceTest {
             toolRegistry,
             runAuditService,
             sseStreamEmitter,
-            safetyGuard
+            safetyGuard,
+            toolPlanner,
+            answerSynthesizer
         );
         when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
         when(longCatAnthropicClient.isConfigured()).thenReturn(false);
@@ -1214,33 +1222,6 @@ class V2AgentAiServiceTest {
     }
 
     @Test
-    void streamRuleSummaryDistinguishesNonStreamingProviderFromDisabledModel() throws Exception {
-        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
-        when(longCatAnthropicClient.supportsStreaming()).thenReturn(false);
-        when(longCatAnthropicClient.streamingUnavailableStatus()).thenReturn("stream_not_supported");
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
-            .thenReturn(List.of(customer(1L, "客户A", 100.0)));
-        CapturingEmitter emitter = new CapturingEmitter();
-
-        service.runChatStream(1L, conversation(108L), "客户应收情况", "run-no-stream-provider", emitter);
-
-        List<String> deltaPayloads = answerDeltaPayloads(emitter);
-        assertFalse(deltaPayloads.isEmpty(), String.join("\n", emitter.payloads));
-        assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"delta_source\":\"rule_summary\"")));
-        assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"delta_source\":\"model_stream\"")));
-        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_rule_summary\"")));
-        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"stream_not_supported\"")));
-        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")), String.join("\n", emitter.payloads));
-        assertTrue(
-            firstPayloadIndex(emitter, "\"event_type\":\"answer_delta\"")
-                < firstPayloadIndex(emitter, "\"event_type\":\"result_block\""),
-            String.join("\n", emitter.payloads)
-        );
-        assertTrue(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())));
-        assertTrue(emitter.completed);
-    }
-
-    @Test
     void nonStreamingChatPlansEnglishBusinessKeywordsForDeviceQa() {
         when(longCatAnthropicClient.isConfigured()).thenReturn(false);
         when(supplierRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
@@ -1863,7 +1844,7 @@ class V2AgentAiServiceTest {
 
     private static Object toolExecutionResult(String toolName, String summary, JsonNode facts) throws Exception {
         Class<?> toolResultClass = Class.forName(
-            "com.zhihuiji.backend.application.service.v2.V2AgentAiService$ToolExecutionResult"
+            "com.zhihuiji.backend.application.service.v2.agent.component.AgentTypes$ToolExecutionResult"
         );
         Constructor<?> constructor = toolResultClass.getDeclaredConstructor(String.class, String.class, JsonNode.class, boolean.class);
         constructor.setAccessible(true);

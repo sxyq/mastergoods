@@ -24,14 +24,13 @@ class SettingsStore @Inject constructor(
     companion object {
         private val KEY_BASE_URL = stringPreferencesKey("base_url")
         private val KEY_CLIENT_ID = stringPreferencesKey("client_id")
-        val DEFAULT_BASE_URL = if (BuildConfig.BASE_URL_EDITABLE) {
-            "http://117.72.79.106/zhihuiji/"
-        } else {
-            "https://api.zhihuiji.com/"
-        }
-        private const val PRODUCTION_HOST = "api.zhihuiji.com"
-        private const val SERVER_124_HOST = "124.222.153.108"
-        private const val DEBUG_SERVER_117_HOST = "117.72.79.106"
+        const val DEFAULT_BASE_URL = "https://sxyq27.online/zhj-api/"
+        private const val PRODUCTION_HOST = "sxyq27.online"
+        private val LEGACY_HOSTS = setOf(
+            "117.72.79.106",
+            "124.222.153.108",
+            "api.zhihuiji.com",
+        )
         private val RELEASE_ALLOWED_HOSTS = setOf(PRODUCTION_HOST)
 
         fun normalizeBaseUrl(raw: String): String = normalizeBaseUrl(raw, allowDebug117Host = BuildConfig.BASE_URL_EDITABLE)
@@ -39,10 +38,24 @@ class SettingsStore @Inject constructor(
         internal fun normalizeBaseUrl(raw: String, allowDebug117Host: Boolean): String {
             val trimmed = raw.trim()
             if (trimmed.isEmpty()) return DEFAULT_BASE_URL
-            if (trimmed.contains(SERVER_124_HOST)) return DEFAULT_BASE_URL
-            if (!allowDebug117Host && trimmed.contains(DEBUG_SERVER_117_HOST)) return DEFAULT_BASE_URL
-            val withTrailingSlash = if (trimmed.endsWith("/")) trimmed else "$trimmed/"
+            if (LEGACY_HOSTS.any { trimmed.contains(it) }) return DEFAULT_BASE_URL
+            val withHttpsScheme = forceHttpsScheme(trimmed)
+            val withTrailingSlash = if (withHttpsScheme.endsWith("/")) withHttpsScheme else "$withHttpsScheme/"
             return stripEndpointVersionSuffix(withTrailingSlash)
+        }
+
+        private fun forceHttpsScheme(baseUrl: String): String {
+            val uri = runCatching { URI(baseUrl) }.getOrNull() ?: return baseUrl
+            if (!uri.scheme.equals("http", ignoreCase = true)) return baseUrl
+            return URI(
+                "https",
+                uri.userInfo,
+                uri.host,
+                uri.port,
+                uri.path,
+                uri.query,
+                uri.fragment,
+            ).toString()
         }
 
         private fun stripEndpointVersionSuffix(baseUrl: String): String {
@@ -81,6 +94,10 @@ class SettingsStore @Inject constructor(
         dataStore.data.onEach { prefs ->
             cachedBaseUrl = normalizeBaseUrl(prefs[KEY_BASE_URL] ?: DEFAULT_BASE_URL)
             cachedClientId = prefs[KEY_CLIENT_ID] ?: ""
+            val persistedBaseUrl = prefs[KEY_BASE_URL]
+            if (persistedBaseUrl != null && persistedBaseUrl != cachedBaseUrl) {
+                dataStore.edit { it[KEY_BASE_URL] = cachedBaseUrl }
+            }
         }.launchIn(scope)
     }
 

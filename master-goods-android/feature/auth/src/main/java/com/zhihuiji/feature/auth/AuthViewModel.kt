@@ -65,7 +65,22 @@ class AuthViewModel @Inject constructor(
 
     fun saveBaseUrl(url: String) {
         viewModelScope.launch {
-            runCatching { settingsStore.saveBaseUrl(url) }
+            val previousBaseUrl = settingsStore.peekBaseUrl()
+            runCatching {
+                settingsStore.saveBaseUrl(url)
+                val updatedBaseUrl = settingsStore.peekBaseUrl()
+                if (updatedBaseUrl != previousBaseUrl) {
+                    // Switching environments should not carry over stale session and route state.
+                    authRepository.clearSession()
+                    _uiState.update {
+                        it.copy(
+                            isLoggedIn = false,
+                            isSessionReady = true,
+                            isLoading = false,
+                        )
+                    }
+                }
+            }
                 .onFailure { throwable ->
                     _uiState.update { it.copy(error = throwable.message ?: "服务器地址保存失败") }
                 }

@@ -272,14 +272,14 @@ private fun ServerAddressDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = "仅用于 debug 构建的本地或联调环境切换。",
+                    text = "仅用于 debug 构建切换 HTTPS 联调环境；HTTP 地址会被自动规范为 HTTPS。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary,
                 )
                 GlassTextField(
                     value = value,
                     onValueChange = onValueChange,
-                    label = "例如 http://10.0.2.2:18080/zhihuiji/",
+                    label = "例如 https://sxyq27.online/zhj-api/",
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Uri,

@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
@@ -54,6 +56,18 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.failure(ApiResponse.CODE_UNAUTHORIZED, "missing bearer token"));
         }
         return ResponseEntity.badRequest().body(ApiResponse.failure(ApiResponse.CODE_BAD_REQUEST, "Missing request header"));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+            .body(ApiResponse.failure(HttpStatus.PAYLOAD_TOO_LARGE.value(), "Uploaded file is too large"));
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMultipartException(MultipartException ex) {
+        return ResponseEntity.badRequest()
+            .body(ApiResponse.failure(ApiResponse.CODE_BAD_REQUEST, "Invalid multipart request"));
     }
 
     @ExceptionHandler(BusinessException.class)

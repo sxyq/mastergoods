@@ -8,6 +8,7 @@ import {
   type InventorySnapshot,
   type ProductRecord,
 } from '@/shared/api/client'
+import type { EntityId } from '@/shared/utils/id'
 import {
   formatCurrency,
   formatDate,
@@ -76,7 +77,7 @@ async function loadPage() {
   }
 }
 
-async function createSnapshotForProduct(productId: number) {
+async function createSnapshotForProduct(productId: EntityId) {
   if (!session.token.value) return
   submitting.value = true
   error.value = ''

@@ -4,6 +4,7 @@ import { roleDescriptions, roleLabels, rolePermissions, type StoreRole } from '@
 import { createStoreMember, fetchStoreMembers, updateStoreMember, type StoreMemberRecord } from '@/shared/api/client'
 import { useSession } from '@/app/stores/session'
 import { formatDateTime } from '@/shared/utils/business'
+import { entityIdKey, sameEntityId, type EntityId } from '@/shared/utils/id'
 
 interface AdminUserDraft {
   nickname: string
@@ -38,7 +39,7 @@ const demoMemberStats = computed(() => {
 const apiMembers = ref<StoreMemberRecord[]>([])
 const apiLoading = ref(false)
 const apiSearch = ref('')
-const apiDrafts = reactive<Record<number, AdminUserDraft>>({})
+const apiDrafts = reactive<Record<string, AdminUserDraft>>({})
 const filteredApiMembers = computed(() => {
   const keyword = apiSearch.value.trim()
   if (!keyword) return apiMembers.value
@@ -140,10 +141,10 @@ async function submitApiUser() {
   }
 }
 
-async function saveApiUser(userId: number) {
+async function saveApiUser(userId: EntityId) {
   if (!session.token.value) return
-  const user = apiMembers.value.find((item) => item.userId === userId)
-  const draft = apiDrafts[userId]
+  const user = apiMembers.value.find((item) => sameEntityId(item.userId, userId))
+  const draft = apiDrafts[entityIdKey(userId)]
   if (!user || !draft) return
   apiLoading.value = true
   resetFeedback()
@@ -160,7 +161,7 @@ async function saveApiUser(userId: number) {
     draft.keepSessions = false
     success.value = `门店成员「${draft.nickname.trim() || user.nickname}」已更新`
     await loadApiMembers()
-    if (userId === session.userId.value) {
+    if (sameEntityId(userId, session.userId.value)) {
       await session.refreshStoreContext()
     }
   } catch (submitError) {
@@ -172,7 +173,7 @@ async function saveApiUser(userId: number) {
 
 async function toggleApiUserStatus(user: StoreMemberRecord) {
   if (!session.token.value) return
-  const draft = apiDrafts[user.userId]
+  const draft = apiDrafts[entityIdKey(user.userId)]
   const nextStatus = user.status === 1 ? 0 : 1
   apiLoading.value = true
   resetFeedback()
@@ -186,7 +187,7 @@ async function toggleApiUserStatus(user: StoreMemberRecord) {
     })
     success.value = `成员「${user.nickname}」已${user.status === 1 ? '停用' : '启用'}`
     await loadApiMembers()
-    if (user.userId === session.userId.value) {
+    if (sameEntityId(user.userId, session.userId.value)) {
       await session.refreshStoreContext()
     }
   } catch (submitError) {
@@ -247,21 +248,21 @@ function nextPhone(members: Iterable<{ phone: string }>) {
 }
 
 function syncApiDrafts() {
-  const activeIds = new Set<number>()
+  const activeIds = new Set<string>()
   for (const user of apiMembers.value) {
-    activeIds.add(user.userId)
+    activeIds.add(entityIdKey(user.userId))
   }
   for (const id in apiDrafts) {
-    const numericId = Number(id)
-    if (!activeIds.has(numericId)) {
-      delete apiDrafts[numericId]
+    if (!activeIds.has(id)) {
+      delete apiDrafts[id]
     }
   }
   for (const user of apiMembers.value) {
-    apiDrafts[user.userId] = {
+    const draftKey = entityIdKey(user.userId)
+    apiDrafts[draftKey] = {
       nickname: user.nickname,
       password: '',
-      keepSessions: apiDrafts[user.userId]?.keepSessions ?? false,
+      keepSessions: apiDrafts[draftKey]?.keepSessions ?? false,
       role: user.role,
       title: user.title,
     }
@@ -269,7 +270,7 @@ function syncApiDrafts() {
 }
 
 function isCurrentApiUser(user: StoreMemberRecord) {
-  return user.userId === session.userId.value
+  return sameEntityId(user.userId, session.userId.value)
 }
 
 function resetFeedback() {
@@ -411,7 +412,7 @@ function resetFeedback() {
               <td>{{ user.phone }}</td>
               <td>
                 <input
-                  v-model="apiDrafts[user.userId].nickname"
+                  v-model="apiDrafts[entityIdKey(user.userId)].nickname"
                   class="table-input"
                   autocomplete="off"
                   :disabled="apiLoading || !canManageApi"
@@ -426,7 +427,7 @@ function resetFeedback() {
                 <strong v-if="isCurrentApiUser(user)">{{ roleLabels.OWNER }}</strong>
                 <select
                   v-else
-                  v-model="apiDrafts[user.userId].role"
+                  v-model="apiDrafts[entityIdKey(user.userId)].role"
                   class="role-select"
                   :disabled="apiLoading || !canManageApi"
                 >
@@ -436,7 +437,7 @@ function resetFeedback() {
               <td>
                 <input
                   v-if="!isCurrentApiUser(user)"
-                  v-model="apiDrafts[user.userId].title"
+                  v-model="apiDrafts[entityIdKey(user.userId)].title"
                   class="table-input"
                   autocomplete="off"
                   :disabled="apiLoading || !canManageApi"
@@ -447,14 +448,14 @@ function resetFeedback() {
               <td>{{ formatDateTime(user.updatedAt) }}</td>
               <td class="member-actions">
                 <input
-                  v-model="apiDrafts[user.userId].password"
+                  v-model="apiDrafts[entityIdKey(user.userId)].password"
                   class="table-input"
                   autocomplete="new-password"
                   placeholder="留空不改密码"
                   :disabled="apiLoading || !canManageApi"
                 />
                 <label class="inline-check">
-                  <input v-model="apiDrafts[user.userId].keepSessions" type="checkbox" :disabled="apiLoading || !canManageApi" />
+                  <input v-model="apiDrafts[entityIdKey(user.userId)].keepSessions" type="checkbox" :disabled="apiLoading || !canManageApi" />
                   <span>保留现有会话</span>
                 </label>
                 <div class="member-action-buttons">

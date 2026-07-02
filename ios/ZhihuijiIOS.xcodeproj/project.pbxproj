@@ -149,6 +149,9 @@
 		F1A2B3C40000000000000007 /* SupplierDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C40000000000000008 /* SupplierDetailView.swift */; };
 		F1A2B3C40000000000000009 /* SupplierStatementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4000000000000000A /* SupplierStatementView.swift */; };
 		F1A2B3C4000000000000000B /* DailyExpenseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4000000000000000C /* DailyExpenseView.swift */; };
+		F1A2B3C4000000000000000D /* AccountListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4000000000000000E /* AccountListView.swift */; };
+		F1A2B3C4000000000000000F /* AccountTransferView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C40000000000000010 /* AccountTransferView.swift */; };
+		F1A2B3C40000000000000011 /* ContactListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C40000000000000012 /* ContactListView.swift */; };
 		F1D0C0DE1234567890ABCDEF /* DashboardViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D0C0DE1234567890ABCDEE /* DashboardViewModelTests.swift */; };
 		F54E26D8DEE2840F4BF29613 /* SalesReturnView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96A23D520F499581265E1C92 /* SalesReturnView.swift */; };
 		F7A2B3C41234567890ABCDEF /* AppSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7A2B3C41234567890ABCDEE /* AppSessionTests.swift */; };
@@ -313,6 +316,9 @@
 		F1A2B3C40000000000000008 /* SupplierDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SupplierDetailView.swift; path = ZhihuijiIOS/Features/Archives/SupplierDetailView.swift; sourceTree = "<group>"; };
 		F1A2B3C4000000000000000A /* SupplierStatementView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SupplierStatementView.swift; path = ZhihuijiIOS/Features/Finance/SupplierStatementView.swift; sourceTree = "<group>"; };
 		F1A2B3C4000000000000000C /* DailyExpenseView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DailyExpenseView.swift; path = ZhihuijiIOS/Features/Finance/DailyExpenseView.swift; sourceTree = "<group>"; };
+		F1A2B3C4000000000000000E /* AccountListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AccountListView.swift; path = ZhihuijiIOS/Features/Finance/AccountListView.swift; sourceTree = "<group>"; };
+		F1A2B3C40000000000000010 /* AccountTransferView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AccountTransferView.swift; path = ZhihuijiIOS/Features/Finance/AccountTransferView.swift; sourceTree = "<group>"; };
+		F1A2B3C40000000000000012 /* ContactListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ContactListView.swift; path = ZhihuijiIOS/Features/Archives/ContactListView.swift; sourceTree = "<group>"; };
 		F1D0C0DE1234567890ABCDEE /* DashboardViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DashboardViewModelTests.swift; path = ZhihuijiIOSTests/DashboardViewModelTests.swift; sourceTree = "<group>"; };
 		F32F21259C8BF2FFD6D21AB5 /* SalesEditActionPolicy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SalesEditActionPolicy.swift; path = ZhihuijiIOS/Features/Sales/SalesEditActionPolicy.swift; sourceTree = "<group>"; };
 		F7A2B3C41234567890ABCDEE /* AppSessionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppSessionTests.swift; path = ZhihuijiIOSTests/AppSessionTests.swift; sourceTree = "<group>"; };
@@ -550,6 +556,7 @@
 				F1A2B3C40000000000000004 /* CustomerDetailView.swift */,
 				F1A2B3C40000000000000006 /* SupplierListView.swift */,
 				F1A2B3C40000000000000008 /* SupplierDetailView.swift */,
+				F1A2B3C40000000000000012 /* ContactListView.swift */,
 				C5DE235436FC54D8CBCA0ED0 /* AgentChatView.swift */,
 				1ED9E0000000000000000B02 /* AgentWorkbenchView.swift */,
 				1ED9E0000000000000000C02 /* AgentDraftsView.swift */,
@@ -565,6 +572,8 @@
 				9A89325D4CDFD9A12D3DDB8B /* PayOrderDetailView.swift */,
 				F1A2B3C4000000000000000A /* SupplierStatementView.swift */,
 				F1A2B3C4000000000000000C /* DailyExpenseView.swift */,
+				F1A2B3C4000000000000000E /* AccountListView.swift */,
+				F1A2B3C40000000000000010 /* AccountTransferView.swift */,
 				3E68D9CEA9FFF4281E021ACE /* InventoryAdjustView.swift */,
 				12C5169E13568358A800F998 /* InventorySnapshotView.swift */,
 				1ED9E0000000000000000A02 /* InventoryLedgerView.swift */,
@@ -765,6 +774,9 @@
 				665FE3D7D3959EB0D8B8B4AB /* PayOrderDetailView.swift in Sources */,
 				F1A2B3C40000000000000009 /* SupplierStatementView.swift in Sources */,
 				F1A2B3C4000000000000000B /* DailyExpenseView.swift in Sources */,
+				F1A2B3C4000000000000000D /* AccountListView.swift in Sources */,
+				F1A2B3C4000000000000000F /* AccountTransferView.swift in Sources */,
+				F1A2B3C40000000000000011 /* ContactListView.swift in Sources */,
 				170F7EFA154D22EA925AFB50 /* InventoryAdjustView.swift in Sources */,
 				CC30AB8A3F0CC480D0EDF37B /* InventorySnapshotView.swift in Sources */,
 				1ED9E0000000000000000A01 /* InventoryLedgerView.swift in Sources */,

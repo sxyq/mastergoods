@@ -37,7 +37,7 @@ import PageStatusBanner from '@/shared/ui/PageStatusBanner.vue'
 type PageMode = 'manage' | 'create'
 
 interface ReturnDraftItem {
-  productId: number | null
+  productId: EntityId | null
   productName: string
   productCode: string
   quantity: string

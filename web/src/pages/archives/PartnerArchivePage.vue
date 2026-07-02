@@ -27,6 +27,7 @@ import {
 } from '@/shared/api/client'
 import { useSession } from '@/app/stores/session'
 import { formatCurrency, formatDateTime } from '@/shared/utils/business'
+import type { EntityId } from '@/shared/utils/id'
 
 type PartnerKind = 'customer' | 'supplier'
 type DirectoryRecord = CustomerRecord | SupplierRecord
@@ -61,8 +62,8 @@ const success = ref('')
 const searchKeyword = ref('')
 const statusFilter = ref<'all' | '1' | '0'>('all')
 const groupFilter = ref<string>('all')
-const editingRecordId = ref<number | null>(null)
-const editingGroupId = ref<number | null>(null)
+const editingRecordId = ref<EntityId | null>(null)
+const editingGroupId = ref<EntityId | null>(null)
 
 const recordForm = reactive({
   name: '',
@@ -120,10 +121,10 @@ const topGroups = computed(() => sortedGroups.value.slice(0, 6))
 async function loadPage() {
   if (!session.token.value) return
   loading.value = true
-  resetFeedback()
-  try {
+    resetFeedback()
+    try {
     const status = statusFilter.value === 'all' ? undefined : Number(statusFilter.value)
-    const groupId = groupFilter.value === 'all' ? undefined : Number(groupFilter.value)
+    const groupId = groupFilter.value === 'all' ? undefined : groupFilter.value
     const [nextGroups, nextRecords] = await Promise.all([
       isCustomer.value ? fetchCustomerGroups(session.token.value) : fetchSupplierGroups(session.token.value),
       isCustomer.value
@@ -307,7 +308,7 @@ function buildCustomerPayload(): CustomerWritePayload {
     name: recordForm.name.trim(),
     phone: recordForm.phone.trim(),
     level: Number(recordForm.level || 1),
-    groupId: recordForm.groupId ? Number(recordForm.groupId) : null,
+    groupId: recordForm.groupId || null,
     primaryContactName: nullableText(recordForm.primaryContactName),
     primaryContactPhone: nullableText(recordForm.primaryContactPhone),
     address: nullableText(recordForm.address),
@@ -321,7 +322,7 @@ function buildSupplierPayload(): SupplierWritePayload {
   return {
     name: recordForm.name.trim(),
     phone: recordForm.phone.trim(),
-    groupId: recordForm.groupId ? Number(recordForm.groupId) : null,
+    groupId: recordForm.groupId || null,
     primaryContactName: nullableText(recordForm.primaryContactName),
     primaryContactPhone: nullableText(recordForm.primaryContactPhone),
     address: nullableText(recordForm.address),
