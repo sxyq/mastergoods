@@ -1,7 +1,7 @@
 # 43 AI 助手真实 Agentic 需求文档
 
 > 状态：需求基线，供后续 AI 功能审查与修改使用
-> 版本：2026-06-14 v24
+> 版本：2026-07-03 v25
 > 维护范围：AI 助手需求基线与当前代码证据校准；不代表本轮已经完成所有后端或 Android 代码整改
 > 覆盖范围：后端 `/v2/agent/*`、Android AI 助手页面、AI 首页干净入口、真实数据查询、真实工具事件、草稿执行、取消确认、运行审计、性能可观测性、后续审查 checklist
 
@@ -9,7 +9,7 @@
 
 ## 0. 当前证据快照
 
-本节只记录截至 2026-06-13 当前工作树可由代码和测试证明的事实，不能替代第 17 节端到端验收证据包。任何未列为“已证明”的能力，在后续审查中都必须按未完成处理。
+本节只记录截至 2026-07-03 当前工作树可由代码、测试和最新本地接口证据证明的事实，不能替代第 17 节端到端验收证据包。任何未列为“已证明”的能力，在后续审查中都必须按未完成处理。
 
 ### 0.1 已由当前代码 / 测试证明
 
@@ -19,6 +19,8 @@
 | 非流式后端服务响应具备可审计字段 | `V2AgentAiServiceTest.nonStreamingChatIncludesAuditableAgentRunContract` 强制重跑通过，断言 `planSummary`、`toolCalls`、`evidenceRefs`、`evidence_card`、`performanceSummary`；`nonStreamingChatExplainsLimitedQueryBoundaryAndFieldLevelEvidence` 断言 `evidence_card` 包含 `customer_count`、`top10_receivable_total` 和 `tool:customer_receivable_lookup`；`tools/ai_agent_evidence_capture.sh self-test` 会生成 `18-result-block-evidence.md` 并检查字段级 evidence_card | 证明服务单测路径具备合同雏形，且可渲染依据卡不只停留在工具摘要，还包含关键字段级依据；仍需真实 HTTP 响应和 owner 数据证据 |
 | Android evidence_card 保留字段级审计信息 | `EvidenceCardBlockData.EvidenceItem` 已接收 `tool_call_id`、`query_window`、`is_truncated`；`AgentChatResponseSerializationTest.decodesNonStreamingAgentRunContract` 断言 result block 中字段级 evidence item 不丢调用 ID、查询窗口和截断标记；`ResultBlockRendererContractTest.evidenceCardItemKeepsAuditSummaryForFieldLevelEvidence` 断言 UI 摘要能显示调用、当前账号、上限和截断 | 证明 Android 模型与渲染合同能承接后端字段级依据；仍需真机截图证明这些审计提示在实际 evidence_card 中可见 |
 | SSE `answer_delta` 当前包含真实可见的 `rule_summary` 降级增量 | `V2AgentAiServiceTest.streamFallbackAnswerEmitsVisibleRuleSummaryDeltas`、`streamDisabledModelAnswerEmitsVisibleRuleSummaryDeltas`、`streamRuleSummaryDistinguishesNonStreamingProviderFromDisabledModel` 通过，断言规则摘要 / provider 不支持 streaming / 模型未配置时都会发送 `answer_delta(delta_source=rule_summary)`，同时保留 `mode=tool_query_rule_summary`、对应 `llm_status`、`plan_source=keyword_fallback` 和规则摘要提示文案 | 证明当前工作树已把规则摘要降级改为“真实工具查询完成后的可见流式摘要”，且不会伪装成 `model_stream`；仍需真实抓包和真机截图证明 UI 端同样诚实展示 |
+| 本地真实 provider `model_stream` 已取得接口证据 | `docs/acceptance-evidence/ai-agent/20260703-2250-41300-3xvunYP8-manual/02-raw-sse.log` 已出现真实 `answer_delta(delta_source=model_stream)`；同 run 的 audit 返回 `mode=tool_query_llm_streamed`、`llm_status=streaming`、`event_count=34`，且首个 `result_block` 出现在首个可见 `model_stream` delta 之后；配置来源已由 `tools/export_codex_llm_env.sh` 对齐到当前 `~/.codex/config.toml` 的 `gpt-5.4-mini` | 证明“当前仓库尚无真实 provider `model_stream` 本地证据”这一旧结论已经过期；但这仍只是 local profile 接口证据，不等于 Android 真机、生产 profile、provider 中断场景或原生工具规划已全部通过 |
+| 本地真实 provider 原生工具规划已恢复 | `docs/acceptance-evidence/ai-agent/20260703-codex-provider-native-tool-planning.md` 记录了修复 OpenAI 风格非流式 URL / content-type 兼容性后的真实 `/v2/agent/chat` 运行：`run_id=efeaa856-e5a2-4274-aa0a-60e8eefe876e`，`llm_status=available`，`plan_source=react_iterated`，`plan_summary` 明确写出“模型通过原生 Function Calling 选择工具 + 迭代补充(2)” | 证明“本地 provider 原生工具规划完全不可用”这一旧阻塞已被关闭；但仍不能据此声称 Agent 已完美通过，因为同 run 里 `inventory_panorama_lookup` 仍真实失败，且 Android 配对证据仍缺 |
 | SSE `server_notice` 可承载服务端真实补充说明 | `V2AgentAiServiceTest.streamModelAnswerEmitsServerNoticeTailBeforeCompletionWhenBackendAppendsBoundaries` 证明模型真实 delta 后，后端追加的查询边界说明会以 `answer_delta(delta_source=server_notice)` 在 `answer_completed` 前发出；`AgentResponseProvenanceTest.serverNoticeDeltaIsLabeledAsBackendNoticeNotModelStream` 证明 Android 不把它标成模型流 | 证明查询边界 / 部分失败等服务端事实说明不会在最终完成事件突然整段跳出，也不会伪装成模型 token；仍需真实 SSE 抓包和真机截图 |
 | SSE 结构化结果块不会抢在首段可见回答前出现 | `V2AgentAiService.runChatStream()` 当前统一通过 `emitBlocksAfterVisibleAnswer` 控制结果块时机：模型真流式路径中先发送首个 `answer_delta(model_stream)`，规则摘要 / provider 不支持 streaming / 模型未配置路径中先发送首个 `answer_delta(rule_summary)`，随后才 `emitBlocks(...)` 发送本轮真实 `result_block`，最后 `answer_completed`。`V2AgentAiServiceTest.streamModelAnswerEmitsOnlyModelStreamDeltasAndStreamedCompletion`、`streamInterruptedAfterVisibleModelDeltaKeepsPartialAnswerAndBlocksAfterText`、`streamFallbackAnswerEmitsVisibleRuleSummaryDeltas`、`streamDisabledModelAnswerEmitsVisibleRuleSummaryDeltas` 和 `streamRuleSummaryDistinguishesNonStreamingProviderFromDisabledModel` 分别固定这些顺序 | 证明当前服务端源头把“首段可见回答出现”作为结构化结果块出场门槛，无论是模型真流还是规则摘要降级，都不会把查询数据卡片抢在可见回答正文之前；Android 仍保留 pending / 去重兜底；仍需真实 SSE 抓包和真机截图证明端到端节奏 |
 | Android 对话时间线按服务端事件顺序渲染 | `ChatMessage.parts` 增加 `Text` / `ResultBlock` / `PendingResultBlock` 顺序片段；`AgentChatViewModelAnswerMergeTest` 覆盖 answer delta、result block、final answer 的合并顺序，且最终答案不会重排已有 `Text -> ResultBlock -> Text` 时间线；同时覆盖 `result_block` 早于回答文本到达时先显示为轻量 pending 提示，不展开表格 / 图表 / 详细数据，等首段回答文本出现后再转换为正式结果块，并覆盖重复 `result_block` 不会重复渲染；`AgentChatScreen` 以 `AssistantMessageTimeline` 渲染片段；`AgentChatScreenToolStatusTest.resultBlockSourceLabelDistinguishesStructuredEvidenceAndMarkdown` 证明 result block 头部会区分结构化查询、工具证据和 Markdown 结果块；`assistantTextSourceLabelMarksModelSummarySeparatelyFromResultBlocks` 证明完成后的助手正文也保留轻量“AI 总结”来源标签 | 证明 Android 不再把所有结构化结果固定堆到回答下方，也不会在完成态把流式时间线重新搬动；早到的工具结果只提示“已取得真实结果，正在组织回答”，不会出现“先直接给查询数据，等一会儿回答才出来”的倒置体验；用户能从头部标签区分普通模型回答、结构化查询结果和工具证据。仍需真实模型流式 SSE 和真机截图证明端到端体验 |
@@ -38,7 +40,7 @@
 |---|---|---|
 | 一比一 UI 还原 | 本文档仅定义 AI 助手验收基线，不证明所有页面已按设计稿还原 | 每个界面与设计稿逐屏对照截图、差异清单、真机截图和可交互验证 |
 | 真实端到端 agentic run | 当前测试主要是单元测试和模型解析，尚未归档真实 `/v2/agent/chat` 或 `/chat/stream` 证据包 | 按第 17.1 节生成每个真实问题的 HTTP、SSE、工具结果、审计、截图、耗时证据 |
-| 真模型流式输出 | 当前已证明 `rule_summary` 诚实降级、Android 可渲染 `model_stream` delta，不等于证明供应商 `model_stream` 真流式 | 抓包证明 `delta_source=model_stream` 与模型供应商 streaming、`mode`、`llm_status`、审计一致 |
+| 真模型流式输出 / 原生工具规划 | 2026-07-03 已补到 local profile 的真实 provider-backed SSE / audit 证据，也已补到本地非流式原生工具规划恢复证据；但仍缺 Android 配对截图、生产或准生产 profile、以及 interruption / empty-stream / tool-failure 收口场景 | 在当前 local evidence 基础上继续补 Android 截图 / UI tree / logcat、provider 中断与空流证据、真实工具失败闭口、生产或准生产配置来源与对账结果 |
 | 生产模型配置 | `application-prod.yml` 默认 `AGENT_LLM_ENABLED=false`，未注入 `AGENT_LLM_BASE_URL` / `AGENT_LLM_API_KEY` 时只能得到真实工具查询后的规则摘要，不能视为 ChatGPT-like 真模型流式体验通过 | 生产或准生产环境必须记录 `AGENT_LLM_ENABLED=true`、有效 provider base URL / key 来源、`AGENT_LLM_WIRE_API=chat_completions` 或已证明支持 streaming 的等价 wire API，并用真实 SSE 证明存在 `answer_delta(delta_source=model_stream)` |
 | AI 首页干净入口 | 文档规定不得展示报表型数据，但仍需真机 UI tree / 截图确认当前实现 | `05-ui-home.png` 和 `09-ui-tree.xml`，证明无销售额、KPI、报表图、风险列表默认展示 |
 | RunTrace 展开与 UI 区分度 | 文档规定用户 / AI / 工具 / 结果 / 错误分层，但仍需视觉证据 | 真实对话截图，含展开 RunTrace、Markdown、result block、错误或降级态 |
@@ -60,6 +62,11 @@
 截至 `525e2d50` 当前工作树，Android 已增加按事件顺序渲染的 `ChatMessage.parts` 时间线、真实工具状态短提示、规则摘要 / 模型流 / 模型流式中断标签区分、完成态提示收敛、重复 `result_block` 去重，以及标准多行 SSE 缓冲解析；后端 workbench 已增加 `clean_entry_ready`、`data_policy`、`capabilities` 和 `warnings` 以替代空壳式入口响应；后端流式接口已改为模型真流式时首个 `answer_delta(model_stream)` 后发送真实 `result_block`，模型已吐出部分 token 后中断时保留真实部分回答并标记 `stream_interrupted`，规则摘要 / provider 不支持 streaming / 模型未配置时发送 `answer_delta(rule_summary)` 作为真实可见降级回答，再发送 `result_block`，最后以 `answer_completed` / `run_completed` 收尾；安全拦截事件会把 assistant message 收敛为明确错误终态；Android 停止生成 / 清空对话会释放本机 SSE 连接并请求服务端 cancel，SSE 响应体读取阶段的 Flow 取消也会传递到 OkHttp `Call.cancel()`；设备证据脚本已补自动从 AI 首页进入真实对话、轮询 UI 状态、捕获 `gfxinfo` 和首页误停留判定。上述内容只能证明代码和工具层契约，不得替代真实端到端验收证据。
 
 ### 0.4 2026-06-14 最新运行证据结论
+
+- 2026-07-03 已新增 `docs/acceptance-evidence/ai-agent/20260703-2250-41300-3xvunYP8-manual/` 与汇总页 `docs/acceptance-evidence/ai-agent/20260703-codex-provider-model-stream.md`：当前 `~/.codex/config.toml` 对齐的 provider（`gpt-5.4-mini`）已在本地 `18081` 接口跑出真实 `answer_delta(delta_source=model_stream)`，audit 与 SSE 一致，且 `result_block` 没有抢在第一段可见回答前出现。
+- 2026-07-03 后续本地修复已把 OpenAI 风格非流式 URL / `Content-Type` 兼容性问题收口；新的 `/v2/agent/chat` 本地 run（`efeaa856-e5a2-4274-aa0a-60e8eefe876e`）已达到 `llm_status=available`、`plan_source=react_iterated`，说明本地真实 provider 原生工具规划与 LLM 综合已恢复，不再是单纯 `keyword_fallback`。
+- 但这组新证据同时也保留了真实缺口：`inventory_panorama_lookup` 在同 run 中仍失败 2 次，因此当前只能关闭“本地原生工具规划不可用”阻塞，不能把“所有工具与 Android/发布级 agent 体验已完美闭环”误记为完成。
+- 本轮尝试复核真机入口时，当前 shell 环境中的 `adb` 需要使用显式路径 `/Users/sunyiyang/Library/Android/sdk/platform-tools/adb`，且执行 `adb devices -l` 未发现在线设备；因此 2026-07-03 这组新证据仍是接口侧本地证据，不替代真机证据。
 
 - 接口侧 `rule_summary` 当前闭环证据以 `docs/acceptance-evidence/ai-agent/20260614-0023-f6ec9e97-9190-46b5-a87e-962c311b296d/` 为最新基线：`13-sse-audit-ui-reconciliation.md` 为 `pass-for-interface`，`11-latency.md` 证明当前真实路径仍是可见 `answer_delta(delta_source=rule_summary)`，且 `result_block` 跟随首段可见回答之后；同包 `03-run-audit.json` 进一步确认当前运行时 `mode=tool_query_rule_summary`、`llm_status=not_configured`。
 - 2026-06-13 的 ASCII 问题接口包 `docs/acceptance-evidence/ai-agent/20260613-2113-511f7551-5aa6-4f24-bd7f-b8ab9507d6d8/` 已完成历史配对使命；当前组合门禁已切换到 2026-06-14 同日接口包与同日真机包，状态从“设备缺证据”收敛为仅剩 provider `model_stream` 缺口。

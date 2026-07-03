@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -27,11 +28,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.designsystem.GlassScaffold
 import com.zhihuiji.core.designsystem.GlassSurfaceHigh
 import com.zhihuiji.core.designsystem.LiquidGlassCard
 import com.zhihuiji.core.designsystem.PrimaryButton
@@ -89,104 +92,118 @@ private fun RegisterContent(
     var password by remember { mutableStateOf("") }
     var verifyCode by remember { mutableStateOf("") }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(AuthBackgroundBrush)
-            .padding(horizontal = 20.dp)
-    ) {
-        Column(
+    GlassScaffold(modifier = modifier.background(AuthBackgroundBrush)) { _ ->
+        Box(
             modifier = Modifier
-                .align(Alignment.Center)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxSize()
+                .padding(horizontal = 20.dp)
+                .navigationBarsPadding()
         ) {
-            LiquidGlassCard(
-                modifier = Modifier.fillMaxWidth(),
-                blurRadius = 24.dp,
-                shape = AuthCardShape,
-                surfaceColor = GlassSurfaceHigh,
-                contentPadding = 24.dp
+            Column(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(
+                AuthHeroOverview(
+                    canEditBaseUrl = false,
+                    onOpenServerEditor = {},
+                    title = "创建智慧记账号",
+                    subtitle = "注册后直接进入和首页统一的玻璃经营工作台",
+                )
+
+                LiquidGlassCard(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    blurRadius = 24.dp,
+                    shape = AuthCardShape,
+                    surfaceColor = GlassSurfaceHigh,
+                    contentPadding = 24.dp
                 ) {
-                    Text(
-                        text = "创建账号",
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = TextPrimary
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Text(
-                        text = "接入你的经营数据与 AI 助手工作台",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
-                    )
-
-                    Spacer(modifier = Modifier.height(28.dp))
-
-                    AuthOutlinedField(
-                        value = phone,
-                        onValueChange = { phone = it },
-                        label = "手机号",
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Phone,
-                            imeAction = ImeAction.Next
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "注册并开店",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = TextPrimary
                         )
-                    )
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
-                    AuthOutlinedField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = "密码",
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password,
-                            imeAction = ImeAction.Next
+                        Text(
+                            text = "后续销售、库存、客户与 AI 助手都会围绕这个账号同步",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary,
+                            textAlign = TextAlign.Center,
                         )
-                    )
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
 
-                    AuthOutlinedField(
-                        value = verifyCode,
-                        onValueChange = { verifyCode = it },
-                        label = "验证码",
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Done
+                        AuthOutlinedField(
+                            value = phone,
+                            onValueChange = { phone = it },
+                            label = "手机号",
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Phone,
+                                imeAction = ImeAction.Next
+                            )
                         )
-                    )
 
-                    Spacer(modifier = Modifier.height(22.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.5.dp,
-                            color = ZhihuijiPrimary
+                        AuthOutlinedField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = "密码",
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password,
+                                imeAction = ImeAction.Next
+                            )
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
 
-                    PrimaryButton(
-                        text = "注册并进入",
-                        onClick = { onRegister(phone, password, verifyCode) },
-                        enabled = phone.isNotBlank() && password.isNotBlank() && verifyCode.isNotBlank() && !isLoading,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                        AuthOutlinedField(
+                            value = verifyCode,
+                            onValueChange = { verifyCode = it },
+                            label = "验证码",
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done
+                            )
+                        )
 
-                    TextButton(onClick = onNavigateBack) {
-                        Text("已有账号？返回登录", color = ZhihuijiPrimary)
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        AuthStatusStrip()
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.5.dp,
+                                color = ZhihuijiPrimary
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
+                        PrimaryButton(
+                            text = "注册并进入首页",
+                            onClick = { onRegister(phone, password, verifyCode) },
+                            enabled = phone.isNotBlank() && password.isNotBlank() && verifyCode.isNotBlank() && !isLoading,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        TextButton(onClick = onNavigateBack) {
+                            Text("已有账号？返回登录", color = ZhihuijiPrimary)
+                        }
                     }
                 }
             }

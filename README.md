@@ -11,17 +11,22 @@
 
 ```text
 master-goods/
-  src/                     后端源码
+  backend/                 后端聚合入口
   master-goods-android/    Android 工程
   docs/                    设计稿、迁移、安全、技术分析文档
-  deploy/                  部署配置
-  tools/                   数据迁移与辅助脚本
+  tools/                   指向 backend/tools 的兼容入口
 ```
 
 ## 快速入口
 
 - Android 工程说明：
   [master-goods-android/README.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/README.md)
+- 后端聚合入口：
+  [backend/README.md](/Users/sunyiyang/Desktop/Project/master-goods/backend/README.md)
+- 后端工具脚本：
+  [backend/tools](/Users/sunyiyang/Desktop/Project/master-goods/backend/tools)
+- 临时规则归档：
+  [docs/archived/临时.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/archived/临时.md)
 - 文档总索引：
   [docs/README.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/README.md)
 - Android 主开发计划：
@@ -56,13 +61,19 @@ curl http://localhost:18080/v1/sync/health
 - PostgreSQL 15+
 
 ```bash
+./backend/gradlew bootRun
+```
+
+兼容旧入口：
+
+```bash
 ./gradlew bootRun
 ```
 
 测试：
 
 ```bash
-./gradlew test
+./backend/gradlew test
 ```
 
 ## 当前后端主要能力

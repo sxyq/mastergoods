@@ -1,8 +1,13 @@
 package com.zhihuiji.feature.agent
 
+import android.content.ContentResolver
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.model.v2.agent.AgentChatRequest
+import com.zhihuiji.core.model.v2.agent.AgentImageGenerateRequest
 import com.zhihuiji.core.model.v2.agent.AgentConversationDto
 import com.zhihuiji.core.model.v2.agent.AgentMessageDto
 import com.zhihuiji.core.model.v2.agent.AgentStreamEvent
@@ -23,6 +28,7 @@ import com.zhihuiji.core.model.v2.agent.ToolCallStatus
 import com.zhihuiji.core.network.RetryState
 import com.zhihuiji.data.agent.AgentAuditRepository
 import com.zhihuiji.data.agent.AgentV2Repository
+import com.zhihuiji.data.agent.MediaV2Repository
 import com.zhihuiji.data.agent.listRecentMessages
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -67,6 +73,12 @@ data class AgentChatUiState(
     val conversations: List<AgentConversationDto> = emptyList(),
     val isLoadingConversations: Boolean = false,
     val isDrawerOpen: Boolean = false,
+    val imageAttachments: List<AgentImageAttachmentUi> = emptyList(),
+    val attachmentAuthToken: String? = null,
+    val isUploadingImage: Boolean = false,
+    val isGeneratingImage: Boolean = false,
+    val generatedImageUrl: String? = null,
+    val generatedImagePrompt: String? = null,
 ) {
     /** 重连中提示文案，供 UI 直接展示 */
     val retryMessage: String?
@@ -76,6 +88,11 @@ data class AgentChatUiState(
             null
         }
 }
+
+data class AgentImageAttachmentUi(
+    val assetId: Long,
+    val url: String,
+)
 
 /**
  * 草稿确认弹窗状态
@@ -98,6 +115,7 @@ data class ContextCompactedState(
 class AgentChatViewModel @Inject constructor(
     private val repository: AgentV2Repository,
     private val auditRepository: AgentAuditRepository,
+    private val mediaRepository: MediaV2Repository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AgentChatUiState())
@@ -125,6 +143,75 @@ class AgentChatViewModel @Inject constructor(
 
     fun onInputChange(text: String) {
         _uiState.update { it.copy(inputText = text) }
+    }
+
+    fun uploadImage(uri: Uri, context: Context) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUploadingImage = true, error = null) }
+            val resolver = context.contentResolver
+            val mimeType = resolver.getType(uri) ?: "image/jpeg"
+            val fileName = readDisplayName(resolver, uri)
+            val bytes = runCatching {
+                resolver.openInputStream(uri)?.use { it.readBytes() }
+            }.getOrNull()
+            if (bytes == null) {
+                _uiState.update { it.copy(isUploadingImage = false, error = "读取图片失败") }
+                return@launch
+            }
+            mediaRepository.uploadAsset(
+                bytes = bytes,
+                fileName = fileName,
+                mimeType = mimeType,
+                assetType = "agent_chat_image",
+            ).onSuccess { asset ->
+                _uiState.update { state ->
+                    state.copy(
+                        isUploadingImage = false,
+                        attachmentAuthToken = mediaRepository.peekAuthToken(),
+                        imageAttachments = state.imageAttachments + AgentImageAttachmentUi(
+                            assetId = asset.id,
+                            url = mediaRepository.contentUrlFor(asset.id),
+                        ),
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update { it.copy(isUploadingImage = false, error = error.message ?: "上传图片失败") }
+            }
+        }
+    }
+
+    fun removeImageAttachment(assetId: Long) {
+        _uiState.update { state ->
+            state.copy(imageAttachments = state.imageAttachments.filterNot { it.assetId == assetId })
+        }
+    }
+
+    fun generateImage(prompt: String) {
+        val normalizedPrompt = prompt.trim()
+        if (normalizedPrompt.isEmpty() || _uiState.value.isGeneratingImage) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isGeneratingImage = true, error = null) }
+            repository.generateImage(
+                AgentImageGenerateRequest(
+                    prompt = normalizedPrompt,
+                    referenceAssetIds = _uiState.value.imageAttachments.map { it.assetId },
+                )
+            ).onSuccess { response ->
+                _uiState.update {
+                    it.copy(
+                        isGeneratingImage = false,
+                        generatedImageUrl = response.imageUrl,
+                        generatedImagePrompt = response.revisedPrompt ?: normalizedPrompt,
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update { it.copy(isGeneratingImage = false, error = error.message ?: "生图失败") }
+            }
+        }
+    }
+
+    fun dismissGeneratedImage() {
+        _uiState.update { it.copy(generatedImageUrl = null, generatedImagePrompt = null) }
     }
 
     fun openDrawer() {
@@ -324,14 +411,23 @@ class AgentChatViewModel @Inject constructor(
      * 发送消息（流式 SSE 版本）
      */
     fun sendMessage(prefilledText: String? = null) {
-        val text = prefilledText?.trim().orEmpty().ifBlank { _uiState.value.inputText.trim() }
+        val state = _uiState.value
+        val text = prefilledText?.trim().orEmpty()
+            .ifBlank { state.inputText.trim() }
+            .ifBlank { if (state.imageAttachments.isNotEmpty()) "请帮我分析这张图片" else "" }
         if (text.isEmpty() || _uiState.value.isStreaming) return
+        val imageAssetIds = state.imageAttachments.map { it.assetId }
+        val visibleUserContent = if (imageAssetIds.isEmpty()) {
+            text
+        } else {
+            text + "\n\n[已附带图片 ${imageAssetIds.size} 张]"
+        }
 
         val userMessage = ChatMessage(
             id = UUID.randomUUID().toString(),
             conversationId = _uiState.value.conversationId ?: 0L,
             role = MessageRole.USER,
-            content = text,
+            content = visibleUserContent,
             createdAt = System.currentTimeMillis(),
         )
 
@@ -339,6 +435,7 @@ class AgentChatViewModel @Inject constructor(
             it.copy(
                 messages = it.messages + userMessage,
                 inputText = "",
+                imageAttachments = emptyList(),
                 isStreaming = true,
                 canStop = true,
                 error = null,
@@ -352,6 +449,7 @@ class AgentChatViewModel @Inject constructor(
             conversationId = _uiState.value.conversationId,
             message = text,
             stream = true,
+            imageAssetIds = imageAssetIds,
         )
 
         // 初始化审计记录构建器
@@ -775,6 +873,16 @@ class AgentChatViewModel @Inject constructor(
         }
     }
 
+    private fun readDisplayName(resolver: ContentResolver, uri: Uri): String {
+        resolver.query(uri, null, null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (nameIndex >= 0 && cursor.moveToFirst()) {
+                return cursor.getString(nameIndex) ?: "agent-image.jpg"
+            }
+        }
+        return "agent-image.jpg"
+    }
+
     private fun handleStreamError(assistantMessageId: String, errorMessage: String) {
         flushPendingAnswerDelta()
         _uiState.update {
@@ -1013,6 +1121,10 @@ class AgentChatViewModel @Inject constructor(
                 currentRunId = null,
                 isStreaming = false,
                 canStop = false,
+                imageAttachments = emptyList(),
+                attachmentAuthToken = null,
+                generatedImageUrl = null,
+                generatedImagePrompt = null,
                 showDraftConfirm = null,
                 contextCompacted = null,
                 error = null,

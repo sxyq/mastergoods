@@ -12,6 +12,19 @@ data class AgentChatRequest(
     @SerialName("conversation_id") val conversationId: Long? = null,
     val message: String,
     @SerialName("stream") val stream: Boolean = false,
+    @SerialName("image_asset_ids") val imageAssetIds: List<Long> = emptyList(),
+)
+
+@Serializable
+data class AgentImageGenerateRequest(
+    val prompt: String,
+    @SerialName("reference_asset_ids") val referenceAssetIds: List<Long> = emptyList(),
+)
+
+@Serializable
+data class AgentImageGenerateResponse(
+    @SerialName("image_url") val imageUrl: String,
+    @SerialName("revised_prompt") val revisedPrompt: String? = null,
 )
 
 /**

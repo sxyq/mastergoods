@@ -4,6 +4,8 @@ import com.zhihuiji.core.model.v2.agent.AgentChatRequest
 import com.zhihuiji.core.model.v2.agent.AgentChatResponse
 import com.zhihuiji.core.model.v2.agent.AgentConversationDto
 import com.zhihuiji.core.model.v2.agent.AgentDraftDto
+import com.zhihuiji.core.model.v2.agent.AgentImageGenerateRequest
+import com.zhihuiji.core.model.v2.agent.AgentImageGenerateResponse
 import com.zhihuiji.core.model.v2.agent.AgentMessageDto
 import com.zhihuiji.core.model.v2.agent.AgentNotificationDto
 import com.zhihuiji.core.model.v2.agent.AgentRunCancelDto
@@ -113,6 +115,9 @@ class AgentV2Repository @Inject constructor(
 
     suspend fun chat(request: AgentChatRequest): Result<AgentChatResponse> =
         safeApiCall { api.agentChatV2(request) }
+
+    suspend fun generateImage(request: AgentImageGenerateRequest): Result<AgentImageGenerateResponse> =
+        safeApiCall { api.agentGenerateImageV2(request) }
 
     suspend fun cancelRun(runId: String): Result<AgentRunCancelDto> =
         safeApiCall { api.cancelAgentRunV2(runId) }

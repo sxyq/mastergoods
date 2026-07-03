@@ -21,6 +21,8 @@ import com.zhihuiji.core.model.v2.agent.AgentChatRequest
 import com.zhihuiji.core.model.v2.agent.AgentChatResponse
 import com.zhihuiji.core.model.v2.agent.AgentConversationDto
 import com.zhihuiji.core.model.v2.agent.AgentDraftDto
+import com.zhihuiji.core.model.v2.agent.AgentImageGenerateRequest
+import com.zhihuiji.core.model.v2.agent.AgentImageGenerateResponse
 import com.zhihuiji.core.model.v2.agent.AgentMessageDto
 import com.zhihuiji.core.model.v2.agent.AgentNotificationDto
 import com.zhihuiji.core.model.v2.agent.AgentRunCancelDto
@@ -619,6 +621,11 @@ interface ZhihuijiV2Api {
     suspend fun agentChatV2(
         @Body body: AgentChatRequest,
     ): ApiResponse<AgentChatResponse>
+
+    @POST("v2/agent/images/generate")
+    suspend fun agentGenerateImageV2(
+        @Body body: AgentImageGenerateRequest,
+    ): ApiResponse<AgentImageGenerateResponse>
 
     @POST("v2/agent/runs/{runId}/cancel")
     suspend fun cancelAgentRunV2(@Path("runId") runId: String): ApiResponse<AgentRunCancelDto>

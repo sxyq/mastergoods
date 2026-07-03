@@ -1,6 +1,9 @@
 package com.zhihuiji.feature.agent
 
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -48,6 +51,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.outlined.AddAPhoto
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
@@ -75,6 +79,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -84,6 +89,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.zhihuiji.core.designsystem.DangerRed
 import com.zhihuiji.core.designsystem.GlassScaffold
 import com.zhihuiji.core.designsystem.GlassTextField
@@ -133,6 +140,7 @@ fun AgentChatScreen(
     val messages = uiState.messages
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     val chatTailState = remember(messages) {
         var activeStreamingMessage: ChatMessage? = null
         var lastAssistantMessage: ChatMessage? = null
@@ -258,7 +266,17 @@ fun AgentChatScreen(
                     inputText = uiState.inputText,
                     isStreaming = uiState.isStreaming,
                     canStop = uiState.canStop,
+                    imageAttachments = uiState.imageAttachments,
+                    attachmentAuthToken = uiState.attachmentAuthToken,
+                    isUploadingImage = uiState.isUploadingImage,
+                    isGeneratingImage = uiState.isGeneratingImage,
+                    generatedImageUrl = uiState.generatedImageUrl,
+                    generatedImagePrompt = uiState.generatedImagePrompt,
                     onInputChange = viewModel::onInputChange,
+                    onUploadImage = { uri -> viewModel.uploadImage(uri, context) },
+                    onRemoveImage = viewModel::removeImageAttachment,
+                    onGenerateImage = viewModel::generateImage,
+                    onDismissGeneratedImage = viewModel::dismissGeneratedImage,
                     onSend = viewModel::sendMessage,
                     onStop = viewModel::stopGeneration,
                     modifier = Modifier
@@ -1449,15 +1467,38 @@ private fun StreamWaitingIndicator(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun ChatInputBar(
     inputText: String,
     isStreaming: Boolean,
     canStop: Boolean,
+    imageAttachments: List<AgentImageAttachmentUi>,
+    attachmentAuthToken: String?,
+    isUploadingImage: Boolean,
+    isGeneratingImage: Boolean,
+    generatedImageUrl: String?,
+    generatedImagePrompt: String?,
     onInputChange: (String) -> Unit,
+    onUploadImage: (android.net.Uri) -> Unit,
+    onRemoveImage: (Long) -> Unit,
+    onGenerateImage: (String) -> Unit,
+    onDismissGeneratedImage: () -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    var showGenerateDialog by remember { mutableStateOf(false) }
+    var generatePrompt by remember { mutableStateOf("") }
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri != null) {
+            onUploadImage(uri)
+        }
+    }
+    val canSend = (inputText.isNotBlank() || imageAttachments.isNotEmpty()) && !isStreaming
+
     LiquidGlassSurface(
         modifier = modifier
             .fillMaxWidth()
@@ -1466,56 +1507,247 @@ private fun ChatInputBar(
         shape = RoundedCornerShape(30.dp),
         surfaceColor = Color.White.copy(alpha = 0.84f),
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(horizontal = 9.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            GlassTextField(
-                value = inputText,
-                onValueChange = onInputChange,
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(max = 120.dp)
-                    .verticalScroll(rememberScrollState()),
-                label = null,
-                placeholder = "输入经营问题，AI 会查询真实业务数据...",
-                singleLine = false,
-                shape = RoundedCornerShape(24.dp),
-                enabled = !isStreaming,
-            )
-
-            if (canStop) {
-                IconButton(
-                    onClick = onStop,
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(AgentStopButtonBrush)
+            if (imageAttachments.isNotEmpty()) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Stop,
-                        contentDescription = "停止接收",
-                        tint = Color.White,
-                    )
-                }
-            } else {
-                val canSend = inputText.isNotBlank() && !isStreaming
-                IconButton(
-                    onClick = onSend,
-                    enabled = canSend,
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(if (canSend) AgentSendButtonBrush else AgentDisabledSendBrush)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "发送",
-                        tint = Color.White,
-                    )
+                    imageAttachments.forEach { attachment ->
+                        AgentInputImageThumbnail(
+                            url = attachment.url,
+                            authToken = attachmentAuthToken,
+                            onRemove = { onRemoveImage(attachment.assetId) },
+                        )
+                    }
                 }
             }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                IconButton(
+                    onClick = {
+                        launcher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    enabled = !isStreaming && !isUploadingImage,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.7f))
+                ) {
+                    if (isUploadingImage) {
+                        CircularProgressIndicator(
+                            color = ZhihuijiPrimary,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.AddAPhoto,
+                            contentDescription = "上传图片",
+                            tint = ZhihuijiPrimary,
+                        )
+                    }
+                }
+
+                TextButton(
+                    onClick = {
+                        generatePrompt = inputText.ifBlank { generatePrompt }
+                        showGenerateDialog = true
+                    },
+                    enabled = !isStreaming && !isGeneratingImage,
+                ) {
+                    Text(
+                        text = if (isGeneratingImage) "生图中" else "生图",
+                        color = ZhihuijiPrimary,
+                    )
+                }
+
+                GlassTextField(
+                    value = inputText,
+                    onValueChange = onInputChange,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(max = 120.dp)
+                        .verticalScroll(rememberScrollState()),
+                    label = null,
+                    placeholder = if (imageAttachments.isEmpty()) {
+                        "输入经营问题，AI 会查询真实业务数据..."
+                    } else {
+                        "可结合图片提问，或直接发送分析图片"
+                    },
+                    singleLine = false,
+                    shape = RoundedCornerShape(24.dp),
+                    enabled = !isStreaming,
+                )
+
+                if (canStop) {
+                    IconButton(
+                        onClick = onStop,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(AgentStopButtonBrush)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Stop,
+                            contentDescription = "停止接收",
+                            tint = Color.White,
+                        )
+                    }
+                } else {
+                    IconButton(
+                        onClick = onSend,
+                        enabled = canSend,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(if (canSend) AgentSendButtonBrush else AgentDisabledSendBrush)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "发送",
+                            tint = Color.White,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (showGenerateDialog) {
+        AlertDialog(
+            onDismissRequest = { showGenerateDialog = false },
+            title = {
+                Text(if (imageAttachments.isEmpty()) "文本生图" else "以图生图")
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = if (imageAttachments.isEmpty()) {
+                            "直接输入提示词生成图片。"
+                        } else {
+                            "当前会使用已上传图片作为参考图。"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                    )
+                    GlassTextField(
+                        value = generatePrompt,
+                        onValueChange = { generatePrompt = it },
+                        placeholder = "输入生图提示词",
+                        singleLine = false,
+                        enabled = !isGeneratingImage,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onGenerateImage(generatePrompt)
+                        showGenerateDialog = false
+                    },
+                    enabled = generatePrompt.isNotBlank() && !isGeneratingImage,
+                ) {
+                    Text("开始生成")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showGenerateDialog = false }) {
+                    Text("取消")
+                }
+            },
+        )
+    }
+
+    if (generatedImageUrl != null) {
+        AlertDialog(
+            onDismissRequest = onDismissGeneratedImage,
+            title = { Text("生成结果") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    generatedImagePrompt?.takeIf { it.isNotBlank() }?.let { prompt ->
+                        Text(
+                            text = prompt,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary,
+                        )
+                    }
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(generatedImageUrl)
+                            .build(),
+                        contentDescription = "生成图片结果",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 320.dp)
+                            .clip(RoundedCornerShape(16.dp)),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onDismissGeneratedImage) {
+                    Text("关闭")
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun AgentInputImageThumbnail(
+    url: String,
+    authToken: String?,
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val request = remember(url, authToken) {
+        ImageRequest.Builder(context)
+            .data(url)
+            .apply {
+                if (!authToken.isNullOrBlank()) {
+                    addHeader("Authorization", "Bearer $authToken")
+                }
+            }
+            .build()
+    }
+    Box(
+        modifier = modifier
+            .size(72.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color.White.copy(alpha = 0.65f)),
+    ) {
+        AsyncImage(
+            model = request,
+            contentDescription = "Agent 输入图片",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(4.dp)
+                .size(20.dp)
+                .clip(CircleShape)
+                .background(Color(0xCC000000))
+                .clickable(onClick = onRemove),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "移除图片",
+                tint = Color.White,
+                modifier = Modifier.size(12.dp),
+            )
         }
     }
 }

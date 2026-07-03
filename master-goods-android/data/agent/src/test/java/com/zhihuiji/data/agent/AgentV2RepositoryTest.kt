@@ -8,6 +8,8 @@ import com.zhihuiji.core.datastore.SettingsStore
 import com.zhihuiji.core.model.ApiResponse
 import com.zhihuiji.core.model.v2.agent.AgentConversationDto
 import com.zhihuiji.core.model.v2.agent.AgentDraftDto
+import com.zhihuiji.core.model.v2.agent.AgentImageGenerateRequest
+import com.zhihuiji.core.model.v2.agent.AgentImageGenerateResponse
 import com.zhihuiji.core.model.v2.agent.AgentMessageDto
 import com.zhihuiji.core.model.v2.agent.AgentRunCancelDto
 import com.zhihuiji.core.network.AgentSseClient
@@ -247,6 +249,31 @@ class AgentV2RepositoryTest {
         assertTrue(result.isSuccess)
         assertEquals("deleteMediaBindingV2", invokedMethod)
         assertEquals(13L, invokedId)
+    }
+
+    @Test
+    fun generateImageDelegatesToAgentGenerateImageV2AndCarriesReferenceAssets() = runBlocking {
+        var invokedMethod: String? = null
+        var invokedRequest: AgentImageGenerateRequest? = null
+        val api = fakeApi { methodName, args ->
+            invokedMethod = methodName
+            invokedRequest = args?.get(0) as AgentImageGenerateRequest
+            ApiResponse(
+                code = 0,
+                message = "ok",
+                data = AgentImageGenerateResponse(imageUrl = "https://example.com/generated.png", revisedPrompt = null),
+            )
+        }
+
+        val repository = AgentV2Repository(api, fakeSseClient, json)
+        val result = repository.generateImage(
+            AgentImageGenerateRequest(prompt = "生成一张促销图", referenceAssetIds = listOf(3L, 5L))
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals("agentGenerateImageV2", invokedMethod)
+        assertEquals("生成一张促销图", invokedRequest?.prompt)
+        assertEquals(listOf(3L, 5L), invokedRequest?.referenceAssetIds)
     }
 
     private fun fakeApi(handler: (methodName: String, args: Array<out Any?>?) -> Any?): ZhihuijiV2Api {
