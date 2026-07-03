@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.zhihuiji.backend.api.common.IdGenerator;
 import com.zhihuiji.backend.api.dto.v2.sales.V2SalesReturnDtos;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
 import com.zhihuiji.backend.domain.entity.CustomerEntity;
@@ -54,7 +55,8 @@ class V2SalesReturnServiceTest {
             productRepository,
             customerRepository,
             paymentRepository,
-            currentOwnerService
+            currentOwnerService,
+            new IdGenerator()
         );
         when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
         when(productRepository.findByIdForUpdate(1L, 11L)).thenReturn(Optional.of(product(11L, "P001", "矿泉水", 3.0)));

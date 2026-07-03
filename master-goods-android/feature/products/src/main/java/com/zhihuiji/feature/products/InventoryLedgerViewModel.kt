@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.model.v2.inventory.InventoryLedgerEntryV2Dto
-import com.zhihuiji.data.sync.SyncV2Repository
+import com.zhihuiji.data.sync.InventoryV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,7 +59,7 @@ private data class InventoryLedgerSummary(
 
 @HiltViewModel
 class InventoryLedgerViewModel @Inject constructor(
-    private val repository: SyncV2Repository,
+    private val repository: InventoryV2Repository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(InventoryLedgerUiState())
     val uiState: StateFlow<InventoryLedgerUiState> = _uiState.asStateFlow()

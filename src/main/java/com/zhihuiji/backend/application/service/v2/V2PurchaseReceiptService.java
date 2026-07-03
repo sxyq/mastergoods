@@ -30,6 +30,7 @@ public class V2PurchaseReceiptService {
     private final ProductRepository productRepository;
     private final SupplierRepository supplierRepository;
     private final CurrentOwnerService currentOwnerService;
+    private final IdGenerator idGenerator;
 
     public V2PurchaseReceiptService(
         PurchaseReceiptRepository purchaseReceiptRepository,
@@ -37,7 +38,8 @@ public class V2PurchaseReceiptService {
         PurchaseOrderRepository purchaseOrderRepository,
         ProductRepository productRepository,
         SupplierRepository supplierRepository,
-        CurrentOwnerService currentOwnerService
+        CurrentOwnerService currentOwnerService,
+        IdGenerator idGenerator
     ) {
         this.purchaseReceiptRepository = purchaseReceiptRepository;
         this.purchaseReceiptItemRepository = purchaseReceiptItemRepository;
@@ -45,6 +47,7 @@ public class V2PurchaseReceiptService {
         this.productRepository = productRepository;
         this.supplierRepository = supplierRepository;
         this.currentOwnerService = currentOwnerService;
+        this.idGenerator = idGenerator;
     }
 
     @Transactional
@@ -55,7 +58,7 @@ public class V2PurchaseReceiptService {
         }
 
         long now = System.currentTimeMillis();
-        long receiptId = IdGenerator.nextId();
+        long receiptId = idGenerator.nextId();
         String receiptNo = "RC" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
 
         PurchaseOrderEntity purchaseOrder = null;
@@ -78,7 +81,7 @@ public class V2PurchaseReceiptService {
             total += amount;
 
             PurchaseReceiptItemEntity entity = new PurchaseReceiptItemEntity();
-            entity.setId(IdGenerator.nextId());
+            entity.setId(idGenerator.nextId());
             entity.setOwnerUserId(ownerUserId);
             entity.setReceiptId(receiptId);
             entity.setProductId(product.getId());

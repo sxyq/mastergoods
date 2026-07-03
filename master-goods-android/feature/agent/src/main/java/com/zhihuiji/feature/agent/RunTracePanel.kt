@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.designsystem.DangerRed
 import com.zhihuiji.core.designsystem.LiquidGlassCard
 import com.zhihuiji.core.designsystem.SuccessGreen
@@ -55,9 +56,6 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * 可折叠的过程轨迹面板。
@@ -563,5 +561,4 @@ private fun JsonElement.compactJsonText(maxLength: Int = 90): String? =
         if (raw.length <= maxLength) raw else raw.take(maxLength) + "..."
     }
 
-private fun Long.formatClockTime(): String =
-    SimpleDateFormat("HH:mm:ss", Locale.CHINA).format(Date(this))
+private fun Long.formatClockTime(): String = TimeFormatter.formatTime(this)

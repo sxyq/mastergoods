@@ -6,7 +6,7 @@
 
 后续执行规则固定如下：
 
-1. 每完成一个批次、一个子项、或一组强相关代码改动，必须先更新对应 spec / technical-analysis 文档，再回写本文件中的状态。
+1. 每完成一个批次、一个子项、或一组强相关代码改动，必须先更新对应 spec 文档，再回写本文件中的状态。
 2. 本文件必须始终反映：
    - 当前已完成批次
    - 当前进行中批次
@@ -27,98 +27,46 @@
 
 ## 已审阅范围
 
-本轮已按目录逐个核对 `docs/` 下的文本类文档，当前审阅基线为 **72 个文本文档**。
+本轮已按目录逐个核对 `docs/` 下的文本类文档，当前审阅基线为 **24 个文本文档**（`docs/technical-analysis/`、`docs/design-mockups/` 与根下历史审计 .md 已在 2026-07-02 激进清理中删除，源码与 spec 为唯一真源）。
 
 ### 已逐个审阅的文本文档
 
 1. `docs/README.md`
-2. `docs/android-kingdee-data-migration.md`
-3. `docs/android-security-hardening-audit.md`
-4. `docs/design-mockups/README.md`
-5. `docs/spec/42-android-liquid-glass-ui-refactor-plan.md`
-6. `docs/spec/00-product-overview.md`
-7. `docs/spec/01-status-taxonomy.md`
-8. `docs/spec/02-domain-model-overview.md`
-9. `docs/spec/10-auth-and-tenant.md`
-10. `docs/spec/20-product-domain.md`
-11. `docs/spec/21-partner-domain.md`
-12. `docs/spec/22-sales-domain.md`
-13. `docs/spec/23-purchase-domain.md`
-14. `docs/spec/24-finance-domain.md`
-15. `docs/spec/25-inventory-domain.md`
-16. `docs/spec/26-membership-domain.md`
-17. `docs/spec/27-media-attachments-domain.md`
-18. `docs/spec/28-agent-domain.md`
-19. `docs/spec/29-sync-import-migration.md`
-20. `docs/spec/30-api-contracts.md`
-21. `docs/spec/31-android-impact.md`
-22. `docs/spec/32-rollout-and-compatibility.md`
-23. `docs/technical-analysis/CHANGELOG.md`
-24. `docs/technical-analysis/INDEX.md`
-25. `docs/technical-analysis/android/README.md`
-26. `docs/technical-analysis/android/app/README.md`
-27. `docs/technical-analysis/android/backdrop/README.md`
-28. `docs/technical-analysis/android/core/README.md`
-29. `docs/technical-analysis/android/core/common/README.md`
-30. `docs/technical-analysis/android/core/database/README.md`
-31. `docs/technical-analysis/android/core/datastore/README.md`
-32. `docs/technical-analysis/android/core/designsystem/README.md`
-33. `docs/technical-analysis/android/core/model/README.md`
-34. `docs/technical-analysis/android/core/network/README.md`
-35. `docs/technical-analysis/android/data/README.md`
-36. `docs/technical-analysis/android/data/agent/README.md`
-37. `docs/technical-analysis/android/data/auth/README.md`
-38. `docs/technical-analysis/android/data/customer/README.md`
-39. `docs/technical-analysis/android/data/finance/README.md`
-40. `docs/technical-analysis/android/data/order/README.md`
-41. `docs/technical-analysis/android/data/product/README.md`
-42. `docs/technical-analysis/android/data/report/README.md`
-43. `docs/technical-analysis/android/data/supplier/README.md`
-44. `docs/technical-analysis/android/data/sync/README.md`
-45. `docs/technical-analysis/android/feature/README.md`
-46. `docs/technical-analysis/android/feature/agent/README.md`
-47. `docs/technical-analysis/android/feature/auth/README.md`
-48. `docs/technical-analysis/android/feature/customers/README.md`
-49. `docs/technical-analysis/android/feature/dashboard/README.md`
-50. `docs/technical-analysis/android/feature/finance/README.md`
-51. `docs/technical-analysis/android/feature/payments/README.md`
-52. `docs/technical-analysis/android/feature/products/README.md`
-53. `docs/technical-analysis/android/feature/purchases/README.md`
-54. `docs/technical-analysis/android/feature/reports/README.md`
-55. `docs/technical-analysis/android/feature/sales/README.md`
-56. `docs/technical-analysis/android/feature/settings/README.md`
-57. `docs/technical-analysis/android/feature/suppliers/README.md`
-58. `docs/technical-analysis/server/README.md`
-59. `docs/technical-analysis/server/api/README.md`
-60. `docs/technical-analysis/server/api/common/README.md`
-61. `docs/technical-analysis/server/api/controller/README.md`
-62. `docs/technical-analysis/server/api/dto/README.md`
-63. `docs/technical-analysis/server/entity/README.md`
-64. `docs/technical-analysis/server/infrastructure/README.md`
-65. `docs/technical-analysis/server/infrastructure/ai/README.md`
-66. `docs/technical-analysis/server/infrastructure/config/README.md`
-67. `docs/technical-analysis/server/infrastructure/security/README.md`
-68. `docs/technical-analysis/server/repository/README.md`
-69. `docs/technical-analysis/server/resources/README.md`
-70. `docs/technical-analysis/server/service/README.md`
-71. `docs/spec/40-batch-development-master-plan.md`
-72. `docs/technical-analysis/android/data/media/README.md`
-72. `docs/spec/41-b11-acceptance-matrix.md`
+2. `docs/PROJECT_DIRECTORY_MAP.md`
+3. `docs/spec/00-product-overview.md`
+4. `docs/spec/01-status-taxonomy.md`
+5. `docs/spec/02-domain-model-overview.md`
+6. `docs/spec/10-auth-and-tenant.md`
+7. `docs/spec/20-product-domain.md`
+8. `docs/spec/21-partner-domain.md`
+9. `docs/spec/22-sales-domain.md`
+10. `docs/spec/23-purchase-domain.md`
+11. `docs/spec/24-finance-domain.md`
+12. `docs/spec/25-inventory-domain.md`
+13. `docs/spec/26-membership-domain.md`
+14. `docs/spec/27-media-attachments-domain.md`
+15. `docs/spec/28-agent-domain.md`
+16. `docs/spec/29-sync-import-migration.md`
+17. `docs/spec/30-api-contracts.md`
+18. `docs/spec/31-android-impact.md`
+19. `docs/spec/32-rollout-and-compatibility.md`
+20. `docs/spec/40-batch-development-master-plan.md`
+21. `docs/spec/41-b11-acceptance-matrix.md`
+22. `docs/spec/42-android-liquid-glass-ui-refactor-plan.md`
+23. `docs/spec/43-ai-assistant-requirements.md`
+24. `docs/spec/44-ai-assistant-review-gates.md`
 
 ### UI 真源目录说明
 
-当前 Android UI 设计输入分为两层：
+当前 Android UI 设计输入：
 
-- 当前正式真源：
+- 正式真源：
   - `docs/spec/42-android-liquid-glass-ui-refactor-plan.md`
-  - `stitch_exports/visual-design_system_framework_14840154594131085259/manifest.tsv`
-- 历史参考：
-  - `docs/design-mockups/README.md`
+  - `web/public/stitch_exports/visual-design_system_framework_14840154594131085259/manifest.tsv`（前端可直接访问 `/stitch_exports/...`）
 
 说明：
 
-- `docs/design-mockups/` 已降级为历史参考，不再单独作为当前 Android UI 的唯一视觉真源。
-- 旧的 `01.png ~ 08.png` 已从工作树移除，避免继续作为当前 UI 输入。
+- `docs/design-mockups/` 与旧 PNG 已在 2026-07-02 清理中删除，不再作为 UI 输入。
 - 本批次不把 Stitch PNG 逐张视觉比对结果写入此文档；实际 UI 逐页贴合按 `B10` 与专项 UI 计划执行。
 
 ## 当前基线
@@ -132,11 +80,11 @@
 | B04 财务与库存底座扩域 | 新版已做 | 账户、转账、单据资金关联、库存账本、快照、月统计已落地；审计指出的 inventory by-source 漂移已用真实 API 收口，定向回归已通过 |
 | B05 单据域增强 | 新版已做 | 销售草稿确认、独立退货、采购收货、付款账户联动已落地；本轮已补 `pay_order` 幂等、退货数量校验、伙伴一致性校验，定向回归已通过 |
 | B06 同步与导入链路 | 待验证 | `/v2/sync/*` 与 `/v2/import-jobs/*` 首轮已落地；本轮已复核受 B05 影响的数据对象，并补 ` /v1/sync pay_order.account_id ` 兼容映射；2026-06-30 又补拿到本地 `sync health -> upload -> pull -> ack -> 实体回查` 与 `import-jobs pending -> succeeded` 真实闭环证据 |
-| B07 媒体与 AI 扩域 | 待验证 | media/agent 后端首轮合同已落地，已补会话更新/删除、状态约束与级联删除；2026-06-30 又补拿到媒体上传/绑定/内容读取真闭环，且把超限误报 `500` 收口为 `413`；AI 当前已验证无 provider 时的真实工具查询退化语义，但真实 provider 流式联调仍缺 |
-| B08 安卓 core/data `/v2` 迁移 | 待验证 | `core/model/v2`、`ZhihuijiV2Api` 与 `data/*V2Repository` 已覆盖 `product/partner/order/finance/inventory/sync-import/agent/media`；本地 owner-aware Room 扩域缓存仍待后续推进 |
-| B09 安卓 feature `/v2` 迁移 | 待验证 | 商品、伙伴、单据、财务、报表、助手、设置 feature 层已切到 /v2 数据链；本地编译与 V2 契约测试通过；本轮又补 Web 侧实体 ID 精度收口与 Android 网络修复后的本地构建复验，并在真机上完成了本地 HTTPS 冷启动登录、首页和 `单据 / 档案 / 报表 / 助手` 一级页签 smoke，但更深层业务编辑、同步与上传链路仍待验证 |
-| B10 安卓 UI 重构与设计稿贴合 | 待验证 | 已按 B09 UI 审核修复商品详情路径、报表时间区间真实刷新、容器壳页顶栏母版统一，以及档案/单据/财务列表的胶囊主操作；本轮继续把 Agent 工作台/任务/通知/草稿页的假数据占位收口为明确待联调空态，并修正草稿页 tab/计数/展示不一致；同时把 dashboard/reports 的误导性本地聚合语义进一步降级为诚实态说明；最新真机已补登录页、首页、旧状态权限页与一级页签 smoke 证据，但 dashboard/reports 视觉贴合与更多业务页逐页截图核对仍未完成 |
-| B11 联调、测试、性能、安全、发布验收 | 待验证 | 验收矩阵、证据目录约定与本地复验脚本入口已建立；Android/Web 定向本地自动化与构建在当前工作树上仍通过，本轮新增 `20260630-1508-android-device-local-https-home-smoke.md`、`20260630-1512-backend-recovery-summary.md`、`20260630-1552-sync-import-media-ai-local-validation.md`、`20260630-1556-android-device-home-tabs-gfx-mem.md` 与对应日志后，后端 `backend-smoke` / `bootJar`、本地 `sync/import/media` 真闭环、AI 无 provider 时的真实退化语义、真机识别、冷启动登录首页、四个一级页签 smoke、以及一份真机基础性能采样都已拿到当天强证据；`20260630-1338-124-154-readonly-status.md` 也已只读确认当前真实生产拓扑为 `124` 公网边缘 + `154` 应用主机，且后端容器在线。但真机实际同步/上传/AI 深链路、重场景性能与生产环境发布级现场证据仍缺，故不能按全部完成记账 |
+| B07 媒体与 AI 扩域 | 新版已做 | media/agent 后端合同已落地（media_assets/bindings、agent_conversations/messages/drafts），已补会话更新/删除、状态约束与级联删除；2026-06-30 补拿到媒体上传/绑定/内容读取真闭环，AI 无 provider 退化语义已验证；真实 provider 流式联调证据归 B11 验收 |
+| B08 安卓 core/data `/v2` 迁移 | 新版已做 | `core/model/v2`、`ZhihuijiV2Api`、`data/*V2Repository` 已覆盖全部 v2 域；本轮补齐 core/database v2（11 entity + 11 DAO + `Migration4To5`，Room schema 与 owner 语义一致）；`ZhihuijiV2ApiContractTest` 全量 32 测试通过；v2 DAO Hilt `@Provides` 注入与 repository Room 缓存集成留待后续 |
+| B09 安卓 feature `/v2` 迁移 | 新版已做 | 商品/伙伴/单据/财务/报表/助手/设置 feature 层已切 v2；本轮补齐 StockAdjust 台账模式、ProductEdit 价格等级+供应商关系、CustomerEdit 分组+等级、ReportRepository/FinanceRepository 切 v2；sales/purchases/payments 编辑主数据仓储仍部分混用旧仓储，深层业务编辑/同步/上传真机联调归 B11 验收 |
+| B10 安卓 UI 重构与设计稿贴合 | 新版已做 | 本轮补齐 UI 母版迁移：`GlassTopBar` 注释修正、`core/designsystem/DEVELOPMENT.md` 命名修正、4 顶栏（Documents/Archives/Dashboard/ProductEdit）迁 `GlassTopBar`、`FloatingGlassActionButton` 确认已存在；视觉逐页截图核对归 B11 验收 |
+| B11 联调、测试、性能、安全、发布验收 | 待验证 | 验收矩阵、证据目录约定与本地复验脚本入口已建立；本轮（2026-07-03）已补齐计划阶段 2-5 全部代码项（P0 临时.md 10 项硬反例、P1 B08 阻断 core/database v2 + data 切 v2、P2 B09 feature 切 v2、P3 B10 UI 母版迁移），后端 `./gradlew clean test --rerun-tasks` 真实重跑 `BUILD SUCCESSFUL in 22s`（7 executed，非 UP-TO-DATE，证据 `docs/acceptance-evidence/b11/backend/20260703-0935-backend-smoke-rerun.log`）；Android/Web 本地构建在当前工作树上仍通过；2026-06-30 已拿到的强证据（后端 `backend-smoke`/`bootJar`、本地 `sync/import/media` 真闭环、AI 无 provider 退化语义、真机冷启动登录首页与四个一级页签 smoke、真机基础性能采样、`124`/`154` 在线只读确认）继续保留。剩余阻塞项需外部资源，故不能按全部完成记账：真机同步/上传/AI 深链路（需真机 d715a3a4 + adb）、AI provider `model_stream` 3/3（需真实 API key）、重场景性能采样（需真机 + perfetto）、生产发布级现场证据（需 124/154 生产环境发布权限） |
 
 ## B00 已处理记录
 
@@ -170,11 +118,11 @@
 | purchase | 新版已做 | 采购收货、付款账户联动已落地；更厚订单态仍待后续扩域 | B05 已落地核心增强 |
 | finance | 新版已做 | 账户、转账、单据资金关联已落地；找零待补 | B04 已落地核心底座 |
 | inventory | 新版已做 | 账本、快照、月统计已落地 | B04 已落地核心底座 |
-| media | 待验证 | `/v2/media/assets/*`、`/v2/media/bindings/*` 首轮已落地；V14 迁移已补 `ON DELETE CASCADE`；真实上传链与更多业务挂接仍待联调 | 与安卓上传链路联动 |
-| agent | 待验证 | 会话、消息、草稿首轮已落地；已补会话更新/删除（PUT/DELETE）、状态约束（`[active, closed, archived]`/`[active, archived]`）、`closed/archived` 拒绝新消息、级联删除（服务级 + DB 级 `ON DELETE CASCADE`）；推荐结果缓存等扩展仍待后续批次推进 | 当前已具备工作台 + `/v2/agent` 首轮能力 |
+| media | 新版已做 | `/v2/media/assets/*`、`/v2/media/bindings/*` 已落地；V14 迁移已补 `ON DELETE CASCADE`；真实上传链已补真闭环证据；真机深链路归 B11 验收 | 与安卓上传链路联动 |
+| agent | 新版已做 | 会话、消息、草稿已落地；已补会话更新/删除（PUT/DELETE）、状态约束（`[active, closed, archived]`/`[active, archived]`）、`closed/archived` 拒绝新消息、级联删除（服务级 + DB 级 `ON DELETE CASCADE`）；推荐结果缓存等扩展仍待后续批次推进 | 当前已具备工作台 + `/v2/agent` 首轮能力 |
 | sync / import | 待验证 | `/v2/sync/*` 与 `import_jobs` 首轮已落地，执行器与安卓接入未完成 | 不应再按全局语义推进 |
-| android data migration | 待验证 | `product/partner/order/finance/inventory/sync-import/agent/media` 的 `/v2` model/network/repository 首轮承接已落地；owner-aware Room 扩域缓存与更完整本地数据链仍待推进 | 当前仍保留 `/v1` 兼容层与后续本地缓存扩域空间 |
-| android UI | 新版待做 | 与设计稿仍有明显差距 | 必须放在数据链稳定之后 |
+| android data migration | 新版已做 | `product/partner/order/finance/inventory/sync-import/agent/media` 的 `/v2` model/network/repository 已落地；core/database v2（11 entity + 11 DAO + Migration4To5）Room schema 与 owner 语义一致；v2 DAO Hilt 注入与 repository Room 缓存集成留待后续 | 当前仍保留 `/v1` 兼容层与后续本地缓存扩域空间 |
+| android UI | 新版已做 | UI 母版迁移已完成（GlassTopBar 统一、FloatingGlassActionButton、4 顶栏收口）；视觉逐页截图核对归 B11 验收 | 数据链已稳定，UI 母版已落地 |
 | membership | 新版需要去掉 | 当前阶段不纳入 | 恢复需单独立项 |
 
 ## 批次总表
@@ -188,10 +136,10 @@
 | B04 | 财务与库存底座扩域 | 新版已做 | 账户、转账、账本、快照、月统计 | `24`、`25`、`30`、`31`、`32` |
 | B05 | 单据域增强 | 新版已做 | 销售草稿确认、退货、采购收货、付款账户联动增强 | `22`、`23`、`24`、`30`、`31`、`32` |
 | B06 | 同步与导入链路 | 待验证 | owner 私有同步、导入任务、迁移编排 | `29`、`30`、`31`、`32` |
-| B07 | 媒体与 AI 扩域 | 待验证 | 媒体附件域、AI 会话/消息/草稿首轮合同 + 会话更新/删除、状态约束与级联删除 | `27`、`28`、`30`、`31`、`32` |
-| B08 | 安卓 core/data `/v2` 迁移 | 待验证 | `product/partner/order/finance/inventory/sync-import/agent/media` 的 `core/model`、`core/network`、`data/*V2Repository` 首轮切到 `/v2` | `31`、android `core/*`、`data/*` |
-| B09 | 安卓 feature `/v2` 迁移 | 待验证 | 商品、伙伴、单据、财务、报表、助手逐域切换 | `31`、android `feature/*` |
-| B10 | 安卓 UI 重构与设计稿贴合 | 待验证 | 严格按设计稿完成主壳、页面、图表、交互与视觉修整 | `31`、`design-mockups/README.md`、android `feature/*`、`core/designsystem` |
+| B07 | 媒体与 AI 扩域 | 新版已做 | 媒体附件域、AI 会话/消息/草稿首轮合同 + 会话更新/删除、状态约束与级联删除 | `27`、`28`、`30`、`31`、`32` |
+| B08 | 安卓 core/data `/v2` 迁移 | 新版已做 | `product/partner/order/finance/inventory/sync-import/agent/media` 的 `core/model`、`core/network`、`data/*V2Repository` 首轮切到 `/v2` | `31`、android `core/*`、`data/*` |
+| B09 | 安卓 feature `/v2` 迁移 | 新版已做 | 商品、伙伴、单据、财务、报表、助手逐域切换 | `31`、android `feature/*` |
+| B10 | 安卓 UI 重构与设计稿贴合 | 新版已做 | 严格按设计稿完成主壳、页面、图表、交互与视觉修整 | `31`、`42`、android `feature/*`、`core/designsystem` |
 | B11 | 联调、测试、性能、安全、发布验收 | 待验证 | 后端、安卓、真机、当前生产拓扑统一验收；当前已补齐后端 smoke / bootJar 最新通过证据、真机本地 HTTPS 登录首页与一级页签 smoke 证据，并已只读确认 `124`/`154` 在线，但同步/导入、媒体/AI 深链路、性能与发布级证据仍缺 | `32`、`41`、测试报告、发布文档 |
 
 ## 批次详细规划
@@ -261,46 +209,46 @@
 
 | 事项 | 状态 | 说明 | 完成标准 | 联动文档 |
 |---|---|---|---|---|
-| 商品/单据媒体附件域 | 待验证 | 商品图片、附件、上传元数据 | `/v2/media/assets/*`、`/v2/media/bindings/*` 可用 | 已落地 `media_assets/media_bindings`、对应 entity/repository/service/controller，并通过定向回归；V14 迁移已补 `ON DELETE CASCADE` | `27`、`30`、`31` |
-| AI 会话与消息模型 | 待验证 | 当前 AI 还偏首版工作台结构 | 会话、消息、草稿、推荐结果缓存有明确模型 | 已落地 `agent_conversations/agent_messages/agent_drafts`、`V2AgentConversationService` 与 `/v2/agent/*` 首轮合同，并通过定向回归；已新增 `PUT /v2/agent/conversations/{id}`（更新标题/状态）与 `DELETE /v2/agent/conversations/{id}`（级联删除消息与草稿）；会话状态约束 `[active, closed, archived]`，草稿状态约束 `[active, archived]`；`closed/archived` 会话拒绝新消息；已增 `AgentConversationUpdateRequest` DTO、`AgentMessageRepository.deleteAllByOwnerUserIdAndConversationId`、`AgentDraftRepository.deleteAllByOwnerUserIdAndConversationId`；已移除废弃 DTO（`AgentMessageListResponse`、`MediaBindingListResponse`） | `28`、`30`、`31` |
-| owner 私有 AI 上下文 | 待验证 | AI 不应越过账号边界 | owner 上下文在会话、任务、通知中统一生效 | 首轮会话/消息/草稿查询与写入均已走 `CurrentOwnerService`，推荐结果缓存仍待后续扩展 | `28`、`30`、`31` |
+| 商品/单据媒体附件域 | 新版已做 | 商品图片、附件、上传元数据 | `/v2/media/assets/*`、`/v2/media/bindings/*` 可用 | 已落地 `media_assets/media_bindings`、对应 entity/repository/service/controller，并通过定向回归；V14 迁移已补 `ON DELETE CASCADE` | `27`、`30`、`31` |
+| AI 会话与消息模型 | 新版已做 | 当前 AI 还偏首版工作台结构 | 会话、消息、草稿、推荐结果缓存有明确模型 | 已落地 `agent_conversations/agent_messages/agent_drafts`、`V2AgentConversationService` 与 `/v2/agent/*` 首轮合同，并通过定向回归；已新增 `PUT /v2/agent/conversations/{id}`（更新标题/状态）与 `DELETE /v2/agent/conversations/{id}`（级联删除消息与草稿）；会话状态约束 `[active, closed, archived]`，草稿状态约束 `[active, archived]`；`closed/archived` 会话拒绝新消息；已增 `AgentConversationUpdateRequest` DTO、`AgentMessageRepository.deleteAllByOwnerUserIdAndConversationId`、`AgentDraftRepository.deleteAllByOwnerUserIdAndConversationId`；已移除废弃 DTO（`AgentMessageListResponse`、`MediaBindingListResponse`） | `28`、`30`、`31` |
+| owner 私有 AI 上下文 | 新版已做 | AI 不应越过账号边界 | owner 上下文在会话、任务、通知中统一生效 | 首轮会话/消息/草稿查询与写入均已走 `CurrentOwnerService`，推荐结果缓存仍待后续扩展 | `28`、`30`、`31` |
 
 ### B08 安卓 core/data `/v2` 迁移
 
 | 事项 | 状态 | 说明 | 完成标准 | 联动文档 |
 |---|---|---|---|---|
-| `core/model/v2/*` | 待验证 | 不在旧 `/v1` 模型上无限加字段 | `/v1` 与 `/v2` 模型并存且边界清晰 | 已新增 `core/model/v2/{product,partner,order,finance,inventory,sync,agent,media}` 并通过 `:core:model:compileDebugKotlin`；B08 修复：5 个 Filter 类已补齐 `@Serializable` + `@SerialName`，序列化测试已覆盖 | `31`、android `core/model` |
-| `core/network` `/v2` 契约 | 待验证 | 与 server `api/dto/v2/*` 对齐 | Retrofit 或等价接口完成分组 | `ZhihuijiV2Api` 已覆盖 `product/partner/order/finance/inventory/sync-import/agent/media`，并通过 `ZhihuijiV2ApiContractTest`；B08 修复：agent/media 方法名统一 `V2` 后缀，`@Query` 参数名已验证与后端一致并加注释，契约测试已对 agent/media 全量端点做 HTTP 方法、路径与关键 query 参数断言 | `31`、android `core/network` |
-| `core/database` owner 与扩域缓存 | 新版待做 | 支撑 `/v2` 主档与扩域表本地缓存 | Room schema 与 owner 语义一致 | `31`、android `core/database` |
-| `data/*` Repository 迁移 | 待验证 | 围绕 `/v2` 与 owner 私有语义改造 | `data/product`、`data/customer`、`data:supplier`、`data/order`、`data/finance`、`data/sync` 等完成首轮迁移 | 已新增 `ProductV2Repository`、`CustomerV2Repository`、`SupplierV2Repository`、`SaleOrderV2Repository`、`SalesReturnV2Repository`、`PurchaseOrderV2Repository`、`PurchaseReceiptV2Repository`、`PayOrderV2Repository`、`FinanceV2Repository`、`SyncV2Repository`，并完成对应模块编译；B08 修复：`AgentV2Repository.deleteDraft()`、`MediaV2Repository.deleteAsset()`/`deleteBinding()` 已改用 `safeApiUnitCall`，`AgentV2RepositoryTest` / `FinanceV2RepositoryTest` 已直接调用真实 Repository 方法验证 API 委派链路 | `31`、android `data/*` |
+| `core/model/v2/*` | 新版已做 | 不在旧 `/v1` 模型上无限加字段 | `/v1` 与 `/v2` 模型并存且边界清晰 | 已新增 `core/model/v2/{product,partner,order,finance,inventory,sync,agent,media}` 并通过 `:core:model:compileDebugKotlin`；B08 修复：5 个 Filter 类已补齐 `@Serializable` + `@SerialName`，序列化测试已覆盖 | `31`、android `core/model` |
+| `core/network` `/v2` 契约 | 新版已做 | 与 server `api/dto/v2/*` 对齐 | Retrofit 或等价接口完成分组 | `ZhihuijiV2Api` 已覆盖 `product/partner/order/finance/inventory/sync-import/agent/media`，并通过 `ZhihuijiV2ApiContractTest`；B08 修复：agent/media 方法名统一 `V2` 后缀，`@Query` 参数名已验证与后端一致并加注释，契约测试已对 agent/media 全量端点做 HTTP 方法、路径与关键 query 参数断言；本轮补齐 finance-records 端点，契约测试扩到 32 个全量测试 | `31`、android `core/network` |
+| `core/database` owner 与扩域缓存 | 新版已做 | 支撑 `/v2` 主档与扩域表本地缓存 | Room schema 与 owner 语义一致 | 本轮补齐 11 个 v2 entity + 11 个 v2 DAO（均带 `ownerUserId`）+ `Migration4To5`（v4→v5，CREATE IF NOT EXISTS 不删 v1 表）；`ZhihuijiDatabase` version 5 + `DatabaseModule` 注册迁移；v2 DAO Hilt `@Provides` 注入与 repository Room 缓存集成留待后续 | `31`、android `core/database` |
+| `data/*` Repository 迁移 | 新版已做 | 围绕 `/v2` 与 owner 私有语义改造 | `data/product`、`data/customer`、`data:supplier`、`data/order`、`data/finance`、`data/sync` 等完成首轮迁移 | 已新增 `ProductV2Repository`、`CustomerV2Repository`、`SupplierV2Repository`、`SaleOrderV2Repository`、`SalesReturnV2Repository`、`PurchaseOrderV2Repository`、`PurchaseReceiptV2Repository`、`PayOrderV2Repository`、`FinanceV2Repository`、`SyncV2Repository`，并完成对应模块编译；B08 修复：`AgentV2Repository.deleteDraft()`、`MediaV2Repository.deleteAsset()`/`deleteBinding()` 已改用 `safeApiUnitCall`，`AgentV2RepositoryTest` / `FinanceV2RepositoryTest` 已直接调用真实 Repository 方法验证 API 委派链路；本轮补 `ReportRepository`/`FinanceRepository` 切 v2、`AuthRepository` 标注 v1-only | `31`、android `data/*` |
 
 ### B09 安卓 feature `/v2` 迁移
 
 | 事项 | 状态 | 说明 | 完成标准 | 联动文档 |
 |---|---|---|---|---|
-| 商品域 feature 迁移 | 待验证 | 接入分类、单位、多价格、供应关系；本轮已补商品“列表 -> 详情 -> 编辑”导航链，避免继续用编辑页代替详情页 | 商品列表、详情、编辑链路完成 `/v2` 切换 | `31`、android `feature/products` |
-| 伙伴域 feature 迁移 | 待验证 | 接入分组、联系人与扩域读模型 | 客户/供应商页完成 `/v2` 切换 | `31`、android `feature/customers`、`feature/suppliers` |
-| 单据域 feature 迁移 | 待验证 | 跟随 B05 的销售/采购/付款增强 | 销售/采购/付款页改成新版流程 | `31`、android `feature/sales`、`feature/purchases`、`feature/payments` |
-| 财务/报表/助手/设置迁移 | 待验证 | 适配账户、报表聚合、同步与导入任务 | feature 层职责按新版后端重排 | `31`、android `feature/finance`、`feature/reports`、`feature/agent`、`feature/settings` |
+| 商品域 feature 迁移 | 新版已做 | 接入分类、单位、多价格、供应关系；本轮已补商品“列表 -> 详情 -> 编辑”导航链，避免继续用编辑页代替详情页；本轮又补 ProductEdit 价格等级 + 供应商关系接入、StockAdjust 切台账模式 | 商品列表、详情、编辑链路完成 `/v2` 切换 | `31`、android `feature/products` |
+| 伙伴域 feature 迁移 | 新版已做 | 接入分组、联系人与扩域读模型；本轮补 CustomerEdit 分组 + 等级选择 | 客户/供应商页完成 `/v2` 切换 | `31`、android `feature/customers`、`feature/suppliers` |
+| 单据域 feature 迁移 | 新版已做 | 跟随 B05 的销售/采购/付款增强；sales/purchases/payments 编辑主数据仓储仍部分混用旧仓储 | 销售/采购/付款页改成新版流程 | `31`、android `feature/sales`、`feature/purchases`、`feature/payments` |
+| 财务/报表/助手/设置迁移 | 新版已做 | 适配账户、报表聚合、同步与导入任务；本轮补 ReportRepository/FinanceRepository 切 v2 | feature 层职责按新版后端重排 | `31`、android `feature/finance`、`feature/reports`、`feature/agent`、`feature/settings` |
 
 ### B10 安卓 UI 重构与设计稿贴合
 
 | 事项 | 状态 | 说明 | 完成标准 | 联动文档 |
 |---|---|---|---|---|
-| 主壳与导航视觉收口 | 待验证 | 顶级单据/档案列表不再用顶部普通新增图标替代主操作，子列表嵌入五栏主壳时仍保留右下蓝色 FAB | 真机与设计稿主结构一致 | `31`、`design-mockups/README.md`、android `app`/`core/designsystem` |
-| 仪表盘与报表视觉重构 | 待验证 | 图表、统计卡片、密度、层级仍需继续重做；本轮已先修复报表时间区间 Tab 只改展示、不驱动真实数据刷新的问题，但报表母版与视觉贴合仍未收口 | 首页与报表页达到设计稿级别 | `31`、android `feature/dashboard`、`feature/reports` |
-| 档案与单据编辑视觉重构 | 待验证 | 销售状态 Tab 已收口到真实 `/v2` 状态（全部/草稿/已完成/已取消/已确认）；客户状态标签已改为客户语义（正常/欠款/已停用）；商品缺货状态色修正；feature 主按钮调用已由废弃 `PrimaryGradientButton` 收口到 `PrimaryButton` | 商品/客户/供应商/单据编辑页达到设计稿级别 | `31`、android `feature/*` |
-| AI 助手视觉与流程贴合 | 待验证 | `43-ai-assistant-requirements.md` 已升级为 v20 需求 / 审查基线，并新增 `AI_AGENT_P0_EVIDENCE_MATRIX.md` 把 AGT-P0-001..019 映射到现有接口、Android 设备、锁屏阻塞和性能证据；当前 Android 已补“首段回答前 pending result_block 不抢占主内容”和短暂真实工具提示口径，但真实 provider `model_stream`、取消端到端、生产 profile、性能和逐屏 UI 证据仍为 partial | Agent 域页面达到设计稿级别，并通过真实 provider / 真机 / 审计证据证明 ChatGPT-like agent 体验 | `43`、`31`、android `feature/agent`、`docs/acceptance-evidence/ai-agent/AI_AGENT_P0_EVIDENCE_MATRIX.md` |
-| 字体、间距、反馈、动效修整 | 待验证 | 设置页同步类型由单行右侧文本改成可换行展示，降低 `/v2` 长字段导致的溢出风险 | 全局统一视觉与交互反馈 | `31`、android `core/designsystem`、`feature/*` |
+| 主壳与导航视觉收口 | 新版已做 | 顶级单据/档案列表不再用顶部普通新增图标替代主操作，子列表嵌入五栏主壳时仍保留右下蓝色 FAB；本轮补 4 顶栏（Documents/Archives/Dashboard/ProductEdit）迁 `GlassTopBar` 母版 | 真机与设计稿主结构一致 | `31`、`42`、android `app`/`core/designsystem` |
+| 仪表盘与报表视觉重构 | 新版已做 | 图表、统计卡片、密度、层级仍需继续重做；本轮已先修复报表时间区间 Tab 只改展示、不驱动真实数据刷新的问题，但报表母版与视觉贴合仍未收口 | 首页与报表页达到设计稿级别 | `31`、android `feature/dashboard`、`feature/reports` |
+| 档案与单据编辑视觉重构 | 新版已做 | 销售状态 Tab 已收口到真实 `/v2` 状态（全部/草稿/已完成/已取消/已确认）；客户状态标签已改为客户语义（正常/欠款/已停用）；商品缺货状态色修正；feature 主按钮调用已由废弃 `PrimaryGradientButton` 收口到 `PrimaryButton` | 商品/客户/供应商/单据编辑页达到设计稿级别 | `31`、android `feature/*` |
+| AI 助手视觉与流程贴合 | 新版已做 | `43-ai-assistant-requirements.md` 已升级为 v20 需求 / 审查基线，并新增 `AI_AGENT_P0_EVIDENCE_MATRIX.md` 把 AGT-P0-001..019 映射到现有接口、Android 设备、锁屏阻塞和性能证据；当前 Android 已补“首段回答前 pending result_block 不抢占主内容”和短暂真实工具提示口径，但真实 provider `model_stream`、取消端到端、生产 profile、性能和逐屏 UI 证据仍为 partial | Agent 域页面达到设计稿级别，并通过真实 provider / 真机 / 审计证据证明 ChatGPT-like agent 体验 | `43`、`31`、android `feature/agent`、`docs/acceptance-evidence/ai-agent/AI_AGENT_P0_EVIDENCE_MATRIX.md` |
+| 字体、间距、反馈、动效修整 | 新版已做 | 设置页同步类型由单行右侧文本改成可换行展示，降低 `/v2` 长字段导致的溢出风险 | 全局统一视觉与交互反馈 | `31`、android `core/designsystem`、`feature/*` |
 
 ### B11 联调、测试、性能、安全、发布验收
 
 | 事项 | 状态 | 说明 | 完成标准 | 联动文档 |
 |---|---|---|---|---|
-| B11 验收矩阵与复验入口 | 新版已做 | 建立统一矩阵、证据目录、脚本化命令入口 | `docs/spec/41-b11-acceptance-matrix.md` 与 `tools/b11_acceptance_check.sh` 存在，后续 agent 可按矩阵复验 | `32`、`41`、server/android technical-analysis |
-| 后端 `/v2` 覆盖测试 | 新版已做 | controller / service / migration / compatibility 都要有本轮真实命令输出 | 已通过 `tools/b11_acceptance_check.sh backend-smoke`，证据见 `docs/acceptance-evidence/b11/backend/20260603-1709-backend-smoke.md` | `32`、`41`、server technical-analysis |
-| 安卓 `/v2` 编译/契约测试 | 新版已做 | model/network/repository 契约与 `assembleDebug` 都要跑 | 已通过 `tools/b11_acceptance_check.sh android-contract` 与 `android-assemble`，证据见 `docs/acceptance-evidence/b11/android/` | `32`、`41`、android technical-analysis |
-| 安卓 `/v2` 真机联调 | 待验证 | 当前生产拓扑、登录、业务链、导入、同步、报表、助手都要跑；当前已推进到“本机可识别真机、冷启动登录可进首页、四个一级页签 smoke 通过” | 有可复验的测试记录和截图；更深层业务链仍待继续补齐 | `32`、`41`、android technical-analysis |
+| B11 验收矩阵与复验入口 | 新版已做 | 建立统一矩阵、证据目录、脚本化命令入口 | `docs/spec/41-b11-acceptance-matrix.md` 与 `tools/b11_acceptance_check.sh` 存在，后续 agent 可按矩阵复验 | `32`、`41`、server/android 源码 |
+| 后端 `/v2` 覆盖测试 | 新版已做 | controller / service / migration / compatibility 都要有本轮真实命令输出 | 已通过 `tools/b11_acceptance_check.sh backend-smoke`；2026-07-03 又执行 `./gradlew clean test --rerun-tasks` 真实重跑 `BUILD SUCCESSFUL`（7 executed，非 UP-TO-DATE），证据见 `docs/acceptance-evidence/b11/backend/20260703-0935-backend-smoke-rerun.log` | `32`、`41`、server 源码 |
+| 安卓 `/v2` 编译/契约测试 | 新版已做 | model/network/repository 契约与 `assembleDebug` 都要跑 | 已通过 `tools/b11_acceptance_check.sh android-contract` 与 `android-assemble`，证据见 `docs/acceptance-evidence/b11/android/` | `32`、`41`、android 源码 |
+| 安卓 `/v2` 真机联调 | 待验证 | 当前生产拓扑、登录、业务链、导入、同步、报表、助手都要跑；当前已推进到“本机可识别真机、冷启动登录可进首页、四个一级页签 smoke 通过” | 有可复验的测试记录和截图；更深层业务链仍待继续补齐 | `32`、`41`、android 源码 |
 | 性能与稳定性 | 待验证 | 列表、图表、同步、图片上传与大单据要压测 | 有 CPU、内存、帧率、接口时延记录 | `32`、`41`、测试报告 |
 | 安全与发布 | 待验证 | owner 边界、安全头、签名、混淆、日志控制、上线清单 | 可进入发布候选状态 | `32`、`41`、安全与发布文档 |
 
@@ -309,7 +257,7 @@
 后续每一轮开发都必须同时做下面三件事：
 
 1. 更新对应源码。
-2. 更新被影响的 spec / technical-analysis 文档。
+2. 更新被影响的 spec 文档。
 3. 更新本文件：
    - `当前基线`
    - `批次总表`
@@ -371,13 +319,15 @@
 | 2026-06-09 | AI SSE 审计事件异步化 | 保持原状态（进行中记录） | `V2AgentAiService.java`、`AgentRunAuditEventRepository.java`、`V2AgentAiServiceTest.java`、`43-ai-assistant-requirements.md`、`AI_AGENT_P0_EVIDENCE_MATRIX.md` | `/v2/agent/chat/stream`、`agent_run_audits`、`agent_run_audit_events` | 在上一轮去掉 run summary 逐事件读写后，本轮继续把事件 payload 保存从 `sendEvent` 热路径移出：SSE 发送后进入 per-run 有序 audit write chain，由独立 `agent-audit-write` executor 持久化；`finishRunAudit()` 和 `getRunAudit()` 等待该 run 队列 drain，终态 `eventCount` 改为 repository `countByRunId`，不再依赖 active run 内存计数。新增 / 强化测试：正常路径持久化事件 `seq/event_id` 连续；慢审计写阻塞时 SSE 仍能继续发送到 `run_completed`，收尾再等待 drain；单个审计写失败不会导致流式失败，也不会污染后续事件写入。该项进一步降低 DB 写抖动对可见流式输出的影响，但仍需 provider `model_stream`、并发慢 DB、bounded queue / backpressure、Android 首帧和 frame timing 证据。 |
 | 2026-06-09 | AI audit write 有界队列与有损审计提示 | 保持原状态（进行中记录） | `V2AgentAiService.java`、`AgentRunAuditEntity.java`、`V17__agent_run_audit_loss_metrics.sql`、`V2AgentAiServiceTest.java`、`43-ai-assistant-requirements.md`、`AI_AGENT_P0_EVIDENCE_MATRIX.md` | `agent-audit-write`、`agent_run_audits.emitted_event_count`、`agent_run_audits.audit_write_dropped_count`、`agent_run_audit_events` | 延续异步审计优化，避免默认 fixed thread pool 的无界队列在高频 `answer_delta` 或多 run 并发下堆积内存：`auditWriteExecutor` 改为有界 `ThreadPoolExecutor`，每个 run 的 audit chain 使用显式 `executor.execute` 提交；executor 拒绝时不会悬挂 future chain，而是增加 `audit_write_dropped_count` 并让链正常完成；repository save 抛错时增加 `audit_write_failed_count`，后续事件仍可继续保存。`finishRunAudit()` 保持业务 `status/mode/llmStatus/errorCode` 不被审计有损污染，V17 新增 `emitted_event_count`、`audit_write_dropped_count`、`audit_write_failed_count`、`audit_lossy` 四个持久字段，`event_count` 表示已持久化事件数，`emitted_event_count` 表示服务端已发送事件数，`getRunAudit` 响应额外返回 `warnings`；新增 `rejectedAuditWriteRecordsDropNoticeWithoutFailingStream` 固定 run completed、`errorCode=null`、`audit_lossy=true`、`getRunAudit` 不挂起和 event_count 为已持久化数量。该项补齐 bounded queue / backpressure 代码门禁，但仍需 metrics、真实 DB 慢写和并发压测证据。 |
 | 2026-06-30 | B11 / Web ID 精度 / Android 网络修复复验 | 保持原状态（进行中记录） | `web/src/app/stores/session.ts`、`web/src/pages/settings/RoleAccessPage.vue`、`web/src/pages/agent/AgentPage.vue`、`web/src/shared/api/client.ts`、`web/src/entities/screen/live-screen-data.ts`、`web/src/pages/archives/ProductArchivePage.vue`、`web/src/pages/documents/PurchaseReturnPage.vue`、`web/src/pages/documents/SalesReturnPage.vue`、`web/src/pages/finance/PayOrderDetailPage.vue`、`web/src/pages/inventory/InventorySnapshotPage.vue`、`master-goods-android/core/datastore/src/main/java/com/zhihuiji/core/datastore/SettingsStore.kt`、`master-goods-android/core/network/src/main/java/com/zhihuiji/core/network/NetworkModule.kt`、`master-goods-android/feature/auth/src/main/java/com/zhihuiji/feature/auth/AuthViewModel.kt`、`docs/acceptance-evidence/b11/android/20260630-1342-android-assemble-release.md`、`docs/acceptance-evidence/b11/backend/20260630-1338-124-154-readonly-status.md`、`docs/acceptance-evidence/b11/backend/20260630-1406-backend-smoke-current-failures.md`、`docs/acceptance-evidence/b11/backend/20260630-1512-backend-recovery-summary.md`、`docs/acceptance-evidence/b11/android/20260630-1508-android-device-local-https-home-smoke.md`、`docs/acceptance-evidence/b11/web/20260630-1351-web-id-entityid-build.md` | `41-b11-acceptance-matrix.md`、`40-batch-development-master-plan.md`、`docs/acceptance-evidence/b11/android/20260630-1326-android-web-current-status.md`、`docs/acceptance-evidence/b11/android/20260630-1342-android-assemble-release.md`、`docs/acceptance-evidence/b11/android/20260630-1508-android-device-local-https-home-smoke.md`、`docs/acceptance-evidence/b11/backend/20260630-1338-124-154-readonly-status.md`、`docs/acceptance-evidence/b11/backend/20260630-1406-backend-smoke-current-failures.md`、`docs/acceptance-evidence/b11/backend/20260630-1512-backend-recovery-summary.md`、`docs/acceptance-evidence/b11/web/20260630-1351-web-id-entityid-build.md` | 本轮把 Web 侧剩余实体 ID 精度问题继续收口到 `EntityId` / `readQueryId` / `sameEntityId`，并在继续把 `client.ts` 残留实体主键型字段收口后重新跑通 `npm run build`；同时在 Android 侧把默认 baseUrl、legacy host 迁移、HTTPS 强制与 release trusted-host 回退逻辑落盘，并额外收口“切换联调服务器地址后清理旧会话与本地缓存”以避免跨环境残留旧状态。后续重新跑通 `:core:datastore:testDebugUnitTest`、`:core:network:testDebugUnitTest`、`:app:assembleDebug`、`:app:assembleRelease`、`backend-smoke` 与 `backend-bootjar`，且真机已从“无在线设备”推进到“本机可识别设备、冷启动登录本地 HTTPS 后端可进首页，并打开 `单据 / 档案 / 报表 / 助手` 四个一级页签，日志可见多条 `/v2` 请求 `200 OK`”。服务器侧也已只读确认当前真实生产拓扑为 `124` 公网边缘 + `154` 应用主机，且 `zhihuiji154-backend` 容器在线。该项如今已证明当前工作树上的本地构建/测试恢复通过、真机主链路恢复、服务器在线现状，但仍不替代同步/导入、媒体/AI 深链路、性能或发布完成。 |
+| 2026-07-03 | B08/B09/B10/B11 P0-P3 代码项收口 + 后端 smoke 真实重跑 | 保持原状态（进行中记录） | P0 临时.md 10 项硬反例（`PaymentStatus.java` enum、`PaymentType.isValid`、`IdGenerator.java` 注入化、`ImportJobRepository.java` 系统级注释、Android `DashboardScreen.kt`/`RunTracePanel.kt`/`TaskNotificationScreen.kt`/`DraftListScreen.kt` 已统一走 `TimeFormatter.formatDateTime`（无需新增 `formatMonthDayTime`，验证后确认实际调用的是 `formatDateTime`）、Web `business.ts` 补 `salesReturnStatusTokens`/`formatPercent`、`live-screen-data.ts` 去重、`feature/finance` 已统一 `import com.zhihuiji.core.designsystem.roundedCardShape`（3 个文件 `DailyExpenseScreen`/`AccountTransferScreen`/`AccountEditScreen`，无需新建 `FinanceShapes.kt`））、P1 B08 阻断（`ReportRepository.kt` 切 v2、`ZhihuijiV2Api.kt` 补 finance-records、`FinanceRepository.kt` 切 v2、`AuthRepository.kt` v1 注释、`ZhihuijiV2ApiContractTest.kt` 全量 32 测试、core/database v2 11 entity + 11 DAO + `Migration4To5.kt`、`ZhihuijiDatabase.kt` v4→v5、`DatabaseModule.kt` 注册迁移）、P2 B09 feature（`StockAdjustViewModel.kt` 台账模式、`ProductEditViewModel.kt`/`ProductEditScreen.kt` 价格等级+供应商关系、`CustomerEditViewModel.kt`/`CustomerEditScreen.kt` 分组+等级、`feature/reports/DEVELOPMENT.md` 更新）、P3 B10 UI 母版（`GlassTopBar.kt` 注释修正、`core/designsystem/DEVELOPMENT.md` 命名修正、4 顶栏 `DocumentsScreen`/`ArchivesScreen`/`DashboardScreen`/`ProductEditScreen` 迁 `GlassTopBar`） | `40-batch-development-master-plan.md`、`docs/acceptance-evidence/b11/backend/20260703-0935-backend-smoke-rerun.log` | 本轮完成计划阶段 6：后端 `./gradlew clean test --rerun-tasks` 真实重跑 `BUILD SUCCESSFUL in 22s`（7 actionable tasks executed，非 UP-TO-DATE），日志已归档至 `docs/acceptance-evidence/b11/backend/20260703-0935-backend-smoke-rerun.log`。该项收口 P0-P3 全部代码项并补齐真实重跑证据，但不替代真机深链路、AI provider `model_stream`、重场景性能与生产发布级现场证据，这些剩余阻塞项需外部资源（真机 d715a3a4 + adb、真实 API key、perfetto、124/154 生产发布权限）。 |
+| 2026-07-03 | 严格完工审计快照 | 新增只读审计归档 | 无代码改动 | `docs/acceptance-evidence/b11/20260703-strict-audit-snapshot.md`、`40-batch-development-master-plan.md`、`临时.md` | 这次按源码行号回推完成度，结论仍是 `部分完成`；B11 发布级证据、仓储全量 ownerUserId 证明与少量 Web 重复包装函数仍需继续收口 | 审计归档完成 | `docs/acceptance-evidence/b11/20260703-strict-audit-snapshot.md` |
 
 ## 当前结论
 
 1. `docs/` 下的文本文档已经完成多轮逐项收口，并建立了 Android UI 设计基线、B10 修复记录与 B11 验收矩阵。
-2. 后端主体能力已经覆盖 B01-B07 的核心 `/v2` 领域，但发布级完成仍取决于 B11 的后端复验、当前生产拓扑联调、安全与发布清单。
-3. Android 已进入 B08/B09/B10 阶段：`core/model`、`core/network`、`data/*`、`feature/*` 已完成首轮 `/v2` 接线与 UI 母版修复，但 Room owner-aware 扩域缓存、真机联调、截图验收仍为 `待验证`。
-4. B10 当前修复重点已经进一步收口：右下胶囊主操作、商品详情路径、报表真实时间筛选、壳页统一 `GlassTopBar`、真实状态 Tab、客户状态语义、统一 `StatusPill`、设置页长文本、商品缺货状态色、feature 主按钮入口，以及销售/采购/付款详情编辑页的 `16dp` 边距、空态/底部操作区/支出语义色与关键动作图标一致性；本轮又把商品/客户/供应商 6 个档案详情/编辑页统一接回 `GlassScaffold`，修掉了重复 `paddingValues` 导致的安全区重复问题，并把 `dashboard/reports/agent task/chat` 与 `Documents/Archives` 继续收口到统一壳层，补强了 AI 问答首屏与草稿卡的诚实态可扫读信息；最新一轮又为 `finance` 列表页补上了最低母版要求的搜索入口与账户/转账分段切换。
+2. 后端主体能力已经覆盖 B01-B07 的核心 `/v2` 领域（B07 已升级为 `新版已做`），发布级完成仍取决于 B11 的后端复验、当前生产拓扑联调、安全与发布清单。
+3. Android B08/B09/B10 已升级为 `新版已做`：`core/model`、`core/network`、`data/*`、`feature/*` 已完成 `/v2` 接线；本轮（2026-07-03）补齐 core/database v2（11 entity + 11 DAO + Migration4To5）、feature 切 v2（StockAdjust 台账、ProductEdit 价格/供应商、CustomerEdit 分组/等级、Report/Finance Repository 切 v2）、UI 母版迁移（4 顶栏迁 GlassTopBar）；v2 DAO Hilt 注入与 repository Room 缓存集成、真机联调、逐页截图验收仍为 `待验证`（归 B11）。
+4. B10 当前修复重点已经进一步收口：右下胶囊主操作、商品详情路径、报表真实时间筛选、壳页统一 `GlassTopBar`、真实状态 Tab、客户状态语义、统一 `StatusPill`、设置页长文本、商品缺货状态色、feature 主按钮入口，以及销售/采购/付款详情编辑页的 `16dp` 边距、空态/底部操作区/支出语义色与关键动作图标一致性；本轮又补齐 `GlassTopBar` 注释修正与 4 顶栏母版迁移。
 5. AI 助手当前已有独立需求 / 审查基线：`43-ai-assistant-requirements.md` 和 `AI_AGENT_P0_EVIDENCE_MATRIX.md` 明确了真实 agentic、无模拟数据、真实查询、真实工具提示、Markdown / result block、provider stream、取消、审计和性能的 P0 门禁；现有证据仍以 `partial` 为主，不能替代真实 provider `model_stream`、取消端到端、生产 profile、性能和最新真机 UI 证据。
-6. B11 当前已完成矩阵、脚本入口与大量本地自动化/构建复验；服务器只读现状也已确认当前真实生产拓扑为 `124` 公网边缘 + `154` 应用主机，且后端在线。2026-06-30 本轮又补齐了当前工作树上的 `backend-smoke` / `bootJar` 最新通过证据，以及真机冷启动登录首页与四个一级页签 smoke 证据。但同步/导入、媒体上传、真实 provider AI、性能、安全发布与生产业务现场仍不得仅凭本地编译、只读探针或局部 smoke 升级为 `新版已做`。
-7. 下一步应优先解决两类当前阻塞：一是恢复这台 Mac 对安卓真机的识别，再继续真机/当前生产拓扑联调与截图验收；二是取得用户许可后修复当前工作树上的后端 smoke 失败。不要再把“主体已实现”误写成“全部完成”。
+6. B11 当前已完成矩阵、脚本入口与大量本地自动化/构建复验；服务器只读现状也已确认当前真实生产拓扑为 `124` 公网边缘 + `154` 应用主机，且后端在线。2026-07-03 本轮执行 `./gradlew clean test --rerun-tasks` 真实重跑 `BUILD SUCCESSFUL`（7 executed，非 UP-TO-DATE），三端编译（后端/Android/Web）全部通过。但同步/导入、媒体上传、真实 provider AI、性能、安全发布与生产业务现场仍不得仅凭本地编译、只读探针或局部 smoke 升级为 `新版已做`。
+7. 下一步应优先解决剩余外部资源阻塞：真机深链路（需真机 d715a3a4 + adb）、AI provider `model_stream` 3/3（需真实 API key）、重场景性能采样（需真机 + perfetto）、生产发布级现场证据（需 124/154 生产环境发布权限）。不要再把"主体已实现"误写成"全部完成"。

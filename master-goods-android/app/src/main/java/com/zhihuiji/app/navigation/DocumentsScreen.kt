@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zhihuiji.core.designsystem.GlassSurfaceMedium
+import com.zhihuiji.core.designsystem.GlassTopBar
 import com.zhihuiji.core.designsystem.LiquidGlassSurface
 import com.zhihuiji.core.designsystem.TextPrimary
 import com.zhihuiji.core.designsystem.TextSecondary
@@ -169,18 +169,10 @@ private fun DocumentsPageContent(
 private fun DocumentsTopAppBar(
     modifier: Modifier = Modifier,
 ) {
-    LiquidGlassSurface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(0.dp),
-        surfaceColor = GlassSurfaceMedium,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp)
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    GlassTopBar(
+        modifier = modifier,
+        title = "单据中心",
+        navigationIcon = {
             DocumentsTopIconButton(onClick = {}) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -189,15 +181,8 @@ private fun DocumentsTopAppBar(
                     modifier = Modifier.size(24.dp),
                 )
             }
-            Text(
-                text = "单据中心",
-                fontSize = 20.sp,
-                lineHeight = 28.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary,
-                modifier = Modifier.padding(start = 8.dp),
-            )
-            Spacer(modifier = Modifier.weight(1f))
+        },
+        actions = {
             DocumentsTopIconButton(onClick = {}) {
                 Icon(
                     imageVector = Icons.Default.Search,
@@ -206,8 +191,8 @@ private fun DocumentsTopAppBar(
                     modifier = Modifier.size(24.dp),
                 )
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable

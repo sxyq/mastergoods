@@ -66,8 +66,8 @@ import com.zhihuiji.core.designsystem.TextPrimary
 import com.zhihuiji.core.designsystem.TextSecondary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimaryBright
+import com.zhihuiji.core.designsystem.roundedCardShape
 
-private val roundedCardShape = RoundedCornerShape(12.dp)
 private val accountActionPrimaryBrush = Brush.horizontalGradient(
     listOf(ZhihuijiPrimaryBright, ZhihuijiPrimary),
 )

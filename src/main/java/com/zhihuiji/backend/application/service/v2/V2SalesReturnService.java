@@ -33,6 +33,7 @@ public class V2SalesReturnService {
     private final CustomerRepository customerRepository;
     private final PaymentRepository paymentRepository;
     private final CurrentOwnerService currentOwnerService;
+    private final IdGenerator idGenerator;
 
     public V2SalesReturnService(
         SalesReturnRepository salesReturnRepository,
@@ -41,7 +42,8 @@ public class V2SalesReturnService {
         ProductRepository productRepository,
         CustomerRepository customerRepository,
         PaymentRepository paymentRepository,
-        CurrentOwnerService currentOwnerService
+        CurrentOwnerService currentOwnerService,
+        IdGenerator idGenerator
     ) {
         this.salesReturnRepository = salesReturnRepository;
         this.salesReturnItemRepository = salesReturnItemRepository;
@@ -50,6 +52,7 @@ public class V2SalesReturnService {
         this.customerRepository = customerRepository;
         this.paymentRepository = paymentRepository;
         this.currentOwnerService = currentOwnerService;
+        this.idGenerator = idGenerator;
     }
 
     @Transactional
@@ -60,7 +63,7 @@ public class V2SalesReturnService {
         }
 
         long now = System.currentTimeMillis();
-        long returnId = IdGenerator.nextId();
+        long returnId = idGenerator.nextId();
         String returnNo = "SR" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
 
         SaleOrderEntity originalOrder = null;
@@ -87,7 +90,7 @@ public class V2SalesReturnService {
             total += amount;
 
             SalesReturnItemEntity entity = new SalesReturnItemEntity();
-            entity.setId(IdGenerator.nextId());
+            entity.setId(idGenerator.nextId());
             entity.setOwnerUserId(ownerUserId);
             entity.setReturnId(returnId);
             entity.setProductId(product.getId());
@@ -219,7 +222,7 @@ public class V2SalesReturnService {
 
         long now = System.currentTimeMillis();
         PaymentEntity refund = new PaymentEntity();
-        refund.setId(IdGenerator.nextId());
+        refund.setId(idGenerator.nextId());
         refund.setOwnerUserId(ownerUserId);
         refund.setOrderId(id);
         refund.setAmount(request.amount());

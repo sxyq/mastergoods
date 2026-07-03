@@ -30,13 +30,16 @@ public class CreditService {
 
     private final UserCreditRepository userCreditRepository;
     private final CreditTransactionRepository creditTransactionRepository;
+    private final IdGenerator idGenerator;
 
     public CreditService(
         UserCreditRepository userCreditRepository,
-        CreditTransactionRepository creditTransactionRepository
+        CreditTransactionRepository creditTransactionRepository,
+        IdGenerator idGenerator
     ) {
         this.userCreditRepository = userCreditRepository;
         this.creditTransactionRepository = creditTransactionRepository;
+        this.idGenerator = idGenerator;
     }
 
     @Transactional(readOnly = true)
@@ -112,7 +115,7 @@ public class CreditService {
         return userCreditRepository.findByOwnerUserId(ownerUserId)
             .orElseGet(() -> {
                 UserCreditEntity entity = new UserCreditEntity();
-                entity.setId(IdGenerator.nextId());
+                entity.setId(idGenerator.nextId());
                 entity.setOwnerUserId(ownerUserId);
                 entity.setBalance(ZERO);
                 entity.setTotalRecharged(ZERO);
@@ -134,7 +137,7 @@ public class CreditService {
         String note
     ) {
         CreditTransactionEntity tx = new CreditTransactionEntity();
-        tx.setId(IdGenerator.nextId());
+        tx.setId(idGenerator.nextId());
         tx.setOwnerUserId(ownerUserId);
         tx.setAmount(signedAmount.setScale(2, RoundingMode.HALF_UP));
         tx.setType(type);

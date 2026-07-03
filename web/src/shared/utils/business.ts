@@ -88,6 +88,10 @@ export function formatNumber(value: number | null | undefined, maximumFractionDi
   return formatter.format(value ?? 0)
 }
 
+export function formatPercent(value: number) {
+  return `${(value * 100).toFixed(1)}%`
+}
+
 export function formatDateTime(timestamp: number | null | undefined) {
   if (!timestamp) return '--'
   return DATE_TIME_FORMATTER.format(timestamp)
@@ -161,6 +165,16 @@ export function salePaymentStatus(totalAmount: number, paidAmount: number, statu
   return status === SALE_COMPLETED ? '已完成' : '已结清'
 }
 
+export function saleOrderStatusTokens(totalAmount: number, paidAmount: number, status: number): string[] {
+  const tokens: string[] = []
+  if (status === SALE_DRAFT) tokens.push('待审核')
+  if (status === SALE_CONFIRMED) tokens.push('待出库')
+  if (status === SALE_COMPLETED) tokens.push('已完成')
+  if (status === SALE_CANCELLED) tokens.push('已作废')
+  if (status !== SALE_CANCELLED && paidAmount < totalAmount) tokens.push('待结算')
+  return tokens
+}
+
 export function salesReturnStatusLabel(status: number) {
   if (status === SALES_RETURN_DRAFT) return '草稿'
   if (status === SALES_RETURN_CONFIRMED) return '已确认'
@@ -174,6 +188,17 @@ export function salesReturnRefundStatus(totalAmount: number, refundAmount: numbe
   if (refundAmount <= 0) return '待退款'
   if (refundAmount < totalAmount) return '部分退款'
   return '已退款'
+}
+
+export function salesReturnStatusTokens(totalAmount: number, refundAmount: number, status: number): string[] {
+  const tokens: string[] = []
+  if (status === SALES_RETURN_CANCELLED) tokens.push('已作废')
+  else if (refundAmount >= totalAmount && totalAmount > 0) tokens.push('已退款')
+  else if (status === SALES_RETURN_COMPLETED) tokens.push('已完成')
+  else if (refundAmount > 0) tokens.push('部分退款')
+  else tokens.push('待退款')
+  if (status === SALES_RETURN_DRAFT) tokens.push('待审核')
+  return tokens
 }
 
 export function purchaseReceiptStatus(totalAmount: number, receivedAmount: number, status: number) {
@@ -196,6 +221,26 @@ export function purchaseOrderStatusLabel(totalAmount: number, paidAmount: number
   const payment = purchasePaymentStatus(totalAmount, paidAmount, status)
   if (receipt === '已入库' && payment === '已付款') return '已完成'
   return receipt
+}
+
+export function purchaseOrderStatusTokens(totalAmount: number, paidAmount: number, receivedAmount: number, status: number): string[] {
+  const tokens: string[] = []
+  if (status === SALE_DRAFT) {
+    tokens.push('草稿')
+    tokens.push('待审批')
+  }
+  if (status === SALE_CANCELLED) tokens.push('已作废')
+  if (receivedAmount > 0 && receivedAmount < totalAmount) tokens.push('部分入库')
+  if (status !== SALE_CANCELLED && receivedAmount <= 0 && status !== SALE_DRAFT && status !== SALE_COMPLETED) {
+    tokens.push('待入库')
+  }
+  if (status !== SALE_CANCELLED && paidAmount < totalAmount && status !== SALE_DRAFT) {
+    tokens.push('待付款')
+  }
+  if (status === SALE_COMPLETED || (receivedAmount >= totalAmount && paidAmount >= totalAmount && totalAmount > 0)) {
+    tokens.push('已完成')
+  }
+  return tokens
 }
 
 export function purchaseReturnStatusLabel(status: number) {
@@ -267,6 +312,14 @@ export function inventoryTrendLabel(stock: number, safeStock: number) {
   if (stock <= 0) return '缺货'
   if (stock < safeStock) return '低库存'
   return '正常'
+}
+
+export function productStatusTokens(status: number, updatedAt: number, lowStock: boolean, now = Date.now()): string[] {
+  const tokens: string[] = []
+  tokens.push(status === 1 ? '启用' : '停用')
+  if (lowStock) tokens.push('低库存')
+  if (now - updatedAt <= 7 * 24 * 60 * 60 * 1000) tokens.push('最近更新')
+  return tokens
 }
 
 function normalizeText(value: string | null | undefined) {

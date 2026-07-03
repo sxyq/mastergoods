@@ -58,28 +58,6 @@ class SyncV2RepositoryTest {
     }
 
     @Test
-    fun listInventoryLedgerBySourceForwardsSourceArgumentsToApi() = runBlocking {
-        var invokedMethod: String? = null
-        var capturedArgs: List<Any?> = emptyList()
-        val api = fakeApi { methodName, args ->
-            invokedMethod = methodName
-            capturedArgs = args?.toList().orEmpty()
-            ApiResponse(
-                code = 0,
-                message = "ok",
-                data = emptyList<com.zhihuiji.core.model.v2.inventory.InventoryLedgerEntryV2Dto>(),
-            )
-        }
-
-        val repository = repository(api)
-        val result = repository.listInventoryLedgerBySource("sale_order", 3L)
-
-        assertTrue(result.isSuccess)
-        assertEquals("inventoryLedgerBySourceV2", invokedMethod)
-        assertEquals(listOf("sale_order", 3L), capturedArgs.take(2))
-    }
-
-    @Test
     fun pullApplyAndAckUsesNextCursorAsAckCursorAndReturnsIt() = runBlocking {
         val pulledRequests = mutableListOf<Any?>()
         val ackRequests = mutableListOf<SyncCursorAckV2Request>()

@@ -42,6 +42,7 @@ import com.zhihuiji.core.designsystem.GlassScaffold
 import com.zhihuiji.core.designsystem.GlassTopBar
 import com.zhihuiji.core.designsystem.LiquidGlassCard
 import com.zhihuiji.core.designsystem.SegmentedTabs
+import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.designsystem.DangerRed
 import com.zhihuiji.core.designsystem.StatusPill
 import com.zhihuiji.core.designsystem.StatusType
@@ -51,8 +52,6 @@ import com.zhihuiji.core.designsystem.TextTertiary
 import com.zhihuiji.core.designsystem.SuccessGreen
 import com.zhihuiji.core.designsystem.WarningOrange
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 private val tabs = listOf("任务", "通知")
@@ -372,7 +371,4 @@ private fun NotificationCard(
     }
 }
 
-private fun formatTime(timestamp: Long): String {
-    val sdf = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
-    return sdf.format(Date(timestamp))
-}
+private fun formatTime(timestamp: Long): String = TimeFormatter.formatDateTime(timestamp)

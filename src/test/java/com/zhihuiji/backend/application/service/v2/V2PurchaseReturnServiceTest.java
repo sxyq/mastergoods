@@ -6,6 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.zhihuiji.backend.api.common.IdGenerator;
 import com.zhihuiji.backend.api.common.PurchaseReturnStatus;
 import com.zhihuiji.backend.api.dto.v2.purchase.V2PurchaseReturnDtos;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
@@ -57,7 +58,8 @@ class V2PurchaseReturnServiceTest {
             purchaseOrderItemRepository,
             productRepository,
             supplierRepository,
-            currentOwnerService
+            currentOwnerService,
+            new IdGenerator()
         );
         when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
         when(productRepository.findByIdForUpdate(1L, 11L)).thenReturn(Optional.of(product(11L, "P001", "矿泉水")));

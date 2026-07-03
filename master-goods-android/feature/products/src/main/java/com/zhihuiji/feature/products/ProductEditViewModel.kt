@@ -7,13 +7,16 @@ import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.model.v2.media.CreateMediaBindingRequest
+import com.zhihuiji.core.model.v2.partner.SupplierV2Dto
 import com.zhihuiji.core.model.v2.product.ProductCategoryV2Dto
+import com.zhihuiji.core.model.v2.product.ProductPriceLevelV2Dto
 import com.zhihuiji.core.model.v2.product.ProductPriceValueWriteV2Request
 import com.zhihuiji.core.model.v2.product.ProductSupplierRelationWriteV2Request
 import com.zhihuiji.core.model.v2.product.ProductUnitV2Dto
 import com.zhihuiji.core.model.v2.product.ProductWriteV2Request
 import com.zhihuiji.data.agent.MediaV2Repository
 import com.zhihuiji.data.product.ProductV2Repository
+import com.zhihuiji.data.supplier.SupplierV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -31,6 +34,12 @@ data class ProductImageUi(
     val fileName: String = "",
 )
 
+data class EditablePriceLevel(
+    val levelId: Long,
+    val levelName: String,
+    val priceText: String,
+)
+
 data class ProductEditUiState(
     val isLoading: Boolean = false,
     val isEditMode: Boolean = false,
@@ -40,7 +49,6 @@ data class ProductEditUiState(
     val code: String = "",
     val salePrice: String = "",
     val purchasePrice: String = "",
-    val wholesalePrice: String = "",
     val stock: String = "",
     val safeStock: String = "",
     val categoryId: Long? = null,
@@ -50,6 +58,9 @@ data class ProductEditUiState(
     val supplierName: String = "",
     val categories: List<ProductCategoryV2Dto> = emptyList(),
     val units: List<ProductUnitV2Dto> = emptyList(),
+    val priceLevelCatalog: List<ProductPriceLevelV2Dto> = emptyList(),
+    val availableSuppliers: List<SupplierV2Dto> = emptyList(),
+    val editablePriceLevels: List<EditablePriceLevel> = emptyList(),
     val preservedPriceLevels: List<ProductPriceValueWriteV2Request> = emptyList(),
     val preservedSupplierRelations: List<ProductSupplierRelationWriteV2Request> = emptyList(),
     val images: List<ProductImageUi> = emptyList(),
@@ -61,6 +72,7 @@ data class ProductEditUiState(
 class ProductEditViewModel @Inject constructor(
     private val repository: ProductV2Repository,
     private val mediaRepository: MediaV2Repository,
+    private val supplierRepository: SupplierV2Repository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProductEditUiState())
@@ -74,29 +86,50 @@ class ProductEditViewModel @Inject constructor(
 
     private fun loadReferenceData() {
         viewModelScope.launch {
-            val (categoriesResult, unitsResult) = coroutineScope {
+            coroutineScope {
                 val categoriesDeferred = async { repository.listCategories() }
                 val unitsDeferred = async { repository.listUnits() }
-                categoriesDeferred.await() to unitsDeferred.await()
-            }
+                val priceLevelsDeferred = async { repository.listPriceLevels() }
+                val suppliersDeferred = async { supplierRepository.listSuppliers() }
 
-            val categories = categoriesResult.getOrNull()
-                ?.filter { item -> item.status == 1 }
-                .orEmpty()
-            val units = unitsResult.getOrNull()
-                ?.filter { item -> item.status == 1 }
-                .orEmpty()
-            val errorMessage = listOfNotNull(
-                categoriesResult.exceptionOrNull()?.message,
-                unitsResult.exceptionOrNull()?.message,
-            ).takeIf { it.isNotEmpty() }?.joinToString("\n")
+                val categoriesResult = categoriesDeferred.await()
+                val unitsResult = unitsDeferred.await()
+                val priceLevelsResult = priceLevelsDeferred.await()
+                val suppliersResult = suppliersDeferred.await()
 
-            _uiState.update {
-                it.copy(
-                    categories = categories,
-                    units = units,
-                    error = errorMessage,
-                )
+                val categories = categoriesResult.getOrNull()
+                    ?.filter { item -> item.status == 1 }
+                    .orEmpty()
+                val units = unitsResult.getOrNull()
+                    ?.filter { item -> item.status == 1 }
+                    .orEmpty()
+                val priceLevelCatalog = priceLevelsResult.getOrNull()
+                    ?.filter { item -> item.status == 1 }
+                    .orEmpty()
+                val availableSuppliers = suppliersResult.getOrNull()
+                    ?.filter { item -> item.status == 1 }
+                    .orEmpty()
+                val errorMessage = listOfNotNull(
+                    categoriesResult.exceptionOrNull()?.message,
+                    unitsResult.exceptionOrNull()?.message,
+                    priceLevelsResult.exceptionOrNull()?.message,
+                    suppliersResult.exceptionOrNull()?.message,
+                ).takeIf { it.isNotEmpty() }?.joinToString("\n")
+
+                _uiState.update {
+                    it.copy(
+                        categories = categories,
+                        units = units,
+                        priceLevelCatalog = priceLevelCatalog,
+                        availableSuppliers = availableSuppliers,
+                        editablePriceLevels = if (it.isEditMode) {
+                            buildEditablePriceLevels(priceLevelCatalog, it.preservedPriceLevels)
+                        } else {
+                            it.editablePriceLevels
+                        },
+                        error = errorMessage,
+                    )
+                }
             }
         }
     }
@@ -107,6 +140,22 @@ class ProductEditViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null, authToken = mediaRepository.peekAuthToken()) }
             repository.getProduct(productId)
                 .onSuccess { dto ->
+                    val preservedPriceLevels = dto.priceLevels.map { price ->
+                        ProductPriceValueWriteV2Request(
+                            levelId = price.levelId,
+                            price = price.price,
+                        )
+                    }
+                    val preservedSupplierRelations = dto.supplierRelations.map { relation ->
+                        ProductSupplierRelationWriteV2Request(
+                            productId = relation.productId,
+                            supplierId = relation.supplierId,
+                            isDefault = relation.isDefault,
+                            purchasePriority = relation.purchasePriority,
+                            lastPurchasePrice = relation.lastPurchasePrice,
+                            notes = relation.notes,
+                        )
+                    }
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -122,22 +171,12 @@ class ProductEditViewModel @Inject constructor(
                             unitId = dto.unitId.takeIf { id -> id > 0L },
                             unitName = dto.unitName,
                             supplierName = dto.defaultSupplier?.supplierName.orEmpty(),
-                            preservedPriceLevels = dto.priceLevels.map { price ->
-                                ProductPriceValueWriteV2Request(
-                                    levelId = price.levelId,
-                                    price = price.price,
-                                )
-                            },
-                            preservedSupplierRelations = dto.supplierRelations.map { relation ->
-                                ProductSupplierRelationWriteV2Request(
-                                    productId = relation.productId,
-                                    supplierId = relation.supplierId,
-                                    isDefault = relation.isDefault,
-                                    purchasePriority = relation.purchasePriority,
-                                    lastPurchasePrice = relation.lastPurchasePrice,
-                                    notes = relation.notes,
-                                )
-                            },
+                            preservedPriceLevels = preservedPriceLevels,
+                            preservedSupplierRelations = preservedSupplierRelations,
+                            editablePriceLevels = buildEditablePriceLevels(
+                                it.priceLevelCatalog,
+                                preservedPriceLevels,
+                            ),
                         )
                     }
                     loadImages(productId)
@@ -155,6 +194,71 @@ class ProductEditViewModel @Inject constructor(
     fun selectUnit(unit: ProductUnitV2Dto) {
         _uiState.update { it.copy(unitId = unit.id, unitName = unit.name) }
     }
+
+    fun updatePriceLevelPrice(levelId: Long, priceText: String) {
+        _uiState.update { state ->
+            val newEditable = state.editablePriceLevels.map { level ->
+                if (level.levelId == levelId) level.copy(priceText = priceText) else level
+            }
+            val newPreserved = newEditable.mapNotNull { level ->
+                val price = level.priceText.trim().toDoubleOrNull()
+                if (level.priceText.isBlank() || price == null) null
+                else ProductPriceValueWriteV2Request(levelId = level.levelId, price = price)
+            }
+            state.copy(
+                editablePriceLevels = newEditable,
+                preservedPriceLevels = newPreserved,
+            )
+        }
+    }
+
+    fun addSupplierRelation(supplierId: Long) {
+        _uiState.update { state ->
+            if (state.preservedSupplierRelations.any { it.supplierId == supplierId }) return@update state
+            val isDefault = state.preservedSupplierRelations.isEmpty()
+            val newRelation = ProductSupplierRelationWriteV2Request(
+                productId = currentProductId ?: 0L,
+                supplierId = supplierId,
+                isDefault = isDefault,
+            )
+            state.copy(
+                preservedSupplierRelations = state.preservedSupplierRelations + newRelation,
+            )
+        }
+    }
+
+    fun removeSupplierRelation(index: Int) {
+        _uiState.update { state ->
+            if (index !in state.preservedSupplierRelations.indices) return@update state
+            state.copy(
+                preservedSupplierRelations = state.preservedSupplierRelations.filterIndexed { i, _ -> i != index },
+            )
+        }
+    }
+
+    fun setDefaultSupplier(index: Int) {
+        _uiState.update { state ->
+            if (index !in state.preservedSupplierRelations.indices) return@update state
+            state.copy(
+                preservedSupplierRelations = state.preservedSupplierRelations.mapIndexed { i, relation ->
+                    relation.copy(isDefault = (i == index))
+                },
+            )
+        }
+    }
+
+    private fun buildEditablePriceLevels(
+        catalog: List<ProductPriceLevelV2Dto>,
+        priceLevels: List<ProductPriceValueWriteV2Request>,
+    ): List<EditablePriceLevel> =
+        catalog.map { level ->
+            val matching = priceLevels.firstOrNull { it.levelId == level.id }
+            EditablePriceLevel(
+                levelId = level.id,
+                levelName = level.name,
+                priceText = matching?.price?.toString() ?: "",
+            )
+        }
 
     fun createProduct(
         name: String,

@@ -5,6 +5,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.zhihuiji.backend.api.common.IdGenerator;
 import com.zhihuiji.backend.api.common.OrderStatus;
 import com.zhihuiji.backend.api.dto.v2.sales.V2SaleOrderDtos;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
@@ -48,7 +49,8 @@ class V2SaleOrderServiceTest {
             saleOrderItemRepository,
             productRepository,
             customerRepository,
-            currentOwnerService
+            currentOwnerService,
+            new IdGenerator()
         );
         when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
     }

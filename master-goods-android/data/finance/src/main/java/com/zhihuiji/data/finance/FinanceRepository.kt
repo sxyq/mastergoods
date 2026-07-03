@@ -4,7 +4,7 @@ import com.zhihuiji.core.database.dao.FinanceRecordDao
 import com.zhihuiji.core.database.toDto
 import com.zhihuiji.core.database.toEntity
 import com.zhihuiji.core.model.*
-import com.zhihuiji.core.network.ZhihuijiApi
+import com.zhihuiji.core.network.ZhihuijiV2Api
 import com.zhihuiji.core.network.safeApiCall
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -13,7 +13,7 @@ import javax.inject.Singleton
 
 @Singleton
 class FinanceRepository @Inject constructor(
-    private val api: ZhihuijiApi,
+    private val api: ZhihuijiV2Api,
     private val financeRecordDao: FinanceRecordDao,
 ) {
     fun observeFinanceRecords(filter: FinanceFilter): Flow<List<FinanceRecordDto>> =
@@ -28,7 +28,7 @@ class FinanceRepository @Inject constructor(
 
     suspend fun refreshFinanceRecords(filter: FinanceFilter) {
         val result = safeApiCall {
-            api.financeRecords(keyword = filter.keyword, type = filter.type, createdAfter = filter.createdAfter, createdBefore = filter.createdBefore)
+            api.financeRecordsV2(keyword = filter.keyword, type = filter.type, createdAfter = filter.createdAfter, createdBefore = filter.createdBefore)
         }
         result.onSuccess { records ->
             financeRecordDao.upsertAll(records.map { it.toEntity() })
@@ -36,7 +36,7 @@ class FinanceRepository @Inject constructor(
     }
 
     suspend fun createFinanceRecord(request: CreateFinanceRecordRequest): Result<FinanceRecordDto> =
-        safeApiCall { api.createFinanceRecord(request) }.also { result ->
+        safeApiCall { api.createFinanceRecordV2(request) }.also { result ->
             result.onSuccess { financeRecordDao.upsert(it.toEntity()) }
         }
 }

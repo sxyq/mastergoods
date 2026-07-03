@@ -255,14 +255,14 @@ class V2AgentAiServiceTest {
             runAuditEvents.add(entity);
             return entity;
         });
-        when(agentRunAuditEventRepository.findAllByRunIdOrderBySeqAsc(anyString())).thenAnswer(invocation -> {
+        when(agentRunAuditEventRepository.findAllByRunIdAndOwnerUserIdOrderBySeqAsc(anyString(), any())).thenAnswer(invocation -> {
             String runId = invocation.getArgument(0, String.class);
             return runAuditEvents.stream()
                 .filter(event -> runId.equals(event.getRunId()))
                 .sorted((left, right) -> Integer.compare(left.getSeq(), right.getSeq()))
                 .toList();
         });
-        when(agentRunAuditEventRepository.countByRunId(anyString())).thenAnswer(invocation -> {
+        when(agentRunAuditEventRepository.countByRunIdAndOwnerUserId(anyString(), any())).thenAnswer(invocation -> {
             String runId = invocation.getArgument(0, String.class);
             return runAuditEvents.stream()
                 .filter(event -> runId.equals(event.getRunId()))

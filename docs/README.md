@@ -17,19 +17,15 @@
 
 - `docs/spec/`
   - 新版正式规范中心，后续开发以此为准
-- `docs/design-mockups/`
-  - 历史 UI 参考，不再是 Android 当前唯一视觉真源
-- `docs/android-kingdee-data-migration.md` / `docs/android-security-hardening-audit.md`
-  - 历史专项审计与迁移记录，仅作参考
-- `stitch_exports/visual-design_system_framework_14840154594131085259/`
-  - 当前 Android UI 重构的 Stitch 设计导出真源
+- `docs/acceptance-evidence/`
+  - 验收证据归档（ai-agent、performance、b11）
 
 ## 当前 Android UI 真源
 
 - 正式计划：
   - [42-android-liquid-glass-ui-refactor-plan.md](./spec/42-android-liquid-glass-ui-refactor-plan.md)
-- Stitch 导出清单：
-  - [manifest.tsv](/Users/sunyiyang/Desktop/Project/master-goods/stitch_exports/visual-design_system_framework_14840154594131085259/manifest.tsv)
+- Stitch 导出清单（位于 web/public 下，前端可直接访问）：
+  - [manifest.tsv](/Users/sunyiyang/Desktop/Project/master-goods/web/public/stitch_exports/visual-design_system_framework_14840154594131085259/manifest.tsv)
 - Android 摘要规范入口：
   - [master-goods-android/UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/UI-DESIGN-SPEC.md)
 
@@ -56,6 +52,6 @@
 ## 说明
 
 - 会员体系当前不纳入新版范围，已在 spec 中标记为 `新版需要去掉`
-- 旧文档不删除，但不再作为主规范
-- 旧的 `docs/design-mockups/*.png` 已移除，不再作为 Android 新 UI 的视觉输入
-- 后续每完成一个批次或一组代码改动，除更新对应 spec / technical-analysis 文档外，还必须回写 `40-batch-development-master-plan.md`
+- `docs/technical-analysis/`、`docs/design-mockups/` 与根下历史审计 .md 已删除，源码与 spec 为唯一真源
+- Stitch 设计导出位于 `web/public/stitch_exports/`，前端可直接访问
+- 后续每完成一个批次或一组代码改动，更新对应 spec 文档外，还必须回写 `40-batch-development-master-plan.md`

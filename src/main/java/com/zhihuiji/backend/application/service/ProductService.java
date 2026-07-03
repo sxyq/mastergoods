@@ -18,15 +18,18 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final InventoryAdjustmentRepository inventoryAdjustmentRepository;
     private final CurrentOwnerService currentOwnerService;
+    private final IdGenerator idGenerator;
 
     public ProductService(
         ProductRepository productRepository,
         InventoryAdjustmentRepository inventoryAdjustmentRepository,
-        CurrentOwnerService currentOwnerService
+        CurrentOwnerService currentOwnerService,
+        IdGenerator idGenerator
     ) {
         this.productRepository = productRepository;
         this.inventoryAdjustmentRepository = inventoryAdjustmentRepository;
         this.currentOwnerService = currentOwnerService;
+        this.idGenerator = idGenerator;
     }
 
     @Transactional(readOnly = true)
@@ -113,7 +116,7 @@ public class ProductService {
         ProductEntity saved = productRepository.save(target);
 
         InventoryAdjustmentEntity adjustment = new InventoryAdjustmentEntity();
-        adjustment.setId(IdGenerator.nextId());
+        adjustment.setId(idGenerator.nextId());
         adjustment.setOwnerUserId(ownerUserId);
         adjustment.setProductId(saved.getId());
         adjustment.setProductCode(saved.getCode());

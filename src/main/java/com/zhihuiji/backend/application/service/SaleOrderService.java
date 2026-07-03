@@ -30,6 +30,7 @@ public class SaleOrderService {
     private final CustomerRepository customerRepository;
     private final PaymentRepository paymentRepository;
     private final CurrentOwnerService currentOwnerService;
+    private final IdGenerator idGenerator;
 
     public SaleOrderService(
         SaleOrderRepository saleOrderRepository,
@@ -37,7 +38,8 @@ public class SaleOrderService {
         ProductRepository productRepository,
         CustomerRepository customerRepository,
         PaymentRepository paymentRepository,
-        CurrentOwnerService currentOwnerService
+        CurrentOwnerService currentOwnerService,
+        IdGenerator idGenerator
     ) {
         this.saleOrderRepository = saleOrderRepository;
         this.saleOrderItemRepository = saleOrderItemRepository;
@@ -45,6 +47,7 @@ public class SaleOrderService {
         this.customerRepository = customerRepository;
         this.paymentRepository = paymentRepository;
         this.currentOwnerService = currentOwnerService;
+        this.idGenerator = idGenerator;
     }
 
     @Transactional
@@ -58,7 +61,7 @@ public class SaleOrderService {
             throw new IllegalArgumentException("订单明细不能为空");
         }
         long now = System.currentTimeMillis();
-        long orderId = IdGenerator.nextId();
+        long orderId = idGenerator.nextId();
         String orderNo = "SO" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
 
         double subtotal = 0.0;
@@ -76,7 +79,7 @@ public class SaleOrderService {
             productRepository.save(product);
 
             SaleOrderItemEntity entity = new SaleOrderItemEntity();
-            entity.setId(IdGenerator.nextId());
+            entity.setId(idGenerator.nextId());
             entity.setOwnerUserId(ownerUserId);
             entity.setOrderId(orderId);
             entity.setProductId(product.getId());
@@ -228,7 +231,7 @@ public class SaleOrderService {
 
         long now = System.currentTimeMillis();
         PaymentEntity payment = new PaymentEntity();
-        payment.setId(IdGenerator.nextId());
+        payment.setId(idGenerator.nextId());
         payment.setOwnerUserId(ownerUserId);
         payment.setOrderId(orderId);
         payment.setAmount(amount);
@@ -341,7 +344,7 @@ public class SaleOrderService {
 
         if (order.getPaidAmount() > 0) {
             PaymentEntity refund = new PaymentEntity();
-            refund.setId(IdGenerator.nextId());
+            refund.setId(idGenerator.nextId());
             refund.setOwnerUserId(ownerUserId);
             refund.setOrderId(orderId);
             refund.setAmount(order.getPaidAmount());

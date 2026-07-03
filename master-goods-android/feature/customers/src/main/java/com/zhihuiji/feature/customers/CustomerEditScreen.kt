@@ -1,5 +1,6 @@
 package com.zhihuiji.feature.customers
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +38,7 @@ import com.zhihuiji.core.designsystem.GlassTopBar
 import com.zhihuiji.core.designsystem.GlassTextField
 import com.zhihuiji.core.designsystem.LiquidGlassCard
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
+import com.zhihuiji.core.model.v2.partner.PartnerGroupV2Dto
 
 @Composable
 fun CustomerEditScreen(
@@ -60,6 +64,7 @@ fun CustomerEditScreen(
 
     CustomerEditScreenContent(
         uiState = uiState,
+        viewModel = viewModel,
         onNavigateBack = onNavigateBack,
         onSave = { name, phone, address, remark ->
             if (customerId != null) {
@@ -75,6 +80,7 @@ fun CustomerEditScreen(
 @Composable
 private fun CustomerEditScreenContent(
     uiState: CustomerEditUiState,
+    viewModel: CustomerEditViewModel,
     onNavigateBack: () -> Unit,
     onSave: (String, String, String?, String?) -> Unit,
     modifier: Modifier = Modifier
@@ -129,6 +135,15 @@ private fun CustomerEditScreenContent(
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
+                        GroupSelectorField(
+                            groupName = uiState.groupName,
+                            availableGroups = uiState.availableGroups,
+                            onSelectGroup = viewModel::selectGroup,
+                        )
+                        LevelSelectorField(
+                            level = uiState.level,
+                            onSelectLevel = viewModel::selectLevel,
+                        )
                     }
 
                     FormSection(title = "联系资料") {
@@ -174,6 +189,84 @@ private fun CustomerEditScreenContent(
                     )
                 }
             )
+        }
+    }
+}
+
+@Composable
+private fun GroupSelectorField(
+    groupName: String,
+    availableGroups: List<PartnerGroupV2Dto>,
+    onSelectGroup: (PartnerGroupV2Dto) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier.fillMaxWidth()) {
+        GlassTextField(
+            value = groupName,
+            onValueChange = {},
+            label = "分组",
+            placeholder = if (groupName.isBlank()) "选择分组" else null,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable { expanded = true }
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            availableGroups.forEach { group ->
+                DropdownMenuItem(
+                    text = { Text(group.name) },
+                    onClick = {
+                        onSelectGroup(group)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LevelSelectorField(
+    level: Int,
+    onSelectLevel: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val levelOptions = remember { listOf(0 to "普通", 1 to "银卡", 2 to "金卡", 3 to "钻石") }
+    val currentLabel = levelOptions.firstOrNull { it.first == level }?.second ?: "普通"
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier.fillMaxWidth()) {
+        GlassTextField(
+            value = currentLabel,
+            onValueChange = {},
+            label = "等级",
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable { expanded = true }
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            levelOptions.forEach { (code, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = {
+                        onSelectLevel(code)
+                        expanded = false
+                    }
+                )
+            }
         }
     }
 }

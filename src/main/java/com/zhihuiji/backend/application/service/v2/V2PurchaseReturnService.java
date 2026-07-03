@@ -39,6 +39,7 @@ public class V2PurchaseReturnService {
     private final ProductRepository productRepository;
     private final SupplierRepository supplierRepository;
     private final CurrentOwnerService currentOwnerService;
+    private final IdGenerator idGenerator;
 
     public V2PurchaseReturnService(
         PurchaseReturnRepository purchaseReturnRepository,
@@ -48,7 +49,8 @@ public class V2PurchaseReturnService {
         PurchaseOrderItemRepository purchaseOrderItemRepository,
         ProductRepository productRepository,
         SupplierRepository supplierRepository,
-        CurrentOwnerService currentOwnerService
+        CurrentOwnerService currentOwnerService,
+        IdGenerator idGenerator
     ) {
         this.purchaseReturnRepository = purchaseReturnRepository;
         this.purchaseReturnItemRepository = purchaseReturnItemRepository;
@@ -58,6 +60,7 @@ public class V2PurchaseReturnService {
         this.productRepository = productRepository;
         this.supplierRepository = supplierRepository;
         this.currentOwnerService = currentOwnerService;
+        this.idGenerator = idGenerator;
     }
 
     @Transactional
@@ -68,7 +71,7 @@ public class V2PurchaseReturnService {
         }
 
         long now = System.currentTimeMillis();
-        long returnId = IdGenerator.nextId();
+        long returnId = idGenerator.nextId();
         String returnNo = "PR" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
 
         PurchaseOrderEntity purchaseOrder = null;
@@ -114,7 +117,7 @@ public class V2PurchaseReturnService {
             total += amount;
 
             PurchaseReturnItemEntity entity = new PurchaseReturnItemEntity();
-            entity.setId(IdGenerator.nextId());
+            entity.setId(idGenerator.nextId());
             entity.setOwnerUserId(ownerUserId);
             entity.setReturnId(returnId);
             entity.setProductId(product.getId());
@@ -257,7 +260,7 @@ public class V2PurchaseReturnService {
 
         long now = System.currentTimeMillis();
         PurchaseReturnRefundEntity refund = new PurchaseReturnRefundEntity();
-        refund.setId(IdGenerator.nextId());
+        refund.setId(idGenerator.nextId());
         refund.setOwnerUserId(ownerUserId);
         refund.setReturnId(id);
         refund.setAmount(request.amount());

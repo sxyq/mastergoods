@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import com.zhihuiji.backend.api.common.IdGenerator;
 import com.zhihuiji.backend.api.dto.v2.finance.V2FinanceDtos;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
 import com.zhihuiji.backend.domain.entity.AccountEntity;
@@ -31,7 +32,7 @@ class V2AccountTransferServiceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        service = new V2AccountTransferService(accountTransferRepository, accountRepository, currentOwnerService);
+        service = new V2AccountTransferService(accountTransferRepository, accountRepository, currentOwnerService, new IdGenerator());
         when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
     }
 

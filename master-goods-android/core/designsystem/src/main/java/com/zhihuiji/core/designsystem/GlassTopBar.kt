@@ -22,12 +22,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /**
- * 玻璃质感顶部栏
+ * 玻璃质感顶部栏（母版组件）
  *
- * 性能优化：
- * 1. 顶部栏不使用 glass 效果，使用纯色/渐变背景避免性能问题
- * 2. 使用静态渐变 Brush 缓存，避免每次重组时重新创建
- * 3. 减少不必要的 Column 嵌套
+ * 使用 LiquidGlassSurface 提供 glass 模糊效果（blurRadius = 24.dp），作为各页面顶栏的统一母版。
+ * 各页面应通过 navigationIcon / actions 插槽注入自己的导航与操作按钮，避免自实现 LiquidGlassSurface + Row。
  *
  * @param modifier 修饰符
  * @param title 标题

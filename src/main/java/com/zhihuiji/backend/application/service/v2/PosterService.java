@@ -35,15 +35,18 @@ public class PosterService {
     private final PosterGenerationRepository posterGenerationRepository;
     private final ProductRepository productRepository;
     private final CreditService creditService;
+    private final IdGenerator idGenerator;
 
     public PosterService(
         PosterGenerationRepository posterGenerationRepository,
         ProductRepository productRepository,
-        CreditService creditService
+        CreditService creditService,
+        IdGenerator idGenerator
     ) {
         this.posterGenerationRepository = posterGenerationRepository;
         this.productRepository = productRepository;
         this.creditService = creditService;
+        this.idGenerator = idGenerator;
     }
 
     public PosterGenerationEntity generate(
@@ -139,7 +142,7 @@ public class PosterService {
         Long parentGenerationId
     ) {
         PosterGenerationEntity entity = new PosterGenerationEntity();
-        entity.setId(IdGenerator.nextId());
+        entity.setId(idGenerator.nextId());
         entity.setOwnerUserId(ownerUserId);
         entity.setProductId(productId);
         entity.setPromptText(prompt);

@@ -73,11 +73,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.model.v2.partner.SupplierV2Dto
 import com.zhihuiji.core.model.v2.product.ProductCategoryV2Dto
+import com.zhihuiji.core.model.v2.product.ProductSupplierRelationWriteV2Request
 import com.zhihuiji.core.model.v2.product.ProductUnitV2Dto
 import com.zhihuiji.core.designsystem.DividerLight
 import com.zhihuiji.core.designsystem.GlassSurfaceHigh
-import com.zhihuiji.core.designsystem.GlassSurfaceMedium
+import com.zhihuiji.core.designsystem.GlassTopBar
 import com.zhihuiji.core.designsystem.LiquidGlassCard
 import com.zhihuiji.core.designsystem.LiquidGlassSurface
 import com.zhihuiji.core.designsystem.SurfaceGray
@@ -124,6 +126,10 @@ fun ProductEditScreen(
         onNavigateBack = onNavigateBack,
         onCategorySelect = viewModel::selectCategory,
         onUnitSelect = viewModel::selectUnit,
+        onPriceLevelPriceChange = viewModel::updatePriceLevelPrice,
+        onAddSupplier = viewModel::addSupplierRelation,
+        onRemoveSupplier = viewModel::removeSupplierRelation,
+        onSetDefaultSupplier = viewModel::setDefaultSupplier,
         onUploadImage = { uri -> viewModel.uploadImage(uri, context) },
         onDeleteImage = viewModel::deleteImage,
         onSave = { form, continueAdding ->
@@ -180,6 +186,10 @@ private fun ProductEditScreenContent(
     onNavigateBack: () -> Unit,
     onCategorySelect: (ProductCategoryV2Dto) -> Unit,
     onUnitSelect: (ProductUnitV2Dto) -> Unit,
+    onPriceLevelPriceChange: (Long, String) -> Unit,
+    onAddSupplier: (Long) -> Unit,
+    onRemoveSupplier: (Int) -> Unit,
+    onSetDefaultSupplier: (Int) -> Unit,
     onUploadImage: (Uri) -> Unit,
     onDeleteImage: (Long) -> Unit,
     onSave: (ProductEditForm, Boolean) -> Unit,
@@ -291,14 +301,26 @@ private fun ProductEditScreenContent(
                                 modifier = Modifier.weight(1f)
                             )
                         }
-                        ProductInputField(
-                            value = uiState.wholesalePrice,
-                            onValueChange = {},
-                            label = "批发价 (¥)",
-                            placeholder = "价格等级接入后可用",
-                            enabled = false,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        if (uiState.priceLevelCatalog.isEmpty()) {
+                            Text(
+                                text = "暂无价格等级",
+                                color = TextTertiary,
+                                fontSize = 14.sp,
+                                lineHeight = 20.sp,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        } else {
+                            uiState.editablePriceLevels.forEach { level ->
+                                ProductInputField(
+                                    value = level.priceText,
+                                    onValueChange = { newValue -> onPriceLevelPriceChange(level.levelId, newValue) },
+                                    label = "${level.levelName} (¥)",
+                                    placeholder = "0.00",
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
                     }
 
                     ProductFormSection(title = "库存与供应商") {
@@ -322,16 +344,25 @@ private fun ProductEditScreenContent(
                                 modifier = Modifier.weight(1f)
                             )
                         }
-                        ProductInputField(
-                            value = uiState.supplierName,
-                            onValueChange = {},
-                            placeholder = "首选供应商关系待接入",
-                            leadingIcon = Icons.Outlined.LocalShipping,
-                            trailingIcon = Icons.Outlined.LocalShipping,
-                            enabled = false,
-                            readOnly = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        uiState.preservedSupplierRelations.forEachIndexed { index, relation ->
+                            SupplierRelationRow(
+                                relation = relation,
+                                index = index,
+                                supplierName = uiState.availableSuppliers
+                                    .firstOrNull { it.id == relation.supplierId }?.name
+                                    ?: "供应商",
+                                onSetDefault = onSetDefaultSupplier,
+                                onRemove = onRemoveSupplier,
+                            )
+                        }
+                        if (uiState.isEditMode) {
+                            AddSupplierButton(
+                                availableSuppliers = uiState.availableSuppliers,
+                                existingSupplierIds = uiState.preservedSupplierRelations
+                                    .map { it.supplierId }.toSet(),
+                                onAdd = onAddSupplier,
+                            )
+                        }
                     }
 
                     ProductContractNotice(
@@ -368,18 +399,10 @@ private fun ProductEditTopBar(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LiquidGlassSurface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(0.dp),
-        surfaceColor = GlassSurfaceMedium,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+    GlassTopBar(
+        modifier = modifier,
+        title = title,
+        navigationIcon = {
             IconButton(onClick = onNavigateBack, modifier = Modifier.size(48.dp)) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -388,17 +411,8 @@ private fun ProductEditTopBar(
                     modifier = Modifier.size(24.dp)
                 )
             }
-            Text(
-                text = title,
-                color = TextPrimary,
-                fontSize = 20.sp,
-                lineHeight = 28.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
+        },
+        actions = {
             IconButton(onClick = {}, modifier = Modifier.size(48.dp)) {
                 Icon(
                     imageVector = Icons.Outlined.QrCodeScanner,
@@ -407,8 +421,8 @@ private fun ProductEditTopBar(
                     modifier = Modifier.size(22.dp)
                 )
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable
@@ -670,6 +684,114 @@ private fun UnitSelectField(
 }
 
 @Composable
+private fun SupplierRelationRow(
+    relation: ProductSupplierRelationWriteV2Request,
+    index: Int,
+    supplierName: String,
+    onSetDefault: (Int) -> Unit,
+    onRemove: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(8.dp)
+    val isDefault = relation.isDefault == true
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(SurfaceWhite.copy(alpha = 0.82f))
+            .border(BorderStroke(1.dp, DividerLight), shape)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.LocalShipping,
+            contentDescription = null,
+            tint = TextTertiary,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = supplierName,
+            color = TextPrimary,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(if (isDefault) ZhihuijiPrimaryBright.copy(alpha = 0.18f) else Color.Transparent)
+                .clickable { onSetDefault(index) }
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = if (isDefault) "默认" else "设为默认",
+                color = if (isDefault) ZhihuijiPrimary else TextTertiary,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        Spacer(modifier = Modifier.width(4.dp))
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .clickable { onRemove(index) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Close,
+                contentDescription = "移除供应商",
+                tint = TextTertiary,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddSupplierButton(
+    availableSuppliers: List<SupplierV2Dto>,
+    existingSupplierIds: Set<Long>,
+    onAdd: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val candidates = availableSuppliers.filter { it.id !in existingSupplierIds }
+    Box(modifier = modifier.fillMaxWidth()) {
+        ProductInputField(
+            value = "",
+            onValueChange = {},
+            placeholder = if (candidates.isEmpty()) "暂无可添加的供应商" else "添加供应商",
+            leadingIcon = Icons.Outlined.LocalShipping,
+            trailingIcon = Icons.Outlined.ExpandMore,
+            enabled = candidates.isNotEmpty(),
+            readOnly = true,
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            candidates.forEach { supplier ->
+                DropdownMenuItem(
+                    text = { Text(supplier.name) },
+                    onClick = {
+                        expanded = false
+                        onAdd(supplier.id)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ProductContractNotice(
     hasCategory: Boolean,
     hasUnit: Boolean,
@@ -689,7 +811,7 @@ private fun ProductContractNotice(
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "图片上传需先保存商品；扫码、批发价等级和首选供应商关系待后续接入。",
+                text = "图片上传需先保存商品；扫码待后续接入。",
                 style = MaterialTheme.typography.labelSmall,
                 color = TextSecondary,
             )

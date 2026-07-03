@@ -1,5 +1,10 @@
 package com.zhihuiji.data.agent
 
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.emptyPreferences
+import com.zhihuiji.core.datastore.SessionStore
+import com.zhihuiji.core.datastore.SettingsStore
 import com.zhihuiji.core.model.ApiResponse
 import com.zhihuiji.core.model.v2.agent.AgentConversationDto
 import com.zhihuiji.core.model.v2.agent.AgentDraftDto
@@ -8,6 +13,7 @@ import com.zhihuiji.core.model.v2.agent.AgentRunCancelDto
 import com.zhihuiji.core.network.AgentSseClient
 import com.zhihuiji.core.network.ZhihuijiV2Api
 import java.lang.reflect.Proxy
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -23,6 +29,14 @@ class AgentV2RepositoryTest {
     )
 
     private val json = Json { ignoreUnknownKeys = true }
+
+    private val emptyDataStore = object : DataStore<Preferences> {
+        override val data = flowOf(emptyPreferences())
+        override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences = emptyPreferences()
+    }
+
+    private val fakeSettingsStore = SettingsStore(emptyDataStore)
+    private val fakeSessionStore = SessionStore(emptyDataStore)
 
     @Test
     fun listConversationsPassesOptionalPageAndLimit() = runBlocking {
@@ -209,7 +223,7 @@ class AgentV2RepositoryTest {
             ApiResponse<Unit>(code = 0, message = "ok", data = null)
         }
 
-        val repository = MediaV2Repository(api)
+        val repository = MediaV2Repository(api, fakeSettingsStore, fakeSessionStore)
         val result = repository.deleteAsset(7L)
 
         assertTrue(result.isSuccess)
@@ -227,7 +241,7 @@ class AgentV2RepositoryTest {
             ApiResponse<Unit>(code = 0, message = "ok", data = null)
         }
 
-        val repository = MediaV2Repository(api)
+        val repository = MediaV2Repository(api, fakeSettingsStore, fakeSessionStore)
         val result = repository.deleteBinding(13L)
 
         assertTrue(result.isSuccess)

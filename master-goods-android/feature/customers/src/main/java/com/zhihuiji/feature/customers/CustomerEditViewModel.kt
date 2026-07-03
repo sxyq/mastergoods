@@ -3,6 +3,7 @@ package com.zhihuiji.feature.customers
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.model.v2.partner.CustomerWriteV2Request
+import com.zhihuiji.core.model.v2.partner.PartnerGroupV2Dto
 import com.zhihuiji.data.customer.CustomerV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +22,10 @@ data class CustomerEditUiState(
     val phone: String = "",
     val address: String = "",
     val remark: String = "",
+    val groupId: Long? = null,
+    val groupName: String = "",
+    val level: Int = 0,
+    val availableGroups: List<PartnerGroupV2Dto> = emptyList(),
 )
 
 @HiltViewModel
@@ -30,6 +35,31 @@ class CustomerEditViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(CustomerEditUiState())
     val uiState: StateFlow<CustomerEditUiState> = _uiState.asStateFlow()
+
+    init {
+        loadGroups()
+    }
+
+    private fun loadGroups() {
+        viewModelScope.launch {
+            repository.listGroups()
+                .onSuccess { groups ->
+                    _uiState.update {
+                        it.copy(availableGroups = groups.filter { group -> group.status == 1 })
+                    }
+                }
+        }
+    }
+
+    fun selectGroup(group: PartnerGroupV2Dto) {
+        _uiState.update {
+            it.copy(groupId = group.id, groupName = group.name)
+        }
+    }
+
+    fun selectLevel(level: Int) {
+        _uiState.update { it.copy(level = level) }
+    }
 
     fun loadCustomer(customerId: Long) {
         viewModelScope.launch {
@@ -44,6 +74,9 @@ class CustomerEditViewModel @Inject constructor(
                             phone = dto.phone,
                             address = dto.address ?: "",
                             remark = dto.notes ?: "",
+                            groupId = dto.groupId,
+                            groupName = dto.groupName ?: "",
+                            level = dto.level,
                         )
                     }
                 }
@@ -64,7 +97,8 @@ class CustomerEditViewModel @Inject constructor(
             val request = CustomerWriteV2Request(
                 name = name,
                 phone = phone,
-                level = 0,
+                level = _uiState.value.level,
+                groupId = _uiState.value.groupId,
                 address = address,
                 notes = remark,
                 status = 1,
@@ -91,7 +125,8 @@ class CustomerEditViewModel @Inject constructor(
             val request = CustomerWriteV2Request(
                 name = name,
                 phone = phone,
-                level = 0,
+                level = _uiState.value.level,
+                groupId = _uiState.value.groupId,
                 address = address,
                 notes = remark,
                 status = null,

@@ -35,6 +35,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:designsystem"))
     implementation(project(":data:product"))
+    implementation(project(":data:supplier"))
     implementation(project(":data:agent"))
     implementation(project(":data:sync"))
 

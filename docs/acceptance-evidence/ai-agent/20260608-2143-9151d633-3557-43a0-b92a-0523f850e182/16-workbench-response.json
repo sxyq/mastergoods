@@ -1,6 +1,0 @@
-{
-  "captured_at": "2026-06-08T14:48:47Z",
-  "endpoint": "http://localhost:8080/v2/agent/workbench",
-  "status": "skipped",
-  "reason": "TOKEN missing and ALLOW_NO_AUTH is not 1; cannot fetch owner-scoped workbench response"
-}

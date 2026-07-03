@@ -16,10 +16,12 @@ public class FinanceRecordService {
 
     private final FinanceRecordRepository financeRecordRepository;
     private final CurrentOwnerService currentOwnerService;
+    private final IdGenerator idGenerator;
 
-    public FinanceRecordService(FinanceRecordRepository financeRecordRepository, CurrentOwnerService currentOwnerService) {
+    public FinanceRecordService(FinanceRecordRepository financeRecordRepository, CurrentOwnerService currentOwnerService, IdGenerator idGenerator) {
         this.financeRecordRepository = financeRecordRepository;
         this.currentOwnerService = currentOwnerService;
+        this.idGenerator = idGenerator;
     }
 
     @Transactional(readOnly = true)
@@ -48,7 +50,7 @@ public class FinanceRecordService {
 
         long now = System.currentTimeMillis();
         FinanceRecordEntity entity = new FinanceRecordEntity();
-        entity.setId(IdGenerator.nextId());
+        entity.setId(idGenerator.nextId());
         entity.setOwnerUserId(currentOwnerService.requireCurrentOwnerUserId());
         entity.setRecordNo(generateRecordNo());
         entity.setType(command.type());

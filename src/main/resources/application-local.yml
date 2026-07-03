@@ -13,9 +13,9 @@ spring:
 agent:
   llm:
     enabled: ${AGENT_LLM_ENABLED:true}
-    base-url: ${AGENT_LLM_BASE_URL:https://token.sensenova.cn/v1/}
+    base-url: ${AGENT_LLM_BASE_URL:https://qs.szscp.com/v1/}
     api-key: ${AGENT_LLM_API_KEY:}
-    model: ${AGENT_LLM_MODEL:deepseek-v4-flash}
+    model: ${AGENT_LLM_MODEL:gpt-5.4-mini}
     wire-api: ${AGENT_LLM_WIRE_API:chat_completions}
     requires-openai-auth: ${AGENT_LLM_REQUIRES_OPENAI_AUTH:true}
     anthropic-version: ${AGENT_LLM_ANTHROPIC_VERSION:2023-06-01}

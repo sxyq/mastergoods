@@ -42,13 +42,13 @@
 ## 待验证边界
 
 - 当前时间标签驱动销售汇总、利润预估、商品排行和往来汇总；账户余额、低库存、库存月统计仍来自当前快照。
-- “销售趋势”仍是诚实态占位，真实趋势序列、坐标与 tooltip 尚未联调。
-- 成本与利润仍基于客户端可得库存月统计估算，不代表服务端最终报表口径。
+- `ReportRepository` 已全部切换到 `/v2/reports/*` 端点（含 `sales-trend`、`profit-summary`），数据路径为后端 v2 真源；真机联调截图与性能采样仍待 B11 补齐。
+- 成本与利润口径以后端 `/v2/reports/profit-summary` 为准，不再依赖客户端库存月统计估算。
 
 ## 下一步
 
 - 真机核对报表首屏 KPI 密度、图表比例和空态层级，继续贴近 Stitch 报表设计稿。
-- 如果后端补齐趋势或更细的报表接口，再把现有静态占位图和估算口径替换为真实联动实现。
+- 补齐真机联调证据（销售趋势序列、利润汇总在真机上的实际渲染与 tooltip 行为）。
 
 ## UI 统一约束
 
@@ -56,4 +56,4 @@
 - 页面结构优先落入既有模式：列表页、详情页、编辑页、报表页、AI 页、设置页。
 - 视觉基线固定为：浅蓝渐变背景、玻璃卡片、蓝色主按钮、白色次按钮、统一状态标签、五栏主壳。
 - 如需新增 UI 组件，先沉淀到 `core/designsystem`，再由本模块复用；不允许长期保留 feature 私有样式组件。
-- 验收时当前优先对照：`docs/spec/42-android-liquid-glass-ui-refactor-plan.md`、Stitch 导出清单、`master-goods-android/UI-DESIGN-SPEC.md`、`docs/technical-analysis/android/core/designsystem/README.md`；`docs/design-mockups/` 仅作历史参考。
+- 验收时当前优先对照：`docs/spec/42-android-liquid-glass-ui-refactor-plan.md`、Stitch 导出清单（`web/public/stitch_exports/`）、`master-goods-android/UI-DESIGN-SPEC.md`、`core/designsystem` 源码。

@@ -1,6 +1,22 @@
 package com.zhihuiji.core.network
 
 import com.zhihuiji.core.model.ApiResponse
+import com.zhihuiji.core.model.CashflowSummaryReportDto
+import com.zhihuiji.core.model.CreateFinanceRecordRequest
+import com.zhihuiji.core.model.CustomerReceivableReportDto
+import com.zhihuiji.core.model.CustomerSalesReportDto
+import com.zhihuiji.core.model.FinanceRecordDto
+import com.zhihuiji.core.model.InventoryFlowRecordDto
+import com.zhihuiji.core.model.LowStockProductReportDto
+import com.zhihuiji.core.model.ProfitByCustomerReportDto
+import com.zhihuiji.core.model.ProfitByProductReportDto
+import com.zhihuiji.core.model.ProfitSummaryReportDto
+import com.zhihuiji.core.model.ReconciliationSummaryReportDto
+import com.zhihuiji.core.model.RefundRecordReportDto
+import com.zhihuiji.core.model.SalesSummaryReportDto
+import com.zhihuiji.core.model.SalesTrendPointReportDto
+import com.zhihuiji.core.model.StockOutRecordReportDto
+import com.zhihuiji.core.model.TopSellingProductReportDto
 import com.zhihuiji.core.model.v2.agent.AgentChatRequest
 import com.zhihuiji.core.model.v2.agent.AgentChatResponse
 import com.zhihuiji.core.model.v2.agent.AgentConversationDto
@@ -637,4 +653,107 @@ interface ZhihuijiV2Api {
 
     @DELETE("v2/media/bindings/{id}")
     suspend fun deleteMediaBindingV2(@Path("id") id: Long): ApiResponse<Unit>
+
+    // ========== Finance Records V2 ==========
+
+    @GET("v2/finance-records")
+    suspend fun financeRecordsV2(
+        @Query("keyword") keyword: String? = null,
+        @Query("type") type: Int? = null,
+        @Query("created_after") createdAfter: String? = null,
+        @Query("created_before") createdBefore: String? = null,
+    ): ApiResponse<List<FinanceRecordDto>>
+
+    @POST("v2/finance-records")
+    suspend fun createFinanceRecordV2(@Body body: CreateFinanceRecordRequest): ApiResponse<FinanceRecordDto>
+
+    // ========== Reports V2 ==========
+
+    @GET("v2/reports/sales-summary")
+    suspend fun salesSummaryV2(
+        @Query("start_at") startAt: Long,
+        @Query("end_at") endAt: Long,
+    ): ApiResponse<SalesSummaryReportDto>
+
+    @GET("v2/reports/sales-trend")
+    suspend fun salesTrendV2(
+        @Query("start_at") startAt: Long,
+        @Query("end_at") endAt: Long,
+        @Query("bucket") bucket: String = "day",
+    ): ApiResponse<List<SalesTrendPointReportDto>>
+
+    @GET("v2/reports/profit-summary")
+    suspend fun profitSummaryV2(
+        @Query("start_at") startAt: Long,
+        @Query("end_at") endAt: Long,
+    ): ApiResponse<ProfitSummaryReportDto>
+
+    @GET("v2/reports/refund-records")
+    suspend fun refundRecordsV2(
+        @Query("start_at") startAt: Long,
+        @Query("end_at") endAt: Long,
+        @Query("limit") limit: Int = 10,
+    ): ApiResponse<List<RefundRecordReportDto>>
+
+    @GET("v2/reports/stock-out-records")
+    suspend fun stockOutRecordsV2(
+        @Query("start_at") startAt: Long,
+        @Query("end_at") endAt: Long,
+        @Query("limit") limit: Int = 10,
+    ): ApiResponse<List<StockOutRecordReportDto>>
+
+    @GET("v2/reports/top-products")
+    suspend fun topProductsV2(
+        @Query("start_at") startAt: Long,
+        @Query("end_at") endAt: Long,
+        @Query("limit") limit: Int = 10,
+    ): ApiResponse<List<TopSellingProductReportDto>>
+
+    @GET("v2/reports/profit-by-products")
+    suspend fun profitByProductsV2(
+        @Query("start_at") startAt: Long,
+        @Query("end_at") endAt: Long,
+        @Query("limit") limit: Int = 10,
+    ): ApiResponse<List<ProfitByProductReportDto>>
+
+    @GET("v2/reports/profit-by-customers")
+    suspend fun profitByCustomersV2(
+        @Query("start_at") startAt: Long,
+        @Query("end_at") endAt: Long,
+        @Query("limit") limit: Int = 10,
+    ): ApiResponse<List<ProfitByCustomerReportDto>>
+
+    @GET("v2/reports/inventory-flow")
+    suspend fun inventoryFlowV2(
+        @Query("start_at") startAt: Long,
+        @Query("end_at") endAt: Long,
+        @Query("limit") limit: Int = 10,
+    ): ApiResponse<List<InventoryFlowRecordDto>>
+
+    @GET("v2/reports/customer-sales")
+    suspend fun customerSalesV2(
+        @Query("start_at") startAt: Long,
+        @Query("end_at") endAt: Long,
+        @Query("limit") limit: Int = 10,
+    ): ApiResponse<List<CustomerSalesReportDto>>
+
+    @GET("v2/reports/top-receivable-customers")
+    suspend fun topReceivableCustomersV2(@Query("limit") limit: Int = 10): ApiResponse<List<CustomerReceivableReportDto>>
+
+    // Named lowStockProductsReportV2 (not lowStockProductsV2) to avoid collision with the
+    // existing v2/products/low-stock endpoint method lowStockProductsV2(size: Int?).
+    @GET("v2/reports/low-stock-products")
+    suspend fun lowStockProductsReportV2(@Query("limit") limit: Int = 10): ApiResponse<List<LowStockProductReportDto>>
+
+    @GET("v2/reports/reconciliation-summary")
+    suspend fun reconciliationSummaryV2(
+        @Query("start_at") startAt: Long,
+        @Query("end_at") endAt: Long,
+    ): ApiResponse<ReconciliationSummaryReportDto>
+
+    @GET("v2/reports/cashflow-summary")
+    suspend fun cashflowSummaryV2(
+        @Query("start_at") startAt: Long,
+        @Query("end_at") endAt: Long,
+    ): ApiResponse<CashflowSummaryReportDto>
 }

@@ -77,6 +77,7 @@ public class LegacySQLiteImportService {
     private final InventorySnapshotRepository inventorySnapshotRepository;
     private final InventoryAdjustmentRepository inventoryAdjustmentRepository;
     private final PasswordEncoder passwordEncoder;
+    private final IdGenerator idGenerator;
 
     public LegacySQLiteImportService(
         UserRepository userRepository,
@@ -94,7 +95,8 @@ public class LegacySQLiteImportService {
         AccountRepository accountRepository,
         InventorySnapshotRepository inventorySnapshotRepository,
         InventoryAdjustmentRepository inventoryAdjustmentRepository,
-        PasswordEncoder passwordEncoder
+        PasswordEncoder passwordEncoder,
+        IdGenerator idGenerator
     ) {
         this.userRepository = userRepository;
         this.sessionRepository = sessionRepository;
@@ -112,6 +114,7 @@ public class LegacySQLiteImportService {
         this.inventorySnapshotRepository = inventorySnapshotRepository;
         this.inventoryAdjustmentRepository = inventoryAdjustmentRepository;
         this.passwordEncoder = passwordEncoder;
+        this.idGenerator = idGenerator;
     }
 
     @Transactional
@@ -415,7 +418,7 @@ public class LegacySQLiteImportService {
                 double paid = Math.min(total, positiveOrZero(rs.getDouble("pay_amt")));
 
                 SaleOrderEntity entity = new SaleOrderEntity();
-                entity.setId(IdGenerator.nextId());
+                entity.setId(idGenerator.nextId());
                 entity.setOwnerUserId(ownerUserId);
                 entity.setOrderNo(
                     ensureUniqueIdentifier(
@@ -444,7 +447,7 @@ public class LegacySQLiteImportService {
                 if (paid > 0.0) {
                     ImportedAccount account = accountMap.get(rs.getLong("acct_id"));
                     PaymentEntity payment = new PaymentEntity();
-                    payment.setId(IdGenerator.nextId());
+                    payment.setId(idGenerator.nextId());
                     payment.setOwnerUserId(ownerUserId);
                     payment.setOrderId(entity.getId());
                     payment.setAmount(paid);
@@ -467,7 +470,7 @@ public class LegacySQLiteImportService {
                     continue;
                 }
                 SaleOrderItemEntity item = new SaleOrderItemEntity();
-                item.setId(IdGenerator.nextId());
+                item.setId(idGenerator.nextId());
                 item.setOwnerUserId(ownerUserId);
                 item.setOrderId(order.id());
                 item.setProductId(product.id());
@@ -512,7 +515,7 @@ public class LegacySQLiteImportService {
                 int status = rs.getInt("is_calc") == 1 ? PurchaseOrderStatus.RECEIVED.code() : PurchaseOrderStatus.DRAFT.code();
 
                 PurchaseOrderEntity entity = new PurchaseOrderEntity();
-                entity.setId(IdGenerator.nextId());
+                entity.setId(idGenerator.nextId());
                 entity.setOwnerUserId(ownerUserId);
                 entity.setOrderNo(
                     ensureUniqueIdentifier(
@@ -540,7 +543,7 @@ public class LegacySQLiteImportService {
                 if (paid > 0.0) {
                     ImportedAccount account = accountMap.get(rs.getLong("acct_id"));
                     PayOrderEntity payOrder = new PayOrderEntity();
-                    payOrder.setId(IdGenerator.nextId());
+                    payOrder.setId(idGenerator.nextId());
                     payOrder.setOwnerUserId(ownerUserId);
                     payOrder.setOrderNo(
                         ensureUniqueIdentifier(
@@ -577,7 +580,7 @@ public class LegacySQLiteImportService {
                     continue;
                 }
                 PurchaseOrderItemEntity item = new PurchaseOrderItemEntity();
-                item.setId(IdGenerator.nextId());
+                item.setId(idGenerator.nextId());
                 item.setOwnerUserId(ownerUserId);
                 item.setOrderId(order.id());
                 item.setProductId(product.id());
@@ -616,7 +619,7 @@ public class LegacySQLiteImportService {
                     continue;
                 }
                 FinanceRecordEntity entity = new FinanceRecordEntity();
-                entity.setId(IdGenerator.nextId());
+                entity.setId(idGenerator.nextId());
                 entity.setOwnerUserId(ownerUserId);
                 entity.setRecordNo(
                     ensureUniqueIdentifier(

@@ -433,7 +433,7 @@ public class V2AgentAiService {
         AgentRunAuditEntity audit = agentRunAuditRepository.findByRunIdAndOwnerUserId(normalizedRunId, ownerUserId)
             .orElseThrow(() -> new IllegalArgumentException("run audit not found"));
         List<V2AgentDtos.AgentRunAuditEventResponse> events = agentRunAuditEventRepository
-            .findAllByRunIdOrderBySeqAsc(normalizedRunId)
+            .findAllByRunIdAndOwnerUserIdOrderBySeqAsc(normalizedRunId, ownerUserId)
             .stream()
             .map(this::toRunAuditEventResponse)
             .toList();

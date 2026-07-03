@@ -35,6 +35,7 @@ public class V2SaleOrderService {
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
     private final CurrentOwnerService currentOwnerService;
+    private final IdGenerator idGenerator;
 
     public V2SaleOrderService(
         SaleOrderService saleOrderService,
@@ -42,7 +43,8 @@ public class V2SaleOrderService {
         SaleOrderItemRepository saleOrderItemRepository,
         ProductRepository productRepository,
         CustomerRepository customerRepository,
-        CurrentOwnerService currentOwnerService
+        CurrentOwnerService currentOwnerService,
+        IdGenerator idGenerator
     ) {
         this.saleOrderService = saleOrderService;
         this.saleOrderRepository = saleOrderRepository;
@@ -50,6 +52,7 @@ public class V2SaleOrderService {
         this.productRepository = productRepository;
         this.customerRepository = customerRepository;
         this.currentOwnerService = currentOwnerService;
+        this.idGenerator = idGenerator;
     }
 
     public V2SaleOrderDtos.SaleOrderResponse create(V2SaleOrderDtos.CreateRequest request) {
@@ -168,7 +171,7 @@ public class V2SaleOrderService {
                 productRepository.save(product);
 
                 SaleOrderItemEntity item = new SaleOrderItemEntity();
-                item.setId(IdGenerator.nextId());
+                item.setId(idGenerator.nextId());
                 item.setOwnerUserId(ownerUserId);
                 item.setOrderId(id);
                 item.setProductId(product.getId());

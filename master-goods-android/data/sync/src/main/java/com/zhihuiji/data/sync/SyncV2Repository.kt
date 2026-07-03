@@ -16,11 +16,6 @@ import com.zhihuiji.core.database.entity.PurchaseOrderEntity
 import com.zhihuiji.core.database.entity.SaleOrderEntity
 import com.zhihuiji.core.database.entity.SaleOrderItemEntity
 import com.zhihuiji.core.database.entity.SupplierEntity
-import com.zhihuiji.core.model.v2.inventory.CreateInventoryLedgerEntryV2Request
-import com.zhihuiji.core.model.v2.inventory.CreateInventorySnapshotV2Request
-import com.zhihuiji.core.model.v2.inventory.InventoryLedgerEntryV2Dto
-import com.zhihuiji.core.model.v2.inventory.InventoryMonthlyStatsV2Dto
-import com.zhihuiji.core.model.v2.inventory.InventorySnapshotV2Dto
 import com.zhihuiji.core.model.v2.sync.CreateImportJobV2Request
 import com.zhihuiji.core.model.v2.sync.ImportJobV2Dto
 import com.zhihuiji.core.model.v2.sync.RetryImportJobV2Request
@@ -135,33 +130,6 @@ class SyncV2Repository @Inject constructor(
 
     suspend fun cancelImportJob(id: Long): Result<ImportJobV2Dto> =
         safeApiCall { api.cancelImportJobV2(id) }
-
-    suspend fun listInventoryLedger(
-        productId: Long? = null,
-        startAt: Long? = null,
-        endAt: Long? = null,
-    ): Result<List<InventoryLedgerEntryV2Dto>> = safeApiCall { api.inventoryLedgerV2(productId, startAt, endAt) }
-
-    suspend fun listInventoryLedgerBySource(
-        sourceType: String,
-        sourceId: Long,
-    ): Result<List<InventoryLedgerEntryV2Dto>> = safeApiCall { api.inventoryLedgerBySourceV2(sourceType, sourceId) }
-
-    suspend fun createInventoryLedgerEntry(request: CreateInventoryLedgerEntryV2Request): Result<InventoryLedgerEntryV2Dto> =
-        safeApiCall { api.createInventoryLedgerEntryV2(request) }
-
-    suspend fun listInventorySnapshots(
-        snapshotDate: Long? = null,
-        startDate: Long? = null,
-        endDate: Long? = null,
-    ): Result<List<InventorySnapshotV2Dto>> =
-        safeApiCall { api.inventorySnapshotsV2(snapshotDate, startDate, endDate) }
-
-    suspend fun createInventorySnapshot(request: CreateInventorySnapshotV2Request): Result<InventorySnapshotV2Dto> =
-        safeApiCall { api.createInventorySnapshotV2(request) }
-
-    suspend fun listInventoryMonthlyStats(year: Int, month: Int): Result<List<InventoryMonthlyStatsV2Dto>> =
-        safeApiCall { api.inventoryMonthlyStatsV2(year, month) }
 
     private suspend fun applyCustomerChange(change: SyncChangeV2Dto) {
         val id = change.entityId.toLongOrNull() ?: return

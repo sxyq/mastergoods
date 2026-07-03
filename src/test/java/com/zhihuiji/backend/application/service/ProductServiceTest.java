@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.zhihuiji.backend.api.common.IdGenerator;
 import com.zhihuiji.backend.domain.entity.InventoryAdjustmentEntity;
 import com.zhihuiji.backend.domain.entity.ProductEntity;
 import com.zhihuiji.backend.infrastructure.repository.InventoryAdjustmentRepository;
@@ -35,7 +36,7 @@ class ProductServiceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        productService = new ProductService(productRepository, inventoryAdjustmentRepository, currentOwnerService);
+        productService = new ProductService(productRepository, inventoryAdjustmentRepository, currentOwnerService, new IdGenerator());
         when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
     }
 

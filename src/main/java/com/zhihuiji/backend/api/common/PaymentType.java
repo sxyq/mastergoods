@@ -14,6 +14,10 @@ public enum PaymentType {
         return code;
     }
 
+    public static boolean isValid(Integer code) {
+        return fromCode(code) != null;
+    }
+
     public static PaymentType fromCode(Integer code) {
         if (code == null) {
             return null;

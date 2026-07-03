@@ -178,7 +178,7 @@ public class RunAuditService {
             entity.setErrorMessage(truncate(errorMessage, 1000));
             entity.setCompletedAt(completedAt);
             entity.setUpdatedAt(completedAt);
-            entity.setEventCount(currentRunEventCount(runId));
+            entity.setEventCount(currentRunEventCount(ownerUserId, runId));
             int droppedCount = currentRunAuditDroppedCount(runId);
             int failedCount = currentRunAuditFailedCount(runId);
             entity.setAuditWriteDroppedCount(droppedCount);
@@ -229,8 +229,8 @@ public class RunAuditService {
         agentRunAuditEventRepository.save(entity);
     }
 
-    private int currentRunEventCount(String runId) {
-        return Math.toIntExact(agentRunAuditEventRepository.countByRunId(runId));
+    private int currentRunEventCount(Long ownerUserId, String runId) {
+        return Math.toIntExact(agentRunAuditEventRepository.countByRunIdAndOwnerUserId(runId, ownerUserId));
     }
 
     private int currentRunAuditDroppedCount(String runId) {

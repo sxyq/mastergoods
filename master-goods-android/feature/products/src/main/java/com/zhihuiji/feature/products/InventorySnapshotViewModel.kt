@@ -6,8 +6,8 @@ import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.model.v2.inventory.CreateInventorySnapshotV2Request
 import com.zhihuiji.core.model.v2.inventory.InventorySnapshotV2Dto
 import com.zhihuiji.core.model.v2.product.ProductV2Dto
+import com.zhihuiji.data.sync.InventoryV2Repository
 import com.zhihuiji.data.product.ProductV2Repository
-import com.zhihuiji.data.sync.SyncV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Calendar
 import javax.inject.Inject
@@ -53,7 +53,7 @@ data class InventoryCountItem(
 @HiltViewModel
 class InventorySnapshotViewModel @Inject constructor(
     private val productRepository: ProductV2Repository,
-    private val syncRepository: SyncV2Repository,
+    private val inventoryRepository: InventoryV2Repository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(InventorySnapshotUiState())
     val uiState: StateFlow<InventorySnapshotUiState> = _uiState.asStateFlow()
@@ -84,7 +84,7 @@ class InventorySnapshotViewModel @Inject constructor(
             var createdCount = 0
             var failedCount = 0
             pendingItems.forEach { item ->
-                syncRepository.createInventorySnapshot(
+                inventoryRepository.createInventorySnapshot(
                     CreateInventorySnapshotV2Request(
                         productId = item.productId,
                         snapshotDate = currentState.snapshotDate,
@@ -139,7 +139,7 @@ class InventorySnapshotViewModel @Inject constructor(
             return
         }
 
-        val snapshots = syncRepository.listInventorySnapshots(snapshotDate = snapshotDate).getOrElse { error ->
+        val snapshots = inventoryRepository.listInventorySnapshots(snapshotDate = snapshotDate).getOrElse { error ->
             _uiState.update {
                 it.copy(
                     isLoading = false,

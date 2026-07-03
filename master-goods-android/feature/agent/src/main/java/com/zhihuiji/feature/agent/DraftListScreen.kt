@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.common.TimeFormatter
 import com.zhihuiji.core.designsystem.DangerOutlineButton
 import com.zhihuiji.core.designsystem.GlassScaffold
 import com.zhihuiji.core.designsystem.GlassTopBar
@@ -178,7 +179,7 @@ private fun DraftCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "创建于 ${java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(draft.createdAt))}",
+                    text = "创建于 ${TimeFormatter.formatDateTime(draft.createdAt)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )

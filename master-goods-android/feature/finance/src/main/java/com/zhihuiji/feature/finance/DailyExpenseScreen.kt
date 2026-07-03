@@ -81,6 +81,7 @@ import com.zhihuiji.core.designsystem.TextSecondary
 import com.zhihuiji.core.designsystem.TextTertiary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimaryBright
+import com.zhihuiji.core.designsystem.roundedCardShape
 
 private data class ExpenseCategoryOption(
     val label: String,
@@ -106,7 +107,6 @@ private val paymentMethods = listOf(
 )
 private val expenseCategoryRows = expenseCategories.chunked(4)
 private val paymentMethodLabels = paymentMethods.toMap()
-private val roundedCardShape = RoundedCornerShape(12.dp)
 private val bottomScrimBrush = Brush.verticalGradient(
     colors = listOf(
         BackgroundGradientEnd.copy(alpha = 0.82f),

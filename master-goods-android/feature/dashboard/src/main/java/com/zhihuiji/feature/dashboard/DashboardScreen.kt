@@ -69,13 +69,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zhihuiji.core.common.MoneyFormatter
 import com.zhihuiji.core.designsystem.DangerRed
 import com.zhihuiji.core.designsystem.DataTextPrimary
 import com.zhihuiji.core.designsystem.GlassSurfaceLow
 import com.zhihuiji.core.designsystem.GlassSurfaceMedium
 import com.zhihuiji.core.designsystem.GlassSurfaceHigh
+import com.zhihuiji.core.designsystem.GlassTopBar
 import com.zhihuiji.core.designsystem.LiquidGlassCard
-import com.zhihuiji.core.designsystem.LiquidGlassSurface
 import com.zhihuiji.core.designsystem.MainBottomBarHeight
 import com.zhihuiji.core.designsystem.SuccessGreen
 import com.zhihuiji.core.designsystem.TextPrimary
@@ -84,7 +85,6 @@ import com.zhihuiji.core.designsystem.TextTertiary
 import com.zhihuiji.core.designsystem.WarningOrange
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 import com.zhihuiji.core.designsystem.ZhihuijiPrimaryBright
-import java.text.DecimalFormat
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -107,9 +107,6 @@ private val DashboardTrendCardHeight = 228.dp
 private val DashboardReminderRowHeight = 68.dp
 private val DashboardDialogDayFormatter = DateTimeFormatter.ofPattern("MM月dd日", Locale.getDefault())
 private val DashboardDialogFullDayFormatter = DateTimeFormatter.ofPattern("yyyy年MM月dd日", Locale.getDefault())
-private val DashboardWholeNumberFormatter = ThreadLocal.withInitial<DecimalFormat> {
-    DecimalFormat("#,##0")
-}
 private const val DashboardReminderItemCapacity = 3
 
 @Composable
@@ -241,28 +238,10 @@ private fun DashboardTopBar(
     onNavigateToNotifications: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LiquidGlassSurface(
-        modifier = modifier.fillMaxWidth(),
-        blurRadius = 20.dp,
-        shape = RoundedCornerShape(0.dp),
-        surfaceColor = GlassSurfaceMedium
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp)
-                .padding(start = 16.dp, end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "智慧记",
-                fontSize = 24.sp,
-                lineHeight = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = ZhihuijiPrimary,
-                maxLines = 1
-            )
+    GlassTopBar(
+        modifier = modifier,
+        title = "智慧记",
+        actions = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -291,8 +270,8 @@ private fun DashboardTopBar(
                     onClick = onNavigateToSettings
                 )
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable
@@ -1394,7 +1373,7 @@ private fun formatCurrencyText(value: String): String {
     return formatCurrency(normalized)
 }
 
-private fun formatNumber(value: Double): String = DashboardWholeNumberFormatter.get()!!.format(value)
+private fun formatNumber(value: Double): String = MoneyFormatter.formatWithoutSymbol(value)
 
 private fun LocalDate.toDatePickerMillis(): Long =
     atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()

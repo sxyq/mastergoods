@@ -2,7 +2,9 @@ package com.zhihuiji.feature.products
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.model.v2.inventory.CreateInventoryLedgerEntryV2Request
 import com.zhihuiji.data.product.ProductV2Repository
+import com.zhihuiji.data.sync.InventoryV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +26,8 @@ data class StockAdjustUiState(
 
 @HiltViewModel
 class StockAdjustViewModel @Inject constructor(
-    private val repository: ProductV2Repository
+    private val repository: ProductV2Repository,
+    private val inventoryRepository: InventoryV2Repository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StockAdjustUiState())
@@ -55,28 +58,25 @@ class StockAdjustViewModel @Inject constructor(
     fun adjustStock(productId: Long, quantity: Double, reason: String?) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            // 目前 API 没有直接的库存调整接口，这里先更新商品库存
-            repository.getProduct(productId)
-                .onSuccess { dto ->
-                    val newStock = dto.stock + quantity
-                    val request = com.zhihuiji.core.model.v2.product.ProductWriteV2Request(
-                        name = dto.name,
-                        code = dto.code,
-                        categoryId = dto.categoryId ?: 0,
-                        unitId = dto.unitId ?: 0,
-                        salePrice = dto.salePrice,
-                        purchasePrice = dto.purchasePrice,
-                        stock = newStock,
-                        safeStock = dto.safeStock,
-                        status = dto.status,
-                    )
-                    repository.updateProduct(productId, request)
-                        .onSuccess {
-                            _uiState.update { it.copy(isLoading = false, isSaved = true) }
-                        }
-                        .onFailure { error ->
-                            _uiState.update { it.copy(isLoading = false, error = error.message) }
-                        }
+            // 库存调整走 v2/inventory/ledger 台账流水，不再全量回写商品。
+            val request = CreateInventoryLedgerEntryV2Request(
+                productId = productId,
+                sourceType = "manual_adjust",
+                sourceNo = null,
+                quantityChange = quantity,
+                unitCost = null,
+                warehouseId = null,
+                notes = reason,
+            )
+            inventoryRepository.createInventoryLedgerEntry(request)
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isSaved = true,
+                            currentStock = it.currentStock + quantity,
+                        )
+                    }
                 }
                 .onFailure { error ->
                     _uiState.update { it.copy(isLoading = false, error = error.message) }

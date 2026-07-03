@@ -1,13 +1,33 @@
 package com.zhihuiji.backend.api.common;
 
-public final class PaymentStatus {
-    private PaymentStatus() {}
+public enum PaymentStatus {
+    UNPAID(0),
+    PARTIAL(1),
+    PAID(2);
 
-    public static final int UNPAID = 0;
-    public static final int PARTIAL = 1;
-    public static final int PAID = 2;
+    private final int code;
 
-    public static boolean isValid(int status) {
-        return status == UNPAID || status == PARTIAL || status == PAID;
+    PaymentStatus(int code) {
+        this.code = code;
+    }
+
+    public int code() {
+        return code;
+    }
+
+    public static boolean isValid(Integer status) {
+        return fromCode(status) != null;
+    }
+
+    public static PaymentStatus fromCode(Integer status) {
+        if (status == null) {
+            return null;
+        }
+        for (PaymentStatus value : values()) {
+            if (value.code == status) {
+                return value;
+            }
+        }
+        return null;
     }
 }

@@ -42,12 +42,10 @@ Android 端后续不论新增多少业务域，都要继续共用同一套视觉
 
 - 当前视觉真源：
   - [42-android-liquid-glass-ui-refactor-plan.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/spec/42-android-liquid-glass-ui-refactor-plan.md)
-  - [manifest.tsv](/Users/sunyiyang/Desktop/Project/master-goods/stitch_exports/visual-design_system_framework_14840154594131085259/manifest.tsv)
+  - [manifest.tsv](/Users/sunyiyang/Desktop/Project/master-goods/web/public/stitch_exports/visual-design_system_framework_14840154594131085259/manifest.tsv)
   - [UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/UI-DESIGN-SPEC.md)
 - 实现真源：
-  - [README.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/technical-analysis/android/core/designsystem/README.md)
-- 历史参考：
-  - [README.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/design-mockups/README.md)
+  - `master-goods-android/core/designsystem/` 源码
 
 统一要求：
 
@@ -165,4 +163,4 @@ Android 端后续不论新增多少业务域，都要继续共用同一套视觉
   - 更厚的商品/往来单位/单据/财务/库存领域
   - `/v2` 契约
   做结构性升级。
-- 本文件之后，具体模块落点以 `docs/technical-analysis/android/*` 的分模块文档为准。
+- 本文件之后，具体模块落点以 `master-goods-android/` 源码目录为准。

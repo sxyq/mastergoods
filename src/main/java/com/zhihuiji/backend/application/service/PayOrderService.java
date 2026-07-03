@@ -18,15 +18,18 @@ public class PayOrderService {
     private final PayOrderRepository payOrderRepository;
     private final SupplierRepository supplierRepository;
     private final CurrentOwnerService currentOwnerService;
+    private final IdGenerator idGenerator;
 
     public PayOrderService(
         PayOrderRepository payOrderRepository,
         SupplierRepository supplierRepository,
-        CurrentOwnerService currentOwnerService
+        CurrentOwnerService currentOwnerService,
+        IdGenerator idGenerator
     ) {
         this.payOrderRepository = payOrderRepository;
         this.supplierRepository = supplierRepository;
         this.currentOwnerService = currentOwnerService;
+        this.idGenerator = idGenerator;
     }
 
     @Transactional(readOnly = true)
@@ -62,7 +65,7 @@ public class PayOrderService {
         validateCreateCommand(command);
         long now = System.currentTimeMillis();
         PayOrderEntity entity = new PayOrderEntity();
-        entity.setId(IdGenerator.nextId());
+        entity.setId(idGenerator.nextId());
         entity.setOwnerUserId(ownerUserId);
         entity.setOrderNo(generateOrderNo());
         entity.setSupplierId(command.supplierId());

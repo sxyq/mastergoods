@@ -8,6 +8,8 @@ import com.zhihuiji.core.network.safeApiCall
 import javax.inject.Inject
 import javax.inject.Singleton
 
+// v1 only: backend has no /v2/auth endpoints planned. Auth (login/register/refresh/logout/me),
+// admin user management, and store member management stay on v1 ZhihuijiApi by design.
 @Singleton
 class AuthRepository @Inject constructor(
     private val api: ZhihuijiApi,

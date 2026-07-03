@@ -9,7 +9,7 @@
 
 本轮已经完成 Android 端核心 UI 母版收口，但不能判定为 32 张 Stitch 稿一对一全部完成：
 
-- 视觉真源已从旧 `docs/design-mockups/01.png ~ 08.png` 切换为 Stitch 导出目录与本文件。
+- 视觉真源已从旧 `docs/design-mockups/01.png ~ 08.png`（已于 2026-07-02 清理删除）切换为 Stitch 导出目录与本文件。
 - `core/designsystem` 已沉淀新的液态玻璃组件体系：`LiquidGlassSurface`、`LiquidGlassCard`、`GlassScaffold`、`GlassTopBar`、`GlassTextField`、`PrimaryButton`、`SecondaryOutlineButton`、`DangerOutlineButton`、`FloatingGlassActionButton`、`BusinessListItem`、`BottomActionBar`、`KpiCard`、`ChartCard`、`SearchFilterBar`、`SegmentedTabs`、`FilterChipRow`、`StatusPill`。
 - 主壳、认证、首页、单据、档案、报表、设置、商品、客户、供应商、销售、采购、付款、财务、AI 工作台、AI 对话、草稿、任务通知页面均已接入新的玻璃视觉组件。
 - 业务页裸 `OutlinedTextField` 已收敛到 `GlassTextField`；当前仅 `GlassTextField` 自身和认证页内部封装 `AuthOutlinedField` 直接调用 Material `OutlinedTextField`。
@@ -25,10 +25,10 @@
 
 - Project: `Visual Design System Framework`
 - Project ID: `14840154594131085259`
-- 本地导出根目录：
-  - `/Users/sunyiyang/Desktop/Project/master-goods/stitch_exports/visual-design_system_framework_14840154594131085259`
+- 本地导出根目录（位于 web/public 下，前端可直接访问）：
+  - `/Users/sunyiyang/Desktop/Project/master-goods/web/public/stitch_exports/visual-design_system_framework_14840154594131085259`
 - 屏幕清单：
-  - `/Users/sunyiyang/Desktop/Project/master-goods/stitch_exports/visual-design_system_framework_14840154594131085259/manifest.tsv`
+  - `/Users/sunyiyang/Desktop/Project/master-goods/web/public/stitch_exports/visual-design_system_framework_14840154594131085259/manifest.tsv`
 
 ### 1.2 当前必须优先对照的 Stitch 设计稿
 
@@ -59,7 +59,7 @@
 
 ### 1.3 旧 8 张设计图的处理原则
 
-- `docs/design-mockups/` 仅保留为历史参考。
+- `docs/design-mockups/` 已于 2026-07-02 清理删除。
 - 后续 UI 实施、验收、截图对照、组件抽象、颜色/间距/圆角判断，一律以 Stitch 导出和本计划为准。
 - 任何仍写着“01.png ~ 08.png 是统一视觉真源”的文档，都按历史遗留理解，不再作为新开发依据。
 
@@ -1131,11 +1131,11 @@
 - `master-goods-android/UI-DESIGN-SPEC.md`
   - 降为“兼容入口 + 摘要规范”
 - `docs/design-mockups/README.md`
-  - 降为历史参考说明，不再写“统一视觉真源”
+  - 已于 2026-07-02 清理删除
 - `docs/.DS_Store`
   - 删除
 - `docs/technical-analysis/.DS_Store`
-  - 删除
+  - 已随 `docs/technical-analysis/` 目录于 2026-07-02 清理删除
 - 清理原则：
   - 已失去唯一信息价值、只重复历史参考指向的说明文档可以删除。
   - 仍承载代码定位、历史审计、验收记录、字段定义的文档不删除。

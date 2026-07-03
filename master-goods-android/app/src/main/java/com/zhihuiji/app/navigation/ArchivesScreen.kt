@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import com.zhihuiji.core.designsystem.GlassBorder
 import com.zhihuiji.core.designsystem.GlassSurfaceHigh
 import com.zhihuiji.core.designsystem.GlassSurfaceMedium
+import com.zhihuiji.core.designsystem.GlassTopBar
 import com.zhihuiji.core.designsystem.LiquidGlassSurface
 import com.zhihuiji.core.designsystem.TextPrimary
 import com.zhihuiji.core.designsystem.TextSecondary
@@ -132,26 +133,10 @@ private fun ArchivesTopBar(
     onCreateClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    LiquidGlassSurface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(0.dp),
-        surfaceColor = GlassSurfaceMedium
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp)
-                .padding(start = 16.dp, end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "档案管理",
-                fontSize = 20.sp,
-                lineHeight = 28.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
-            )
+    GlassTopBar(
+        modifier = modifier,
+        title = "档案管理",
+        actions = {
             IconButton(
                 enabled = onCreateClick != null,
                 onClick = { onCreateClick?.invoke() },
@@ -163,8 +148,8 @@ private fun ArchivesTopBar(
                     modifier = Modifier.size(22.dp)
                 )
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable

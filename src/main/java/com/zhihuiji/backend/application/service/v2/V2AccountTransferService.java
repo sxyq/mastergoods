@@ -20,13 +20,16 @@ public class V2AccountTransferService {
     private final AccountTransferRepository accountTransferRepository;
     private final AccountRepository accountRepository;
     private final CurrentOwnerService currentOwnerService;
+    private final IdGenerator idGenerator;
 
     public V2AccountTransferService(AccountTransferRepository accountTransferRepository,
                                     AccountRepository accountRepository,
-                                    CurrentOwnerService currentOwnerService) {
+                                    CurrentOwnerService currentOwnerService,
+                                    IdGenerator idGenerator) {
         this.accountTransferRepository = accountTransferRepository;
         this.accountRepository = accountRepository;
         this.currentOwnerService = currentOwnerService;
+        this.idGenerator = idGenerator;
     }
 
     public List<V2FinanceDtos.AccountTransferResponse> list() {
@@ -92,7 +95,7 @@ public class V2AccountTransferService {
 
     private String generateTransferNo(Long ownerUserId) {
         for (int i = 0; i < 5; i++) {
-            String transferNo = "TF" + IdGenerator.nextId();
+            String transferNo = "TF" + idGenerator.nextId();
             if (!accountTransferRepository.existsByOwnerUserIdAndTransferNo(ownerUserId, transferNo)) {
                 return transferNo;
             }

@@ -21,17 +21,20 @@ public class PurchaseOrderService {
     private final PurchaseOrderItemRepository purchaseOrderItemRepository;
     private final ProductRepository productRepository;
     private final CurrentOwnerService currentOwnerService;
+    private final IdGenerator idGenerator;
 
     public PurchaseOrderService(
         PurchaseOrderRepository purchaseOrderRepository,
         PurchaseOrderItemRepository purchaseOrderItemRepository,
         ProductRepository productRepository,
-        CurrentOwnerService currentOwnerService
+        CurrentOwnerService currentOwnerService,
+        IdGenerator idGenerator
     ) {
         this.purchaseOrderRepository = purchaseOrderRepository;
         this.purchaseOrderItemRepository = purchaseOrderItemRepository;
         this.productRepository = productRepository;
         this.currentOwnerService = currentOwnerService;
+        this.idGenerator = idGenerator;
     }
 
     @Transactional
@@ -45,7 +48,7 @@ public class PurchaseOrderService {
             throw new IllegalArgumentException("采购明细不能为空");
         }
         long now = System.currentTimeMillis();
-        long orderId = IdGenerator.nextId();
+        long orderId = idGenerator.nextId();
         String orderNo = "PO" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
         double total = 0.0;
         int orderStatus = command.status() != null && command.status() == PurchaseOrderStatus.DRAFT.code()
@@ -72,7 +75,7 @@ public class PurchaseOrderService {
             }
 
             PurchaseOrderItemEntity entity = new PurchaseOrderItemEntity();
-            entity.setId(IdGenerator.nextId());
+            entity.setId(idGenerator.nextId());
             entity.setOwnerUserId(ownerUserId);
             entity.setOrderId(orderId);
             entity.setProductId(product.getId());
@@ -190,7 +193,7 @@ public class PurchaseOrderService {
             total += amount;
 
             PurchaseOrderItemEntity entity = new PurchaseOrderItemEntity();
-            entity.setId(IdGenerator.nextId());
+            entity.setId(idGenerator.nextId());
             entity.setOwnerUserId(ownerUserId);
             entity.setOrderId(orderId);
             entity.setProductId(product.getId());

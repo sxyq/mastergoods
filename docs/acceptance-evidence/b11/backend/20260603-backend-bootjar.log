@@ -1,8 +1,0 @@
-> Task :compileJava UP-TO-DATE
-> Task :processResources UP-TO-DATE
-> Task :classes UP-TO-DATE
-> Task :resolveMainClassName
-> Task :bootJar
-
-BUILD SUCCESSFUL in 1s
-4 actionable tasks: 2 executed, 2 up-to-date

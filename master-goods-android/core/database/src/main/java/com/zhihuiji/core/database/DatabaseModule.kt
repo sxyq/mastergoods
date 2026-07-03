@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.zhihuiji.core.database.migration.Migration4To5
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -85,7 +86,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): ZhihuijiDatabase {
         return Room.databaseBuilder(context, ZhihuijiDatabase::class.java, "zhihuiji.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, Migration4To5)
             .build()
     }
 
