@@ -15,6 +15,7 @@ import com.zhihuiji.backend.domain.entity.AgentRunAuditEntity;
 import com.zhihuiji.backend.domain.entity.AgentTaskEntity;
 import com.zhihuiji.backend.domain.entity.CustomerEntity;
 import com.zhihuiji.backend.domain.entity.FinanceRecordEntity;
+import com.zhihuiji.backend.domain.entity.MediaAssetEntity;
 import com.zhihuiji.backend.domain.entity.PayOrderEntity;
 import com.zhihuiji.backend.domain.entity.ProductEntity;
 import com.zhihuiji.backend.domain.entity.PurchaseOrderEntity;
@@ -30,12 +31,14 @@ import com.zhihuiji.backend.infrastructure.repository.AgentRunAuditRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentTaskRepository;
 import com.zhihuiji.backend.infrastructure.repository.CustomerRepository;
 import com.zhihuiji.backend.infrastructure.repository.FinanceRecordRepository;
+import com.zhihuiji.backend.infrastructure.repository.MediaAssetRepository;
 import com.zhihuiji.backend.infrastructure.repository.PayOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.PaymentRepository;
 import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
 import com.zhihuiji.backend.infrastructure.repository.PurchaseOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.SaleOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
+import com.zhihuiji.backend.infrastructure.storage.MediaStorageService;
 import com.zhihuiji.backend.application.service.v2.agent.component.AgentTypes.AgentToolPlan;
 import com.zhihuiji.backend.application.service.v2.agent.component.AgentTypes.FinalAnswer;
 import com.zhihuiji.backend.application.service.v2.agent.component.AgentTypes.ResponsePayload;
@@ -57,7 +60,9 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -98,6 +103,8 @@ public class V2AgentAiService {
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
     private final SupplierRepository supplierRepository;
+    private final MediaAssetRepository mediaAssetRepository;
+    private final MediaStorageService mediaStorageService;
     private final SaleOrderRepository saleOrderRepository;
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PayOrderRepository payOrderRepository;
@@ -125,6 +132,8 @@ public class V2AgentAiService {
         ProductRepository productRepository,
         CustomerRepository customerRepository,
         SupplierRepository supplierRepository,
+        MediaAssetRepository mediaAssetRepository,
+        MediaStorageService mediaStorageService,
         SaleOrderRepository saleOrderRepository,
         PurchaseOrderRepository purchaseOrderRepository,
         PayOrderRepository payOrderRepository,
@@ -150,6 +159,8 @@ public class V2AgentAiService {
         this.productRepository = productRepository;
         this.customerRepository = customerRepository;
         this.supplierRepository = supplierRepository;
+        this.mediaAssetRepository = mediaAssetRepository;
+        this.mediaStorageService = mediaStorageService;
         this.saleOrderRepository = saleOrderRepository;
         this.purchaseOrderRepository = purchaseOrderRepository;
         this.payOrderRepository = payOrderRepository;
@@ -239,8 +250,17 @@ public class V2AgentAiService {
         long now = System.currentTimeMillis();
         long runStartedAt = now;
         String message = normalizeRequired(request.message(), "message 不能为空");
+        List<LongCatAnthropicClient.ImageInput> imageInputs = resolveImageInputs(ownerUserId, request.imageAssetIds());
         AgentConversationEntity conversation = resolveConversation(request.conversationId(), ownerUserId, message, now);
-        saveMessage(ownerUserId, conversation.getId(), "user", "text", message, null, now);
+        saveMessage(
+            ownerUserId,
+            conversation.getId(),
+            "user",
+            "text",
+            buildStoredUserMessage(message, imageInputs.size()),
+            null,
+            now
+        );
 
         String runId = UUID.randomUUID().toString();
         runAuditService.createRunAudit(ownerUserId, conversation.getId(), runId, runStartedAt);
@@ -291,10 +311,22 @@ public class V2AgentAiService {
             );
         }
 
-        List<AgentMessageEntity> history = loadRecentHistory(ownerUserId, conversation.getId(), 10);
-        ResponsePayload payload = buildResponse(ownerUserId, message, history, conversation.getLatestSummary(), null, runId);
+        FinalAnswer finalAnswer;
+        ResponsePayload payload = new ResponsePayload(
+            "",
+            List.of(),
+            List.of(),
+            List.of(),
+            new AgentToolPlan(List.of(), "图片直接分析", "multimodal_direct", Map.of())
+        );
         long modelStartedAt = System.currentTimeMillis();
-        FinalAnswer finalAnswer = buildFinalAnswer(message, payload, history, conversation.getLatestSummary());
+        if (!imageInputs.isEmpty()) {
+            finalAnswer = buildMultimodalDirectAnswer(message, imageInputs);
+        } else {
+            List<AgentMessageEntity> history = loadRecentHistory(ownerUserId, conversation.getId(), 10);
+            payload = buildResponse(ownerUserId, message, history, conversation.getLatestSummary(), null, runId);
+            finalAnswer = buildFinalAnswer(message, payload, history, conversation.getLatestSummary());
+        }
         long completedAt = System.currentTimeMillis();
         long modelDurationMs = finalAnswer.modelAttempted()
             ? Math.max(0L, completedAt - modelStartedAt)
@@ -345,8 +377,17 @@ public class V2AgentAiService {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         long now = System.currentTimeMillis();
         String message = normalizeRequired(request.message(), "message 不能为空");
+        List<LongCatAnthropicClient.ImageInput> imageInputs = resolveImageInputs(ownerUserId, request.imageAssetIds());
         AgentConversationEntity conversation = resolveConversation(request.conversationId(), ownerUserId, message, now);
-        saveMessage(ownerUserId, conversation.getId(), "user", "text", message, null, now);
+        saveMessage(
+            ownerUserId,
+            conversation.getId(),
+            "user",
+            "text",
+            buildStoredUserMessage(message, imageInputs.size()),
+            null,
+            now
+        );
         String runId = UUID.randomUUID().toString();
         runAuditService.createRunAudit(ownerUserId, conversation.getId(), runId, now);
 
@@ -358,7 +399,7 @@ public class V2AgentAiService {
         emitter.onError(ignored -> runAuditService.removeRun(runId));
         CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
             try {
-                runChatStream(ownerUserId, conversation, message, runId, emitter);
+                runChatStream(ownerUserId, conversation, message, imageInputs, runId, emitter);
             } catch (RunAuditService.AgentRunCancelledException ignored) {
                 // cancelRun 已向客户端发送 run_cancelled；worker 负责收尾关闭 emitter。
                 activeRun.complete();
@@ -467,6 +508,7 @@ public class V2AgentAiService {
         Long ownerUserId,
         AgentConversationEntity conversation,
         String message,
+        List<LongCatAnthropicClient.ImageInput> imageInputs,
         String runId,
         SseEmitter emitter
     ) throws IOException {
@@ -536,25 +578,41 @@ public class V2AgentAiService {
                 "timestamp", System.currentTimeMillis()
             )));
             runAuditService.ensureRunActive(runId);
-            List<AgentMessageEntity> history = loadRecentHistory(ownerUserId, conversation.getId(), 10);
-            ResponsePayload payload = buildResponse(ownerUserId, message, history, conversation.getLatestSummary(), emitter, runId);
-            runAuditService.ensureRunActive(runId);
+            ResponsePayload payload;
+            FinalAnswer finalAnswer;
+            final ResponsePayload[] payloadRef = new ResponsePayload[1];
             AtomicBoolean blocksEmitted = new AtomicBoolean(false);
             Runnable emitBlocksAfterVisibleAnswer = () -> {
                 if (blocksEmitted.compareAndSet(false, true)) {
-                    sseStreamEmitter.emitBlocks(emitter, runId, payload.blocks());
+                    sseStreamEmitter.emitBlocks(emitter, runId, payloadRef[0].blocks());
                     runAuditService.ensureRunActive(runId);
                 }
             };
-            FinalAnswer finalAnswer = buildFinalAnswerForStream(
-                message,
-                payload,
-                emitter,
-                runId,
-                emitBlocksAfterVisibleAnswer,
-                history,
-                conversation.getLatestSummary()
-            );
+            if (!imageInputs.isEmpty()) {
+                payload = new ResponsePayload(
+                    "",
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    new AgentToolPlan(List.of(), "图片直接分析", "multimodal_direct", Map.of())
+                );
+                payloadRef[0] = payload;
+                finalAnswer = buildMultimodalDirectAnswerForStream(message, imageInputs, emitter, runId, emitBlocksAfterVisibleAnswer);
+            } else {
+                List<AgentMessageEntity> history = loadRecentHistory(ownerUserId, conversation.getId(), 10);
+                payload = buildResponse(ownerUserId, message, history, conversation.getLatestSummary(), emitter, runId);
+                payloadRef[0] = payload;
+                runAuditService.ensureRunActive(runId);
+                finalAnswer = buildFinalAnswerForStream(
+                    message,
+                    payload,
+                    emitter,
+                    runId,
+                    emitBlocksAfterVisibleAnswer,
+                    history,
+                    conversation.getLatestSummary()
+                );
+            }
             runAuditService.ensureRunActive(runId);
             sseStreamEmitter.emitAnswerCompleted(
                 emitter,
@@ -562,16 +620,16 @@ public class V2AgentAiService {
                 finalAnswer.answer(),
                 finalAnswer.mode(),
                 finalAnswer.llmStatus(),
-                payload.planSource()
+                payloadRef[0].planSource()
             );
             emitBlocksAfterVisibleAnswer.run();
-            persistAssistantResponse(ownerUserId, conversation, finalAnswer.answer(), payload.blocks(), System.currentTimeMillis());
+            persistAssistantResponse(ownerUserId, conversation, finalAnswer.answer(), payloadRef[0].blocks(), System.currentTimeMillis());
             sseStreamEmitter.sendEvent(emitter, SseStreamEmitter.eventMap("run_completed", mapOf(
                 "run_id", runId,
                 "final_answer", finalAnswer.answer(),
                 "mode", finalAnswer.mode(),
                 "llm_status", finalAnswer.llmStatus(),
-                "plan_source", payload.planSource(),
+                "plan_source", payloadRef[0].planSource(),
                 "audit_id", auditId,
                 "trace_id", traceId,
                 "observability", SseStreamEmitter.observabilityFor(runId, auditId, traceId),
@@ -583,8 +641,8 @@ public class V2AgentAiService {
                 "completed",
                 finalAnswer.mode(),
                 finalAnswer.llmStatus(),
-                payload.planSource(),
-                payload.toolResults().size(),
+                payloadRef[0].planSource(),
+                payloadRef[0].toolResults().size(),
                 null,
                 null,
                 System.currentTimeMillis()
@@ -1121,7 +1179,7 @@ public class V2AgentAiService {
     }
 
     private FinalAnswer buildFinalAnswer(String userMessage, ResponsePayload payload,
-                                          List<AgentMessageEntity> history, String conversationSummary) {
+                                         List<AgentMessageEntity> history, String conversationSummary) {
         return answerSynthesizer.buildFinalAnswer(userMessage, payload, history, conversationSummary);
     }
 
@@ -1135,6 +1193,82 @@ public class V2AgentAiService {
         String conversationSummary
     ) {
         return answerSynthesizer.buildFinalAnswerForStream(userMessage, payload, emitter, runId, onFirstModelDelta, history, conversationSummary);
+    }
+
+    private FinalAnswer buildMultimodalDirectAnswer(
+        String userMessage,
+        List<LongCatAnthropicClient.ImageInput> imageInputs
+    ) {
+        if (!longCatAnthropicClient.isConfigured()) {
+            return new FinalAnswer("当前 AI 模型未配置，暂时无法分析图片。", "multimodal_direct_unavailable", longCatAnthropicClient.configurationStatus(), false);
+        }
+        String systemPrompt = """
+            你是智慧记 AI 助手。当前用户上传了图片。
+            先基于图片给出可见事实，再结合用户文字回答。
+            看不清或信息不足时要明确说明，不要把图片内容伪装成系统真实业务数据。
+            """.trim();
+        Optional<String> answer = longCatAnthropicClient.createJsonMessage(systemPrompt, userMessage, imageInputs);
+        return answer
+            .filter(StringUtils::hasText)
+            .map(String::trim)
+            .map(value -> new FinalAnswer(value, "multimodal_direct_llm", "available", true))
+            .orElseGet(() -> new FinalAnswer("我收到了图片，但这次没有得到稳定的模型结果，请重试一次。", "multimodal_direct_failed", "failed_or_empty", true));
+    }
+
+    private FinalAnswer buildMultimodalDirectAnswerForStream(
+        String userMessage,
+        List<LongCatAnthropicClient.ImageInput> imageInputs,
+        SseEmitter emitter,
+        String runId,
+        Runnable onFirstVisibleDelta
+    ) {
+        if (!longCatAnthropicClient.isConfigured()) {
+            String answer = "当前 AI 模型未配置，暂时无法分析图片。";
+            answerSynthesizer.emitDeterministicAnswerDeltas(emitter, runId, answer, "rule_summary", onFirstVisibleDelta);
+            return new FinalAnswer(answer, "multimodal_direct_unavailable", longCatAnthropicClient.configurationStatus(), false);
+        }
+        String systemPrompt = """
+            你是智慧记 AI 助手。当前用户上传了图片。
+            先基于图片给出可见事实，再结合用户文字回答。
+            看不清或信息不足时要明确说明，不要把图片内容伪装成系统真实业务数据。
+            """.trim();
+        StringBuilder streamedAnswer = new StringBuilder();
+        SseStreamEmitter.AnswerDeltaBatcher answerDeltaBatcher = sseStreamEmitter.newAnswerDeltaBatcher(emitter, runId);
+        Optional<String> streamed = longCatAnthropicClient.streamTextMessage(
+            systemPrompt,
+            userMessage,
+            imageInputs,
+            runId,
+            delta -> {
+                runAuditService.ensureRunActive(runId);
+                streamedAnswer.append(delta);
+                boolean emittedVisibleDelta = answerDeltaBatcher.accept(delta, "model_stream");
+                if (emittedVisibleDelta) {
+                    onFirstVisibleDelta.run();
+                }
+            }
+        );
+        answerDeltaBatcher.flush();
+        return streamed
+            .filter(StringUtils::hasText)
+            .map(String::trim)
+            .map(answer -> new FinalAnswer(
+                answerSynthesizer.emitServerNoticeTailIfNeeded(emitter, runId, streamedAnswer.toString(), answer),
+                "multimodal_direct_streamed",
+                "streaming",
+                true
+            ))
+            .orElseGet(() -> {
+                Optional<String> fallback = longCatAnthropicClient.createJsonMessage(systemPrompt, userMessage, imageInputs);
+                if (fallback.isPresent() && StringUtils.hasText(fallback.get())) {
+                    String answer = fallback.get().trim();
+                    answerSynthesizer.emitDeterministicAnswerDeltas(emitter, runId, answer, "server_notice", onFirstVisibleDelta);
+                    return new FinalAnswer(answer, "multimodal_direct_llm", "non_stream_fallback", true);
+                }
+                String answer = "我收到了图片，但这次没有得到稳定的模型结果，请重试一次。";
+                answerSynthesizer.emitDeterministicAnswerDeltas(emitter, runId, answer, "rule_summary", onFirstVisibleDelta);
+                return new FinalAnswer(answer, "multimodal_direct_failed", "failed_or_empty", true);
+            });
     }
 
     private List<AgentMessageEntity> loadRecentHistory(Long ownerUserId, Long conversationId, int limit) {
@@ -1474,6 +1608,44 @@ public class V2AgentAiService {
         entity.setStructuredDataJson(structuredDataJson);
         entity.setCreatedAt(createdAt);
         return agentMessageRepository.save(entity);
+    }
+
+    private String buildStoredUserMessage(String message, int imageCount) {
+        if (imageCount <= 0) {
+            return message;
+        }
+        return message + "\n\n[已附带图片 " + imageCount + " 张]";
+    }
+
+    private List<LongCatAnthropicClient.ImageInput> resolveImageInputs(Long ownerUserId, List<Long> imageAssetIds) {
+        if (imageAssetIds == null || imageAssetIds.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<Long> normalizedIds = new LinkedHashSet<>();
+        for (Long imageAssetId : imageAssetIds) {
+            if (imageAssetId != null && imageAssetId > 0L) {
+                normalizedIds.add(imageAssetId);
+            }
+        }
+        if (normalizedIds.isEmpty()) {
+            return List.of();
+        }
+        List<LongCatAnthropicClient.ImageInput> imageInputs = new ArrayList<>(normalizedIds.size());
+        for (Long imageAssetId : normalizedIds) {
+            MediaAssetEntity asset = mediaAssetRepository.findByIdAndOwnerUserId(imageAssetId, ownerUserId)
+                .orElseThrow(() -> new IllegalArgumentException("图片资源不存在: " + imageAssetId));
+            if (!StringUtils.hasText(asset.getMimeType()) || !asset.getMimeType().startsWith("image/")) {
+                throw new IllegalArgumentException("仅支持图片附件: " + imageAssetId);
+            }
+            try {
+                byte[] bytes = mediaStorageService.load(asset.getObjectKey());
+                String dataUrl = "data:" + asset.getMimeType() + ";base64," + Base64.getEncoder().encodeToString(bytes);
+                imageInputs.add(new LongCatAnthropicClient.ImageInput(asset.getMimeType(), dataUrl));
+            } catch (Exception ex) {
+                throw new IllegalStateException("读取图片附件失败: " + imageAssetId, ex);
+            }
+        }
+        return imageInputs;
     }
 
     private String serializeBlocks(List<V2AgentDtos.ResultBlockDto> blocks) {

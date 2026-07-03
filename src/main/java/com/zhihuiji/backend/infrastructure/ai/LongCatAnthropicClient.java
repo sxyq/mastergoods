@@ -115,13 +115,17 @@ public class LongCatAnthropicClient {
     private static final long INITIAL_BACKOFF_MS = 1000L;
 
     public Optional<String> createJsonMessage(String systemPrompt, String userPrompt) {
+        return createJsonMessage(systemPrompt, userPrompt, List.of());
+    }
+
+    public Optional<String> createJsonMessage(String systemPrompt, String userPrompt, List<ImageInput> imageInputs) {
         if (!isConfigured()) {
             return Optional.empty();
         }
         Exception lastException = null;
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
-                Optional<String> result = doCreateJsonMessage(systemPrompt, userPrompt);
+                Optional<String> result = doCreateJsonMessage(systemPrompt, userPrompt, imageInputs);
                 if (result.isPresent()) return result;
                 lastException = null;
             } catch (Exception ex) {
@@ -139,15 +143,15 @@ public class LongCatAnthropicClient {
         return Optional.empty();
     }
 
-    private Optional<String> doCreateJsonMessage(String systemPrompt, String userPrompt) {
+    private Optional<String> doCreateJsonMessage(String systemPrompt, String userPrompt, List<ImageInput> imageInputs) {
         if ("responses".equalsIgnoreCase(wireApi)) {
-            return doCreateResponsesMessage(systemPrompt, userPrompt);
+            return doCreateResponsesMessage(systemPrompt, userPrompt, imageInputs);
         }
         if ("chat_completions".equalsIgnoreCase(wireApi)) {
-            return doCreateChatCompletionsMessage(systemPrompt, userPrompt);
+            return doCreateChatCompletionsMessage(systemPrompt, userPrompt, imageInputs);
         }
         AnthropicResponse response = restClient.post()
-            .uri("v1/messages")
+            .uri(endpointUri("v1/messages"))
             .contentType(MediaType.APPLICATION_JSON)
             .body(new AnthropicRequest(
                 properties.getModel(),
@@ -156,7 +160,7 @@ public class LongCatAnthropicClient {
                 properties.isEnableThinking() && properties.getModel().contains("Thinking"),
                 properties.getThinkingBudget(),
                 systemPrompt,
-                List.of(new Message("user", userPrompt)),
+                List.of(new Message("user", anthropicMessageContent(userPrompt, imageInputs))),
                 null
             ))
             .retrieve()
@@ -229,7 +233,7 @@ public class LongCatAnthropicClient {
         }
         try {
             AnthropicResponse response = restClient.post()
-                .uri("v1/messages")
+                .uri(endpointUri("v1/messages"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new AnthropicRequest(
                     properties.getModel(),
@@ -238,7 +242,7 @@ public class LongCatAnthropicClient {
                     properties.isEnableThinking() && properties.getModel().contains("Thinking"),
                     properties.getThinkingBudget(),
                     systemPrompt,
-                    List.of(new Message("user", userPrompt)),
+                    List.of(new Message("user", anthropicMessageContent(userPrompt, List.of()))),
                     tools
                 ))
                 .retrieve()
@@ -287,14 +291,13 @@ public class LongCatAnthropicClient {
         List<ToolDefinition> tools
     ) {
         try {
-            ChatCompletionsResponse response = restClient.post()
-                .uri("chat/completions")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(new ChatCompletionsToolRequest(
+            ChatCompletionsResponse response = postJsonForValue(
+                "chat/completions",
+                new ChatCompletionsToolRequest(
                     properties.getModel(),
                     List.of(
                         new ChatMessage("system", systemPrompt),
-                        new ChatMessage("user", userPrompt)
+                        new ChatMessage("user", chatMessageContent(userPrompt, List.of()))
                     ),
                     properties.getTemperature(),
                     properties.getMaxTokens(),
@@ -309,9 +312,9 @@ public class LongCatAnthropicClient {
                         ))
                         .toList(),
                     "auto"
-                ))
-                .retrieve()
-                .body(ChatCompletionsResponse.class);
+                ),
+                ChatCompletionsResponse.class
+            );
             if (response == null || response.choices() == null) {
                 return Optional.empty();
             }
@@ -369,15 +372,14 @@ public class LongCatAnthropicClient {
         List<ToolDefinition> tools
     ) {
         try {
-            ResponsesResponse response = restClient.post()
-                .uri("responses")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(new ResponsesToolRequest(
-                    properties.getModel(),
-                    systemPrompt,
-                    List.of(new ResponseMessage("user", List.of(new ResponseContent("input_text", userPrompt)))),
-                    properties.getTemperature(),
-                    properties.getMaxTokens(),
+            ResponsesResponse response = postJsonForValue(
+                "responses",
+                new ResponsesToolRequest(
+                properties.getModel(),
+                systemPrompt,
+                List.of(new ResponseMessage("user", responsesContent(userPrompt, List.of()))),
+                properties.getTemperature(),
+                properties.getMaxTokens(),
                     tools.stream()
                         .map(tool -> new ResponsesToolDefinition(
                             "function",
@@ -387,9 +389,9 @@ public class LongCatAnthropicClient {
                             true
                         ))
                         .toList()
-                ))
-                .retrieve()
-                .body(ResponsesResponse.class);
+                ),
+                ResponsesResponse.class
+            );
             if (response == null) {
                 return Optional.empty();
             }
@@ -414,14 +416,24 @@ public class LongCatAnthropicClient {
                 }
             }
             if (toolUses.isEmpty() && textBuilder.length() == 0) {
-                return Optional.empty();
+                return fallbackResponsesToolUseToChatCompletions(systemPrompt, userPrompt, tools, "empty_response");
             }
             String text = textBuilder.length() > 0 ? textBuilder.toString() : null;
             return Optional.of(new ToolUseResponse(toolUses, text));
         } catch (Exception ex) {
             log.warn("LongCat agent responses createMessageWithTools failed: {}", ex.getMessage());
-            return Optional.empty();
+            return fallbackResponsesToolUseToChatCompletions(systemPrompt, userPrompt, tools, ex.getClass().getSimpleName());
         }
+    }
+
+    private Optional<ToolUseResponse> fallbackResponsesToolUseToChatCompletions(
+        String systemPrompt,
+        String userPrompt,
+        List<ToolDefinition> tools,
+        String reason
+    ) {
+        log.info("LongCat agent falling back from responses tool calling to chat_completions, reason={}", reason);
+        return doCreateChatCompletionsMessageWithTools(systemPrompt, userPrompt, tools);
     }
 
     private void appendResponsesText(ResponseOutputItem item, StringBuilder textBuilder) {
@@ -458,6 +470,8 @@ public class LongCatAnthropicClient {
     /** 模型返回的单个 tool_use block。 */
     public record ToolUseBlock(String id, String name, JsonNode input) {}
 
+    public record ImageInput(String mimeType, String dataUrl) {}
+
     /** createMessageWithTools 的响应：tool_use 列表 + 可选辅助文本。 */
     public record ToolUseResponse(List<ToolUseBlock> toolUses, String text) {
 
@@ -467,19 +481,18 @@ public class LongCatAnthropicClient {
         }
     }
 
-    private Optional<String> doCreateResponsesMessage(String systemPrompt, String userPrompt) {
-        ResponsesResponse response = restClient.post()
-            .uri("responses")
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(new ResponsesRequest(
+    private Optional<String> doCreateResponsesMessage(String systemPrompt, String userPrompt, List<ImageInput> imageInputs) {
+        ResponsesResponse response = postJsonForValue(
+            "responses",
+            new ResponsesRequest(
                 properties.getModel(),
                 systemPrompt,
-                List.of(new ResponseMessage("user", List.of(new ResponseContent("input_text", userPrompt)))),
+                List.of(new ResponseMessage("user", responsesContent(userPrompt, imageInputs))),
                 properties.getTemperature(),
                 properties.getMaxTokens()
-            ))
-            .retrieve()
-            .body(ResponsesResponse.class);
+            ),
+            ResponsesResponse.class
+        );
         if (response == null) {
             return Optional.empty();
         }
@@ -507,21 +520,20 @@ public class LongCatAnthropicClient {
         return textBuilder.length() > 0 ? Optional.of(textBuilder.toString()) : Optional.empty();
     }
 
-    private Optional<String> doCreateChatCompletionsMessage(String systemPrompt, String userPrompt) {
-        ChatCompletionsResponse response = restClient.post()
-            .uri("chat/completions")
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(new ChatCompletionsRequest(
+    private Optional<String> doCreateChatCompletionsMessage(String systemPrompt, String userPrompt, List<ImageInput> imageInputs) {
+        ChatCompletionsResponse response = postJsonForValue(
+            "chat/completions",
+            new ChatCompletionsRequest(
                 properties.getModel(),
                 List.of(
                     new ChatMessage("system", systemPrompt),
-                    new ChatMessage("user", userPrompt)
+                    new ChatMessage("user", chatMessageContent(userPrompt, imageInputs))
                 ),
                 properties.getTemperature(),
                 properties.getMaxTokens()
-            ))
-            .retrieve()
-            .body(ChatCompletionsResponse.class);
+            ),
+            ChatCompletionsResponse.class
+        );
         if (response == null || response.choices() == null) {
             return Optional.empty();
         }
@@ -543,9 +555,47 @@ public class LongCatAnthropicClient {
         return text;
     }
 
+    private <T> T postJsonForValue(String uri, Object requestBody, Class<T> responseType) {
+        String responseBody = restClient.post()
+            .uri(endpointUri(uri))
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(requestBody)
+            .retrieve()
+            .body(String.class);
+        if (!StringUtils.hasText(responseBody)) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(responseBody, responseType);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to parse provider JSON response from " + uri + ": " + ex.getMessage(), ex);
+        }
+    }
+
+    private String endpointUri(String uri) {
+        if (!StringUtils.hasText(uri)) {
+            return normalizedBaseUrl;
+        }
+        if (uri.startsWith("http://") || uri.startsWith("https://")) {
+            return uri;
+        }
+        String path = uri.startsWith("/") ? uri.substring(1) : uri;
+        return normalizedBaseUrl + "/" + path;
+    }
+
     public Optional<String> streamTextMessage(
         String systemPrompt,
         String userPrompt,
+        String runId,
+        Consumer<String> onDelta
+    ) {
+        return streamTextMessage(systemPrompt, userPrompt, List.of(), runId, onDelta);
+    }
+
+    public Optional<String> streamTextMessage(
+        String systemPrompt,
+        String userPrompt,
+        List<ImageInput> imageInputs,
         String runId,
         Consumer<String> onDelta
     ) {
@@ -554,13 +604,13 @@ public class LongCatAnthropicClient {
         }
         try {
             if ("responses".equalsIgnoreCase(wireApi)) {
-                return doStreamResponsesMessage(systemPrompt, userPrompt, runId, onDelta);
+                return doStreamResponsesMessage(systemPrompt, userPrompt, imageInputs, runId, onDelta);
             }
             if ("chat_completions".equalsIgnoreCase(wireApi)) {
-                return doStreamChatCompletionsMessage(systemPrompt, userPrompt, runId, onDelta);
+                return doStreamChatCompletionsMessage(systemPrompt, userPrompt, imageInputs, runId, onDelta);
             }
             if (supportsAnthropicMessagesApi()) {
-                return doStreamAnthropicMessage(systemPrompt, userPrompt, runId, onDelta);
+                return doStreamAnthropicMessage(systemPrompt, userPrompt, imageInputs, runId, onDelta);
             }
             return Optional.empty();
         } catch (Exception ex) {
@@ -594,6 +644,7 @@ public class LongCatAnthropicClient {
     private Optional<String> doStreamChatCompletionsMessage(
         String systemPrompt,
         String userPrompt,
+        List<ImageInput> imageInputs,
         String runId,
         Consumer<String> onDelta
     ) throws Exception {
@@ -601,7 +652,7 @@ public class LongCatAnthropicClient {
             "model", properties.getModel(),
             "messages", List.of(
                 Map.of("role", "system", "content", systemPrompt),
-                Map.of("role", "user", "content", userPrompt)
+                Map.of("role", "user", "content", chatMessageContent(userPrompt, imageInputs))
             ),
             "temperature", properties.getTemperature(),
             "max_tokens", properties.getMaxTokens(),
@@ -659,6 +710,7 @@ public class LongCatAnthropicClient {
     private Optional<String> doStreamResponsesMessage(
         String systemPrompt,
         String userPrompt,
+        List<ImageInput> imageInputs,
         String runId,
         Consumer<String> onDelta
     ) throws Exception {
@@ -667,7 +719,7 @@ public class LongCatAnthropicClient {
             "instructions", systemPrompt,
             "input", List.of(Map.of(
                 "role", "user",
-                "content", List.of(Map.of("type", "input_text", "text", userPrompt))
+                "content", responsesContent(userPrompt, imageInputs)
             )),
             "temperature", properties.getTemperature(),
             "max_output_tokens", properties.getMaxTokens(),
@@ -685,6 +737,7 @@ public class LongCatAnthropicClient {
     private Optional<String> doStreamAnthropicMessage(
         String systemPrompt,
         String userPrompt,
+        List<ImageInput> imageInputs,
         String runId,
         Consumer<String> onDelta
     ) throws Exception {
@@ -695,7 +748,7 @@ public class LongCatAnthropicClient {
             properties.isEnableThinking() && properties.getModel().contains("Thinking"),
             properties.getThinkingBudget(),
             systemPrompt,
-            List.of(new Message("user", userPrompt)),
+            List.of(new Message("user", anthropicMessageContent(userPrompt, imageInputs))),
             true
         ));
         return doStreamRequest(
@@ -834,6 +887,61 @@ public class LongCatAnthropicClient {
         }
     }
 
+    private Object chatMessageContent(String userPrompt, List<ImageInput> imageInputs) {
+        if (imageInputs == null || imageInputs.isEmpty()) {
+            return userPrompt;
+        }
+        List<ChatContentPart> content = new ArrayList<>();
+        content.add(new ChatContentPart("text", userPrompt, null));
+        for (ImageInput imageInput : imageInputs) {
+            if (imageInput == null || !StringUtils.hasText(imageInput.dataUrl())) {
+                continue;
+            }
+            content.add(new ChatContentPart("image_url", null, new OpenAiImageUrl(imageInput.dataUrl())));
+        }
+        return content;
+    }
+
+    private List<ResponseContent> responsesContent(String userPrompt, List<ImageInput> imageInputs) {
+        List<ResponseContent> content = new ArrayList<>();
+        content.add(new ResponseContent("input_text", userPrompt, null));
+        if (imageInputs == null) {
+            return content;
+        }
+        for (ImageInput imageInput : imageInputs) {
+            if (imageInput == null || !StringUtils.hasText(imageInput.dataUrl())) {
+                continue;
+            }
+            content.add(new ResponseContent("input_image", null, imageInput.dataUrl()));
+        }
+        return content;
+    }
+
+    private List<AnthropicContentPart> anthropicMessageContent(String userPrompt, List<ImageInput> imageInputs) {
+        List<AnthropicContentPart> content = new ArrayList<>();
+        content.add(new AnthropicContentPart("text", userPrompt, null));
+        if (imageInputs == null) {
+            return content;
+        }
+        for (ImageInput imageInput : imageInputs) {
+            if (imageInput == null
+                || !StringUtils.hasText(imageInput.dataUrl())
+                || !StringUtils.hasText(imageInput.mimeType())) {
+                continue;
+            }
+            int commaIndex = imageInput.dataUrl().indexOf(',');
+            if (commaIndex < 0 || commaIndex >= imageInput.dataUrl().length() - 1) {
+                continue;
+            }
+            content.add(new AnthropicContentPart(
+                "image",
+                null,
+                new AnthropicImageSource("base64", imageInput.mimeType(), imageInput.dataUrl().substring(commaIndex + 1))
+            ));
+        }
+        return content;
+    }
+
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private record AnthropicRequest(
         String model,
@@ -858,7 +966,14 @@ public class LongCatAnthropicClient {
         boolean stream
     ) {}
 
-    private record Message(String role, String content) {}
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private record Message(String role, Object content) {}
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private record AnthropicContentPart(String type, String text, AnthropicImageSource source) {}
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private record AnthropicImageSource(String type, String media_type, String data) {}
 
     private record ChatCompletionsRequest(
         String model,
@@ -876,7 +991,14 @@ public class LongCatAnthropicClient {
         String tool_choice
     ) {}
 
-    private record ChatMessage(String role, String content) {}
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private record ChatMessage(String role, Object content) {}
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private record ChatContentPart(String type, String text, OpenAiImageUrl image_url) {}
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private record OpenAiImageUrl(String url) {}
 
     private record ChatCompletionsTool(String type, ChatCompletionsFunctionDefinition function) {}
 
@@ -905,7 +1027,8 @@ public class LongCatAnthropicClient {
 
     private record ResponseMessage(String role, List<ResponseContent> content) {}
 
-    private record ResponseContent(String type, String text) {}
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private record ResponseContent(String type, String text, String image_url) {}
 
     private record ResponsesToolDefinition(
         String type,

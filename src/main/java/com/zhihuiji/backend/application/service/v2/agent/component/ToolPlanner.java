@@ -121,6 +121,18 @@ public class ToolPlanner {
         if (nativePlan.isPresent()) {
             return nativePlan;
         }
+        AgentToolPlan hintedPlan = inferToolPlan(message, history, conversationSummary);
+        if (!hintedPlan.tools().isEmpty()) {
+            Optional<AgentToolPlan> narrowedNativePlan = planToolsWithNativeFunctionCalling(
+                message,
+                history,
+                conversationSummary,
+                hintedPlan.tools()
+            );
+            if (narrowedNativePlan.isPresent()) {
+                return narrowedNativePlan;
+            }
+        }
         // 降级路径：prompt + JSON 解析（兼容 Chat Completions / Responses API 及不支持 tool_use 的模型）
         // 工具清单优先从注册表动态生成；注册表为空时降级为旧硬编码白名单（渐进式迁移兼容）
         String toolCatalog = toolRegistry.buildToolCatalogForLlm();
@@ -192,6 +204,32 @@ public class ToolPlanner {
         String planningMessage = formatHistoryContext(history) + "用户问题：" + message;
         Optional<LongCatAnthropicClient.ToolUseResponse> response =
             longCatAnthropicClient.createMessageWithTools(systemPrompt, planningMessage, nativeTools);
+        return toNativeToolPlan(response);
+    }
+
+    public Optional<AgentToolPlan> planToolsWithNativeFunctionCalling(
+        String message,
+        List<AgentMessageEntity> history,
+        String conversationSummary,
+        List<String> candidateToolNames
+    ) {
+        List<LongCatAnthropicClient.ToolDefinition> nativeTools = buildNativeToolDefinitions(candidateToolNames);
+        if (nativeTools.isEmpty()) {
+            return Optional.empty();
+        }
+        String summaryContext = StringUtils.hasText(conversationSummary)
+            ? "\n当前会话摘要：" + conversationSummary
+            : "";
+        String systemPrompt = "你是智慧记的工具规划器。根据用户问题从给定候选工具中选择最相关的工具。\n"
+            + "不要输出自然语言解释，优先直接返回原生工具调用。最多选择 3 个工具。"
+            + summaryContext;
+        String planningMessage = formatHistoryContext(history) + "用户问题：" + message;
+        Optional<LongCatAnthropicClient.ToolUseResponse> response =
+            longCatAnthropicClient.createMessageWithTools(systemPrompt, planningMessage, nativeTools);
+        return toNativeToolPlan(response);
+    }
+
+    private Optional<AgentToolPlan> toNativeToolPlan(Optional<LongCatAnthropicClient.ToolUseResponse> response) {
         if (response.isEmpty() || !response.get().hasToolUses()) {
             return Optional.empty();
         }
@@ -243,6 +281,21 @@ public class ToolPlanner {
                 tool.description(),
                 inputSchema
             ));
+        }
+        return nativeTools;
+    }
+
+    public List<LongCatAnthropicClient.ToolDefinition> buildNativeToolDefinitions(List<String> candidateToolNames) {
+        if (candidateToolNames == null || candidateToolNames.isEmpty()) {
+            return buildNativeToolDefinitions();
+        }
+        List<LongCatAnthropicClient.ToolDefinition> nativeTools = new ArrayList<>();
+        for (String toolName : candidateToolNames) {
+            toolRegistry.getTool(toolName).ifPresent(tool -> nativeTools.add(new LongCatAnthropicClient.ToolDefinition(
+                tool.name(),
+                tool.description(),
+                convertSchemaToMap(tool.parameterSchema())
+            )));
         }
         return nativeTools;
     }

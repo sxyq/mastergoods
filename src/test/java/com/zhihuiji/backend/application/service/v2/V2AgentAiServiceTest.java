@@ -28,6 +28,7 @@ import com.zhihuiji.backend.domain.entity.AccountTransferEntity;
 import com.zhihuiji.backend.domain.entity.CashChangeRecordEntity;
 import com.zhihuiji.backend.domain.entity.FinanceRecordEntity;
 import com.zhihuiji.backend.domain.entity.InventoryMonthlyStatsEntity;
+import com.zhihuiji.backend.domain.entity.MediaAssetEntity;
 import com.zhihuiji.backend.domain.entity.PaymentEntity;
 import com.zhihuiji.backend.domain.entity.ProductEntity;
 import com.zhihuiji.backend.domain.entity.PurchaseOrderEntity;
@@ -78,6 +79,7 @@ import com.zhihuiji.backend.infrastructure.repository.CashChangeRecordRepository
 import com.zhihuiji.backend.infrastructure.repository.CustomerRepository;
 import com.zhihuiji.backend.infrastructure.repository.FinanceRecordRepository;
 import com.zhihuiji.backend.infrastructure.repository.InventoryMonthlyStatsRepository;
+import com.zhihuiji.backend.infrastructure.repository.MediaAssetRepository;
 import com.zhihuiji.backend.infrastructure.repository.PayOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.PaymentRepository;
 import com.zhihuiji.backend.infrastructure.repository.ProductRepository;
@@ -88,6 +90,7 @@ import com.zhihuiji.backend.infrastructure.repository.SaleOrderItemRepository;
 import com.zhihuiji.backend.infrastructure.repository.SaleOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.SalesReturnRepository;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
+import com.zhihuiji.backend.infrastructure.storage.MediaStorageService;
 import java.lang.reflect.Field;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -130,6 +133,8 @@ class V2AgentAiServiceTest {
     @Mock private ProductRepository productRepository;
     @Mock private CustomerRepository customerRepository;
     @Mock private SupplierRepository supplierRepository;
+    @Mock private MediaAssetRepository mediaAssetRepository;
+    @Mock private MediaStorageService mediaStorageService;
     @Mock private SaleOrderRepository saleOrderRepository;
     @Mock private PurchaseOrderRepository purchaseOrderRepository;
     @Mock private PayOrderRepository payOrderRepository;
@@ -203,6 +208,8 @@ class V2AgentAiServiceTest {
             productRepository,
             customerRepository,
             supplierRepository,
+            mediaAssetRepository,
+            mediaStorageService,
             saleOrderRepository,
             purchaseOrderRepository,
             payOrderRepository,
@@ -289,6 +296,27 @@ class V2AgentAiServiceTest {
     }
 
     @Test
+    void chatWithImageAttachmentsUsesMultimodalDirectAnswerPath() throws Exception {
+        MediaAssetEntity imageAsset = new MediaAssetEntity();
+        imageAsset.setOwnerUserId(1L);
+        imageAsset.setMimeType("image/png");
+        imageAsset.setObjectKey("media/agent-image.png");
+        when(mediaAssetRepository.findByIdAndOwnerUserId(9L, 1L)).thenReturn(Optional.of(imageAsset));
+        when(mediaStorageService.load("media/agent-image.png")).thenReturn("fake-image".getBytes());
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.createJsonMessage(anyString(), anyString(), org.mockito.ArgumentMatchers.anyList()))
+            .thenReturn(Optional.of("图片里是一张商品标签"));
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "帮我看看这张图", false, List.of(9L))
+        );
+
+        assertEquals("图片里是一张商品标签", response.answer());
+        assertEquals("multimodal_direct_llm", response.mode());
+        verify(longCatAnthropicClient).createJsonMessage(anyString(), anyString(), org.mockito.ArgumentMatchers.anyList());
+    }
+
+    @Test
     void emptySupplierPayableResultDoesNotEmitInvalidBarChart() {
         when(supplierRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of());
@@ -359,7 +387,7 @@ class V2AgentAiServiceTest {
         CapturingEmitter emitter = new CapturingEmitter();
         AgentConversationEntity conversation = conversation(101L);
 
-        service.runChatStream(1L, conversation, "客户应收情况", "run-test", emitter);
+        service.runChatStream(1L, conversation, "客户应收情况", List.of(), "run-test", emitter);
 
         List<String> deltaPayloads = answerDeltaPayloads(emitter);
         assertFalse(deltaPayloads.isEmpty(), String.join("\n", emitter.payloads));
@@ -382,7 +410,7 @@ class V2AgentAiServiceTest {
         CapturingEmitter emitter = new CapturingEmitter();
         AgentConversationEntity conversation = conversation(102L);
 
-        service.runChatStream(1L, conversation, "客户应收情况", "run-disabled", emitter);
+        service.runChatStream(1L, conversation, "客户应收情况", List.of(), "run-disabled", emitter);
 
         List<String> deltaPayloads = answerDeltaPayloads(emitter);
         assertFalse(deltaPayloads.isEmpty(), String.join("\n", emitter.payloads));
@@ -417,7 +445,7 @@ class V2AgentAiServiceTest {
         CapturingEmitter emitter = new CapturingEmitter();
         AgentConversationEntity conversation = conversation(104L);
 
-        service.runChatStream(1L, conversation, "客户应收情况", "run-model-stream", emitter);
+        service.runChatStream(1L, conversation, "客户应收情况", List.of(), "run-model-stream", emitter);
 
         List<String> deltaPayloads = emitter.payloads.stream()
             .filter(payload -> payload.contains("\"event_type\":\"answer_delta\""))
@@ -472,7 +500,7 @@ class V2AgentAiServiceTest {
             });
         CapturingEmitter emitter = new CapturingEmitter();
 
-        service.runChatStream(1L, conversation(112L), "客户应收情况", "run-model-batch", emitter);
+        service.runChatStream(1L, conversation(112L), "客户应收情况", List.of(), "run-model-batch", emitter);
 
         List<String> modelDeltaPayloads = emitter.payloads.stream()
             .filter(payload -> payload.contains("\"event_type\":\"answer_delta\""))
@@ -505,7 +533,7 @@ class V2AgentAiServiceTest {
             });
         CapturingEmitter emitter = new CapturingEmitter();
 
-        service.runChatStream(1L, conversation(111L), "客户应收情况", "run-stream-interrupted", emitter);
+        service.runChatStream(1L, conversation(111L), "客户应收情况", List.of(), "run-stream-interrupted", emitter);
 
         String answerDelta = firstPayload(emitter, "\"event_type\":\"answer_delta\"");
         assertTrue(answerDelta.contains("\"delta_source\":\"model_stream\""), answerDelta);
@@ -551,7 +579,7 @@ class V2AgentAiServiceTest {
             });
         CapturingEmitter emitter = new CapturingEmitter();
 
-        service.runChatStream(1L, conversation(110L), "客户应收情况", "run-server-notice", emitter);
+        service.runChatStream(1L, conversation(110L), "客户应收情况", List.of(), "run-server-notice", emitter);
 
         String modelDelta = firstPayload(emitter, "\"delta_source\":\"model_stream\"");
         String serverNotice = firstPayload(emitter, "\"delta_source\":\"server_notice\"");
@@ -580,7 +608,7 @@ class V2AgentAiServiceTest {
         CapturingEmitter emitter = new CapturingEmitter();
         AgentConversationEntity conversation = conversation(103L);
 
-        service.runChatStream(1L, conversation, "客户应收情况", "run-audit", emitter);
+        service.runChatStream(1L, conversation, "客户应收情况", List.of(), "run-audit", emitter);
 
         String completedPayload = emitter.payloads.stream()
             .filter(payload -> payload.contains("\"event_type\":\"tool_completed\""))
@@ -611,7 +639,7 @@ class V2AgentAiServiceTest {
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         CapturingEmitter emitter = new CapturingEmitter();
 
-        service.runChatStream(1L, conversation(109L), "库存和客户应收情况", "run-multi-blocks", emitter);
+        service.runChatStream(1L, conversation(109L), "库存和客户应收情况", List.of(), "run-multi-blocks", emitter);
 
         int inventoryCompleted = firstPayloadIndexContaining(
             emitter,
@@ -647,7 +675,7 @@ class V2AgentAiServiceTest {
             .thenThrow(new IllegalStateException("database timeout"));
         CapturingEmitter emitter = new CapturingEmitter();
 
-        service.runChatStream(1L, conversation(111L), "库存和客户应收情况", "run-partial-tool-failure", emitter);
+        service.runChatStream(1L, conversation(111L), "库存和客户应收情况", List.of(), "run-partial-tool-failure", emitter);
 
         String failedPayload = firstPayload(emitter, "\"event_type\":\"tool_failed\"");
         assertTrue(failedPayload.contains("\"tool_name\":\"customer_receivable_lookup\""), failedPayload);
@@ -687,7 +715,7 @@ class V2AgentAiServiceTest {
         CapturingEmitter emitter = new CapturingEmitter();
         AgentConversationEntity conversation = conversation(105L);
 
-        service.runChatStream(1L, conversation, "客户应收情况", "run-envelope", emitter);
+        service.runChatStream(1L, conversation, "客户应收情况", List.of(), "run-envelope", emitter);
 
         String runStarted = firstPayload(emitter, "\"event_type\":\"run_started\"");
         assertTrue(runStarted.contains("\"event_id\":\"run-envelope:1\""), runStarted);
@@ -766,7 +794,7 @@ class V2AgentAiServiceTest {
             )));
         CapturingEmitter emitter = new CapturingEmitter();
 
-        service.runChatStream(1L, conversation(113L), "帮我新建客户李四 电话13812345678", "run-draft-stream", emitter);
+        service.runChatStream(1L, conversation(113L), "帮我新建客户李四 电话13812345678", List.of(), "run-draft-stream", emitter);
 
         String planDelta = firstPayload(emitter, "\"event_type\":\"plan_delta\"");
         assertTrue(planDelta.contains("\"plan_source\":\"native_tool_use\""), planDelta);
@@ -832,7 +860,7 @@ class V2AgentAiServiceTest {
 
         CompletableFuture<Void> streamFuture = CompletableFuture.runAsync(() -> {
             try {
-                service.runChatStream(1L, conversation(107L), "客户应收情况", "run-slow-audit", emitter);
+                service.runChatStream(1L, conversation(107L), "客户应收情况", List.of(), "run-slow-audit", emitter);
             } catch (IOException ex) {
                 throw new IllegalStateException(ex);
             }
@@ -885,7 +913,7 @@ class V2AgentAiServiceTest {
         });
         CapturingEmitter emitter = new CapturingEmitter();
 
-        service.runChatStream(1L, conversation(108L), "客户应收情况", "run-audit-write-failure", emitter);
+        service.runChatStream(1L, conversation(108L), "客户应收情况", List.of(), "run-audit-write-failure", emitter);
 
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"event_type\":\"run_completed\"")));
         AgentRunAuditEntity audit = runAudits.get("run-audit-write-failure");
@@ -921,7 +949,7 @@ class V2AgentAiServiceTest {
         replaceAuditWriteExecutor(new RejectingThreadPoolExecutor());
         CapturingEmitter emitter = new CapturingEmitter();
 
-        service.runChatStream(1L, conversation(109L), "客户应收情况", "run-audit-rejected", emitter);
+        service.runChatStream(1L, conversation(109L), "客户应收情况", List.of(), "run-audit-rejected", emitter);
 
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"event_type\":\"run_completed\"")));
         AgentRunAuditEntity audit = runAudits.get("run-audit-rejected");
@@ -969,7 +997,7 @@ class V2AgentAiServiceTest {
 
         Thread worker = new Thread(() -> {
             try {
-                service.runChatStream(1L, conversation, "客户应收情况", "run-cancel", emitter);
+                service.runChatStream(1L, conversation, "客户应收情况", List.of(), "run-cancel", emitter);
             } catch (RuntimeException ex) {
                 if (!String.valueOf(ex.getMessage()).startsWith("Agent run cancelled: run-cancel")) {
                     streamFailure.set(ex);
@@ -1688,6 +1716,33 @@ class V2AgentAiServiceTest {
     }
 
     @Test
+    void chatRetriesNativeToolUseWithNarrowedCandidatesBeforeKeywordFallback() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.configurationStatus()).thenReturn("configured");
+        when(longCatAnthropicClient.createMessageWithTools(anyString(), anyString(), any()))
+            .thenReturn(Optional.empty())
+            .thenReturn(Optional.of(new LongCatAnthropicClient.ToolUseResponse(
+                List.of(new LongCatAnthropicClient.ToolUseBlock(
+                    "call_2",
+                    "inventory_low_stock_lookup",
+                    objectMapper.createObjectNode().put("keyword", "最近")
+                )),
+                "改用缩小候选工具后命中原生调用"
+            )));
+        when(productRepository.findLowStockProducts(1L, PageRequest.of(0, 10)))
+            .thenReturn(List.of());
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "最近库存情况怎么样", false)
+        );
+
+        assertEquals("native_tool_use", response.planSource());
+        assertEquals(1, response.toolCalls().size());
+        assertEquals("inventory_low_stock_lookup", response.toolCalls().get(0).toolName());
+        verify(longCatAnthropicClient, times(2)).createMessageWithTools(anyString(), anyString(), any());
+    }
+
+    @Test
     void chatRetriesWithDeterministicRecoveryWhenFirstFilteredToolResultIsInsufficient() {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
         when(longCatAnthropicClient.configurationStatus()).thenReturn("configured");
@@ -1778,7 +1833,7 @@ class V2AgentAiServiceTest {
             });
         CapturingEmitter emitter = new CapturingEmitter();
 
-        service.runChatStream(1L, conversation(106L), "客户应收情况", "run-audit-read", emitter);
+        service.runChatStream(1L, conversation(106L), "客户应收情况", List.of(), "run-audit-read", emitter);
 
         V2AgentDtos.AgentRunAuditResponse response = service.getRunAudit("run-audit-read");
 

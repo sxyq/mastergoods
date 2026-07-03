@@ -139,7 +139,24 @@ public final class V2AgentDtos {
     public record AgentChatRequest(
         Long conversationId,
         @NotBlank String message,
-        Boolean stream
+        Boolean stream,
+        List<Long> imageAssetIds
+    ) {
+        public AgentChatRequest(Long conversationId, String message, Boolean stream) {
+            this(conversationId, message, stream, List.of());
+        }
+    }
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AgentImageGenerateRequest(
+        @NotBlank String prompt,
+        List<Long> referenceAssetIds
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AgentImageGenerateResponse(
+        String imageUrl,
+        String revisedPrompt
     ) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)

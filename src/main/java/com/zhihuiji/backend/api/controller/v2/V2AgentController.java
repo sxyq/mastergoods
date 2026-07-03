@@ -2,6 +2,7 @@ package com.zhihuiji.backend.api.controller.v2;
 
 import com.zhihuiji.backend.api.common.ApiResponse;
 import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
+import com.zhihuiji.backend.application.service.v2.AgentImageService;
 import com.zhihuiji.backend.application.service.v2.V2AgentAiService;
 import com.zhihuiji.backend.application.service.v2.V2AgentConversationService;
 import com.zhihuiji.backend.application.service.v2.agent.AgentDraftConfirmService;
@@ -24,15 +25,18 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class V2AgentController {
     private final V2AgentConversationService v2AgentConversationService;
     private final V2AgentAiService v2AgentAiService;
+    private final AgentImageService agentImageService;
     private final AgentDraftConfirmService agentDraftConfirmService;
 
     public V2AgentController(
         V2AgentConversationService v2AgentConversationService,
         V2AgentAiService v2AgentAiService,
+        AgentImageService agentImageService,
         AgentDraftConfirmService agentDraftConfirmService
     ) {
         this.v2AgentConversationService = v2AgentConversationService;
         this.v2AgentAiService = v2AgentAiService;
+        this.agentImageService = agentImageService;
         this.agentDraftConfirmService = agentDraftConfirmService;
     }
 
@@ -174,6 +178,14 @@ public class V2AgentController {
     @RequireStorePermission("agent:write")
     public ApiResponse<V2AgentDtos.AgentChatResponse> chat(@Valid @RequestBody V2AgentDtos.AgentChatRequest request) {
         return ApiResponse.success(v2AgentAiService.chat(request));
+    }
+
+    @PostMapping("/images/generate")
+    @RequireStorePermission("agent:write")
+    public ApiResponse<V2AgentDtos.AgentImageGenerateResponse> generateImage(
+        @Valid @RequestBody V2AgentDtos.AgentImageGenerateRequest request
+    ) {
+        return ApiResponse.success(agentImageService.generate(request));
     }
 
     @PostMapping(value = "/chat/stream", produces = "text/event-stream")

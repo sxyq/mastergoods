@@ -177,6 +177,171 @@ class LongCatAnthropicClientTest {
         }
     }
 
+    @Test
+    void createMessageWithToolsFallsBackFromResponsesToChatCompletionsWhenResponsesFails() throws Exception {
+        AtomicReference<String> responsesBody = new AtomicReference<>("");
+        AtomicReference<String> chatBody = new AtomicReference<>("");
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/responses", exchange -> {
+            responsesBody.set(readBody(exchange));
+            byte[] body = """
+                {"error":{"message":"upstream 502"}}
+                """.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(502, body.length);
+            try (OutputStream outputStream = exchange.getResponseBody()) {
+                outputStream.write(body);
+            }
+        });
+        server.createContext("/chat/completions", exchange -> {
+            chatBody.set(readBody(exchange));
+            byte[] body = """
+                {
+                  "choices": [
+                    {
+                      "message": {
+                        "role": "assistant",
+                        "tool_calls": [
+                          {
+                            "id": "call_1",
+                            "type": "function",
+                            "function": {
+                              "name": "inventory_low_stock_lookup",
+                              "arguments": "{\\"keyword\\":\\"最近\\"}"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+                """.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream outputStream = exchange.getResponseBody()) {
+                outputStream.write(body);
+            }
+        });
+        server.start();
+        try {
+            AgentLlmProperties responses = properties(
+                true,
+                "sk-test",
+                "gpt-5.4-mini",
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "responses"
+            );
+            LongCatAnthropicClient client = client(responses);
+
+            Optional<LongCatAnthropicClient.ToolUseResponse> response = client.createMessageWithTools(
+                "你是工具规划器",
+                "看下最近库存情况",
+                List.of(new LongCatAnthropicClient.ToolDefinition(
+                    "inventory_low_stock_lookup",
+                    "查询低库存商品",
+                    java.util.Map.of("type", "object", "properties", java.util.Map.of("keyword", java.util.Map.of("type", "string")))
+                ))
+            );
+
+            assertTrue(response.isPresent());
+            assertTrue(response.get().hasToolUses());
+            assertEquals("inventory_low_stock_lookup", response.get().toolUses().get(0).name());
+            assertEquals("最近", response.get().toolUses().get(0).input().path("keyword").asText());
+            assertTrue(responsesBody.get().contains("\"tools\""), responsesBody.get());
+            assertTrue(chatBody.get().contains("\"tool_choice\":\"auto\""), chatBody.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void createJsonMessageWithImagesEncodesResponsesInputImageBlocks() throws Exception {
+        AtomicReference<String> capturedBody = new AtomicReference<>("");
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/responses", exchange -> {
+            capturedBody.set(readBody(exchange));
+            byte[] body = """
+                {
+                  "output_text": "图片里是一张手写清单"
+                }
+                """.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream outputStream = exchange.getResponseBody()) {
+                outputStream.write(body);
+            }
+        });
+        server.start();
+        try {
+            AgentLlmProperties responses = properties(
+                true,
+                "sk-test",
+                "gpt-5.4-mini",
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "responses"
+            );
+            LongCatAnthropicClient client = client(responses);
+
+            Optional<String> response = client.createJsonMessage(
+                "你是图片助手",
+                "帮我看看这张图",
+                List.of(new LongCatAnthropicClient.ImageInput("image/png", "data:image/png;base64,ZmFrZQ=="))
+            );
+
+            assertTrue(response.isPresent());
+            assertEquals("图片里是一张手写清单", response.get());
+            assertTrue(capturedBody.get().contains("\"type\":\"input_image\""), capturedBody.get());
+            assertTrue(capturedBody.get().contains("\"image_url\":\"data:image/png;base64,ZmFrZQ==\""), capturedBody.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void streamTextMessageWithImagesEncodesChatCompletionImageParts() throws Exception {
+        AtomicReference<String> capturedBody = new AtomicReference<>("");
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/chat/completions", exchange -> {
+            capturedBody.set(readBody(exchange));
+            byte[] body = """
+                data: {"choices":[{"delta":{"content":"这是一张商品照片"}}]}
+
+                data: [DONE]
+                """.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "text/event-stream");
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream outputStream = exchange.getResponseBody()) {
+                outputStream.write(body);
+            }
+        });
+        server.start();
+        try {
+            AgentLlmProperties responses = properties(
+                true,
+                "sk-test",
+                "gpt-5.4-mini",
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "chat_completions"
+            );
+            LongCatAnthropicClient client = client(responses);
+
+            Optional<String> response = client.streamTextMessage(
+                "你是图片助手",
+                "帮我看看这张图",
+                List.of(new LongCatAnthropicClient.ImageInput("image/png", "data:image/png;base64,ZmFrZQ==")),
+                "run-image-1",
+                delta -> {}
+            );
+
+            assertTrue(response.isPresent());
+            assertEquals("这是一张商品照片", response.get());
+            assertTrue(capturedBody.get().contains("\"type\":\"image_url\""), capturedBody.get());
+            assertTrue(capturedBody.get().contains("\"url\":\"data:image/png;base64,ZmFrZQ==\""), capturedBody.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
     private static LongCatAnthropicClient client(AgentLlmProperties properties) {
         return new LongCatAnthropicClient(properties, RestClient.builder());
     }
