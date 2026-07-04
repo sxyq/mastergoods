@@ -43,6 +43,10 @@ public class SafetyGuard {
     }
 
     public SafetyDecision evaluateSafety(String message) {
+        return evaluateSafety(currentOwnerService.requireCurrentOwnerUserId(), message);
+    }
+
+    public SafetyDecision evaluateSafety(Long ownerUserId, String message) {
         String normalized = message.toLowerCase(Locale.ROOT);
         // 快速通道：硬编码关键词命中即拦截
         if ((normalized.contains("别人的") || normalized.contains("其他账号") || normalized.contains("越权"))
@@ -55,7 +59,7 @@ public class SafetyGuard {
             return new SafetyDecision(false, "请求包含高风险破坏性数据库指令");
         }
         // 写入专用安全层：检测写入意图并校验
-        SafetyDecision writeDecision = evaluateWriteSafety(message, normalized);
+        SafetyDecision writeDecision = evaluateWriteSafety(ownerUserId, message, normalized);
         if (!writeDecision.passed()) {
             return writeDecision;
         }
@@ -76,6 +80,10 @@ public class SafetyGuard {
     }
 
     public SafetyDecision evaluateWriteSafety(String message, String normalized) {
+        return evaluateWriteSafety(currentOwnerService.requireCurrentOwnerUserId(), message, normalized);
+    }
+
+    public SafetyDecision evaluateWriteSafety(Long ownerUserId, String message, String normalized) {
         // 破坏性指令检测
         if (containsAny(normalized, "删除", "清空", "drop", "delete", "truncate", "销毁", "抹掉")) {
             return new SafetyDecision(false, "请求包含破坏性操作，不支持删除/清空");
@@ -90,7 +98,6 @@ public class SafetyGuard {
         // 频率限制：10 分钟内最多 20 条写入
         long now = System.currentTimeMillis();
         long windowStart = now - 10 * 60 * 1000L;
-        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         List<Long> timestamps = writeFrequencyTracker.computeIfAbsent(
             ownerUserId, k -> Collections.synchronizedList(new ArrayList<>()));
         synchronized (timestamps) {

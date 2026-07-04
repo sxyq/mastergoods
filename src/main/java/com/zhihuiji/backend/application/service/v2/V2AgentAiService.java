@@ -74,6 +74,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import jakarta.annotation.PreDestroy;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -397,8 +399,11 @@ public class V2AgentAiService {
         emitter.onCompletion(() -> runAuditService.removeRun(runId));
         emitter.onTimeout(() -> runAuditService.removeRun(runId));
         emitter.onError(ignored -> runAuditService.removeRun(runId));
+        SecurityContext capturedSecurityContext = SecurityContextHolder.getContext();
         CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+            SecurityContext previousSecurityContext = SecurityContextHolder.getContext();
             try {
+                SecurityContextHolder.setContext(capturedSecurityContext);
                 runChatStream(ownerUserId, conversation, message, imageInputs, runId, emitter);
             } catch (RunAuditService.AgentRunCancelledException ignored) {
                 // cancelRun 已向客户端发送 run_cancelled；worker 负责收尾关闭 emitter。
@@ -428,6 +433,10 @@ public class V2AgentAiService {
                 }
                 emitter.completeWithError(ex);
             } finally {
+                SecurityContextHolder.clearContext();
+                if (previousSecurityContext != null) {
+                    SecurityContextHolder.setContext(previousSecurityContext);
+                }
                 runAuditService.removeRun(runId);
             }
         }, streamExecutor);
@@ -535,7 +544,7 @@ public class V2AgentAiService {
             )));
             runAuditService.ensureRunActive(runId);
 
-            SafetyDecision safetyDecision = safetyGuard.evaluateSafety(message);
+            SafetyDecision safetyDecision = safetyGuard.evaluateSafety(ownerUserId, message);
             if (!safetyDecision.passed()) {
                 sseStreamEmitter.sendEvent(emitter, SseStreamEmitter.eventMap("safety_check_blocked", mapOf(
                     "run_id", runId,
@@ -913,6 +922,20 @@ public class V2AgentAiService {
                 ResponsePayload payload = executePlannedTool(ownerUserId, emitter, runId, tool, plan.toolParams().get(tool));
                 runAuditService.ensureRunActive(runId);
                 if (payload != null) {
+                    if (payload.toolFailures() != null && !payload.toolFailures().isEmpty()) {
+                        ToolFailureResult failure = payload.toolFailures().get(0);
+                        toolFailures.add(failure);
+                        sseStreamEmitter.emitToolFailed(
+                            emitter,
+                            runId,
+                            tool,
+                            failure.safeMessage(),
+                            System.currentTimeMillis() - startedAt,
+                            startedAt,
+                            toolInput
+                        );
+                        continue;
+                    }
                     populateToolAudit(audit, payload.toolResults());
                     if (StringUtils.hasText(payload.answer())) {
                         answers.add(payload.answer());
@@ -1008,7 +1031,13 @@ public class V2AgentAiService {
      */
     private ResponsePayload adaptToolResult(ToolResult result, String toolName) {
         if (!result.success()) {
-            return null;
+            return new ResponsePayload(
+                "",
+                List.of(),
+                List.of(),
+                List.of(new ToolFailureResult(toolName, safeText(result.errorMessage(), toolName + " 执行失败"))),
+                new AgentToolPlan(List.of(toolName), "工具直接返回", "tool", Map.of())
+            );
         }
         ToolExecutionResult toolResult = new ToolExecutionResult(toolName, result.toolSummary(), result.toolFacts(), result.insufficient());
         return new ResponsePayload(result.answer(), result.blocks(), List.of(toolResult));

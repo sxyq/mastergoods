@@ -204,7 +204,7 @@ public class ToolPlanner {
         String planningMessage = formatHistoryContext(history) + "用户问题：" + message;
         Optional<LongCatAnthropicClient.ToolUseResponse> response =
             longCatAnthropicClient.createMessageWithTools(systemPrompt, planningMessage, nativeTools);
-        return toNativeToolPlan(response);
+        return toNativeToolPlan(message, history, conversationSummary, response);
     }
 
     public Optional<AgentToolPlan> planToolsWithNativeFunctionCalling(
@@ -226,10 +226,15 @@ public class ToolPlanner {
         String planningMessage = formatHistoryContext(history) + "用户问题：" + message;
         Optional<LongCatAnthropicClient.ToolUseResponse> response =
             longCatAnthropicClient.createMessageWithTools(systemPrompt, planningMessage, nativeTools);
-        return toNativeToolPlan(response);
+        return toNativeToolPlan(message, history, conversationSummary, response);
     }
 
-    private Optional<AgentToolPlan> toNativeToolPlan(Optional<LongCatAnthropicClient.ToolUseResponse> response) {
+    private Optional<AgentToolPlan> toNativeToolPlan(
+        String message,
+        List<AgentMessageEntity> history,
+        String conversationSummary,
+        Optional<LongCatAnthropicClient.ToolUseResponse> response
+    ) {
         if (response.isEmpty() || !response.get().hasToolUses()) {
             return Optional.empty();
         }
@@ -245,8 +250,9 @@ public class ToolPlanner {
             }
             tools.add(toolName);
             JsonNode input = toolUse.input();
-            if (input != null && input.isObject() && input.size() > 0) {
-                toolParams.put(toolName, input);
+            JsonNode enrichedInput = enrichNativeToolParams(toolName, input, message, history, conversationSummary);
+            if (enrichedInput != null && enrichedInput.isObject() && enrichedInput.size() > 0) {
+                toolParams.put(toolName, enrichedInput);
             }
         }
         if (tools.isEmpty()) {
@@ -256,6 +262,40 @@ public class ToolPlanner {
             ? response.get().text()
             : "模型通过原生 Function Calling 选择工具";
         return Optional.of(new AgentToolPlan(tools, rationale, "native_tool_use", toolParams));
+    }
+
+    private JsonNode enrichNativeToolParams(
+        String toolName,
+        JsonNode input,
+        String message,
+        List<AgentMessageEntity> history,
+        String conversationSummary
+    ) {
+        JsonNode inferred = switch (toolName) {
+            case "create_customer" -> buildCreateCustomerParams(message, history, conversationSummary);
+            case "create_supplier" -> buildCreateSupplierParams(message, history, conversationSummary);
+            case "create_product" -> buildCreateProductParams(message, history, conversationSummary);
+            case "create_pay_order" -> buildCreatePayOrderParams(message, history, conversationSummary);
+            case "create_finance_record" -> buildCreateFinanceRecordParams(
+                message,
+                message == null ? "" : message.toLowerCase(Locale.ROOT),
+                history,
+                conversationSummary
+            );
+            case "create_purchase_order" -> buildCreatePurchaseOrderParams(message, history, conversationSummary);
+            case "create_sale_order" -> buildCreateSaleOrderParams(message, history, conversationSummary);
+            default -> null;
+        };
+        if ((input == null || input.isNull() || !input.isObject() || input.isEmpty()) && inferred != null && inferred.isObject()) {
+            return inferred;
+        }
+        if (input != null && input.isObject() && inferred != null && inferred.isObject()) {
+            ObjectNode merged = objectMapper.createObjectNode();
+            merged.setAll((ObjectNode) inferred);
+            merged.setAll((ObjectNode) input);
+            return merged;
+        }
+        return input;
     }
 
     /**

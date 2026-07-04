@@ -362,6 +362,27 @@ class V2AgentAiServiceTest {
         verifyNoInteractions(agentConversationRepository, agentDraftRepository, agentMessageRepository);
     }
 
+    @Test
+    void chatStreamDoesNotRequeryCurrentOwnerInsideAsyncWorker() throws Exception {
+        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+            .thenReturn(List.of());
+
+        service.chatStream(new V2AgentDtos.AgentChatRequest(null, "客户应收情况", true));
+
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+        while (System.nanoTime() < deadline) {
+            boolean completed = runAudits.values().stream().anyMatch(audit ->
+                "completed".equals(audit.getStatus()) || "blocked".equals(audit.getStatus()) || "failed".equals(audit.getStatus()));
+            if (completed) {
+                break;
+            }
+            Thread.sleep(10L);
+        }
+
+        assertTrue(runAudits.values().stream().anyMatch(audit -> "completed".equals(audit.getStatus())), runAudits.toString());
+        verify(currentOwnerService, times(1)).requireCurrentOwnerUserId();
+    }
+
     private static boolean isReportLikeQuestion(String question) {
         return question.contains("今日")
             || question.contains("今天")
@@ -1713,6 +1734,36 @@ class V2AgentAiServiceTest {
         ));
         verify(agentDraftRepository).save(any(AgentDraftEntity.class));
         verify(longCatAnthropicClient).createMessageWithTools(anyString(), anyString(), any());
+    }
+
+    @Test
+    void chatEnrichesNativeCreateCustomerToolParamsWhenProviderOmitsArguments() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.configurationStatus()).thenReturn("configured");
+        when(longCatAnthropicClient.createMessageWithTools(anyString(), anyString(), any()))
+            .thenReturn(Optional.of(new LongCatAnthropicClient.ToolUseResponse(
+                List.of(new LongCatAnthropicClient.ToolUseBlock(
+                    "call_1",
+                    "create_customer",
+                    objectMapper.createObjectNode()
+                )),
+                "直接生成客户草稿"
+            )));
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "帮我新建客户李四 电话13812345678 备注重点跟进", false)
+        );
+
+        assertEquals("native_tool_use", response.planSource());
+        assertEquals(1, response.toolCalls().size());
+        assertEquals("create_customer", response.toolCalls().get(0).toolName());
+        assertTrue(response.answer().contains("李四"), response.answer());
+        assertTrue(response.blocks().stream().anyMatch(block ->
+            ("draft".equals(block.blockType()) || "draft_card".equals(block.blockType()))
+                && "create_customer".equals(block.data().path("draft_type").asText())
+                && block.data().path("title").asText().contains("李四")
+        ));
+        verify(agentDraftRepository).save(any(AgentDraftEntity.class));
     }
 
     @Test
