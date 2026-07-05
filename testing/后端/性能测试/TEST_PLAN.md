@@ -1,22 +1,42 @@
-# 后端性能测试全覆盖方案
+# 后端性能测试执行手册
+
+上级真源：
+
+- `../测试分类说明.md`
+- `../测试分类总台账.csv`
 
 ## Objective
 
-建立后端接口、数据库查询、SSE 流、图片处理和 Agent 审计写入的性能基线，并将其纳入发布门槛。
+为后端接口、查询、Agent SSE、audit 写入和 media 上传建立可以直接执行的性能基线，并明确每批压测的环境、并发档位、指标和阻塞条件。
 
-## Scope
+## Current Baseline
 
-重点对象：
+live data 直接复用：
 
-- CRUD read endpoints
-- report endpoints
-- sync/import endpoints
-- media upload endpoints
-- agent chat endpoints
-- agent stream endpoints
-- audit event persistence
+- account/store/agent 会话类数据可用于 smoke 与 history 场景
 
-## Primary Metrics
+业务主表为空：
+
+- Wave 2 及更高复杂度性能场景需要先补最小夹具
+
+image generation 现状：
+
+- 必须先做 provider precheck
+- 若未配置，直接登记 `Blocked`
+
+## Environment Matrix
+
+- local backend
+- deployed 154 backend
+
+并发档位：
+
+- 1 用户 smoke
+- 10 并发
+- 50 并发
+- 15 分钟 soak
+
+指标：
 
 - p50
 - p95
@@ -30,86 +50,134 @@
 - heap growth
 - GC pressure
 
-## Scenario Groups
+## Execution Waves
 
-### 1. CRUD API
+### Wave 0
 
-Measure:
+1. 校验本地与 154 环境都可访问
+2. 校验压测工具、SSE harness、GC 日志、DB plan 能工作
+3. 校验 Agent live 数据可复用
+4. 校验 image provider 是否配置
 
-- list page latency
-- filtered query latency
-- create and update latency
+### Wave 1
 
-### 2. Report API
+直接复用现有 live 数据：
 
-Measure:
+- auth/session smoke
+- current store/context
+- agent non-stream chat
+- agent stream
+- agent audit write path
+- cancel path
 
-- sales summary
-- sales trend
-- profit summary
-- refund record ranges
+### Wave 2
 
-### 3. Agent Non-Streaming
+补最小夹具后执行：
 
-Measure:
+- CRUD read/write
+- inventory/report
+- media upload
 
-- full response latency
-- tool duration
-- model duration
-- audit row write time
+### Wave 3
 
-### 4. Agent SSE
+长链路与稳定性：
 
-Measure:
+- 50 并发
+- 15 分钟 soak
+- 长历史 conversation
+- retry / fallback / stream interruption
 
-- run started latency
-- first tool event latency
-- first answer delta latency
-- final completion latency
-- cancellation response latency
-- dropped audit event count
+## Per-Category Execution Rules
 
-### 5. Media and Image
+### CRUD Read / Write
 
-Measure:
+- 前置：最小业务夹具已存在
+- 采集：p50/p95/p99、error rate、throughput
+- 通过阈值：
+  - 标准读 p95 < 300 ms
+  - 标准写 p95 < 500 ms
 
-- asset upload latency
-- image generation request latency
-- reference-image read latency
+### Report API
 
-## Tools
+- 前置：Wave 2 已补报表所需夹具
+- 采集：p95、rows scanned、query plan
+- 要求：若慢查询出现，必须附 explain 证据
 
-- `k6` or `JMeter` for API load
-- database query plans for slow endpoints
-- JVM monitoring and GC logs
-- custom SSE harness for event timing
+### Agent Non-Streaming
 
-## Baseline Targets
+- 直接复用现有会话或新增最小会话
+- 采集：
+  - full response latency
+  - tool duration
+  - model duration
+  - audit row write time
 
-Initial release targets:
+### Agent SSE
 
-1. Standard read endpoint p95 under 300 ms
-2. Standard write endpoint p95 under 500 ms
-3. SSE first event p95 under 1500 ms
-4. SSE cancel p95 under 800 ms
-5. audit dropped count equals 0
+- 直接复用现有会话或新增最小会话
+- 采集：
+  - run started latency
+  - first tool event latency
+  - first answer delta latency
+  - final completion latency
+  - cancellation response latency
+  - dropped audit event count
+- 通过阈值：
+  - first event p95 < 1500 ms
+  - cancel p95 < 800 ms
+  - dropped audit event = 0
 
-## Run Profiles
+### Audit Write
 
-- single user smoke
-- 10 concurrent users
-- 50 concurrent users
-- long-running 15 minute agent stream soak
+- 场景：stream、cancel、blocked、completed
+- 采集：write lag、row count 对齐、drop count
 
-## Deliverables
+### Media Upload
 
-- raw benchmark logs
-- aggregated metric tables
-- threshold comparison sheet
-- bottleneck notes
+- 前置：最小 media fixture
+- 采集：upload latency、bind latency、readback latency
+
+### Image Generation
+
+- Wave 0 precheck 未通过则 `Blocked`
+- 不进入通过率统计
+
+## Evidence Template
+
+- `test_id`
+- `category_id`
+- `wave_id`
+- `env`
+- `account/store`
+- `pre_state`
+- `actions`
+- `expected`
+- `actual`
+- `artifacts`
+- `cleanup`
+- `result`
+
+性能测试额外要求：
+
+- load profile
+- concurrency
+- duration
+- metric snapshot
+- raw log path
+
+## Stop Rules / Blocker Handling
+
+以下情况统一记为 `Blocked`：
+
+- 压测工具未就绪
+- 154 环境不可达
+- 必要夹具缺失
+- provider 未配置
+- SSE harness 无法稳定采集
 
 ## Exit Criteria
 
-1. Every performance-critical backend capability has a baseline.
-2. Agent stream and audit write path both have timing evidence.
-3. Any regression above threshold is either fixed or explicitly waived.
+1. local 与 154 两套环境都有 Wave 1 基线。
+2. Agent non-stream、Agent SSE、audit 写入都有 timing evidence。
+3. CRUD、report、media 在补夹具后都有基线。
+4. image generation 已完成 precheck 并正确归类为通过或 `Blocked`。

@@ -1,0 +1,1 @@
+{"code":0,"message":"success","data":{"id":6,"conversation_id":20,"draft_type":"customer_followup","title":"Wave1 Cancel Draft","content_json":"{\"kind\":\"note\",\"text\":\"cancel me\"}","status":"cancelled","created_at":1783228144263,"updated_at":1783228144528},"timestamp":1783228144546}

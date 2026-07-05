@@ -1,0 +1,1 @@
+{"code":0,"message":"success","data":{"id":1,"product_id":1,"product_code":"P-WAVE1-001","product_name":"测试商品A","warehouse_id":null,"quantity":5.0,"unit_cost":5.0,"total_value":25.0,"snapshot_date":1783229194456,"created_at":1783229195752},"timestamp":1783229195767}

@@ -1,0 +1,12 @@
+{
+  "base": "https://sxyq27.online/zhj-api",
+  "request": {
+    "refresh_token": "9257f8b441d94da7bf70f2bfe5d284c8"
+  },
+  "response": {
+    "ok": true,
+    "status": 200,
+    "latency_ms": 616.15,
+    "body": "{\"code\":0,\"message\":\"success\",\"data\":{\"user_id\":7,\"token\":\"c80abc37e24a42d5ab976d9d8a3809cc\",\"refresh_token\":\"b4aa8a9450b74d459bca58faae330926\",\"expires_in\":604800},\"timestamp\":1783237352253}"
+  }
+}

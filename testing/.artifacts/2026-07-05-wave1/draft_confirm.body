@@ -1,0 +1,1 @@
+{"code":0,"message":"success","data":{"id":7,"conversation_id":20,"draft_type":"media_upload","title":"Wave1 Confirm Draft","content_json":"{\"file_name\":\"wave1.png\",\"mime_type\":\"image/png\"}","status":"confirmed","created_at":1783228144763,"updated_at":1783228145007},"timestamp":1783228145020}

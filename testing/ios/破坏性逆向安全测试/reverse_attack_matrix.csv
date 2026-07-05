@@ -1,0 +1,7 @@
+case_id,route_skill,attack_surface,destructive_goal,test_vector,required_tooling,evidence_requirements,status,notes
+IOS-REV-01,"attack-chain|mobile-reverse",IPA symbols and routes,验证可执行文件、Swift 符号、URL scheme、Agent 入口面是否暴露过多信息,"class-dump/strings/路由梳理",otool|class-dump|strings,符号清单 + 截图,规划中,
+IOS-REV-02,"attack-chain|mobile-reverse",Jailbreak and pinning,验证越狱检测/Frida 检测/ATS or Pinning 绕过后能否抓到核心链路,"动态插桩网络层和会话层",frida|objection,Hook 脚本 + 抓包结果,规划中,
+IOS-REV-03,"attack-chain|mobile-reverse",Local secrets and cache,验证 Keychain/UserDefaults/本地缓存/附件是否可提取有效敏感数据,"导出本地持久化并尝试重放",frida|sqlite3,导出样本 + 重放结果,规划中,
+IOS-REV-04,"attack-chain|mobile-reverse",Deep links and URL handlers,验证深链和外部入口参数篡改是否可越权进入特定页面或动作,"构造 URL scheme、参数替换、外部触发",xcrun simctl|frida,命令记录 + 页面录屏,规划中,
+IOS-REV-05,"attack-chain|mobile-reverse",Agent state tampering,验证 Agent history/draft/task/image 载荷被篡改后服务端是否仍正确拒绝,"替换 message/run/draft/image id，伪造本地模型块",frida|proxy,请求样本 + 结果录屏,规划中,
+IOS-REV-06,"attack-chain|mobile-reverse",Media attachments,验证图片附件与多模态引用在本地绕过后是否能形成非法提交,"修改引用、上传参数、缺图错误分支",frida|proxy,附件样本 + 响应,规划中,

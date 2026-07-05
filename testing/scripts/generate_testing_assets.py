@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import csv
 import re
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -552,16 +553,20 @@ def ensure_scripts(platform: str) -> None:
 
 def update_platform_readme(platform: str) -> None:
     readme_path = TESTING_ROOT / platform / "README.md"
-    lines = [
-        f"# {platform}测试方案索引",
-        "",
-        "- 单元测试：`单元测试/TEST_PLAN.md` + `单元测试/unit_function_coverage.csv`",
-        "- 功能测试：`功能测试/TEST_PLAN.md` + `功能测试/functional_feature_matrix.csv`",
-        "- 性能测试：`性能测试/TEST_PLAN.md` + `性能测试/performance_scope_matrix.csv`",
-        "- 审计：`审计/audit_function_ledger.csv`",
-        "",
-        "每个测试/审计目录下均已预置 `scripts/`，用于存放执行脚本与台账刷新脚本。",
-    ]
+    lines = [f"# {platform}测试方案索引", ""]
+    if platform in {"安卓", "后端", "Agent"}:
+        lines.append("- 测试种类总台账：`测试分类总台账.csv`")
+    lines.extend(
+        [
+            "- 单元测试：`单元测试/TEST_PLAN.md` + `单元测试/unit_function_coverage.csv`",
+            "- 功能测试：`功能测试/TEST_PLAN.md` + `功能测试/functional_feature_matrix.csv`",
+            "- 性能测试：`性能测试/TEST_PLAN.md` + `性能测试/performance_scope_matrix.csv`",
+            "- 审计：`审计/audit_function_ledger.csv`",
+            "- 破坏性逆向安全测试：`破坏性逆向安全测试/TEST_PLAN.md` + `破坏性逆向安全测试/reverse_attack_matrix.csv`",
+            "",
+            "常规测试与破坏性逆向安全测试分开维护，避免混账。",
+        ]
+    )
     readme_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -576,21 +581,24 @@ def update_root_readme() -> None:
         "- iOS\n"
         "- Web\n"
         "- Agent\n\n"
-        "Each platform now includes four lanes:\n\n"
+        "Each platform now includes five lanes:\n\n"
         "- Unit tests\n"
         "- Functional tests\n"
         "- Performance tests\n"
-        "- Audit\n\n"
+        "- Audit\n"
+        "- Destructive reverse security tests\n\n"
         "## Ledger Files\n\n"
-        "- `单元测试/unit_function_coverage.csv`: 函数级单元测试覆盖台账\n"
-        "- `功能测试/functional_feature_matrix.csv`: 对照源码建立的功能测试台账\n"
-        "- `性能测试/performance_scope_matrix.csv`: 需要建立基线的性能测试台账\n"
-        "- `审计/audit_function_ledger.csv`: 安全/性能/复用/简化四维审计台账\n\n"
+        "- `测试分类总台账.csv`: 测试分类总台账，负责定义分类并统计模块/文件/函数覆盖\n"
+        "- `单元测试/unit_function_coverage.csv`: 函数级单元测试覆盖台账，带 `category_id` / `category_name`\n"
+        "- `功能测试/functional_feature_matrix.csv`: 对照源码建立的功能测试台账，带 `category_id` / `category_name`\n"
+        "- `性能测试/performance_scope_matrix.csv`: 需要建立基线的性能测试台账，带 `category_id` / `category_name`\n"
+        "- `审计/audit_function_ledger.csv`: 安全/性能/复用/简化四维审计台账\n"
+        "- `破坏性逆向安全测试/reverse_attack_matrix.csv`: 攻击式逆向安全测试台账\n\n"
         "## Usage\n\n"
-        "1. 所有台账默认以 `未测试` / `未审计` 初始化。\n"
-        "2. 每执行一个测试或完成一次审计，就在对应 CSV 中标记状态并补证据路径。\n"
-        "3. 每个子目录 `scripts/refresh_tables.sh` 可按端重新刷新首版台账。\n"
-        "4. 每个子目录还预置了对应的执行脚本占位，后续可直接补充真实命令。\n"
+        "1. 先看 `测试分类总台账.csv`，确认分类是否齐全以及已经覆盖多少文件/函数。\n"
+        "2. 再进入单元/功能/性能台账，按 `category_id` 回填测试状态、脚本、证据。\n"
+        "3. 常规质量测试与破坏性逆向安全测试分开维护，不混用状态字段。\n"
+        "4. `generate_testing_assets.py` 会刷新函数级台账，并自动调用 `sync_testing_taxonomy.py` 维持分类映射。\n"
     )
     readme_path.write_text(text, encoding="utf-8")
 
@@ -629,6 +637,12 @@ def generate(platforms: list[str]) -> None:
             ["platform", "module", "source_file", "class_or_object", "function_name", "line_number", "audit_status", "security_focus", "performance_focus", "reuse_focus", "simplification_focus", "notes"],
             audit_rows,
         )
+    sync_targets = [platform for platform in platforms if platform in {"安卓", "后端", "Agent"}]
+    if sync_targets:
+        command = ["python3", str(TESTING_ROOT / "scripts" / "sync_testing_taxonomy.py")]
+        for platform in sync_targets:
+            command.extend(["--platform", platform])
+        subprocess.run(command, check=True)
 
 
 def main() -> None:

@@ -1,0 +1,12 @@
+Live ingress conversation/task/workbench smoke
+check path=/v2/agent/workbench status=200 body={"code":0,"message":"success","data":{"greeting":"你好，我是智慧记 AI 助手","kpi_cards":[],"quick_questions":[],"recent_conversations":[],"pending_drafts":[],"risk_alerts":[],"today_summary":null,"status":"clean_entry_ready","data_policy":"AI 首页不预取或展示报表型经营数据；发送问题后才创建真实 owner-scoped run 并查询业务工具。","capabilities":[{"id":"real_data_chat","title":"真实数据问答","description":"按用户问题创建服务端 run，查询当前账号可访问的库存、往来、销售、采购和财务数据。"},{"id":"markdown_and_result_blocks","title":"Markdown 与结构化结果","description":"回答可包含 Markdown、表格、图表和证据卡；Android 只渲染后端返回的真实结果块。"},{"id":"auditable_agent_trace","title":"可审计运行轨迹","description":"每次运行记录工具、模式、模型状态、耗时、audit id 和 trace id，便于后续核对。"}],"warnings":["当前入口不返回默认 KPI、风险、今日摘要或报表图表，避免与报表页重复或产生模拟数据。"]},"timestamp":1783256680872}
+check path=/v2/agent/tasks status=200 body={"code":0,"message":"success","data":[],"timestamp":1783256681304}
+check path=/v2/agent/notifications status=200 body={"code":0,"message":"success","data":[],"timestamp":1783256681744}
+check path=/v2/agent/notifications?unread_only=true status=200 body={"code":0,"message":"success","data":[],"timestamp":1783256682206}
+create_conversation status=200 body={"code":0,"message":"success","data":{"id":31,"title":"Wave3 API 会话 1783256681","status":"active","latest_summary":null,"created_at":1783256682717,"updated_at":1783256682717,"last_message_at":null},"timestamp":1783256682774}
+get_conversation status=200 body={"code":0,"message":"success","data":{"id":31,"title":"Wave3 API 会话 1783256681","status":"active","latest_summary":null,"created_at":1783256682717,"updated_at":1783256682717,"last_message_at":null},"timestamp":1783256683202}
+list_messages_before status=200 body={"code":0,"message":"success","data":[],"timestamp":1783256683662}
+create_message status=200 body={"code":0,"message":"success","data":{"id":61,"conversation_id":31,"role":"user","message_type":"text","content":"api conversation smoke","structured_data_json":null,"created_at":1783256684148},"timestamp":1783256684157}
+list_messages_after status=200 body={"code":0,"message":"success","data":[{"id":61,"conversation_id":31,"role":"user","message_type":"text","content":"api conversation smoke","structured_data_json":null,"created_at":1783256684148}],"timestamp":1783256684634}
+delete_conversation status=200 body={"code":0,"message":"success","data":null,"timestamp":1783256685135}
+get_deleted status=422 body={"code":422,"message":"agent conversation 不存在","data":null,"timestamp":1783256685691}

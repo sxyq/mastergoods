@@ -1,0 +1,6 @@
+Live ingress draft lifecycle evidence
+login: 13800138990 / 123456 -> success
+create: POST /v2/agent/drafts -> id=8, status=active
+pending: GET /v2/agent/drafts/pending -> 1 item
+cancel: POST /v2/agent/drafts/8/cancel -> status=cancelled
+pending_after_cancel: GET /v2/agent/drafts/pending -> 0 items

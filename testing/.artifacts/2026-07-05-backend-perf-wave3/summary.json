@@ -1,0 +1,251 @@
+{
+  "results": {
+    "login": {
+      "ok": false,
+      "status": 502,
+      "latency_ms": 194.63,
+      "body": ""
+    },
+    "token_tail": null,
+    "refresh_tail": null,
+    "me": [
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 170.68,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 170.97,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 186.96,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 170.67,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 166.48,
+        "body": ""
+      }
+    ],
+    "workbench": [
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 168.75,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 170.19,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 167.82,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 169.03,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 166.89,
+        "body": ""
+      }
+    ],
+    "conversations": [
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 171.65,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 169.08,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 169.46,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 174.47,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 171.24,
+        "body": ""
+      }
+    ],
+    "drafts": [
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 176.91,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 167.94,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 172.0,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 171.98,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 188.41,
+        "body": ""
+      }
+    ],
+    "drafts_pending": [
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 184.98,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 191.41,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 191.51,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 189.0,
+        "body": ""
+      },
+      {
+        "ok": false,
+        "status": 502,
+        "latency_ms": 186.99,
+        "body": ""
+      }
+    ],
+    "chat_nonstream": {
+      "ok": false,
+      "status": 502,
+      "latency_ms": 191.92,
+      "body": ""
+    },
+    "chat_stream": {
+      "ok": false,
+      "status": null,
+      "first_event_ms": null,
+      "first_line": null,
+      "run_id": null,
+      "lines": []
+    }
+  },
+  "metrics": {
+    "login": {
+      "count": 1,
+      "min_ms": 194.63,
+      "p50_ms": 194.63,
+      "max_ms": 194.63,
+      "status_counts": {
+        "502": 1
+      }
+    },
+    "me": {
+      "count": 5,
+      "min_ms": 166.48,
+      "p50_ms": 170.68,
+      "max_ms": 186.96,
+      "status_counts": {
+        "502": 5
+      }
+    },
+    "workbench": {
+      "count": 5,
+      "min_ms": 166.89,
+      "p50_ms": 168.75,
+      "max_ms": 170.19,
+      "status_counts": {
+        "502": 5
+      }
+    },
+    "conversations": {
+      "count": 5,
+      "min_ms": 169.08,
+      "p50_ms": 171.24,
+      "max_ms": 174.47,
+      "status_counts": {
+        "502": 5
+      }
+    },
+    "drafts": {
+      "count": 5,
+      "min_ms": 167.94,
+      "p50_ms": 172.0,
+      "max_ms": 188.41,
+      "status_counts": {
+        "502": 5
+      }
+    },
+    "drafts_pending": {
+      "count": 5,
+      "min_ms": 184.98,
+      "p50_ms": 189.0,
+      "max_ms": 191.51,
+      "status_counts": {
+        "502": 5
+      }
+    },
+    "chat_nonstream": {
+      "count": 1,
+      "min_ms": 191.92,
+      "p50_ms": 191.92,
+      "max_ms": 191.92,
+      "status_counts": {
+        "502": 1
+      }
+    }
+  }
+}

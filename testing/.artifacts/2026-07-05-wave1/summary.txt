@@ -1,0 +1,12 @@
+conversations_count=2
+messages19_count=4
+drafts_count=2
+pending_count=0
+customers_count=1
+customer_1_status=0
+cancel_draft_id=6
+cancel_result=cancelled
+confirm_draft_id=7
+confirm_result=confirmed
+pending_after=0
+drafts_after=4

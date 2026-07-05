@@ -1,0 +1,1 @@
+{"code":0,"message":"success","data":[{"id":1,"name":"测试客户A","phone":"13700020001","level":1,"group_id":null,"group_name":null,"primary_contact_name":"张三","primary_contact_phone":"13700020002","address":"测试地址","notes":"draft confirm","balance":0.0,"status":1,"created_at":1783227273965,"updated_at":1783227274103}],"timestamp":1783229188465}

@@ -1,0 +1,303 @@
+{
+  "results": {
+    "base": "https://sxyq27.online/zhj-api",
+    "login": {
+      "ok": true,
+      "status": 200,
+      "latency_ms": 758.9,
+      "body": "{\"code\":0,\"message\":\"success\",\"data\":{\"user_id\":7,\"token\":\"554b76a92dc24bcbbbe7730c974eb7ee\",\"refresh_token\":\"9257f8b441d94da7bf70f2bfe5d284c8\",\"expires_in\":604800},\"timestamp\":1783236879063}"
+    },
+    "token_tail": "974eb7ee",
+    "refresh_tail": "e5d284c8",
+    "me": [
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 469.73,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":{\"id\":7,\"phone\":\"13800138990\",\"nickname\":\"User8990\",\"status\":1},\"timestamp\":1783236879543}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 450.65,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":{\"id\":7,\"phone\":\"13800138990\",\"nickname\":\"User8990\",\"status\":1},\"timestamp\":1783236880054}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 469.46,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":{\"id\":7,\"phone\":\"13800138990\",\"nickname\":\"User8990\",\"status\":1},\"timestamp\":1783236880580}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 496.99,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":{\"id\":7,\"phone\":\"13800138990\",\"nickname\":\"User8990\",\"status\":1},\"timestamp\":1783236881130}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 462.09,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":{\"id\":7,\"phone\":\"13800138990\",\"nickname\":\"User8990\",\"status\":1},\"timestamp\":1783236881648}"
+      }
+    ],
+    "workbench": [
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 531.3,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":{\"greeting\":\"你好，我是智慧记 AI 助手\",\"kpi_cards\":[],\"quick_questions\":[],\"recent_conversations\":[],\"pending_drafts\":[],\"risk_alerts\":[],\"today_summary\":null,\"status\":\"clean_entry_ready\",\"data_policy\":\"AI 首页不预取或展示报表型经营数据；发送问题后才创建真实 owner-scoped run 并查询业务工具。\",\"capabilities\":[{\"id\":\"real_data_chat\",\"title\":\"真实数据问答\",\"description\":\"按用户问题创建服务端 run，查询当前账号可访问的库存、往来、销售、采购和财务数据。\"},{\"id\":\"markdown_and_result_blocks\",\"title\":\"Markdown 与结构化结果\",\"description\":\"回答可包含 Markdown、表格、图表和证据卡；Android 只渲染后端返回的真实结果块。\"},{\"id\":\"auditable_agent_trace\",\"title\":\"可审计运行轨迹\",\"description\":\"每次运行记录工具、模式、模型状态、耗时、audit id 和 trace id，便于后续核对。\"}],\"warnings\":[\"当前入口不返回默认 KPI、风险、今日摘要或报表图表，避免与报表页重复或产生模拟数据。\"]},\"timestamp\":1783236882197}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 460.15,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":{\"greeting\":\"你好，我是智慧记 AI 助手\",\"kpi_cards\":[],\"quick_questions\":[],\"recent_conversations\":[],\"pending_drafts\":[],\"risk_alerts\":[],\"today_summary\":null,\"status\":\"clean_entry_ready\",\"data_policy\":\"AI 首页不预取或展示报表型经营数据；发送问题后才创建真实 owner-scoped run 并查询业务工具。\",\"capabilities\":[{\"id\":\"real_data_chat\",\"title\":\"真实数据问答\",\"description\":\"按用户问题创建服务端 run，查询当前账号可访问的库存、往来、销售、采购和财务数据。\"},{\"id\":\"markdown_and_result_blocks\",\"title\":\"Markdown 与结构化结果\",\"description\":\"回答可包含 Markdown、表格、图表和证据卡；Android 只渲染后端返回的真实结果块。\"},{\"id\":\"auditable_agent_trace\",\"title\":\"可审计运行轨迹\",\"description\":\"每次运行记录工具、模式、模型状态、耗时、audit id 和 trace id，便于后续核对。\"}],\"warnings\":[\"当前入口不返回默认 KPI、风险、今日摘要或报表图表，避免与报表页重复或产生模拟数据。\"]},\"timestamp\":1783236882753}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 446.93,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":{\"greeting\":\"你好，我是智慧记 AI 助手\",\"kpi_cards\":[],\"quick_questions\":[],\"recent_conversations\":[],\"pending_drafts\":[],\"risk_alerts\":[],\"today_summary\":null,\"status\":\"clean_entry_ready\",\"data_policy\":\"AI 首页不预取或展示报表型经营数据；发送问题后才创建真实 owner-scoped run 并查询业务工具。\",\"capabilities\":[{\"id\":\"real_data_chat\",\"title\":\"真实数据问答\",\"description\":\"按用户问题创建服务端 run，查询当前账号可访问的库存、往来、销售、采购和财务数据。\"},{\"id\":\"markdown_and_result_blocks\",\"title\":\"Markdown 与结构化结果\",\"description\":\"回答可包含 Markdown、表格、图表和证据卡；Android 只渲染后端返回的真实结果块。\"},{\"id\":\"auditable_agent_trace\",\"title\":\"可审计运行轨迹\",\"description\":\"每次运行记录工具、模式、模型状态、耗时、audit id 和 trace id，便于后续核对。\"}],\"warnings\":[\"当前入口不返回默认 KPI、风险、今日摘要或报表图表，避免与报表页重复或产生模拟数据。\"]},\"timestamp\":1783236883256}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 585.37,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":{\"greeting\":\"你好，我是智慧记 AI 助手\",\"kpi_cards\":[],\"quick_questions\":[],\"recent_conversations\":[],\"pending_drafts\":[],\"risk_alerts\":[],\"today_summary\":null,\"status\":\"clean_entry_ready\",\"data_policy\":\"AI 首页不预取或展示报表型经营数据；发送问题后才创建真实 owner-scoped run 并查询业务工具。\",\"capabilities\":[{\"id\":\"real_data_chat\",\"title\":\"真实数据问答\",\"description\":\"按用户问题创建服务端 run，查询当前账号可访问的库存、往来、销售、采购和财务数据。\"},{\"id\":\"markdown_and_result_blocks\",\"title\":\"Markdown 与结构化结果\",\"description\":\"回答可包含 Markdown、表格、图表和证据卡；Android 只渲染后端返回的真实结果块。\"},{\"id\":\"auditable_agent_trace\",\"title\":\"可审计运行轨迹\",\"description\":\"每次运行记录工具、模式、模型状态、耗时、audit id 和 trace id，便于后续核对。\"}],\"warnings\":[\"当前入口不返回默认 KPI、风险、今日摘要或报表图表，避免与报表页重复或产生模拟数据。\"]},\"timestamp\":1783236883807}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 491.6,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":{\"greeting\":\"你好，我是智慧记 AI 助手\",\"kpi_cards\":[],\"quick_questions\":[],\"recent_conversations\":[],\"pending_drafts\":[],\"risk_alerts\":[],\"today_summary\":null,\"status\":\"clean_entry_ready\",\"data_policy\":\"AI 首页不预取或展示报表型经营数据；发送问题后才创建真实 owner-scoped run 并查询业务工具。\",\"capabilities\":[{\"id\":\"real_data_chat\",\"title\":\"真实数据问答\",\"description\":\"按用户问题创建服务端 run，查询当前账号可访问的库存、往来、销售、采购和财务数据。\"},{\"id\":\"markdown_and_result_blocks\",\"title\":\"Markdown 与结构化结果\",\"description\":\"回答可包含 Markdown、表格、图表和证据卡；Android 只渲染后端返回的真实结果块。\"},{\"id\":\"auditable_agent_trace\",\"title\":\"可审计运行轨迹\",\"description\":\"每次运行记录工具、模式、模型状态、耗时、audit id 和 trace id，便于后续核对。\"}],\"warnings\":[\"当前入口不返回默认 KPI、风险、今日摘要或报表图表，避免与报表页重复或产生模拟数据。\"]},\"timestamp\":1783236884453}"
+      }
+    ],
+    "conversations": [
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 474.61,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":[{\"id\":24,\"title\":\"Count\",\"status\":\"active\",\"latest_summary\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"created_at\":1783232540420,\"updated_at\":1783232542213,\"last_message_at\":1783232542213},{\"id\":23,\"title\":\"真实查询\",\"status\":\"active\",\"latest_summary\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"created_at\":1783232283454,\"updated_at\":1783232285856,\"last_message_at\":1783232285856},{\"id\":22,\"title\":\"Count\",\"status\":\"active\",\"latest_summary\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"created_at\":1783231446894,\"updated_at\":1783231448737,\"last_message_at\":1783231448737},{\"id\":21,\"title\":\"真实查询\",\"status\":\"active\",\"latest_summary\":null,\"created_at\":1783231220497,\"updated_at\":1783231220497,\"last_message_at\":null},{\"id\":20,\"title\":\"Wave0 Chat Retry\",\"status\":\"active\",\"latest_summary\":null,\"created_at\":1783228077135,\"updated_at\":1783228077135,\"last_message_at\":null},{\"id\":19,\"title\":\"Wave0 测试会话\",\"status\":\"active\",\"latest_summary\":\"库存和客户应收情况如下：\\n\\n1. 库存方面：最近库存快照 0 条，库存总值 ¥0.00，当前查询没有查到库存记录。\\n2. 客户应收方面：欠款客户总数 0 个，应收总额 ¥0.00，Top10 应收合计 ¥0.00，当前没有查到客户应收欠款。\",\"created_at\":1783227131458,\"updated_at\":1783227156788,\"last_message_at\":1783227156788}],\"timestamp\":1783236884983}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 456.43,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":[{\"id\":24,\"title\":\"Count\",\"status\":\"active\",\"latest_summary\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"created_at\":1783232540420,\"updated_at\":1783232542213,\"last_message_at\":1783232542213},{\"id\":23,\"title\":\"真实查询\",\"status\":\"active\",\"latest_summary\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"created_at\":1783232283454,\"updated_at\":1783232285856,\"last_message_at\":1783232285856},{\"id\":22,\"title\":\"Count\",\"status\":\"active\",\"latest_summary\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"created_at\":1783231446894,\"updated_at\":1783231448737,\"last_message_at\":1783231448737},{\"id\":21,\"title\":\"真实查询\",\"status\":\"active\",\"latest_summary\":null,\"created_at\":1783231220497,\"updated_at\":1783231220497,\"last_message_at\":null},{\"id\":20,\"title\":\"Wave0 Chat Retry\",\"status\":\"active\",\"latest_summary\":null,\"created_at\":1783228077135,\"updated_at\":1783228077135,\"last_message_at\":null},{\"id\":19,\"title\":\"Wave0 测试会话\",\"status\":\"active\",\"latest_summary\":\"库存和客户应收情况如下：\\n\\n1. 库存方面：最近库存快照 0 条，库存总值 ¥0.00，当前查询没有查到库存记录。\\n2. 客户应收方面：欠款客户总数 0 个，应收总额 ¥0.00，Top10 应收合计 ¥0.00，当前没有查到客户应收欠款。\",\"created_at\":1783227131458,\"updated_at\":1783227156788,\"last_message_at\":1783227156788}],\"timestamp\":1783236885500}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 457.2,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":[{\"id\":24,\"title\":\"Count\",\"status\":\"active\",\"latest_summary\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"created_at\":1783232540420,\"updated_at\":1783232542213,\"last_message_at\":1783232542213},{\"id\":23,\"title\":\"真实查询\",\"status\":\"active\",\"latest_summary\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"created_at\":1783232283454,\"updated_at\":1783232285856,\"last_message_at\":1783232285856},{\"id\":22,\"title\":\"Count\",\"status\":\"active\",\"latest_summary\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"created_at\":1783231446894,\"updated_at\":1783231448737,\"last_message_at\":1783231448737},{\"id\":21,\"title\":\"真实查询\",\"status\":\"active\",\"latest_summary\":null,\"created_at\":1783231220497,\"updated_at\":1783231220497,\"last_message_at\":null},{\"id\":20,\"title\":\"Wave0 Chat Retry\",\"status\":\"active\",\"latest_summary\":null,\"created_at\":1783228077135,\"updated_at\":1783228077135,\"last_message_at\":null},{\"id\":19,\"title\":\"Wave0 测试会话\",\"status\":\"active\",\"latest_summary\":\"库存和客户应收情况如下：\\n\\n1. 库存方面：最近库存快照 0 条，库存总值 ¥0.00，当前查询没有查到库存记录。\\n2. 客户应收方面：欠款客户总数 0 个，应收总额 ¥0.00，Top10 应收合计 ¥0.00，当前没有查到客户应收欠款。\",\"created_at\":1783227131458,\"updated_at\":1783227156788,\"last_message_at\":1783227156788}],\"timestamp\":1783236886014}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 1467.06,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":[{\"id\":24,\"title\":\"Count\",\"status\":\"active\",\"latest_summary\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"created_at\":1783232540420,\"updated_at\":1783232542213,\"last_message_at\":1783232542213},{\"id\":23,\"title\":\"真实查询\",\"status\":\"active\",\"latest_summary\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"created_at\":1783232283454,\"updated_at\":1783232285856,\"last_message_at\":1783232285856},{\"id\":22,\"title\":\"Count\",\"status\":\"active\",\"latest_summary\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"created_at\":1783231446894,\"updated_at\":1783231448737,\"last_message_at\":1783231448737},{\"id\":21,\"title\":\"真实查询\",\"status\":\"active\",\"latest_summary\":null,\"created_at\":1783231220497,\"updated_at\":1783231220497,\"last_message_at\":null},{\"id\":20,\"title\":\"Wave0 Chat Retry\",\"status\":\"active\",\"latest_summary\":null,\"created_at\":1783228077135,\"updated_at\":1783228077135,\"last_message_at\":null},{\"id\":19,\"title\":\"Wave0 测试会话\",\"status\":\"active\",\"latest_summary\":\"库存和客户应收情况如下：\\n\\n1. 库存方面：最近库存快照 0 条，库存总值 ¥0.00，当前查询没有查到库存记录。\\n2. 客户应收方面：欠款客户总数 0 个，应收总额 ¥0.00，Top10 应收合计 ¥0.00，当前没有查到客户应收欠款。\",\"created_at\":1783227131458,\"updated_at\":1783227156788,\"last_message_at\":1783227156788}],\"timestamp\":1783236887536}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 462.33,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":[{\"id\":24,\"title\":\"Count\",\"status\":\"active\",\"latest_summary\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"created_at\":1783232540420,\"updated_at\":1783232542213,\"last_message_at\":1783232542213},{\"id\":23,\"title\":\"真实查询\",\"status\":\"active\",\"latest_summary\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"created_at\":1783232283454,\"updated_at\":1783232285856,\"last_message_at\":1783232285856},{\"id\":22,\"title\":\"Count\",\"status\":\"active\",\"latest_summary\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"created_at\":1783231446894,\"updated_at\":1783231448737,\"last_message_at\":1783231448737},{\"id\":21,\"title\":\"真实查询\",\"status\":\"active\",\"latest_summary\":null,\"created_at\":1783231220497,\"updated_at\":1783231220497,\"last_message_at\":null},{\"id\":20,\"title\":\"Wave0 Chat Retry\",\"status\":\"active\",\"latest_summary\":null,\"created_at\":1783228077135,\"updated_at\":1783228077135,\"last_message_at\":null},{\"id\":19,\"title\":\"Wave0 测试会话\",\"status\":\"active\",\"latest_summary\":\"库存和客户应收情况如下：\\n\\n1. 库存方面：最近库存快照 0 条，库存总值 ¥0.00，当前查询没有查到库存记录。\\n2. 客户应收方面：欠款客户总数 0 个，应收总额 ¥0.00，Top10 应收合计 ¥0.00，当前没有查到客户应收欠款。\",\"created_at\":1783227131458,\"updated_at\":1783227156788,\"last_message_at\":1783227156788}],\"timestamp\":1783236888061}"
+      }
+    ],
+    "drafts": [
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 463.5,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":[{\"id\":7,\"conversation_id\":20,\"draft_type\":\"media_upload\",\"title\":\"Wave1 Confirm Draft\",\"content_json\":\"{\\\"file_name\\\":\\\"wave1.png\\\",\\\"mime_type\\\":\\\"image/png\\\"}\",\"status\":\"confirmed\",\"created_at\":1783228144763,\"updated_at\":1783228145007},{\"id\":6,\"conversation_id\":20,\"draft_type\":\"customer_followup\",\"title\":\"Wave1 Cancel Draft\",\"content_json\":\"{\\\"kind\\\":\\\"note\\\",\\\"text\\\":\\\"cancel me\\\"}\",\"status\":\"cancelled\",\"created_at\":1783228144263,\"updated_at\":1783228144528},{\"id\":5,\"conversation_id\":19,\"draft_type\":\"create_customer\",\"title\":\"新增客户草稿\",\"content_json\":\"{\\\"name\\\":\\\"测试客户A\\\",\\\"phone\\\":\\\"13700020001\\\",\\\"level\\\":1,\\\"group_id\\\":null,\\\"primary_contact_name\\\":\\\"张三\\\",\\\"primary_contact_phone\\\":\\\"13700020002\\\",\\\"address\\\":\\\"测试地址\\\",\\\"notes\\\":\\\"draft confirm\\\",\\\"balance\\\":0,\\\"status\\\":1}\",\"status\":\"confirmed\",\"created_at\":1783227259160,\"updated_at\":1783227274104},{\"id\":4,\"conversation_id\":19,\"draft_type\":\"customer_followup\",\"title\":\"客户跟进草稿\",\"content_json\":\"{\\\"text\\\":\\\"先跟进门店客户A\\\"}\",\"status\":\"cancelled\",\"created_at\":1783227201767,\"updated_at\":1783227221262}],\"timestamp\":1783236888584}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 459.34,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":[{\"id\":7,\"conversation_id\":20,\"draft_type\":\"media_upload\",\"title\":\"Wave1 Confirm Draft\",\"content_json\":\"{\\\"file_name\\\":\\\"wave1.png\\\",\\\"mime_type\\\":\\\"image/png\\\"}\",\"status\":\"confirmed\",\"created_at\":1783228144763,\"updated_at\":1783228145007},{\"id\":6,\"conversation_id\":20,\"draft_type\":\"customer_followup\",\"title\":\"Wave1 Cancel Draft\",\"content_json\":\"{\\\"kind\\\":\\\"note\\\",\\\"text\\\":\\\"cancel me\\\"}\",\"status\":\"cancelled\",\"created_at\":1783228144263,\"updated_at\":1783228144528},{\"id\":5,\"conversation_id\":19,\"draft_type\":\"create_customer\",\"title\":\"新增客户草稿\",\"content_json\":\"{\\\"name\\\":\\\"测试客户A\\\",\\\"phone\\\":\\\"13700020001\\\",\\\"level\\\":1,\\\"group_id\\\":null,\\\"primary_contact_name\\\":\\\"张三\\\",\\\"primary_contact_phone\\\":\\\"13700020002\\\",\\\"address\\\":\\\"测试地址\\\",\\\"notes\\\":\\\"draft confirm\\\",\\\"balance\\\":0,\\\"status\\\":1}\",\"status\":\"confirmed\",\"created_at\":1783227259160,\"updated_at\":1783227274104},{\"id\":4,\"conversation_id\":19,\"draft_type\":\"customer_followup\",\"title\":\"客户跟进草稿\",\"content_json\":\"{\\\"text\\\":\\\"先跟进门店客户A\\\"}\",\"status\":\"cancelled\",\"created_at\":1783227201767,\"updated_at\":1783227221262}],\"timestamp\":1783236889099}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 502.09,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":[{\"id\":7,\"conversation_id\":20,\"draft_type\":\"media_upload\",\"title\":\"Wave1 Confirm Draft\",\"content_json\":\"{\\\"file_name\\\":\\\"wave1.png\\\",\\\"mime_type\\\":\\\"image/png\\\"}\",\"status\":\"confirmed\",\"created_at\":1783228144763,\"updated_at\":1783228145007},{\"id\":6,\"conversation_id\":20,\"draft_type\":\"customer_followup\",\"title\":\"Wave1 Cancel Draft\",\"content_json\":\"{\\\"kind\\\":\\\"note\\\",\\\"text\\\":\\\"cancel me\\\"}\",\"status\":\"cancelled\",\"created_at\":1783228144263,\"updated_at\":1783228144528},{\"id\":5,\"conversation_id\":19,\"draft_type\":\"create_customer\",\"title\":\"新增客户草稿\",\"content_json\":\"{\\\"name\\\":\\\"测试客户A\\\",\\\"phone\\\":\\\"13700020001\\\",\\\"level\\\":1,\\\"group_id\\\":null,\\\"primary_contact_name\\\":\\\"张三\\\",\\\"primary_contact_phone\\\":\\\"13700020002\\\",\\\"address\\\":\\\"测试地址\\\",\\\"notes\\\":\\\"draft confirm\\\",\\\"balance\\\":0,\\\"status\\\":1}\",\"status\":\"confirmed\",\"created_at\":1783227259160,\"updated_at\":1783227274104},{\"id\":4,\"conversation_id\":19,\"draft_type\":\"customer_followup\",\"title\":\"客户跟进草稿\",\"content_json\":\"{\\\"text\\\":\\\"先跟进门店客户A\\\"}\",\"status\":\"cancelled\",\"created_at\":1783227201767,\"updated_at\":1783227221262}],\"timestamp\":1783236889657}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 477.19,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":[{\"id\":7,\"conversation_id\":20,\"draft_type\":\"media_upload\",\"title\":\"Wave1 Confirm Draft\",\"content_json\":\"{\\\"file_name\\\":\\\"wave1.png\\\",\\\"mime_type\\\":\\\"image/png\\\"}\",\"status\":\"confirmed\",\"created_at\":1783228144763,\"updated_at\":1783228145007},{\"id\":6,\"conversation_id\":20,\"draft_type\":\"customer_followup\",\"title\":\"Wave1 Cancel Draft\",\"content_json\":\"{\\\"kind\\\":\\\"note\\\",\\\"text\\\":\\\"cancel me\\\"}\",\"status\":\"cancelled\",\"created_at\":1783228144263,\"updated_at\":1783228144528},{\"id\":5,\"conversation_id\":19,\"draft_type\":\"create_customer\",\"title\":\"新增客户草稿\",\"content_json\":\"{\\\"name\\\":\\\"测试客户A\\\",\\\"phone\\\":\\\"13700020001\\\",\\\"level\\\":1,\\\"group_id\\\":null,\\\"primary_contact_name\\\":\\\"张三\\\",\\\"primary_contact_phone\\\":\\\"13700020002\\\",\\\"address\\\":\\\"测试地址\\\",\\\"notes\\\":\\\"draft confirm\\\",\\\"balance\\\":0,\\\"status\\\":1}\",\"status\":\"confirmed\",\"created_at\":1783227259160,\"updated_at\":1783227274104},{\"id\":4,\"conversation_id\":19,\"draft_type\":\"customer_followup\",\"title\":\"客户跟进草稿\",\"content_json\":\"{\\\"text\\\":\\\"先跟进门店客户A\\\"}\",\"status\":\"cancelled\",\"created_at\":1783227201767,\"updated_at\":1783227221262}],\"timestamp\":1783236890188}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 470.99,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":[{\"id\":7,\"conversation_id\":20,\"draft_type\":\"media_upload\",\"title\":\"Wave1 Confirm Draft\",\"content_json\":\"{\\\"file_name\\\":\\\"wave1.png\\\",\\\"mime_type\\\":\\\"image/png\\\"}\",\"status\":\"confirmed\",\"created_at\":1783228144763,\"updated_at\":1783228145007},{\"id\":6,\"conversation_id\":20,\"draft_type\":\"customer_followup\",\"title\":\"Wave1 Cancel Draft\",\"content_json\":\"{\\\"kind\\\":\\\"note\\\",\\\"text\\\":\\\"cancel me\\\"}\",\"status\":\"cancelled\",\"created_at\":1783228144263,\"updated_at\":1783228144528},{\"id\":5,\"conversation_id\":19,\"draft_type\":\"create_customer\",\"title\":\"新增客户草稿\",\"content_json\":\"{\\\"name\\\":\\\"测试客户A\\\",\\\"phone\\\":\\\"13700020001\\\",\\\"level\\\":1,\\\"group_id\\\":null,\\\"primary_contact_name\\\":\\\"张三\\\",\\\"primary_contact_phone\\\":\\\"13700020002\\\",\\\"address\\\":\\\"测试地址\\\",\\\"notes\\\":\\\"draft confirm\\\",\\\"balance\\\":0,\\\"status\\\":1}\",\"status\":\"confirmed\",\"created_at\":1783227259160,\"updated_at\":1783227274104},{\"id\":4,\"conversation_id\":19,\"draft_type\":\"customer_followup\",\"title\":\"客户跟进草稿\",\"content_json\":\"{\\\"text\\\":\\\"先跟进门店客户A\\\"}\",\"status\":\"cancelled\",\"created_at\":1783227201767,\"updated_at\":1783227221262}],\"timestamp\":1783236890720}"
+      }
+    ],
+    "drafts_pending": [
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 1475.37,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":[],\"timestamp\":1783236892251}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 505.34,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":[],\"timestamp\":1783236892817}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 549.1,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":[],\"timestamp\":1783236893343}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 448.7,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":[],\"timestamp\":1783236893926}"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "latency_ms": 477.17,
+        "body": "{\"code\":0,\"message\":\"success\",\"data\":[],\"timestamp\":1783236894455}"
+      }
+    ],
+    "refresh": {
+      "ok": false,
+      "status": 400,
+      "latency_ms": 502.15,
+      "body": "{\"code\":400,\"message\":\"refreshToken must not be blank\",\"data\":null,\"timestamp\":1783236895015}"
+    },
+    "chat_nonstream": {
+      "ok": true,
+      "status": 200,
+      "latency_ms": 2383.8,
+      "body": "{\"code\":0,\"message\":\"success\",\"data\":{\"run_id\":\"e91e3356-39a5-47e7-a49d-e9c2b870baad\",\"conversation_id\":19,\"answer\":\"这个请求涉及越权或高风险操作，我不能直接执行。你可以改成只查询当前账号下的合规数据范围。\",\"blocks\":[],\"draft_id\":null,\"safety_passed\":false,\"safety_reason\":\"请求过于模糊，无法判断是否属于允许范围内的经营数据查询或其他操作。请提供具体业务内容与对象。\",\"mode\":\"blocked\",\"llm_status\":\"not_requested\",\"plan_source\":\"safety\",\"plan_summary\":\"安全检查拦截：未执行业务查询工具\",\"tool_calls\":[],\"evidence_refs\":[],\"result_blocks\":[],\"performance_summary\":{\"started_at\":1783236895457,\"completed_at\":1783236897347,\"duration_ms\":1890,\"tool_duration_ms\":0,\"model_duration_ms\":0},\"audit_id\":\"e91e3356-39a5-47e7-a49d-e9c2b870baad:audit\",\"trace_id\":\"e91e3356-39a5-47e7-a49d-e9c2b870baad:trace\",\"observability\":{\"request_id\":\"e91e3356-39a5-47e7-a49d-e9c2b870baad\",\"correlation_id\":\"e91e3356-39a5-47e7-a49d-e9c2b870baad\",\"trace_id\":\"e91e3356-39a5-47e7-a49d-e9c2b870baad:trace\",\"audit_id\":\"e91e3356-39a5-47e7-a49d-e9c2b870baad:audit\",\"log_ref\":\"agent-run:e91e3356-39a5-47e7-a49d-e9c2b870baad\"}},\"timestamp\":1783236897394}"
+    },
+    "cancel": {
+      "ok": true,
+      "status": 200,
+      "latency_ms": 470.36,
+      "body": "{\"code\":0,\"message\":\"success\",\"data\":{\"run_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"status\":\"not_found\",\"cancelled\":false},\"timestamp\":1783236900446}"
+    },
+    "audit": {
+      "ok": true,
+      "status": 200,
+      "latency_ms": 451.09,
+      "body": "{\"code\":0,\"message\":\"success\",\"data\":{\"run_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"owner_user_id\":7,\"conversation_id\":19,\"status\":\"blocked\",\"mode\":\"blocked\",\"llm_status\":\"not_requested\",\"plan_source\":\"safety\",\"tool_count\":0,\"event_count\":5,\"audit_write_dropped_count\":0,\"audit_write_failed_count\":0,\"audit_lossy\":false,\"emitted_event_count\":5,\"warnings\":[],\"audit_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:audit\",\"trace_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:trace\",\"error_code\":null,\"error_message\":null,\"started_at\":1783236897851,\"completed_at\":1783236899937,\"updated_at\":1783236899937,\"events\":[{\"event_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:1\",\"seq\":1,\"event_type\":\"run_started\",\"payload\":{\"event_type\":\"run_started\",\"trace_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:trace\",\"observability\":{\"request_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"correlation_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"trace_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:trace\",\"audit_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:audit\",\"log_ref\":\"agent-run:927d4c63-84d9-47a4-97ee-2095397307cc\"},\"timestamp\":1783236897883,\"conversation_id\":19,\"audit_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:audit\",\"run_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"seq\":1,\"event_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:1\"},\"created_at\":1783236897885},{\"event_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:2\",\"seq\":2,\"event_type\":\"safety_check_started\",\"payload\":{\"event_type\":\"safety_check_started\",\"run_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"timestamp\":1783236897885,\"conversation_id\":19,\"seq\":2,\"event_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:2\"},\"created_at\":1783236897904},{\"event_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:3\",\"seq\":3,\"event_type\":\"safety_check_blocked\",\"payload\":{\"event_type\":\"safety_check_blocked\",\"run_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"reason\":\"用户请求过于模糊，无法判断是否涉及允许的经营数据查询或其他受限操作。请提供具体查询内容。\",\"suggested_action\":\"改成仅查询当前登录账号可见的数据\",\"timestamp\":1783236899903,\"conversation_id\":19,\"seq\":3,\"event_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:3\"},\"created_at\":1783236899906},{\"event_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:4\",\"seq\":4,\"event_type\":\"answer_completed\",\"payload\":{\"event_type\":\"answer_completed\",\"run_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"answer\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"mode\":\"blocked\",\"llm_status\":\"not_requested\",\"plan_source\":\"safety\",\"audit_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:audit\",\"trace_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:trace\",\"observability\":{\"request_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"correlation_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"trace_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:trace\",\"audit_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:audit\",\"log_ref\":\"agent-run:927d4c63-84d9-47a4-97ee-2095397307cc\"},\"timestamp\":1783236899904,\"conversation_id\":19,\"seq\":4,\"event_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:4\"},\"created_at\":1783236899922},{\"event_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:5\",\"seq\":5,\"event_type\":\"run_completed\",\"payload\":{\"event_type\":\"run_completed\",\"run_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"final_answer\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"mode\":\"blocked\",\"llm_status\":\"not_requested\",\"plan_source\":\"safety\",\"audit_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:audit\",\"trace_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:trace\",\"observability\":{\"request_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"correlation_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"trace_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:trace\",\"audit_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:audit\",\"log_ref\":\"agent-run:927d4c63-84d9-47a4-97ee-2095397307cc\"},\"timestamp\":1783236899936,\"conversation_id\":19,\"seq\":5,\"event_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:5\"},\"created_at\":1783236899937}]},\"timestamp\":1783236900899}"
+    },
+    "chat_stream": {
+      "ok": true,
+      "status": 200,
+      "first_event_ms": 477.51,
+      "first_line": "data:{\"event_type\":\"run_started\",\"trace_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:trace\",\"observability\":{\"request_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"correlation_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"trace_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:trace\",\"audit_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:audit\",\"log_ref\":\"agent-run:927d4c63-84d9-47a4-97ee-2095397307cc\"},\"timestamp\":1783236897883,\"conversation_id\":19,\"audit_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:audit\",\"run_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"seq\":1,\"event_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:1\"}",
+      "run_id": "927d4c63-84d9-47a4-97ee-2095397307cc",
+      "lines": [
+        "data:{\"event_type\":\"run_started\",\"trace_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:trace\",\"observability\":{\"request_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"correlation_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"trace_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:trace\",\"audit_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:audit\",\"log_ref\":\"agent-run:927d4c63-84d9-47a4-97ee-2095397307cc\"},\"timestamp\":1783236897883,\"conversation_id\":19,\"audit_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:audit\",\"run_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"seq\":1,\"event_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:1\"}",
+        "data:{\"event_type\":\"safety_check_started\",\"run_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"timestamp\":1783236897885,\"conversation_id\":19,\"seq\":2,\"event_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:2\"}",
+        "data:{\"event_type\":\"safety_check_blocked\",\"run_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"reason\":\"用户请求过于模糊，无法判断是否涉及允许的经营数据查询或其他受限操作。请提供具体查询内容。\",\"suggested_action\":\"改成仅查询当前登录账号可见的数据\",\"timestamp\":1783236899903,\"conversation_id\":19,\"seq\":3,\"event_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:3\"}",
+        "data:{\"event_type\":\"answer_completed\",\"run_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"answer\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"mode\":\"blocked\",\"llm_status\":\"not_requested\",\"plan_source\":\"safety\",\"audit_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:audit\",\"trace_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:trace\",\"observability\":{\"request_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"correlation_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"trace_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:trace\",\"audit_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:audit\",\"log_ref\":\"agent-run:927d4c63-84d9-47a4-97ee-2095397307cc\"},\"timestamp\":1783236899904,\"conversation_id\":19,\"seq\":4,\"event_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:4\"}",
+        "data:{\"event_type\":\"run_completed\",\"run_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"final_answer\":\"这个请求涉及越权或高风险操作，我不能直接执行。\",\"mode\":\"blocked\",\"llm_status\":\"not_requested\",\"plan_source\":\"safety\",\"audit_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:audit\",\"trace_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:trace\",\"observability\":{\"request_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"correlation_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc\",\"trace_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:trace\",\"audit_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:audit\",\"log_ref\":\"agent-run:927d4c63-84d9-47a4-97ee-2095397307cc\"},\"timestamp\":1783236899936,\"conversation_id\":19,\"seq\":5,\"event_id\":\"927d4c63-84d9-47a4-97ee-2095397307cc:5\"}"
+      ]
+    }
+  },
+  "metrics": {
+    "login": {
+      "count": 1,
+      "min_ms": 758.9,
+      "p50_ms": 758.9,
+      "max_ms": 758.9,
+      "status_counts": {
+        "200": 1
+      }
+    },
+    "me": {
+      "count": 5,
+      "min_ms": 450.65,
+      "p50_ms": 469.46,
+      "max_ms": 496.99,
+      "status_counts": {
+        "200": 5
+      }
+    },
+    "workbench": {
+      "count": 5,
+      "min_ms": 446.93,
+      "p50_ms": 491.6,
+      "max_ms": 585.37,
+      "status_counts": {
+        "200": 5
+      }
+    },
+    "conversations": {
+      "count": 5,
+      "min_ms": 456.43,
+      "p50_ms": 462.33,
+      "max_ms": 1467.06,
+      "status_counts": {
+        "200": 5
+      }
+    },
+    "drafts": {
+      "count": 5,
+      "min_ms": 459.34,
+      "p50_ms": 470.99,
+      "max_ms": 502.09,
+      "status_counts": {
+        "200": 5
+      }
+    },
+    "drafts_pending": {
+      "count": 5,
+      "min_ms": 448.7,
+      "p50_ms": 505.34,
+      "max_ms": 1475.37,
+      "status_counts": {
+        "200": 5
+      }
+    },
+    "refresh": {
+      "count": 1,
+      "min_ms": 502.15,
+      "p50_ms": 502.15,
+      "max_ms": 502.15,
+      "status_counts": {
+        "400": 1
+      }
+    },
+    "chat_nonstream": {
+      "count": 1,
+      "min_ms": 2383.8,
+      "p50_ms": 2383.8,
+      "max_ms": 2383.8,
+      "status_counts": {
+        "200": 1
+      }
+    },
+    "cancel": {
+      "count": 1,
+      "min_ms": 470.36,
+      "p50_ms": 470.36,
+      "max_ms": 470.36,
+      "status_counts": {
+        "200": 1
+      }
+    },
+    "audit": {
+      "count": 1,
+      "min_ms": 451.09,
+      "p50_ms": 451.09,
+      "max_ms": 451.09,
+      "status_counts": {
+        "200": 1
+      }
+    }
+  }
+}

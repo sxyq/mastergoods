@@ -1,0 +1,5 @@
+Live ingress draft confirm/cancel cleanup evidence
+login status=200
+confirm draft_id=10 status=422 body={"code":422,"message":"草稿确认失败（create_sale_order）：订单明细不能为空","data":null,"timestamp":1783255725364}
+cancel draft_id=11 status=200 body={"code":0,"message":"success","data":{"id":11,"conversation_id":25,"draft_type":"create_sale_order","title":"草稿确认测试 25","content_json":"{\"customer_name\":\"安卓草稿确认客户\",\"items\":[],\"remark\":\"android draft confirm test\"}","status":"cancelled","created_at":1783255700213,"updated_at":1783255726249},"timestamp":1783255726259}
+pending_after status=403 body={"timestamp":"2026-07-05T12:48:47.650+00:00","status":403,"error":"Forbidden","path":"/v2/agent/drafts/pending"}
