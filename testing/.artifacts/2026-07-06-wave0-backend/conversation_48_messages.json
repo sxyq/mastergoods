@@ -1,0 +1,43 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "id": 93,
+      "conversation_id": 48,
+      "role": "user",
+      "message_type": "text",
+      "content": "真实查询",
+      "structured_data_json": null,
+      "created_at": 1783276143535
+    },
+    {
+      "id": 94,
+      "conversation_id": 48,
+      "role": "assistant",
+      "message_type": "text",
+      "content": "这个请求涉及越权或高风险操作，我不能直接执行。",
+      "structured_data_json": null,
+      "created_at": 1783276157029
+    },
+    {
+      "id": 97,
+      "conversation_id": 48,
+      "role": "user",
+      "message_type": "text",
+      "content": "真实查询",
+      "structured_data_json": null,
+      "created_at": 1783278108418
+    },
+    {
+      "id": 98,
+      "conversation_id": 48,
+      "role": "assistant",
+      "message_type": "text",
+      "content": "这个请求涉及越权或高风险操作，我不能直接执行。",
+      "structured_data_json": null,
+      "created_at": 1783278110312
+    }
+  ],
+  "timestamp": 1783280279940
+}

@@ -1,0 +1,17 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "id": 14,
+      "conversation_id": null,
+      "draft_type": "customer_followup",
+      "title": "Wave0 backend draft confirm",
+      "content_json": "{\"text\":\"wave0 backend draft confirm\"}",
+      "status": "active",
+      "created_at": 1783274496845,
+      "updated_at": 1783274496845
+    }
+  ],
+  "timestamp": 1783280137957
+}

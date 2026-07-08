@@ -42,6 +42,7 @@ import org.springframework.util.StringUtils;
 @Component
 public class ToolPlanner {
     private static final int MAX_AGENT_ITERATIONS = 3;
+    private static final int MAX_TOOLS_PER_PLAN = 6;
 
     /** 内置只读工具白名单，用于注册表为空时的兜底鉴权。 */
     private static final Set<String> ALLOWED_READONLY_TOOLS = Set.of(
@@ -85,7 +86,8 @@ public class ToolPlanner {
         "cross_analysis_lookup",
         "anomaly_alert_lookup",
         "data_export_tool",
-        "store_info_lookup"
+        "store_info_lookup",
+        "result_visualization"
     );
 
     private final LongCatAnthropicClient longCatAnthropicClient;
@@ -168,7 +170,8 @@ public class ToolPlanner {
             + summaryContext
             + "用户问题：" + message + "\n"
             + "请输出形如 {\"tools\":[{\"name\":\"sale_order_lookup\",\"params\":{\"keyword\":\"张三\"}}],\"rationale\":\"...\"} 的 JSON。"
-            + "tools 最多 3 个，必须来自可选工具。params 为该工具的查询参数，根据用户问题提取，无参数时省略 params 字段。";
+            + "tools 最多 6 个，必须来自可选工具。params 为该工具的查询参数，根据用户问题提取，无参数时省略 params 字段。"
+            + "只有用户明确要求展示表格、图表、指标卡、趋势、排行或对比时，才追加 result_visualization。";
         return longCatAnthropicClient.createJsonMessage(systemPrompt, userPrompt).flatMap(this::parseToolPlan);
     }
 
@@ -199,7 +202,8 @@ public class ToolPlanner {
             : "";
         String systemPrompt = "你是智慧记的工具规划器。根据用户问题选择最相关的只读查询工具或创建类工具。\n"
             + "只读工具直接返回查询结果；创建类工具生成草稿，需用户确认后才执行写入。\n"
-            + "不允许生成 SQL，不允许访问其他账号数据。最多选择 3 个工具。"
+            + "不允许生成 SQL，不允许访问其他账号数据。最多选择 6 个工具。"
+            + "只有用户明确要求表格/图表/指标卡/趋势/排行/对比展示时，才调用 result_visualization。"
             + summaryContext;
         String planningMessage = formatHistoryContext(history) + "用户问题：" + message;
         Optional<LongCatAnthropicClient.ToolUseResponse> response =
@@ -221,7 +225,7 @@ public class ToolPlanner {
             ? "\n当前会话摘要：" + conversationSummary
             : "";
         String systemPrompt = "你是智慧记的工具规划器。根据用户问题从给定候选工具中选择最相关的工具。\n"
-            + "不要输出自然语言解释，优先直接返回原生工具调用。最多选择 3 个工具。"
+            + "不要输出自然语言解释，优先直接返回原生工具调用。最多选择 6 个工具。"
             + summaryContext;
         String planningMessage = formatHistoryContext(history) + "用户问题：" + message;
         Optional<LongCatAnthropicClient.ToolUseResponse> response =
@@ -242,7 +246,7 @@ public class ToolPlanner {
         Map<String, JsonNode> toolParams = new LinkedHashMap<>();
         for (LongCatAnthropicClient.ToolUseBlock toolUse : response.get().toolUses()) {
             String toolName = toolUse.name();
-            if (!isAllowedTool(toolName) || tools.size() >= 3) {
+            if (!isAllowedTool(toolName) || tools.size() >= MAX_TOOLS_PER_PLAN) {
                 continue;
             }
             if (tools.contains(toolName)) {
@@ -374,7 +378,7 @@ public class ToolPlanner {
                             toolParams.put(tool, params);
                         }
                     }
-                    if (tools.size() >= 3) {
+                    if (tools.size() >= MAX_TOOLS_PER_PLAN) {
                         break;
                     }
                 }
@@ -426,7 +430,7 @@ public class ToolPlanner {
         if (containsAny(normalized, "价格等级", "价目", "price level", "pricing tier")) {
             tools.add("product_price_level_lookup");
         }
-        if (containsAny(normalized, "欠款", "应收", "客户", "回款", "receivable", "customer", "collection")) {
+        if (containsAny(normalized, "欠款", "应收", "回款", "催收", "receivable", "collection")) {
             tools.add("customer_receivable_lookup");
         }
         if (containsAny(normalized, "客户画像", "客户分析", "客户档案", "profile", "customer insights")) {
@@ -442,13 +446,13 @@ public class ToolPlanner {
         if (containsAny(normalized, "采购跟踪", "采购进度", "入库退货", "tracking", "receipt flow")) {
             tools.add("purchase_tracking_lookup");
         }
-        if (containsAny(normalized, "销售单", "订单", "成交", "收款", "付款情况", "sale order", "sales order", "order", "deal")) {
+        if (containsAny(normalized, "销售单", "订单", "成交", "收款", "付款情况", "sale order", "sales order", "deal")) {
             tools.add("sale_order_lookup");
         }
         if (containsAny(normalized, "销售全链路", "销售链路", "退货收款", "full chain", "return flow")) {
             tools.add("sales_full_chain_lookup");
         }
-        if (containsAny(normalized, "付款单", "已付款", "待付款", "payment", "paid", "unpaid")) {
+        if (containsAny(normalized, "付款单", "已付款", "待付款", "pay order", "outgoing payment")) {
             tools.add("pay_order_lookup");
         }
         if (containsAny(normalized, "账户健康", "收支比", "账户概览", "account health", "cash ratio")) {
@@ -466,7 +470,7 @@ public class ToolPlanner {
         if (containsAny(normalized, "应收应付", "往来对账", "对账汇总", "reconciliation", "receivable payable")) {
             tools.add("receivable_payable_lookup");
         }
-        if (containsAny(normalized, "经营", "概览", "销售", "最近", "7天", "七天", "business", "overview", "sales", "recent", "7 days")) {
+        if (requestsSalesOverview(normalized)) {
             tools.add("sales_overview_lookup");
         }
         if (containsAny(normalized, "导出", "导出数据", "下载csv", "下载json", "export")) {
@@ -481,17 +485,51 @@ public class ToolPlanner {
         if (containsAny(normalized, "同步状态", "同步任务", "sync status", "sync job")) {
             tools.add("sync_status_lookup");
         }
+        if (!tools.isEmpty() && requestsVisualization(normalized)) {
+            tools.add("result_visualization");
+        }
         List<String> deduplicated = new ArrayList<>();
         for (String tool : tools) {
             if (isAllowedTool(tool)) {
                 deduplicated.add(tool);
             }
-            if (deduplicated.size() >= 6) {
+            if (deduplicated.size() >= MAX_TOOLS_PER_PLAN) {
                 break;
             }
         }
         Map<String, JsonNode> toolParams = inferKeywordFallbackToolParams(message, deduplicated, history, conversationSummary);
         return new AgentToolPlan(deduplicated, "根据问题关键词兜底选择已接入工具", "keyword_fallback", toolParams);
+    }
+
+    private boolean requestsVisualization(String normalized) {
+        return containsAny(normalized,
+            "图表", "图", "表格", "统计图", "柱状图", "折线图", "饼图", "趋势图", "可视化",
+            "排行", "排名", "对比", "比较", "统计", "指标", "指标卡", "明细表", "chart", "table", "visual",
+            "visualization", "trend", "rank", "compare", "comparison", "dashboard");
+    }
+
+    private boolean requestsSalesOverview(String normalized) {
+        boolean explicitOverview = containsAny(
+            normalized,
+            "经营概览",
+            "经营总览",
+            "经营情况",
+            "销售概览",
+            "business overview",
+            "sales overview"
+        );
+        boolean salesSignal = containsAny(
+            normalized,
+            "销售额",
+            "销售趋势",
+            "回款",
+            "sales",
+            "revenue",
+            "gmv"
+        );
+        boolean overviewSignal = containsAny(normalized, "经营", "概览", "总览", "overview", "business");
+        boolean timeSignal = containsAny(normalized, "近7天", "7天", "七天", "最近7天", "recent", "7 days", "last 7 days");
+        return explicitOverview || (salesSignal && overviewSignal) || (salesSignal && timeSignal);
     }
 
     public Map<String, JsonNode> inferKeywordFallbackToolParams(

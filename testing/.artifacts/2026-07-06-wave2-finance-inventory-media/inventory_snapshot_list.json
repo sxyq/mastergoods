@@ -1,0 +1,46 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "content": [
+      {
+        "id": 2,
+        "product_id": 4,
+        "product_code": "WG-W2-20260706",
+        "product_name": "Wave2 测试商品 20260706 更新",
+        "warehouse_id": null,
+        "quantity": 12.0,
+        "unit_cost": 8.5,
+        "total_value": 102.0,
+        "snapshot_date": 1783282585543,
+        "created_at": 1783282585541
+      }
+    ],
+    "pageable": {
+      "page_number": 0,
+      "page_size": 20,
+      "sort": {
+        "sorted": false,
+        "empty": true,
+        "unsorted": true
+      },
+      "offset": 0,
+      "paged": true,
+      "unpaged": false
+    },
+    "last": true,
+    "total_pages": 1,
+    "total_elements": 1,
+    "first": true,
+    "size": 20,
+    "number": 0,
+    "sort": {
+      "sorted": false,
+      "empty": true,
+      "unsorted": true
+    },
+    "number_of_elements": 1,
+    "empty": false
+  },
+  "timestamp": 1783282585915
+}

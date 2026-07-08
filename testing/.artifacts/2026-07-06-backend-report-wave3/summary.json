@@ -1,0 +1,39 @@
+{
+  "cashflow-summary": {
+    "start_at": 1751328000000,
+    "end_at": 1783296000000,
+    "total_income_amount": 89.88,
+    "total_expense_amount": 0.0,
+    "net_cash_flow": 89.88,
+    "total_record_count": 2
+  },
+  "sales-summary": {
+    "start_at": 1751328000000,
+    "end_at": 1783296000000,
+    "total_sales_amount": 37.0,
+    "total_paid_amount": 12.0,
+    "total_refund_amount": 10.0,
+    "total_unpaid_amount": 25.0,
+    "total_order_count": 2
+  },
+  "profit-summary": {
+    "start_at": 1751328000000,
+    "end_at": 1783296000000,
+    "estimated_cost_amount": 24.5,
+    "estimated_profit_amount": 12.5,
+    "estimated_profit_rate": 33.78378378378378
+  },
+  "top-receivable-customers": [],
+  "low-stock-products": [],
+  "reconciliation-summary": {
+    "start_at": 1751328000000,
+    "end_at": 1783296000000,
+    "total_receivable_amount": 0.0,
+    "total_payable_amount": 0.0,
+    "total_receivable_customer_count": 0,
+    "total_payable_supplier_count": 0,
+    "total_received_amount": 22.0,
+    "total_paid_amount": 0.0,
+    "net_cash_flow": 22.0
+  }
+}

@@ -27,12 +27,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -72,7 +74,6 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -82,6 +83,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -113,13 +115,11 @@ import com.zhihuiji.core.model.v2.agent.ToolCallStatus
 private val AgentChatHorizontalPadding = 16.dp
 private val AgentChatTopPadding = 16.dp
 private val AgentChatBottomInputClearance = 116.dp
-private const val CompletedToolPillVisibleMs = 1_200L
 private const val AgentChatAutoFollowBottomThresholdItems = 1
 private val EmptyChatPills = listOf("真实查询", "流式回答", "图表结果")
 
 private data class ChatTailState(
     val lastMessage: ChatMessage?,
-    val lastAssistantMessage: ChatMessage?,
     val activeStreamingMessage: ChatMessage?,
 )
 
@@ -143,27 +143,21 @@ fun AgentChatScreen(
     val context = LocalContext.current
     val chatTailState = remember(messages) {
         var activeStreamingMessage: ChatMessage? = null
-        var lastAssistantMessage: ChatMessage? = null
         for (index in messages.lastIndex downTo 0) {
             val message = messages[index]
-            if (lastAssistantMessage == null && message.role == MessageRole.ASSISTANT) {
-                lastAssistantMessage = message
-            }
             if (activeStreamingMessage == null && message.role == MessageRole.ASSISTANT && message.isStreaming) {
                 activeStreamingMessage = message
             }
-            if (lastAssistantMessage != null && activeStreamingMessage != null) {
+            if (activeStreamingMessage != null) {
                 break
             }
         }
         ChatTailState(
             lastMessage = messages.lastOrNull(),
-            lastAssistantMessage = lastAssistantMessage,
             activeStreamingMessage = activeStreamingMessage,
         )
     }
     val lastMessage = chatTailState.lastMessage
-    val lastAssistantMessage = chatTailState.lastAssistantMessage
     val activeStreamingMessage = chatTailState.activeStreamingMessage
     val activeStreamingMessageId = activeStreamingMessage?.id
     val streamingScrollBucket = if (uiState.isStreaming && activeStreamingMessage != null) {
@@ -206,6 +200,8 @@ fun AgentChatScreen(
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     var editUserMessageState by remember { mutableStateOf<EditUserMessageState?>(null) }
+    val density = LocalDensity.current
+    val imeVisible = WindowInsets.ime.getBottom(density) > 0
     LaunchedEffect(uiState.isDrawerOpen) {
         if (uiState.isDrawerOpen && !drawerState.isOpen) {
             drawerState.open()
@@ -280,8 +276,13 @@ fun AgentChatScreen(
                     onSend = viewModel::sendMessage,
                     onStop = viewModel::stopGeneration,
                     modifier = Modifier
-                        .navigationBarsPadding()
-                        .imePadding(),
+                        .then(
+                            if (imeVisible) {
+                                Modifier.imePadding()
+                            } else {
+                                Modifier.navigationBarsPadding()
+                            }
+                        ),
                 )
             }
         ) { padding ->
@@ -320,7 +321,6 @@ fun AgentChatScreen(
                                 ChatMessageItem(
                                     message = message,
                                     allowActiveAnimations = message.id == activeStreamingMessageId,
-                                    onToggleRunTrace = { viewModel.toggleRunTrace(message.id) },
                                     onRegenerate = { viewModel.regenerateMessage(message.id) },
                                     onEditUserMessage = {
                                         editUserMessageState = EditUserMessageState(
@@ -335,21 +335,6 @@ fun AgentChatScreen(
                                 )
                             }
 
-                            val showStandaloneTyping = lastAssistantMessage
-                                .shouldShowStandaloneTypingIndicator(uiState.isStreaming)
-                            if (showStandaloneTyping) {
-                                item(
-                                    key = "standalone-typing-indicator",
-                                    contentType = "typing-indicator",
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.Start
-                                    ) {
-                                        StreamWaitingIndicator()
-                                    }
-                                }
-                            }
                         }
                     }
                 }
@@ -406,7 +391,6 @@ fun AgentChatScreen(
 private fun ChatMessageItem(
     message: ChatMessage,
     allowActiveAnimations: Boolean,
-    onToggleRunTrace: () -> Unit,
     onRegenerate: () -> Unit,
     onEditUserMessage: () -> Unit,
     onFollowUp: (String) -> Unit,
@@ -521,29 +505,11 @@ private fun ChatMessageItem(
                     )
                 }
 
-                if (!isUser && message.isStreaming && allowActiveAnimations) {
-                    StreamingToolActivityPill(toolCalls = message.runTrace?.toolCalls.orEmpty())
-                }
-
                 if (!isUser && message.isError) {
                     Spacer(modifier = Modifier.height(8.dp))
                     AssistantErrorCard(
                         message = message.errorMessage ?: "部分结果接收失败，已保留当前可见内容"
                     )
-                }
-
-                // 过程轨迹（仅助手消息）
-                val runTrace = message.runTrace
-                if (!isUser && runTrace != null && message.shouldShowRunTracePanel()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    RunTracePanel(
-                        runTrace = runTrace,
-                        isExpanded = runTrace.isExpanded,
-                        onToggleExpand = onToggleRunTrace,
-                    )
-                } else if (!isUser && message.shouldShowRealQueryStatusCard()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    RealQueryStatusCard()
                 }
 
                 // AI 消息操作栏（复制 / 重新生成 / 分享），仅非流式且非错误时展示
@@ -830,8 +796,7 @@ private fun AssistantMessageHeader(
     llmStatus: String?,
     hasToolEvidence: Boolean,
     hasAuditTrace: Boolean,
-    hasCompletedTool: Boolean,
-    showBadges: Boolean,
+    detailText: String?,
     modifier: Modifier = Modifier,
 ) {
     val statusLabel = assistantHeaderStatusLabel(
@@ -852,10 +817,10 @@ private fun AssistantMessageHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(999.dp))
+            .clip(RoundedCornerShape(18.dp))
             .background(statusColor.copy(alpha = 0.10f))
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Box(
@@ -864,52 +829,71 @@ private fun AssistantMessageHeader(
                 .clip(CircleShape)
                 .background(statusColor)
         )
-        Text(
-            text = statusLabel,
-            style = MaterialTheme.typography.labelSmall,
-            color = statusColor,
-            fontWeight = FontWeight.SemiBold,
-        )
-        if (showBadges) {
-            val provenanceLabel = assistantProvenanceLabel(
-                hasCompletedTool = hasCompletedTool,
-                hasToolEvidence = hasToolEvidence,
-                answerDeltaSource = answerDeltaSource,
-            )
-            val reviewLabel = assistantReviewBadgeLabel(
-                isStreaming = isStreaming,
-                hasAuditTrace = hasAuditTrace,
-                hasToolEvidence = hasToolEvidence,
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            AssistantHeaderBadge(
-                text = provenanceLabel,
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = statusLabel,
+                style = MaterialTheme.typography.labelSmall,
                 color = statusColor,
+                fontWeight = FontWeight.SemiBold,
             )
-            AssistantHeaderBadge(
-                text = reviewLabel,
-                color = if (hasAuditTrace) ZhihuijiPrimary else TextTertiary,
-            )
+            detailText?.takeIf { it.isNotBlank() }?.let { detail ->
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                )
+            }
         }
     }
 }
 
-@Composable
-private fun AssistantHeaderBadge(
-    text: String,
-    color: Color,
-    modifier: Modifier = Modifier,
-) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        color = color,
-        fontWeight = FontWeight.SemiBold,
-        modifier = modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(Color.White.copy(alpha = 0.58f))
-            .padding(horizontal = 7.dp, vertical = 3.dp),
-    )
+private fun ChatMessage.assistantThinkingDetail(
+    runTrace: RunTrace?,
+): String? {
+    val latestTool = runTrace?.toolCalls.orEmpty().latestVisibleToolCall()
+    if (latestTool != null) {
+        val toolName = latestTool.toolName.readableToolName()
+        return when (latestTool.status) {
+            ToolCallStatus.PENDING,
+            ToolCallStatus.RUNNING -> "正在通过${toolName}查询真实业务数据"
+
+            ToolCallStatus.COMPLETED -> if (isStreaming) {
+                "${toolName}已返回，正在整理结果"
+            } else {
+                "${toolName}已调用并返回真实结果"
+            }
+            ToolCallStatus.FAILED -> if (isStreaming) {
+                "${toolName}暂未成功，正在调整回答"
+            } else {
+                "${toolName}调用未成功，已按失败状态返回"
+            }
+        }
+    }
+
+    return when {
+        isStreaming && answerDeltaSource == DeltaSourceModelStream ->
+            "模型正在实时组织回答内容"
+
+        isStreaming && answerDeltaSource == DeltaSourceRuleSummary ->
+            "正在根据真实查询结果整理规则摘要"
+
+        isStreaming && answerDeltaSource == DeltaSourceServerNotice ->
+            "正在补充查询边界和说明"
+
+        isStreaming ->
+            "正在分析问题并等待真实结果"
+
+        runTrace?.isStreamInterrupted() == true ->
+            "模型流式输出中断，可稍后重试"
+
+        isRuleSummaryMode(mode = runTrace?.mode, llmStatus = runTrace?.llmStatus) ->
+            "当前展示的是规则摘要结果"
+
+        else -> null
+    }
 }
 
 @Composable
@@ -921,6 +905,15 @@ private fun AssistantMessageTimeline(
     modifier: Modifier = Modifier,
 ) {
     val toolCalls = runTrace?.toolCalls.orEmpty()
+    val thinkingDetail = remember(
+        message.id,
+        message.isStreaming,
+        message.answerDeltaSource,
+        message.hasServerAnswerDelta,
+        runTrace,
+    ) {
+        message.assistantThinkingDetail(runTrace)
+    }
     LiquidGlassSurface(
         modifier = modifier.fillMaxWidth(),
         blurRadius = 30.dp,
@@ -932,13 +925,6 @@ private fun AssistantMessageTimeline(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (message.shouldShowAssistantHeader()) {
-                var hasCompletedTool = false
-                for (index in toolCalls.indices) {
-                    if (toolCalls[index].status == ToolCallStatus.COMPLETED) {
-                        hasCompletedTool = true
-                        break
-                    }
-                }
                 AssistantMessageHeader(
                     isStreaming = message.isStreaming,
                     hasServerAnswerDelta = message.hasServerAnswerDelta,
@@ -947,19 +933,20 @@ private fun AssistantMessageTimeline(
                     llmStatus = runTrace?.llmStatus,
                     hasToolEvidence = toolCalls.isNotEmpty(),
                     hasAuditTrace = runTrace?.auditId != null || runTrace?.traceId != null,
-                    hasCompletedTool = hasCompletedTool,
-                    showBadges = message.shouldShowAssistantHeaderBadges(),
+                    detailText = thinkingDetail,
                 )
             }
             if (parts.isEmpty()) {
-                InlineStreamingStatus(
-                    text = if (message.isStreaming) {
-                        "正在分析问题并等待真实结果"
-                    } else {
-                        "暂无可展示回答"
-                    },
-                    animate = message.isStreaming && allowActiveAnimations,
-                )
+                if (!message.shouldShowAssistantHeader()) {
+                    InlineStreamingStatus(
+                        text = if (message.isStreaming) {
+                            thinkingDetail ?: "正在分析问题并等待真实结果"
+                        } else {
+                            "暂无可展示回答"
+                        },
+                        animate = message.isStreaming && allowActiveAnimations,
+                    )
+                }
             } else {
                 parts.forEachIndexed { index, part ->
                     key(part.stableKey(message.id, index)) {
@@ -986,9 +973,10 @@ private fun AssistantMessageTimeline(
                         }
                     }
                 }
-                if (message.shouldShowInlineStreamingStatus()) {
+                if (!message.shouldShowAssistantHeader() && message.shouldShowInlineStreamingStatus()) {
                     InlineStreamingStatus(
-                        text = message.answerDeltaSource?.inlineStreamingLabel()
+                        text = thinkingDetail
+                            ?: message.answerDeltaSource?.inlineStreamingLabel()
                             ?: "正在分析问题并等待真实结果",
                         animate = message.isStreaming && allowActiveAnimations,
                     )
@@ -1211,133 +1199,20 @@ private fun String.readableResultBlockName(): String =
         else -> replace('_', ' ')
     }
 
-@Composable
-private fun StreamingToolActivityPill(
-    toolCalls: List<ToolCallRecord>,
-    modifier: Modifier = Modifier,
-) {
-    if (toolCalls.isEmpty()) return
-
-    var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
-    val visibleTool = remember(toolCalls, nowMs) { toolCalls.latestVisibleToolCall(nowMs) }
-    if (visibleTool == null) return
-
-    if (visibleTool.status == ToolCallStatus.RUNNING || visibleTool.status == ToolCallStatus.PENDING) {
-        Spacer(modifier = Modifier.height(8.dp))
-        InlineToolActivityPill(
-            toolCall = visibleTool,
-            modifier = modifier,
-        )
-        return
-    }
-
-    val isVisible = visibleTool.isRecentlyFinished(nowMs)
-    LaunchedEffect(
-        visibleTool.toolName,
-        visibleTool.status,
-        visibleTool.completedAt,
-        visibleTool.timestamp,
-    ) {
-        while (visibleTool.isRecentlyFinished(nowMs)) {
-            delay(120)
-            nowMs = System.currentTimeMillis()
-        }
-    }
-
-    if (!isVisible) return
-    Spacer(modifier = Modifier.height(8.dp))
-    InlineToolActivityPill(
-        toolCall = visibleTool,
-        modifier = modifier,
-    )
-}
-
-@Composable
-private fun InlineToolActivityPill(
-    toolCall: ToolCallRecord,
-    modifier: Modifier = Modifier,
-) {
-    val isRunning = toolCall.status == ToolCallStatus.RUNNING || toolCall.status == ToolCallStatus.PENDING
-    val tone = when (toolCall.status) {
-        ToolCallStatus.COMPLETED -> ZhihuijiPrimary
-        ToolCallStatus.FAILED -> DangerRed
-        else -> WarningOrange
-    }
-    val label = toolCall.activityLabel()
-
-    Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(tone.copy(alpha = 0.10f))
-            .border(0.6.dp, tone.copy(alpha = 0.18f), RoundedCornerShape(999.dp))
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(7.dp),
-    ) {
-        if (isRunning) {
-            CircularProgressIndicator(
-                color = tone,
-                strokeWidth = 1.6.dp,
-                modifier = Modifier.size(13.dp),
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .size(7.dp)
-                    .clip(CircleShape)
-                    .background(tone)
-            )
-        }
-        Text(
-            text = toolCall.toolName.readableToolName(),
-            style = MaterialTheme.typography.labelSmall,
-            color = tone,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = TextSecondary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-internal fun ToolCallRecord.activityLabel(): String =
-    when (status) {
-        ToolCallStatus.COMPLETED -> resultSummary.shortToolActivityLabel() ?: "工具查询完成"
-        ToolCallStatus.FAILED -> resultSummary.shortToolActivityLabel() ?: "工具查询失败"
-        ToolCallStatus.PENDING,
-        ToolCallStatus.RUNNING -> {
-            val inputLabel = inputSummary.shortToolActivityLabel()
-            inputLabel ?: resultSummary.shortToolActivityLabel() ?: "正在查询真实业务数据"
-        }
-    }
-
-private fun String?.shortToolActivityLabel(): String? =
-    this?.trim()?.take(34)?.ifBlank { null }
-
-internal fun List<ToolCallRecord>.latestVisibleToolCall(nowMs: Long = System.currentTimeMillis()): ToolCallRecord? {
-    var latestFinishedCall: ToolCallRecord? = null
+internal fun List<ToolCallRecord>.latestVisibleToolCall(): ToolCallRecord? {
     for (index in lastIndex downTo 0) {
         val call = this[index]
-        when (call.status) {
-            ToolCallStatus.RUNNING,
-            ToolCallStatus.PENDING -> return call
-
-            ToolCallStatus.FAILED,
-            ToolCallStatus.COMPLETED -> if (latestFinishedCall == null) {
-                latestFinishedCall = call
-            }
+        if (call.status == ToolCallStatus.RUNNING || call.status == ToolCallStatus.PENDING) {
+            return call
         }
     }
-    return latestFinishedCall?.takeIf { it.isRecentlyFinished(nowMs) }
-}
-
-internal fun ToolCallRecord.isRecentlyFinished(nowMs: Long): Boolean {
-    val completedAt = completedAt ?: timestamp
-    return nowMs - completedAt in 0..CompletedToolPillVisibleMs
+    for (index in lastIndex downTo 0) {
+        val call = this[index]
+        if (call.status == ToolCallStatus.COMPLETED || call.status == ToolCallStatus.FAILED) {
+            return call
+        }
+    }
+    return null
 }
 
 private val readableToolNames = mapOf(
@@ -1400,71 +1275,6 @@ private fun InlineStreamingStatus(
     }
 }
 
-@Composable
-private fun RealQueryStatusCard(
-    modifier: Modifier = Modifier,
-) {
-    LiquidGlassSurface(
-        modifier = modifier,
-        blurRadius = 24.dp,
-        shape = RoundedCornerShape(18.dp),
-        surfaceColor = AgentAssistantAccent.copy(alpha = 0.08f),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            CircularProgressIndicator(
-                color = ZhihuijiPrimary,
-                strokeWidth = 2.dp,
-                modifier = Modifier.size(18.dp)
-            )
-            Column {
-                Text(
-                    text = "正在查询真实业务数据",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = ZhihuijiPrimary,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "会按当前账号权限选择可用工具；失败时会明确提示",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun StreamWaitingIndicator(
-    modifier: Modifier = Modifier,
-) {
-    LiquidGlassCard(
-        modifier = modifier,
-        surfaceColor = Color.White.copy(alpha = 0.78f),
-        shape = RoundedCornerShape(16.dp),
-        contentPadding = 12.dp,
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            CircularProgressIndicator(
-                color = ZhihuijiPrimary,
-                strokeWidth = 2.dp,
-                modifier = Modifier.size(16.dp)
-            )
-            Text(
-                text = "正在生成回答",
-                style = MaterialTheme.typography.labelSmall,
-                color = TextSecondary,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-    }
-}
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)

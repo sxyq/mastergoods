@@ -47,7 +47,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  */
 @Component
 public class AnswerSynthesizer {
-    private static final String RULE_SUMMARY_NOTICE = "说明：本回答为真实数据查询后的规则摘要，当前未使用模型生成。";
+    private static final String RULE_SUMMARY_NOTICE =
+        "说明：以下为当前账号真实数据查询后的规则摘要；正式回答仅基于本轮查询返回的真实数据拼装，当前未使用模型生成或改写，以避免引入未查询或无关信息。";
+    private static final String DETERMINISTIC_LLM_STATUS = "skipped_for_truthfulness";
 
     private final LongCatAnthropicClient longCatAnthropicClient;
     private final SseStreamEmitter sseStreamEmitter;
@@ -84,29 +86,12 @@ public class AnswerSynthesizer {
             appendFailureNotice(synthesized, payload.toolFailures()),
             effectiveToolResults
         );
-        if (!longCatAnthropicClient.isConfigured()) {
-            return new FinalAnswer(
-                withRuleSummaryNotice(synthesizedWithFailures),
-                "tool_query_rule_summary",
-                longCatAnthropicClient.configurationStatus(),
-                false
-            );
-        }
-        String systemPrompt = finalAnswerSystemPrompt(conversationSummary);
-        String prompt = finalAnswerUserPrompt(userMessage, payload, synthesizedWithFailures, history);
-        Optional<String> refined = longCatAnthropicClient.createJsonMessage(systemPrompt, prompt);
-        return refined
-            .filter(StringUtils::hasText)
-            .map(String::trim)
-            .map(answer -> appendFailureNotice(answer, payload.toolFailures()))
-            .map(answer -> appendQueryBoundaryNotice(answer, effectiveToolResults))
-            .map(answer -> new FinalAnswer(answer, "tool_query_llm_synthesized", "available", true))
-            .orElseGet(() -> new FinalAnswer(
-                withRuleSummaryNotice(synthesizedWithFailures),
-                "tool_query_rule_summary",
-                "failed_or_empty",
-                true
-            ));
+        return new FinalAnswer(
+            withRuleSummaryNotice(synthesizedWithFailures),
+            "tool_query_rule_summary",
+            deterministicLlmStatus(),
+            false
+        );
     }
 
     public FinalAnswer buildFinalAnswerForStream(
@@ -134,46 +119,14 @@ public class AnswerSynthesizer {
             appendFailureNotice(synthesized, payload.toolFailures()),
             effectiveToolResults
         );
-        if (!longCatAnthropicClient.isConfigured()) {
-            String ruleSummaryAnswer = withRuleSummaryNotice(synthesizedWithFailures);
-            emitDeterministicAnswerDeltas(emitter, runId, ruleSummaryAnswer, "rule_summary", onFirstModelDelta);
-            return new FinalAnswer(
-                ruleSummaryAnswer,
-                "tool_query_rule_summary",
-                longCatAnthropicClient.configurationStatus(),
-                false
-            );
-        }
-        // supportsStreaming() 在 isConfigured() 为 true 时必返回 true（三种 wireApi 均已支持流式），
-        // 统一走 LLM 流式，不再保留 stream_not_supported 降级分支。
-        String systemPrompt = finalAnswerSystemPrompt(conversationSummary);
-        String prompt = finalAnswerUserPrompt(userMessage, payload, synthesizedWithFailures, history);
-        StringBuilder streamedAnswer = new StringBuilder();
-        SseStreamEmitter.AnswerDeltaBatcher answerDeltaBatcher = sseStreamEmitter.newAnswerDeltaBatcher(emitter, runId);
-        Optional<String> streamed = longCatAnthropicClient.streamTextMessage(systemPrompt, prompt, runId, delta -> {
-            runAuditService.ensureRunActive(runId);
-            streamedAnswer.append(delta);
-            boolean emittedVisibleDelta = answerDeltaBatcher.accept(delta, "model_stream");
-            if (emittedVisibleDelta) {
-                onFirstModelDelta.run();
-            }
-        });
-        answerDeltaBatcher.flush();
-        return streamed
-            .filter(StringUtils::hasText)
-            .map(String::trim)
-            .map(answer -> appendFailureNotice(answer, payload.toolFailures()))
-            .map(answer -> appendQueryBoundaryNotice(answer, effectiveToolResults))
-            .map(answer -> emitServerNoticeTailIfNeeded(emitter, runId, streamedAnswer.toString(), answer))
-            .map(answer -> new FinalAnswer(answer, "tool_query_llm_streamed", "streaming", true))
-            .orElseGet(() -> streamFallbackFinalAnswer(
-                emitter,
-                runId,
-                streamedAnswer,
-                synthesizedWithFailures,
-                payload,
-                onFirstModelDelta
-            ));
+        String ruleSummaryAnswer = withRuleSummaryNotice(synthesizedWithFailures);
+        emitDeterministicAnswerDeltas(emitter, runId, ruleSummaryAnswer, "rule_summary", onFirstModelDelta);
+        return new FinalAnswer(
+            ruleSummaryAnswer,
+            "tool_query_rule_summary",
+            deterministicLlmStatus(),
+            false
+        );
     }
 
     public String synthesizeAnswer(String userMessage, List<ToolExecutionResult> toolResults, String fallbackAnswer) {
@@ -309,6 +262,9 @@ public class AnswerSynthesizer {
                     String count = factText(toolResult, "record_count", "资金流水数量");
                     findings.add("资金流水侧最近查询 " + count + " 条，收入 " + income + "，支出 " + expense + "。");
                 }
+                case "result_visualization" -> {
+                    // 展示决策工具不代表业务事实，不参与正式回答的数据总结。
+                }
                 default -> findings.add(toolResult.summary());
             }
         }
@@ -433,6 +389,12 @@ public class AnswerSynthesizer {
             return normalized;
         }
         return RULE_SUMMARY_NOTICE + "\n\n" + normalized;
+    }
+
+    public String deterministicLlmStatus() {
+        return longCatAnthropicClient.isConfigured()
+            ? DETERMINISTIC_LLM_STATUS
+            : longCatAnthropicClient.configurationStatus();
     }
 
     public void emitDeterministicAnswerDeltas(
@@ -584,6 +546,9 @@ public class AnswerSynthesizer {
 
     private List<String> queryBoundaryNotices(ToolExecutionResult result) {
         if (result == null) {
+            return List.of();
+        }
+        if ("result_visualization".equals(result.toolName())) {
             return List.of();
         }
         List<String> notices = new ArrayList<>();

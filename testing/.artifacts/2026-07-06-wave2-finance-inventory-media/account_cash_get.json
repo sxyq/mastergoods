@@ -1,0 +1,18 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 1,
+    "code": "CA-W2-CASH-20260706",
+    "name": "Wave2 现金账户 20260706 更新",
+    "type": 0,
+    "balance": 949.0,
+    "is_default": true,
+    "status": 1,
+    "sort_order": 1,
+    "notes": "Wave2 finance fixture cash account updated",
+    "created_at": 1783282575306,
+    "updated_at": 1783282580219
+  },
+  "timestamp": 1783282590467
+}

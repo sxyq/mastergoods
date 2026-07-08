@@ -1,0 +1,70 @@
+{
+  "login": {
+    "code": 0,
+    "message": "success",
+    "data": {
+      "user_id": 7,
+      "token": "a7da031870a94f868bf97713b50e1ccf",
+      "refresh_token": "9ccf6949371944b2b664f51ab774b0d6",
+      "expires_in": 604800
+    },
+    "timestamp": 1783267714399
+  },
+  "/v2/stores/current": {
+    "status": 200,
+    "raw": "{\"code\":0,\"message\":\"success\",\"data\":{\"store_id\":2,\"store_name\":\"User8990 的智慧记店铺\",\"owner_user_id\":7,\"current_user_id\":7,\"current_user_name\":\"User8990\",\"current_user_phone\":\"13800138990\",\"role\":\"OWNER\",\"title\":\"店长（总）\",\"status\":1,\"permissions\":[\"finance:view\",\"agent:write\",\"posters:write\",\"inventory:write\",\"archives:write\",\"credits:view\",\"posters:view\",\"reports:view\",\"dashboard:view\",\"purchase:view\",\"database:manage\",\"inventory:view\",\"sales:view\",\"users:manage\",\"sales:write\",\"finance:write\",\"archives:view\",\"settings:manage\",\"purchase:write\",\"agent:view\"],\"member_count\":1,\"enabled_member_count\":1,\"disabled_member_count\":0},\"timestamp\":1783267715064}",
+    "parsed": {
+      "code": 0,
+      "message": "success",
+      "data": {
+        "store_id": 2,
+        "store_name": "User8990 的智慧记店铺",
+        "owner_user_id": 7,
+        "current_user_id": 7,
+        "current_user_name": "User8990",
+        "current_user_phone": "13800138990",
+        "role": "OWNER",
+        "title": "店长（总）",
+        "status": 1,
+        "permissions": [
+          "finance:view",
+          "agent:write",
+          "posters:write",
+          "inventory:write",
+          "archives:write",
+          "credits:view",
+          "posters:view",
+          "reports:view",
+          "dashboard:view",
+          "purchase:view",
+          "database:manage",
+          "inventory:view",
+          "sales:view",
+          "users:manage",
+          "sales:write",
+          "finance:write",
+          "archives:view",
+          "settings:manage",
+          "purchase:write",
+          "agent:view"
+        ],
+        "member_count": 1,
+        "enabled_member_count": 1,
+        "disabled_member_count": 0
+      },
+      "timestamp": 1783267715064
+    }
+  },
+  "/v2/stores/current/members": {
+    "status": 200,
+    "raw": "{\"code\":0,\"message\":\"success\",\"data\":[{\"user_id\":7,\"phone\":\"13800138990\",\"nickname\":\"User8990\",\"role\":\"OWNER\",\"title\":\"店长（总）\",\"status\":1,\"permissions\":[\"finance:view\",\"agent:write\",\"posters:write\",\"inventory:write\",\"archives:write\",\"credits:view\",\"posters:view\",\"reports:view\",\"dashboard:view\",\"purchase:view\",\"database:manage\",\"inventory:view\",\"sales:view\",\"users:manage\",\"sales:write\",\"finance:write\",\"archives:view\",\"settings:manage\",\"purchase:write\",\"agent:view\"],\"created_at\":1783226895175,\"updated_at\":1783226908194,\"active_sessions\":28,\"store_id\":2,\"store_name\":\"User8990 的智慧记店铺\"}],\"timestamp\":1783267715663}"
+  },
+  "/v2/auth/logout": {
+    "status": 200,
+    "raw": "{\"code\":0,\"message\":\"success\",\"data\":null,\"timestamp\":1783267716294}"
+  },
+  "/v2/auth/users/me": {
+    "status": 403,
+    "raw": "{\"timestamp\":\"2026-07-05T16:08:36.812+00:00\",\"status\":403,\"error\":\"Forbidden\",\"path\":\"/v2/auth/users/me\"}"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "id": 2,
+      "asset_type": "agent_chat_image",
+      "storage_provider": "local",
+      "bucket_name": "local-disk",
+      "object_key": "aca6f033249342f4a408cfaaef0e4b70.png",
+      "original_file_name": "1000006801.png",
+      "mime_type": "image/png",
+      "size_bytes": 1272126,
+      "checksum": null,
+      "width": null,
+      "height": null,
+      "metadata_json": null,
+      "created_at": 1783260521468,
+      "updated_at": 1783260521468
+    }
+  ],
+  "timestamp": 1783282589807
+}

@@ -5,11 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -51,7 +47,6 @@ fun GlassScaffold(
         AuroraAmbientLights()
         Box(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxSize()) {
-                Spacer(modifier = Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
                 topBar()
                 Box(modifier = Modifier.weight(1f)) {
                     content(PaddingValues(horizontal = 0.dp, vertical = 0.dp))

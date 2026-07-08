@@ -55,6 +55,7 @@ import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.ProductCa
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.PurchaseOrderLookupTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.PurchaseTrackingLookupTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.ReceivablePayableLookupTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.ResultVisualizationTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.SaleOrderLookupTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.SalesOverviewLookupTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.SupplierPayableLookupTool;
@@ -112,6 +113,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.data.domain.PageRequest;
@@ -186,6 +188,7 @@ class V2AgentAiServiceTest {
             new ReceivablePayableLookupTool(customerRepository, supplierRepository),
             new SalesOverviewLookupTool(saleOrderRepository, productRepository, customerRepository),
             new InventoryLowStockLookupTool(productRepository),
+            new ResultVisualizationTool(objectMapper),
             new CreateCustomerTool(agentDraftRepository),
             new CreateSupplierTool(agentDraftRepository),
             new CreateProductTool(agentDraftRepository),
@@ -283,7 +286,7 @@ class V2AgentAiServiceTest {
             .thenReturn(List.of());
 
         V2AgentDtos.AgentChatResponse response = service.chat(
-            new V2AgentDtos.AgentChatRequest(null, "客户应收情况", false)
+            new V2AgentDtos.AgentChatRequest(null, "客户应收情况，用图表展示", false)
         );
 
         assertTrue(hasBlock(response, "kpi_grid"));
@@ -291,7 +294,7 @@ class V2AgentAiServiceTest {
         assertFalse(hasBlock(response, "bar_chart"));
         assertEquals("tool_query_rule_summary", response.mode());
         assertEquals("disabled", response.llmStatus());
-        assertTrue(response.answer().contains("规则摘要"), response.answer());
+        assertTrue(response.answer().contains("真实数据查询后的规则摘要"), response.answer());
         assertTrue(response.answer().contains("当前未使用模型生成"), response.answer());
     }
 
@@ -323,7 +326,7 @@ class V2AgentAiServiceTest {
         when(purchaseOrderRepository.search(1L, null, null)).thenReturn(List.of());
 
         V2AgentDtos.AgentChatResponse response = service.chat(
-            new V2AgentDtos.AgentChatRequest(null, "供应商应付情况", false)
+            new V2AgentDtos.AgentChatRequest(null, "供应商应付情况，用图表展示", false)
         );
 
         assertTrue(hasBlock(response, "kpi_grid"));
@@ -415,7 +418,7 @@ class V2AgentAiServiceTest {
         assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"delta_source\":\"rule_summary\"")));
         assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"delta_source\":\"model_stream\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_rule_summary\"")));
-        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"stream_failed_or_empty\"")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"skipped_for_truthfulness\"")));
         assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")), String.join("\n", emitter.payloads));
         String answerCompleted = firstPayload(emitter, "\"event_type\":\"answer_completed\"");
         assertTrue(answerCompleted.contains("\"plan_source\":\"keyword_fallback\""), answerCompleted);
@@ -450,38 +453,26 @@ class V2AgentAiServiceTest {
     }
 
     @Test
-    void streamModelAnswerEmitsOnlyModelStreamDeltasAndStreamedCompletion() throws Exception {
+    void streamConfiguredModelStillEmitsDeterministicRuleSummaryForBusinessFacts() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
-        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
-            .thenAnswer(invocation -> {
-                @SuppressWarnings("unchecked")
-                Consumer<String> onDelta = invocation.getArgument(3, Consumer.class);
-                onDelta.accept("客户A");
-                onDelta.accept("应收100元");
-                return Optional.of("客户A应收100元");
-            });
         CapturingEmitter emitter = new CapturingEmitter();
         AgentConversationEntity conversation = conversation(104L);
 
-        service.runChatStream(1L, conversation, "客户应收情况", List.of(), "run-model-stream", emitter);
+        service.runChatStream(1L, conversation, "客户应收情况，用图表展示", List.of(), "run-model-stream", emitter);
 
         List<String> deltaPayloads = emitter.payloads.stream()
             .filter(payload -> payload.contains("\"event_type\":\"answer_delta\""))
             .toList();
-        List<String> modelDeltaPayloads = deltaPayloads.stream()
-            .filter(payload -> payload.contains("\"delta_source\":\"model_stream\""))
-            .toList();
-        assertEquals(2, modelDeltaPayloads.size(), String.join("\n", emitter.payloads));
         assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"audit_id\":\"run-model-stream:audit\"")));
         assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"trace_id\":\"run-model-stream:trace\"")));
         assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"log_ref\":\"agent-run:run-model-stream\"")));
-        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_llm_streamed\"")));
-        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"streaming\"")));
-        assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"delta_source\":\"rule_summary\"")));
-        assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")));
+        assertTrue(deltaPayloads.stream().allMatch(payload -> payload.contains("\"delta_source\":\"rule_summary\"")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"mode\":\"tool_query_rule_summary\"")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"llm_status\":\"skipped_for_truthfulness\"")));
+        assertTrue(emitter.payloads.stream().anyMatch(payload -> payload.contains("当前未使用模型生成")));
         String answerCompleted = firstPayload(emitter, "\"event_type\":\"answer_completed\"");
         assertTrue(answerCompleted.contains("\"plan_source\":\"keyword_fallback\""), answerCompleted);
         assertTrue(
@@ -499,66 +490,46 @@ class V2AgentAiServiceTest {
                 < firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""),
             String.join("\n", emitter.payloads)
         );
+        verify(longCatAnthropicClient, never()).streamTextMessage(anyString(), anyString(), anyString(), any());
         assertTrue(emitter.completed);
     }
 
     @Test
-    void streamModelAnswerBatchesSmallDeltasWithoutDelayingFirstVisibleAnswer() throws Exception {
+    void streamDeterministicAnswerStillStreamsVisibleChunksBeforeResultBlocks() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
-        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
-            .thenAnswer(invocation -> {
-                @SuppressWarnings("unchecked")
-                Consumer<String> onDelta = invocation.getArgument(3, Consumer.class);
-                onDelta.accept("客户A");
-                onDelta.accept("应收");
-                onDelta.accept("100");
-                onDelta.accept("元");
-                onDelta.accept("，建议跟进。");
-                return Optional.of("客户A应收100元，建议跟进。");
-            });
         CapturingEmitter emitter = new CapturingEmitter();
 
-        service.runChatStream(1L, conversation(112L), "客户应收情况", List.of(), "run-model-batch", emitter);
+        service.runChatStream(1L, conversation(112L), "客户应收情况，用图表展示", List.of(), "run-model-batch", emitter);
 
-        List<String> modelDeltaPayloads = emitter.payloads.stream()
+        List<String> answerDeltaPayloads = emitter.payloads.stream()
             .filter(payload -> payload.contains("\"event_type\":\"answer_delta\""))
-            .filter(payload -> payload.contains("\"delta_source\":\"model_stream\""))
             .toList();
-        assertTrue(modelDeltaPayloads.size() < 5, String.join("\n", emitter.payloads));
-        assertTrue(modelDeltaPayloads.stream().anyMatch(payload -> payload.contains("客户A")), String.join("\n", modelDeltaPayloads));
-        assertTrue(modelDeltaPayloads.stream().anyMatch(payload -> payload.contains("建议跟进")), String.join("\n", modelDeltaPayloads));
+        assertFalse(answerDeltaPayloads.isEmpty(), String.join("\n", emitter.payloads));
+        assertTrue(answerDeltaPayloads.stream().allMatch(payload -> payload.contains("\"delta_source\":\"rule_summary\"")));
         assertTrue(
             firstPayloadIndex(emitter, "\"event_type\":\"answer_delta\"")
                 < firstPayloadIndex(emitter, "\"event_type\":\"result_block\""),
             String.join("\n", emitter.payloads)
         );
         assertTrue(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())
-            && event.getPayloadJson().contains("建议跟进")));
+            && event.getPayloadJson().contains("\"delta_source\":\"rule_summary\"")));
     }
 
     @Test
-    void streamInterruptedAfterVisibleModelDeltaKeepsPartialAnswerAndBlocksAfterText() throws Exception {
+    void streamConfiguredModelDoesNotEnterModelStreamWhenBusinessFactsAreAvailable() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
-        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
-            .thenAnswer(invocation -> {
-                @SuppressWarnings("unchecked")
-                Consumer<String> onDelta = invocation.getArgument(3, Consumer.class);
-                onDelta.accept("客户A应收");
-                return Optional.empty();
-            });
         CapturingEmitter emitter = new CapturingEmitter();
 
-        service.runChatStream(1L, conversation(111L), "客户应收情况", List.of(), "run-stream-interrupted", emitter);
+        service.runChatStream(1L, conversation(111L), "客户应收情况，用图表展示", List.of(), "run-stream-interrupted", emitter);
 
         String answerDelta = firstPayload(emitter, "\"event_type\":\"answer_delta\"");
-        assertTrue(answerDelta.contains("\"delta_source\":\"model_stream\""), answerDelta);
-        assertTrue(answerDelta.contains("客户A应收"), answerDelta);
+        assertTrue(answerDelta.contains("\"delta_source\":\"rule_summary\""), answerDelta);
         assertTrue(
             firstPayloadIndex(emitter, "\"event_type\":\"answer_delta\"")
                 < firstPayloadIndex(emitter, "\"event_type\":\"result_block\""),
@@ -570,12 +541,12 @@ class V2AgentAiServiceTest {
             String.join("\n", emitter.payloads)
         );
         String completed = firstPayload(emitter, "\"event_type\":\"answer_completed\"");
-        assertTrue(completed.contains("\"mode\":\"tool_query_llm_stream_interrupted\""), completed);
-        assertTrue(completed.contains("\"llm_status\":\"stream_interrupted\""), completed);
-        assertTrue(completed.contains("客户A应收"), completed);
-        assertFalse(completed.contains("当前未使用模型生成"), completed);
+        assertTrue(completed.contains("\"mode\":\"tool_query_rule_summary\""), completed);
+        assertTrue(completed.contains("\"llm_status\":\"skipped_for_truthfulness\""), completed);
+        assertTrue(completed.contains("当前未使用模型生成"), completed);
         assertTrue(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())
-            && event.getPayloadJson().contains("\"delta_source\":\"model_stream\"")));
+            && event.getPayloadJson().contains("\"delta_source\":\"rule_summary\"")));
+        verify(longCatAnthropicClient, never()).streamTextMessage(anyString(), anyString(), anyString(), any());
         assertTrue(emitter.completed);
     }
 
@@ -591,34 +562,19 @@ class V2AgentAiServiceTest {
             .thenReturn(customers);
         when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(10L);
         when(customerRepository.sumPositiveBalance(1L)).thenReturn(1055.0);
-        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
-            .thenAnswer(invocation -> {
-                @SuppressWarnings("unchecked")
-                Consumer<String> onDelta = invocation.getArgument(3, Consumer.class);
-                onDelta.accept("客户应收 Top10 已查询。");
-                return Optional.of("客户应收 Top10 已查询。");
-            });
         CapturingEmitter emitter = new CapturingEmitter();
 
         service.runChatStream(1L, conversation(110L), "客户应收情况", List.of(), "run-server-notice", emitter);
 
-        String modelDelta = firstPayload(emitter, "\"delta_source\":\"model_stream\"");
-        String serverNotice = firstPayload(emitter, "\"delta_source\":\"server_notice\"");
-        assertTrue(serverNotice.contains("查询边界"), serverNotice);
-        assertTrue(serverNotice.contains("客户应收查询仅返回前 10 条"), serverNotice);
-        assertTrue(
-            firstPayloadIndex(emitter, modelDelta) < firstPayloadIndex(emitter, serverNotice),
-            String.join("\n", emitter.payloads)
-        );
-        assertTrue(
-            firstPayloadIndex(emitter, serverNotice)
-                < firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""),
-            String.join("\n", emitter.payloads)
-        );
+        assertTrue(emitter.payloads.stream().anyMatch(payload ->
+            payload.contains("\"delta_source\":\"rule_summary\"") && payload.contains("查询边界")
+        ), String.join("\n", emitter.payloads));
+        assertTrue(emitter.payloads.stream().anyMatch(payload ->
+            payload.contains("\"delta_source\":\"rule_summary\"") && payload.contains("客户应收查询仅返回前 10 条")
+        ), String.join("\n", emitter.payloads));
         String completed = firstPayload(emitter, "\"event_type\":\"answer_completed\"");
         assertTrue(completed.contains("查询边界"), completed);
-        assertTrue(runAuditEvents.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())
-            && event.getPayloadJson().contains("\"delta_source\":\"server_notice\"")));
+        assertFalse(emitter.payloads.stream().anyMatch(payload -> payload.contains("\"delta_source\":\"server_notice\"")));
     }
 
     @Test
@@ -660,7 +616,7 @@ class V2AgentAiServiceTest {
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         CapturingEmitter emitter = new CapturingEmitter();
 
-        service.runChatStream(1L, conversation(109L), "库存和客户应收情况", List.of(), "run-multi-blocks", emitter);
+        service.runChatStream(1L, conversation(109L), "库存和客户应收情况，用图表展示", List.of(), "run-multi-blocks", emitter);
 
         int inventoryCompleted = firstPayloadIndexContaining(
             emitter,
@@ -683,8 +639,7 @@ class V2AgentAiServiceTest {
         assertTrue(firstPayloadIndex(emitter, "\"title\":\"库存风险\"") < answerCompleted, String.join("\n", emitter.payloads));
         assertTrue(firstPayloadIndex(emitter, "\"title\":\"应收概览\"") > receivableCompleted, String.join("\n", emitter.payloads));
         assertTrue(firstPayloadIndex(emitter, "\"title\":\"应收概览\"") < answerCompleted, String.join("\n", emitter.payloads));
-        assertTrue(firstPayloadIndex(emitter, "\"title\":\"本次回答依据\"") > receivableCompleted, String.join("\n", emitter.payloads));
-        assertTrue(firstPayloadIndex(emitter, "\"title\":\"本次回答依据\"") < answerCompleted, String.join("\n", emitter.payloads));
+        assertEquals(-1, payloadIndexContaining(emitter, "\"title\":\"本次回答依据\""));
     }
 
     @Test
@@ -696,7 +651,7 @@ class V2AgentAiServiceTest {
             .thenThrow(new IllegalStateException("database timeout"));
         CapturingEmitter emitter = new CapturingEmitter();
 
-        service.runChatStream(1L, conversation(111L), "库存和客户应收情况", List.of(), "run-partial-tool-failure", emitter);
+        service.runChatStream(1L, conversation(111L), "库存和客户应收情况，用图表展示", List.of(), "run-partial-tool-failure", emitter);
 
         String failedPayload = firstPayload(emitter, "\"event_type\":\"tool_failed\"");
         assertTrue(failedPayload.contains("\"tool_name\":\"customer_receivable_lookup\""), failedPayload);
@@ -716,7 +671,7 @@ class V2AgentAiServiceTest {
         assertFalse(answerCompleted.contains("应收总额 ¥0.00"), answerCompleted);
 
         assertTrue(firstPayloadIndex(emitter, "\"title\":\"库存风险\"") < firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""));
-        assertTrue(firstPayloadIndex(emitter, "\"title\":\"本次回答依据\"") < firstPayloadIndex(emitter, "\"event_type\":\"answer_completed\""));
+        assertEquals(-1, payloadIndexContaining(emitter, "\"title\":\"本次回答依据\""));
         assertEquals(-1, payloadIndexContaining(emitter, "\"title\":\"应收概览\""));
     }
 
@@ -736,7 +691,7 @@ class V2AgentAiServiceTest {
         CapturingEmitter emitter = new CapturingEmitter();
         AgentConversationEntity conversation = conversation(105L);
 
-        service.runChatStream(1L, conversation, "客户应收情况", List.of(), "run-envelope", emitter);
+        service.runChatStream(1L, conversation, "客户应收情况，用图表展示", List.of(), "run-envelope", emitter);
 
         String runStarted = firstPayload(emitter, "\"event_type\":\"run_started\"");
         assertTrue(runStarted.contains("\"event_id\":\"run-envelope:1\""), runStarted);
@@ -775,10 +730,10 @@ class V2AgentAiServiceTest {
         assertEquals(1L, audit.getOwnerUserId());
         assertEquals(105L, audit.getConversationId());
         assertEquals("completed", audit.getStatus());
-        assertEquals("tool_query_llm_streamed", audit.getMode());
-        assertEquals("streaming", audit.getLlmStatus());
+        assertEquals("tool_query_rule_summary", audit.getMode());
+        assertEquals("skipped_for_truthfulness", audit.getLlmStatus());
         assertEquals("keyword_fallback", audit.getPlanSource());
-        assertEquals(1, audit.getToolCount());
+        assertEquals(2, audit.getToolCount());
         assertTrue(audit.getEventCount() > 0);
         verify(agentRunAuditRepository, times(2)).save(any(AgentRunAuditEntity.class));
         List<AgentRunAuditEventEntity> events = runAuditEvents.stream()
@@ -791,7 +746,7 @@ class V2AgentAiServiceTest {
         assertTrue(events.stream().anyMatch(event -> "tool_completed".equals(event.getEventType())
             && event.getPayloadJson().contains("\"tool_name\":\"customer_receivable_lookup\"")));
         assertTrue(events.stream().anyMatch(event -> "answer_delta".equals(event.getEventType())
-            && event.getPayloadJson().contains("\"delta_source\":\"model_stream\"")));
+            && event.getPayloadJson().contains("\"delta_source\":\"rule_summary\"")));
         assertSequentialAuditEvents("run-envelope", events);
     }
 
@@ -849,7 +804,9 @@ class V2AgentAiServiceTest {
             && event.getPayloadJson().contains("\"draft_type\":\"create_customer\"")));
         assertTrue(runAuditEvents.stream().anyMatch(event -> "plan_delta".equals(event.getEventType())
             && event.getPayloadJson().contains("\"plan_source\":\"native_tool_use\"")));
-        verify(agentDraftRepository).save(any(AgentDraftEntity.class));
+        ArgumentCaptor<AgentDraftEntity> draftCaptor = ArgumentCaptor.forClass(AgentDraftEntity.class);
+        verify(agentDraftRepository).save(draftCaptor.capture());
+        assertEquals(113L, draftCaptor.getValue().getConversationId());
     }
 
     @Test
@@ -1002,15 +959,13 @@ class V2AgentAiServiceTest {
     void cancelRunMarksActiveStreamCancelledAndEmitsRunCancelledEvent() throws Exception {
         when(longCatAnthropicClient.isConfigured()).thenReturn(true);
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
+        CountDownLatch toolQueryEntered = new CountDownLatch(1);
+        CountDownLatch releaseToolQuery = new CountDownLatch(1);
         when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
-            .thenReturn(List.of(customer(1L, "客户A", 100.0)));
-        CountDownLatch modelStreamEntered = new CountDownLatch(1);
-        CountDownLatch releaseModelStream = new CountDownLatch(1);
-        when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
-                modelStreamEntered.countDown();
-                assertTrue(releaseModelStream.await(3, TimeUnit.SECONDS), "model stream release timed out");
-                return Optional.of("模型返回但用户已经取消");
+                toolQueryEntered.countDown();
+                assertTrue(releaseToolQuery.await(3, TimeUnit.SECONDS), "tool query release timed out");
+                return List.of(customer(1L, "客户A", 100.0));
             });
         CapturingEmitter emitter = new CapturingEmitter();
         AgentConversationEntity conversation = conversation(107L);
@@ -1028,10 +983,10 @@ class V2AgentAiServiceTest {
             }
         });
         worker.start();
-        assertTrue(modelStreamEntered.await(3, TimeUnit.SECONDS), "stream did not reach model call");
+        assertTrue(toolQueryEntered.await(3, TimeUnit.SECONDS), "stream did not reach tool query");
 
         V2AgentDtos.AgentRunCancelResponse response = service.cancelRun("run-cancel");
-        releaseModelStream.countDown();
+        releaseToolQuery.countDown();
         worker.join(3_000);
 
         assertFalse(worker.isAlive(), "stream worker should stop after server cancellation");
@@ -1100,7 +1055,8 @@ class V2AgentAiServiceTest {
         assertTrue(toolCall.durationMs() != null && toolCall.durationMs() >= 0);
         assertFalse(response.evidenceRefs().isEmpty());
         assertEquals(toolCall.toolCallId(), response.evidenceRefs().get(0).toolCallId());
-        assertTrue(hasBlock(response, "evidence_card"));
+        assertFalse(hasBlock(response, "evidence_card"));
+        assertTrue(response.blocks().isEmpty());
         assertEquals(response.blocks().size(), response.resultBlocks().size());
         assertTrue(response.performanceSummary().durationMs() >= 0);
         assertTrue(response.performanceSummary().toolDurationMs() >= 0);
@@ -1156,13 +1112,7 @@ class V2AgentAiServiceTest {
         assertTrue(response.evidenceRefs().stream().anyMatch(ref ->
             ref.label().contains("top10_receivable_total") && ref.value().contains("¥")
         ));
-        assertTrue(response.blocks().stream().anyMatch(block ->
-            "evidence_card".equals(block.blockType())
-                && block.data().toString().contains("customer_count")
-                && block.data().toString().contains("total_receivable")
-                && block.data().toString().contains("top10_receivable_total")
-                && block.data().toString().contains("tool:customer_receivable_lookup")
-        ));
+        assertFalse(hasBlock(response, "evidence_card"));
     }
 
     @Test
@@ -1175,7 +1125,7 @@ class V2AgentAiServiceTest {
         when(productRepository.countLowStockByOwnerUserId(1L)).thenReturn(4L);
 
         V2AgentDtos.AgentChatResponse response = service.chat(
-            new V2AgentDtos.AgentChatRequest(null, "商品目录情况", false)
+            new V2AgentDtos.AgentChatRequest(null, "商品目录情况，用指标卡展示", false)
         );
 
         assertTrue(response.answer().contains("商品总数 25 个"), response.answer());
@@ -1218,7 +1168,7 @@ class V2AgentAiServiceTest {
         when(purchaseOrderRepository.search(1L, null, null, PageRequest.of(0, 10))).thenReturn(List.of());
 
         V2AgentDtos.AgentChatResponse response = service.chat(
-            new V2AgentDtos.AgentChatRequest(null, "客户应收和供应商应付情况", false)
+            new V2AgentDtos.AgentChatRequest(null, "客户应收和供应商应付情况，用图表展示", false)
         );
 
         assertTrue(response.answer().contains("欠款客户总数 12 个"), response.answer());
@@ -1288,7 +1238,7 @@ class V2AgentAiServiceTest {
         ));
 
         V2AgentDtos.AgentChatResponse response = service.chat(
-            new V2AgentDtos.AgentChatRequest(null, "recent sales purchase finance business overview", false)
+            new V2AgentDtos.AgentChatRequest(null, "recent sales purchase finance business overview chart", false)
         );
 
         assertEquals("keyword_fallback", response.planSource());
@@ -1296,11 +1246,12 @@ class V2AgentAiServiceTest {
         assertTrue(response.planSummary().contains("purchase_order_lookup"), response.planSummary());
         assertTrue(response.planSummary().contains("finance_record_lookup"), response.planSummary());
         assertTrue(response.planSummary().contains("sales_overview_lookup"), response.planSummary());
-        assertEquals(4, response.toolCalls().size());
+        assertEquals(5, response.toolCalls().size());
         assertTrue(response.toolCalls().stream().anyMatch(tool -> "supplier_payable_lookup".equals(tool.toolName())));
         assertTrue(response.toolCalls().stream().anyMatch(tool -> "purchase_order_lookup".equals(tool.toolName())));
         assertTrue(response.toolCalls().stream().anyMatch(tool -> "finance_record_lookup".equals(tool.toolName())));
         assertTrue(response.toolCalls().stream().anyMatch(tool -> "sales_overview_lookup".equals(tool.toolName())));
+        assertTrue(response.toolCalls().stream().anyMatch(tool -> "result_visualization".equals(tool.toolName())));
         assertTrue(response.resultBlocks().stream().anyMatch(block ->
             "line_chart".equals(block.blockType()) && block.data().toString().contains("\"回款\"")
         ));
@@ -1342,7 +1293,7 @@ class V2AgentAiServiceTest {
         when(supplierRepository.sumPositiveBalance(1L)).thenReturn(900.0);
 
         V2AgentDtos.AgentChatResponse response = service.chat(
-            new V2AgentDtos.AgentChatRequest(null, "请帮我做应收应付对账", false)
+            new V2AgentDtos.AgentChatRequest(null, "请帮我做应收应付对账，用图表展示", false)
         );
 
         assertEquals("keyword_fallback", response.planSource());
@@ -1404,7 +1355,7 @@ class V2AgentAiServiceTest {
         when(salesReturnRepository.findByOwnerUserIdAndOriginalOrderIdOrderByCreatedAtDesc(1L, 11L)).thenReturn(List.of(salesReturn));
 
         V2AgentDtos.AgentChatResponse response = service.chat(
-            new V2AgentDtos.AgentChatRequest(null, "看下张三商贸的客户画像和催收建议", false)
+            new V2AgentDtos.AgentChatRequest(null, "看下张三商贸的客户画像和催收建议，用指标卡展示", false)
         );
 
         assertEquals("keyword_fallback", response.planSource());
@@ -1488,7 +1439,7 @@ class V2AgentAiServiceTest {
             .thenReturn(Optional.of(inventoryMonthlyStats(1L, 1L, "P001", "矿泉水", 20.0, 12.0)));
 
         V2AgentDtos.AgentChatResponse response = service.chat(
-            new V2AgentDtos.AgentChatRequest(null, "看下矿泉水的库存全景和库存周转", false)
+            new V2AgentDtos.AgentChatRequest(null, "看下矿泉水的库存全景和库存周转，用表格展示", false)
         );
 
         assertEquals("keyword_fallback", response.planSource());
@@ -1541,7 +1492,7 @@ class V2AgentAiServiceTest {
             .thenReturn(List.of(purchaseReturn));
 
         V2AgentDtos.AgentChatResponse response = service.chat(
-            new V2AgentDtos.AgentChatRequest(null, "看下可口供应链的采购跟踪和入库退货", false)
+            new V2AgentDtos.AgentChatRequest(null, "看下可口供应链的采购跟踪和入库退货，用表格展示", false)
         );
 
         assertEquals("keyword_fallback", response.planSource());
@@ -1606,7 +1557,7 @@ class V2AgentAiServiceTest {
             .thenReturn(new Object[]{9800.0, 7600.0, 6L});
 
         V2AgentDtos.AgentChatResponse response = service.chat(
-            new V2AgentDtos.AgentChatRequest(null, "看下账户健康和收支比", false)
+            new V2AgentDtos.AgentChatRequest(null, "看下账户健康和收支比，用表格展示", false)
         );
 
         assertEquals("keyword_fallback", response.planSource());
@@ -1732,7 +1683,9 @@ class V2AgentAiServiceTest {
                 && "create_customer".equals(block.data().path("draft_type").asText())
                 && block.data().path("title").asText().contains("李四")
         ));
-        verify(agentDraftRepository).save(any(AgentDraftEntity.class));
+        ArgumentCaptor<AgentDraftEntity> draftCaptor = ArgumentCaptor.forClass(AgentDraftEntity.class);
+        verify(agentDraftRepository).save(draftCaptor.capture());
+        assertEquals(101L, draftCaptor.getValue().getConversationId());
         verify(longCatAnthropicClient).createMessageWithTools(anyString(), anyString(), any());
     }
 
@@ -1892,8 +1845,8 @@ class V2AgentAiServiceTest {
         assertEquals(1L, response.ownerUserId());
         assertEquals(106L, response.conversationId());
         assertEquals("completed", response.status());
-        assertEquals("tool_query_llm_streamed", response.mode());
-        assertEquals("streaming", response.llmStatus());
+        assertEquals("tool_query_rule_summary", response.mode());
+        assertEquals("skipped_for_truthfulness", response.llmStatus());
         assertEquals("keyword_fallback", response.planSource());
         assertEquals("run-audit-read:audit", response.auditId());
         assertEquals("run-audit-read:trace", response.traceId());

@@ -1,0 +1,50 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "content": [
+      {
+        "id": 2,
+        "product_id": 4,
+        "product_code": "WG-W2-20260706",
+        "product_name": "Wave2 测试商品 20260706 更新",
+        "warehouse_id": null,
+        "quantity_before": 11.0,
+        "quantity_change": 1.0,
+        "quantity_after": 12.0,
+        "unit_cost": 8.5,
+        "source_type": "manual_adjustment",
+        "source_id": null,
+        "source_no": "W2-INV-ADJ-20260706",
+        "notes": "Wave2 inventory ledger fixture +1 to offset order drawdown",
+        "created_at": 1783282584483
+      }
+    ],
+    "pageable": {
+      "page_number": 0,
+      "page_size": 20,
+      "sort": {
+        "sorted": false,
+        "empty": true,
+        "unsorted": true
+      },
+      "offset": 0,
+      "paged": true,
+      "unpaged": false
+    },
+    "last": true,
+    "total_pages": 1,
+    "total_elements": 1,
+    "first": true,
+    "size": 20,
+    "number": 0,
+    "sort": {
+      "sorted": false,
+      "empty": true,
+      "unsorted": true
+    },
+    "number_of_elements": 1,
+    "empty": false
+  },
+  "timestamp": 1783282584889
+}

@@ -1,0 +1,11 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 7,
+    "phone": "13800138990",
+    "nickname": "User8990",
+    "status": 1
+  },
+  "timestamp": 1783280135554
+}

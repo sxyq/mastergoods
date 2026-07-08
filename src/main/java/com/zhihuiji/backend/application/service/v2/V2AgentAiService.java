@@ -67,6 +67,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -93,6 +94,8 @@ public class V2AgentAiService {
     private static final int MAX_AGENT_ITERATIONS = 3;
     private static final int SUPPLIER_SCAN_LIMIT = 50;
     private static final int OVERVIEW_SIGNAL_LIMIT = 5;
+    private static final String RESULT_VISUALIZATION_TOOL = "result_visualization";
+    private static final Set<String> ALWAYS_VISIBLE_BLOCK_TYPES = Set.of("draft", "draft_card");
 
     private final CurrentOwnerService currentOwnerService;
     private final AgentConversationRepository agentConversationRepository;
@@ -326,7 +329,7 @@ public class V2AgentAiService {
             finalAnswer = buildMultimodalDirectAnswer(message, imageInputs);
         } else {
             List<AgentMessageEntity> history = loadRecentHistory(ownerUserId, conversation.getId(), 10);
-            payload = buildResponse(ownerUserId, message, history, conversation.getLatestSummary(), null, runId);
+            payload = buildResponse(ownerUserId, conversation.getId(), message, history, conversation.getLatestSummary(), null, runId);
             finalAnswer = buildFinalAnswer(message, payload, history, conversation.getLatestSummary());
         }
         long completedAt = System.currentTimeMillis();
@@ -399,7 +402,8 @@ public class V2AgentAiService {
         emitter.onCompletion(() -> runAuditService.removeRun(runId));
         emitter.onTimeout(() -> runAuditService.removeRun(runId));
         emitter.onError(ignored -> runAuditService.removeRun(runId));
-        SecurityContext capturedSecurityContext = SecurityContextHolder.getContext();
+        SecurityContext capturedSecurityContext = SecurityContextHolder.createEmptyContext();
+        capturedSecurityContext.setAuthentication(SecurityContextHolder.getContext().getAuthentication());
         CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
             SecurityContext previousSecurityContext = SecurityContextHolder.getContext();
             try {
@@ -609,7 +613,7 @@ public class V2AgentAiService {
                 finalAnswer = buildMultimodalDirectAnswerForStream(message, imageInputs, emitter, runId, emitBlocksAfterVisibleAnswer);
             } else {
                 List<AgentMessageEntity> history = loadRecentHistory(ownerUserId, conversation.getId(), 10);
-                payload = buildResponse(ownerUserId, message, history, conversation.getLatestSummary(), emitter, runId);
+                payload = buildResponse(ownerUserId, conversation.getId(), message, history, conversation.getLatestSummary(), emitter, runId);
                 payloadRef[0] = payload;
                 runAuditService.ensureRunActive(runId);
                 finalAnswer = buildFinalAnswerForStream(
@@ -664,16 +668,17 @@ public class V2AgentAiService {
         }
     }
 
-    private ResponsePayload buildResponse(Long ownerUserId, String message) {
-        return buildResponse(ownerUserId, message, List.of(), null, null, null);
+    private ResponsePayload buildResponse(Long ownerUserId, Long conversationId, String message) {
+        return buildResponse(ownerUserId, conversationId, message, List.of(), null, null, null);
     }
 
-    private ResponsePayload buildResponse(Long ownerUserId, String message, SseEmitter emitter, String runId) {
-        return buildResponse(ownerUserId, message, List.of(), null, emitter, runId);
+    private ResponsePayload buildResponse(Long ownerUserId, Long conversationId, String message, SseEmitter emitter, String runId) {
+        return buildResponse(ownerUserId, conversationId, message, List.of(), null, emitter, runId);
     }
 
     private ResponsePayload buildResponse(
         Long ownerUserId,
+        Long conversationId,
         String message,
         List<AgentMessageEntity> history,
         String conversationSummary,
@@ -684,11 +689,11 @@ public class V2AgentAiService {
         emitPlan(emitter, runId, plan);
         boolean createIntentPlan = containsCreateOnlyTool(plan);
 
-        List<V2AgentDtos.ResultBlockDto> blocks = new ArrayList<>();
+        List<V2AgentDtos.ResultBlockDto> candidateBlocks = new ArrayList<>();
         List<String> answers = new ArrayList<>();
         List<ToolExecutionResult> toolResults = new ArrayList<>();
         List<ToolFailureResult> toolFailures = new ArrayList<>();
-        executeToolPlan(ownerUserId, emitter, runId, plan, blocks, answers, toolResults, toolFailures);
+        executeToolPlan(ownerUserId, conversationId, emitter, runId, plan, candidateBlocks, answers, toolResults, toolFailures);
         if (createIntentPlan) {
             emitDraftCreatedEvents(emitter, runId, toolResults);
         }
@@ -699,7 +704,7 @@ public class V2AgentAiService {
             if (recoveryPlan.isPresent()) {
                 AgentToolPlan retryPlan = recoveryPlan.get();
                 emitPlan(emitter, runId, retryPlan);
-                executeToolPlan(ownerUserId, emitter, runId, retryPlan, blocks, answers, toolResults, toolFailures);
+                executeToolPlan(ownerUserId, conversationId, emitter, runId, retryPlan, candidateBlocks, answers, toolResults, toolFailures);
                 plan = new AgentToolPlan(
                     mergeTools(plan.tools(), retryPlan.tools()),
                     plan.rationale() + " + 条件放宽补查",
@@ -721,7 +726,7 @@ public class V2AgentAiService {
             }
             AgentToolPlan iterationPlan = nextPlan.get();
             emitPlan(emitter, runId, iterationPlan);
-            executeToolPlan(ownerUserId, emitter, runId, iterationPlan, blocks, answers, toolResults, toolFailures);
+            executeToolPlan(ownerUserId, conversationId, emitter, runId, iterationPlan, candidateBlocks, answers, toolResults, toolFailures);
             plan = new AgentToolPlan(
                 mergeTools(plan.tools(), iterationPlan.tools()),
                 plan.rationale() + " + 迭代补充(" + iteration + ")",
@@ -735,24 +740,18 @@ public class V2AgentAiService {
             AgentToolPlan fallbackPlan = inferToolPlan(message, history, conversationSummary);
             if (!fallbackPlan.tools().isEmpty() && !fallbackPlan.tools().equals(plan.tools())) {
                 emitPlan(emitter, runId, fallbackPlan);
-                executeToolPlan(ownerUserId, emitter, runId, fallbackPlan, blocks, answers, toolResults, toolFailures);
+                executeToolPlan(ownerUserId, conversationId, emitter, runId, fallbackPlan, candidateBlocks, answers, toolResults, toolFailures);
                 plan = new AgentToolPlan(
                     fallbackPlan.tools(), plan.rationale() + " + 关键词兜底", "llm_with_fallback", plan.toolParams()
                 );
             }
         }
 
-        List<ToolExecutionResult> effectiveToolResults = collapseToolResultsForPresentation(toolResults);
-        if (!effectiveToolResults.isEmpty()) {
-            runAuditService.ensureRunActive(runId);
-            V2AgentDtos.ResultBlockDto evidenceBlock = buildEvidenceBlock(runId, effectiveToolResults);
-            blocks.add(evidenceBlock);
-        }
-
         if (answers.isEmpty()) {
             answers.add(toolFailures.isEmpty() ? buildUnsupportedIntentAnswer() : buildAllToolsFailedAnswer(toolFailures));
         }
 
+        List<V2AgentDtos.ResultBlockDto> blocks = selectVisibleResultBlocks(plan, toolResults, candidateBlocks);
         return new ResponsePayload(String.join("\n", answers), blocks, toolResults, toolFailures, plan);
     }
 
@@ -768,6 +767,41 @@ public class V2AgentAiService {
             Optional<AgentTool> tool = toolRegistry.getTool(toolName);
             if (tool.isPresent() && tool.get().type() == AgentTool.ToolType.CREATE_ONLY) {
                 return true;
+            }
+        }
+        return false;
+    }
+
+    private List<V2AgentDtos.ResultBlockDto> selectVisibleResultBlocks(
+        AgentToolPlan plan,
+        List<ToolExecutionResult> toolResults,
+        List<V2AgentDtos.ResultBlockDto> candidateBlocks
+    ) {
+        if (candidateBlocks == null || candidateBlocks.isEmpty()) {
+            return List.of();
+        }
+        boolean showDataVisualization = requestedResultVisualization(plan, toolResults);
+        List<V2AgentDtos.ResultBlockDto> visible = new ArrayList<>(candidateBlocks.size());
+        for (V2AgentDtos.ResultBlockDto block : candidateBlocks) {
+            if (block == null || block.blockType() == null) {
+                continue;
+            }
+            if (ALWAYS_VISIBLE_BLOCK_TYPES.contains(block.blockType()) || showDataVisualization) {
+                visible.add(block);
+            }
+        }
+        return visible;
+    }
+
+    private boolean requestedResultVisualization(AgentToolPlan plan, List<ToolExecutionResult> toolResults) {
+        if (plan != null && plan.tools() != null && plan.tools().contains(RESULT_VISUALIZATION_TOOL)) {
+            return true;
+        }
+        if (toolResults != null) {
+            for (ToolExecutionResult result : toolResults) {
+                if (result != null && RESULT_VISUALIZATION_TOOL.equals(result.toolName())) {
+                    return true;
+                }
             }
         }
         return false;
@@ -910,7 +944,7 @@ public class V2AgentAiService {
         return merged;
     }
 
-    private void executeToolPlan(Long ownerUserId, SseEmitter emitter, String runId, AgentToolPlan plan,
+    private void executeToolPlan(Long ownerUserId, Long conversationId, SseEmitter emitter, String runId, AgentToolPlan plan,
                                   List<V2AgentDtos.ResultBlockDto> blocks, List<String> answers,
                                   List<ToolExecutionResult> toolResults, List<ToolFailureResult> toolFailures) {
         for (String tool : plan.tools()) {
@@ -919,7 +953,7 @@ public class V2AgentAiService {
             long startedAt = System.currentTimeMillis();
             try {
                 runAuditService.ensureRunActive(runId);
-                ResponsePayload payload = executePlannedTool(ownerUserId, emitter, runId, tool, plan.toolParams().get(tool));
+                ResponsePayload payload = executePlannedTool(ownerUserId, conversationId, emitter, runId, tool, plan.toolParams().get(tool));
                 runAuditService.ensureRunActive(runId);
                 if (payload != null) {
                     if (payload.toolFailures() != null && !payload.toolFailures().isEmpty()) {
@@ -974,8 +1008,8 @@ public class V2AgentAiService {
         }
     }
 
-    private ResponsePayload executePlannedTool(Long ownerUserId, SseEmitter emitter, String runId, String tool, JsonNode params) {
-        Optional<ToolResult> registered = executeRegisteredTool(ownerUserId, emitter, runId, tool, params);
+    private ResponsePayload executePlannedTool(Long ownerUserId, Long conversationId, SseEmitter emitter, String runId, String tool, JsonNode params) {
+        Optional<ToolResult> registered = executeRegisteredTool(ownerUserId, conversationId, emitter, runId, tool, params);
         if (registered.isPresent()) {
             return adaptToolResult(registered.get(), tool);
         }
@@ -994,8 +1028,8 @@ public class V2AgentAiService {
      * @param tool        工具名
      * @return 工具执行结果 Optional（未注册时返回 empty）
      */
-    private Optional<ToolResult> executeRegisteredTool(Long ownerUserId, SseEmitter emitter, String runId, String tool, JsonNode params) {
-        ToolContext ctx = new ToolContext(ownerUserId, null, null, runId, null, objectMapper);
+    private Optional<ToolResult> executeRegisteredTool(Long ownerUserId, Long conversationId, SseEmitter emitter, String runId, String tool, JsonNode params) {
+        ToolContext ctx = new ToolContext(ownerUserId, null, conversationId, runId, emitter, objectMapper);
         return toolRegistry.executeTool(tool, ctx, params);
     }
 
@@ -1315,42 +1349,6 @@ public class V2AgentAiService {
             + "\n" + answerSynthesizer.appendFailureNotice("", toolFailures);
     }
 
-    private V2AgentDtos.ResultBlockDto buildEvidenceBlock(String runId, List<ToolExecutionResult> toolResults) {
-        List<Map<String, Object>> items = new ArrayList<>(toolResults == null ? 0 : toolResults.size() * 4);
-        if (toolResults != null) {
-            for (ToolExecutionResult result : toolResults) {
-                Map<String, Object> audit = result.queryAudit();
-                String toolCallId = RunAuditService.toolCallId(runId, result.toolName());
-                items.add(mapOf(
-                    "label", result.toolName(),
-                    "value", result.summary(),
-                    "source", "tool:" + result.toolName(),
-                    "tool_call_id", toolCallId,
-                    "query_window", audit,
-                    "is_truncated", Boolean.TRUE.equals(audit.get("is_truncated"))
-                ));
-                for (Map<String, String> evidenceItem : evidenceItemsFor(result)) {
-                    items.add(mapOf(
-                        "label", evidenceItem.get("label"),
-                        "value", evidenceItem.get("value"),
-                        "source", "tool:" + result.toolName(),
-                        "tool_call_id", toolCallId,
-                        "query_window", audit,
-                        "is_truncated", Boolean.TRUE.equals(audit.get("is_truncated"))
-                    ));
-                }
-            }
-        }
-        return new V2AgentDtos.ResultBlockDto(
-            "evidence_card",
-            "本次回答依据",
-            toJsonNode(mapOf(
-                "title", "本次回答依据",
-                "items", items
-            ))
-        );
-    }
-
     private List<V2AgentDtos.AgentToolCallDto> toToolCallDtos(String runId, ResponsePayload payload) {
         List<ToolExecutionResult> effectiveToolResults = collapseToolResultsForPresentation(payload.toolResults());
         int estimatedSize = effectiveToolResults.size()
@@ -1406,6 +1404,9 @@ public class V2AgentAiService {
         }
         int index = 1;
         for (ToolExecutionResult result : effectiveToolResults) {
+            if (RESULT_VISUALIZATION_TOOL.equals(result.toolName())) {
+                continue;
+            }
             Map<String, Object> audit = result.queryAudit();
             List<Map<String, String>> evidenceItems = evidenceItemsFor(result);
             if (evidenceItems.isEmpty()) {

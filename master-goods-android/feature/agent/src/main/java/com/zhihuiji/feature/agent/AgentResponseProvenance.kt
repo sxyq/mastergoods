@@ -32,19 +32,6 @@ internal fun assistantHeaderStatusLabel(
     else -> "助手回复"
 }
 
-internal fun assistantProvenanceLabel(
-    hasCompletedTool: Boolean,
-    hasToolEvidence: Boolean,
-    answerDeltaSource: String?,
-): String = when {
-    hasCompletedTool -> "工具完成"
-        hasToolEvidence -> "工具执行"
-        answerDeltaSource == DeltaSourceModelStream -> "模型流"
-        answerDeltaSource == DeltaSourceRuleSummary -> "规则摘要"
-        answerDeltaSource == DeltaSourceServerNotice -> "查询说明"
-        else -> "AI 文本"
-    }
-
 internal fun String?.headerStatusLabel(isStreaming: Boolean = true): String =
     when (this) {
         DeltaSourceModelStream -> if (isStreaming) "模型正在流式生成" else "模型流式回复"
@@ -69,23 +56,15 @@ internal fun ChatMessage.shouldShowInlineStreamingStatus(): Boolean =
         parts.lastOrNull() !is ChatMessagePart.PendingResultBlock
 
 internal fun ChatMessage.shouldShowAssistantHeader(): Boolean =
-    isStreaming || runTrace?.isStreamInterrupted() == true || isRuleSummaryMode(
+    isStreaming ||
+        runTrace?.toolCalls?.isNotEmpty() == true ||
+        runTrace?.auditId != null ||
+        runTrace?.traceId != null ||
+        runTrace?.isStreamInterrupted() == true ||
+        isRuleSummaryMode(
         mode = runTrace?.mode,
         llmStatus = runTrace?.llmStatus,
     )
-
-internal fun ChatMessage.shouldShowAssistantHeaderBadges(): Boolean = isStreaming
-
-internal fun ChatMessage.shouldShowRunTracePanel(): Boolean =
-    isError ||
-        runTrace?.isExpanded == true ||
-        (isStreaming && !hasVisibleAssistantTimeline())
-
-internal fun ChatMessage.shouldShowRealQueryStatusCard(): Boolean =
-    isStreaming && !hasVisibleAssistantTimeline()
-
-internal fun ChatMessage?.shouldShowStandaloneTypingIndicator(isStreaming: Boolean): Boolean =
-    isStreaming && (this == null || !hasVisibleAssistantTimeline())
 
 internal fun ChatMessage.hasVisibleAssistantTimeline(): Boolean =
     content.isNotBlank() ||
@@ -96,17 +75,6 @@ internal fun ChatMessage.hasVisibleAssistantTimeline(): Boolean =
                 is ChatMessagePart.PendingResultBlock -> true
             }
         }
-
-internal fun assistantReviewBadgeLabel(
-    isStreaming: Boolean,
-    hasAuditTrace: Boolean,
-    hasToolEvidence: Boolean,
-): String = when {
-    hasAuditTrace -> "有运行标识"
-    hasToolEvidence -> "有工具记录"
-    isStreaming -> "生成中"
-    else -> "未展开"
-}
 
 internal fun isRuleSummaryMode(mode: String?, llmStatus: String?): Boolean =
     mode == "tool_query_rule_summary" || llmStatus in ruleSummaryDisabledStatuses

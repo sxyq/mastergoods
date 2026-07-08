@@ -1,0 +1,19 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "id": 1,
+      "bill_type": "sale_order",
+      "bill_id": 7140543934752114803,
+      "account_id": 2,
+      "account_name": "Wave2 银行账户 20260706",
+      "amount": 11.0,
+      "link_type": 1,
+      "notes": "Wave2 bill fund link fixture",
+      "created_at": 1783282581072,
+      "updated_at": 1783282581072
+    }
+  ],
+  "timestamp": 1783282581666
+}

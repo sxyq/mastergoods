@@ -1,0 +1,486 @@
+{
+  "chat_nonstream": {
+    "ok": true,
+    "status": 200,
+    "headers": {
+      "Server": "nginx/1.24.0 (Ubuntu)",
+      "Date": "Sun, 05 Jul 2026 18:01:36 GMT",
+      "Content-Type": "application/json",
+      "Transfer-Encoding": "chunked",
+      "Connection": "keep-alive",
+      "Vary": "Accept-Encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+      "X-Content-Type-Options": "nosniff",
+      "X-XSS-Protection": "0",
+      "Cache-Control": "no-cache, no-store, max-age=0, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+      "X-Frame-Options": "DENY",
+      "X-Accel-Buffering": "no",
+      "Content-Encoding": "gzip"
+    },
+    "body": {
+      "code": 0,
+      "message": "success",
+      "data": {
+        "run_id": "5be3fd1e-a6e3-4ca7-916c-f6ce4253a014",
+        "conversation_id": 41,
+        "answer": "已基于当前账号的真实数据查询到 cashflow_summary 现金流汇总报表。\n\n本轮查询结果显示：\n- 时间范围：2025-07 到 2026-07\n- 总收入：¥0.00\n- 总支出：¥0.00\n- 净现金流：¥0.00\n- 记录数：0\n\n说明：\n- 本次查询成功，未出现工具失败。\n- 结果表明该时间范围内没有返回现金流记录，因此收入、支出和净现金流均为 0。\n\n可执行建议：\n1. 如果你怀疑时间范围不对，可以再确认是否要查“按自然月”还是“按具体日期”的区间。\n2. 如果你希望看到账务明细，我可以继续帮你查对应时间段的收支明细或分类汇总。\n3. 如果你预计应有数据但结果为 0，建议检查该账号下是否存在未记账或未同步的流水。",
+        "blocks": [
+          {
+            "block_type": "kpi_grid",
+            "title": "现金流汇总",
+            "data": {
+              "kpis": [
+                {
+                  "label": "总收入",
+                  "value": "¥0.00",
+                  "trend_direction": "flat"
+                },
+                {
+                  "label": "总支出",
+                  "value": "¥0.00",
+                  "trend_direction": "flat"
+                },
+                {
+                  "label": "净现金流",
+                  "value": "¥0.00",
+                  "trend_direction": "flat"
+                },
+                {
+                  "label": "流水笔数",
+                  "value": "0",
+                  "trend_direction": "flat"
+                }
+              ]
+            }
+          },
+          {
+            "block_type": "evidence_card",
+            "title": "本次回答依据",
+            "data": {
+              "title": "本次回答依据",
+              "items": [
+                {
+                  "label": "cashflow_summary_lookup",
+                  "value": "总收入 ¥0.00，总支出 ¥0.00，净现金流 ¥0.00",
+                  "source": "tool:cashflow_summary_lookup",
+                  "tool_call_id": "5be3fd1e-a6e3-4ca7-916c-f6ce4253a014:cashflow_summary_lookup",
+                  "query_window": {
+                    "started_at": 1783274482955,
+                    "completed_at": 1783274482964,
+                    "duration_ms": 9,
+                    "returned_count": 1,
+                    "is_truncated": false,
+                    "tool_name": "cashflow_summary_lookup",
+                    "tool_input": {
+                      "start_date": 1780682482955,
+                      "end_date": 1783274482955
+                    }
+                  },
+                  "is_truncated": false
+                }
+              ]
+            }
+          }
+        ],
+        "draft_id": null,
+        "safety_passed": true,
+        "safety_reason": null,
+        "mode": "tool_query_llm_synthesized",
+        "llm_status": "available",
+        "plan_source": "native_tool_use",
+        "plan_summary": "模型通过原生 Function Calling 选择工具：cashflow_summary_lookup",
+        "tool_calls": [
+          {
+            "tool_call_id": "5be3fd1e-a6e3-4ca7-916c-f6ce4253a014:cashflow_summary_lookup",
+            "tool_name": "cashflow_summary_lookup",
+            "status": "completed",
+            "input_summary": "{\"start_date\":1780682482955,\"end_date\":1783274482955}",
+            "query_window": {
+              "started_at": 1783274482955,
+              "completed_at": 1783274482964,
+              "duration_ms": 9,
+              "returned_count": 1,
+              "is_truncated": false,
+              "tool_name": "cashflow_summary_lookup",
+              "tool_input": {
+                "start_date": 1780682482955,
+                "end_date": 1783274482955
+              }
+            },
+            "returned_count": 1,
+            "total_count": null,
+            "limit": null,
+            "is_truncated": false,
+            "duration_ms": 9,
+            "result_summary": "总收入 ¥0.00，总支出 ¥0.00，净现金流 ¥0.00",
+            "error_code": null,
+            "error_message": null
+          }
+        ],
+        "evidence_refs": [
+          {
+            "evidence_id": "evidence-1",
+            "tool_call_id": "5be3fd1e-a6e3-4ca7-916c-f6ce4253a014:cashflow_summary_lookup",
+            "tool_name": "cashflow_summary_lookup",
+            "label": "cashflow_summary_lookup",
+            "value": "总收入 ¥0.00，总支出 ¥0.00，净现金流 ¥0.00",
+            "query_window": {
+              "started_at": 1783274482955,
+              "completed_at": 1783274482964,
+              "duration_ms": 9,
+              "returned_count": 1,
+              "is_truncated": false,
+              "tool_name": "cashflow_summary_lookup",
+              "tool_input": {
+                "start_date": 1780682482955,
+                "end_date": 1783274482955
+              }
+            },
+            "is_truncated": false
+          }
+        ],
+        "result_blocks": [
+          {
+            "block_type": "kpi_grid",
+            "title": "现金流汇总",
+            "data": {
+              "kpis": [
+                {
+                  "label": "总收入",
+                  "value": "¥0.00",
+                  "trend_direction": "flat"
+                },
+                {
+                  "label": "总支出",
+                  "value": "¥0.00",
+                  "trend_direction": "flat"
+                },
+                {
+                  "label": "净现金流",
+                  "value": "¥0.00",
+                  "trend_direction": "flat"
+                },
+                {
+                  "label": "流水笔数",
+                  "value": "0",
+                  "trend_direction": "flat"
+                }
+              ]
+            }
+          },
+          {
+            "block_type": "evidence_card",
+            "title": "本次回答依据",
+            "data": {
+              "title": "本次回答依据",
+              "items": [
+                {
+                  "label": "cashflow_summary_lookup",
+                  "value": "总收入 ¥0.00，总支出 ¥0.00，净现金流 ¥0.00",
+                  "source": "tool:cashflow_summary_lookup",
+                  "tool_call_id": "5be3fd1e-a6e3-4ca7-916c-f6ce4253a014:cashflow_summary_lookup",
+                  "query_window": {
+                    "started_at": 1783274482955,
+                    "completed_at": 1783274482964,
+                    "duration_ms": 9,
+                    "returned_count": 1,
+                    "is_truncated": false,
+                    "tool_name": "cashflow_summary_lookup",
+                    "tool_input": {
+                      "start_date": 1780682482955,
+                      "end_date": 1783274482955
+                    }
+                  },
+                  "is_truncated": false
+                }
+              ]
+            }
+          }
+        ],
+        "performance_summary": {
+          "started_at": 1783274477906,
+          "completed_at": 1783274496157,
+          "duration_ms": 18251,
+          "tool_duration_ms": 9,
+          "model_duration_ms": 16648
+        },
+        "audit_id": "5be3fd1e-a6e3-4ca7-916c-f6ce4253a014:audit",
+        "trace_id": "5be3fd1e-a6e3-4ca7-916c-f6ce4253a014:trace",
+        "observability": {
+          "request_id": "5be3fd1e-a6e3-4ca7-916c-f6ce4253a014",
+          "correlation_id": "5be3fd1e-a6e3-4ca7-916c-f6ce4253a014",
+          "trace_id": "5be3fd1e-a6e3-4ca7-916c-f6ce4253a014:trace",
+          "audit_id": "5be3fd1e-a6e3-4ca7-916c-f6ce4253a014:audit",
+          "log_ref": "agent-run:5be3fd1e-a6e3-4ca7-916c-f6ce4253a014"
+        }
+      },
+      "timestamp": 1783274496185
+    }
+  },
+  "chat_stream": {
+    "ok": false,
+    "status": 500,
+    "run_id": null,
+    "lines": [
+      "HTTP 500: {\"code\":500,\"message\":\"Internal server error\",\"data\":null,\"timestamp\":1783274496520}"
+    ],
+    "cancel_result": null
+  },
+  "draft_create_confirm": {
+    "ok": true,
+    "status": 200,
+    "headers": {
+      "Server": "nginx/1.24.0 (Ubuntu)",
+      "Date": "Sun, 05 Jul 2026 18:01:36 GMT",
+      "Content-Type": "application/json",
+      "Transfer-Encoding": "chunked",
+      "Connection": "keep-alive",
+      "Vary": "Accept-Encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+      "X-Content-Type-Options": "nosniff",
+      "X-XSS-Protection": "0",
+      "Cache-Control": "no-cache, no-store, max-age=0, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+      "X-Frame-Options": "DENY",
+      "X-Accel-Buffering": "no",
+      "Content-Encoding": "gzip"
+    },
+    "body": {
+      "code": 0,
+      "message": "success",
+      "data": {
+        "id": 14,
+        "conversation_id": null,
+        "draft_type": "customer_followup",
+        "title": "Wave0 backend draft confirm",
+        "content_json": "{\"text\":\"wave0 backend draft confirm\"}",
+        "status": "active",
+        "created_at": 1783274496845,
+        "updated_at": 1783274496845
+      },
+      "timestamp": 1783274496857
+    }
+  },
+  "draft_create_cancel": {
+    "ok": true,
+    "status": 200,
+    "headers": {
+      "Server": "nginx/1.24.0 (Ubuntu)",
+      "Date": "Sun, 05 Jul 2026 18:01:37 GMT",
+      "Content-Type": "application/json",
+      "Transfer-Encoding": "chunked",
+      "Connection": "keep-alive",
+      "Vary": "Accept-Encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+      "X-Content-Type-Options": "nosniff",
+      "X-XSS-Protection": "0",
+      "Cache-Control": "no-cache, no-store, max-age=0, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+      "X-Frame-Options": "DENY",
+      "X-Accel-Buffering": "no",
+      "Content-Encoding": "gzip"
+    },
+    "body": {
+      "code": 0,
+      "message": "success",
+      "data": {
+        "id": 15,
+        "conversation_id": null,
+        "draft_type": "customer_followup",
+        "title": "Wave0 backend draft cancel",
+        "content_json": "{\"text\":\"wave0 backend draft cancel\"}",
+        "status": "active",
+        "created_at": 1783274497174,
+        "updated_at": 1783274497174
+      },
+      "timestamp": 1783274497179
+    }
+  },
+  "draft_confirm": {
+    "ok": false,
+    "status": 422,
+    "headers": {
+      "Server": "nginx/1.24.0 (Ubuntu)",
+      "Date": "Sun, 05 Jul 2026 18:01:37 GMT",
+      "Content-Type": "application/json",
+      "Transfer-Encoding": "chunked",
+      "Connection": "keep-alive",
+      "Vary": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+      "X-Content-Type-Options": "nosniff",
+      "X-XSS-Protection": "0",
+      "Cache-Control": "no-cache, no-store, max-age=0, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+      "X-Frame-Options": "DENY"
+    },
+    "body": {
+      "code": 422,
+      "message": "不支持的草稿类型：customer_followup",
+      "data": null,
+      "timestamp": 1783274497506
+    }
+  },
+  "draft_cancel": {
+    "ok": true,
+    "status": 200,
+    "headers": {
+      "Server": "nginx/1.24.0 (Ubuntu)",
+      "Date": "Sun, 05 Jul 2026 18:01:37 GMT",
+      "Content-Type": "application/json",
+      "Transfer-Encoding": "chunked",
+      "Connection": "keep-alive",
+      "Vary": "Accept-Encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+      "X-Content-Type-Options": "nosniff",
+      "X-XSS-Protection": "0",
+      "Cache-Control": "no-cache, no-store, max-age=0, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+      "X-Frame-Options": "DENY",
+      "X-Accel-Buffering": "no",
+      "Content-Encoding": "gzip"
+    },
+    "body": {
+      "code": 0,
+      "message": "success",
+      "data": {
+        "id": 15,
+        "conversation_id": null,
+        "draft_type": "customer_followup",
+        "title": "Wave0 backend draft cancel",
+        "content_json": "{\"text\":\"wave0 backend draft cancel\"}",
+        "status": "cancelled",
+        "created_at": 1783274497174,
+        "updated_at": 1783274497829
+      },
+      "timestamp": 1783274497834
+    }
+  },
+  "drafts_after": {
+    "ok": true,
+    "status": 200,
+    "headers": {
+      "Server": "nginx/1.24.0 (Ubuntu)",
+      "Date": "Sun, 05 Jul 2026 18:01:38 GMT",
+      "Content-Type": "application/json",
+      "Transfer-Encoding": "chunked",
+      "Connection": "keep-alive",
+      "Vary": "Accept-Encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+      "X-Content-Type-Options": "nosniff",
+      "X-XSS-Protection": "0",
+      "Cache-Control": "no-cache, no-store, max-age=0, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+      "X-Frame-Options": "DENY",
+      "X-Accel-Buffering": "no",
+      "Content-Encoding": "gzip"
+    },
+    "body": {
+      "code": 0,
+      "message": "success",
+      "data": [
+        {
+          "id": 15,
+          "conversation_id": null,
+          "draft_type": "customer_followup",
+          "title": "Wave0 backend draft cancel",
+          "content_json": "{\"text\":\"wave0 backend draft cancel\"}",
+          "status": "cancelled",
+          "created_at": 1783274497174,
+          "updated_at": 1783274497829
+        },
+        {
+          "id": 14,
+          "conversation_id": null,
+          "draft_type": "customer_followup",
+          "title": "Wave0 backend draft confirm",
+          "content_json": "{\"text\":\"wave0 backend draft confirm\"}",
+          "status": "active",
+          "created_at": 1783274496845,
+          "updated_at": 1783274496845
+        },
+        {
+          "id": 9,
+          "conversation_id": 19,
+          "draft_type": "create_sale_order",
+          "title": "新建销售单：安卓草稿确认验证",
+          "content_json": "{\"customer_name\":\"安卓草稿确认客户\",\"items\":[],\"remark\":\"android draft confirm test\"}",
+          "status": "cancelled",
+          "created_at": 1783255677746,
+          "updated_at": 1783256439006
+        },
+        {
+          "id": 10,
+          "conversation_id": 19,
+          "draft_type": "create_sale_order",
+          "title": "草稿确认测试 19",
+          "content_json": "{\"customer_name\":\"安卓草稿确认客户\",\"items\":[],\"remark\":\"android draft confirm test\"}",
+          "status": "cancelled",
+          "created_at": 1783255699758,
+          "updated_at": 1783255939671
+        },
+        {
+          "id": 12,
+          "conversation_id": 19,
+          "draft_type": "create_sale_order",
+          "title": "安卓草稿确认验证",
+          "content_json": "{\"customer_id\": null, \"customer_name\": \"安卓草稿确认客户\", \"items\": [{\"product_id\": 2, \"quantity\": 2.0, \"unit_price\": 12.5}], \"notes\": \"android draft confirm test\", \"discount_amount\": 0.0}",
+          "status": "confirmed",
+          "created_at": 1783255936233,
+          "updated_at": 1783255938271
+        },
+        {
+          "id": 11,
+          "conversation_id": 25,
+          "draft_type": "create_sale_order",
+          "title": "草稿确认测试 25",
+          "content_json": "{\"customer_name\":\"安卓草稿确认客户\",\"items\":[],\"remark\":\"android draft confirm test\"}",
+          "status": "cancelled",
+          "created_at": 1783255700213,
+          "updated_at": 1783255726249
+        },
+        {
+          "id": 7,
+          "conversation_id": 20,
+          "draft_type": "media_upload",
+          "title": "Wave1 Confirm Draft",
+          "content_json": "{\"file_name\":\"wave1.png\",\"mime_type\":\"image/png\"}",
+          "status": "confirmed",
+          "created_at": 1783228144763,
+          "updated_at": 1783228145007
+        },
+        {
+          "id": 6,
+          "conversation_id": 20,
+          "draft_type": "customer_followup",
+          "title": "Wave1 Cancel Draft",
+          "content_json": "{\"kind\":\"note\",\"text\":\"cancel me\"}",
+          "status": "cancelled",
+          "created_at": 1783228144263,
+          "updated_at": 1783228144528
+        },
+        {
+          "id": 5,
+          "conversation_id": 19,
+          "draft_type": "create_customer",
+          "title": "新增客户草稿",
+          "content_json": "{\"name\":\"测试客户A\",\"phone\":\"13700020001\",\"level\":1,\"group_id\":null,\"primary_contact_name\":\"张三\",\"primary_contact_phone\":\"13700020002\",\"address\":\"测试地址\",\"notes\":\"draft confirm\",\"balance\":0,\"status\":1}",
+          "status": "confirmed",
+          "created_at": 1783227259160,
+          "updated_at": 1783227274104
+        },
+        {
+          "id": 4,
+          "conversation_id": 19,
+          "draft_type": "customer_followup",
+          "title": "客户跟进草稿",
+          "content_json": "{\"text\":\"先跟进门店客户A\"}",
+          "status": "cancelled",
+          "created_at": 1783227201767,
+          "updated_at": 1783227221262
+        }
+      ],
+      "timestamp": 1783274498156
+    }
+  }
+}

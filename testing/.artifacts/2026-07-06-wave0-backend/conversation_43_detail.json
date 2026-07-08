@@ -1,0 +1,14 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 43,
+    "title": "请基于当前账号的真实数据，查询报表类型 cash",
+    "status": "active",
+    "latest_summary": "已查询到当前账号在2025-07 到2026-07 的现金流汇总报表，结果为：总收入 ¥0.00，总支出 ¥0.00，净现金流 ¥0.00。\n\n本轮查询到的关键数据：\n- 报表类型：cashflow_summary- 时间范围：2025-0",
+    "created_at": 1783274539953,
+    "updated_at": 1783274552692,
+    "last_message_at": 1783274552692
+  },
+  "timestamp": 1783280281329
+}

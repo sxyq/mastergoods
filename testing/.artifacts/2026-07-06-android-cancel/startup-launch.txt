@@ -1,0 +1,7 @@
+Starting: Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] pkg=cashflow_summary，时间范围 cmp=com.zhihuiji.app/.MainActivity (has extras) }
+Status: ok
+LaunchState: COLD
+Activity: com.zhihuiji.app/.MainActivity
+TotalTime: 914
+WaitTime: 917
+Complete

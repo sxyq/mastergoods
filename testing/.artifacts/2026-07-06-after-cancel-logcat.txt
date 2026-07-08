@@ -1,0 +1,220 @@
+07-06 01:46:41.926  3992  6429 I sensors : send_request:415, send_request completed, this=0xb400007036b2fc90x
+07-06 01:46:41.927  3992  6365 I sensors : handle_resp_cb:517, handle_resp_cb Ended this=0xb400007036b2fc90x
+07-06 01:46:41.928  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232705649364824, lux: 0.0
+07-06 01:46:41.928  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232705661291490, lux: 0.0
+07-06 01:46:41.929  3992  6429 I libsensor-displayalgo: the value of channelCali C:3229.065521,R:2155.051903,G:902.102864,B:483.916416,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+07-06 01:46:41.929  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232705649364824, sensor=5, temperature(K)=   0.0000
+07-06 01:46:41.930  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:41.930  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232705661291490, sensor=5, temperature(K)=   0.0000
+07-06 01:46:41.930  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:41.930  3992  6429 D libsensor-displayalgo: brightness:130.000000,R:1369.957490,G:1418.190516,B:1489.449862,EVENT C:2511.500000,R:1535.500000,G:820.500000,B:437.000000, lux: 0.000000,cct:nan, irPara: 0
+07-06 01:46:41.930  3992  6429 I libsensor-displayalgo: ##### the value of lux: 0.000000, cct: 5743.000000
+07-06 01:46:41.930  3992  6429 I libsensor-ssccalapi: value of set_lux: 0.000000, set r: 5743.000000
+07-06 01:46:41.930  3992  6429 I sensors : send_request:330, send_request start this=0xb400007036b2fc90x 
+07-06 01:46:41.931  3992  6429 I sensors : send_request:415, send_request completed, this=0xb400007036b2fc90x
+07-06 01:46:41.932  3992  6365 I sensors : handle_resp_cb:517, handle_resp_cb Ended this=0xb400007036b2fc90x
+07-06 01:46:41.932  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232705666113157, lux: 0.0
+07-06 01:46:41.933  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232705666113157, sensor=5, temperature(K)=   0.0000
+07-06 01:46:41.933  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:41.936  2087  8449 D vendor.qti.bluetooth@1.1-wake_lock: Acquire wakelock is acquired 
+07-06 01:46:41.940  7344  8467 D BluetoothRemoteDevices: Update property, device=XX:XX:XX:XX:9A:4C, type: 1
+07-06 01:46:41.940  7344  8467 D BluetoothRemoteDevices: Skip name update for XX:XX:XX:XX:9A:4C
+07-06 01:46:41.940  7344  8467 D BluetoothRemoteDevices: Update property, device=XX:XX:XX:XX:9A:4C, type: 4
+07-06 01:46:41.941  2196  2326 I MiStcImpl: Dispatching command: 35 SET_HISTOGRAM
+07-06 01:46:41.941  7344  8467 D BluetoothRemoteDevices: Skip class update, device=XX:XX:XX:XX:9A:4C, cod=0x1f00
+07-06 01:46:41.941  7344  8467 D BluetoothRemoteDevices: Update property, device=XX:XX:XX:XX:9A:4C, type: 5
+07-06 01:46:41.941  7344  8467 D BluetoothRemoteDevices:  BT_PROPERTY_TYPE_OF_DEVICE addr:3C:CD:73:17:9A:4C deviceType:2
+07-06 01:46:41.941  7344  8467 D HyperRemoteDevicesAdapter: Update property, device=3C:CD:73:17:9A:4C, type: 1
+07-06 01:46:41.941  7344  8467 D HyperRemoteDevicesAdapter: Remote device name is: njcuk.fitting.ad1204 type = 2 3C:CD:73:17:9A:4C
+07-06 01:46:41.941  7344  8467 D HyperRemoteDevicesAdapter: update name for XX:XX:XX:XX:9A:4C type = 2 name = njcuk.fitting.ad1204 7
+07-06 01:46:41.941  7344  8467 D HyperRemoteDevicesAdapter: Update property, device=3C:CD:73:17:9A:4C, type: 4
+07-06 01:46:41.941  7344  8467 D HyperRemoteDevicesAdapter: Update property, device=3C:CD:73:17:9A:4C, type: 5
+07-06 01:46:41.941  7344  8467 V ScanController: onScanResult() - eventType=0x1b, addressType=0, address=XX:XX:XX:XX:9A:4C, primaryPhy=1, secondaryPhy=0, advertisingSid=0xff, txPower=127, rssi=-49, periodicAdvInt=0x0, originalAddress=3C:CD:73:17:9A:4C
+07-06 01:46:41.943  7344  8467 V ScanController: Skipping client: permission=true matches=false
+07-06 01:46:41.943  7344  8467 V ScanController: Skipping client: permission=true matches=false
+07-06 01:46:41.944  7344  8467 V ScanController: Skipping client: permission=true matches=false
+07-06 01:46:41.945  9169  9465 D MiuiConfigNetConnectController : parse config net scan res device: 00:00:00:17:9A:4C
+07-06 01:46:41.945  9169  9465 D MiuiConfigNetConnectController : buildStamp: 1764640837
+07-06 01:46:41.947  9169  9465 E MiuiConfigNetConnectController : empty last pop
+07-06 01:46:41.947  9169  9465 D MiuiConfigNetConnectController : getDeviceTimes 3C:CD:73:17:9A:4C
+07-06 01:46:41.949  9169  9465 D MiuiConfigNetConnectController : deviceTimes: -1
+07-06 01:46:41.949  9169  9465 D MiuiConfigNetConnectController : device has bonded with app89
+07-06 01:46:42.019  2165  7235 I WifiHAL : event received NL80211_CMD_VENDOR, vendor_id = 0x1374, subcmd = 0xd
+07-06 01:46:42.019  3748  3748 I cnss-daemon: nl80211 response handler invoked
+07-06 01:46:42.019  3748  3748 I cnss-daemon: nl80211_response_handler: cmd 103, vendorID 4980, subcmd 13  received
+07-06 01:46:42.125  3992  6429 I libsensor-displayalgo: the value of channelCali C:3229.065521,R:2155.051903,G:902.102864,B:483.916416,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+07-06 01:46:42.126  3992  6429 D libsensor-displayalgo: brightness:130.000000,R:1369.957490,G:1418.190516,B:1489.449862,EVENT C:2514.500000,R:1532.500000,G:819.500000,B:436.500000, lux: 0.000000,cct:nan, irPara: 0
+07-06 01:46:42.126  3992  6429 I libsensor-displayalgo: ##### the value of lux: 0.000000, cct: 5743.000000
+07-06 01:46:42.126  3992  6429 I libsensor-ssccalapi: value of set_lux: 0.000000, set r: 5743.000000
+07-06 01:46:42.126  3992  6429 I sensors : send_request:330, send_request start this=0xb400007036b2fc90x 
+07-06 01:46:42.126  3992  6429 I sensors : send_request:415, send_request completed, this=0xb400007036b2fc90x
+07-06 01:46:42.128  3992  6365 I sensors : handle_resp_cb:517, handle_resp_cb Ended this=0xb400007036b2fc90x
+07-06 01:46:42.128  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232705849365501, lux: 0.0
+07-06 01:46:42.128  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232705861930292, lux: 0.0
+07-06 01:46:42.129  2087  8121 D vendor.qti.bluetooth@1.1-wake_lock: Release wakelock is released 
+07-06 01:46:42.130  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232705849365501, sensor=5, temperature(K)=   0.0000
+07-06 01:46:42.130  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:42.130  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232705861930292, sensor=5, temperature(K)=   0.0000
+07-06 01:46:42.130  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:42.143  2196  2326 I MiStcImpl: Dispatching command: 35 SET_HISTOGRAM
+07-06 01:46:42.277  2922  4645 W ActivityTaskManager: MANAGE_ACTIVITY_STACKS is deprecated, please use alternative permission: MANAGE_ACTIVITY_TASKS
+07-06 01:46:42.279 11577 15537 D JavaheapMonitor: Java heap used=24M max=512M, proc: com.sohu.inputmethod.sogou.xiaomi
+07-06 01:46:42.280 11577 15537 V JavaheapMonitor: Check java heap usage finished! Next check delay: 300000
+07-06 01:46:42.325  3992  6429 I libsensor-displayalgo: the value of channelCali C:3229.065521,R:2155.051903,G:902.102864,B:483.916416,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+07-06 01:46:42.325  3992  6429 D libsensor-displayalgo: brightness:130.000000,R:1369.957490,G:1418.190516,B:1489.449862,EVENT C:2512.000000,R:1532.000000,G:816.000000,B:435.500000, lux: 0.000000,cct:nan, irPara: 0
+07-06 01:46:42.325  3992  6429 I libsensor-displayalgo: ##### the value of lux: 0.000000, cct: 5743.000000
+07-06 01:46:42.325  3992  6429 I libsensor-ssccalapi: value of set_lux: 0.000000, set r: 5743.000000
+07-06 01:46:42.325  3992  6429 I sensors : send_request:330, send_request start this=0xb400007036b2fc90x 
+07-06 01:46:42.326  3992  6429 I sensors : send_request:415, send_request completed, this=0xb400007036b2fc90x
+07-06 01:46:42.327  3992  6365 I sensors : handle_resp_cb:517, handle_resp_cb Ended this=0xb400007036b2fc90x
+07-06 01:46:42.328  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232706049365396, lux: 0.0
+07-06 01:46:42.328  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232706061412636, lux: 0.0
+07-06 01:46:42.329  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232706049365396, sensor=5, temperature(K)=   0.0000
+07-06 01:46:42.329  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:42.330  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232706061412636, sensor=5, temperature(K)=   0.0000
+07-06 01:46:42.330  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:42.345  2196  2326 I MiStcImpl: Dispatching command: 35 SET_HISTOGRAM
+07-06 01:46:42.359  2922  8455 I NetworkAccelerateSwitchService: EVENT_RSSI_POLL. mRssiPoll=true
+07-06 01:46:42.360  2922  8455 I NetworkAccelerateSwitchService: checkWifiRssiAndLinkSpeed rssi:51
+07-06 01:46:42.360  2922  8455 I NetworkAccelerateSwitchService: checkWifiRssiAndLinkSpeed mWifiFastFade:false mWifiFastFadeAdjustThreshold:false
+07-06 01:46:42.360  2922  8455 I NetworkAccelerateSwitchService: getAverageWifiRssi:51
+07-06 01:46:42.362  2922  8455 D NetworkAccelerateSwitchService: checkIntervalModeChange mMovementState:false mIntervalMode:0 mIsBadLinkLayerQoE:false mBadLinkLayerQoETimes = 0
+07-06 01:46:42.518  2922  4645 W ActivityManagerServiceImpl: Sending non-protected broadcast com.modemenhance.ACTION_MODEMWIFI_RSSI_POLL from system 7565:com.android.phone/1001 pkg com.android.phone. Callers=
+07-06 01:46:42.524  3992  6429 I libsensor-displayalgo: the value of channelCali C:3229.065521,R:2155.051903,G:902.102864,B:483.916416,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+07-06 01:46:42.524  3992  6429 D libsensor-displayalgo: brightness:130.000000,R:1369.957490,G:1418.190516,B:1489.449862,EVENT C:2521.000000,R:1540.500000,G:818.500000,B:437.000000, lux: 0.000000,cct:nan, irPara: 0
+07-06 01:46:42.524  3992  6429 I libsensor-displayalgo: ##### the value of lux: 0.000000, cct: 5743.000000
+07-06 01:46:42.524  3992  6429 I libsensor-ssccalapi: value of set_lux: 0.000000, set r: 5743.000000
+07-06 01:46:42.524  3992  6429 I sensors : send_request:330, send_request start this=0xb400007036b2fc90x 
+07-06 01:46:42.525  3992  6429 I sensors : send_request:415, send_request completed, this=0xb400007036b2fc90x
+07-06 01:46:42.526  3992  6365 I sensors : handle_resp_cb:517, handle_resp_cb Ended this=0xb400007036b2fc90x
+07-06 01:46:42.526  2922  3226 D BroadcastQueue: Logging broadcast for com.android.phone, stopped=false, firstLaunch=false
+07-06 01:46:42.527  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232706249364407, lux: 0.0
+07-06 01:46:42.527  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232706260451126, lux: 0.0
+07-06 01:46:42.528  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232706249364407, sensor=5, temperature(K)=   0.0000
+07-06 01:46:42.528  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:42.528  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232706260451126, sensor=5, temperature(K)=   0.0000
+07-06 01:46:42.528  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:42.529  3992  6429 I libsensor-displayalgo: the value of channelCali C:3229.065521,R:2155.051903,G:902.102864,B:483.916416,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+07-06 01:46:42.529  3992  6429 D libsensor-displayalgo: brightness:130.000000,R:1369.957490,G:1418.190516,B:1489.449862,EVENT C:2509.500000,R:1532.500000,G:816.500000,B:436.500000, lux: 0.000000,cct:nan, irPara: 0
+07-06 01:46:42.529  3992  6429 I libsensor-displayalgo: ##### the value of lux: 0.000000, cct: 5743.000000
+07-06 01:46:42.529  3992  6429 I libsensor-ssccalapi: value of set_lux: 0.000000, set r: 5743.000000
+07-06 01:46:42.529  3992  6429 I sensors : send_request:330, send_request start this=0xb400007036b2fc90x 
+07-06 01:46:42.530  7565  7565 W libc    : Access denied finding property "persist.vendor.wlan.disable.eht"
+07-06 01:46:42.530  3992  6429 I sensors : send_request:415, send_request completed, this=0xb400007036b2fc90x
+07-06 01:46:42.528  7565  7565 W m.android.phone: type=1400 audit(0.0:3098739): avc:  denied  { read } for  name="u:object_r:vendor_wlan_eht_prop:s0" dev="tmpfs" ino=631 scontext=u:r:radio:s0 tcontext=u:object_r:vendor_wlan_eht_prop:s0 tclass=file permissive=0
+07-06 01:46:42.531  7565  7565 D SlaveWifiManager: getWifiSlaveConnectionInfo
+07-06 01:46:42.531  3992  6365 I sensors : handle_resp_cb:517, handle_resp_cb Ended this=0xb400007036b2fc90x
+07-06 01:46:42.532  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232706265802949, lux: 0.0
+07-06 01:46:42.532  3992  6429 I libsensor-displayalgo: the value of channelCali C:3229.065521,R:2155.051903,G:902.102864,B:483.916416,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+07-06 01:46:42.533  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232706265802949, sensor=5, temperature(K)=   0.0000
+07-06 01:46:42.533  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:42.533  3992  6429 D libsensor-displayalgo: brightness:130.000000,R:1369.957490,G:1418.190516,B:1489.449862,EVENT C:2523.500000,R:1543.500000,G:823.500000,B:437.000000, lux: 0.000000,cct:nan, irPara: 0
+07-06 01:46:42.533  3992  6429 I libsensor-displayalgo: ##### the value of lux: 0.000000, cct: 5743.000000
+07-06 01:46:42.533  3992  6429 I libsensor-ssccalapi: value of set_lux: 0.000000, set r: 5743.000000
+07-06 01:46:42.534  3992  6429 I sensors : send_request:330, send_request start this=0xb400007036b2fc90x 
+07-06 01:46:42.534  3992  6429 I sensors : send_request:415, send_request completed, this=0xb400007036b2fc90x
+07-06 01:46:42.535  3992  6365 I sensors : handle_resp_cb:517, handle_resp_cb Ended this=0xb400007036b2fc90x
+07-06 01:46:42.535  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232706268900865, lux: 0.0
+07-06 01:46:42.535  3992  6429 I libsensor-displayalgo: the value of channelCali C:3229.065521,R:2155.051903,G:902.102864,B:483.916416,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+07-06 01:46:42.535  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232706268900865, sensor=5, temperature(K)=   0.0000
+07-06 01:46:42.535  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:42.536  3992  6429 D libsensor-displayalgo: brightness:130.000000,R:1369.957490,G:1418.190516,B:1489.449862,EVENT C:2512.500000,R:1536.500000,G:820.000000,B:438.500000, lux: 0.000000,cct:nan, irPara: 0
+07-06 01:46:42.536  3992  6429 I libsensor-displayalgo: ##### the value of lux: 0.000000, cct: 5743.000000
+07-06 01:46:42.536  3992  6429 I libsensor-ssccalapi: value of set_lux: 0.000000, set r: 5743.000000
+07-06 01:46:42.536  3992  6429 I sensors : send_request:330, send_request start this=0xb400007036b2fc90x 
+07-06 01:46:42.536  3992  6429 I sensors : send_request:415, send_request completed, this=0xb400007036b2fc90x
+07-06 01:46:42.537  3992  6365 I sensors : handle_resp_cb:517, handle_resp_cb Ended this=0xb400007036b2fc90x
+07-06 01:46:42.537  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232706271486021, lux: 0.0
+07-06 01:46:42.538  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232706271486021, sensor=5, temperature(K)=   0.0000
+07-06 01:46:42.538  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:42.546  2196  2326 I MiStcImpl: Dispatching command: 35 SET_HISTOGRAM
+07-06 01:46:42.725  3992  6429 I libsensor-displayalgo: the value of channelCali C:3229.065521,R:2155.051903,G:902.102864,B:483.916416,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+07-06 01:46:42.725  2922  6648 D PerfStubImpl: perfLockReleaseHandler: 0
+07-06 01:46:42.725  2922  6648 D QcomSchedBoost: stopBoostInternal
+07-06 01:46:42.726  2922  6648 D SchedBoost: thread tid=15609, priority is set to -10
+07-06 01:46:42.726  3992  6429 D libsensor-displayalgo: brightness:130.000000,R:1369.957490,G:1418.190516,B:1489.449862,EVENT C:2509.000000,R:1533.000000,G:818.000000,B:438.000000, lux: 0.000000,cct:nan, irPara: 0
+07-06 01:46:42.726  3992  6429 I libsensor-displayalgo: ##### the value of lux: 0.000000, cct: 5743.000000
+07-06 01:46:42.726  3992  6429 I libsensor-ssccalapi: value of set_lux: 0.000000, set r: 5743.000000
+07-06 01:46:42.726  3992  6429 I sensors : send_request:330, send_request start this=0xb400007036b2fc90x 
+07-06 01:46:42.726  2922  6648 D PerfStubImpl: perfLockReleaseHandler: 0
+07-06 01:46:42.727  2922  6648 D QcomSchedBoost: stopBoostInternal
+07-06 01:46:42.727  3992  6429 I sensors : send_request:415, send_request completed, this=0xb400007036b2fc90x
+07-06 01:46:42.727  2922  6648 D SchedBoost: thread tid=25733, priority is set to -10
+07-06 01:46:42.727  3992  6365 I sensors : handle_resp_cb:517, handle_resp_cb Ended this=0xb400007036b2fc90x
+07-06 01:46:42.728  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232706449363834, lux: 0.0
+07-06 01:46:42.728  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232706461776646, lux: 0.0
+07-06 01:46:42.730  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232706449363834, sensor=5, temperature(K)=   0.0000
+07-06 01:46:42.730  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:42.730  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232706461776646, sensor=5, temperature(K)=   0.0000
+07-06 01:46:42.730  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:42.748  2196  2326 I MiStcImpl: Dispatching command: 35 SET_HISTOGRAM
+07-06 01:46:42.779  7609  7609 D ControlCenterHeaderExpandController: onExpansionChanged: progress =  0.0
+07-06 01:46:42.782  7609  7609 D ControlCenterHeaderExpandController: onExpansionChanged: progress =  0.0
+07-06 01:46:42.784  7609  7609 D ControlCenterHeaderExpandController: onExpansionChanged: progress =  0.0
+07-06 01:46:42.808  2454  2454 W binder:2454_5: type=1400 audit(0.0:3098740): avc:  denied  { search } for  name="mcd" dev="dm-58" ino=447 scontext=u:r:surfaceflinger:s0 tcontext=u:object_r:mcd_data_file:s0 tclass=dir permissive=0
+07-06 01:46:42.812  7609  7609 D ControlCenterHeaderExpandController: onExpansionChanged: progress =  0.0
+07-06 01:46:42.812  2454  2454 W binder:2454_5: type=1400 audit(0.0:3098741): avc:  denied  { search } for  name="mcd" dev="dm-58" ino=447 scontext=u:r:surfaceflinger:s0 tcontext=u:object_r:mcd_data_file:s0 tclass=dir permissive=0
+07-06 01:46:42.820  7609  7609 D ControlCenterHeaderExpandController: onExpansionChanged: progress =  0.0
+07-06 01:46:42.825  2196  2910 I vendor.qti.hardware.display.composer-service: FrameNotifyProcess Sensor: notify citsensorservice to trigger cwb
+07-06 01:46:42.826  3992  6418 I libsensor-parseRGB: request dump start for mRequestDisplayId 0
+07-06 01:46:42.826  3992  6418 D vendor.xiaomi.sensor.citsensorservice@2.0-service: handle id:22 wxh:1536x3200 uwxuh:1440x3200 size: 14745600 fd:16 fd_meta:17 flags:0x228 usage:0x33  format:0x3 layer_count: 1 reserved_size = 0
+07-06 01:46:42.827  2454  2883 E HWComposer: getLuts: getLuts failed for display 4630946545580055171: UNSUPPORTED (8)
+07-06 01:46:42.828  2196  2874 W SDM     : HWCSession::GetDisplayIndex: Display index not found for display 3.
+07-06 01:46:42.828  2196  2874 D SDM     : HWCSession::SetCWBOutputBuffer: CWB config passed by cwb_client : tappoint 1  CWB_ROI : (473.000000 173.000000 714.000000 414.000000). Display 0
+07-06 01:46:42.838  2196  2874 I SDM     : HWEventsDRM::SetEventState: Setup vsync event for CRTC 176, Connector 65
+07-06 01:46:42.851  2196  6436 D SDM     : HWCSession::NotifyCWBStatus: Notify the client about buffer status 0. Display: 0
+07-06 01:46:42.852  2196  6436 I SDM     : HWCSession::ProcessCWBStatus: CWB queue is empty. display_index: 0
+07-06 01:46:42.863  3992  6419 D libsensor-parseRGB: the value of RGB [26.654832 27.077379 27.687548]
+07-06 01:46:42.906  2922  6441 I MiuiNetworkPolicy: bandwidth: 0 KB/s, Max bandwidth: 2436 KB/s
+07-06 01:46:42.922  3992  6429 I libsensor-displayalgo: the value of channelCali C:3229.065521,R:2155.051903,G:902.102864,B:483.916416,scales C:0.970699,R:0.898171,G:1.032061,B:0.813221
+07-06 01:46:42.922  3992  6429 D libsensor-displayalgo: brightness:130.000000,R:1369.957490,G:1418.190516,B:1489.449862,EVENT C:2522.500000,R:1542.000000,G:822.500000,B:440.000000, lux: 0.000000,cct:nan, irPara: 0
+07-06 01:46:42.922  3992  6429 I libsensor-displayalgo: ##### the value of lux: 0.000000, cct: 5743.000000
+07-06 01:46:42.922  3992  6429 I libsensor-ssccalapi: value of set_lux: 0.000000, set r: 5743.000000
+07-06 01:46:42.922  3992  6429 I sensors : send_request:330, send_request start this=0xb400007036b2fc90x 
+07-06 01:46:42.922  3992  6429 I sensors : send_request:415, send_request completed, this=0xb400007036b2fc90x
+07-06 01:46:42.923  3992  6365 I sensors : handle_resp_cb:517, handle_resp_cb Ended this=0xb400007036b2fc90x
+07-06 01:46:42.924  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232706649364199, lux: 0.0
+07-06 01:46:42.924  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232706657877428, lux: 0.0
+07-06 01:46:42.925  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232706649364199, sensor=5, temperature(K)=   0.0000
+07-06 01:46:42.925  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:42.925  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232706657877428, sensor=5, temperature(K)=   0.0000
+07-06 01:46:42.925  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:42.950  2196  2326 I MiStcImpl: Dispatching command: 35 SET_HISTOGRAM
+07-06 01:46:43.030  2454  2883 E HWComposer: getLuts: getLuts failed for display 4630946545580055171: UNSUPPORTED (8)
+07-06 01:46:43.153  2196  2326 I MiStcImpl: Dispatching command: 35 SET_HISTOGRAM
+07-06 01:46:43.172  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232706849365292, lux: 0.0
+07-06 01:46:43.175  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232706849365292, sensor=5, temperature(K)=   0.0000
+07-06 01:46:43.175  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:43.355  2196  2326 I MiStcImpl: Dispatching command: 35 SET_HISTOGRAM
+07-06 01:46:43.372  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232707049365188, lux: 0.0
+07-06 01:46:43.374  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232707049365188, sensor=5, temperature(K)=   0.0000
+07-06 01:46:43.374  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:43.428  8152 10912 D JavaheapMonitor: Java heap used=8M max=256M, proc: com.xiaomi.mirror
+07-06 01:46:43.429  8152 10912 V JavaheapMonitor: Check java heap usage finished! Next check delay: 300000
+07-06 01:46:43.558  2196  2326 I MiStcImpl: Dispatching command: 35 SET_HISTOGRAM
+07-06 01:46:43.570  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232707249365032, lux: 0.0
+07-06 01:46:43.572  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232707249365032, sensor=5, temperature(K)=   0.0000
+07-06 01:46:43.572  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:43.575 25862 25862 W screencap: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: SurfaceFlingerAIDL
+07-06 01:46:43.575 25862 25862 W BpBinder: Linking to death on android.gui.ISurfaceComposer but there are no threads (yet?) listening to incoming transactions. See ProcessState::startThreadPool and ProcessState::setThreadPoolMaxThreadCount. Generally you should setup the binder threadpool before other initialization steps.
+07-06 01:46:43.575 25862 25862 W ProcessState: Extra binder thread started, but 0 threads requested. Do not use *startThreadPool when zero threads are requested.
+07-06 01:46:43.576  2454  2454 I SurfaceFlinger: SF-MICapture: mode:0, layerNames:(no_layer_names), blurRadius:0, scale:(1.000000,1.000000), blends:(no_color_mode)
+07-06 01:46:43.576  2454  2454 I SurfaceFlinger: SF-MICapture: mode:0, layerName:com.zhihuiji.app/com.zhihuiji.app.MainActivity#13623
+07-06 01:46:43.576  2454  2454 I SurfaceFlinger: SF-MICapture: mode:0, layerName:StatusBar1#133
+07-06 01:46:43.576  2454  2454 I SurfaceFlinger: SF-MICapture: mode:0, layerName:Miui Bottom Caption of Task=1052#13614
+07-06 01:46:43.576  2454  2454 I SurfaceFlinger: SF-MICapture: mode:0, layerName:com.miui.securitycenter/.FloatingWindow#13369
+07-06 01:46:43.576  2454  2454 I SurfaceFlinger: SF-MICapture: mode:0, layerName:GestureStubHome#68
+07-06 01:46:43.576  2454  2454 I SurfaceFlinger: SF-MICapture: mode:0, layerName:GestureStubLeft#64
+07-06 01:46:43.576  2454  2454 I SurfaceFlinger: SF-MICapture: mode:0, layerName:GestureStubRight#69
+07-06 01:46:43.576  2454  2454 I SurfaceFlinger: SF-MICapture: mode:0, layerName:DockAssistantView#13367
+07-06 01:46:43.583  2454  9779 E HWComposer: getLuts: getLuts failed for display 4630946545580055171: UNSUPPORTED (8)
+07-06 01:46:43.648 25862 25863 I AdrenoUtils: <ReadGpuID:407>: Reading chip ID through GSL
+07-06 01:46:43.690 11935 14129 D JavaheapMonitor: Java heap used=21M max=256M, proc: com.android.quicksearchbox
+07-06 01:46:43.690 11935 14129 V JavaheapMonitor: Check java heap usage finished! Next check delay: 300000
+07-06 01:46:43.694  4004  4004 I adbd    : in ShellService: export ANDROID_LOG_TAGS=''; exec logcat '-d'
+07-06 01:46:43.759  2196  2326 I MiStcImpl: Dispatching command: 35 SET_HISTOGRAM
+07-06 01:46:43.771  2152  6309 I sensors-hal: handle_sns_std_sensor_event:65, light_event: ts=1232707449365032, lux: 0.0
+07-06 01:46:43.771  2246  2246 D SRE     : sensorCallback mDisplayId = 0 dataCallback value=<   0.0000,   0.0000,   0.0000>,time=1232707449365032, sensor=5, temperature(K)=   0.0000
+07-06 01:46:43.772  2246  2246 D SRE     : setSREStrength mDisplayId = 0, mLastLux = 0, lux = 0, mSREEnabled = 1, mLastFreezeStatus = 0, freeze = 0
+07-06 01:46:43.793 12130 18854 D JavaheapMonitor: Java heap used=9M max=256M, proc: com.xiaomi.metoknlp
+07-06 01:46:43.793 12130 18854 V JavaheapMonitor: Check java heap usage finished! Next check delay: 300000

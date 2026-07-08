@@ -1,0 +1,25 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "id": 91,
+      "conversation_id": 47,
+      "role": "user",
+      "message_type": "text",
+      "content": "请基于当前账号的真实数据，查询报表类型",
+      "structured_data_json": null,
+      "created_at": 1783275359767
+    },
+    {
+      "id": 92,
+      "conversation_id": 47,
+      "role": "assistant",
+      "message_type": "text",
+      "content": "当前查询**失败了**，原因是**报表类型未指定**，所以我没法基于真实账号数据返回具体报表结果。\n\n我本轮查询到的关键事实是：\n- 工具：`report_query`\n- 工具输入里 `report_type`为空，`period`也为空- 返回错误：`missing_report_type`\n\n可执行建议：\n1. 请先明确你要查的报表类型，例如销量、库存、利润等，我再按真实数据查询。\n2. 如果你也想限定时间范围，可以一并告诉我期间，比如本月、近7天或指定日期。\n3.你直接回复“查XX报表，时间范围XX”，我就继续帮你查。",
+      "structured_data_json": "[{\"block_type\":\"table\",\"title\":\"支持的报表类型\",\"data\":{\"headers\":[\"报表类型\",\"说明\"],\"rows\":[[\"sales_summary\",\"销售汇总报表\"],[\"profit_summary\",\"利润汇总报表\"],[\"cashflow_summary\",\"现金流汇总报表\"],[\"reconciliation_summary\",\"往来对账汇总报表\"],[\"top_products\",\"热销商品报表\"],[\"customer_sales\",\"客户销售报表\"],[\"profit_by_products\",\"按商品利润报表\"],[\"profit_by_customers\",\"按客户利润报表\"]],\"row_count\":8}},{\"block_type\":\"evidence_card\",\"title\":\"本次回答依据\",\"data\":{\"title\":\"本次回答依据\",\"items\":[{\"label\":\"report_query\",\"value\":\"报表类型未指定\",\"source\":\"tool:report_query\",\"tool_call_id\":\"44a60e04-9f61-4efe-b9ab-5028af0539a0:report_query\",\"query_window\":{\"started_at\":1783275365006,\"completed_at\":1783275365008,\"duration_ms\":2,\"is_truncated\":false,\"tool_name\":\"report_query\",\"tool_input\":{\"report_type\":\"\",\"period\":\"\"}},\"is_truncated\":false}]}}]",
+      "created_at": 1783275370078
+    }
+  ],
+  "timestamp": 1783280280891
+}

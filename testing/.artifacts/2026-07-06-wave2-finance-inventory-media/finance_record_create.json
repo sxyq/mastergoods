@@ -1,0 +1,17 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 2196195197925753305,
+    "record_no": "FR4A382061AA594FD69278D56ABA4B57CB",
+    "type": 1,
+    "category": "Wave2 测试收入",
+    "partner_name": "Wave2 业务伙伴",
+    "amount": 88.88,
+    "method": 1,
+    "notes": "Wave2 finance record fixture",
+    "created_at": 1783282578268,
+    "updated_at": 1783282578268
+  },
+  "timestamp": 1783282578301
+}

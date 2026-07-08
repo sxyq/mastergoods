@@ -1,0 +1,24 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 4,
+    "code": "WG-W2-20260706",
+    "name": "Wave2 测试商品 20260706 更新",
+    "category_id": 1,
+    "category_name": "测试类目A",
+    "unit_id": 1,
+    "unit_name": "件",
+    "sale_price": 12.0,
+    "purchase_price": 8.5,
+    "price_levels": [],
+    "default_supplier": null,
+    "supplier_relations": [],
+    "stock": 12.0,
+    "safe_stock": 3.0,
+    "status": 1,
+    "created_at": 1783281927948,
+    "updated_at": 1783281928933
+  },
+  "timestamp": 1783281929003
+}
