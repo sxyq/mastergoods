@@ -2,16 +2,16 @@
 
 ## Project Structure & Module Organization
 
-This is a mixed 智慧记 / Master-Goods repository. Backend Spring Boot code lives in `src/main/java/com/zhihuiji/backend`, tests in `src/test/java`, and Flyway migrations in `src/main/resources/db/migration`. The Android app is under `master-goods-android/`, split into `app`, `core`, `data`, `feature`, `benchmark`, and `backdrop` modules. The PC admin is a Vue/Vite app in `web/` with source in `web/src`. Native iOS work is in `ios/ZhihuijiIOS` with tests in `ios/ZhihuijiIOSTests`. Operational files live in `deploy/`, docs in `docs/`, and utility scripts in `tools/`.
+This is a mixed 智慧记 / Master-Goods repository. Backend Spring Boot code lives in `src/main/java/com/zhihuiji/backend`, tests in `src/test/java`, and Flyway migrations in `src/main/resources/db/migration`. The Android app is under `frontend/android/`, split into `app`, `core`, `data`, `feature`, `benchmark`, and `backdrop` modules. The PC admin is a Vue/Vite app in `frontend/web/` with source in `frontend/web/src`. Native iOS work is in `frontend/ios/ZhihuijiIOS` with tests in `frontend/ios/ZhihuijiIOSTests`. Operational files live in `deploy/`, docs in `docs/`, testing plans and ledgers in `testing/`, and utility scripts in `backend/tools/`.
 
 ## Build, Test, and Development Commands
 
 - `./gradlew bootRun`: run the backend locally with Java 21.
 - `./gradlew test`: run backend JUnit tests and generate JaCoCo reports.
-- `cd web && npm run dev`: start the Web admin Vite server.
-- `cd web && npm run build`: type-check and build the Web admin.
-- `cd master-goods-android && ./gradlew :app:compileDebugKotlin`: compile Android app Kotlin.
-- `cd master-goods-android && ./gradlew assembleDebug`: build a debug APK.
+- `cd frontend/web && npm run dev`: start the Web admin Vite server.
+- `cd frontend/web && npm run build`: type-check and build the Web admin.
+- `cd frontend/android && ./gradlew :app:compileDebugKotlin`: compile Android app Kotlin.
+- `cd frontend/android && ./gradlew assembleDebug`: build a debug APK.
 - iOS validation requires local Xcode tools; use `xcodebuild` only when available.
 
 ## Coding Style & Naming Conventions
@@ -86,7 +86,7 @@ Before adding new components, classes, or helpers, check this inventory. Reuse a
 
 ### Web Reusable Assets
 
-#### `web/src/shared/utils/business.ts` Helpers
+#### `frontend/web/src/shared/utils/business.ts` Helpers
 
 | Function | Purpose | Reuse Pattern |
 |----------|---------|---------------|
@@ -100,7 +100,7 @@ Before adding new components, classes, or helpers, check this inventory. Reuse a
 | `reportRangeForPeriod` / `todayStartAt` / `weekStartAt` / `monthStartAt` | Report period range builders | Import; do not write local `buildRange` |
 | `readQueryId` / `sameEntityId` | BigInt-safe ID parsing/comparison | Use for all route query ID parsing; **never** use `Number()` for entity IDs (snowflake ID precision risk) |
 
-#### `web/src/app/stores/session.ts` Store
+#### `frontend/web/src/app/stores/session.ts` Store
 
 | Export | Purpose |
 |--------|---------|
@@ -109,12 +109,12 @@ Before adding new components, classes, or helpers, check this inventory. Reuse a
 | `session.login` / `session.logout` / `session.refreshProfile` / `session.refreshStoreContext` | Auth actions |
 | `session.switchRole` / `session.switchMember` / `session.enterDemo` | Local role/member switching |
 
-#### `web/src/entities/auth/roles.ts`
+#### `frontend/web/src/entities/auth/roles.ts`
 
 - `roleLabels` / `roleDescriptions` / `rolePermissions` / `rolePermissionSets` — static role config
 - `canAccess(role, perm)` — role-based permission check for demo mode
 
-#### `web/src/entities/screen/live-screen-data.ts`
+#### `frontend/web/src/entities/screen/live-screen-data.ts`
 
 - `loadLiveScreenData` — route-dispatched data loader
 - `mapSalesOrders` / `mapPurchaseOrders` / `mapProducts` / `mapCustomers` / `mapSuppliers` / `mapFinanceRecords` etc. — data mapping functions (single-pass, pre-allocated)
@@ -159,9 +159,9 @@ Flyway migrations in `src/main/resources/db/migration/` follow a deliberate mult
 
 | Module | Nature | Audit Stance |
 |--------|--------|--------------|
-| `master-goods-android/backdrop/` (`com.kyant.backdrop`) | Third-party Compose rendering library — Blur/Shadow/Highlight/RenderEffect/RuntimeShader graphics | Read-only REVIEWED; do not refactor third-party rendering code |
-| `master-goods-android/benchmark/` | Macrobenchmark instrumentation — `MacrobenchmarkRule` + UiAutomator flows | Read-only REVIEWED; test-only, no production security surface |
-| `master-goods-android/core/model/src/test/` | Serialization contract tests — verify `@SerialName` snake_case + `ignoreUnknownKeys` backward compat | Read-only REVIEWED; IDs use `Long` (safe) |
+| `frontend/android/backdrop/` (`com.kyant.backdrop`) | Third-party Compose rendering library — Blur/Shadow/Highlight/RenderEffect/RuntimeShader graphics | Read-only REVIEWED; do not refactor third-party rendering code |
+| `frontend/android/benchmark/` | Macrobenchmark instrumentation — `MacrobenchmarkRule` + UiAutomator flows | Read-only REVIEWED; test-only, no production security surface |
+| `frontend/android/core/model/src/test/` | Serialization contract tests — verify `@SerialName` snake_case + `ignoreUnknownKeys` backward compat | Read-only REVIEWED; IDs use `Long` (safe) |
 
 ### Cross-Platform ID Safety Rule
 

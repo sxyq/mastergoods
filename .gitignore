@@ -7,6 +7,7 @@
 
 .codegraph/
 .gradle-local/
+tmp/
 .vscode/
 .ssh-check/
 .trae/
@@ -20,4 +21,6 @@ docs/android-117-test-artifacts/
 
 web/node_modules/
 web/dist/
+frontend/web/node_modules/
+frontend/web/dist/
 web/vite.config.js

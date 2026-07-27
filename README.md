@@ -12,15 +12,23 @@
 ```text
 master-goods/
   backend/                 后端聚合入口
-  master-goods-android/    Android 工程
+  frontend/android/        Android 工程
+  frontend/ios/            iOS 工程
+  frontend/web/            Vue/Vite 管理端
   docs/                    设计稿、迁移、安全、技术分析文档
+  testing/                 测试计划、台账与执行脚本
+  tmp/                     本地工作区与生成资源
   tools/                   指向 backend/tools 的兼容入口
 ```
+
+`master-goods-android`、`ios`、`web` 仍保留为根目录兼容符号链接，正式源码目录以 `frontend/` 下的分类目录为准。
 
 ## 快速入口
 
 - Android 工程说明：
-  [master-goods-android/README.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/README.md)
+  [frontend/android/README.md](/Users/sunyiyang/Desktop/Project/master-goods/frontend/android/README.md)
+- 前端目录索引：
+  [frontend/README.md](/Users/sunyiyang/Desktop/Project/master-goods/frontend/README.md)
 - 后端聚合入口：
   [backend/README.md](/Users/sunyiyang/Desktop/Project/master-goods/backend/README.md)
 - 后端工具脚本：
@@ -30,9 +38,11 @@ master-goods/
 - 文档总索引：
   [docs/README.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/README.md)
 - Android 主开发计划：
-  [master-goods-android/DEVELOPMENT-PLAN.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/DEVELOPMENT-PLAN.md)
+  [frontend/android/DEVELOPMENT-PLAN.md](/Users/sunyiyang/Desktop/Project/master-goods/frontend/android/DEVELOPMENT-PLAN.md)
 - Android UI 规范：
-  [master-goods-android/UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/UI-DESIGN-SPEC.md)
+  [frontend/android/UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/frontend/android/UI-DESIGN-SPEC.md)
+- 构建入口索引：
+  [docs/BUILD_INDEX.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/BUILD_INDEX.md)
 
 ## 后端启动
 
