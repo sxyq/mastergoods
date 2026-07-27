@@ -24,10 +24,10 @@
 
 - 正式计划：
   - [42-android-liquid-glass-ui-refactor-plan.md](./spec/42-android-liquid-glass-ui-refactor-plan.md)
-- Stitch 导出清单（位于 web/public 下，前端可直接访问）：
-  - [manifest.tsv](/Users/sunyiyang/Desktop/Project/master-goods/web/public/stitch_exports/visual-design_system_framework_14840154594131085259/manifest.tsv)
+- Stitch 导出清单（位于 `frontend/web/public` 下，前端可直接访问）：
+  - [manifest.tsv](/Users/sunyiyang/Desktop/Project/master-goods/frontend/web/public/stitch_exports/visual-design_system_framework_14840154594131085259/manifest.tsv)
 - Android 摘要规范入口：
-  - [master-goods-android/UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/UI-DESIGN-SPEC.md)
+  - [frontend/android/UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/frontend/android/UI-DESIGN-SPEC.md)
 
 ## 当前总控入口
 
@@ -53,5 +53,5 @@
 
 - 会员体系当前不纳入新版范围，已在 spec 中标记为 `新版需要去掉`
 - `docs/technical-analysis/`、`docs/design-mockups/` 与根下历史审计 .md 已删除，源码与 spec 为唯一真源
-- Stitch 设计导出位于 `web/public/stitch_exports/`，前端可直接访问
+- Stitch 设计导出位于 `frontend/web/public/stitch_exports/`，前端可直接访问
 - 后续每完成一个批次或一组代码改动，更新对应 spec 文档外，还必须回写 `40-batch-development-master-plan.md`

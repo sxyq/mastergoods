@@ -5,7 +5,7 @@
 ## 当前工程结构
 
 ```text
-master-goods-android/
+frontend/android/
   app/
   backdrop/
   core/
@@ -53,13 +53,13 @@ master-goods-android/
 ## 关键文档
 
 - 开发计划：
-  [DEVELOPMENT-PLAN.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/DEVELOPMENT-PLAN.md)
+  [DEVELOPMENT-PLAN.md](/Users/sunyiyang/Desktop/Project/master-goods/frontend/android/DEVELOPMENT-PLAN.md)
 - UI 设计规范摘要：
-  [UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/master-goods-android/UI-DESIGN-SPEC.md)
+  [UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/frontend/android/UI-DESIGN-SPEC.md)
 - Stitch 全量 UI 重构计划：
   [42-android-liquid-glass-ui-refactor-plan.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/spec/42-android-liquid-glass-ui-refactor-plan.md)
 - Stitch 设计稿导出：
-  [stitch_exports/visual-design_system_framework_14840154594131085259](/Users/sunyiyang/Desktop/Project/master-goods/stitch_exports/visual-design_system_framework_14840154594131085259)
+  [stitch_exports/visual-design_system_framework_14840154594131085259](/Users/sunyiyang/Desktop/Project/master-goods/frontend/web/public/stitch_exports/visual-design_system_framework_14840154594131085259)
 - 历史设计稿参考：
   [docs/design-mockups](/Users/sunyiyang/Desktop/Project/master-goods/docs/design-mockups)
 
@@ -107,7 +107,7 @@ master-goods-android/
 
 - 看整体推进顺序：先看 `DEVELOPMENT-PLAN.md`
 - 看视觉目标：先看 `docs/spec/42-android-liquid-glass-ui-refactor-plan.md`，再看 `UI-DESIGN-SPEC.md`
-- 看模块开发说明：进入各模块下的 `DEVELOPMENT.md`
+- 看当前开发边界：阅读 [DEVELOPMENT-PLAN.md](/Users/sunyiyang/Desktop/Project/master-goods/frontend/android/DEVELOPMENT-PLAN.md)；只有 `data/agent`、`data/sync`、`feature/agent`、`feature/settings` 保留未完成事项说明。
 
 ## 当前已知状态
 
