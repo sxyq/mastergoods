@@ -6,6 +6,7 @@ import vue from '@vitejs/plugin-vue'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const stitchRoot = resolve(repoRoot, 'stitch_exports')
+const centralizedBuildOutput = resolve(repoRoot, '../tmp/build/web/dist')
 
 function stitchExportServer(): Plugin {
   const contentTypes: Record<string, string> = {
@@ -57,6 +58,10 @@ export default defineConfig(({ mode }) => {
   return {
     base,
     plugins: [vue(), stitchExportServer()],
+    build: {
+      emptyOutDir: true,
+      outDir: centralizedBuildOutput,
+    },
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),

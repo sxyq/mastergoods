@@ -66,7 +66,7 @@
 | `ai_agent_*`、`capture_ai_*` | Agent 证据采集、禁用项扫描和性能证据 | 是 | 保留 | Agent 测试证据链断裂 | 当前 testing 台账引用 |
 | `b11_acceptance_check.sh`、`report_performance_evidence.py`、`nonfunctional_probe.py` | 验收和非功能测试脚本 | 是 | 保留 | Wave/验收无法复跑 | 测试入口 |
 | `generate_function_audit_ledger.py` | 函数级审计台账生成 | 是 | 保留 | 审计台账无法重建 | 与 `docs` 审计 CSV 对应 |
-| `migrate_kingdee_zhihuiji.py` | 数据迁移脚本 | 是 | 保留 | 迁移流程丢失 | `data/migration_*` 的处理入口 |
+| `migrate_kingdee_zhihuiji.py` | 数据迁移脚本 | 是 | 保留 | 迁移流程丢失 | `data/database/` 的处理入口 |
 | `export_codex_llm_env.sh` | LLM 环境导出辅助脚本 | 是 | 保留 | 本地联调配置流程受影响 | Agent 联调工具 |
 
 ## `deploy/`
@@ -247,9 +247,11 @@
 
 | 路径 | 类型/用途 | 是否与项目相关 | 建议 | 删除影响 | 判断依据 |
 |---|---|---:|---|---|---|
+| `data/README.md` | 本地数据库目录说明 | 是 | 保留 | 数据资料边界不清晰 | 说明数据库只能放在 `data/database/` |
 | `data/media/` | 媒体数据目录，当前为空 | 可能 | 需确认/可清理 | 若外部流程依赖目录名需重建 | 空目录，未发现当前文件 |
-| `data/migration_source_zhihuiji/` | 迁移源 SQLite 数据库，约 15M | 是/阶段性 | 需确认 | 失去迁移复核和回滚源 | `migrate_kingdee_zhihuiji.py` 的输入候选 |
-| `data/migration_output/` | 迁移生成的 SQLite 数据库，约 18M | 是/阶段性 | 需确认 | 失去迁移输出对照 | 包含主库、设备库和 source backup |
+| `data/database/` | 本地数据库资料总目录，约 34M | 是/阶段性 | 保留目录；库文件需确认后清理 | 数据库资料失去统一边界 | 用户要求数据库单独收口 |
+| `data/database/migration_source_zhihuiji/` | 迁移源 SQLite 数据库，约 15M | 是/阶段性 | 需确认 | 失去迁移复核和回滚源 | 迁移脚本默认输入 |
+| `data/database/migration_output/` | 迁移生成的 SQLite 数据库，约 18M | 是/阶段性 | 需确认 | 失去迁移输出对照 | 迁移脚本默认输出 |
 | `data/.DS_Store` | macOS Finder 元数据 | 否 | 可清理 | 不影响迁移 | 系统生成且已被忽略 |
 
 ## `tmp/`
@@ -257,8 +259,21 @@
 | 路径 | 类型/用途 | 是否与项目相关 | 建议 | 删除影响 | 判断依据 |
 |---|---|---:|---|---|---|
 | `tmp/README.md` | 临时目录边界说明 | 是 | 保留 | 清理边界不清晰 | 明确说明不作为版本入口 |
+| `tmp/build/` | 构建缓存、产物、依赖、Xcode 用户数据和 MCP 日志总目录 | 否/阶段性 | 保留目录；内容按需清理 | 统一删除会丢失本地缓存和工具日志 | 用户要求临时构建文件统一收口 |
 | `tmp/output/` | 图像生成和本地导出资源 | 阶段性 | 需确认后清理 | 可能丢失尚未复制到正式资源目录的设计稿 | 其中包含多套候选图标和图像生成结果 |
-| `tmp/workspace/` | 工具调用日志和中间资料 | 否/阶段性 | 可清理（需确认正在运行的工具） | 丢失本地工具日志，不影响源码 | `.gitignore` 已忽略，非项目输入 |
+| `tmp/workspace/` | 保留旧入口的本地工作区 | 否/阶段性 | 保留兼容入口 | 旧工具路径可能失效 | MCP 日志实体已迁入 `tmp/build/mcp/` |
+
+## `tmp/build/`
+
+| 子目录 | 类型/用途 | 是否与项目相关 | 建议 | 删除影响 | 判断依据 |
+|---|---|---:|---|---|---|
+| `gradle-cache/` | 根、后端、Android Gradle 缓存及本地 Gradle 缓存 | 否 | 可清理 | 下次构建重新生成 | 构建缓存 |
+| `gradle-output/` | 根入口、后端和 Android 模块构建输出 | 否 | 可清理 | 下次构建重新生成；未归档报告会丢失 | 构建输出 |
+| `kotlin-cache/` | Kotlin 编译会话缓存 | 否 | 可清理 | 下次构建重新生成 | 编译缓存 |
+| `web/` | Web `node_modules` 和 Vite `dist` | 否 | 可清理 | 下次 `npm ci`/`npm run build` 重新生成 | 依赖和构建产物 |
+| `bin/` | 原 `bin/` 编译/脚本输出 | 否 | 可清理 | 下次相关命令重新生成 | 生成物 |
+| `xcode/` | Xcode `xcuserdata` | 否 | 需确认后清理 | 丢失本机 Scheme/用户设置 | IDE 用户数据 |
+| `mcp/` | MCP 工具调用日志 | 否 | 可清理 | 丢失工具调用历史 | 临时调试数据 |
 
 ## `tmp/output/`
 
@@ -270,7 +285,7 @@
 
 | 子目录 | 类型/用途 | 是否与项目相关 | 建议 | 删除影响 | 判断依据 |
 |---|---|---:|---|---|---|
-| `projects/_mcp_invocations/` | MCP 工具调用 JSON 日志 | 否 | 可清理（确认无调试需要后） | 仅丢失工具调用历史 | 不参与构建、运行、测试台账或发布 |
+| `projects/_mcp_invocations/` | 指向 `tmp/build/mcp/invocations` 的兼容链接 | 否 | 保留兼容入口 | 旧工具路径可能失效 | 实体日志已集中到 `tmp/build/` |
 
 ## 高置信度清理候选汇总
 
@@ -279,23 +294,23 @@
 | 路径 | 预计收益 | 前置确认 |
 |---|---:|---|
 | `.DS_Store`、`data/.DS_Store`、`testing/.DS_Store`、`frontend/android/.DS_Store` | 去除系统元数据 | 无需保留 Finder 自定义视图 |
-| `.gradle/`、`.gradle-local/`、`backend/.gradle/`、`frontend/android/.gradle/`、`frontend/android/.kotlin/` | 释放 Gradle/Kotlin 缓存 | 没有正在运行的 Gradle 任务 |
-| `build/`、`bin/`、`backend/build/`、`frontend/android/**/build/` | 释放编译产物 | 没有需要保留的本地报告或 APK |
-| `frontend/web/node_modules/`、`frontend/web/dist/` | 释放 Web 依赖和构建产物 | 已有 `package-lock.json`，可重新 `npm ci` 和构建 |
-| `frontend/ios/ZhihuijiIOS.xcodeproj/xcuserdata/` | 去除本机 Xcode 元数据 | 共享 Scheme 不依赖个人 Scheme |
-| `tmp/workspace/projects/_mcp_invocations/` | 去除工具调用日志 | 当前不需要继续追查历史工具调用 |
+| `tmp/build/gradle-cache/`、`tmp/build/kotlin-cache/` | 释放 Gradle/Kotlin 缓存 | 没有正在运行的 Gradle 任务 |
+| `tmp/build/gradle-output/`、`tmp/build/bin/` | 释放编译产物 | 没有需要保留的本地报告或 APK |
+| `tmp/build/web/node_modules/`、`tmp/build/web/dist/` | 释放 Web 依赖和构建产物 | 已有 `package-lock.json`，可重新 `npm ci` 和构建 |
+| `tmp/build/xcode/xcuserdata/` | 去除本机 Xcode 元数据 | 共享 Scheme 不依赖个人 Scheme |
+| `tmp/build/mcp/` | 去除工具调用日志 | 当前不需要继续追查历史工具调用 |
 
 ## 需要用户确认后再处理
 
 | 路径 | 不能直接删除的原因 | 确认问题 |
 |---|---|---|
-| `data/migration_source_zhihuiji/` | 可能是迁移源和回滚依据 | 迁移工作是否已经最终验收并完成外部备份？ |
-| `data/migration_output/` | 可能是迁移结果对照库 | 是否还需要做迁移结果复核？ |
+| `data/database/migration_source_zhihuiji/` | 可能是迁移源和回滚依据 | 迁移工作是否已经最终验收并完成外部备份？ |
+| `data/database/migration_output/` | 可能是迁移结果对照库 | 是否还需要做迁移结果复核？ |
 | `tmp/output/imagegen/` | 可能有未归档的最终视觉资源 | 是否已经把需要的图标/图片全部复制到正式资源目录？ |
 | `testing/.artifacts/` 根目录散落证据 | 尚未建立逐文件引用关系 | 是否允许建立证据索引后再做重复截图去重？ |
 | `docs/archived/临时.md` 与根 `临时.md` | 内容重复但归档用途不同 | 是否保留归档副本，仅删除根目录重复副本？ |
 | `frontend/android/local.properties` | 本机 SDK 配置 | 是否需要保留当前机器的 Android SDK 路径？ |
-| `frontend/ios/ZhihuijiIOS.xcodeproj/xcuserdata/` | 可能保存个人 Scheme | 是否有只存在于个人 Scheme 的本地构建入口？ |
+| `tmp/build/xcode/xcuserdata/` | 可能保存个人 Scheme | 是否有只存在于个人 Scheme 的本地构建入口？ |
 
 ## 当前结论
 

@@ -18,6 +18,15 @@ plugins {
     alias(libs.plugins.ksp) apply false
 }
 
+// Keep every Android module's build output in the repository-level temp area.
+val repositoryRoot = rootProject.projectDir.parentFile.parentFile
+val centralizedBuildRoot = repositoryRoot.resolve("tmp/build/gradle-output/android")
+
+subprojects {
+    val modulePath = path.removePrefix(":").replace(':', '/')
+    layout.buildDirectory.set(centralizedBuildRoot.resolve(modulePath))
+}
+
 subprojects {
     configurations.configureEach {
         resolutionStrategy.eachDependency {

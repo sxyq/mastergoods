@@ -41,5 +41,7 @@
 ## 产物与缓存
 
 - 本地生成资源：`tmp/output/`
-- 本地工作区：`tmp/workspace/`
-- Gradle、Kotlin 和 Web 依赖缓存按 `.gitignore` 忽略，不作为源码入口。
+- 本地构建、缓存、依赖、Xcode 用户数据和工具日志：`tmp/build/`
+- `build/`、`.gradle/`、`frontend/web/node_modules/` 等原标准路径保留为兼容符号链接，物理内容统一位于 `tmp/build/`。
+- 本地数据库资料：`data/database/`
+- 源码目录不放置构建产物；所有新构建配置都应继续使用 `tmp/build/`。

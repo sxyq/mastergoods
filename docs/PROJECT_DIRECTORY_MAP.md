@@ -13,6 +13,7 @@
 | iOS | `frontend/ios/` | iOS 工程与测试 |
 | 测试 Testing | `testing/` | 测试计划、执行台账、证据与脚本 |
 | 临时 Tmp | `tmp/` | 本地工作区与生成资源，不作为源码入口 |
+| 本地数据库 Database | `data/database/` | 迁移源库、迁移输出库和本地数据库资料 |
 | 工具脚本 Tools | `backend/tools/` | 后端侧工具、联调脚本、验收与迁移脚本真源 |
 
 说明：上面这些目录已经是当前仓库的正式落位。后端构建入口文件与工具脚本真源现已迁入 `backend/`；根目录原有同名文件保留为兼容符号链接，避免现有脚本、文档和构建链失效。`backend/src` 与 `backend/deploy` 当前仍是对根目录真实源码/部署目录的兼容链接。
@@ -74,21 +75,20 @@
 - 后端联调、迁移、审计与部署脚本：`backend/tools/`
 - 构建命令和产物入口：`docs/BUILD_INDEX.md`
 
-## 本地清理结果
+## 本地生成物集中结果
 
-这次已清理的是“删除后可自动重建、不会影响源码正确性”的本地产物目录：
+本地生成物没有放回源码目录，而是统一收口到 `tmp/build/`。为兼容已有命令，原标准路径保留为符号链接：
 
 | 目录 | 状态 | 原因 |
 |------|------|------|
-| `build/` | 已清理 | 后端 Gradle 构建产物 |
-| `bin/` | 已清理 | 编译输出目录 |
-| `frontend/web/dist/` | 已清理 | Web 打包产物 |
-| `frontend/android/app/build/` | 已清理 | 安卓 App 模块构建产物 |
-| `frontend/android/backdrop/build/` | 已清理 | 第三方 backdrop 模块构建产物 |
-| `frontend/web/node_modules/` | 已清理 | Web 本地依赖缓存 |
-| `.gradle/` | 已清理 | 根目录 Gradle 缓存 |
-| `frontend/android/.gradle/` | 已清理 | 安卓 Gradle 缓存 |
-| `frontend/android/.kotlin/` | 已清理 | Kotlin 编译缓存 |
+| `tmp/build/gradle-output/` | 已集中 | 后端、根入口和 Android 模块构建产物 |
+| `tmp/build/gradle-cache/` | 已集中 | Gradle 项目缓存和本地 Gradle 缓存 |
+| `tmp/build/kotlin-cache/` | 已集中 | Kotlin 编译会话缓存 |
+| `tmp/build/web/node_modules/` | 已集中 | Web 本地依赖 |
+| `tmp/build/web/dist/` | 已集中 | Web Vite 输出 |
+| `tmp/build/bin/` | 已集中 | 编译/脚本输出 |
+| `tmp/build/xcode/` | 已集中 | Xcode 用户数据 |
+| `tmp/build/mcp/` | 已集中 | MCP 工具调用日志 |
 | `.codegraph/` | 已清理 | 本地代码索引缓存 |
 | `.trae/` | 已清理 | 工具本地缓存 |
 
@@ -101,19 +101,18 @@
 
 | 目录 | 分类 | 当前建议 |
 |------|------|----------|
-| `frontend/web/node_modules/` | 本地依赖缓存 | 本轮已清；需要时重新 `npm install` |
-| `.gradle/` | 本地 Gradle 缓存 | 本轮已清；下次构建会重建 |
-| `.gradle-local/` | 本地 Gradle/运行缓存 | 谨慎删除，可能包含本地运行状态 |
-| `frontend/android/.gradle/` | 安卓本地缓存 | 本轮已清；下次 Android 构建会重建 |
-| `frontend/android/.kotlin/` | Kotlin 编译缓存 | 本轮已清；下次 Android 构建会重建 |
+| `tmp/build/web/node_modules/` | 本地依赖缓存 | 按需清理；需要时重新 `npm ci` |
+| `tmp/build/gradle-cache/` | Gradle 项目和本地缓存 | 停止 Gradle 后按需清理 |
+| `tmp/build/kotlin-cache/` | Kotlin 编译缓存 | 按需清理；下次构建会重建 |
+| `tmp/build/gradle-output/` | 各端编译产物 | 按需清理；下次构建会重建 |
 | `.codegraph/` | 本地索引缓存 | 本轮已清；后续重新索引 |
 | `.trae/` | 工具本地缓存 | 本轮已清；不属于项目源码 |
 | `12_workspace/` | 本地工作中间产物 | 保留，确认无用后再清 |
-| `migration_output/` | 本地迁移导出产物 | 保留，确认无用后再清 |
-| `migration_source_zhihuiji/` | 本地迁移源数据 | 保留，确认无用后再清 |
+| `data/database/migration_output/` | 本地迁移导出产物 | 保留，确认无用后再清 |
+| `data/database/migration_source_zhihuiji/` | 本地迁移源数据 | 保留，确认无用后再清 |
 | `research_datasets/` | 本地研究数据目录 | 当前为空，可保留或后续删除 |
 
-说明：`12_workspace/`、`migration_output/`、`migration_source_zhihuiji/` 这类目录虽然不属于正式源码，但它们更像“本地资料/导出物”，不是我可以在不了解你后续用途时直接判成垃圾目录的一类。
+说明：`data/database/` 只保存本地数据库资料；它们虽然不属于正式源码，但仍可能用于迁移复核和回滚，不能直接判成垃圾目录。
 
 ## 根目录保留文件
 
@@ -125,11 +124,11 @@
 | `AGENTS.md` | 真源保留 | 仓库级开发约束 |
 | `README.md` | 真源保留 | 仓库总入口说明 |
 
-其余后端构建入口文件与工具脚本已迁入 `backend/`，根目录仅保留兼容符号链接；`临时.md` 已迁入 `docs/archived/临时.md`，根目录保留兼容符号链接。
+其余后端构建入口文件与工具脚本已迁入 `backend/`，根目录仅保留兼容符号链接；根目录 `临时.md` 与 `docs/archived/临时.md` 内容重复，尚未删除任何一份。
 
 ## 清理策略
 
-- 已清理：可重建的构建产物目录、依赖缓存、代码索引缓存与旧 `frontend/web/dist`。
+- 已集中：可重建的构建产物目录、依赖缓存、Xcode 用户数据和 MCP 日志统一位于 `tmp/build/`。
 - 保留：真实源码、部署模板、已跟踪验收资料、Stitch 设计稿资源、本地迁移资料和可能仍有价值的工作中间目录。
-- 不提交：`frontend/web/node_modules/`、`frontend/web/dist/`、`tmp/output/`、`.ssh-check/`、`.trae/`、Gradle 缓存和本地迁移输出。
+- 不提交：`tmp/build/`、`tmp/output/`、`.ssh-check/`、`.trae/` 和 `data/database/` 下的本地数据库。
 - 正式源码目录为 `frontend/android/`、`frontend/ios/`、`frontend/web/`；根目录兼容链接继续保留，后端真实入口与脚本真源集中在 `backend/`。

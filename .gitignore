@@ -14,6 +14,19 @@ tmp/
 bin/
 migration_output/
 migration_source_zhihuiji/
+/data/database/
+
+**/xcuserdata/
+
+# Ignore the compatibility links as well as the generated directories they target.
+**/.gradle
+**/.kotlin
+**/build
+**/node_modules
+**/dist
+**/xcuserdata
+.gradle-local
+bin
 
 android-test-screenshots/
 docs/android-117-test-artifacts/

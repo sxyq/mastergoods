@@ -55,7 +55,7 @@
 
 ### 样本库
 
-- `migration_source_zhihuiji/demo.db`
+- `data/database/migration_source_zhihuiji/demo.db`
 
 ### 结果
 

@@ -8,6 +8,15 @@ plugins {
 group = "com.zhihuiji"
 version = "0.1.0"
 
+// Keep backend build output outside the source tree. This also works through
+// the root compatibility Gradle entry point.
+val repositoryRoot = if (rootProject.projectDir.name == "backend") {
+    rootProject.projectDir.parentFile
+} else {
+    rootProject.projectDir
+}
+layout.buildDirectory.set(repositoryRoot.resolve("tmp/build/gradle-output/backend"))
+
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(21))

@@ -17,10 +17,10 @@ ROOM_IDENTITY_HASH = "e896ad50def3e9d177c893c4a4038e29"
 EPSILON = 1e-9
 
 SOURCE_DEFAULT = Path(
-    "/Users/sunyiyang/Desktop/Project/master-goods/migration_source_zhihuiji/9ffd7446d3f1480197908a113565d0ef.db"
+    "/Users/sunyiyang/Desktop/Project/master-goods/data/database/migration_source_zhihuiji/9ffd7446d3f1480197908a113565d0ef.db"
 )
 OUTPUT_DEFAULT = Path(
-    "/Users/sunyiyang/Desktop/Project/master-goods/migration_output/zhihuiji.db"
+    "/Users/sunyiyang/Desktop/Project/master-goods/data/database/migration_output/zhihuiji.db"
 )
 ADB_DEFAULT = Path("/Users/sunyiyang/Library/Android/sdk/platform-tools/adb")
 
