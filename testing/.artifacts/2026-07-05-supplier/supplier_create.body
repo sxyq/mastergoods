@@ -1,1 +1,0 @@
-{"code":0,"message":"success","data":{"id":1,"name":"测试供应商A","phone":"13700030001","group_id":null,"group_name":null,"primary_contact_name":"李四","primary_contact_phone":"13700030002","address":"测试仓库地址","notes":"wave1 fixture","balance":0.0,"status":1,"created_at":1783228371772,"updated_at":1783228371851},"timestamp":1783228371865}

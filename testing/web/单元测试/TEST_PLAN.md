@@ -8,11 +8,11 @@
 
 源码范围：
 
-- `web/src/app`
-- `web/src/entities`
-- `web/src/features`
-- `web/src/pages`
-- `web/src/shared`
+- `Code/frontend/web/src/app`
+- `Code/frontend/web/src/entities`
+- `Code/frontend/web/src/features`
+- `Code/frontend/web/src/pages`
+- `Code/frontend/web/src/shared`
 
 ## Must Cover
 
@@ -55,7 +55,7 @@ Recommended stack:
 ## Commands
 
 ```bash
-cd web
+cd Code/frontend/web
 npm run build
 npm run test
 ```

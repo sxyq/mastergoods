@@ -1,9 +1,0 @@
-login_status=0
-current_store_status=200
-{"code":0,"message":"success","data":{"store_id":2,"store_name":"User8990 的智慧记店铺","owner_user_id":7,"current_user_id":7,"current_user_name":"User8990","current_user_phone":"13800138990","role":"OWNER","title":"店长（总）","status":1,"permissions":["finance:view","agent:write","posters:write","inventory:write","archives:write","credits:view","posters:view","reports:view","dashboard:view","purchase:view","database:manage","inventory:view","sales:view","users:manage","sales:write","finance:write","archives:view","settings:manage","purchase:write","agent:view"],"member_count":1,"enabled_member_count":1,"disabled_member_count":0},"timestamp":1783267715064}
-members_status=200
-{"code":0,"message":"success","data":[{"user_id":7,"phone":"13800138990","nickname":"User8990","role":"OWNER","title":"店长（总）","status":1,"permissions":["finance:view","agent:write","posters:write","inventory:write","archives:write","credits:view","posters:view","reports:view","dashboard:view","purchase:view","database:manage","inventory:view","sales:view","users:manage","sales:write","finance:write","archives:view","settings:manage","purchase:write","agent:view"],"created_at":1783226895175,"updated_at":1783226908194,"active_sessions":28,"store_id":2,"store_name":"User8990 的智慧记店铺"}],"timestamp":1783267715663}
-logout_status=200
-{"code":0,"message":"success","data":null,"timestamp":1783267716294}
-me_after_logout_status=403
-{"timestamp":"2026-07-05T16:08:36.812+00:00","status":403,"error":"Forbidden","path":"/v2/auth/users/me"}

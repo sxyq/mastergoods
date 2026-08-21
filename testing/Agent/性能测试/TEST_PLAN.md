@@ -27,7 +27,7 @@
 ## Environment Matrix
 
 - local backend
-- deployed 154 backend
+- current 8220 backend when explicitly enabled
 - Android physical device
 
 分层：
@@ -40,7 +40,7 @@
 
 ### Wave 0
 
-1. 确认 154 Agent 数据可复用
+1. 确认当前 8220 或隔离本地 Agent 数据可用；154 只作为历史参考
 2. 确认 Android 真机可连目标后端
 3. 确认 timing capture 方式与日志可用
 4. 确认 image provider 是否配置

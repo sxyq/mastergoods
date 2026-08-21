@@ -11,7 +11,7 @@
 
 ## Current Baseline
 
-直接复用 154 live baseline：
+154 数据只作为历史参考，不能作为当前执行基线：
 
 - `users = 5`
 - `sessions = 5`
@@ -23,7 +23,7 @@
 - `agent_run_audit_events = 41`
 - `agent_drafts = 3`
 
-当前为空的业务主表：
+当前工作应先在 8220 或隔离本地数据库重新确认业务主表状态：
 
 - `products`
 - `customers`
@@ -39,26 +39,26 @@
 
 规则：
 
-1. Auth、session、store context、Agent conversation/message/audit/draft 场景直接使用现有 live 数据。
-2. Product、customer、supplier、sales、purchase、finance、inventory、media 场景按测试步骤创建最小夹具。
+1. Auth、session、store context、Agent conversation/message/audit/draft 场景先确认当前 8220 是否存在可用数据。
+2. Product、customer、supplier、sales、purchase、finance、inventory、media 场景按测试步骤在当前基线创建最小夹具。
 3. 不单独维护长期业务种子库。
 
 ## Environment Matrix
 
-- `Wave 0`: 本地接口可调用、154 可访问、账号与 store context 可用
-- `Wave 1`: 现有 154 数据即可执行的场景
+- `Wave 0`: 本地接口可调用、当前环境可访问、账号与 store context 可用
+- `Wave 1`: 当前环境数据即可执行的场景
 - `Wave 2`: 需要最小夹具补数的场景
 - `Wave 3`: 长链路、导入同步、压力与回归补证
 
 环境维度：
 
 - local backend
-- deployed 154 backend
+- current 8220 backend when explicitly enabled
 
 推荐命令：
 
 ```bash
-./gradlew bootRun
+./Code/backend/gradlew -p Code/backend bootRun
 curl http://127.0.0.1:18080/...
 ```
 

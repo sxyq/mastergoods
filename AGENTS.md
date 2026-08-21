@@ -2,16 +2,16 @@
 
 ## Project Structure & Module Organization
 
-This is a mixed 智慧记 / Master-Goods repository. Backend Spring Boot code lives in `src/main/java/com/zhihuiji/backend`, tests in `src/test/java`, and Flyway migrations in `src/main/resources/db/migration`. The Android app is under `frontend/android/`, split into `app`, `core`, `data`, `feature`, `benchmark`, and `backdrop` modules. The PC admin is a Vue/Vite app in `frontend/web/` with source in `frontend/web/src`. Native iOS work is in `frontend/ios/ZhihuijiIOS` with tests in `frontend/ios/ZhihuijiIOSTests`. Operational files live in `deploy/`, docs in `docs/`, testing plans and ledgers in `testing/`, and utility scripts in `backend/tools/`.
+This is a mixed 智慧记 / Master-Goods repository. All application code lives under `Code/`: backend Spring Boot code is in `Code/backend/src/main/java/com/zhihuiji/backend`, tests in `Code/backend/src/test/java`, and Flyway migrations in `Code/backend/src/main/resources/db/migration`. The Android app is under `Code/frontend/android/`, split into `app`, `core`, `data`, `feature`, `benchmark`, and `backdrop` modules. The PC admin is a Vue/Vite app in `Code/frontend/web/` with source in `Code/frontend/web/src`. Native iOS work is in `Code/frontend/ios/ZhihuijiIOS` with tests in `Code/frontend/ios/ZhihuijiIOSTests`. Operational files live in `deploy/`, docs in `docs/`, testing plans and ledgers in `testing/`, and utility scripts in `Code/backend/tools/`.
 
 ## Build, Test, and Development Commands
 
-- `./gradlew bootRun`: run the backend locally with Java 21.
-- `./gradlew test`: run backend JUnit tests and generate JaCoCo reports.
-- `cd frontend/web && npm run dev`: start the Web admin Vite server.
-- `cd frontend/web && npm run build`: type-check and build the Web admin.
-- `cd frontend/android && ./gradlew :app:compileDebugKotlin`: compile Android app Kotlin.
-- `cd frontend/android && ./gradlew assembleDebug`: build a debug APK.
+- `./Code/backend/gradlew -p Code/backend bootRun`: run the backend locally with Java 21.
+- `./Code/backend/gradlew -p Code/backend test`: run backend JUnit tests and generate JaCoCo reports.
+- `cd Code/frontend/web && npm run dev`: start the Web admin Vite server.
+- `cd Code/frontend/web && npm run build`: type-check and build the Web admin.
+- `cd Code/frontend/android && ./gradlew :app:compileDebugKotlin`: compile Android app Kotlin.
+- `cd Code/frontend/android && ./gradlew assembleDebug`: build a debug APK.
 - iOS validation requires local Xcode tools; use `xcodebuild` only when available.
 
 ## Coding Style & Naming Conventions
@@ -34,7 +34,7 @@ Do not commit secrets, generated evidence, `web/dist`, `node_modules`, Gradle ca
 
 Before adding new components, classes, or helpers, check this inventory. Reuse and extend existing assets in place; new files require justification.
 
-### Backend Reusable Classes (`src/main/java/com/zhihuiji/backend/api/common/`)
+### Backend Reusable Classes (`Code/backend/src/main/java/com/zhihuiji/backend/api/common/`)
 
 | Class | Purpose | Reuse Pattern |
 |-------|---------|---------------|
@@ -86,7 +86,7 @@ Before adding new components, classes, or helpers, check this inventory. Reuse a
 
 ### Web Reusable Assets
 
-#### `frontend/web/src/shared/utils/business.ts` Helpers
+#### `Code/frontend/web/src/shared/utils/business.ts` Helpers
 
 | Function | Purpose | Reuse Pattern |
 |----------|---------|---------------|
@@ -100,7 +100,7 @@ Before adding new components, classes, or helpers, check this inventory. Reuse a
 | `reportRangeForPeriod` / `todayStartAt` / `weekStartAt` / `monthStartAt` | Report period range builders | Import; do not write local `buildRange` |
 | `readQueryId` / `sameEntityId` | BigInt-safe ID parsing/comparison | Use for all route query ID parsing; **never** use `Number()` for entity IDs (snowflake ID precision risk) |
 
-#### `frontend/web/src/app/stores/session.ts` Store
+#### `Code/frontend/web/src/app/stores/session.ts` Store
 
 | Export | Purpose |
 |--------|---------|
@@ -109,12 +109,12 @@ Before adding new components, classes, or helpers, check this inventory. Reuse a
 | `session.login` / `session.logout` / `session.refreshProfile` / `session.refreshStoreContext` | Auth actions |
 | `session.switchRole` / `session.switchMember` / `session.enterDemo` | Local role/member switching |
 
-#### `frontend/web/src/entities/auth/roles.ts`
+#### `Code/frontend/web/src/entities/auth/roles.ts`
 
 - `roleLabels` / `roleDescriptions` / `rolePermissions` / `rolePermissionSets` — static role config
 - `canAccess(role, perm)` — role-based permission check for demo mode
 
-#### `frontend/web/src/entities/screen/live-screen-data.ts`
+#### `Code/frontend/web/src/entities/screen/live-screen-data.ts`
 
 - `loadLiveScreenData` — route-dispatched data loader
 - `mapSalesOrders` / `mapPurchaseOrders` / `mapProducts` / `mapCustomers` / `mapSuppliers` / `mapFinanceRecords` etc. — data mapping functions (single-pass, pre-allocated)
@@ -128,7 +128,7 @@ Before adding new components, classes, or helpers, check this inventory. Reuse a
 
 ### Database Migration & Multi-Tenant Isolation Pattern
 
-Flyway migrations in `src/main/resources/db/migration/` follow a deliberate multi-tenant evolution:
+Flyway migrations in `Code/backend/src/main/resources/db/migration/` follow a deliberate multi-tenant evolution:
 
 | Migration | Purpose | Reuse Pattern |
 |-----------|---------|---------------|
@@ -142,11 +142,11 @@ Flyway migrations in `src/main/resources/db/migration/` follow a deliberate mult
 
 | File | Purpose | Reuse Pattern |
 |------|---------|---------------|
-| `app/src/debug/res/xml/network_security_config.xml` + `app/src/release/res/xml/network_security_config.xml` | Network security — **both** debug and release set `cleartextTrafficPermitted="false"` (blocks all HTTP) | Do not enable cleartext; use HTTPS only |
-| `app/src/main/AndroidManifest.xml` | Minimal permissions (`INTERNET` + `ACCESS_NETWORK_STATE` only), `allowBackup="false"`, no `android:debuggable` | Follow minimal-permission principle; keep `allowBackup="false"` |
+| `Code/frontend/android/app/src/debug/res/xml/network_security_config.xml` + `Code/frontend/android/app/src/release/res/xml/network_security_config.xml` | Network security — **both** debug and release set `cleartextTrafficPermitted="false"` (blocks all HTTP) | Do not enable cleartext; use HTTPS only |
+| `Code/frontend/android/app/src/main/AndroidManifest.xml` | Minimal permissions (`INTERNET` + `ACCESS_NETWORK_STATE` only), `allowBackup="false"`, no `android:debuggable` | Follow minimal-permission principle; keep `allowBackup="false"` |
 | `app/proguard-rules.pro` | Keeps `*Annotation*`, `Signature`, `InnerClasses`, `EnclosingMethod` + kotlinx.serialization `$$serializer` classes | Do not remove serializer keep rules or deserialization breaks |
 
-### Static Admin Console (`src/main/resources/static/admin-console/`)
+### Static Admin Console (`Code/backend/src/main/resources/static/admin-console/`)
 
 | File | Purpose | Reuse Pattern |
 |------|---------|---------------|
@@ -159,9 +159,9 @@ Flyway migrations in `src/main/resources/db/migration/` follow a deliberate mult
 
 | Module | Nature | Audit Stance |
 |--------|--------|--------------|
-| `frontend/android/backdrop/` (`com.kyant.backdrop`) | Third-party Compose rendering library — Blur/Shadow/Highlight/RenderEffect/RuntimeShader graphics | Read-only REVIEWED; do not refactor third-party rendering code |
-| `frontend/android/benchmark/` | Macrobenchmark instrumentation — `MacrobenchmarkRule` + UiAutomator flows | Read-only REVIEWED; test-only, no production security surface |
-| `frontend/android/core/model/src/test/` | Serialization contract tests — verify `@SerialName` snake_case + `ignoreUnknownKeys` backward compat | Read-only REVIEWED; IDs use `Long` (safe) |
+| `Code/frontend/android/backdrop/` (`com.kyant.backdrop`) | Third-party Compose rendering library — Blur/Shadow/Highlight/RenderEffect/RuntimeShader graphics | Read-only REVIEWED; do not refactor third-party rendering code |
+| `Code/frontend/android/benchmark/` | Macrobenchmark instrumentation — `MacrobenchmarkRule` + UiAutomator flows | Read-only REVIEWED; test-only, no production security surface |
+| `Code/frontend/android/core/model/src/test/` | Serialization contract tests — verify `@SerialName` snake_case + `ignoreUnknownKeys` backward compat | Read-only REVIEWED; IDs use `Long` (safe) |
 
 ### Cross-Platform ID Safety Rule
 

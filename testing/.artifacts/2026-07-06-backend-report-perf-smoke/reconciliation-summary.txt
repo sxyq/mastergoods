@@ -1,3 +1,0 @@
-{"code":0,"message":"success","data":{"start_at":1751328000000,"end_at":1783296000000,"total_receivable_amount":0.0,"total_payable_amount":0.0,"total_receivable_customer_count":0,"total_payable_supplier_count":0,"total_received_amount":22.0,"total_paid_amount":0.0,"net_cash_flow":22.0},"timestamp":1783302880879}
-__TIME_TOTAL__:0.474746
-__HTTP_CODE__:200

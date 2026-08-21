@@ -1,0 +1,34 @@
+spring:
+  datasource:
+    url: jdbc:h2:file:${LOCAL_H2_PATH:./tmp/build/gradle-cache/backend-local/zhihuiji_local};MODE=PostgreSQL;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE;DATABASE_TO_LOWER=TRUE;NON_KEYWORDS=MONTH,YEAR
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+  flyway:
+    enabled: false
+
+agent:
+  llm:
+    enabled: ${AGENT_LLM_ENABLED:true}
+    base-url: ${AGENT_LLM_BASE_URL:https://oneapi.sxyq27.online/v1}
+    api-key: ${AGENT_LLM_API_KEY:}
+    model: ${AGENT_LLM_MODEL:gpt-5.6-luna}
+    wire-api: ${AGENT_LLM_WIRE_API:chat_completions}
+    requires-openai-auth: ${AGENT_LLM_REQUIRES_OPENAI_AUTH:true}
+    anthropic-version: ${AGENT_LLM_ANTHROPIC_VERSION:2023-06-01}
+    max-tokens: ${AGENT_LLM_MAX_TOKENS:4096}
+    temperature: ${AGENT_LLM_TEMPERATURE:0.2}
+    enable-thinking: ${AGENT_LLM_ENABLE_THINKING:true}
+    thinking-budget: ${AGENT_LLM_THINKING_BUDGET:2048}
+
+zhihuiji:
+  demo:
+    auto-seed: ${ZHIHUIJI_DEMO_AUTO_SEED:false}
+
+media:
+  storage:
+    local:
+      base-path: ${MEDIA_STORAGE_PATH:./data/media}

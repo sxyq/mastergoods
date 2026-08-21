@@ -36,7 +36,7 @@
 推荐命令：
 
 ```bash
-cd master-goods-android
+cd Code/frontend/android
 ./gradlew test
 ./gradlew :feature:agent:test
 ./gradlew :core:network:test

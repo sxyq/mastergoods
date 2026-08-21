@@ -7,11 +7,11 @@
 
 ## Objective
 
-把 Agent 功能测试收缩成“后端链 + 安卓链”两条主链的立即执行手册，明确哪些场景直接复用 154 live data，哪些场景允许增量写入，哪些场景必须记录本轮新增数据。
+把 Agent 功能测试收缩成“后端链 + 安卓链”两条主链的立即执行手册，明确当前 8220 数据基线、增量写入范围和本轮新增数据记录方式；154 只保留历史资料。
 
 ## Current Baseline
 
-直接复用：
+154 历史资料（不能直接作为当前执行数据）：
 
 - `agent_conversations = 18`
 - `agent_messages = 29`
@@ -22,8 +22,8 @@
 
 规则：
 
-1. conversation lifecycle、messaging、tool audit、draft flow 优先直接复用现有数据
-2. 需要新增会话、新增 run、新增 draft 的场景，允许直接增量写入当前库
+1. conversation lifecycle、messaging、tool audit、draft flow 先确认当前 8220 或隔离本地库是否存在可用数据
+2. 需要新增会话、新增 run、新增 draft 的场景，允许在当前基线中增量写入
 3. 如需业务域数据配合而主表为空，则先补最小夹具，并在 evidence 中标明“本轮新增数据”
 
 ## Environment Matrix
@@ -31,7 +31,7 @@
 - backend API level
 - Android client
 - local backend
-- deployed 154 backend
+- current 8220 backend when explicitly enabled
 
 本轮不展开 Web/iOS 主流程，只保留后续批次提示。
 

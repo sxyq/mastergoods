@@ -8,10 +8,10 @@
 
 源码范围：
 
-- `ios/ZhihuijiIOS/App`
-- `ios/ZhihuijiIOS/Core`
-- `ios/ZhihuijiIOS/Features`
-- `ios/ZhihuijiIOSTests`
+- `Code/frontend/ios/ZhihuijiIOS/App`
+- `Code/frontend/ios/ZhihuijiIOS/Core`
+- `Code/frontend/ios/ZhihuijiIOS/Features`
+- `Code/frontend/ios/ZhihuijiIOSTests`
 
 ## Coverage Standard
 
@@ -54,7 +54,7 @@ Must cover:
 Use Xcode or:
 
 ```bash
-xcodebuild test -project ios/ZhihuijiIOS.xcodeproj -scheme ZhihuijiIOS -destination 'platform=iOS Simulator,name=iPhone 15'
+xcodebuild test -project Code/frontend/ios/ZhihuijiIOS.xcodeproj -scheme ZhihuijiIOS -destination 'platform=iOS Simulator,name=iPhone 15'
 ```
 
 ## Exit Criteria

@@ -1,7 +1,9 @@
-case_id,route_skill,attack_surface,destructive_goal,test_vector,required_tooling,evidence_requirements,status,notes
-BE-REV-01,"attack-chain|api-security",Auth and session,验证 JWT/refresh/session fixation/replay 是否可接管会话,"重放 refresh、替换 user/store/member 上下文、伪造过期窗口",curl|httpie,请求样本 + 响应 + 日志,规划中,
-BE-REV-02,"attack-chain|api-security",Tenant isolation,验证 BOLA/IDOR/owner 绕过是否可跨租户读写,"替换 id/ownerUserId/storeId/runId/draftId/imageId",curl|httpie,越权请求集 + DB 差异,规划中,
-BE-REV-03,"attack-chain|api-security",Upload and media,验证文件上传、图片上传、内容类型伪造、polyglot 文件是否能突破校验,"修改 mime、扩展名、大小、重复引用、未绑定文件回放",curl|httpie,上传样本 + 存储结果,规划中,
-BE-REV-04,"attack-chain|api-security",Sync and import,验证导入/同步链路是否可造成重复执行、脏状态、超量占用,"并发 claim、重复 retry、伪造 cursor/job 状态",curl|httpie,并发请求记录 + 日志,规划中,
-BE-REV-05,"attack-chain|api-security",Report and list APIs,验证分页、聚合、搜索和排序接口是否可被参数滥用拖垮或泄露额外数据,"超大分页、异常排序、负值、边界 filter",curl|httpie,请求样本 + 性能记录,规划中,
-BE-REV-06,"attack-chain|supply-chain-security",Build and dependency chain,验证依赖、镜像、脚本、密钥与构建链是否存在可投毒面,"SCA/SBOM、secret scan、构建脚本入口审计",trivy|syft|gitleaks,扫描报告 + 结论,规划中,
+case_id,route_skill,attack_surface,destructive_goal,test_vector,required_tooling,evidence_requirements,status,notes
+BE-REV-01,"attack-chain|api-security",Auth and session,验证 JWT/refresh/session fixation/replay 是否可接管会话,"重放 refresh、替换 user/store/member 上下文、伪造过期窗口",curl|httpie,请求样本 + 响应 + 日志,规划中,
+BE-REV-02,"attack-chain|api-security",Tenant isolation,验证 BOLA/IDOR/owner 绕过是否可跨租户读写,"替换 id/ownerUserId/storeId/runId/draftId/imageId",curl|httpie,越权请求集 + DB 差异,规划中,
+BE-REV-03,"attack-chain|api-security",Upload and media,验证文件上传、图片上传、内容类型伪造、polyglot 文件是否能突破校验,"修改 mime、扩展名、大小、重复引用、未绑定文件回放",curl|httpie,上传样本 + 存储结果,规划中,
+BE-REV-04,"attack-chain|api-security",Sync and import,验证导入/同步链路是否可造成重复执行、脏状态、超量占用,"并发 claim、重复 retry、伪造 cursor/job 状态",curl|httpie,并发请求记录 + 日志,规划中,
+BE-REV-05,"attack-chain|api-security",Report and list APIs,验证分页、聚合、搜索和排序接口是否可被参数滥用拖垮或泄露额外数据,"超大分页、异常排序、负值、边界 filter",curl|httpie,请求样本 + 性能记录,规划中,
+BE-REV-06,"attack-chain|supply-chain-security",Build and dependency chain,验证依赖、镜像、脚本、密钥与构建链是否存在可投毒面,"SCA/SBOM、secret scan、构建脚本入口审计",trivy|syft|gitleaks,扫描报告 + 结论,规划中,
+BE-REV-05,"api-security",Cross-store sync isolation,验证sync pull是否泄露跨门店数据,POST /v2/sync/pull as user8 (store4) after user7 (store2) uploaded data,curl,请求样本+响应,Passed,2026-07-29 user8 pull=0 changes 无数据泄露
+BE-REV-06,"api-security",Sync idempotency abuse,验证重复上传相同operationId是否产生重复实体,POST same operationId twice via /v2/sync/upload,curl,请求样本+DB验证,Passed,2026-07-29 本地H2验证通过：第二次同operationId上传被幂等跳过 HTTP 200 无重复实体。154服务器仍需部署V26迁移(sync_operation_log表)进行生产验证

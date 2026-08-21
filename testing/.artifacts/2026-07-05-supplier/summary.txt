@@ -1,6 +1,0 @@
-create_status=200
-create_code=0
-supplier_id=1
-list_count=1
-get_status=200
-get_code=0

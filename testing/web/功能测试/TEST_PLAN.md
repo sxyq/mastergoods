@@ -49,7 +49,7 @@
 ## Commands
 
 ```bash
-cd web
+cd Code/frontend/web
 npm run dev
 npm run build
 ```

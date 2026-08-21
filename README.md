@@ -11,57 +11,71 @@
 
 ```text
 master-goods/
-  backend/                 后端聚合入口
-  frontend/android/        Android 工程
-  frontend/ios/            iOS 工程
-  frontend/web/            Vue/Vite 管理端
-  docs/                    设计稿、迁移、安全、技术分析文档
-  testing/                 测试计划、台账与执行脚本
-  tmp/                     本地工作区与生成资源
-  tools/                   指向 backend/tools 的兼容入口
+├── Code/                  所有前后端和三端代码总目录
+│   ├── backend/            后端构建、源码、测试和工具
+│   │   ├── src/            Java 源码、资源和后端测试
+│   │   └── tools/          后端联调、迁移和 Agent 工具
+│   └── frontend/           前端代码总目录
+│       ├── android/        Android 多模块工程
+│       ├── ios/            iOS 工程
+│       ├── web/            Vue/Vite 管理端
+│       └── agent-observability/ Agent 观测页面与数据
+├── data/                  数据库、媒体和研究资料
+│   ├── database/          迁移源库与迁移输出库
+│   ├── media/             本地媒体资料
+│   └── research/          研究数据资料
+├── docs/                  需求、规范、设计、验收和目录说明
+├── testing/               测试计划、台账、脚本和运行证据
+├── 审查/                  文件盘点、目录规划和代码审计台账
+├── deploy/                部署目录边界；当前没有在用的 154 资料
+└── tmp/                   构建缓存、构建产物、浏览器输出和临时工作区
 ```
 
-`master-goods-android`、`ios`、`web` 仍保留为根目录兼容符号链接，正式源码目录以 `frontend/` 下的分类目录为准。
+目录查看原则：所有代码先看 `Code/`；后端看 `Code/backend/`，后端 Java 源码和测试看 `Code/backend/src/`，Android、iOS、Web 和 Agent 观测前端看 `Code/frontend/`；项目说明看 `docs/`；测试过程和证据看 `testing/`；本地生成内容看 `tmp/`；目录审查记录看 `审查/`；数据库、媒体和研究资料看 `data/`。
+
+后端构建和工具入口统一位于 `Code/backend/`；缓存和构建输出统一位于 `tmp/`。正式代码入口统一位于 `Code/`：
+
+| 正式入口 | 用途 |
+|---|---|
+| `Code/backend/Dockerfile`、`Code/backend/build.gradle.kts`、`Code/backend/settings.gradle.kts`、`Code/backend/gradlew*` | 后端构建入口 |
+| `Code/frontend/ios`、`Code/frontend/android`、`Code/frontend/web` | 三端正式代码入口 |
+| `Code/backend/tools/` | 后端工具脚本入口 |
+| `tmp/build/gradle-cache/`、`tmp/build/gradle-output/`、`tmp/build/bin/` | Gradle 缓存、构建输出和脚本产物位置 |
+
+其中 `Code/backend/gradle/wrapper/` 是 Git 管理的 Gradle Wrapper，不能放入 `tmp/`；`.gradle`、Kotlin、Web 依赖和构建产物都集中在 `tmp/build/`。
+
+本次目录整理只改善可见性，不改变业务代码的职责，不批量删除历史测试证据，也不把 `tmp/` 或 `testing/.artifacts/` 当作正式源码。
 
 ## 快速入口
 
 - Android 工程说明：
-  [frontend/android/README.md](/Users/sunyiyang/Desktop/Project/master-goods/frontend/android/README.md)
+  [Code/frontend/android/README.md](/Users/sunyiyang/Desktop/Project/master-goods/Code/frontend/android/README.md)
 - 前端目录索引：
-  [frontend/README.md](/Users/sunyiyang/Desktop/Project/master-goods/frontend/README.md)
+  [Code/frontend/README.md](/Users/sunyiyang/Desktop/Project/master-goods/Code/frontend/README.md)
 - 后端聚合入口：
-  [backend/README.md](/Users/sunyiyang/Desktop/Project/master-goods/backend/README.md)
+  [Code/backend/README.md](/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/README.md)
 - 后端工具脚本：
-  [backend/tools](/Users/sunyiyang/Desktop/Project/master-goods/backend/tools)
-- 临时规则归档：
-  [docs/archived/临时.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/archived/临时.md)
+  [Code/backend/tools](/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/tools)
 - 文档总索引：
   [docs/README.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/README.md)
 - Android 主开发计划：
-  [frontend/android/DEVELOPMENT-PLAN.md](/Users/sunyiyang/Desktop/Project/master-goods/frontend/android/DEVELOPMENT-PLAN.md)
+  [Code/frontend/android/DEVELOPMENT-PLAN.md](/Users/sunyiyang/Desktop/Project/master-goods/Code/frontend/android/DEVELOPMENT-PLAN.md)
 - Android UI 规范：
-  [frontend/android/UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/frontend/android/UI-DESIGN-SPEC.md)
-- 构建入口索引：
-  [docs/BUILD_INDEX.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/BUILD_INDEX.md)
+  [Code/frontend/android/UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/Code/frontend/android/UI-DESIGN-SPEC.md)
+- 文档生命周期总图：
+  [docs/00_文档总览/文档生命周期总图.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/00_文档总览/文档生命周期总图.md)
+- 目录职责与四级业务地图：
+  [docs/00_文档总览/项目目录地图.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/00_文档总览/项目目录地图.md)
+- 构建与产物索引：
+  [docs/04_详细设计与实现/构建命令与产物.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/04_详细设计与实现/构建命令与产物.md)
+- 历史归档（临时规则）：
+  [docs/90_历史归档/旧文档/临时.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/90_历史归档/旧文档/临时.md)
 
 ## 后端启动
 
-### Docker Compose
+### 部署入口
 
-```bash
-cp .env.example .env
-docker compose up --build -d
-```
-
-服务地址：
-
-- `http://localhost:18080`
-
-健康检查：
-
-```bash
-curl http://localhost:18080/v1/sync/health
-```
+部署模板统一放在 `deploy/`。当前仓库没有在用的 154 部署文件；154.217.241.207 已完全退役，不能再作为启动或验收目标。8220 的当前部署模板需要基于维护文档和只读检查结果单独建立。
 
 ### 本地运行
 
@@ -71,19 +85,13 @@ curl http://localhost:18080/v1/sync/health
 - PostgreSQL 15+
 
 ```bash
-./backend/gradlew bootRun
-```
-
-兼容旧入口：
-
-```bash
-./gradlew bootRun
+./Code/backend/gradlew -p Code/backend bootRun
 ```
 
 测试：
 
 ```bash
-./backend/gradlew test
+./Code/backend/gradlew -p Code/backend test
 ```
 
 ## 当前后端主要能力
@@ -131,7 +139,6 @@ curl http://localhost:18080/v1/sync/health
 ## 说明
 
 - 邀请码注册码固定：`021218`
-- 设计稿统一存放在：
-  [docs/design-mockups](/Users/sunyiyang/Desktop/Project/master-goods/docs/design-mockups)
+- 设计稿和 UI 说明统一查看 `Code/frontend/android/UI-DESIGN-SPEC.md`、各端工程说明和 `Code/frontend/web/public/stitch_exports/`。
 - 数据迁移与安全审计等正式文档统一收口在：
   [docs/README.md](/Users/sunyiyang/Desktop/Project/master-goods/docs/README.md)

@@ -11,7 +11,7 @@
 
 ## Current Baseline
 
-可直接复用的 154 live 数据：
+154 数据只保留为历史参考，不能用于当前通过结论：
 
 - 已存在账号与 session
 - 已存在 `1` 个 store 与 `1` 条 store membership
@@ -19,8 +19,8 @@
 
 当前业务主表为空，因此：
 
-- 登录、会话恢复、首页权限分流、Agent 列表/历史/草稿/审计类测试直接复用现有数据
-- 商品、客户、供应商、订单、财务、库存、媒体相关场景需要最小夹具
+- 登录、会话恢复、首页权限分流、Agent 列表/历史/草稿/审计类测试先确认当前 8220 是否有可用数据
+- 商品、客户、供应商、订单、财务、库存、媒体相关场景需要在当前基线创建最小夹具
 
 ## Environment Matrix
 
@@ -33,12 +33,12 @@
 环境目标：
 
 - local backend
-- deployed 154 backend
+- current 8220 backend when explicitly enabled
 
 推荐命令：
 
 ```bash
-cd master-goods-android
+cd Code/frontend/android
 ./gradlew connectedDebugAndroidTest
 adb devices
 ```

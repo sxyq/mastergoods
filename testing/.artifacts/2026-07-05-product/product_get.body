@@ -1,1 +1,0 @@
-{"code":0,"message":"success","data":{"id":1,"code":"P-WAVE1-001","name":"测试商品A","category_id":1,"category_name":"测试类目A","unit_id":1,"unit_name":"件","sale_price":10.0,"purchase_price":5.0,"price_levels":[],"default_supplier":null,"supplier_relations":[],"stock":0.0,"safe_stock":0.0,"status":1,"created_at":1783228412106,"updated_at":1783228412106},"timestamp":1783228413253}

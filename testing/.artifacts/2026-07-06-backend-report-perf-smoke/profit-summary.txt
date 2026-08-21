@@ -1,3 +1,0 @@
-{"code":0,"message":"success","data":{"start_at":1751328000000,"end_at":1783296000000,"estimated_cost_amount":24.5,"estimated_profit_amount":12.5,"estimated_profit_rate":33.78378378378378},"timestamp":1783302880396}
-__TIME_TOTAL__:0.427229
-__HTTP_CODE__:200

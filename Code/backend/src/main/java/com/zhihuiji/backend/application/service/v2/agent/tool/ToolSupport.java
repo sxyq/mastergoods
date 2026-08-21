@@ -1,0 +1,454 @@
+package com.zhihuiji.backend.application.service.v2.agent.tool;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * 工具共享基类，提供格式化、SSE 推送与审计辅助方法。
+ *
+ * <p>所有只读/写入工具可继承此类，复用 {@link #money}、{@link #formatNumber}、
+ * {@link #safeDouble}、{@link #safeLong}、{@link #mapOf}、{@link #toJsonNode}、
+ * {@link #limit} 等工具方法，以及本地执行审计辅助方法。
+ *
+ * <p>设计原则：
+ * <ul>
+ *   <li>格式化方法与 V2AgentAiService 保持一致，确保前端展示统一</li>
+ *   <li>SSE 事件由 V2AgentAiService 统一发送和审计，避免工具层与服务层重复事件</li>
+ *   <li>审计信息封装在 {@link ToolAudit} 中，供工具构建本地结果摘要</li>
+ * </ul>
+ */
+public abstract class ToolSupport implements AgentTool {
+
+    /** 默认工具返回条数上限。 */
+    protected static final int DEFAULT_TOOL_LIMIT = 10;
+
+    /** 默认工具输入参数（limit=10）。 */
+    protected static final Map<String, Object> DEFAULT_LIMIT_TOOL_INPUT = Map.of("limit", DEFAULT_TOOL_LIMIT);
+
+    /**
+     * 货币格式化（与 V2AgentAiService.money 保持一致）。
+     *
+     * @param value 金额
+     * @return 格式化后的字符串，如 ¥123.45
+     */
+    protected String money(double value) {
+        return String.format(Locale.US, "¥%.2f", value);
+    }
+
+    /**
+     * 数字格式化（整数显示无小数，浮点数保留两位）。
+     *
+     * @param value 数值
+     * @return 格式化后的字符串
+     */
+    protected String formatNumber(double value) {
+        return Math.abs(value - Math.rint(value)) < 0.000001
+            ? String.valueOf((long) Math.rint(value))
+            : String.format(Locale.US, "%.2f", value);
+    }
+
+    /**
+     * null 安全的 Double 转换。
+     *
+     * @param value 可能为 null 的 Double
+     * @return 非 null 的 double 值
+     */
+    protected double safeDouble(Double value) {
+        return value == null ? 0D : value;
+    }
+
+    /**
+     * null 安全的 Long 转换。
+     *
+     * @param value 可能为 null 的 Long
+     * @return 非 null 的 long 值
+     */
+    protected long safeLong(Long value) {
+        return value == null ? 0L : value;
+    }
+
+    /**
+     * 任意对象的安全 double 转换。
+     *
+     * @param value Number 或其他对象
+     * @return double 值（非 Number 返回 0）
+     */
+    protected double safeDouble(Object value) {
+        return value instanceof Number number ? number.doubleValue() : 0D;
+    }
+
+    /**
+     * 任意对象的安全 long 转换。
+     *
+     * @param value Number 或其他对象
+     * @return long 值（非 Number 返回 0）
+     */
+    protected long safeLong(Object value) {
+        return value instanceof Number number ? number.longValue() : 0L;
+    }
+
+    /**
+     * 快速构建 Map（键值交替传入）。
+     *
+     * @param values 键值对序列，如 {"name", "张三", "age", 18}
+     * @return LinkedHashMap（保持插入顺序）
+     */
+    protected Map<String, Object> mapOf(Object... values) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        for (int i = 0; i < values.length; i += 2) {
+            result.put(String.valueOf(values[i]), values[i + 1]);
+        }
+        return result;
+    }
+
+    /**
+     * 对象转 JsonNode（使用上下文的 ObjectMapper）。
+     *
+     * @param ctx       工具上下文
+     * @param value 待转换对象
+     * @return JsonNode
+     */
+    protected JsonNode toJsonNode(ToolContext ctx, Object value) {
+        return ctx.objectMapper().valueToTree(value);
+    }
+
+    /**
+     * 构建严格的对象参数 Schema，供原生 Function Calling 使用。
+     * 工具实现只声明业务字段，统一保证 additionalProperties=false。
+     */
+    protected ObjectNode objectSchema() {
+        ObjectNode schema = JsonNodeFactory.instance.objectNode();
+        schema.put("type", "object");
+        schema.putObject("properties");
+        schema.putArray("required");
+        schema.put("additionalProperties", false);
+        return schema;
+    }
+
+    protected ObjectNode addStringProperty(ObjectNode schema, String name, String description) {
+        ObjectNode property = schema.with("properties").putObject(name);
+        property.put("type", "string");
+        if (description != null && !description.isBlank()) {
+            property.put("description", description);
+        }
+        return schema;
+    }
+
+    protected ObjectNode addStringEnumProperty(
+        ObjectNode schema,
+        String name,
+        String description,
+        String... values
+    ) {
+        addStringProperty(schema, name, description);
+        ArrayNode enumValues = schema.with("properties").with(name).putArray("enum");
+        for (String value : values) {
+            enumValues.add(value);
+        }
+        return schema;
+    }
+
+    protected ObjectNode addIntegerProperty(ObjectNode schema, String name, String description) {
+        ObjectNode property = schema.with("properties").putObject(name);
+        property.put("type", "integer");
+        if (description != null && !description.isBlank()) {
+            property.put("description", description);
+        }
+        return schema;
+    }
+
+    protected ObjectNode addNumberProperty(ObjectNode schema, String name, String description, Double minimum) {
+        ObjectNode property = schema.with("properties").putObject(name);
+        property.put("type", "number");
+        if (description != null && !description.isBlank()) {
+            property.put("description", description);
+        }
+        if (minimum != null) {
+            property.put("minimum", minimum);
+        }
+        return schema;
+    }
+
+    protected ObjectNode addArrayProperty(
+        ObjectNode schema,
+        String name,
+        String description,
+        ObjectNode itemSchema,
+        Integer minItems
+    ) {
+        ObjectNode property = schema.with("properties").putObject(name);
+        property.put("type", "array");
+        property.set("items", itemSchema);
+        if (description != null && !description.isBlank()) {
+            property.put("description", description);
+        }
+        if (minItems != null) {
+            property.put("minItems", minItems);
+        }
+        return schema;
+    }
+
+    protected ObjectNode addRequired(ObjectNode schema, String... names) {
+        ArrayNode required = schema.withArray("required");
+        for (String name : names) {
+            if (name != null && !name.isBlank()) {
+                required.add(name);
+            }
+        }
+        return schema;
+    }
+
+    /**
+     * 列表截断（不修改原列表）。
+     *
+     * @param items 原列表
+     * @param size  最大长度
+     * @return 截断后的列表
+     */
+    protected <T> List<T> limit(List<T> items, int size) {
+        if (items == null || items.isEmpty()) {
+            return List.of();
+        }
+        return items.size() <= size ? items : items.subList(0, size);
+    }
+
+    /**
+     * 从参数中读取字符串值。
+     *
+     * @param params 参数节点
+     * @param key    参数名
+     * @return 字符串值（null 或缺失返回 null）
+     */
+    protected String paramString(JsonNode params, String key) {
+        JsonNode node = params == null ? null : params.get(key);
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        String text = node.asText();
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        String normalized = text.trim();
+        if ("null".equalsIgnoreCase(normalized)
+            || "undefined".equalsIgnoreCase(normalized)
+            || "none".equalsIgnoreCase(normalized)) {
+            return null;
+        }
+        return normalized;
+    }
+
+    /** Reads an optional entity ID and treats zero/negative model placeholders as absent. */
+    protected Long paramPositiveLong(JsonNode params, String key) {
+        Long value = paramLong(params, key, null);
+        return value != null && value > 0L ? value : null;
+    }
+
+    /**
+     * 从参数中读取整数值。
+     *
+     * @param params       参数节点
+     * @param key          参数名
+     * @param defaultValue 默认值
+     * @return 整数值（null 或缺失返回 defaultValue）
+     */
+    protected Integer paramInt(JsonNode params, String key, Integer defaultValue) {
+        JsonNode node = params == null ? null : params.get(key);
+        if (node == null || node.isNull()) {
+            return defaultValue;
+        }
+        try {
+            if (node.isNumber()) {
+                return node.intValue();
+            }
+            if (node.isTextual()) {
+                return Integer.parseInt(node.asText().trim());
+            }
+            return defaultValue == null ? node.asInt() : node.asInt(defaultValue);
+        } catch (Exception ignored) {
+            return defaultValue;
+        }
+    }
+
+    /**
+     * 从参数中读取长整数值。
+     *
+     * @param params       参数节点
+     * @param key          参数名
+     * @param defaultValue 默认值
+     * @return 长整数值（null 或缺失返回 defaultValue）
+     */
+    protected Long paramLong(JsonNode params, String key, Long defaultValue) {
+        JsonNode node = params == null ? null : params.get(key);
+        if (node == null || node.isNull()) {
+            return defaultValue;
+        }
+        try {
+            if (node.isNumber()) {
+                return node.longValue();
+            }
+            if (node.isTextual()) {
+                return Long.parseLong(node.asText().trim());
+            }
+            return defaultValue == null ? node.asLong() : node.asLong(defaultValue);
+        } catch (Exception ignored) {
+            return defaultValue;
+        }
+    }
+
+    /**
+     * 从参数中读取双精度浮点值。
+     *
+     * @param params       参数节点
+     * @param key          参数名
+     * @param defaultValue 默认值
+     * @return double 值（null 或缺失返回 defaultValue）
+     */
+    protected Double paramDouble(JsonNode params, String key, Double defaultValue) {
+        JsonNode node = params == null ? null : params.get(key);
+        if (node == null || node.isNull()) {
+            return defaultValue;
+        }
+        try {
+            if (node.isNumber()) {
+                return node.doubleValue();
+            }
+            if (node.isTextual()) {
+                return Double.parseDouble(node.asText().trim());
+            }
+            return defaultValue == null ? node.asDouble() : node.asDouble(defaultValue);
+        } catch (Exception ignored) {
+            return defaultValue;
+        }
+    }
+
+    // ===== SSE 推送与审计辅助 =====
+
+    /**
+     * 开始工具审计（推送 tool_started 事件）。
+     *
+     * @param ctx      工具上下文
+     * @param toolName 工具名
+     * @param input    工具输入参数
+     * @return 审计对象
+     */
+    protected ToolAudit startAudit(ToolContext ctx, String toolName, Map<String, Object> input) {
+        return new ToolAudit(toolName, input, System.currentTimeMillis());
+    }
+
+    /**
+     * 推送 tool_started 事件。
+     *
+     * @param ctx      工具上下文
+     * @param toolName 工具名
+     * @param input    工具输入参数
+     */
+    protected void emitToolStarted(ToolContext ctx, String toolName, Map<String, Object> input) {
+        // V2AgentAiService is the only SSE event owner.
+    }
+
+    /**
+     * 推送 tool_completed 事件。
+     *
+     * @param ctx           工具上下文
+     * @param toolName      工具名
+     * @param resultSummary 结果摘要
+     * @param audit         审计对象（可为 null）
+     */
+    protected void emitToolCompleted(ToolContext ctx, String toolName, String resultSummary, ToolAudit audit) {
+        // V2AgentAiService emits one audited tool_completed event after execution.
+    }
+
+    /**
+     * 推送 tool_failed 事件。
+     *
+     * @param ctx          工具上下文
+     * @param toolName     工具名
+     * @param errorMessage 错误信息
+     */
+    protected void emitToolFailed(ToolContext ctx, String toolName, String errorMessage) {
+        // V2AgentAiService emits one audited tool_failed event after execution.
+    }
+
+    /**
+     * 推送 result_block 事件（逐块发送结果）。
+     *
+     * @param ctx    工具上下文
+     * @param blocks 结果块列表
+     */
+    protected void emitBlocks(ToolContext ctx, List<?> blocks) {
+        // Result blocks are filtered and emitted by V2AgentAiService after answer synthesis.
+    }
+
+    /**
+     * 工具审计信息（跟踪返回数、总数、是否截断等）。
+     */
+    protected static final class ToolAudit {
+        private final String toolName;
+        private final Map<String, Object> toolInput;
+        private final long startedAt;
+        private Integer returnedCount;
+        private Integer totalCount;
+        private Integer limit;
+        private boolean truncated;
+
+        private ToolAudit(String toolName, Map<String, Object> toolInput, long startedAt) {
+            this.toolName = toolName;
+            this.toolInput = toolInput == null ? Map.of() : toolInput;
+            this.startedAt = startedAt;
+        }
+
+        public void markReturned(int returnedCount) {
+            this.returnedCount = Math.max(0, returnedCount);
+        }
+
+        public void markLimitedResult(int returnedCount, int limit) {
+            markLimitedResult(returnedCount, limit, returnedCount >= limit);
+        }
+
+        public void markLimitedResult(int returnedCount, int limit, boolean maybeTruncated) {
+            this.returnedCount = Math.max(0, returnedCount);
+            this.limit = Math.max(0, limit);
+            this.truncated = maybeTruncated;
+        }
+
+        public void markListResult(List<?> sourceRows, int returnedCount, int limit) {
+            this.returnedCount = Math.max(0, returnedCount);
+            this.totalCount = sourceRows == null ? 0 : sourceRows.size();
+            this.limit = Math.max(0, limit);
+            this.truncated = this.totalCount > this.returnedCount;
+        }
+
+        public Map<String, Object> eventFields() {
+            Map<String, Object> fields = new LinkedHashMap<>();
+            long completedAt = System.currentTimeMillis();
+            fields.put("started_at", startedAt);
+            fields.put("completed_at", completedAt);
+            fields.put("duration_ms", Math.max(0L, completedAt - startedAt));
+            if (returnedCount != null) {
+                fields.put("returned_count", returnedCount);
+            }
+            if (totalCount != null) {
+                fields.put("total_count", totalCount);
+            }
+            if (limit != null) {
+                fields.put("limit", limit);
+            }
+            fields.put("is_truncated", truncated);
+            return fields;
+        }
+
+        public Map<String, Object> facts() {
+            Map<String, Object> fields = eventFields();
+            fields.put("tool_name", toolName);
+            fields.put("tool_input", toolInput);
+            return fields;
+        }
+    }
+}

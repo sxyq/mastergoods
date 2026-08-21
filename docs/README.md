@@ -1,57 +1,74 @@
-# 智慧记新版文档中心
+# 智慧记（master-goods）文档中心
 
-这里是当前项目的正式文档入口。
+这里是当前项目的正式文档总入口。文档按软件工程生命周期组织为中文目录，所有结论必须能追溯到真实源码、测试计划、测试证据或明确的待验证状态。
 
 ## 当前优先阅读顺序
 
-1. [40-batch-development-master-plan.md](./spec/40-batch-development-master-plan.md)
-2. [42-android-liquid-glass-ui-refactor-plan.md](./spec/42-android-liquid-glass-ui-refactor-plan.md)
-3. [43-ai-assistant-requirements.md](./spec/43-ai-assistant-requirements.md)
-4. [00-product-overview.md](./spec/00-product-overview.md)
-5. [01-status-taxonomy.md](./spec/01-status-taxonomy.md)
-6. [02-domain-model-overview.md](./spec/02-domain-model-overview.md)
-7. [10-auth-and-tenant.md](./spec/10-auth-and-tenant.md)
-8. 业务域 spec：`20 ~ 32`
+1. [文档阅读指南](./00_文档总览/文档阅读指南.md)
+2. [文档生命周期总图](./00_文档总览/文档生命周期总图.md)
+3. [项目目录地图](./00_文档总览/项目目录地图.md)
+4. [文档状态说明](./00_文档总览/文档状态说明.md)
+5. [需求追踪矩阵](./00_文档总览/需求追踪矩阵.md)
+6. [业务目标与项目范围](./01_业务需求/业务目标与项目范围.md)
+7. [系统需求总览](./02_业务系统需求/系统需求总览.md)
+8. [系统总体架构](./03_系统设计/系统总体架构.md)
+9. [Agent总体架构](./03_系统设计/Agent系统设计/Agent总体架构.md)
+10. [测试体系总览](./05_测试与验收/测试体系总览.md)
+11. [当前环境总览](./06_部署与运维/当前环境总览.md)
+12. [当前已知问题](./07_问题审计/当前已知问题.md)
 
-## 文档分层
+## 目录结构
 
-- `docs/spec/`
-  - 新版正式规范中心，后续开发以此为准
-- `docs/acceptance-evidence/`
-  - 验收证据归档（ai-agent、performance、b11）
+```text
+docs/
+├── README.md                    # 本入口文件
+├── 00_文档总览/                 # 阅读指南、生命周期总图、项目文档索引、状态说明、需求追踪矩阵
+├── 01_业务需求/                 # 业务目标、角色场景、业务流程、多端范围、各业务域、暂缓事项
+├── 02_业务系统需求/             # 系统需求总览、功能需求矩阵、16 项系统需求
+├── 03_系统设计/                 # 总体架构、后端设计、数据库设计、Agent 设计、多端交互、UI 设计、部署架构
+├── 04_详细设计与实现/           # 各端实现索引、数据库迁移实现、构建命令与产物、目录业务映射
+├── 05_测试与验收/               # 测试体系、生命周期、各端测试说明、验收说明、验收证据目录
+├── 06_部署与运维/               # 当前环境、8220 维护、Provider、数据库、日志、性能、故障、回滚
+├── 07_问题审计/                 # 已知问题、解除条件、审查索引、风险审计、一致性审计、历史处理记录
+└── 90_历史归档/                 # 154 历史资料、历史版本报告、历史测试证据、历史文档索引、旧文档
+```
 
-## 当前 Android UI 真源
+## 文档分层说明
 
-- 正式计划：
-  - [42-android-liquid-glass-ui-refactor-plan.md](./spec/42-android-liquid-glass-ui-refactor-plan.md)
-- Stitch 导出清单（位于 `frontend/web/public` 下，前端可直接访问）：
-  - [manifest.tsv](/Users/sunyiyang/Desktop/Project/master-goods/frontend/web/public/stitch_exports/visual-design_system_framework_14840154594131085259/manifest.tsv)
-- Android 摘要规范入口：
-  - [frontend/android/UI-DESIGN-SPEC.md](/Users/sunyiyang/Desktop/Project/master-goods/frontend/android/UI-DESIGN-SPEC.md)
+| 生命周期层 | 回答的问题 | 主要产物 |
+|---|---|---|
+| 00 文档总览 | 如何读这套文档？ | 阅读指南、生命周期总图、文档索引、状态说明、需求追踪矩阵 |
+| 01 业务需求 | 用户要完成什么业务？ | 业务目标、用户角色、业务流程、多端职责、范围边界 |
+| 02 业务系统需求 | 系统必须提供什么能力？ | 功能需求、接口需求、数据需求、安全/性能/可观测性需求 |
+| 03 系统设计 | 系统如何实现？ | 架构、模块、数据模型、Agent 链路、多端交互、UI 设计、部署架构 |
+| 04 详细设计与实现 | 具体代码在哪里？ | 各端实现索引、数据库迁移、构建命令、目录业务映射 |
+| 05 测试与验收 | 是否满足要求？ | 测试体系、各端测试说明、验收规则、验收证据 |
+| 06 部署与运维 | 如何上线和运行？ | 环境基线、维护说明、故障排查、回滚边界 |
+| 07 问题审计 | 有什么已知问题？ | 已知问题、解除条件、风险审计、一致性审计 |
+| 90 历史归档 | 哪些只代表过去？ | 154 历史资料、旧报告、旧测试证据、旧文档 |
 
-## 当前总控入口
+## 当前运行边界（2026-08-18 基线）
 
-- [40-batch-development-master-plan.md](./spec/40-batch-development-master-plan.md)
-  - 这是跨后端、Android、联调与验收的总控文档
-- [42-android-liquid-glass-ui-refactor-plan.md](./spec/42-android-liquid-glass-ui-refactor-plan.md)
-  - 这是当前 Android 全量 UI 重构的专项总计划
-- [43-ai-assistant-requirements.md](./spec/43-ai-assistant-requirements.md)
-  - 这是 AI 助手真实 agentic、无模拟数据、Markdown / 图表、流式体验与后续审查的需求基线
-- [AI_AGENT_P0_EVIDENCE_MATRIX.md](./acceptance-evidence/ai-agent/AI_AGENT_P0_EVIDENCE_MATRIX.md)
-  - 这是 AI 助手 AGT-P0-001..019 当前证据、缺口和下一步的统一总表
+- 当前验证与生产目标：`8.220.206.9`（8220），公共 API 入口 `https://zhj-api.sxyq27.online/`
+- 当前 Provider：模型 `gpt-5.6-luna`，Base URL `https://oneapi.sxyq27.online/v1`，Wire API `chat_completions`
+- `154.217.241.207` 已完全退役，全部内容标记为 `historical-only`
+- 多模态、生图、图片输入和图片结果展示当前为 `Deferred`
+- 权威基线：`testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md`
+- 权威测试执行入口：`testing/README.md`
+- 已知问题与解除条件：`testing/已知问题与解除条件.md`
 
 ## 状态字段
 
-- `新版已做`
-- `新版待做`
-- `旧版存在新版未做`
-- `新版需要去掉`
-- `需重构`
-- `待验证`
+- `已完成`：当前源码、测试和证据可以互相对应
+- `进行中`：已有部分实现，仍存在明确开发内容
+- `待验证`：代码可能存在，但缺少当前运行证据
+- `Blocked`：前置设备、权限、数据或环境缺失
+- `Deferred`：当前明确暂缓，不阻塞其他范围
+- `Failed`：已执行且结果不满足要求
+- `historical-only`：旧服务器、旧版本或旧测试资料
 
 ## 说明
 
-- 会员体系当前不纳入新版范围，已在 spec 中标记为 `新版需要去掉`
-- `docs/technical-analysis/`、`docs/design-mockups/` 与根下历史审计 .md 已删除，源码与 spec 为唯一真源
-- Stitch 设计导出位于 `frontend/web/public/stitch_exports/`，前端可直接访问
-- 后续每完成一个批次或一组代码改动，更新对应 spec 文档外，还必须回写 `40-batch-development-master-plan.md`
+- `docs/spec/` 为空目录且已从索引移除；其中旧规范文件已删除，不作为当前链接目标（历史归档见 `90_历史归档/`）。
+- 验收证据已移动到 `05_测试与验收/验收证据/`（原 `docs/acceptance-evidence/`），引用路径需同步更新。
+- 后续每完成一个批次或一组代码改动，应同步更新对应工程 README、开发计划、测试计划和 `00_文档总览/项目目录地图.md`。

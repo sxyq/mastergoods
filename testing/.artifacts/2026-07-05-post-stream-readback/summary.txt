@@ -1,6 +1,0 @@
-conversation20_status=200
-conversation20_summary=?
-messages20_count=2
-messages20_first_role=user
-drafts20_count=2
-pending_count=0

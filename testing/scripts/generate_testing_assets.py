@@ -108,17 +108,17 @@ def agent_file_filter(path: Path, text: str) -> bool:
     if "/agent/" in rel.lower() or "agent" in path.name.lower():
         return True
     explicit = {
-        "master-goods-android/app/src/main/java/com/zhihuiji/app/MainActivity.kt",
-        "master-goods-android/app/src/main/java/com/zhihuiji/app/navigation/AppNavGraph.kt",
-        "master-goods-android/app/src/main/java/com/zhihuiji/app/navigation/MainNavGraph.kt",
-        "master-goods-android/app/src/main/java/com/zhihuiji/app/navigation/MainScreen.kt",
-        "master-goods-android/app/src/main/java/com/zhihuiji/app/navigation/MainAccessViewModel.kt",
-        "web/src/shared/api/agent-stream.ts",
-        "web/src/pages/agent/AgentPage.vue",
+        "Code/frontend/android/app/src/main/java/com/zhihuiji/app/MainActivity.kt",
+        "Code/frontend/android/app/src/main/java/com/zhihuiji/app/navigation/AppNavGraph.kt",
+        "Code/frontend/android/app/src/main/java/com/zhihuiji/app/navigation/MainNavGraph.kt",
+        "Code/frontend/android/app/src/main/java/com/zhihuiji/app/navigation/MainScreen.kt",
+        "Code/frontend/android/app/src/main/java/com/zhihuiji/app/navigation/MainAccessViewModel.kt",
+        "Code/frontend/web/src/shared/api/agent-stream.ts",
+        "Code/frontend/web/src/pages/agent/AgentPage.vue",
     }
     if rel in explicit:
         return True
-    if rel.startswith("src/main/java/") and "agent" in text.lower():
+    if rel.startswith("Code/backend/src/main/java/") and "agent" in text.lower():
         return True
     return False
 
@@ -127,46 +127,46 @@ PLATFORMS = {
     "后端": PlatformConfig(
         name="后端",
         extensions=(".java",),
-        include_prefixes=("src/main/java/com/zhihuiji/backend/",),
+        include_prefixes=("Code/backend/src/main/java/com/zhihuiji/backend/",),
     ),
     "安卓": PlatformConfig(
         name="安卓",
         extensions=(".kt",),
         include_prefixes=(
-            "master-goods-android/app/src/main/java/",
-            "master-goods-android/core/common/src/main/java/",
-            "master-goods-android/core/database/src/main/java/",
-            "master-goods-android/core/datastore/src/main/java/",
-            "master-goods-android/core/designsystem/src/main/java/",
-            "master-goods-android/core/model/src/main/java/",
-            "master-goods-android/core/network/src/main/java/",
-            "master-goods-android/data/",
-            "master-goods-android/feature/",
+            "Code/frontend/android/app/src/main/java/",
+            "Code/frontend/android/core/common/src/main/java/",
+            "Code/frontend/android/core/database/src/main/java/",
+            "Code/frontend/android/core/datastore/src/main/java/",
+            "Code/frontend/android/core/designsystem/src/main/java/",
+            "Code/frontend/android/core/model/src/main/java/",
+            "Code/frontend/android/core/network/src/main/java/",
+            "Code/frontend/android/data/",
+            "Code/frontend/android/feature/",
         ),
     ),
     "ios": PlatformConfig(
         name="ios",
         extensions=(".swift",),
-        include_prefixes=("ios/ZhihuijiIOS/",),
+        include_prefixes=("Code/frontend/ios/ZhihuijiIOS/",),
     ),
     "web": PlatformConfig(
         name="web",
         extensions=(".ts", ".vue"),
-        include_prefixes=("web/src/",),
+        include_prefixes=("Code/frontend/web/src/",),
     ),
     "Agent": PlatformConfig(
         name="Agent",
         extensions=(".java", ".kt", ".swift", ".ts", ".vue"),
         include_prefixes=(
-            "src/main/java/com/zhihuiji/backend/",
-            "master-goods-android/app/src/main/java/",
-            "master-goods-android/core/database/src/main/java/",
-            "master-goods-android/core/model/src/main/java/",
-            "master-goods-android/core/network/src/main/java/",
-            "master-goods-android/data/",
-            "master-goods-android/feature/",
-            "ios/ZhihuijiIOS/",
-            "web/src/",
+            "Code/backend/src/main/java/com/zhihuiji/backend/",
+            "Code/frontend/android/app/src/main/java/",
+            "Code/frontend/android/core/database/src/main/java/",
+            "Code/frontend/android/core/model/src/main/java/",
+            "Code/frontend/android/core/network/src/main/java/",
+            "Code/frontend/android/data/",
+            "Code/frontend/android/feature/",
+            "Code/frontend/ios/ZhihuijiIOS/",
+            "Code/frontend/web/src/",
         ),
         file_filter=agent_file_filter,
     ),
@@ -206,27 +206,35 @@ def module_from_path(platform: str, rel: str) -> str:
             return "root"
         return "/".join(parts[start:start + 2]) or "root"
     if platform == "安卓":
-        if len(parts) < 2:
+        if "android" not in parts:
             return "root"
-        if parts[1] == "core" and len(parts) >= 3:
-            return "/".join(parts[1:3])
-        if parts[1] in {"data", "feature"} and len(parts) >= 3:
-            return "/".join(parts[1:3])
-        if parts[1] == "app":
+        module_index = parts.index("android") + 1
+        if module_index >= len(parts):
+            return "root"
+        module = parts[module_index]
+        if module in {"core", "data", "feature"} and module_index + 1 < len(parts):
+            return "/".join(parts[module_index:module_index + 2])
+        if module == "app":
             return "app"
-        return parts[1]
+        return module
     if platform == "ios":
-        return "/".join(parts[2:4]) or "ios"
+        if "ios" not in parts:
+            return "ios"
+        module_index = parts.index("ios") + 1
+        return "/".join(parts[module_index:module_index + 2]) or "ios"
     if platform == "web":
-        return "/".join(parts[2:4]) or "web"
+        if "web" not in parts:
+            return "web"
+        module_index = parts.index("web") + 1
+        return "/".join(parts[module_index:module_index + 2]) or "web"
     if platform == "Agent":
-        if rel.startswith("src/main/java/"):
+        if rel.startswith("Code/backend/src/main/java/"):
             return f"backend:{module_from_path('后端', rel)}"
-        if rel.startswith("master-goods-android/"):
+        if rel.startswith("Code/frontend/android/"):
             return f"android:{module_from_path('安卓', rel)}"
-        if rel.startswith("ios/"):
+        if rel.startswith("Code/frontend/ios/"):
             return f"ios:{module_from_path('ios', rel)}"
-        if rel.startswith("web/"):
+        if rel.startswith("Code/frontend/web/"):
             return f"web:{module_from_path('web', rel)}"
     return "root"
 

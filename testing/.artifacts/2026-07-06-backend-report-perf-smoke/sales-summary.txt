@@ -1,3 +1,0 @@
-{"code":0,"message":"success","data":{"start_at":1751328000000,"end_at":1783296000000,"total_sales_amount":37.0,"total_paid_amount":12.0,"total_refund_amount":10.0,"total_unpaid_amount":25.0,"total_order_count":2},"timestamp":1783302879952}
-__TIME_TOTAL__:0.595109
-__HTTP_CODE__:200

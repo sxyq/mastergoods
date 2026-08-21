@@ -13,9 +13,9 @@
 
 当前执行依赖：
 
-- 代码真源：`src/main/java/com/zhihuiji/backend/**`
-- 测试真源：`src/test/java/com/zhihuiji/backend/**`
-- 数据真源：154 live baseline 与本地测试夹具
+- 代码真源：`Code/backend/src/main/java/com/zhihuiji/backend/**`
+- 测试真源：`Code/backend/src/test/java/com/zhihuiji/backend/**`
+- 数据真源：当前 8220 基线与本地测试夹具；154 只保留历史资料
 
 当前优先级：
 
@@ -28,7 +28,7 @@
 
 ## Environment Matrix
 
-- `Wave 0`: 本地 `./gradlew test`、`./gradlew jacocoTestReport`、测试 profile、fixture 可用性确认
+- `Wave 0`: 本地 `./Code/backend/gradlew -p Code/backend test`、`./Code/backend/gradlew -p Code/backend jacocoTestReport`、测试 profile、fixture 可用性确认
 - `Wave 1`: P0 分类执行
 - `Wave 2`: P1 分类执行
 - `Wave 3`: Agent 高复杂 fallback、stream、audit 异常分支补齐
@@ -36,10 +36,10 @@
 推荐命令：
 
 ```bash
-./gradlew test
-./gradlew jacocoTestReport
-./gradlew test --tests "com.zhihuiji.backend.application.service.v2.V2AgentAiServiceTest"
-./gradlew test --tests "com.zhihuiji.backend.api.controller.v2.V2AgentControllerTest"
+./Code/backend/gradlew -p Code/backend test
+./Code/backend/gradlew -p Code/backend jacocoTestReport
+./Code/backend/gradlew -p Code/backend test --tests "com.zhihuiji.backend.application.service.v2.V2AgentAiServiceTest"
+./Code/backend/gradlew -p Code/backend test --tests "com.zhihuiji.backend.api.controller.v2.V2AgentControllerTest"
 ```
 
 ## Execution Waves
@@ -99,7 +99,7 @@
 - 重点：`ApiResponse`、`ParseUtils`、`PaginationUtils`、状态枚举、`IdGenerator`
 - 必测分支：正常值、空值、非法值、边界值、兼容约束
 - 命名：`<ClassName>Test`
-- ledger 回填：每个 public 方法一行
+- ledger 更新：每个 public 方法一行
 - 可豁免：无业务逻辑 getter/setter
 
 ### `BE-UT-02` 认证令牌

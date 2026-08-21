@@ -27,7 +27,7 @@ image generation 现状：
 ## Environment Matrix
 
 - local backend
-- deployed 154 backend
+- current 8220 backend when explicitly enabled
 
 并发档位：
 
@@ -54,7 +54,7 @@ image generation 现状：
 
 ### Wave 0
 
-1. 校验本地与 154 环境都可访问
+1. 校验本地环境与当前 8220 环境可访问；154 只作为历史资料，不执行远程测试
 2. 校验压测工具、SSE harness、GC 日志、DB plan 能工作
 3. 校验 Agent live 数据可复用
 4. 校验 image provider 是否配置
@@ -170,14 +170,14 @@ image generation 现状：
 以下情况统一记为 `Blocked`：
 
 - 压测工具未就绪
-- 154 环境不可达
+- 当前 8220 环境不可达
 - 必要夹具缺失
 - provider 未配置
 - SSE harness 无法稳定采集
 
 ## Exit Criteria
 
-1. local 与 154 两套环境都有 Wave 1 基线。
+1. local 与当前 8220 两套环境都有 Wave 1 基线；若 8220 数据或权限不足，登记为 `Blocked`。
 2. Agent non-stream、Agent SSE、audit 写入都有 timing evidence。
 3. CRUD、report、media 在补夹具后都有基线。
 4. image generation 已完成 precheck 并正确归类为通过或 `Blocked`。

@@ -18,7 +18,7 @@ migration_source_zhihuiji/
 
 **/xcuserdata/
 
-# Ignore the compatibility links as well as the generated directories they target.
+# Ignore generated directories under Code and other project boundaries.
 **/.gradle
 **/.kotlin
 **/build
@@ -32,8 +32,10 @@ android-test-screenshots/
 docs/android-117-test-artifacts/
 12_workspace/
 
-web/node_modules/
-web/dist/
-frontend/web/node_modules/
-frontend/web/dist/
-web/vite.config.js
+# Local review outputs and generated test evidence remain on disk but are not
+# part of the source tree tracked by Git.
+testing/.artifacts/
+审查/
+
+# Codex workspace metadata is local state, not project source.
+.workbuddy/

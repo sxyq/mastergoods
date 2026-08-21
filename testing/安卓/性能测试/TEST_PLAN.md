@@ -22,7 +22,7 @@
 
 现有数据策略：
 
-- Agent 页和历史可复用 154 live 数据
+- Agent 页和历史数据先确认当前 8220 是否可用；154 只作为历史参考
 - 业务列表如需非空数据，先在 Wave 2 补最小夹具
 
 ## Environment Matrix
@@ -31,7 +31,7 @@
 - API 34 模拟器
 - 小屏配置
 - local backend
-- deployed 154 backend
+- current 8220 backend when explicitly enabled
 
 ## Execution Waves
 

@@ -5,4 +5,4 @@
 - `tmp/workspace/`：本地工作区、工具调用日志和中间资料
 - `tmp/output/`：图像生成等本地产物
 
-目录内容默认被 `.gitignore` 忽略。需要长期复用的设计资源、测试证据或脚本，应分别归档到 `docs/`、`testing/` 或 `backend/tools/`，不能直接放入这里。
+目录内容默认被 `.gitignore` 忽略。需要长期复用的设计资源、测试证据或脚本，应分别归档到 `docs/`、`testing/` 或 `Code/backend/tools/`，不能直接放入这里。
