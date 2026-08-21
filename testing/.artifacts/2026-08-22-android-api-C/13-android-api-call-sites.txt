@@ -1,0 +1,247 @@
+Code/frontend/android/data/customer/src/main/java/com/zhihuiji/data/customer/CustomerV2Repository.kt:12:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/customer/src/main/java/com/zhihuiji/data/customer/CustomerV2Repository.kt:13:import com.zhihuiji.core.network.safeApiUnitCall
+Code/frontend/android/data/customer/src/main/java/com/zhihuiji/data/customer/CustomerV2Repository.kt:56:        val remote = safeApiCall { api.customersV2(keyword, status, groupId) }
+Code/frontend/android/data/customer/src/main/java/com/zhihuiji/data/customer/CustomerV2Repository.kt:64:        val remote = safeApiCall { api.customerV2(id) }
+Code/frontend/android/data/customer/src/main/java/com/zhihuiji/data/customer/CustomerV2Repository.kt:122:        safeApiCall { api.customerGroupsV2() }
+Code/frontend/android/data/customer/src/main/java/com/zhihuiji/data/customer/CustomerV2Repository.kt:125:        safeApiCall { api.createCustomerGroupV2(request) }
+Code/frontend/android/data/customer/src/main/java/com/zhihuiji/data/customer/CustomerV2Repository.kt:128:        safeApiCall { api.updateCustomerGroupV2(id, request) }
+Code/frontend/android/data/customer/src/main/java/com/zhihuiji/data/customer/CustomerV2Repository.kt:131:        safeApiUnitCall { api.deleteCustomerGroupV2(id) }
+Code/frontend/android/data/customer/src/main/java/com/zhihuiji/data/customer/CustomerV2Repository.kt:134:        safeApiCall { api.customerContactsV2(customerId) }
+Code/frontend/android/data/customer/src/main/java/com/zhihuiji/data/customer/CustomerV2Repository.kt:137:        safeApiCall { api.createCustomerContactV2(request) }
+Code/frontend/android/data/customer/src/main/java/com/zhihuiji/data/customer/CustomerV2Repository.kt:140:        safeApiCall { api.updateCustomerContactV2(id, request) }
+Code/frontend/android/data/customer/src/main/java/com/zhihuiji/data/customer/CustomerV2Repository.kt:143:        safeApiUnitCall { api.deleteCustomerContactV2(id) }
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/SyncV2Repository.kt:38:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/SyncV2Repository.kt:80:        safeApiCall { api.syncHealthV2() }
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/SyncV2Repository.kt:83:        safeApiCall { api.syncCursorV2(clientId) }
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/SyncV2Repository.kt:86:        safeApiCall { api.acknowledgeSyncCursorV2(request) }
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/SyncV2Repository.kt:89:        safeApiCall { api.uploadSyncChangesV2(request) }
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/SyncV2Repository.kt:92:        safeApiCall { api.pullSyncChangesV2(request) }
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/SyncV2Repository.kt:368:        safeApiCall { api.importJobsV2(status) }
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/SyncV2Repository.kt:371:        safeApiCall { api.importJobV2(id) }
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/SyncV2Repository.kt:374:        safeApiCall { api.createImportJobV2(request) }
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/SyncV2Repository.kt:377:        safeApiCall { api.retryImportJobV2(id, request) }
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/SyncV2Repository.kt:380:        safeApiCall { api.cancelImportJobV2(id) }
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/InventoryV2Repository.kt:9:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/InventoryV2Repository.kt:21:    ): Result<List<InventoryLedgerEntryV2Dto>> = safeApiCall { api.inventoryLedgerV2(productId, startAt, endAt) }
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/InventoryV2Repository.kt:26:    ): Result<List<InventoryLedgerEntryV2Dto>> = safeApiCall { api.inventoryLedgerBySourceV2(sourceType, sourceId) }
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/InventoryV2Repository.kt:29:        safeApiCall { api.createInventoryLedgerEntryV2(request) }
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/InventoryV2Repository.kt:36:        safeApiCall { api.inventorySnapshotsV2(snapshotDate, startDate, endDate) }
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/InventoryV2Repository.kt:39:        safeApiCall { api.createInventorySnapshotV2(request) }
+Code/frontend/android/data/sync/src/main/java/com/zhihuiji/data/sync/InventoryV2Repository.kt:42:        safeApiCall { api.inventoryMonthlyStatsV2(year, month) }
+Code/frontend/android/core/common/src/main/java/com/zhihuiji/core/common/ResultExt.kt:8:    message = "Legacy ApiResponse helper. Prefer safeApiCall and Kotlin Result chaining in repositories.",
+Code/frontend/android/data/supplier/src/main/java/com/zhihuiji/data/supplier/SupplierV2Repository.kt:12:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/supplier/src/main/java/com/zhihuiji/data/supplier/SupplierV2Repository.kt:13:import com.zhihuiji.core.network.safeApiUnitCall
+Code/frontend/android/data/supplier/src/main/java/com/zhihuiji/data/supplier/SupplierV2Repository.kt:41:        val remote = safeApiCall { api.suppliersV2(keyword, status, groupId) }
+Code/frontend/android/data/supplier/src/main/java/com/zhihuiji/data/supplier/SupplierV2Repository.kt:49:        val remote = safeApiCall { api.supplierV2(id) }
+Code/frontend/android/data/supplier/src/main/java/com/zhihuiji/data/supplier/SupplierV2Repository.kt:107:        safeApiCall { api.supplierGroupsV2() }
+Code/frontend/android/data/supplier/src/main/java/com/zhihuiji/data/supplier/SupplierV2Repository.kt:110:        safeApiCall { api.createSupplierGroupV2(request) }
+Code/frontend/android/data/supplier/src/main/java/com/zhihuiji/data/supplier/SupplierV2Repository.kt:113:        safeApiCall { api.updateSupplierGroupV2(id, request) }
+Code/frontend/android/data/supplier/src/main/java/com/zhihuiji/data/supplier/SupplierV2Repository.kt:116:        safeApiUnitCall { api.deleteSupplierGroupV2(id) }
+Code/frontend/android/data/supplier/src/main/java/com/zhihuiji/data/supplier/SupplierV2Repository.kt:119:        safeApiCall { api.supplierContactsV2(supplierId) }
+Code/frontend/android/data/supplier/src/main/java/com/zhihuiji/data/supplier/SupplierV2Repository.kt:122:        safeApiCall { api.createSupplierContactV2(request) }
+Code/frontend/android/data/supplier/src/main/java/com/zhihuiji/data/supplier/SupplierV2Repository.kt:125:        safeApiCall { api.updateSupplierContactV2(id, request) }
+Code/frontend/android/data/supplier/src/main/java/com/zhihuiji/data/supplier/SupplierV2Repository.kt:128:        safeApiUnitCall { api.deleteSupplierContactV2(id) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/media/MediaV2Repository.kt:11:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/media/MediaV2Repository.kt:12:import com.zhihuiji.core.network.safeApiUnitCall
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/media/MediaV2Repository.kt:26:        safeApiCall { api.mediaAssetsV2() }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/media/MediaV2Repository.kt:29:        safeApiCall { api.mediaAssetV2(id) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/media/MediaV2Repository.kt:32:        safeApiCall { api.createMediaAssetV2(request) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/media/MediaV2Repository.kt:46:        return safeApiCall { api.uploadMediaAssetV2(filePart, assetTypePart) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/media/MediaV2Repository.kt:50:        safeApiUnitCall { api.deleteMediaAssetV2(id) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/media/MediaV2Repository.kt:53:        safeApiCall { api.mediaBindingsV2(targetType, targetId) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/media/MediaV2Repository.kt:56:        safeApiCall { api.createMediaBindingV2(request) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/media/MediaV2Repository.kt:59:        safeApiUnitCall { api.deleteMediaBindingV2(id) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:21:import com.zhihuiji.core.network.AgentSseClient
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:24:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:25:import com.zhihuiji.core.network.safeApiUnitCall
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:37:    private val sseClient: AgentSseClient,
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:40:    /** SSE 连接重连状态，透传自 AgentSseClient */
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:49:        safeApiCall { api.agentConversationsV2(page, limit) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:52:        safeApiCall { api.agentConversationV2(id) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:55:        safeApiCall { api.createAgentConversationV2(request) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:58:        safeApiCall { api.updateAgentConversationV2(id, request) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:61:        safeApiUnitCall { api.deleteAgentConversationV2(id) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:70:        safeApiCall { api.agentMessagesV2(conversationId, page, limit) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:75:    ): Result<AgentMessageDto> = safeApiCall { api.createAgentMessageV2(conversationId, request) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:81:        safeApiCall { api.agentRunTracesV2(conversationId, limit) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:90:        safeApiCall { api.agentDraftsV2(conversationId, page, limit) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:93:        safeApiCall { api.createAgentDraftV2(request) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:96:        safeApiCall { api.confirmAgentDraftV2(id) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:99:        safeApiCall { api.cancelAgentDraftV2(id) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:102:        safeApiCall { api.updateAgentDraftV2(id, request) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:105:        safeApiUnitCall { api.deleteAgentDraftV2(id) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:110:        safeApiCall { api.agentWorkbenchV2() }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:113:        safeApiCall { api.agentTasksV2() }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:116:        safeApiCall { api.agentNotificationsV2(unreadOnly) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:119:        safeApiCall { api.markAgentNotificationReadV2(id) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:124:        safeApiCall { api.agentChatV2(request) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:127:        safeApiCall { api.agentGenerateImageV2(request) }
+Code/frontend/android/data/agent/src/main/java/com/zhihuiji/data/agent/conversation/AgentV2Repository.kt:130:        safeApiCall { api.cancelAgentRunV2(runId) }
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:7:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:22:        safeApiCall { api.login(LoginRequest(phone, password)) }.onSuccess { saveSession(it) }
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:25:        safeApiCall { api.register(RegisterRequest(phone, password, verifyCode)) }.onSuccess { saveSession(it) }
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:29:        safeApiCall { api.refresh(RefreshRequest(refreshToken)) }.onSuccess { saveSession(it) }
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:37:            api.logout()
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:45:        return safeApiCall { api.me() }
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:53:        return safeApiCall { api.adminUsers(keyword = keyword, page = page, size = size) }
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:62:        return safeApiCall {
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:63:            api.createAdminUser(
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:75:        return safeApiCall { api.currentStore() }
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:79:        return safeApiCall { api.storeMembers() }
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:90:        return safeApiCall {
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:91:            api.createStoreMember(
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:113:        return safeApiCall {
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:114:            api.updateStoreMember(
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:135:        return safeApiCall {
+Code/frontend/android/data/auth/src/main/java/com/zhihuiji/data/auth/AuthRepository.kt:136:            api.updateAdminUser(
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceRepository.kt:8:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceRepository.kt:30:        val result = safeApiCall {
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceRepository.kt:31:            api.financeRecordsV2(keyword = filter.keyword, type = filter.type, createdAfter = filter.createdAfter, createdBefore = filter.createdBefore)
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceRepository.kt:39:        safeApiCall { api.createFinanceRecordV2(request) }.also { result ->
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:16:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:17:import com.zhihuiji.core.network.safeApiUnitCall
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:63:        val remote = safeApiCall { api.productsV2(keyword, status, categoryId, unitId) }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:71:        safeApiCall { api.lowStockProductsV2(size) }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:74:        val remote = safeApiCall { api.productV2(id) }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:135:        safeApiCall { api.productCategoriesV2() }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:138:        safeApiCall { api.createProductCategoryV2(request) }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:141:        safeApiCall { api.updateProductCategoryV2(id, request) }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:144:        safeApiUnitCall { api.deleteProductCategoryV2(id) }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:147:        safeApiCall { api.productUnitsV2() }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:150:        safeApiCall { api.createProductUnitV2(request) }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:153:        safeApiCall { api.updateProductUnitV2(id, request) }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:156:        safeApiUnitCall { api.deleteProductUnitV2(id) }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:159:        safeApiCall { api.productPriceLevelsV2() }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:162:        safeApiCall { api.createProductPriceLevelV2(request) }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:165:        safeApiCall { api.updateProductPriceLevelV2(id, request) }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:168:        safeApiUnitCall { api.deleteProductPriceLevelV2(id) }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:171:        safeApiCall { api.productSupplierRelationsV2(productId) }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:174:        safeApiCall { api.createProductSupplierRelationV2(request) }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:177:        safeApiCall { api.updateProductSupplierRelationV2(id, request) }
+Code/frontend/android/data/product/src/main/java/com/zhihuiji/data/product/ProductV2Repository.kt:180:        safeApiUnitCall { api.deleteProductSupplierRelationV2(id) }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceV2Repository.kt:11:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceV2Repository.kt:12:import com.zhihuiji.core.network.safeApiUnitCall
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceV2Repository.kt:21:        safeApiCall { api.accountsV2() }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceV2Repository.kt:24:        safeApiCall { api.accountV2(id) }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceV2Repository.kt:27:        safeApiCall { api.createAccountV2(request) }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceV2Repository.kt:30:        safeApiCall { api.updateAccountV2(id, request) }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceV2Repository.kt:33:        safeApiUnitCall { api.deleteAccountV2(id) }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceV2Repository.kt:36:        safeApiCall { api.accountTransfersV2() }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceV2Repository.kt:39:        safeApiCall { api.accountTransferV2(id) }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceV2Repository.kt:42:        safeApiCall { api.createAccountTransferV2(request) }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceV2Repository.kt:48:    ): Result<List<BillFundLinkV2Dto>> = safeApiCall { api.billFundLinksV2(billType, billId, accountId) }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceV2Repository.kt:51:        safeApiCall { api.createBillFundLinkV2(request) }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/FinanceV2Repository.kt:54:        safeApiUnitCall { api.deleteBillFundLinkV2(id) }
+Code/frontend/android/data/agent/src/test/java/com/zhihuiji/data/agent/conversation/AgentV2RepositoryTest.kt:15:import com.zhihuiji.core.network.AgentSseClient
+Code/frontend/android/data/agent/src/test/java/com/zhihuiji/data/agent/conversation/AgentV2RepositoryTest.kt:27:    private val fakeSseClient = AgentSseClient(
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/AccountV2Repository.kt:9:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/AccountV2Repository.kt:10:import com.zhihuiji.core.network.safeApiUnitCall
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/AccountV2Repository.kt:16: * 复用 [ZhihuijiV2Api] 的 v2 端点，统一走 safeApiCall/safeApiUnitCall 错误归一。
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/AccountV2Repository.kt:23:        safeApiCall { api.accountsV2() }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/AccountV2Repository.kt:26:        safeApiCall { api.accountV2(id) }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/AccountV2Repository.kt:29:        safeApiCall { api.createAccountV2(request) }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/AccountV2Repository.kt:32:        safeApiCall { api.updateAccountV2(id, request) }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/AccountV2Repository.kt:35:        safeApiUnitCall { api.deleteAccountV2(id) }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/AccountV2Repository.kt:38:        safeApiCall { api.accountTransfersV2() }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/AccountV2Repository.kt:41:        safeApiCall { api.accountTransferV2(id) }
+Code/frontend/android/data/finance/src/main/java/com/zhihuiji/data/finance/AccountV2Repository.kt:44:        safeApiCall { api.createAccountTransferV2(request) }
+Code/frontend/android/data/report/src/main/java/com/zhihuiji/data/report/ReportRepository.kt:5:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/report/src/main/java/com/zhihuiji/data/report/ReportRepository.kt:13:    suspend fun salesSummary(startAt: Long, endAt: Long) = safeApiCall { api.salesSummaryV2(startAt, endAt) }
+Code/frontend/android/data/report/src/main/java/com/zhihuiji/data/report/ReportRepository.kt:15:        safeApiCall { api.salesTrendV2(startAt, endAt, bucket) }
+Code/frontend/android/data/report/src/main/java/com/zhihuiji/data/report/ReportRepository.kt:16:    suspend fun profitSummary(startAt: Long, endAt: Long) = safeApiCall { api.profitSummaryV2(startAt, endAt) }
+Code/frontend/android/data/report/src/main/java/com/zhihuiji/data/report/ReportRepository.kt:17:    suspend fun refundRecords(startAt: Long, endAt: Long, limit: Int = 10) = safeApiCall { api.refundRecordsV2(startAt, endAt, limit) }
+Code/frontend/android/data/report/src/main/java/com/zhihuiji/data/report/ReportRepository.kt:18:    suspend fun stockOutRecords(startAt: Long, endAt: Long, limit: Int = 10) = safeApiCall { api.stockOutRecordsV2(startAt, endAt, limit) }
+Code/frontend/android/data/report/src/main/java/com/zhihuiji/data/report/ReportRepository.kt:19:    suspend fun topProducts(startAt: Long, endAt: Long, limit: Int = 10) = safeApiCall { api.topProductsV2(startAt, endAt, limit) }
+Code/frontend/android/data/report/src/main/java/com/zhihuiji/data/report/ReportRepository.kt:20:    suspend fun profitByProducts(startAt: Long, endAt: Long, limit: Int = 10) = safeApiCall { api.profitByProductsV2(startAt, endAt, limit) }
+Code/frontend/android/data/report/src/main/java/com/zhihuiji/data/report/ReportRepository.kt:21:    suspend fun profitByCustomers(startAt: Long, endAt: Long, limit: Int = 10) = safeApiCall { api.profitByCustomersV2(startAt, endAt, limit) }
+Code/frontend/android/data/report/src/main/java/com/zhihuiji/data/report/ReportRepository.kt:22:    suspend fun inventoryFlow(startAt: Long, endAt: Long, limit: Int = 10) = safeApiCall { api.inventoryFlowV2(startAt, endAt, limit) }
+Code/frontend/android/data/report/src/main/java/com/zhihuiji/data/report/ReportRepository.kt:23:    suspend fun customerSales(startAt: Long, endAt: Long, limit: Int = 10) = safeApiCall { api.customerSalesV2(startAt, endAt, limit) }
+Code/frontend/android/data/report/src/main/java/com/zhihuiji/data/report/ReportRepository.kt:24:    suspend fun topReceivableCustomers(limit: Int = 10) = safeApiCall { api.topReceivableCustomersV2(limit) }
+Code/frontend/android/data/report/src/main/java/com/zhihuiji/data/report/ReportRepository.kt:25:    suspend fun lowStockProducts(limit: Int = 10) = safeApiCall { api.lowStockProductsReportV2(limit) }
+Code/frontend/android/data/report/src/main/java/com/zhihuiji/data/report/ReportRepository.kt:26:    suspend fun reconciliationSummary(startAt: Long, endAt: Long) = safeApiCall { api.reconciliationSummaryV2(startAt, endAt) }
+Code/frontend/android/data/report/src/main/java/com/zhihuiji/data/report/ReportRepository.kt:27:    suspend fun cashflowSummary(startAt: Long, endAt: Long) = safeApiCall { api.cashflowSummaryV2(startAt, endAt) }
+Code/frontend/android/core/network/src/main/java/com/zhihuiji/core/network/SafeApiCall.kt:10:suspend fun <T> safeApiCall(block: suspend () -> ApiResponse<T>): Result<T> =
+Code/frontend/android/core/network/src/main/java/com/zhihuiji/core/network/SafeApiCall.kt:15:suspend fun safeApiUnitCall(block: suspend () -> ApiResponse<*>): Result<Unit> =
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PayOrderV2Repository.kt:8:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PayOrderV2Repository.kt:17:        safeApiCall {
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PayOrderV2Repository.kt:18:            api.payOrdersV2(
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PayOrderV2Repository.kt:27:        safeApiCall { api.payOrderV2(id) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PayOrderV2Repository.kt:30:        safeApiCall { api.createPayOrderV2(request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PayOrderV2Repository.kt:33:        safeApiCall { api.updatePayOrderStatusV2(id, StatusRequest(status)) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SalesReturnV2Repository.kt:10:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SalesReturnV2Repository.kt:19:        safeApiCall { api.salesReturnsV2(filter.keyword, filter.status) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SalesReturnV2Repository.kt:22:        safeApiCall { api.salesReturnsByOrderV2(orderId) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SalesReturnV2Repository.kt:25:        safeApiCall { api.salesReturnV2(id) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SalesReturnV2Repository.kt:28:        safeApiCall { api.createSalesReturnV2(request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SalesReturnV2Repository.kt:31:        safeApiCall { api.updateSalesReturnDraftV2(id, request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SalesReturnV2Repository.kt:34:        safeApiCall { api.confirmSalesReturnV2(id, request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SalesReturnV2Repository.kt:37:        safeApiCall { api.addSalesReturnRefundV2(id, request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SalesReturnV2Repository.kt:40:        safeApiCall { api.cancelSalesReturnV2(id) }
+Code/frontend/android/core/network/src/main/java/com/zhihuiji/core/network/AgentSseClient.kt:55:class AgentSseClient(
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SaleOrderV2Repository.kt:17:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SaleOrderV2Repository.kt:18:import com.zhihuiji.core.network.safeApiUnitCall
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SaleOrderV2Repository.kt:51:        return safeApiCall {
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SaleOrderV2Repository.kt:52:            api.saleOrdersV2(
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SaleOrderV2Repository.kt:74:        return safeApiCall { api.saleOrderV2(id) }.also { result ->
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SaleOrderV2Repository.kt:80:        safeApiCall { api.createSaleOrderV2(request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SaleOrderV2Repository.kt:84:        safeApiCall { api.updateSaleOrderDraftV2(id, request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SaleOrderV2Repository.kt:88:        safeApiCall { api.confirmSaleOrderV2(id, request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SaleOrderV2Repository.kt:95:        safeApiCall { api.addSaleOrderPaymentV2(id, request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SaleOrderV2Repository.kt:99:        safeApiCall { api.saleOrderPaymentsV2(id) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SaleOrderV2Repository.kt:102:        val response = api.saleOrderReceiptPdfV2(id)
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SaleOrderV2Repository.kt:120:        safeApiUnitCall { api.updateSaleOrderStatusV2(id, StatusRequest(status)) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/SaleOrderV2Repository.kt:127:        safeApiCall { api.cancelSaleOrderV2(id) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseOrderV2Repository.kt:7:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseOrderV2Repository.kt:16:        safeApiCall { api.purchaseOrdersV2(filter.keyword, filter.status) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseOrderV2Repository.kt:19:        safeApiCall { api.purchaseOrderV2(id) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseOrderV2Repository.kt:22:        safeApiCall { api.createPurchaseOrderV2(request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseOrderV2Repository.kt:25:        safeApiCall { api.updatePurchaseOrderV2(id, request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseOrderV2Repository.kt:28:        safeApiCall { api.deletePurchaseOrderV2(id) }
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/AgentSseClientCancellationTest.kt:29:class AgentSseClientCancellationTest {
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/AgentSseClientCancellationTest.kt:37:            val client = AgentSseClient(
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/AgentSseClientCancellationTest.kt:67:            val client = AgentSseClient(
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/AgentSseClientCancellationTest.kt:165:        val client = AgentSseClient(
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/AgentSseClientCancellationTest.kt:189:        val client = AgentSseClient(
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/AgentSseClientCancellationTest.kt:210:    private fun clientForBody(body: String): AgentSseClient =
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/AgentSseClientCancellationTest.kt:211:        AgentSseClient(
+Code/frontend/android/core/network/src/main/java/com/zhihuiji/core/network/NetworkModule.kt:167:    fun provideAgentSseClient(
+Code/frontend/android/core/network/src/main/java/com/zhihuiji/core/network/NetworkModule.kt:171:    ): AgentSseClient = AgentSseClient(
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReceiptV2Repository.kt:8:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReceiptV2Repository.kt:17:        safeApiCall { api.purchaseReceiptsV2(filter.keyword, filter.status) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReceiptV2Repository.kt:20:        safeApiCall { api.purchaseReceiptsByOrderV2(orderId) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReceiptV2Repository.kt:23:        safeApiCall { api.purchaseReceiptV2(id) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReceiptV2Repository.kt:26:        safeApiCall { api.createPurchaseReceiptV2(request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReceiptV2Repository.kt:29:        safeApiCall { api.updatePurchaseReceiptDraftV2(id, request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReceiptV2Repository.kt:32:        safeApiCall { api.confirmPurchaseReceiptV2(id) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReceiptV2Repository.kt:35:        safeApiCall { api.cancelPurchaseReceiptV2(id) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReturnV2Repository.kt:10:import com.zhihuiji.core.network.safeApiCall
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReturnV2Repository.kt:19:        safeApiCall { api.purchaseReturnsV2(filter.keyword, filter.status) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReturnV2Repository.kt:22:        safeApiCall { api.purchaseReturnsByOrderV2(orderId) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReturnV2Repository.kt:25:        safeApiCall { api.purchaseReturnV2(id) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReturnV2Repository.kt:28:        safeApiCall { api.createPurchaseReturnV2(request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReturnV2Repository.kt:31:        safeApiCall { api.updatePurchaseReturnDraftV2(id, request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReturnV2Repository.kt:34:        safeApiCall { api.confirmPurchaseReturnV2(id, request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReturnV2Repository.kt:37:        safeApiCall { api.addPurchaseReturnRefundV2(id, request) }
+Code/frontend/android/data/order/src/main/java/com/zhihuiji/data/order/PurchaseReturnV2Repository.kt:40:        safeApiCall { api.cancelPurchaseReturnV2(id) }
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:13: * Tests for safeApiCall and safeApiUnitCall behavior.
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:14: * Verifies the critical distinction: safeApiCall requires data != null,
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:15: * while safeApiUnitCall only checks code == 0.
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:20:    fun safeApiCall_succeedsWhenDataIsNonNull() = runBlocking {
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:22:        val result = safeApiCall { response }
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:28:    fun safeApiCall_failsWhenDataIsNullEvenIfCodeIsZero() = runBlocking {
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:30:        val result = safeApiCall { response }
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:35:    fun safeApiCall_failsWhenCodeIsNonZero() = runBlocking {
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:37:        val result = safeApiCall { response }
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:42:    fun safeApiUnitCall_succeedsWhenCodeIsZeroEvenIfDataIsNull() = runBlocking {
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:44:        val result = safeApiUnitCall { response }
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:50:    fun safeApiUnitCall_failsWhenCodeIsNonZero() = runBlocking {
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:52:        val result = safeApiUnitCall { response }
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:57:    fun safeApiUnitCall_succeedsForDeleteApiResponse() = runBlocking {
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:60:        val result = safeApiUnitCall { response }
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:61:        assertTrue("safeApiUnitCall should succeed for ApiResponse<Unit> with null data", result.isSuccess)
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:65:    fun safeApiCall_wouldFailForDeleteApiResponse() = runBlocking {
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:66:        // Demonstrates why safeApiUnitCall is required for delete operations
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:68:        val result = safeApiCall { response }
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:69:        assertTrue("safeApiCall should fail for ApiResponse<Unit> with null data (this is why safeApiUnitCall exists)", result.isFailure)
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:73:    fun safeApiCall_mapsForbiddenToLoginStateMessage() = runBlocking {
+Code/frontend/android/core/network/src/test/java/com/zhihuiji/core/network/SafeApiCallBehaviorTest.kt:74:        val result = safeApiCall<String> {

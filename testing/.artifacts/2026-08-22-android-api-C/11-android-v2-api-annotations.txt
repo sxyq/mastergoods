@@ -1,0 +1,328 @@
+120:    @GET("v2/products")
+121:    suspend fun productsV2(
+128:    @GET("v2/products/low-stock")
+129:    suspend fun lowStockProductsV2(
+133:    @GET("v2/products/{id}")
+134:    suspend fun productV2(@Path("id") id: Long): ApiResponse<ProductV2Dto>
+136:    @POST("v2/products")
+137:    suspend fun createProductV2(@Body body: ProductWriteV2Request): ApiResponse<ProductV2Dto>
+139:    @PUT("v2/products/{id}")
+140:    suspend fun updateProductV2(@Path("id") id: Long, @Body body: ProductWriteV2Request): ApiResponse<ProductV2Dto>
+142:    @DELETE("v2/products/{id}")
+143:    suspend fun deleteProductV2(@Path("id") id: Long): ApiResponse<Unit>
+145:    @GET("v2/product-categories")
+146:    suspend fun productCategoriesV2(): ApiResponse<List<ProductCategoryV2Dto>>
+148:    @POST("v2/product-categories")
+149:    suspend fun createProductCategoryV2(@Body body: ProductCategoryWriteV2Request): ApiResponse<ProductCategoryV2Dto>
+151:    @PUT("v2/product-categories/{id}")
+152:    suspend fun updateProductCategoryV2(@Path("id") id: Long, @Body body: ProductCategoryWriteV2Request): ApiResponse<ProductCategoryV2Dto>
+154:    @DELETE("v2/product-categories/{id}")
+155:    suspend fun deleteProductCategoryV2(@Path("id") id: Long): ApiResponse<Unit>
+157:    @GET("v2/product-units")
+158:    suspend fun productUnitsV2(): ApiResponse<List<ProductUnitV2Dto>>
+160:    @POST("v2/product-units")
+161:    suspend fun createProductUnitV2(@Body body: ProductUnitWriteV2Request): ApiResponse<ProductUnitV2Dto>
+163:    @PUT("v2/product-units/{id}")
+164:    suspend fun updateProductUnitV2(@Path("id") id: Long, @Body body: ProductUnitWriteV2Request): ApiResponse<ProductUnitV2Dto>
+166:    @DELETE("v2/product-units/{id}")
+167:    suspend fun deleteProductUnitV2(@Path("id") id: Long): ApiResponse<Unit>
+169:    @GET("v2/product-price-levels")
+170:    suspend fun productPriceLevelsV2(): ApiResponse<List<ProductPriceLevelV2Dto>>
+172:    @POST("v2/product-price-levels")
+173:    suspend fun createProductPriceLevelV2(@Body body: ProductPriceLevelWriteV2Request): ApiResponse<ProductPriceLevelV2Dto>
+175:    @PUT("v2/product-price-levels/{id}")
+176:    suspend fun updateProductPriceLevelV2(
+181:    @DELETE("v2/product-price-levels/{id}")
+182:    suspend fun deleteProductPriceLevelV2(@Path("id") id: Long): ApiResponse<Unit>
+184:    @GET("v2/product-supplier-relations")
+185:    suspend fun productSupplierRelationsV2(
+189:    @POST("v2/product-supplier-relations")
+190:    suspend fun createProductSupplierRelationV2(
+194:    @PUT("v2/product-supplier-relations/{id}")
+195:    suspend fun updateProductSupplierRelationV2(
+200:    @DELETE("v2/product-supplier-relations/{id}")
+201:    suspend fun deleteProductSupplierRelationV2(@Path("id") id: Long): ApiResponse<Unit>
+203:    @GET("v2/customers")
+204:    suspend fun customersV2(
+210:    @GET("v2/customers/{id}")
+211:    suspend fun customerV2(@Path("id") id: Long): ApiResponse<CustomerV2Dto>
+213:    @POST("v2/customers")
+214:    suspend fun createCustomerV2(@Body body: CustomerWriteV2Request): ApiResponse<CustomerV2Dto>
+216:    @PUT("v2/customers/{id}")
+217:    suspend fun updateCustomerV2(@Path("id") id: Long, @Body body: CustomerWriteV2Request): ApiResponse<CustomerV2Dto>
+219:    @DELETE("v2/customers/{id}")
+220:    suspend fun deleteCustomerV2(@Path("id") id: Long): ApiResponse<Unit>
+222:    @GET("v2/customer-groups")
+223:    suspend fun customerGroupsV2(): ApiResponse<List<PartnerGroupV2Dto>>
+225:    @POST("v2/customer-groups")
+226:    suspend fun createCustomerGroupV2(@Body body: PartnerGroupWriteV2Request): ApiResponse<PartnerGroupV2Dto>
+228:    @PUT("v2/customer-groups/{id}")
+229:    suspend fun updateCustomerGroupV2(@Path("id") id: Long, @Body body: PartnerGroupWriteV2Request): ApiResponse<PartnerGroupV2Dto>
+231:    @DELETE("v2/customer-groups/{id}")
+232:    suspend fun deleteCustomerGroupV2(@Path("id") id: Long): ApiResponse<Unit>
+234:    @GET("v2/customer-contacts")
+235:    suspend fun customerContactsV2(@Query("customer_id") customerId: Long): ApiResponse<List<PartnerContactV2Dto>>
+237:    @POST("v2/customer-contacts")
+238:    suspend fun createCustomerContactV2(@Body body: PartnerContactWriteV2Request): ApiResponse<PartnerContactV2Dto>
+240:    @PUT("v2/customer-contacts/{id}")
+241:    suspend fun updateCustomerContactV2(@Path("id") id: Long, @Body body: PartnerContactWriteV2Request): ApiResponse<PartnerContactV2Dto>
+243:    @DELETE("v2/customer-contacts/{id}")
+244:    suspend fun deleteCustomerContactV2(@Path("id") id: Long): ApiResponse<Unit>
+246:    @GET("v2/suppliers")
+247:    suspend fun suppliersV2(
+253:    @GET("v2/suppliers/{id}")
+254:    suspend fun supplierV2(@Path("id") id: Long): ApiResponse<SupplierV2Dto>
+256:    @POST("v2/suppliers")
+257:    suspend fun createSupplierV2(@Body body: SupplierWriteV2Request): ApiResponse<SupplierV2Dto>
+259:    @PUT("v2/suppliers/{id}")
+260:    suspend fun updateSupplierV2(@Path("id") id: Long, @Body body: SupplierWriteV2Request): ApiResponse<SupplierV2Dto>
+262:    @DELETE("v2/suppliers/{id}")
+263:    suspend fun deleteSupplierV2(@Path("id") id: Long): ApiResponse<Unit>
+265:    @GET("v2/supplier-groups")
+266:    suspend fun supplierGroupsV2(): ApiResponse<List<PartnerGroupV2Dto>>
+268:    @POST("v2/supplier-groups")
+269:    suspend fun createSupplierGroupV2(@Body body: PartnerGroupWriteV2Request): ApiResponse<PartnerGroupV2Dto>
+271:    @PUT("v2/supplier-groups/{id}")
+272:    suspend fun updateSupplierGroupV2(@Path("id") id: Long, @Body body: PartnerGroupWriteV2Request): ApiResponse<PartnerGroupV2Dto>
+274:    @DELETE("v2/supplier-groups/{id}")
+275:    suspend fun deleteSupplierGroupV2(@Path("id") id: Long): ApiResponse<Unit>
+277:    @GET("v2/supplier-contacts")
+278:    suspend fun supplierContactsV2(@Query("supplier_id") supplierId: Long): ApiResponse<List<PartnerContactV2Dto>>
+280:    @POST("v2/supplier-contacts")
+281:    suspend fun createSupplierContactV2(@Body body: PartnerContactWriteV2Request): ApiResponse<PartnerContactV2Dto>
+283:    @PUT("v2/supplier-contacts/{id}")
+284:    suspend fun updateSupplierContactV2(@Path("id") id: Long, @Body body: PartnerContactWriteV2Request): ApiResponse<PartnerContactV2Dto>
+286:    @DELETE("v2/supplier-contacts/{id}")
+287:    suspend fun deleteSupplierContactV2(@Path("id") id: Long): ApiResponse<Unit>
+289:    @GET("v2/sale-orders")
+290:    suspend fun saleOrdersV2(
+301:    @GET("v2/sale-orders/{id}")
+302:    suspend fun saleOrderV2(@Path("id") id: Long): ApiResponse<SaleOrderV2Dto>
+304:    @POST("v2/sale-orders")
+305:    suspend fun createSaleOrderV2(@Body body: CreateSaleOrderV2Request): ApiResponse<SaleOrderV2Dto>
+307:    @PUT("v2/sale-orders/{id}")
+308:    suspend fun updateSaleOrderDraftV2(@Path("id") id: Long, @Body body: UpdateSaleDraftV2Request): ApiResponse<SaleOrderV2Dto>
+310:    @PUT("v2/sale-orders/{id}/draft")
+311:    suspend fun updateSaleOrderDraftAliasV2(@Path("id") id: Long, @Body body: UpdateSaleDraftV2Request): ApiResponse<SaleOrderV2Dto>
+313:    @PUT("v2/sale-orders/{id}/confirm")
+314:    suspend fun confirmSaleOrderV2(@Path("id") id: Long, @Body body: ConfirmSaleOrderV2Request): ApiResponse<SaleOrderV2Dto>
+316:    @POST("v2/sale-orders/{id}/payments")
+317:    suspend fun addSaleOrderPaymentV2(@Path("id") id: Long, @Body body: SalePaymentV2Request): ApiResponse<SalePaymentV2Dto>
+319:    @GET("v2/sale-orders/{id}/payments")
+320:    suspend fun saleOrderPaymentsV2(@Path("id") id: Long): ApiResponse<List<SalePaymentV2Dto>>
+322:    @Streaming
+323:    @GET("v2/sale-orders/{id}/receipt.pdf")
+324:    suspend fun saleOrderReceiptPdfV2(@Path("id") id: Long): Response<ResponseBody>
+326:    @PUT("v2/sale-orders/{id}/status")
+327:    suspend fun updateSaleOrderStatusV2(@Path("id") id: Long, @Body body: com.zhihuiji.core.model.StatusRequest): ApiResponse<Unit>
+329:    @PUT("v2/sale-orders/{id}/cancel")
+330:    suspend fun cancelSaleOrderV2(@Path("id") id: Long): ApiResponse<SaleOrderV2Dto>
+332:    @GET("v2/sales-returns")
+333:    suspend fun salesReturnsV2(
+338:    @GET("v2/sales-returns/{id}")
+339:    suspend fun salesReturnV2(@Path("id") id: Long): ApiResponse<SalesReturnV2Dto>
+341:    @GET("v2/sales-returns/by-order/{orderId}")
+342:    suspend fun salesReturnsByOrderV2(@Path("orderId") orderId: Long): ApiResponse<List<SalesReturnV2Dto>>
+344:    @POST("v2/sales-returns")
+345:    suspend fun createSalesReturnV2(@Body body: CreateSalesReturnV2Request): ApiResponse<SalesReturnV2Dto>
+347:    @PUT("v2/sales-returns/{id}/draft")
+348:    suspend fun updateSalesReturnDraftV2(@Path("id") id: Long, @Body body: UpdateSalesReturnDraftV2Request): ApiResponse<SalesReturnV2Dto>
+350:    @PUT("v2/sales-returns/{id}/confirm")
+351:    suspend fun confirmSalesReturnV2(@Path("id") id: Long, @Body body: ConfirmSalesReturnV2Request): ApiResponse<SalesReturnV2Dto>
+353:    @POST("v2/sales-returns/{id}/refunds")
+354:    suspend fun addSalesReturnRefundV2(@Path("id") id: Long, @Body body: SalesReturnRefundV2Request): ApiResponse<SalesReturnV2Dto>
+356:    @PUT("v2/sales-returns/{id}/cancel")
+357:    suspend fun cancelSalesReturnV2(@Path("id") id: Long): ApiResponse<SalesReturnV2Dto>
+359:    @GET("v2/purchase-orders")
+360:    suspend fun purchaseOrdersV2(
+365:    @GET("v2/purchase-orders/{id}")
+366:    suspend fun purchaseOrderV2(@Path("id") id: Long): ApiResponse<PurchaseOrderV2Dto>
+368:    @POST("v2/purchase-orders")
+369:    suspend fun createPurchaseOrderV2(@Body body: CreatePurchaseOrderV2Request): ApiResponse<PurchaseOrderV2Dto>
+371:    @PUT("v2/purchase-orders/{id}")
+372:    suspend fun updatePurchaseOrderV2(@Path("id") id: Long, @Body body: CreatePurchaseOrderV2Request): ApiResponse<PurchaseOrderV2Dto>
+374:    @DELETE("v2/purchase-orders/{id}")
+375:    suspend fun deletePurchaseOrderV2(@Path("id") id: Long): ApiResponse<Unit>
+377:    @GET("v2/purchase-receipts")
+378:    suspend fun purchaseReceiptsV2(
+383:    @GET("v2/purchase-receipts/{id}")
+384:    suspend fun purchaseReceiptV2(@Path("id") id: Long): ApiResponse<PurchaseReceiptV2Dto>
+386:    @GET("v2/purchase-receipts/by-order/{orderId}")
+387:    suspend fun purchaseReceiptsByOrderV2(@Path("orderId") orderId: Long): ApiResponse<List<PurchaseReceiptV2Dto>>
+389:    @POST("v2/purchase-receipts")
+390:    suspend fun createPurchaseReceiptV2(@Body body: CreatePurchaseReceiptV2Request): ApiResponse<PurchaseReceiptV2Dto>
+392:    @PUT("v2/purchase-receipts/{id}/draft")
+393:    suspend fun updatePurchaseReceiptDraftV2(
+398:    @PUT("v2/purchase-receipts/{id}/confirm")
+399:    suspend fun confirmPurchaseReceiptV2(@Path("id") id: Long): ApiResponse<PurchaseReceiptV2Dto>
+401:    @PUT("v2/purchase-receipts/{id}/cancel")
+402:    suspend fun cancelPurchaseReceiptV2(@Path("id") id: Long): ApiResponse<PurchaseReceiptV2Dto>
+404:    @GET("v2/purchase-returns")
+405:    suspend fun purchaseReturnsV2(
+410:    @GET("v2/purchase-returns/{id}")
+411:    suspend fun purchaseReturnV2(@Path("id") id: Long): ApiResponse<PurchaseReturnV2Dto>
+413:    @GET("v2/purchase-returns/by-order/{orderId}")
+414:    suspend fun purchaseReturnsByOrderV2(@Path("orderId") orderId: Long): ApiResponse<List<PurchaseReturnV2Dto>>
+416:    @POST("v2/purchase-returns")
+417:    suspend fun createPurchaseReturnV2(@Body body: CreatePurchaseReturnV2Request): ApiResponse<PurchaseReturnV2Dto>
+419:    @PUT("v2/purchase-returns/{id}/draft")
+420:    suspend fun updatePurchaseReturnDraftV2(
+425:    @PUT("v2/purchase-returns/{id}/confirm")
+426:    suspend fun confirmPurchaseReturnV2(
+431:    @POST("v2/purchase-returns/{id}/refunds")
+432:    suspend fun addPurchaseReturnRefundV2(
+437:    @PUT("v2/purchase-returns/{id}/cancel")
+438:    suspend fun cancelPurchaseReturnV2(@Path("id") id: Long): ApiResponse<PurchaseReturnV2Dto>
+440:    @GET("v2/pay-orders")
+441:    suspend fun payOrdersV2(
+448:    @GET("v2/pay-orders/{id}")
+449:    suspend fun payOrderV2(@Path("id") id: Long): ApiResponse<PayOrderV2Dto>
+451:    @POST("v2/pay-orders")
+452:    suspend fun createPayOrderV2(@Body body: CreatePayOrderV2Request): ApiResponse<PayOrderV2Dto>
+454:    @PUT("v2/pay-orders/{id}/status")
+455:    suspend fun updatePayOrderStatusV2(@Path("id") id: Long, @Body body: com.zhihuiji.core.model.StatusRequest): ApiResponse<PayOrderV2Dto>
+457:    @GET("v2/accounts")
+458:    suspend fun accountsV2(): ApiResponse<List<AccountV2Dto>>
+460:    @GET("v2/accounts/{id}")
+461:    suspend fun accountV2(@Path("id") id: Long): ApiResponse<AccountV2Dto>
+463:    @POST("v2/accounts")
+464:    suspend fun createAccountV2(@Body body: AccountCreateV2Request): ApiResponse<AccountV2Dto>
+466:    @PUT("v2/accounts/{id}")
+467:    suspend fun updateAccountV2(@Path("id") id: Long, @Body body: AccountUpdateV2Request): ApiResponse<AccountV2Dto>
+469:    @DELETE("v2/accounts/{id}")
+470:    suspend fun deleteAccountV2(@Path("id") id: Long): ApiResponse<Unit>
+472:    @GET("v2/account-transfers")
+473:    suspend fun accountTransfersV2(): ApiResponse<List<AccountTransferV2Dto>>
+475:    @GET("v2/account-transfers/{id}")
+476:    suspend fun accountTransferV2(@Path("id") id: Long): ApiResponse<AccountTransferV2Dto>
+478:    @POST("v2/account-transfers")
+479:    suspend fun createAccountTransferV2(@Body body: AccountTransferCreateV2Request): ApiResponse<AccountTransferV2Dto>
+482:    @GET("v2/bill-fund-links")
+483:    suspend fun billFundLinksV2(
+489:    @POST("v2/bill-fund-links")
+490:    suspend fun createBillFundLinkV2(@Body body: BillFundLinkCreateV2Request): ApiResponse<BillFundLinkV2Dto>
+492:    @DELETE("v2/bill-fund-links/{id}")
+493:    suspend fun deleteBillFundLinkV2(@Path("id") id: Long): ApiResponse<Unit>
+496:    @GET("v2/inventory/ledger")
+497:    suspend fun inventoryLedgerV2(
+503:    @GET("v2/inventory/ledger/by-source")
+504:    suspend fun inventoryLedgerBySourceV2(
+509:    @POST("v2/inventory/ledger")
+510:    suspend fun createInventoryLedgerEntryV2(@Body body: CreateInventoryLedgerEntryV2Request): ApiResponse<InventoryLedgerEntryV2Dto>
+513:    @GET("v2/inventory/snapshots")
+514:    suspend fun inventorySnapshotsV2(
+520:    @POST("v2/inventory/snapshots")
+521:    suspend fun createInventorySnapshotV2(@Body body: CreateInventorySnapshotV2Request): ApiResponse<InventorySnapshotV2Dto>
+523:    @GET("v2/inventory/monthly-stats")
+524:    suspend fun inventoryMonthlyStatsV2(
+529:    @GET("v2/sync/health")
+530:    suspend fun syncHealthV2(): ApiResponse<SyncHealthV2Dto>
+532:    @GET("v2/sync/cursor/{clientId}")
+533:    suspend fun syncCursorV2(@Path("clientId") clientId: String): ApiResponse<SyncCursorV2Dto>
+535:    @POST("v2/sync/cursor/ack")
+536:    suspend fun acknowledgeSyncCursorV2(@Body body: SyncCursorAckV2Request): ApiResponse<SyncCursorV2Dto>
+538:    @POST("v2/sync/upload")
+539:    suspend fun uploadSyncChangesV2(@Body body: SyncUploadV2Request): ApiResponse<SyncUploadV2Response>
+541:    @POST("v2/sync/pull")
+542:    suspend fun pullSyncChangesV2(@Body body: SyncPullV2Request): ApiResponse<SyncPullV2Response>
+544:    @GET("v2/import-jobs")
+545:    suspend fun importJobsV2(@Query("status") status: String? = null): ApiResponse<List<ImportJobV2Dto>>
+547:    @GET("v2/import-jobs/{id}")
+548:    suspend fun importJobV2(@Path("id") id: Long): ApiResponse<ImportJobV2Dto>
+550:    @POST("v2/import-jobs")
+551:    suspend fun createImportJobV2(@Body body: CreateImportJobV2Request): ApiResponse<ImportJobV2Dto>
+553:    @POST("v2/import-jobs/{id}/retry")
+554:    suspend fun retryImportJobV2(@Path("id") id: Long, @Body body: RetryImportJobV2Request? = null): ApiResponse<ImportJobV2Dto>
+556:    @POST("v2/import-jobs/{id}/cancel")
+557:    suspend fun cancelImportJobV2(@Path("id") id: Long): ApiResponse<ImportJobV2Dto>
+559:    @GET("v2/agent/conversations")
+560:    suspend fun agentConversationsV2(
+565:    @GET("v2/agent/conversations/{id}")
+566:    suspend fun agentConversationV2(@Path("id") id: Long): ApiResponse<AgentConversationDto>
+568:    @POST("v2/agent/conversations")
+569:    suspend fun createAgentConversationV2(@Body body: CreateAgentConversationRequest): ApiResponse<AgentConversationDto>
+571:    @PUT("v2/agent/conversations/{id}")
+572:    suspend fun updateAgentConversationV2(@Path("id") id: Long, @Body body: UpdateAgentConversationRequest): ApiResponse<AgentConversationDto>
+574:    @DELETE("v2/agent/conversations/{id}")
+575:    suspend fun deleteAgentConversationV2(@Path("id") id: Long): ApiResponse<Unit>
+577:    @GET("v2/agent/conversations/{conversationId}/run-traces")
+578:    suspend fun agentRunTracesV2(
+583:    @GET("v2/agent/conversations/{conversationId}/messages")
+584:    suspend fun agentMessagesV2(
+590:    @POST("v2/agent/conversations/{conversationId}/messages")
+591:    suspend fun createAgentMessageV2(
+596:    @GET("v2/agent/drafts")
+597:    suspend fun agentDraftsV2(
+603:    @POST("v2/agent/drafts")
+604:    suspend fun createAgentDraftV2(@Body body: CreateAgentDraftRequest): ApiResponse<AgentDraftDto>
+606:    @POST("v2/agent/drafts/{id}/confirm")
+607:    suspend fun confirmAgentDraftV2(@Path("id") id: Long): ApiResponse<AgentDraftDto>
+609:    @POST("v2/agent/drafts/{id}/cancel")
+610:    suspend fun cancelAgentDraftV2(@Path("id") id: Long): ApiResponse<AgentDraftDto>
+612:    @PUT("v2/agent/drafts/{id}")
+613:    suspend fun updateAgentDraftV2(@Path("id") id: Long, @Body body: UpdateAgentDraftRequest): ApiResponse<AgentDraftDto>
+615:    @DELETE("v2/agent/drafts/{id}")
+616:    suspend fun deleteAgentDraftV2(@Path("id") id: Long): ApiResponse<Unit>
+620:    @GET("v2/agent/workbench")
+621:    suspend fun agentWorkbenchV2(): ApiResponse<AgentWorkbenchV2Dto>
+623:    @GET("v2/agent/tasks")
+624:    suspend fun agentTasksV2(): ApiResponse<List<AgentTaskDto>>
+626:    @GET("v2/agent/notifications")
+627:    suspend fun agentNotificationsV2(
+631:    @POST("v2/agent/notifications/{id}/read")
+632:    suspend fun markAgentNotificationReadV2(@Path("id") id: Long): ApiResponse<AgentNotificationDto>
+634:    @POST("v2/agent/chat")
+635:    suspend fun agentChatV2(
+639:    @POST("v2/agent/images/generate")
+640:    suspend fun agentGenerateImageV2(
+644:    @POST("v2/agent/runs/{runId}/cancel")
+645:    suspend fun cancelAgentRunV2(@Path("runId") runId: String): ApiResponse<AgentRunCancelDto>
+647:    @GET("v2/media/assets")
+648:    suspend fun mediaAssetsV2(): ApiResponse<List<MediaAssetDto>>
+650:    @GET("v2/media/assets/{id}")
+651:    suspend fun mediaAssetV2(@Path("id") id: Long): ApiResponse<MediaAssetDto>
+653:    @POST("v2/media/assets")
+654:    suspend fun createMediaAssetV2(@Body body: CreateMediaAssetRequest): ApiResponse<MediaAssetDto>
+656:    @Multipart
+657:    @POST("v2/media/assets/upload")
+658:    suspend fun uploadMediaAssetV2(
+663:    @DELETE("v2/media/assets/{id}")
+664:    suspend fun deleteMediaAssetV2(@Path("id") id: Long): ApiResponse<Unit>
+666:    @GET("v2/media/bindings")
+667:    suspend fun mediaBindingsV2(
+672:    @POST("v2/media/bindings")
+673:    suspend fun createMediaBindingV2(@Body body: CreateMediaBindingRequest): ApiResponse<MediaBindingDto>
+675:    @DELETE("v2/media/bindings/{id}")
+676:    suspend fun deleteMediaBindingV2(@Path("id") id: Long): ApiResponse<Unit>
+680:    @GET("v2/finance-records")
+681:    suspend fun financeRecordsV2(
+688:    @POST("v2/finance-records")
+689:    suspend fun createFinanceRecordV2(@Body body: CreateFinanceRecordRequest): ApiResponse<FinanceRecordDto>
+693:    @GET("v2/reports/sales-summary")
+694:    suspend fun salesSummaryV2(
+699:    @GET("v2/reports/sales-trend")
+700:    suspend fun salesTrendV2(
+706:    @GET("v2/reports/profit-summary")
+707:    suspend fun profitSummaryV2(
+712:    @GET("v2/reports/refund-records")
+713:    suspend fun refundRecordsV2(
+719:    @GET("v2/reports/stock-out-records")
+720:    suspend fun stockOutRecordsV2(
+726:    @GET("v2/reports/top-products")
+727:    suspend fun topProductsV2(
+733:    @GET("v2/reports/profit-by-products")
+734:    suspend fun profitByProductsV2(
+740:    @GET("v2/reports/profit-by-customers")
+741:    suspend fun profitByCustomersV2(
+747:    @GET("v2/reports/inventory-flow")
+748:    suspend fun inventoryFlowV2(
+754:    @GET("v2/reports/customer-sales")
+755:    suspend fun customerSalesV2(
+761:    @GET("v2/reports/top-receivable-customers")
+762:    suspend fun topReceivableCustomersV2(@Query("limit") limit: Int = 10): ApiResponse<List<CustomerReceivableReportDto>>
+766:    @GET("v2/reports/low-stock-products")
+767:    suspend fun lowStockProductsReportV2(@Query("limit") limit: Int = 10): ApiResponse<List<LowStockProductReportDto>>
+769:    @GET("v2/reports/reconciliation-summary")
+770:    suspend fun reconciliationSummaryV2(
+775:    @GET("v2/reports/cashflow-summary")
+776:    suspend fun cashflowSummaryV2(

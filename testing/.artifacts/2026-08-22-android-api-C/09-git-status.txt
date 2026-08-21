@@ -1,0 +1,37 @@
+ M Code/backend/src/main/java/com/zhihuiji/backend/api/common/PaginationUtils.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2CustomerController.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2FinanceRecordController.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2PayOrderController.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2PurchaseOrderController.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2SupplierController.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/api/dto/v2/pay/V2PayOrderDtos.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/application/service/FinanceRecordService.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/application/service/LegacySQLiteImportService.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/application/service/PayOrderService.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/application/service/PurchaseOrderService.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2CustomerService.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2PayOrderService.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2PurchaseOrderService.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2SupplierService.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2SyncService.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/agent/tool/AgentTool.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/agent/tool/ToolRegistry.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/product/V2ProductService.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/domain/entity/PayOrderEntity.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/CustomerRepository.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/PayOrderRepository.java
+ M Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/SupplierRepository.java
+ M Code/backend/src/main/resources/application.yml
+ M Code/backend/src/test/java/com/zhihuiji/backend/api/controller/V2PartnerControllerTest.java
+ M Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2PayOrderServiceTest.java
+ M Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2SyncServiceTest.java
+ M Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/agent/tool/ToolRegistryTest.java
+ M Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/product/V2ProductServiceTest.java
+ M "testing/\345\220\216\347\253\257/\345\212\237\350\203\275\346\265\213\350\257\225/live_execution_ledger.csv"
+ M "testing/\345\220\216\347\253\257/\345\215\225\345\205\203\346\265\213\350\257\225/live_execution_ledger.csv"
+ M "testing/\345\220\216\347\253\257/\345\215\225\345\205\203\346\265\213\350\257\225/unit_function_coverage.csv"
+ M "testing/\345\220\216\347\253\257/\346\200\247\350\203\275\346\265\213\350\257\225/live_execution_ledger.csv"
+ M "testing/\345\220\216\347\253\257/\346\265\213\350\257\225\345\210\206\347\261\273\346\200\273\345\217\260\350\264\246.csv"
+?? Code/backend/src/main/resources/db/migration/V30__pay_order_idempotency.sql
+?? Code/backend/src/test/java/com/zhihuiji/backend/application/service/LegacySQLiteImportServiceTest.java
