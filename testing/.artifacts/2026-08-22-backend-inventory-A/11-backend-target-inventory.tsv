@@ -1,0 +1,151 @@
+target_type	source_file	class_name	matching_test_files	matching_xml_suite	coverage_note
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/AdminController.java	AdminController	Code/backend/src/test/java/com/zhihuiji/backend/api/controller/AdminControllerTest.java	com.zhihuiji.backend.api.controller.AdminControllerTest	xml-executed
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/AuthController.java	AuthController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/CustomerController.java	CustomerController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/FinanceRecordController.java	FinanceRecordController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/PayOrderController.java	PayOrderController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/ProductController.java	ProductController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/PurchaseOrderController.java	PurchaseOrderController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/ReportController.java	ReportController	Code/backend/src/test/java/com/zhihuiji/backend/api/controller/ReportControllerTest.java	com.zhihuiji.backend.api.controller.ReportControllerTest	xml-executed
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/SaleOrderController.java	SaleOrderController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/SupplierController.java	SupplierController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/SyncController.java	SyncController	Code/backend/src/test/java/com/zhihuiji/backend/api/controller/SyncControllerTest.java	com.zhihuiji.backend.api.controller.SyncControllerTest	xml-executed
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2AccountController.java	V2AccountController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2AccountTransferController.java	V2AccountTransferController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2AgentController.java	V2AgentController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2AuthController.java	V2AuthController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2BillFundLinkController.java	V2BillFundLinkController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2CashChangeRecordController.java	V2CashChangeRecordController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2CustomerContactController.java	V2CustomerContactController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2CustomerController.java	V2CustomerController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2CustomerGroupController.java	V2CustomerGroupController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2FinanceRecordController.java	V2FinanceRecordController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2ImportJobController.java	V2ImportJobController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2InventoryController.java	V2InventoryController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2MediaController.java	V2MediaController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2PayOrderController.java	V2PayOrderController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2PosterController.java	V2PosterController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2PurchaseOrderController.java	V2PurchaseOrderController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2PurchaseReceiptController.java	V2PurchaseReceiptController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2PurchaseReturnController.java	V2PurchaseReturnController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2ReportController.java	V2ReportController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2SaleOrderController.java	V2SaleOrderController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2SalesReturnController.java	V2SalesReturnController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2StoreController.java	V2StoreController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2SupplierContactController.java	V2SupplierContactController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2SupplierController.java	V2SupplierController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2SupplierGroupController.java	V2SupplierGroupController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2SyncController.java	V2SyncController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/product/V2ProductCategoryController.java	V2ProductCategoryController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/product/V2ProductController.java	V2ProductController	Code/backend/src/test/java/com/zhihuiji/backend/api/controller/product/V2ProductControllerTest.java	com.zhihuiji.backend.api.controller.product.V2ProductControllerTest	xml-executed
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/product/V2ProductPriceLevelController.java	V2ProductPriceLevelController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/product/V2ProductSupplierRelationController.java	V2ProductSupplierRelationController			no-matching-test-class
+Controller	Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/product/V2ProductUnitController.java	V2ProductUnitController			no-matching-test-class
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/AdminService.java	AdminService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/AdminServiceTest.java	com.zhihuiji.backend.application.service.AdminServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/AuthService.java	AuthService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/AuthServiceTest.java	com.zhihuiji.backend.application.service.AuthServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/CurrentOwnerService.java	CurrentOwnerService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/CurrentOwnerServiceTest.java	com.zhihuiji.backend.application.service.CurrentOwnerServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/CustomerService.java	CustomerService			no-matching-test-class
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/DemoDataService.java	DemoDataService			no-matching-test-class
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/FinanceRecordService.java	FinanceRecordService			no-matching-test-class
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/LegacySQLiteImportService.java	LegacySQLiteImportService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/LegacySQLiteImportServiceTest.java	com.zhihuiji.backend.application.service.LegacySQLiteImportServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/PayOrderService.java	PayOrderService			no-matching-test-class
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/ProductService.java	ProductService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/ProductServiceTest.java	com.zhihuiji.backend.application.service.ProductServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/PurchaseOrderService.java	PurchaseOrderService			no-matching-test-class
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/ReportService.java	ReportService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/ReportServiceTest.java	com.zhihuiji.backend.application.service.ReportServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/SaleOrderService.java	SaleOrderService			no-matching-test-class
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/SessionAccessService.java	SessionAccessService			no-matching-test-class
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/SupplierService.java	SupplierService			no-matching-test-class
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/SyncService.java	SyncService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/SyncServiceTest.java	com.zhihuiji.backend.application.service.SyncServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/AgentImageService.java	AgentImageService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/AgentImageServiceTest.java	com.zhihuiji.backend.application.service.v2.AgentImageServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/CreditService.java	CreditService			no-matching-test-class
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/PosterService.java	PosterService			no-matching-test-class
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2AccountService.java	V2AccountService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2AccountServiceTest.java	com.zhihuiji.backend.application.service.v2.V2AccountServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2AccountTransferService.java	V2AccountTransferService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2AccountTransferServiceTest.java	com.zhihuiji.backend.application.service.v2.V2AccountTransferServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java	V2AgentAiService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2AgentAiServiceTest.java	com.zhihuiji.backend.application.service.v2.V2AgentAiServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentConversationService.java	V2AgentConversationService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2AgentConversationServiceTest.java	com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2BillFundLinkService.java	V2BillFundLinkService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2BillFundLinkServiceTest.java	com.zhihuiji.backend.application.service.v2.V2BillFundLinkServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2CashChangeRecordService.java	V2CashChangeRecordService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2CashChangeRecordServiceTest.java	com.zhihuiji.backend.application.service.v2.V2CashChangeRecordServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2CustomerService.java	V2CustomerService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2CustomerServiceTest.java	com.zhihuiji.backend.application.service.v2.V2CustomerServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2ImportJobService.java	V2ImportJobService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2ImportJobServiceTest.java	com.zhihuiji.backend.application.service.v2.V2ImportJobServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2ImportJobWorkerService.java	V2ImportJobWorkerService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2ImportJobWorkerServiceTest.java	com.zhihuiji.backend.application.service.v2.V2ImportJobWorkerServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2InventoryService.java	V2InventoryService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2InventoryServiceTest.java	com.zhihuiji.backend.application.service.v2.V2InventoryServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2MediaService.java	V2MediaService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2MediaServiceTest.java	com.zhihuiji.backend.application.service.v2.V2MediaServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2PartnerContactService.java	V2PartnerContactService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2PartnerContactServiceTest.java	com.zhihuiji.backend.application.service.v2.V2PartnerContactServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2PartnerGroupService.java	V2PartnerGroupService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2PartnerGroupServiceTest.java	com.zhihuiji.backend.application.service.v2.V2PartnerGroupServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2PayOrderService.java	V2PayOrderService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2PayOrderServiceTest.java	com.zhihuiji.backend.application.service.v2.V2PayOrderServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2PurchaseOrderService.java	V2PurchaseOrderService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2PurchaseOrderServiceTest.java	com.zhihuiji.backend.application.service.v2.V2PurchaseOrderServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2PurchaseReceiptService.java	V2PurchaseReceiptService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2PurchaseReceiptServiceTest.java	com.zhihuiji.backend.application.service.v2.V2PurchaseReceiptServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2PurchaseReturnService.java	V2PurchaseReturnService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2PurchaseReturnServiceTest.java	com.zhihuiji.backend.application.service.v2.V2PurchaseReturnServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2SaleOrderService.java	V2SaleOrderService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2SaleOrderServiceTest.java	com.zhihuiji.backend.application.service.v2.V2SaleOrderServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2SaleReceiptPdfService.java	V2SaleReceiptPdfService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2SaleReceiptPdfServiceTest.java	com.zhihuiji.backend.application.service.v2.V2SaleReceiptPdfServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2SalesReturnService.java	V2SalesReturnService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2SalesReturnServiceTest.java	com.zhihuiji.backend.application.service.v2.V2SalesReturnServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2StoreService.java	V2StoreService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2StoreServiceTest.java	com.zhihuiji.backend.application.service.v2.V2StoreServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2SupplierService.java	V2SupplierService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2SupplierServiceTest.java	com.zhihuiji.backend.application.service.v2.V2SupplierServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2SyncService.java	V2SyncService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/V2SyncServiceTest.java	com.zhihuiji.backend.application.service.v2.V2SyncServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/agent/AgentDraftConfirmService.java	AgentDraftConfirmService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/agent/AgentDraftConfirmServiceTest.java	com.zhihuiji.backend.application.service.v2.agent.AgentDraftConfirmServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/agent/component/RunAuditService.java	RunAuditService			no-matching-test-class
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/product/V2ProductCategoryService.java	V2ProductCategoryService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/product/V2ProductCategoryServiceTest.java	com.zhihuiji.backend.application.service.v2.product.V2ProductCategoryServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/product/V2ProductPriceLevelService.java	V2ProductPriceLevelService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/product/V2ProductPriceLevelServiceTest.java	com.zhihuiji.backend.application.service.v2.product.V2ProductPriceLevelServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/product/V2ProductService.java	V2ProductService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/product/V2ProductServiceTest.java	com.zhihuiji.backend.application.service.v2.product.V2ProductServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/product/V2ProductSupplierRelationService.java	V2ProductSupplierRelationService	Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/product/V2ProductSupplierRelationServiceTest.java	com.zhihuiji.backend.application.service.v2.product.V2ProductSupplierRelationServiceTest	xml-executed
+Service	Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/product/V2ProductUnitService.java	V2ProductUnitService			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/AccountRepository.java	AccountRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/AccountTransferRepository.java	AccountTransferRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/AgentConversationRepository.java	AgentConversationRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/AgentDraftRepository.java	AgentDraftRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/AgentMessageRepository.java	AgentMessageRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/AgentNotificationRepository.java	AgentNotificationRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/AgentRunAuditEventRepository.java	AgentRunAuditEventRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/AgentRunAuditRepository.java	AgentRunAuditRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/AgentTaskRepository.java	AgentTaskRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/BillFundLinkRepository.java	BillFundLinkRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/CashChangeRecordRepository.java	CashChangeRecordRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/CreditTransactionRepository.java	CreditTransactionRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/CustomerRepository.java	CustomerRepository	Code/backend/src/test/java/com/zhihuiji/backend/infrastructure/repository/CustomerRepositoryTest.java	com.zhihuiji.backend.infrastructure.repository.CustomerRepositoryTest	xml-executed
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/FinanceRecordRepository.java	FinanceRecordRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/ImportJobRepository.java	ImportJobRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/InventoryAdjustmentRepository.java	InventoryAdjustmentRepository	Code/backend/src/test/java/com/zhihuiji/backend/infrastructure/repository/InventoryAdjustmentRepositoryTest.java	com.zhihuiji.backend.infrastructure.repository.InventoryAdjustmentRepositoryTest	xml-executed
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/InventoryLedgerRepository.java	InventoryLedgerRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/InventoryMonthlyStatsRepository.java	InventoryMonthlyStatsRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/InventorySnapshotRepository.java	InventorySnapshotRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/MediaAssetRepository.java	MediaAssetRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/MediaBindingRepository.java	MediaBindingRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/PartnerContactRepository.java	PartnerContactRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/PartnerGroupRepository.java	PartnerGroupRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/PayOrderRepository.java	PayOrderRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/PaymentRepository.java	PaymentRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/PosterGenerationRepository.java	PosterGenerationRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/PurchaseOrderItemRepository.java	PurchaseOrderItemRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/PurchaseOrderRepository.java	PurchaseOrderRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/PurchaseReceiptItemRepository.java	PurchaseReceiptItemRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/PurchaseReceiptRepository.java	PurchaseReceiptRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/PurchaseReturnItemRepository.java	PurchaseReturnItemRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/PurchaseReturnRefundRepository.java	PurchaseReturnRefundRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/PurchaseReturnRepository.java	PurchaseReturnRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/SaleOrderItemRepository.java	SaleOrderItemRepository	Code/backend/src/test/java/com/zhihuiji/backend/infrastructure/repository/SaleOrderItemRepositoryTest.java	com.zhihuiji.backend.infrastructure.repository.SaleOrderItemRepositoryTest	xml-executed
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/SaleOrderRepository.java	SaleOrderRepository	Code/backend/src/test/java/com/zhihuiji/backend/infrastructure/repository/SaleOrderRepositoryTest.java	com.zhihuiji.backend.infrastructure.repository.SaleOrderRepositoryTest	xml-executed
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/SalesReturnItemRepository.java	SalesReturnItemRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/SalesReturnRepository.java	SalesReturnRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/SessionRepository.java	SessionRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/StoreMembershipRepository.java	StoreMembershipRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/StoreRepository.java	StoreRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/SupplierRepository.java	SupplierRepository	Code/backend/src/test/java/com/zhihuiji/backend/infrastructure/repository/SupplierRepositoryTest.java	com.zhihuiji.backend.infrastructure.repository.SupplierRepositoryTest	xml-executed
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/SyncChangeLogRepository.java	SyncChangeLogRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/SyncCursorRepository.java	SyncCursorRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/SyncOperationLogRepository.java	SyncOperationLogRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/SyncTombstoneRepository.java	SyncTombstoneRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/UserCreditRepository.java	UserCreditRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/UserRepository.java	UserRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/product/ProductCategoryRepository.java	ProductCategoryRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/product/ProductPriceLevelRepository.java	ProductPriceLevelRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/product/ProductRepository.java	ProductRepository	Code/backend/src/test/java/com/zhihuiji/backend/infrastructure/repository/product/ProductRepositoryTest.java	com.zhihuiji.backend.infrastructure.repository.product.ProductRepositoryTest	xml-executed
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/product/ProductSupplierRelationRepository.java	ProductSupplierRelationRepository			no-matching-test-class
+Repository	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/repository/product/ProductUnitRepository.java	ProductUnitRepository			no-matching-test-class
+Service	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/security/TokenService.java	TokenService			no-matching-test-class
+Service	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/storage/LocalMediaStorageService.java	LocalMediaStorageService			no-matching-test-class
+Service	Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/storage/MediaStorageService.java	MediaStorageService			no-matching-test-class
+
+summary
+Controller=42
+Service=51
+Repository=52
