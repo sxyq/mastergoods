@@ -233,7 +233,8 @@ public class ToolRegistry {
                 return false;
             }
             int minItems = schema.path("minItems").asInt(0);
-            if (value.size() < minItems) {
+            int maxItems = schema.path("maxItems").asInt(Integer.MAX_VALUE);
+            if (value.size() < minItems || value.size() > maxItems) {
                 return false;
             }
             JsonNode itemSchema = schema.get("items");
@@ -286,6 +287,16 @@ public class ToolRegistry {
         JsonNode exclusiveMinimum = schema.get("exclusiveMinimum");
         if (exclusiveMinimum != null && exclusiveMinimum.isNumber()
             && (!value.isNumber() || value.asDouble() <= exclusiveMinimum.asDouble())) {
+            return false;
+        }
+        JsonNode maximum = schema.get("maximum");
+        if (maximum != null && maximum.isNumber()
+            && (!value.isNumber() || value.asDouble() > maximum.asDouble())) {
+            return false;
+        }
+        JsonNode exclusiveMaximum = schema.get("exclusiveMaximum");
+        if (exclusiveMaximum != null && exclusiveMaximum.isNumber()
+            && (!value.isNumber() || value.asDouble() >= exclusiveMaximum.asDouble())) {
             return false;
         }
         return true;

@@ -1345,6 +1345,9 @@ public class V2AgentAiService {
      * @return 工具执行结果 Optional（未注册时返回 empty）
      */
     private Optional<ToolResult> executeRegisteredTool(Long ownerUserId, Long conversationId, SseEmitter emitter, String runId, String tool, JsonNode params) {
+        toolRegistry.getTool(tool).ifPresent(registered ->
+            currentOwnerService.requirePermissions(registered.requiredPermission())
+        );
         ToolContext ctx = new ToolContext(ownerUserId, null, conversationId, runId, emitter, objectMapper);
         return toolRegistry.executeTool(tool, ctx, params);
     }

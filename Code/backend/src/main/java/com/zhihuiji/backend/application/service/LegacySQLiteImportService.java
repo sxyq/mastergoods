@@ -51,6 +51,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -78,6 +79,7 @@ public class LegacySQLiteImportService {
     private final InventoryAdjustmentRepository inventoryAdjustmentRepository;
     private final PasswordEncoder passwordEncoder;
     private final IdGenerator idGenerator;
+    private final Path importRoot;
 
     public LegacySQLiteImportService(
         UserRepository userRepository,
@@ -96,7 +98,8 @@ public class LegacySQLiteImportService {
         InventorySnapshotRepository inventorySnapshotRepository,
         InventoryAdjustmentRepository inventoryAdjustmentRepository,
         PasswordEncoder passwordEncoder,
-        IdGenerator idGenerator
+        IdGenerator idGenerator,
+        @Value("${legacy.import-root:./data/imports}") String importRoot
     ) {
         this.userRepository = userRepository;
         this.sessionRepository = sessionRepository;
@@ -115,18 +118,13 @@ public class LegacySQLiteImportService {
         this.inventoryAdjustmentRepository = inventoryAdjustmentRepository;
         this.passwordEncoder = passwordEncoder;
         this.idGenerator = idGenerator;
+        this.importRoot = Path.of(importRoot).toAbsolutePath().normalize();
     }
 
     @Transactional
     public ImportResult importIntoFirstAccount(ImportRequest request) {
         validateRequest(request);
-        Path dbPath = Path.of(request.legacyDbPath()).toAbsolutePath().normalize();
-        if (!Files.exists(dbPath)) {
-            throw new IllegalArgumentException("旧版数据库不存在: " + dbPath);
-        }
-        if (!Files.isReadable(dbPath)) {
-            throw new IllegalArgumentException("旧版数据库不可读: " + dbPath);
-        }
+        Path dbPath = resolveImportPath(request.legacyDbPath());
 
         UserEntity user = userRepository.findByPhone(request.phone().trim()).orElseGet(() -> createUser(request));
         if (Boolean.TRUE.equals(request.resetOwnedData())) {
@@ -142,13 +140,7 @@ public class LegacySQLiteImportService {
             throw new IllegalArgumentException("ownerUserId 不能为空");
         }
         validateExistingOwnerRequest(request);
-        Path dbPath = Path.of(request.legacyDbPath()).toAbsolutePath().normalize();
-        if (!Files.exists(dbPath)) {
-            throw new IllegalArgumentException("旧版数据库不存在: " + dbPath);
-        }
-        if (!Files.isReadable(dbPath)) {
-            throw new IllegalArgumentException("旧版数据库不可读: " + dbPath);
-        }
+        Path dbPath = resolveImportPath(request.legacyDbPath());
         UserEntity owner = userRepository.findById(ownerUserId)
             .orElseThrow(() -> new IllegalArgumentException("目标账号不存在"));
         if (Boolean.TRUE.equals(request.resetOwnedData())) {
@@ -167,6 +159,29 @@ public class LegacySQLiteImportService {
         user.setCreatedAt(now);
         user.setUpdatedAt(now);
         return userRepository.save(user);
+    }
+
+    private Path resolveImportPath(String requestedPath) {
+        return resolveImportPath(importRoot, requestedPath);
+    }
+
+    static Path resolveImportPath(Path importRoot, String requestedPath) {
+        if (!Files.isDirectory(importRoot)) {
+            throw new IllegalArgumentException("旧版数据库导入目录不存在: " + importRoot);
+        }
+        Path requested = Path.of(requestedPath.trim()).toAbsolutePath().normalize();
+        Path rootReal;
+        Path fileReal;
+        try {
+            rootReal = importRoot.toRealPath();
+            fileReal = requested.toRealPath();
+        } catch (java.io.IOException exception) {
+            throw new IllegalArgumentException("旧版数据库不存在或不可访问: " + requested, exception);
+        }
+        if (!Files.isRegularFile(fileReal) || !Files.isReadable(fileReal) || !fileReal.startsWith(rootReal)) {
+            throw new IllegalArgumentException("旧版数据库必须位于导入目录内: " + rootReal);
+        }
+        return fileReal;
     }
 
     private ImportResult importIntoOwner(

@@ -1466,8 +1466,8 @@ public class V2SyncService {
         ProductSupplierRelationEntity entity = productSupplierRelationRepository.findByIdAndOwnerUserId(id, ownerUserId).orElseGet(ProductSupplierRelationEntity::new);
         entity.setId(id);
         entity.setOwnerUserId(ownerUserId);
-        entity.setProductId(readRequiredLong(payload, "product_id", "商品不能为空"));
-        entity.setSupplierId(readRequiredLong(payload, "supplier_id", "供应商不能为空"));
+        entity.setProductId(requireOwnedProduct(ownerUserId, readRequiredLong(payload, "product_id", "商品不能为空")));
+        entity.setSupplierId(requireOwnedSupplier(ownerUserId, readRequiredLong(payload, "supplier_id", "供应商不能为空")));
         entity.setIsDefault(readBoolean(payload, "is_default", entity.getIsDefault(), false));
         entity.setPurchasePriority(readInt(payload, "purchase_priority", entity.getPurchasePriority(), 0));
         entity.setLastPurchasePrice(readNullableDouble(payload, "last_purchase_price", entity.getLastPurchasePrice()));
@@ -1507,7 +1507,8 @@ public class V2SyncService {
         entity.setId(id);
         entity.setOwnerUserId(ownerUserId);
         entity.setPartnerType(partnerType);
-        entity.setPartnerId(readRequiredLong(payload, "partner_id", "往来单位不能为空"));
+        entity.setPartnerId(requireOwnedPartner(ownerUserId, partnerType,
+            readRequiredLong(payload, "partner_id", "往来单位不能为空")));
         entity.setName(readText(payload, "name", entity.getName(), "默认联系人"));
         entity.setPhone(readNullableText(payload, "phone", entity.getPhone()));
         entity.setTitle(readNullableText(payload, "title", entity.getTitle()));
@@ -1531,7 +1532,8 @@ public class V2SyncService {
         entity.setName(readText(payload, "name", entity.getName(), "未命名客户"));
         entity.setPhone(readText(payload, "phone", entity.getPhone(), "unknown-" + id));
         entity.setLevel(readInt(payload, "level", entity.getLevel(), 0));
-        entity.setGroupId(readNullableLong(payload, "group_id", entity.getGroupId()));
+        entity.setGroupId(requireOwnedGroup(ownerUserId, "customer",
+            readNullableLong(payload, "group_id", entity.getGroupId())));
         entity.setAddress(readNullableText(payload, "address", entity.getAddress()));
         entity.setNotes(readNullableText(payload, "notes", entity.getNotes()));
         entity.setContactName(readNullableText(
@@ -1566,7 +1568,8 @@ public class V2SyncService {
         entity.setOwnerUserId(ownerUserId);
         entity.setName(readText(payload, "name", entity.getName(), "未命名供应商"));
         entity.setPhone(readText(payload, "phone", entity.getPhone(), "unknown-" + id));
-        entity.setGroupId(readNullableLong(payload, "group_id", entity.getGroupId()));
+        entity.setGroupId(requireOwnedGroup(ownerUserId, "supplier",
+            readNullableLong(payload, "group_id", entity.getGroupId())));
         entity.setAddress(readNullableText(payload, "address", entity.getAddress()));
         entity.setNotes(readNullableText(payload, "notes", entity.getNotes()));
         entity.setContactName(readNullableText(
@@ -1602,9 +1605,11 @@ public class V2SyncService {
         entity.setCode(readText(payload, "code", entity.getCode(), "P-" + id));
         entity.setName(readText(payload, "name", entity.getName(), "未命名商品"));
         entity.setCategory(readText(payload, "category", entity.getCategory(), "默认分类"));
-        entity.setCategoryId(readNullableLong(payload, "category_id", entity.getCategoryId()));
+        entity.setCategoryId(requireOwnedCategory(ownerUserId,
+            readNullableLong(payload, "category_id", entity.getCategoryId())));
         entity.setUnit(readText(payload, "unit", entity.getUnit(), "件"));
-        entity.setUnitId(readNullableLong(payload, "unit_id", entity.getUnitId()));
+        entity.setUnitId(requireOwnedUnit(ownerUserId,
+            readNullableLong(payload, "unit_id", entity.getUnitId())));
         entity.setPriceLevelValuesJson(readNullableText(payload, "price_level_values_json", entity.getPriceLevelValuesJson()));
         entity.setSalePrice(readDouble(payload, "sale_price", entity.getSalePrice(), 0.0));
         entity.setPurchasePrice(readDouble(payload, "purchase_price", entity.getPurchasePrice(), 0.0));
@@ -1631,7 +1636,8 @@ public class V2SyncService {
         entity.setId(id);
         entity.setOwnerUserId(ownerUserId);
         entity.setOrderNo(readText(payload, "order_no", entity.getOrderNo(), "SO-" + id));
-        entity.setCustomerId(readNullableLong(payload, "customer_id", entity.getCustomerId()));
+        entity.setCustomerId(requireOwnedCustomer(ownerUserId,
+            readNullableLong(payload, "customer_id", entity.getCustomerId())));
         entity.setCustomerName(readNullableText(payload, "customer_name", entity.getCustomerName()));
         entity.setSubtotalAmount(readDouble(payload, "subtotal_amount", entity.getSubtotalAmount(), 0.0));
         entity.setDiscountAmount(readDouble(payload, "discount_amount", entity.getDiscountAmount(), 0.0));
@@ -1656,11 +1662,14 @@ public class V2SyncService {
         SaleOrderItemEntity entity = saleOrderItemRepository.findByIdAndOwnerUserId(id, ownerUserId).orElseGet(SaleOrderItemEntity::new);
         entity.setId(id);
         entity.setOwnerUserId(ownerUserId);
-        entity.setOrderId(readRequiredLong(payload, "order_id", "销售单不能为空"));
-        entity.setProductId(readRequiredLong(payload, "product_id", "商品不能为空"));
+        entity.setOrderId(requireOwnedSaleOrder(ownerUserId,
+            readRequiredLong(payload, "order_id", "销售单不能为空")));
+        entity.setProductId(requireOwnedProduct(ownerUserId,
+            readRequiredLong(payload, "product_id", "商品不能为空")));
         entity.setProductCode(readText(payload, "product_code", entity.getProductCode(), ""));
         entity.setProductName(readText(payload, "product_name", entity.getProductName(), "未命名商品"));
-        entity.setCustomerId(readNullableLong(payload, "customer_id", entity.getCustomerId()));
+        entity.setCustomerId(requireOwnedCustomer(ownerUserId,
+            readNullableLong(payload, "customer_id", entity.getCustomerId())));
         entity.setCustomerName(readNullableText(payload, "customer_name", entity.getCustomerName()));
         entity.setQuantity(readDouble(payload, "quantity", entity.getQuantity(), 0.0));
         entity.setUnitPrice(readDouble(payload, "unit_price", entity.getUnitPrice(), 0.0));
@@ -1679,7 +1688,8 @@ public class V2SyncService {
         PaymentEntity entity = paymentRepository.findByIdAndOwnerUserId(id, ownerUserId).orElseGet(PaymentEntity::new);
         entity.setId(id);
         entity.setOwnerUserId(ownerUserId);
-        entity.setOrderId(readRequiredLong(payload, "order_id", "关联单据不能为空"));
+        entity.setOrderId(requireOwnedSaleOrder(ownerUserId,
+            readRequiredLong(payload, "order_id", "关联单据不能为空")));
         entity.setAmount(readDouble(payload, "amount", entity.getAmount(), 0.0));
         entity.setMethod(readInt(payload, "method", entity.getMethod(), 0));
         entity.setReferenceNo(readNullableText(payload, "reference_no", entity.getReferenceNo()));
@@ -1700,7 +1710,8 @@ public class V2SyncService {
         entity.setId(id);
         entity.setOwnerUserId(ownerUserId);
         entity.setOrderNo(readText(payload, "order_no", entity.getOrderNo(), "PO-" + id));
-        entity.setSupplierId(readNullableLong(payload, "supplier_id", entity.getSupplierId()));
+        entity.setSupplierId(requireOwnedSupplier(ownerUserId,
+            readNullableLong(payload, "supplier_id", entity.getSupplierId())));
         entity.setSupplierName(readText(payload, "supplier_name", entity.getSupplierName(), "未命名供应商"));
         entity.setTotalAmount(readDouble(payload, "total_amount", entity.getTotalAmount(), 0.0));
         entity.setPaidAmount(readDouble(payload, "paid_amount", entity.getPaidAmount(), 0.0));
@@ -1724,8 +1735,10 @@ public class V2SyncService {
         PurchaseOrderItemEntity entity = purchaseOrderItemRepository.findByIdAndOwnerUserId(id, ownerUserId).orElseGet(PurchaseOrderItemEntity::new);
         entity.setId(id);
         entity.setOwnerUserId(ownerUserId);
-        entity.setOrderId(readRequiredLong(payload, "order_id", "采购单不能为空"));
-        entity.setProductId(readRequiredLong(payload, "product_id", "商品不能为空"));
+        entity.setOrderId(requireOwnedPurchaseOrder(ownerUserId,
+            readRequiredLong(payload, "order_id", "采购单不能为空")));
+        entity.setProductId(requireOwnedProduct(ownerUserId,
+            readRequiredLong(payload, "product_id", "商品不能为空")));
         entity.setProductCode(readText(payload, "product_code", entity.getProductCode(), ""));
         entity.setProductName(readText(payload, "product_name", entity.getProductName(), "未命名商品"));
         entity.setQuantity(readDouble(payload, "quantity", entity.getQuantity(), 0.0));
@@ -1746,13 +1759,15 @@ public class V2SyncService {
         entity.setId(id);
         entity.setOwnerUserId(ownerUserId);
         entity.setOrderNo(readText(payload, "order_no", entity.getOrderNo(), "PAY-" + id));
-        entity.setSupplierId(readNullableLong(payload, "supplier_id", entity.getSupplierId()));
+        entity.setSupplierId(requireOwnedSupplier(ownerUserId,
+            readNullableLong(payload, "supplier_id", entity.getSupplierId())));
         entity.setSupplierName(readText(payload, "supplier_name", entity.getSupplierName(), "未命名供应商"));
         entity.setAmount(readDouble(payload, "amount", entity.getAmount(), 0.0));
         entity.setMethod(readInt(payload, "method", entity.getMethod(), 0));
         entity.setReferenceNo(readNullableText(payload, "reference_no", entity.getReferenceNo()));
         entity.setNotes(readNullableText(payload, "notes", entity.getNotes()));
-        entity.setAccountId(readNullableLong(payload, "account_id", entity.getAccountId()));
+        entity.setAccountId(requireOwnedAccount(ownerUserId,
+            readNullableLong(payload, "account_id", entity.getAccountId())));
         entity.setStatus(readInt(payload, "status", entity.getStatus(), 0));
         entity.setSyncStatus(readInt(payload, "sync_status", entity.getSyncStatus(), 0));
         entity.setSyncVersion(nextSyncVersion(entity.getSyncVersion(), change.baseVersion()));
@@ -1819,8 +1834,10 @@ public class V2SyncService {
         entity.setId(id);
         entity.setOwnerUserId(ownerUserId);
         entity.setTransferNo(readText(payload, "transfer_no", entity.getTransferNo(), "AT-" + id));
-        entity.setFromAccountId(readRequiredLong(payload, "from_account_id", "转出账户不能为空"));
-        entity.setToAccountId(readRequiredLong(payload, "to_account_id", "转入账户不能为空"));
+        entity.setFromAccountId(requireOwnedAccount(ownerUserId,
+            readRequiredLong(payload, "from_account_id", "转出账户不能为空")));
+        entity.setToAccountId(requireOwnedAccount(ownerUserId,
+            readRequiredLong(payload, "to_account_id", "转入账户不能为空")));
         entity.setAmount(readDouble(payload, "amount", entity.getAmount(), 0.0));
         entity.setFee(readDouble(payload, "fee", entity.getFee(), 0.0));
         entity.setStatus(readInt(payload, "status", entity.getStatus(), 1));
@@ -1842,7 +1859,8 @@ public class V2SyncService {
         entity.setOwnerUserId(ownerUserId);
         entity.setBillType(readText(payload, "bill_type", entity.getBillType(), "unknown"));
         entity.setBillId(readRequiredLong(payload, "bill_id", "关联单据不能为空"));
-        entity.setAccountId(readRequiredLong(payload, "account_id", "账户不能为空"));
+        entity.setAccountId(requireOwnedAccount(ownerUserId,
+            readRequiredLong(payload, "account_id", "账户不能为空")));
         entity.setAmount(readDouble(payload, "amount", entity.getAmount(), 0.0));
         entity.setLinkType(readInt(payload, "link_type", entity.getLinkType(), 1));
         entity.setNotes(readNullableText(payload, "notes", entity.getNotes()));
@@ -1861,7 +1879,8 @@ public class V2SyncService {
         InventoryAdjustmentEntity entity = inventoryAdjustmentRepository.findByIdAndOwnerUserId(id, ownerUserId).orElseGet(InventoryAdjustmentEntity::new);
         entity.setId(id);
         entity.setOwnerUserId(ownerUserId);
-        entity.setProductId(readRequiredLong(payload, "product_id", "商品不能为空"));
+        entity.setProductId(requireOwnedProduct(ownerUserId,
+            readRequiredLong(payload, "product_id", "商品不能为空")));
         entity.setProductCode(readText(payload, "product_code", entity.getProductCode(), ""));
         entity.setProductName(readText(payload, "product_name", entity.getProductName(), "未命名商品"));
         entity.setQuantity(readDouble(payload, "quantity", entity.getQuantity(), 0.0));
@@ -1884,8 +1903,10 @@ public class V2SyncService {
         entity.setId(id);
         entity.setOwnerUserId(ownerUserId);
         entity.setReturnNo(readText(payload, "return_no", entity.getReturnNo(), "SR-" + id));
-        entity.setOriginalOrderId(readNullableLong(payload, "original_order_id", entity.getOriginalOrderId()));
-        entity.setCustomerId(readNullableLong(payload, "customer_id", entity.getCustomerId()));
+        entity.setOriginalOrderId(requireOwnedSaleOrder(ownerUserId,
+            readNullableLong(payload, "original_order_id", entity.getOriginalOrderId())));
+        entity.setCustomerId(requireOwnedCustomer(ownerUserId,
+            readNullableLong(payload, "customer_id", entity.getCustomerId())));
         entity.setCustomerName(readNullableText(payload, "customer_name", entity.getCustomerName()));
         entity.setTotalAmount(readDouble(payload, "total_amount", entity.getTotalAmount(), 0.0));
         entity.setRefundAmount(readDouble(payload, "refund_amount", entity.getRefundAmount(), 0.0));
@@ -1906,8 +1927,10 @@ public class V2SyncService {
         SalesReturnItemEntity entity = salesReturnItemRepository.findByIdAndOwnerUserId(id, ownerUserId).orElseGet(SalesReturnItemEntity::new);
         entity.setId(id);
         entity.setOwnerUserId(ownerUserId);
-        entity.setReturnId(readRequiredLong(payload, "return_id", "退货单不能为空"));
-        entity.setProductId(readRequiredLong(payload, "product_id", "商品不能为空"));
+        entity.setReturnId(requireOwnedSalesReturn(ownerUserId,
+            readRequiredLong(payload, "return_id", "退货单不能为空")));
+        entity.setProductId(requireOwnedProduct(ownerUserId,
+            readRequiredLong(payload, "product_id", "商品不能为空")));
         entity.setProductCode(readNullableText(payload, "product_code", entity.getProductCode()));
         entity.setProductName(readNullableText(payload, "product_name", entity.getProductName()));
         entity.setQuantity(readDouble(payload, "quantity", entity.getQuantity(), 0.0));
@@ -1929,8 +1952,10 @@ public class V2SyncService {
         entity.setId(id);
         entity.setOwnerUserId(ownerUserId);
         entity.setReceiptNo(readText(payload, "receipt_no", entity.getReceiptNo(), "PR-" + id));
-        entity.setPurchaseOrderId(readNullableLong(payload, "purchase_order_id", entity.getPurchaseOrderId()));
-        entity.setSupplierId(readNullableLong(payload, "supplier_id", entity.getSupplierId()));
+        entity.setPurchaseOrderId(requireOwnedPurchaseOrder(ownerUserId,
+            readNullableLong(payload, "purchase_order_id", entity.getPurchaseOrderId())));
+        entity.setSupplierId(requireOwnedSupplier(ownerUserId,
+            readNullableLong(payload, "supplier_id", entity.getSupplierId())));
         entity.setSupplierName(readNullableText(payload, "supplier_name", entity.getSupplierName()));
         entity.setTotalAmount(readDouble(payload, "total_amount", entity.getTotalAmount(), 0.0));
         entity.setStatus(readInt(payload, "status", entity.getStatus(), 0));
@@ -1950,8 +1975,10 @@ public class V2SyncService {
         PurchaseReceiptItemEntity entity = purchaseReceiptItemRepository.findByIdAndOwnerUserId(id, ownerUserId).orElseGet(PurchaseReceiptItemEntity::new);
         entity.setId(id);
         entity.setOwnerUserId(ownerUserId);
-        entity.setReceiptId(readRequiredLong(payload, "receipt_id", "收货单不能为空"));
-        entity.setProductId(readRequiredLong(payload, "product_id", "商品不能为空"));
+        entity.setReceiptId(requireOwnedPurchaseReceipt(ownerUserId,
+            readRequiredLong(payload, "receipt_id", "收货单不能为空")));
+        entity.setProductId(requireOwnedProduct(ownerUserId,
+            readRequiredLong(payload, "product_id", "商品不能为空")));
         entity.setProductCode(readNullableText(payload, "product_code", entity.getProductCode()));
         entity.setProductName(readNullableText(payload, "product_name", entity.getProductName()));
         entity.setQuantity(readDouble(payload, "quantity", entity.getQuantity(), 0.0));
@@ -2216,6 +2243,111 @@ public class V2SyncService {
             throw new IllegalArgumentException(message);
         }
         return value;
+    }
+
+    private Long requireOwnedProduct(Long ownerUserId, Long id) {
+        if (id == null) {
+            return null;
+        }
+        productRepository.findByIdAndOwnerUserId(id, ownerUserId)
+            .orElseThrow(() -> new AccessDeniedException("商品不属于当前账号"));
+        return id;
+    }
+
+    private Long requireOwnedCustomer(Long ownerUserId, Long id) {
+        if (id == null) {
+            return null;
+        }
+        customerRepository.findByIdAndOwnerUserId(id, ownerUserId)
+            .orElseThrow(() -> new AccessDeniedException("客户不属于当前账号"));
+        return id;
+    }
+
+    private Long requireOwnedSupplier(Long ownerUserId, Long id) {
+        if (id == null) {
+            return null;
+        }
+        supplierRepository.findByIdAndOwnerUserId(id, ownerUserId)
+            .orElseThrow(() -> new AccessDeniedException("供应商不属于当前账号"));
+        return id;
+    }
+
+    private Long requireOwnedCategory(Long ownerUserId, Long id) {
+        if (id == null) {
+            return null;
+        }
+        productCategoryRepository.findByIdAndOwnerUserId(id, ownerUserId)
+            .orElseThrow(() -> new AccessDeniedException("商品分类不属于当前账号"));
+        return id;
+    }
+
+    private Long requireOwnedUnit(Long ownerUserId, Long id) {
+        if (id == null) {
+            return null;
+        }
+        productUnitRepository.findByIdAndOwnerUserId(id, ownerUserId)
+            .orElseThrow(() -> new AccessDeniedException("商品单位不属于当前账号"));
+        return id;
+    }
+
+    private Long requireOwnedGroup(Long ownerUserId, String partnerType, Long id) {
+        if (id == null) {
+            return null;
+        }
+        partnerGroupRepository.findByIdAndOwnerUserIdAndPartnerType(id, ownerUserId, partnerType)
+            .orElseThrow(() -> new AccessDeniedException("往来单位分组不属于当前账号"));
+        return id;
+    }
+
+    private Long requireOwnedPartner(Long ownerUserId, String partnerType, Long id) {
+        return "customer".equals(partnerType)
+            ? requireOwnedCustomer(ownerUserId, id)
+            : requireOwnedSupplier(ownerUserId, id);
+    }
+
+    private Long requireOwnedSaleOrder(Long ownerUserId, Long id) {
+        if (id == null) {
+            return null;
+        }
+        saleOrderRepository.findByIdAndOwnerUserId(id, ownerUserId)
+            .orElseThrow(() -> new AccessDeniedException("销售单不属于当前账号"));
+        return id;
+    }
+
+    private Long requireOwnedPurchaseOrder(Long ownerUserId, Long id) {
+        if (id == null) {
+            return null;
+        }
+        purchaseOrderRepository.findByIdAndOwnerUserId(id, ownerUserId)
+            .orElseThrow(() -> new AccessDeniedException("采购单不属于当前账号"));
+        return id;
+    }
+
+    private Long requireOwnedAccount(Long ownerUserId, Long id) {
+        if (id == null) {
+            return null;
+        }
+        accountRepository.findByIdAndOwnerUserId(id, ownerUserId)
+            .orElseThrow(() -> new AccessDeniedException("账户不属于当前账号"));
+        return id;
+    }
+
+    private Long requireOwnedSalesReturn(Long ownerUserId, Long id) {
+        if (id == null) {
+            return null;
+        }
+        salesReturnRepository.findByIdAndOwnerUserId(id, ownerUserId)
+            .orElseThrow(() -> new AccessDeniedException("销售退货单不属于当前账号"));
+        return id;
+    }
+
+    private Long requireOwnedPurchaseReceipt(Long ownerUserId, Long id) {
+        if (id == null) {
+            return null;
+        }
+        purchaseReceiptRepository.findByIdAndOwnerUserId(id, ownerUserId)
+            .orElseThrow(() -> new AccessDeniedException("采购收货单不属于当前账号"));
+        return id;
     }
 
     public record HealthResult(

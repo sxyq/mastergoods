@@ -422,6 +422,26 @@ class V2SyncServiceTest {
         );
     }
 
+    @Test
+    void uploadRejectsCrossOwnerProductCategoryReferenceBeforeSaving() {
+        when(productRepository.findByIdAndOwnerUserId(900L, 1L)).thenReturn(Optional.empty());
+        when(productCategoryRepository.findByIdAndOwnerUserId(77L, 1L)).thenReturn(Optional.empty());
+
+        V2SyncService.UploadResult result = v2SyncService.upload("device-a", List.of(
+            new V2SyncService.SyncChange(
+                "op-cross-owner-category", "product", "900", "create",
+                "{\"code\":\"P-900\",\"name\":\"越权商品\",\"category_id\":77}", 100L, null
+            )
+        ), "0");
+
+        assertEquals(0, result.acceptedCount());
+        assertEquals(1, result.failedCount());
+        assertEquals("op-cross-owner-category", result.failedOperationIds().get(0));
+        assertEquals("permission_denied", result.failures().get(0).code());
+        verify(productRepository, never()).save(any(ProductEntity.class));
+        verify(syncChangeLogRepository, never()).save(any(SyncChangeLogEntity.class));
+    }
+
     private void stubEmptyPullRepositories() {
         when(productUnitRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());
         when(productPriceLevelRepository.findChangedByOwnerUserId(eq(1L), anyLong())).thenReturn(List.of());

@@ -145,7 +145,7 @@ class V2ProductServiceTest {
         V2ProductDtos.ProductWriteRequest request = new V2ProductDtos.ProductWriteRequest(
             "B-200", "新商品", 102L, 202L, 21.0, 12.0, null, null, 18.5, 4.0, 1
         );
-        when(productRepository.findByIdAndOwnerUserId(22L, 1L)).thenReturn(Optional.of(target));
+        when(productRepository.findByIdForUpdate(1L, 22L)).thenReturn(Optional.of(target));
         when(productRepository.findByOwnerUserIdAndCode(1L, "B-200")).thenReturn(Optional.of(target));
         when(categoryService.getOwnedEntity(102L)).thenReturn(category(102L, "分类B"));
         when(unitService.getOwnedEntity(202L)).thenReturn(unit(202L, "箱"));

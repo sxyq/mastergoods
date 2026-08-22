@@ -168,6 +168,31 @@ class ToolRegistryTest {
         assertEquals(1, tool.executionCount);
     }
 
+    @Test
+    void maximumAndMaxItemsRejectOversizedArguments() throws Exception {
+        ObjectNode schema = objectMapper.createObjectNode();
+        schema.put("type", "object");
+        ObjectNode properties = schema.putObject("properties");
+        properties.putObject("limit").put("type", "integer").put("maximum", 100);
+        properties.putObject("ids")
+            .put("type", "array")
+            .put("maxItems", 2)
+            .putObject("items")
+            .put("type", "integer");
+        schema.putArray("required").add("limit").add("ids");
+
+        ToolRegistry registry = new ToolRegistry(List.of(new TestTool(
+            "bounded_lookup", "受限查询", "验证参数上限", AgentTool.ToolType.READ_ONLY, schema
+        )));
+
+        assertFalse(registry.hasAllRequiredParameters(
+            "bounded_lookup", objectMapper.readTree("{\"limit\":101,\"ids\":[1,2]}")));
+        assertFalse(registry.hasAllRequiredParameters(
+            "bounded_lookup", objectMapper.readTree("{\"limit\":100,\"ids\":[1,2,3]}")));
+        assertTrue(registry.hasAllRequiredParameters(
+            "bounded_lookup", objectMapper.readTree("{\"limit\":100,\"ids\":[1,2]}")));
+    }
+
     private record TestTool(
         String name,
         String displayName,

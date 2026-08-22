@@ -51,7 +51,7 @@ public interface AgentTool {
      * @return 权限标识
      */
     default String requiredPermission() {
-        return "";
+        return type() == ToolType.CREATE_ONLY ? "agent:write" : "agent:view";
     }
 
     /**

@@ -41,6 +41,9 @@ media:
     local:
       base-path: ${MEDIA_STORAGE_PATH:./data/media}
 
+legacy:
+  import-root: ${LEGACY_IMPORT_ROOT:./data/imports}
+
 agent:
   llm:
     enabled: ${AGENT_LLM_ENABLED:false}

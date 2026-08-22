@@ -132,7 +132,8 @@ public class V2ProductService {
     @Transactional
     public V2ProductDtos.ProductResponse update(Long id, V2ProductDtos.ProductWriteRequest request) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        ProductEntity entity = getOwnedEntity(id);
+        ProductEntity entity = productRepository.findByIdForUpdate(ownerUserId, id)
+            .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
         String code = normalizeRequired(request.code(), "商品编码不能为空");
         productRepository.findByOwnerUserIdAndCode(ownerUserId, code)
             .filter(existing -> !existing.getId().equals(id))
