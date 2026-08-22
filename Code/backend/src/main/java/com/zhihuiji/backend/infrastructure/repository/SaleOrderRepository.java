@@ -52,7 +52,7 @@ public interface SaleOrderRepository extends JpaRepository<SaleOrderEntity, Long
         "    LOWER(item.productName) LIKE LOWER(CONCAT('%', :productKeyword, '%'))" +
         "  )" +
         ")) " +
-        "ORDER BY o.createdAt DESC")
+        "ORDER BY o.createdAt DESC, o.id DESC")
     List<SaleOrderEntity> search(
         @Param("ownerUserId") Long ownerUserId,
         @Param("keyword") String keyword,
@@ -83,7 +83,7 @@ public interface SaleOrderRepository extends JpaRepository<SaleOrderEntity, Long
         "    LOWER(item.productName) LIKE LOWER(CONCAT('%', :productKeyword, '%'))" +
         "  )" +
         ")) " +
-        "ORDER BY o.createdAt DESC")
+        "ORDER BY o.createdAt DESC, o.id DESC")
     List<SaleOrderEntity> search(
         @Param("ownerUserId") Long ownerUserId,
         @Param("keyword") String keyword,

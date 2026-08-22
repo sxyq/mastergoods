@@ -55,7 +55,7 @@ public class V2PayOrderController {
     @PostMapping
     @RequireStorePermission("finance:write")
     public ApiResponse<V2PayOrderDtos.PayOrderResponse> create(@Valid @RequestBody V2PayOrderDtos.CreateRequest request) {
-        return ApiResponse.success(v2PayOrderService.create(request));
+        return ApiResponse.success(v2PayOrderService.createWithRequiredIdempotencyKey(request));
     }
 
     @PutMapping("/{id}/status")

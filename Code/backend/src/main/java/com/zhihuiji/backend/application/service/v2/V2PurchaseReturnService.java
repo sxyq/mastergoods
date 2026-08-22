@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -160,6 +161,22 @@ public class V2PurchaseReturnService {
         List<PurchaseReturnEntity> returns = normalizedKeyword == null
             ? listWithoutKeyword(ownerUserId, status)
             : purchaseReturnRepository.search(ownerUserId, normalizedKeyword, status);
+        return toResponses(ownerUserId, returns);
+    }
+
+    @Transactional(readOnly = true)
+    public List<V2PurchaseReturnDtos.PurchaseReturnResponse> list(
+        String keyword,
+        Integer status,
+        Pageable pageable
+    ) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        String normalizedKeyword = normalizeKeyword(keyword);
+        List<PurchaseReturnEntity> returns = normalizedKeyword == null
+            ? listWithoutKeyword(ownerUserId, status, pageable)
+            : status == null
+                ? purchaseReturnRepository.searchByKeyword(ownerUserId, normalizedKeyword, pageable)
+                : purchaseReturnRepository.searchByKeywordAndStatus(ownerUserId, normalizedKeyword, status, pageable);
         return toResponses(ownerUserId, returns);
     }
 
@@ -478,6 +495,13 @@ public class V2PurchaseReturnService {
             return purchaseReturnRepository.findByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
         }
         return purchaseReturnRepository.findByOwnerUserIdAndStatusOrderByCreatedAtDesc(ownerUserId, status);
+    }
+
+    private List<PurchaseReturnEntity> listWithoutKeyword(Long ownerUserId, Integer status, Pageable pageable) {
+        if (status == null) {
+            return purchaseReturnRepository.findByOwnerUserIdOrderByCreatedAtDescIdDesc(ownerUserId, pageable);
+        }
+        return purchaseReturnRepository.findByOwnerUserIdAndStatusOrderByCreatedAtDescIdDesc(ownerUserId, status, pageable);
     }
 
     private String normalizeKeyword(String keyword) {

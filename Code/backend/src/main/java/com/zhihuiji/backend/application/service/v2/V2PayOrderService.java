@@ -14,6 +14,7 @@ import java.util.List;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Objects;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -78,15 +79,33 @@ public class V2PayOrderService {
     }
 
     public V2PayOrderDtos.PayOrderResponse create(V2PayOrderDtos.CreateRequest request) {
+        return createInternal(request, false);
+    }
+
+    /**
+     * Entry point used by the public HTTP endpoint. Internal Agent draft
+     * confirmation remains compatible with older drafts that have no key.
+     */
+    public V2PayOrderDtos.PayOrderResponse createWithRequiredIdempotencyKey(V2PayOrderDtos.CreateRequest request) {
+        return createInternal(request, true);
+    }
+
+    private V2PayOrderDtos.PayOrderResponse createInternal(
+        V2PayOrderDtos.CreateRequest request,
+        boolean requireIdempotencyKey
+    ) {
+        if (request == null) {
+            throw new IllegalArgumentException("付款单参数不能为空");
+        }
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        String idempotencyKey = normalizeIdempotencyKey(request.idempotencyKey());
+        String idempotencyKey = normalizeIdempotencyKey(request.idempotencyKey(), requireIdempotencyKey);
         String payloadHash = idempotencyKey == null ? null : payloadHash(request);
         if (idempotencyKey != null) {
             PayOrderEntity existing = payOrderRepository
                 .findByOwnerUserIdAndIdempotencyKey(ownerUserId, idempotencyKey)
                 .orElse(null);
             if (existing != null) {
-                assertSamePayload(existing, payloadHash);
+                assertSamePayload(existing, payloadHash, request);
                 return toResponse(existing);
             }
         }
@@ -96,9 +115,9 @@ public class V2PayOrderService {
             if (idempotencyKey == null) {
                 throw ex;
             }
-            return payOrderRepository.findByOwnerUserIdAndIdempotencyKey(ownerUserId, idempotencyKey)
+            return findCommittedAfterUniqueConflict(ownerUserId, idempotencyKey)
                 .map(entity -> {
-                    assertSamePayload(entity, payloadHash);
+                    assertSamePayload(entity, payloadHash, request);
                     return toResponse(entity);
                 })
                 .orElseThrow(() -> ex);
@@ -135,25 +154,89 @@ public class V2PayOrderService {
         return entity;
     }
 
-    private String normalizeIdempotencyKey(String raw) {
+    private String normalizeIdempotencyKey(String raw, boolean required) {
         if (raw == null) {
+            if (required) {
+                throw new IllegalArgumentException("幂等键不能为空");
+            }
             return null;
         }
         String normalized = raw.trim();
         if (normalized.isBlank()) {
+            if (required) {
+                throw new IllegalArgumentException("幂等键不能为空");
+            }
             return null;
         }
         if (normalized.length() > 128) {
             throw new IllegalArgumentException("幂等键长度不能超过128个字符");
         }
+        for (int index = 0; index < normalized.length(); index++) {
+            char character = normalized.charAt(index);
+            if (Character.isISOControl(character) || Character.isWhitespace(character)
+                || !(character == '-' || character == '_' || character == '.' || character == ':'
+                    || character >= '0' && character <= '9'
+                    || character >= 'a' && character <= 'z'
+                    || character >= 'A' && character <= 'Z')) {
+                throw new IllegalArgumentException("幂等键格式不合法");
+            }
+        }
         return normalized;
     }
 
-    private void assertSamePayload(PayOrderEntity existing, String payloadHash) {
-        if (existing.getIdempotencyPayloadHash() != null
-            && !existing.getIdempotencyPayloadHash().equals(payloadHash)) {
+    private void assertSamePayload(
+        PayOrderEntity existing,
+        String payloadHash,
+        V2PayOrderDtos.CreateRequest request
+    ) {
+        boolean matches = existing.getIdempotencyPayloadHash() != null
+            ? existing.getIdempotencyPayloadHash().equals(payloadHash)
+            : legacyPayloadMatches(existing, request);
+        if (!matches) {
             throw new IllegalArgumentException("相同幂等键不能用于不同付款请求");
         }
+    }
+
+    private boolean legacyPayloadMatches(PayOrderEntity existing, V2PayOrderDtos.CreateRequest request) {
+        int requestedStatus = request.status() == null ? PayOrderStatus.DRAFT.code() : request.status();
+        if (!Objects.equals(existing.getSupplierId(), request.supplierId())
+            || !Objects.equals(existing.getMethod(), request.method())
+            || !Objects.equals(existing.getAccountId(), request.accountId())
+            || !Objects.equals(existing.getStatus(), requestedStatus)
+            || !sameAmount(existing.getAmount(), request.amount())
+            || !sameText(existing.getReferenceNo(), request.referenceNo())
+            || !sameText(existing.getNotes(), request.notes())) {
+            return false;
+        }
+        return request.supplierId() != null
+            || sameText(existing.getSupplierName(), request.supplierName());
+    }
+
+    private boolean sameAmount(Double left, Double right) {
+        return left == null ? right == null : right != null && Double.compare(left, right) == 0;
+    }
+
+    private boolean sameText(String left, String right) {
+        String normalizedLeft = left == null || left.trim().isBlank() ? null : left.trim();
+        String normalizedRight = right == null || right.trim().isBlank() ? null : right.trim();
+        return Objects.equals(normalizedLeft, normalizedRight);
+    }
+
+    private java.util.Optional<PayOrderEntity> findCommittedAfterUniqueConflict(Long ownerUserId, String idempotencyKey) {
+        for (int attempt = 0; attempt < 3; attempt++) {
+            java.util.Optional<PayOrderEntity> committed = payOrderRepository
+                .findByOwnerUserIdAndIdempotencyKey(ownerUserId, idempotencyKey);
+            if (committed.isPresent() || attempt == 2) {
+                return committed;
+            }
+            try {
+                Thread.sleep(5L);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return java.util.Optional.empty();
+            }
+        }
+        return java.util.Optional.empty();
     }
 
     private String payloadHash(V2PayOrderDtos.CreateRequest request) {

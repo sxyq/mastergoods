@@ -21,6 +21,7 @@ import com.zhihuiji.backend.api.common.OrderStatus;
 import com.zhihuiji.backend.api.common.PaymentType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Pageable;
 
 @Service
 public class SaleOrderService {
@@ -155,6 +156,33 @@ public class SaleOrderService {
             createdBefore,
             normalizeKeyword(productKeyword),
             paymentStatus
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<SaleOrderEntity> list(
+        String keyword,
+        Integer status,
+        Double minTotalAmount,
+        Double maxTotalAmount,
+        Long createdAfter,
+        Long createdBefore,
+        String productKeyword,
+        Integer paymentStatus,
+        Pageable pageable
+    ) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        return saleOrderRepository.search(
+            ownerUserId,
+            normalizeKeyword(keyword),
+            status,
+            minTotalAmount,
+            maxTotalAmount,
+            createdAfter,
+            createdBefore,
+            normalizeKeyword(productKeyword),
+            paymentStatus,
+            pageable
         );
     }
 

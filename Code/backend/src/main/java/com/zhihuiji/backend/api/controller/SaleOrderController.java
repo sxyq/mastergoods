@@ -65,7 +65,7 @@ public class SaleOrderController {
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "size", required = false) Integer size
     ) {
-        List<SaleOrderEntity> orders = saleOrderService.list(
+        List<SaleOrderEntity> rows = saleOrderService.list(
             keyword,
             status,
             ParseUtils.parseDouble(minTotalAmount),
@@ -73,9 +73,9 @@ public class SaleOrderController {
             ParseUtils.parseLong(createdAfter),
             ParseUtils.parseLong(createdBefore),
             productKeyword,
-            ParseUtils.parseInteger(paymentStatus)
+            ParseUtils.parseInteger(paymentStatus),
+            PaginationUtils.pageable(page, size)
         );
-        List<SaleOrderEntity> rows = PaginationUtils.slice(orders, page, size);
         List<SaleOrderDto> payload = rows.stream()
             .map(order -> toDto(order, saleOrderService.listItems(order.getId())))
             .toList();
@@ -177,4 +177,3 @@ public class SaleOrderController {
 
     public record PaymentRequest(Double amount, Integer method, String referenceNo) {}
 }
-

@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -129,6 +130,23 @@ public class V2SalesReturnService {
         List<SalesReturnEntity> returns = normalizedKeyword == null
             ? listWithoutKeyword(ownerUserId, status)
             : salesReturnRepository.search(ownerUserId, normalizedKeyword, status);
+        Map<Long, List<SalesReturnItemEntity>> itemsByReturnId = loadItemsByReturnId(ownerUserId, returns);
+        return returns.stream()
+            .map(entity -> toResponse(entity, itemsByReturnId.getOrDefault(entity.getId(), List.of())))
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<V2SalesReturnDtos.SalesReturnResponse> list(
+        String keyword,
+        Integer status,
+        Pageable pageable
+    ) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        String normalizedKeyword = normalizeKeyword(keyword);
+        List<SalesReturnEntity> returns = normalizedKeyword == null
+            ? listWithoutKeyword(ownerUserId, status, pageable)
+            : salesReturnRepository.search(ownerUserId, normalizedKeyword, status, pageable);
         Map<Long, List<SalesReturnItemEntity>> itemsByReturnId = loadItemsByReturnId(ownerUserId, returns);
         return returns.stream()
             .map(entity -> toResponse(entity, itemsByReturnId.getOrDefault(entity.getId(), List.of())))
@@ -318,6 +336,13 @@ public class V2SalesReturnService {
             return salesReturnRepository.findByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
         }
         return salesReturnRepository.findByOwnerUserIdAndStatusOrderByCreatedAtDesc(ownerUserId, status);
+    }
+
+    private List<SalesReturnEntity> listWithoutKeyword(Long ownerUserId, Integer status, Pageable pageable) {
+        if (status == null) {
+            return salesReturnRepository.findByOwnerUserIdOrderByCreatedAtDescIdDesc(ownerUserId, pageable);
+        }
+        return salesReturnRepository.findByOwnerUserIdAndStatusOrderByCreatedAtDescIdDesc(ownerUserId, status, pageable);
     }
 
     private static String normalizeKeyword(String keyword) {

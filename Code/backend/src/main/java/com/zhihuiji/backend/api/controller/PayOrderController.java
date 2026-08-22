@@ -37,15 +37,12 @@ public class PayOrderController {
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "size", required = false) Integer size
     ) {
-        List<PayOrderEntity> rows = PaginationUtils.slice(
-            payOrderService.list(
-                keyword,
-                status,
-                ParseUtils.parseLong(createdAfter),
-                ParseUtils.parseLong(createdBefore)
-            ),
-            page,
-            size
+        List<PayOrderEntity> rows = payOrderService.list(
+            keyword,
+            status,
+            ParseUtils.parseLong(createdAfter),
+            ParseUtils.parseLong(createdBefore),
+            PaginationUtils.pageable(page, size)
         );
         return ApiResponse.success(rows.stream().map(this::toDto).toList());
     }

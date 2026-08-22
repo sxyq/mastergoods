@@ -8,6 +8,7 @@ import com.zhihuiji.backend.infrastructure.repository.PosterGenerationRepository
 import com.zhihuiji.backend.infrastructure.repository.product.ProductRepository;
 import java.math.BigDecimal;
 import java.util.List;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -126,6 +127,10 @@ public class PosterService {
 
     public List<PosterGenerationEntity> listGenerations(Long ownerUserId, Integer page, Integer limit) {
         return posterGenerationRepository.findAllByOwnerUserIdOrderByCreatedAtDescIdDesc(ownerUserId);
+    }
+
+    public List<PosterGenerationEntity> listGenerations(Long ownerUserId, Pageable pageable) {
+        return posterGenerationRepository.findAllByOwnerUserIdOrderByCreatedAtDescIdDesc(ownerUserId, pageable);
     }
 
     public PosterGenerationEntity getGeneration(Long ownerUserId, Long id) {

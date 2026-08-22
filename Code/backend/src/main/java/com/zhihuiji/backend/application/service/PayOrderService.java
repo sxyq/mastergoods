@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.UUID;
 import com.zhihuiji.backend.api.common.IdGenerator;
 import com.zhihuiji.backend.api.common.PayOrderStatus;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,6 +47,24 @@ public class PayOrderService {
             status,
             createdAfter,
             createdBefore
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<PayOrderEntity> list(
+        String keyword,
+        Integer status,
+        Long createdAfter,
+        Long createdBefore,
+        Pageable pageable
+    ) {
+        return payOrderRepository.search(
+            currentOwnerService.requireCurrentOwnerUserId(),
+            normalizeKeyword(keyword),
+            status,
+            createdAfter,
+            createdBefore,
+            pageable
         );
     }
 

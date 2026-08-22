@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -123,6 +124,25 @@ public class V2PurchaseReceiptService {
         List<PurchaseReceiptEntity> receipts = normalizedKeyword == null
             ? listWithoutKeyword(ownerUserId, status)
             : purchaseReceiptRepository.search(ownerUserId, normalizedKeyword, status);
+        Map<Long, List<PurchaseReceiptItemEntity>> itemsByReceiptId = loadItemsByReceiptId(ownerUserId, receipts);
+        return receipts.stream()
+            .map(receipt -> toResponse(receipt, itemsByReceiptId.getOrDefault(receipt.getId(), List.of())))
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<V2PurchaseReceiptDtos.PurchaseReceiptResponse> list(
+        String keyword,
+        Integer status,
+        Pageable pageable
+    ) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        String normalizedKeyword = normalizeKeyword(keyword);
+        List<PurchaseReceiptEntity> receipts = normalizedKeyword == null
+            ? listWithoutKeyword(ownerUserId, status, pageable)
+            : status == null
+                ? purchaseReceiptRepository.searchByKeyword(ownerUserId, normalizedKeyword, pageable)
+                : purchaseReceiptRepository.searchByKeywordAndStatus(ownerUserId, normalizedKeyword, status, pageable);
         Map<Long, List<PurchaseReceiptItemEntity>> itemsByReceiptId = loadItemsByReceiptId(ownerUserId, receipts);
         return receipts.stream()
             .map(receipt -> toResponse(receipt, itemsByReceiptId.getOrDefault(receipt.getId(), List.of())))
@@ -290,6 +310,13 @@ public class V2PurchaseReceiptService {
             return purchaseReceiptRepository.findByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
         }
         return purchaseReceiptRepository.findByOwnerUserIdAndStatusOrderByCreatedAtDesc(ownerUserId, status);
+    }
+
+    private List<PurchaseReceiptEntity> listWithoutKeyword(Long ownerUserId, Integer status, Pageable pageable) {
+        if (status == null) {
+            return purchaseReceiptRepository.findByOwnerUserIdOrderByCreatedAtDescIdDesc(ownerUserId, pageable);
+        }
+        return purchaseReceiptRepository.findByOwnerUserIdAndStatusOrderByCreatedAtDescIdDesc(ownerUserId, status, pageable);
     }
 
     private static String normalizeKeyword(String keyword) {

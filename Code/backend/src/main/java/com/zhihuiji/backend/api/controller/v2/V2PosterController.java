@@ -57,10 +57,9 @@ public class V2PosterController {
         @RequestParam(value = "size", required = false) Integer size
     ) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        List<CreditTransactionEntity> rows = PaginationUtils.slice(
-            creditService.listTransactions(ownerUserId, page, size),
-            page,
-            size
+        List<CreditTransactionEntity> rows = creditService.listTransactions(
+            ownerUserId,
+            PaginationUtils.pageable(page, size)
         );
         List<V2PosterDtos.CreditTransactionResponse> payload = rows.stream()
             .map(this::toTransactionResponse)
@@ -90,10 +89,9 @@ public class V2PosterController {
         @RequestParam(value = "size", required = false) Integer size
     ) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        List<PosterGenerationEntity> rows = PaginationUtils.slice(
-            posterService.listGenerations(ownerUserId, page, size),
-            page,
-            size
+        List<PosterGenerationEntity> rows = posterService.listGenerations(
+            ownerUserId,
+            PaginationUtils.pageable(page, size)
         );
         List<V2PosterDtos.PosterGenerationResponse> payload = rows.stream()
             .map(this::toGenerationResponse)

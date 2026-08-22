@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.data.domain.Pageable;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -77,7 +78,13 @@ public class AdminService {
     }
 
     public List<UserItem> listUsers(String keyword) {
-        List<UserEntity> users = userRepository.searchByKeyword(keyword);
+        return listUsers(keyword, null);
+    }
+
+    public List<UserItem> listUsers(String keyword, Pageable pageable) {
+        List<UserEntity> users = pageable == null
+            ? userRepository.searchByKeyword(keyword)
+            : userRepository.searchByKeyword(keyword, pageable);
         if (users.isEmpty()) {
             return List.of();
         }

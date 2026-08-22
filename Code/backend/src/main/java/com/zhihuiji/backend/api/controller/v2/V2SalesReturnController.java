@@ -41,7 +41,7 @@ public class V2SalesReturnController {
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "size", required = false) Integer size
     ) {
-        return ApiResponse.success(PaginationUtils.slice(v2SalesReturnService.list(keyword, status), page, size));
+        return ApiResponse.success(v2SalesReturnService.list(keyword, status, PaginationUtils.pageable(page, size)));
     }
 
     @GetMapping("/{id}")

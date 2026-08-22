@@ -105,6 +105,7 @@ class V2PayOrderServiceTest {
     @Test
     void repeatedCreateWithSameIdempotencyKeyReturnsExistingOrder() {
         PayOrderEntity existing = payOrder(21L, null, PayOrderStatus.DRAFT.code(), 18.0);
+        existing.setSupplierId(null);
         when(payOrderRepository.findByOwnerUserIdAndIdempotencyKey(1L, "pay-retry-21"))
             .thenReturn(Optional.of(existing));
 
@@ -136,6 +137,7 @@ class V2PayOrderServiceTest {
     @Test
     void idempotencyConflictReturnsOrderCommittedByConcurrentRequest() {
         PayOrderEntity existing = payOrder(22L, null, PayOrderStatus.DRAFT.code(), 18.0);
+        existing.setSupplierId(null);
         when(payOrderRepository.findByOwnerUserIdAndIdempotencyKey(1L, "pay-race-22"))
             .thenReturn(Optional.empty(), Optional.of(existing));
         when(payOrderService.createForOwner(anyLong(), any(), any()))
@@ -147,6 +149,50 @@ class V2PayOrderServiceTest {
 
         assertEquals(22L, response.id());
         verify(payOrderRepository, times(2)).findByOwnerUserIdAndIdempotencyKey(1L, "pay-race-22");
+    }
+
+    @Test
+    void nullRequestIsRejectedAsBusinessInputError() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.create(null));
+
+        assertEquals("付款单参数不能为空", error.getMessage());
+        verify(payOrderService, never()).createForOwner(anyLong(), any(), any());
+    }
+
+    @Test
+    void publicCreateRequiresNonBlankSafeIdempotencyKey() {
+        IllegalArgumentException blank = assertThrows(
+            IllegalArgumentException.class,
+            () -> service.createWithRequiredIdempotencyKey(request("   "))
+        );
+        IllegalArgumentException control = assertThrows(
+            IllegalArgumentException.class,
+            () -> service.createWithRequiredIdempotencyKey(request("pay\norder"))
+        );
+        IllegalArgumentException longKey = assertThrows(
+            IllegalArgumentException.class,
+            () -> service.createWithRequiredIdempotencyKey(request("a".repeat(129)))
+        );
+
+        assertEquals("幂等键不能为空", blank.getMessage());
+        assertEquals("幂等键格式不合法", control.getMessage());
+        assertEquals("幂等键长度不能超过128个字符", longKey.getMessage());
+    }
+
+    @Test
+    void legacyOrderWithoutPayloadHashRejectsDifferentPayload() {
+        PayOrderEntity existing = payOrder(24L, null, PayOrderStatus.DRAFT.code(), 18.0);
+        existing.setSupplierId(null);
+        when(payOrderRepository.findByOwnerUserIdAndIdempotencyKey(1L, "legacy-24"))
+            .thenReturn(Optional.of(existing));
+
+        IllegalArgumentException error = assertThrows(
+            IllegalArgumentException.class,
+            () -> service.create(request("legacy-24", "供应商B", 18.0))
+        );
+
+        assertEquals("相同幂等键不能用于不同付款请求", error.getMessage());
+        verify(payOrderService, never()).createForOwner(anyLong(), any(), any());
     }
 
     @Test
@@ -277,6 +323,24 @@ class V2PayOrderServiceTest {
             result.append(String.format("%02x", item));
         }
         return result.toString();
+    }
+
+    private static V2PayOrderDtos.CreateRequest request(String idempotencyKey) {
+        return request(idempotencyKey, "供应商A", 18.0);
+    }
+
+    private static V2PayOrderDtos.CreateRequest request(String idempotencyKey, String supplierName, Double amount) {
+        return new V2PayOrderDtos.CreateRequest(
+            idempotencyKey,
+            null,
+            supplierName,
+            amount,
+            1,
+            null,
+            null,
+            null,
+            null
+        );
     }
 
     private static AccountEntity account(Long id, Double balance) {

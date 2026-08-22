@@ -10,6 +10,7 @@ import com.zhihuiji.backend.infrastructure.repository.UserCreditRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,6 +66,11 @@ public class CreditService {
     @Transactional(readOnly = true)
     public List<CreditTransactionEntity> listTransactions(Long ownerUserId, Integer page, Integer limit) {
         return creditTransactionRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CreditTransactionEntity> listTransactions(Long ownerUserId, Pageable pageable) {
+        return creditTransactionRepository.findAllByOwnerUserIdOrderByCreatedAtDescIdDesc(ownerUserId, pageable);
     }
 
     @Transactional

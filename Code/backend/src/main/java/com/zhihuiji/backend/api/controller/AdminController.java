@@ -48,7 +48,7 @@ public class AdminController {
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "size", required = false) Integer size
     ) {
-        return ApiResponse.success(PaginationUtils.slice(adminService.listUsers(keyword), page, size));
+        return ApiResponse.success(adminService.listUsers(keyword, PaginationUtils.pageable(page, size)));
     }
 
     @PostMapping("/users")
