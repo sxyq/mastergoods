@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.data.domain.Pageable;
 
 @RestController
 @RequestMapping("/v1/finance-records")
@@ -35,11 +36,9 @@ public class FinanceRecordController {
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "size", required = false) Integer size
     ) {
-        List<FinanceRecordEntity> rows = PaginationUtils.slice(
-            financeRecordService.list(keyword, type, ParseUtils.parseLong(createdAfter), ParseUtils.parseLong(createdBefore)),
-            page,
-            size
-        );
+        Pageable pageable = PaginationUtils.pageable(page, size);
+        List<FinanceRecordEntity> rows = financeRecordService.list(
+            keyword, type, ParseUtils.parseLong(createdAfter), ParseUtils.parseLong(createdBefore), pageable);
         return ApiResponse.success(rows.stream().map(this::toDto).toList());
     }
 

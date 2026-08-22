@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.data.domain.Pageable;
 
 @RestController
 @RequestMapping("/v1/products")
@@ -34,7 +35,8 @@ public class ProductController {
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "size", required = false) Integer size
     ) {
-        return ApiResponse.success(PaginationUtils.slice(productService.list(keyword), page, size));
+        Pageable pageable = PaginationUtils.pageable(page, size);
+        return ApiResponse.success(productService.list(keyword, pageable));
     }
 
     @GetMapping("/{id}")

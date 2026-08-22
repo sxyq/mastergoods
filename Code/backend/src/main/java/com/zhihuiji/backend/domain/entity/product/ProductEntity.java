@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 @Entity
 @Table(name = "products")
@@ -21,14 +22,17 @@ public class ProductEntity {
     private Long ownerUserId;
 
     @NotBlank
+    @Size(max = 64)
     @Column(nullable = false, length = 64)
     private String code;
 
     @NotBlank
+    @Size(max = 128)
     @Column(nullable = false, length = 128)
     private String name;
 
     @NotBlank
+    @Size(max = 64)
     @Column(nullable = false, length = 64)
     private String category;
 
@@ -37,6 +41,7 @@ public class ProductEntity {
     private Long categoryId;
 
     @NotBlank
+    @Size(max = 32)
     @Column(nullable = false, length = 32)
     private String unit;
 

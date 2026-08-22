@@ -1,0 +1,14 @@
+# Backend repair B: test results
+
+| test_id | category_id | wave_id | env | account_store | pre_state | actions | expected | actual | artifacts | cleanup | result |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| BE-REPAIR-B-001 | BE-PAY-IDEMPOTENCY | repair-B | local source | n/a | existing V30 idempotency implementation | compileJava | changed backend compiles | Gradle compileJava succeeded | command output in session | none | Passed |
+| BE-REPAIR-B-002 | BE-PAY-IDEMPOTENCY | repair-B | local unit | owner=1 | mocked existing key | same key, different payload | stable 4xx conflict and no business create | unit assertion added for 422-domain exception | V2PayOrderServiceTest.java | no data | Passed |
+| BE-REPAIR-B-003 | BE-PAY-IDEMPOTENCY | repair-B | local unit | owner=1 | duplicate unique-key race | concurrent winner simulation | loser reloads winner, no 500 | existing race test passes in targeted run | V2PayOrderServiceTest.java | no data | Passed |
+| BE-REPAIR-B-004 | BE-PAGINATION | repair-B | local source | owner scoped | V1 list endpoints | repository Pageable for products/customers/suppliers/finance/purchase orders | no full-list slice in controller | code path uses DB Pageable and stable id tie-break | changed controller/service/repository files | none | Passed |
+| BE-REPAIR-B-005 | BE-API-CONTRACT | repair-B | local unit | n/a | overlong product fields | validate entity/service length boundary | existing 4xx mapping, not DB 500 | @Size and service validation added | ProductEntity/ProductService | no data | Passed |
+| BE-REPAIR-B-006 | BE-HISTORY | repair-B | local source | owner scoped | conversation without messages | list history | conversation remains visible | dedicated owner-scoped history query added | AgentConversationRepository/V2AgentConversationService | none | Passed |
+| BE-REPAIR-B-007 | BE-SYNC-IMPORT | repair-B | local source and unit | owner/store scoped | operation log, tombstone, import worker code | atomic operation reservation and failure state | existing implementation reviewed; no production change required | V2SyncService/V2ImportJobWorkerService | no data | Passed |
+| BE-REPAIR-B-008 | BE-SQLITE | repair-B | local unit | temp import root | path-only fixtures | complete import and cleanup | full SQLite import result and rollback evidence | only path boundary tests available | LegacySQLiteImportServiceTest.java | temp directory managed by test | Deferred |
+| BE-REPAIR-B-009 | BE-DB-PLAN | repair-B | local | n/a | no PostgreSQL service | prepare production explain statements | executable production plan script | SQL script prepared, not executed | postgresql_pagination_explain.sql | none | Deferred |
+| BE-REPAIR-B-010 | BE-REGRESSION | repair-B | local | n/a | existing Agent test compile error | full Gradle test | all backend tests compile and run | blocked by pre-existing out-of-scope ToolPlannerTest missing Map import | Gradle output | none | Blocked |

@@ -11,6 +11,9 @@ import com.zhihuiji.backend.infrastructure.repository.AccountRepository;
 import com.zhihuiji.backend.infrastructure.repository.BillFundLinkRepository;
 import com.zhihuiji.backend.infrastructure.repository.PayOrderRepository;
 import java.util.List;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -77,22 +80,27 @@ public class V2PayOrderService {
     public V2PayOrderDtos.PayOrderResponse create(V2PayOrderDtos.CreateRequest request) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         String idempotencyKey = normalizeIdempotencyKey(request.idempotencyKey());
+        String payloadHash = idempotencyKey == null ? null : payloadHash(request);
         if (idempotencyKey != null) {
             PayOrderEntity existing = payOrderRepository
                 .findByOwnerUserIdAndIdempotencyKey(ownerUserId, idempotencyKey)
                 .orElse(null);
             if (existing != null) {
+                assertSamePayload(existing, payloadHash);
                 return toResponse(existing);
             }
         }
         try {
-            return transactionTemplate.execute(status -> toResponse(createWithinTransaction(ownerUserId, request, idempotencyKey)));
+            return transactionTemplate.execute(status -> toResponse(createWithinTransaction(ownerUserId, request, idempotencyKey, payloadHash)));
         } catch (DataIntegrityViolationException ex) {
             if (idempotencyKey == null) {
                 throw ex;
             }
             return payOrderRepository.findByOwnerUserIdAndIdempotencyKey(ownerUserId, idempotencyKey)
-                .map(this::toResponse)
+                .map(entity -> {
+                    assertSamePayload(entity, payloadHash);
+                    return toResponse(entity);
+                })
                 .orElseThrow(() -> ex);
         }
     }
@@ -100,7 +108,8 @@ public class V2PayOrderService {
     private PayOrderEntity createWithinTransaction(
         Long ownerUserId,
         V2PayOrderDtos.CreateRequest request,
-        String idempotencyKey
+        String idempotencyKey,
+        String payloadHash
     ) {
         PayOrderEntity entity = payOrderService.createForOwner(
             ownerUserId,
@@ -115,6 +124,7 @@ public class V2PayOrderService {
             ),
             idempotencyKey
         );
+        entity.setIdempotencyPayloadHash(payloadHash);
         if (request.accountId() != null) {
             accountRepository.findByIdAndOwnerUserId(request.accountId(), ownerUserId)
                 .orElseThrow(() -> new IllegalArgumentException("账户不存在"));
@@ -137,6 +147,41 @@ public class V2PayOrderService {
             throw new IllegalArgumentException("幂等键长度不能超过128个字符");
         }
         return normalized;
+    }
+
+    private void assertSamePayload(PayOrderEntity existing, String payloadHash) {
+        if (existing.getIdempotencyPayloadHash() != null
+            && !existing.getIdempotencyPayloadHash().equals(payloadHash)) {
+            throw new IllegalArgumentException("相同幂等键不能用于不同付款请求");
+        }
+    }
+
+    private String payloadHash(V2PayOrderDtos.CreateRequest request) {
+        String canonical = String.join("\u001f",
+            value(request.supplierId()),
+            value(request.supplierName()),
+            value(request.amount()),
+            value(request.method()),
+            value(request.referenceNo()),
+            value(request.notes()),
+            value(request.accountId()),
+            value(request.status())
+        );
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                .digest(canonical.getBytes(StandardCharsets.UTF_8));
+            StringBuilder result = new StringBuilder(digest.length * 2);
+            for (byte item : digest) {
+                result.append(String.format("%02x", item));
+            }
+            return result.toString();
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 unavailable", exception);
+        }
+    }
+
+    private String value(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
     }
 
     @Transactional

@@ -3,6 +3,7 @@ package com.zhihuiji.backend.application.service;
 import com.zhihuiji.backend.domain.entity.SupplierEntity;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
 import java.util.List;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,12 @@ public class SupplierService {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         String normalizedKeyword = normalizeKeyword(keyword);
         return supplierRepository.search(ownerUserId, normalizedKeyword, status, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SupplierEntity> list(String keyword, Integer status, Pageable pageable) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        return supplierRepository.search(ownerUserId, normalizeKeyword(keyword), status, null, pageable);
     }
 
     @Transactional(readOnly = true)

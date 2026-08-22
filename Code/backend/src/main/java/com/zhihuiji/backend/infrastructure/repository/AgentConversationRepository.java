@@ -13,6 +13,10 @@ public interface AgentConversationRepository extends JpaRepository<AgentConversa
 
     List<AgentConversationEntity> findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(Long ownerUserId, Pageable pageable);
 
+    @Query("SELECT c FROM AgentConversationEntity c WHERE c.ownerUserId = :ownerUserId ORDER BY c.updatedAt DESC, c.id DESC")
+    List<AgentConversationEntity> findAllByOwnerUserIdOrderByUpdatedAtDescIdDescForHistory(
+        Long ownerUserId, Pageable pageable);
+
     @Query("""
         SELECT c
         FROM AgentConversationEntity c

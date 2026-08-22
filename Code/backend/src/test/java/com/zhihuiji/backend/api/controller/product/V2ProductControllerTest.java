@@ -2,6 +2,7 @@ package com.zhihuiji.backend.api.controller.product;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -27,6 +28,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.data.domain.Pageable;
 
 @WebMvcTest(controllers = {
     V2ProductController.class,
@@ -55,7 +57,7 @@ class V2ProductControllerTest {
 
     @Test
     void listReturnsSnakeCaseFields() throws Exception {
-        when(v2ProductService.list(null, null, null, null)).thenReturn(List.of(
+        when(v2ProductService.list(isNull(), isNull(), isNull(), isNull(), any(Pageable.class))).thenReturn(List.of(
             productResponse()
         ));
 

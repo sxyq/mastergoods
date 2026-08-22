@@ -30,7 +30,7 @@ public interface FinanceRecordRepository extends JpaRepository<FinanceRecordEnti
         "(:keyword IS NULL OR :keyword = '' OR LOWER(r.recordNo) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(r.category) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(r.notes) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
         "(:createdAfter IS NULL OR r.createdAt >= :createdAfter) AND " +
         "(:createdBefore IS NULL OR r.createdAt <= :createdBefore) " +
-        "ORDER BY r.createdAt DESC")
+        "ORDER BY r.createdAt DESC, r.id DESC")
     List<FinanceRecordEntity> search(
         @Param("ownerUserId") Long ownerUserId,
         @Param("keyword") String keyword,
@@ -45,7 +45,7 @@ public interface FinanceRecordRepository extends JpaRepository<FinanceRecordEnti
         "(:keyword IS NULL OR :keyword = '' OR LOWER(r.recordNo) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(r.category) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(r.notes) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
         "(:createdAfter IS NULL OR r.createdAt >= :createdAfter) AND " +
         "(:createdBefore IS NULL OR r.createdAt <= :createdBefore) " +
-        "ORDER BY r.createdAt DESC")
+        "ORDER BY r.createdAt DESC, r.id DESC")
     List<FinanceRecordEntity> search(
         @Param("ownerUserId") Long ownerUserId,
         @Param("keyword") String keyword,

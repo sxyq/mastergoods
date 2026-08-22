@@ -6,6 +6,7 @@ import com.zhihuiji.backend.infrastructure.repository.InventoryAdjustmentReposit
 import com.zhihuiji.backend.infrastructure.repository.product.ProductRepository;
 import java.math.BigDecimal;
 import java.util.List;
+import org.springframework.data.domain.Pageable;
 import com.zhihuiji.backend.api.common.IdGenerator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +46,18 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
+    public List<ProductEntity> list(String keyword, Pageable pageable) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        String normalizedKeyword = normalizeKeyword(keyword);
+        if (normalizedKeyword == null) {
+            return productRepository.findAllByOwnerUserIdAndFiltersOrderByUpdatedAtDesc(
+                ownerUserId, null, null, null, pageable);
+        }
+        return productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(
+            ownerUserId, normalizedKeyword, null, null, null, pageable);
+    }
+
+    @Transactional(readOnly = true)
     public ProductEntity get(Long id) {
         return productRepository.findByIdAndOwnerUserId(id, currentOwnerService.requireCurrentOwnerUserId())
             .orElseThrow(() -> new IllegalArgumentException("商品不存在"));
@@ -61,6 +74,7 @@ public class ProductService {
 
     @Transactional
     public ProductEntity create(ProductEntity product) {
+        validateTextLengths(product);
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         if (productRepository.findByOwnerUserIdAndCode(ownerUserId, product.getCode()).isPresent()) {
             throw new IllegalArgumentException("商品编码已存在");
@@ -74,8 +88,25 @@ public class ProductService {
         return productRepository.save(product);
     }
 
+    private void validateTextLengths(ProductEntity product) {
+        if (product == null) {
+            throw new IllegalArgumentException("商品参数不能为空");
+        }
+        validateLength(product.getCode(), 64, "商品编码");
+        validateLength(product.getName(), 128, "商品名称");
+        validateLength(product.getCategory(), 64, "商品分类");
+        validateLength(product.getUnit(), 32, "商品单位");
+    }
+
+    private void validateLength(String value, int max, String field) {
+        if (value != null && value.length() > max) {
+            throw new IllegalArgumentException(field + "长度不能超过" + max + "个字符");
+        }
+    }
+
     @Transactional
     public ProductEntity update(Long id, ProductEntity payload) {
+        validateTextLengths(payload);
         ProductEntity target = get(id);
         double currentStock = requireFiniteNonNegative(target.getStock(), "商品库存不能为空");
         double requestedStock = requireFiniteNonNegative(payload.getStock(), "商品库存不能为空");

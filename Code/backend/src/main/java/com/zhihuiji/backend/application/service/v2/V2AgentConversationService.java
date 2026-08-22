@@ -98,7 +98,7 @@ public class V2AgentConversationService {
     public List<V2AgentDtos.AgentConversationResponse> listConversations(Integer page, Integer limit) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         List<AgentConversationEntity> rows = agentConversationRepository
-            .findAllWithMessagesByOwnerUserIdOrderByUpdatedAtDescIdDesc(
+            .findAllByOwnerUserIdOrderByUpdatedAtDescIdDescForHistory(
                 ownerUserId,
                 PageRequest.of(safePage(page), safeLimit(limit, DEFAULT_CONVERSATION_LIMIT))
             );

@@ -27,6 +27,9 @@ public class PayOrderEntity {
     @Column(name = "idempotency_key", length = 128)
     private String idempotencyKey;
 
+    @Column(name = "idempotency_payload_hash", length = 64)
+    private String idempotencyPayloadHash;
+
     @Column(name = "supplier_id")
     private Long supplierId;
 
@@ -93,6 +96,14 @@ public class PayOrderEntity {
 
     public void setIdempotencyKey(String idempotencyKey) {
         this.idempotencyKey = idempotencyKey;
+    }
+
+    public String getIdempotencyPayloadHash() {
+        return idempotencyPayloadHash;
+    }
+
+    public void setIdempotencyPayloadHash(String idempotencyPayloadHash) {
+        this.idempotencyPayloadHash = idempotencyPayloadHash;
     }
 
     public Long getSupplierId() {

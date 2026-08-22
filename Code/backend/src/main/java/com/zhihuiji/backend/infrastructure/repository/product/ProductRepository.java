@@ -41,6 +41,22 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
           AND (:status IS NULL OR p.status = :status)
           AND (:categoryId IS NULL OR p.categoryId = :categoryId)
           AND (:unitId IS NULL OR p.unitId = :unitId)
+        ORDER BY p.updatedAt DESC, p.id DESC
+        """)
+    List<ProductEntity> findAllByOwnerUserIdAndFiltersOrderByUpdatedAtDesc(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("status") Integer status,
+        @Param("categoryId") Long categoryId,
+        @Param("unitId") Long unitId,
+        Pageable pageable
+    );
+
+    @Query("""
+        SELECT p FROM ProductEntity p
+        WHERE p.ownerUserId = :ownerUserId
+          AND (:status IS NULL OR p.status = :status)
+          AND (:categoryId IS NULL OR p.categoryId = :categoryId)
+          AND (:unitId IS NULL OR p.unitId = :unitId)
           AND (
               LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
               OR LOWER(p.code) LIKE LOWER(CONCAT('%', :keyword, '%'))
@@ -53,6 +69,25 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
         @Param("status") Integer status,
         @Param("categoryId") Long categoryId,
         @Param("unitId") Long unitId
+    );
+
+    @Query("""
+        SELECT p FROM ProductEntity p
+        WHERE p.ownerUserId = :ownerUserId
+          AND (:status IS NULL OR p.status = :status)
+          AND (:categoryId IS NULL OR p.categoryId = :categoryId)
+          AND (:unitId IS NULL OR p.unitId = :unitId)
+          AND (LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR LOWER(p.code) LIKE LOWER(CONCAT('%', :keyword, '%')))
+        ORDER BY p.updatedAt DESC, p.id DESC
+        """)
+    List<ProductEntity> findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("keyword") String keyword,
+        @Param("status") Integer status,
+        @Param("categoryId") Long categoryId,
+        @Param("unitId") Long unitId,
+        Pageable pageable
     );
 
     List<ProductEntity> findAllByOwnerUserIdOrderByNameAsc(Long ownerUserId, Pageable pageable);

@@ -21,6 +21,8 @@ import com.zhihuiji.backend.infrastructure.repository.AccountRepository;
 import com.zhihuiji.backend.infrastructure.repository.BillFundLinkRepository;
 import com.zhihuiji.backend.infrastructure.repository.PayOrderRepository;
 import java.util.Optional;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -113,6 +115,22 @@ class V2PayOrderServiceTest {
         assertEquals(21L, response.id());
         verify(payOrderService, never()).create(any());
         verify(payOrderRepository, never()).save(any(PayOrderEntity.class));
+    }
+
+    @Test
+    void reusedIdempotencyKeyWithDifferentPayloadIsRejected() throws Exception {
+        PayOrderEntity existing = payOrder(23L, null, PayOrderStatus.DRAFT.code(), 18.0);
+        existing.setIdempotencyPayloadHash(hash("", "供应商A", "18.0", "1", "", "", "", ""));
+        when(payOrderRepository.findByOwnerUserIdAndIdempotencyKey(1L, "pay-conflict-23"))
+            .thenReturn(Optional.of(existing));
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.create(
+            new V2PayOrderDtos.CreateRequest(
+                "pay-conflict-23", null, "供应商B", 18.0, 1, null, null, null, null
+            )));
+
+        assertEquals("相同幂等键不能用于不同付款请求", error.getMessage());
+        verify(payOrderService, never()).createForOwner(anyLong(), any(), any());
     }
 
     @Test
@@ -249,6 +267,16 @@ class V2PayOrderServiceTest {
         entity.setSyncStatus(0);
         entity.setSyncVersion(1L);
         return entity;
+    }
+
+    private static String hash(String... values) throws Exception {
+        String canonical = String.join("\u001f", values);
+        byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8));
+        StringBuilder result = new StringBuilder();
+        for (byte item : digest) {
+            result.append(String.format("%02x", item));
+        }
+        return result.toString();
     }
 
     private static AccountEntity account(Long id, Double balance) {

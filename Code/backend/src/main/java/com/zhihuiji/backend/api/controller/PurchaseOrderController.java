@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.data.domain.Pageable;
 
 @RestController
 @RequestMapping("/v1/purchase-orders")
@@ -56,7 +57,8 @@ public class PurchaseOrderController {
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "size", required = false) Integer size
     ) {
-        List<PurchaseOrderEntity> rows = PaginationUtils.slice(purchaseOrderService.list(keyword, status), page, size);
+        Pageable pageable = PaginationUtils.pageable(page, size);
+        List<PurchaseOrderEntity> rows = purchaseOrderService.list(keyword, status, pageable);
         return ApiResponse.success(rows.stream()
             .map(order -> toDto(order, purchaseOrderService.listItems(order.getId())))
             .toList());

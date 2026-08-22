@@ -107,7 +107,7 @@ class V2AgentConversationServiceTest {
         AgentConversationEntity second = conversation(8L);
         second.setTitle("导入追踪");
         second.setUpdatedAt(20L);
-        when(agentConversationRepository.findAllWithMessagesByOwnerUserIdOrderByUpdatedAtDescIdDesc(eq(1L), any(Pageable.class)))
+        when(agentConversationRepository.findAllByOwnerUserIdOrderByUpdatedAtDescIdDescForHistory(eq(1L), any(Pageable.class)))
             .thenReturn(java.util.List.of(first, second));
 
         java.util.List<V2AgentDtos.AgentConversationResponse> result = service.listConversations();
@@ -117,20 +117,20 @@ class V2AgentConversationServiceTest {
         assertEquals("导入追踪", result.get(1).title());
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(agentConversationRepository).findAllWithMessagesByOwnerUserIdOrderByUpdatedAtDescIdDesc(eq(1L), pageableCaptor.capture());
+        verify(agentConversationRepository).findAllByOwnerUserIdOrderByUpdatedAtDescIdDescForHistory(eq(1L), pageableCaptor.capture());
         assertEquals(0, pageableCaptor.getValue().getPageNumber());
         assertEquals(50, pageableCaptor.getValue().getPageSize());
     }
 
     @Test
     void listConversationsClampsInvalidPageAndOversizedLimit() {
-        when(agentConversationRepository.findAllWithMessagesByOwnerUserIdOrderByUpdatedAtDescIdDesc(eq(1L), any(Pageable.class)))
+        when(agentConversationRepository.findAllByOwnerUserIdOrderByUpdatedAtDescIdDescForHistory(eq(1L), any(Pageable.class)))
             .thenReturn(java.util.List.of());
 
         service.listConversations(-2, 999);
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(agentConversationRepository).findAllWithMessagesByOwnerUserIdOrderByUpdatedAtDescIdDesc(eq(1L), pageableCaptor.capture());
+        verify(agentConversationRepository).findAllByOwnerUserIdOrderByUpdatedAtDescIdDescForHistory(eq(1L), pageableCaptor.capture());
         assertEquals(0, pageableCaptor.getValue().getPageNumber());
         assertEquals(200, pageableCaptor.getValue().getPageSize());
     }

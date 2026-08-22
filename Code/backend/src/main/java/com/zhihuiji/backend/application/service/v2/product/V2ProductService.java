@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,6 +69,25 @@ public class V2ProductService {
             priceLevelService,
             supplierRelationService
         );
+        return products.stream().map(product -> toResponse(product, context)).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<V2ProductDtos.ProductResponse> list(
+        String keyword, Integer status, Long categoryId, Long unitId, Pageable pageable
+    ) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        String normalizedKeyword = normalizeKeyword(keyword);
+        List<ProductEntity> products = normalizedKeyword == null
+            ? productRepository.findAllByOwnerUserIdAndFiltersOrderByUpdatedAtDesc(
+                ownerUserId, status, categoryId, unitId, pageable)
+            : productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(
+                ownerUserId, normalizedKeyword, status, categoryId, unitId, pageable);
+        if (products.isEmpty()) {
+            return List.of();
+        }
+        ProductResponseContext context = ProductResponseContext.from(
+            products, categoryService, unitService, priceLevelService, supplierRelationService);
         return products.stream().map(product -> toResponse(product, context)).toList();
     }
 

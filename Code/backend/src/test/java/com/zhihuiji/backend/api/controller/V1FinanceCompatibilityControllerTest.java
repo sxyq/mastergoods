@@ -1,6 +1,8 @@
 package com.zhihuiji.backend.api.controller;
 
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -15,6 +17,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.data.domain.Pageable;
 
 @WebMvcTest(controllers = FinanceRecordController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -41,7 +44,8 @@ class V1FinanceCompatibilityControllerTest {
         entity.setNotes("备注");
         entity.setCreatedAt(1L);
         entity.setUpdatedAt(2L);
-        when(financeRecordService.list(null, null, null, null)).thenReturn(List.of(entity));
+        when(financeRecordService.list(isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
+            .thenReturn(List.of(entity));
 
         mockMvc.perform(get("/v1/finance-records"))
             .andExpect(status().isOk())
