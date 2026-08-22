@@ -121,7 +121,40 @@ public class AnswerSynthesizer {
         if (retryAnswer.isPresent()) {
             return new FinalAnswer(retryAnswer.get(), "tool_query_llm", "validated_retry", true);
         }
+        Optional<String> groundedFallback = firstModelAnswer.isEmpty()
+            ? groundedFallbackAnswer(payload)
+            : Optional.empty();
+        if (groundedFallback.isPresent()) {
+            return new FinalAnswer(groundedFallback.get(), "tool_query_grounded_fallback", "facts_fallback", false);
+        }
         return new FinalAnswer("", "llm_answer_unavailable", "model_empty_or_ungrounded", true);
+    }
+
+    /**
+     * Keep a completed read useful when a compatible provider returns two empty
+     * answer attempts. The text is made only from the persisted tool summary
+     * for a non-empty real query; it never invents business values or claims a
+     * write succeeded.
+     */
+    private Optional<String> groundedFallbackAnswer(ResponsePayload payload) {
+        if (payload == null || payload.toolResults() == null || payload.toolResults().isEmpty()) {
+            return Optional.empty();
+        }
+        List<String> lines = new ArrayList<>();
+        for (ToolExecutionResult result : payload.toolResults()) {
+            if (result == null || !StringUtils.hasText(result.toolName())) {
+                continue;
+            }
+            JsonNode audit = result.facts() == null ? null : result.facts().path("query_audit");
+            if (audit == null || !audit.isObject() || audit.path("returned_count").asInt(0) <= 0) {
+                continue;
+            }
+            String summary = StringUtils.hasText(result.summary()) ? result.summary().trim() : "工具已完成";
+            lines.add(summary);
+        }
+        return lines.isEmpty()
+            ? Optional.empty()
+            : Optional.of("查询已完成，以下为工具返回的真实结果：\n" + String.join("\n", lines));
     }
 
     /**
@@ -394,6 +427,15 @@ public class AnswerSynthesizer {
             String answer = retry.get();
             emitModelAnswerDeltas(emitter, runId, answer, "non_stream_retry", onFirstModelDelta);
             return new FinalAnswer(answer, "tool_query_llm", "non_stream_retry", true);
+        }
+
+        Optional<String> groundedFallback = streamedAnswer.isEmpty()
+            ? groundedFallbackAnswer(payload)
+            : Optional.empty();
+        if (groundedFallback.isPresent()) {
+            String answer = groundedFallback.get();
+            emitModelAnswerDeltas(emitter, runId, answer, "facts_fallback", onFirstModelDelta);
+            return new FinalAnswer(answer, "tool_query_grounded_fallback", "facts_fallback", false);
         }
 
         return new FinalAnswer("", "llm_answer_unavailable", "model_empty_or_ungrounded", true);

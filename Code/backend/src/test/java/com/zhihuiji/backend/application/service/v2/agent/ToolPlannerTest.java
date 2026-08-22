@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -18,6 +19,7 @@ import com.zhihuiji.backend.application.service.v2.agent.tool.AgentTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolRegistry;
 import com.zhihuiji.backend.infrastructure.ai.LongCatAnthropicClient;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -182,6 +184,49 @@ class ToolPlannerTest {
         assertEquals(List.of("create_purchase_order"), next.get().tools());
         assertEquals("native_tool_use_write_target_retry", next.get().source());
         verify(longCatAnthropicClient).createMessageWithTools(anyString(), anyString(), any(), eq("auto"));
+    }
+
+    @Test
+    void requiresTheOnlyPendingWriteTargetWhenProviderReturnsTerminalText() {
+        AgentTool supplierDirectory = tool("supplier_directory_lookup", "查询真实供应商");
+        AgentTool payDraft = tool("create_pay_order", "生成付款草稿", AgentTool.ToolType.CREATE_ONLY);
+        lenient().when(toolRegistry.getTool(anyString())).thenReturn(Optional.empty());
+        when(toolRegistry.getTool("supplier_directory_lookup")).thenReturn(Optional.of(supplierDirectory));
+        when(toolRegistry.getTool("create_pay_order")).thenReturn(Optional.of(payDraft));
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode facts = mapper.createObjectNode();
+        facts.putObject("query_audit").put("returned_count", 1);
+        facts.putArray("suppliers").addObject().put("supplier_id", 7).put("name", "真实供应商");
+        when(longCatAnthropicClient.createMessageWithTools(anyString(), anyString(), any(), eq("auto")))
+            .thenReturn(Optional.of(new LongCatAnthropicClient.ToolUseResponse(List.of(), "我已经查到了")));
+        when(longCatAnthropicClient.createMessageWithTools(anyString(), anyString(), any()))
+            .thenReturn(Optional.empty());
+        when(longCatAnthropicClient.createMessageWithTools(anyString(), anyString(), any(), eq("required")))
+            .thenReturn(Optional.of(new LongCatAnthropicClient.ToolUseResponse(List.of(
+                new LongCatAnthropicClient.ToolUseBlock(
+                    "call-pay", "create_pay_order",
+                    mapper.createObjectNode().put("supplier_id", 7).put("supplier_name", "真实供应商")
+                        .put("amount", 1.23)
+                )
+            ), null)));
+
+        ToolPlanner planner = new ToolPlanner(longCatAnthropicClient, toolRegistry, mapper);
+        Optional<AgentToolPlan> next = planner.planNextIteration(
+            "给供应商记一笔付款 1.23 元，先做付款草稿",
+            new AgentToolPlan(
+                List.of("supplier_directory_lookup"), "已查真实供应商", "native_tool_use", Map.of(), "response", List.of()
+            ),
+            List.of(new ToolExecutionResult(
+                "supplier_directory_lookup", "找到 1 个供应商", facts, false, "call-supplier", 1
+            )),
+            List.of(),
+            2
+        );
+
+        assertTrue(next.isPresent());
+        assertEquals(List.of("create_pay_order"), next.get().tools());
+        verify(longCatAnthropicClient).createMessageWithTools(anyString(), anyString(), any(), eq("required"));
     }
 
     private AgentTool tool(String name, String description) {

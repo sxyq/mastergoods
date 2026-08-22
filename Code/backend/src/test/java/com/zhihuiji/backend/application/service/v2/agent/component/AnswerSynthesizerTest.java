@@ -327,6 +327,29 @@ class AnswerSynthesizerTest {
     }
 
     @Test
+    void returnsGroundedSummaryWhenProviderReturnsNoFormalAnswerForRealFacts() {
+        when(longCatAnthropicClient.createJsonMessage(anyString(), anyString()))
+            .thenReturn(Optional.empty());
+        ObjectNode facts = objectMapper.createObjectNode();
+        facts.putObject("query_audit").put("returned_count", 2);
+        ToolExecutionResult result = new ToolExecutionResult(
+            "customer_receivable_lookup", "应收客户 2 个", facts, false
+        );
+
+        AgentTypes.FinalAnswer answer = answerSynthesizer.buildFinalAnswer(
+            "哪些客户还欠我钱？",
+            new ResponsePayload(List.of(), List.of(result)),
+            List.of(),
+            null
+        );
+
+        assertFalse(answer.answer().isBlank());
+        assertEquals("tool_query_grounded_fallback", answer.mode());
+        assertEquals("facts_fallback", answer.llmStatus());
+        assertFalse(answer.answer().contains("999"));
+    }
+
+    @Test
     void streamUsesStrictRealModelRetryAfterUngroundedFirstAnswer() {
         when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), org.mockito.ArgumentMatchers.any()))

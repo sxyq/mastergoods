@@ -1312,6 +1312,19 @@ public class ToolPlanner {
             + resolvedPayOrderParameterContext(message, toolResults);
         Optional<LongCatAnthropicClient.ToolUseResponse> response =
             longCatAnthropicClient.createMessageWithTools(systemPrompt, userPrompt, targetTools, "auto");
+        // Some compatible providers return a terminal sentence even when the
+        // only remaining candidate is the user's already classified write
+        // target. A second request with the same single registered tool and
+        // required choice makes the provider emit a real function call; it
+        // still cannot bypass schema, permission, owner, or draft checks.
+        if (response.isEmpty() || !response.get().hasToolUses()) {
+            response = longCatAnthropicClient.createMessageWithTools(
+                systemPrompt + "请返回该唯一草稿工具的原生调用，不要返回终止文本。",
+                userPrompt,
+                targetTools,
+                "required"
+            );
+        }
         return toNativeToolPlan(
             message,
             List.of(),
