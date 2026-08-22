@@ -3,6 +3,7 @@ package com.zhihuiji.backend.application.service.v2;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.doAnswer;
@@ -24,6 +25,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 
 class V2PayOrderServiceTest {
     @Mock
@@ -36,18 +40,24 @@ class V2PayOrderServiceTest {
     private BillFundLinkRepository billFundLinkRepository;
     @Mock
     private CurrentOwnerService currentOwnerService;
+    @Mock
+    private PlatformTransactionManager transactionManager;
+    @Mock
+    private TransactionStatus transactionStatus;
 
     private V2PayOrderService service;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        when(transactionManager.getTransaction(any())).thenReturn(transactionStatus);
         service = new V2PayOrderService(
             payOrderService,
             payOrderRepository,
             accountRepository,
             billFundLinkRepository,
-            currentOwnerService
+            currentOwnerService,
+            transactionManager
         );
         when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
     }
@@ -68,13 +78,14 @@ class V2PayOrderServiceTest {
     void createWithInitialPaidStatusDoesNotCreateDuplicateLinkWhenExistingMarkerFound() {
         PayOrderEntity entity = payOrder(11L, 5L, PayOrderStatus.PAID.code(), 35.0);
         BillFundLinkEntity existingLink = paidLink(11L, 5L, 35.0);
-        when(payOrderService.create(any())).thenReturn(entity);
+        when(payOrderService.createForOwner(anyLong(), any(), any())).thenReturn(entity);
         when(accountRepository.findByIdAndOwnerUserId(5L, 1L)).thenReturn(Optional.of(account(5L, 100.0)));
         when(payOrderRepository.save(any(PayOrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(billFundLinkRepository.findFirstByOwnerUserIdAndBillTypeAndBillIdAndLinkType(1L, "pay_order", 11L, 2))
             .thenReturn(Optional.of(existingLink));
 
         service.create(new V2PayOrderDtos.CreateRequest(
+            null,
             3L,
             null,
             35.0,
@@ -87,6 +98,37 @@ class V2PayOrderServiceTest {
 
         verify(accountRepository, never()).save(any(AccountEntity.class));
         verify(billFundLinkRepository, never()).save(any(BillFundLinkEntity.class));
+    }
+
+    @Test
+    void repeatedCreateWithSameIdempotencyKeyReturnsExistingOrder() {
+        PayOrderEntity existing = payOrder(21L, null, PayOrderStatus.DRAFT.code(), 18.0);
+        when(payOrderRepository.findByOwnerUserIdAndIdempotencyKey(1L, "pay-retry-21"))
+            .thenReturn(Optional.of(existing));
+
+        V2PayOrderDtos.PayOrderResponse response = service.create(new V2PayOrderDtos.CreateRequest(
+            " pay-retry-21 ", null, "供应商A", 18.0, 1, null, null, null, null
+        ));
+
+        assertEquals(21L, response.id());
+        verify(payOrderService, never()).create(any());
+        verify(payOrderRepository, never()).save(any(PayOrderEntity.class));
+    }
+
+    @Test
+    void idempotencyConflictReturnsOrderCommittedByConcurrentRequest() {
+        PayOrderEntity existing = payOrder(22L, null, PayOrderStatus.DRAFT.code(), 18.0);
+        when(payOrderRepository.findByOwnerUserIdAndIdempotencyKey(1L, "pay-race-22"))
+            .thenReturn(Optional.empty(), Optional.of(existing));
+        when(payOrderService.createForOwner(anyLong(), any(), any()))
+            .thenThrow(new DataIntegrityViolationException("duplicate idempotency key"));
+
+        V2PayOrderDtos.PayOrderResponse response = service.create(new V2PayOrderDtos.CreateRequest(
+            "pay-race-22", null, "供应商A", 18.0, 1, null, null, null, null
+        ));
+
+        assertEquals(22L, response.id());
+        verify(payOrderRepository, times(2)).findByOwnerUserIdAndIdempotencyKey(1L, "pay-race-22");
     }
 
     @Test

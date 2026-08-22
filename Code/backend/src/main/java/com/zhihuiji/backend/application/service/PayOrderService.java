@@ -62,12 +62,18 @@ public class PayOrderService {
 
     @Transactional
     public PayOrderEntity createForOwner(Long ownerUserId, CreateCommand command) {
+        return createForOwner(ownerUserId, command, null);
+    }
+
+    @Transactional
+    public PayOrderEntity createForOwner(Long ownerUserId, CreateCommand command, String idempotencyKey) {
         validateCreateCommand(command);
         long now = System.currentTimeMillis();
         PayOrderEntity entity = new PayOrderEntity();
         entity.setId(idGenerator.nextId());
         entity.setOwnerUserId(ownerUserId);
         entity.setOrderNo(generateOrderNo());
+        entity.setIdempotencyKey(idempotencyKey);
         entity.setSupplierId(command.supplierId());
         entity.setSupplierName(resolveSupplierName(ownerUserId, command.supplierId(), command.supplierName()));
         entity.setAmount(command.amount());

@@ -11,7 +11,11 @@ import com.zhihuiji.backend.infrastructure.repository.AccountRepository;
 import com.zhihuiji.backend.infrastructure.repository.BillFundLinkRepository;
 import com.zhihuiji.backend.infrastructure.repository.PayOrderRepository;
 import java.util.List;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -21,19 +25,22 @@ public class V2PayOrderService {
     private final AccountRepository accountRepository;
     private final BillFundLinkRepository billFundLinkRepository;
     private final CurrentOwnerService currentOwnerService;
+    private final TransactionTemplate transactionTemplate;
 
     public V2PayOrderService(
         PayOrderService payOrderService,
         PayOrderRepository payOrderRepository,
         AccountRepository accountRepository,
         BillFundLinkRepository billFundLinkRepository,
-        CurrentOwnerService currentOwnerService
+        CurrentOwnerService currentOwnerService,
+        PlatformTransactionManager transactionManager
     ) {
         this.payOrderService = payOrderService;
         this.payOrderRepository = payOrderRepository;
         this.accountRepository = accountRepository;
         this.billFundLinkRepository = billFundLinkRepository;
         this.currentOwnerService = currentOwnerService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     @Transactional(readOnly = true)
@@ -43,7 +50,22 @@ public class V2PayOrderService {
         Long createdAfter,
         Long createdBefore
     ) {
-        List<PayOrderEntity> rows = payOrderService.list(keyword, status, createdAfter, createdBefore);
+        return list(keyword, status, createdAfter, createdBefore, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<V2PayOrderDtos.PayOrderResponse> list(
+        String keyword,
+        Integer status,
+        Long createdAfter,
+        Long createdBefore,
+        Pageable pageable
+    ) {
+        Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        String normalizedKeyword = keyword == null || keyword.trim().isBlank() ? null : keyword.trim();
+        List<PayOrderEntity> rows = pageable == null
+            ? payOrderRepository.search(ownerUserId, normalizedKeyword, status, createdAfter, createdBefore)
+            : payOrderRepository.search(ownerUserId, normalizedKeyword, status, createdAfter, createdBefore, pageable);
         return rows.stream().map(this::toResponse).toList();
     }
 
@@ -52,10 +74,36 @@ public class V2PayOrderService {
         return toResponse(payOrderService.getById(id));
     }
 
-    @Transactional
     public V2PayOrderDtos.PayOrderResponse create(V2PayOrderDtos.CreateRequest request) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
-        PayOrderEntity entity = payOrderService.create(
+        String idempotencyKey = normalizeIdempotencyKey(request.idempotencyKey());
+        if (idempotencyKey != null) {
+            PayOrderEntity existing = payOrderRepository
+                .findByOwnerUserIdAndIdempotencyKey(ownerUserId, idempotencyKey)
+                .orElse(null);
+            if (existing != null) {
+                return toResponse(existing);
+            }
+        }
+        try {
+            return transactionTemplate.execute(status -> toResponse(createWithinTransaction(ownerUserId, request, idempotencyKey)));
+        } catch (DataIntegrityViolationException ex) {
+            if (idempotencyKey == null) {
+                throw ex;
+            }
+            return payOrderRepository.findByOwnerUserIdAndIdempotencyKey(ownerUserId, idempotencyKey)
+                .map(this::toResponse)
+                .orElseThrow(() -> ex);
+        }
+    }
+
+    private PayOrderEntity createWithinTransaction(
+        Long ownerUserId,
+        V2PayOrderDtos.CreateRequest request,
+        String idempotencyKey
+    ) {
+        PayOrderEntity entity = payOrderService.createForOwner(
+            ownerUserId,
             new PayOrderService.CreateCommand(
                 request.supplierId(),
                 request.supplierName(),
@@ -64,7 +112,8 @@ public class V2PayOrderService {
                 request.referenceNo(),
                 request.notes(),
                 request.status()
-            )
+            ),
+            idempotencyKey
         );
         if (request.accountId() != null) {
             accountRepository.findByIdAndOwnerUserId(request.accountId(), ownerUserId)
@@ -73,7 +122,21 @@ public class V2PayOrderService {
             payOrderRepository.save(entity);
         }
         syncPaidAccountSideEffects(entity, null, ownerUserId);
-        return toResponse(entity);
+        return entity;
+    }
+
+    private String normalizeIdempotencyKey(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String normalized = raw.trim();
+        if (normalized.isBlank()) {
+            return null;
+        }
+        if (normalized.length() > 128) {
+            throw new IllegalArgumentException("幂等键长度不能超过128个字符");
+        }
+        return normalized;
     }
 
     @Transactional

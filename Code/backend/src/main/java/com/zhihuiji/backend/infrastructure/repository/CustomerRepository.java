@@ -33,6 +33,15 @@ public interface CustomerRepository extends JpaRepository<CustomerEntity, Long> 
         @Param("groupId") Long groupId
     );
 
+    @Query("SELECT c FROM CustomerEntity c WHERE c.ownerUserId = :ownerUserId AND (:status IS NULL OR c.status = :status) AND (:groupId IS NULL OR c.groupId = :groupId) AND (:keyword IS NULL OR :keyword = '' OR LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(c.phone) LIKE LOWER(CONCAT('%', :keyword, '%'))) ORDER BY c.updatedAt DESC, c.id DESC")
+    List<CustomerEntity> search(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("keyword") String keyword,
+        @Param("status") Integer status,
+        @Param("groupId") Long groupId,
+        Pageable pageable
+    );
+
     List<CustomerEntity> findAllByOwnerUserIdOrderByNameAsc(Long ownerUserId, Pageable pageable);
 
     List<CustomerEntity> findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(Long ownerUserId);

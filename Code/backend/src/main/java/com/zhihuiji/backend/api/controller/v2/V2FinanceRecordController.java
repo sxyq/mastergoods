@@ -35,10 +35,12 @@ public class V2FinanceRecordController {
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "size", required = false) Integer size
     ) {
-        List<FinanceRecordEntity> rows = PaginationUtils.slice(
-            financeRecordService.list(keyword, type, ParseUtils.parseLong(createdAfter), ParseUtils.parseLong(createdBefore)),
-            page,
-            size
+        List<FinanceRecordEntity> rows = financeRecordService.list(
+            keyword,
+            type,
+            ParseUtils.parseLong(createdAfter),
+            ParseUtils.parseLong(createdBefore),
+            PaginationUtils.pageable(page, size)
         );
         List<V2FinanceDtos.FinanceRecordResponse> payload = rows.stream()
             .map(this::toResponse)

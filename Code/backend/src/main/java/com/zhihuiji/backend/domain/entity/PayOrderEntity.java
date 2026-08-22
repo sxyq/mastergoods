@@ -4,9 +4,16 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 @Entity
-@Table(name = "pay_orders")
+@Table(
+    name = "pay_orders",
+    uniqueConstraints = @UniqueConstraint(
+        name = "uq_pay_orders_owner_idempotency",
+        columnNames = {"owner_user_id", "idempotency_key"}
+    )
+)
 public class PayOrderEntity {
     @Id
     private Long id;
@@ -16,6 +23,9 @@ public class PayOrderEntity {
 
     @Column(name = "order_no", nullable = false, unique = true, length = 64)
     private String orderNo;
+
+    @Column(name = "idempotency_key", length = 128)
+    private String idempotencyKey;
 
     @Column(name = "supplier_id")
     private Long supplierId;
@@ -75,6 +85,14 @@ public class PayOrderEntity {
 
     public void setOrderNo(String orderNo) {
         this.orderNo = orderNo;
+    }
+
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public void setIdempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
     }
 
     public Long getSupplierId() {

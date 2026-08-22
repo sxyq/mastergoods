@@ -32,6 +32,15 @@ public interface SupplierRepository extends JpaRepository<SupplierEntity, Long> 
         @Param("groupId") Long groupId
     );
 
+    @Query("SELECT s FROM SupplierEntity s WHERE s.ownerUserId = :ownerUserId AND (:status IS NULL OR s.status = :status) AND (:groupId IS NULL OR s.groupId = :groupId) AND (:keyword IS NULL OR :keyword = '' OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(s.phone) LIKE LOWER(CONCAT('%', :keyword, '%'))) ORDER BY s.updatedAt DESC, s.id DESC")
+    List<SupplierEntity> search(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("keyword") String keyword,
+        @Param("status") Integer status,
+        @Param("groupId") Long groupId,
+        Pageable pageable
+    );
+
     List<SupplierEntity> findAllByOwnerUserIdOrderByNameAsc(Long ownerUserId, Pageable pageable);
 
     List<SupplierEntity> findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(Long ownerUserId, Double balance, Pageable pageable);

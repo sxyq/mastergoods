@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import com.zhihuiji.backend.api.common.IdGenerator;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +38,24 @@ public class FinanceRecordService {
             type,
             createdAfter,
             createdBefore
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<FinanceRecordEntity> list(
+        String keyword,
+        Integer type,
+        Long createdAfter,
+        Long createdBefore,
+        Pageable pageable
+    ) {
+        return financeRecordRepository.search(
+            currentOwnerService.requireCurrentOwnerUserId(),
+            normalizeKeyword(keyword),
+            type,
+            createdAfter,
+            createdBefore,
+            pageable
         );
     }
 

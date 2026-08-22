@@ -36,16 +36,15 @@ public class V2PayOrderController {
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "size", required = false) Integer size
     ) {
-        return ApiResponse.success(PaginationUtils.slice(
+        return ApiResponse.success(
             v2PayOrderService.list(
                 keyword,
                 status,
                 ParseUtils.parseLong(createdAfter),
-                ParseUtils.parseLong(createdBefore)
-            ),
-            page,
-            size
-        ));
+                ParseUtils.parseLong(createdBefore),
+                PaginationUtils.pageable(page, size)
+            )
+        );
     }
 
     @GetMapping("/{id}")

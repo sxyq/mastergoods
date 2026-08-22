@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -51,6 +52,14 @@ public class V2PurchaseOrderService {
 
     public List<V2PurchaseOrderDtos.PurchaseOrderResponse> list(String keyword, Integer status) {
         List<PurchaseOrderEntity> orders = purchaseOrderService.list(keyword, status);
+        Map<Long, List<PurchaseOrderItemEntity>> itemsByOrderId = findItemsByOrderId(orders);
+        return orders.stream()
+            .map(order -> toResponse(order, itemsByOrderId.getOrDefault(order.getId(), List.of())))
+            .toList();
+    }
+
+    public List<V2PurchaseOrderDtos.PurchaseOrderResponse> list(String keyword, Integer status, Pageable pageable) {
+        List<PurchaseOrderEntity> orders = purchaseOrderService.list(keyword, status, pageable);
         Map<Long, List<PurchaseOrderItemEntity>> itemsByOrderId = findItemsByOrderId(orders);
         return orders.stream()
             .map(order -> toResponse(order, itemsByOrderId.getOrDefault(order.getId(), List.of())))

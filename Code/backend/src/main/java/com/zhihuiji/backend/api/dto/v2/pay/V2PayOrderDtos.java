@@ -24,6 +24,7 @@ public final class V2PayOrderDtos {
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record CreateRequest(
+        String idempotencyKey,
         Long supplierId,
         String supplierName,
         Double amount,

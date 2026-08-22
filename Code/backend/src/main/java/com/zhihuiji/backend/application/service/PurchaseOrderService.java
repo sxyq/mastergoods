@@ -9,6 +9,7 @@ import com.zhihuiji.backend.infrastructure.repository.PurchaseOrderRepository;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import org.springframework.data.domain.Pageable;
 import java.util.UUID;
 import com.zhihuiji.backend.api.common.IdGenerator;
 import com.zhihuiji.backend.api.common.PurchaseOrderStatus;
@@ -120,6 +121,16 @@ public class PurchaseOrderService {
             currentOwnerService.requireCurrentOwnerUserId(),
             normalizeKeyword(keyword),
             status
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<PurchaseOrderEntity> list(String keyword, Integer status, Pageable pageable) {
+        return purchaseOrderRepository.search(
+            currentOwnerService.requireCurrentOwnerUserId(),
+            normalizeKeyword(keyword),
+            status,
+            pageable
         );
     }
 

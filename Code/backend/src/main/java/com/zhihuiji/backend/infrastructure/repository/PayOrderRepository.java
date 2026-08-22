@@ -15,6 +15,8 @@ public interface PayOrderRepository extends JpaRepository<PayOrderEntity, Long> 
 
     Optional<PayOrderEntity> findByIdAndOwnerUserId(Long id, Long ownerUserId);
 
+    Optional<PayOrderEntity> findByOwnerUserIdAndIdempotencyKey(Long ownerUserId, String idempotencyKey);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT e FROM PayOrderEntity e WHERE e.id = :id AND e.ownerUserId = :ownerUserId")
     Optional<PayOrderEntity> findByIdAndOwnerUserIdForUpdate(

@@ -35,11 +35,9 @@ public class V2CustomerController {
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "size", required = false) Integer size
     ) {
-        return ApiResponse.success(PaginationUtils.slice(
-            v2CustomerService.list(keyword, status, groupId),
-            page,
-            size
-        ));
+        return ApiResponse.success(
+            v2CustomerService.list(keyword, status, groupId, PaginationUtils.pageable(page, size))
+        );
     }
 
     @GetMapping("/{id}")

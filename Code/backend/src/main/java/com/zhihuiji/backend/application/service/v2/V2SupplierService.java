@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,9 +35,16 @@ public class V2SupplierService {
 
     @Transactional(readOnly = true)
     public List<V2PartnerDtos.SupplierResponse> list(String keyword, Integer status, Long groupId) {
+        return list(keyword, status, groupId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<V2PartnerDtos.SupplierResponse> list(String keyword, Integer status, Long groupId, Pageable pageable) {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         String normalizedKeyword = normalizeKeyword(keyword);
-        List<SupplierEntity> suppliers = supplierRepository.search(ownerUserId, normalizedKeyword, status, groupId);
+        List<SupplierEntity> suppliers = pageable == null
+            ? supplierRepository.search(ownerUserId, normalizedKeyword, status, groupId)
+            : supplierRepository.search(ownerUserId, normalizedKeyword, status, groupId, pageable);
         Set<Long> groupIds = new java.util.LinkedHashSet<>();
         for (SupplierEntity supplier : suppliers) {
             if (supplier.getGroupId() != null) {

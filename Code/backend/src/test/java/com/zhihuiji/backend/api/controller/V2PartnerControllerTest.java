@@ -25,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -54,7 +55,7 @@ class V2PartnerControllerTest {
 
     @Test
     void customerListReturnsGroupAndPrimaryContactSummary() throws Exception {
-        when(v2CustomerService.list(null, null, null)).thenReturn(List.of(
+        when(v2CustomerService.list(org.mockito.ArgumentMatchers.eq(null), org.mockito.ArgumentMatchers.eq(null), org.mockito.ArgumentMatchers.eq(null), any(Pageable.class))).thenReturn(List.of(
             new V2PartnerDtos.CustomerResponse(1L, "李老板", "13800000000", 3, 7L, "批发客户", "张三", "13900000000", "重庆", "备注", 120.0, 1, 1L, 2L)
         ));
 
