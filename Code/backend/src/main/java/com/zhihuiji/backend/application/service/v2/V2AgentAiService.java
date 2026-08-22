@@ -1348,7 +1348,17 @@ public class V2AgentAiService {
         toolRegistry.getTool(tool).ifPresent(registered ->
             currentOwnerService.requirePermissions(registered.requiredPermission())
         );
-        ToolContext ctx = new ToolContext(ownerUserId, null, conversationId, runId, emitter, objectMapper);
+        Long currentUserId = currentOwnerService.requireCurrentUserId();
+        Long currentStoreId = currentOwnerService.findCurrentStoreId().orElse(null);
+        ToolContext ctx = new ToolContext(
+            ownerUserId,
+            currentUserId,
+            currentStoreId,
+            conversationId,
+            runId,
+            emitter,
+            objectMapper
+        );
         return toolRegistry.executeTool(tool, ctx, params);
     }
 

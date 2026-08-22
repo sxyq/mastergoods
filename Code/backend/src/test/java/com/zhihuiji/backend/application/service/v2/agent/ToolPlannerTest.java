@@ -229,6 +229,48 @@ class ToolPlannerTest {
         verify(longCatAnthropicClient).createMessageWithTools(anyString(), anyString(), any(), eq("required"));
     }
 
+    @Test
+    void retriesTheOnlyRemainingPosterToolAfterProductFacts() {
+        AgentTool productLookup = tool("product_catalog_lookup", "查询真实商品");
+        AgentTool posterTool = tool("generate_poster_prompt", "生成海报提示词");
+        lenient().when(toolRegistry.getTool(anyString())).thenReturn(Optional.empty());
+        when(toolRegistry.getTool("product_catalog_lookup")).thenReturn(Optional.of(productLookup));
+        when(toolRegistry.getTool("generate_poster_prompt")).thenReturn(Optional.of(posterTool));
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode facts = mapper.createObjectNode();
+        facts.putObject("query_audit").put("returned_count", 1);
+        facts.putArray("products").addObject().put("product_id", 9).put("name", "美尚热水器");
+        when(longCatAnthropicClient.createMessageWithTools(anyString(), anyString(), any()))
+            .thenReturn(Optional.empty());
+        when(longCatAnthropicClient.createMessageWithTools(anyString(), anyString(), any(), eq("auto")))
+            .thenReturn(Optional.of(new LongCatAnthropicClient.ToolUseResponse(List.of(), "我已经查到了商品")));
+        when(longCatAnthropicClient.createMessageWithTools(anyString(), anyString(), any(), eq("required")))
+            .thenReturn(Optional.of(new LongCatAnthropicClient.ToolUseResponse(List.of(
+                new LongCatAnthropicClient.ToolUseBlock(
+                    "call-poster", "generate_poster_prompt",
+                    mapper.createObjectNode().put("product_id", 9)
+                )
+            ), null)));
+
+        ToolPlanner planner = new ToolPlanner(longCatAnthropicClient, toolRegistry, mapper);
+        Optional<AgentToolPlan> next = planner.planNextIteration(
+            "帮我用商品美尚热水器写一段海报提示词，先不要生成图片",
+            new AgentToolPlan(
+                List.of("product_catalog_lookup"), "已查商品", "native_tool_use", Map.of(), "response", List.of()
+            ),
+            List.of(new ToolExecutionResult(
+                "product_catalog_lookup", "找到 1 个商品", facts, false, "call-product", 1
+            )),
+            List.of(),
+            2
+        );
+
+        assertTrue(next.isPresent());
+        assertEquals(List.of("generate_poster_prompt"), next.get().tools());
+        assertEquals("native_tool_use_single_candidate_retry", next.get().source());
+    }
+
     private AgentTool tool(String name, String description) {
         return tool(name, description, AgentTool.ToolType.READ_ONLY);
     }

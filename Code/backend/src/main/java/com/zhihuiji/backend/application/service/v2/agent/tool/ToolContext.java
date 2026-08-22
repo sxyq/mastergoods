@@ -17,7 +17,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * </ul>
  *
  * @param ownerUserId    归属用户 ID（多租户隔离必需）
- * @param userId         当前用户 ID
+ * @param userId         当前认证用户 ID
+ * @param storeId        当前认证用户的有效门店 ID，可为空（兼容无门店的 owner）
  * @param conversationId 会话 ID，无会话时为 null
  * @param runId          Agent 运行 ID，用于审计与 SSE 事件关联
  * @param emitter        SSE 推送器，非流式调用时为 null
@@ -26,11 +27,24 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public record ToolContext(
     Long ownerUserId,
     Long userId,
+    Long storeId,
     Long conversationId,
     String runId,
     SseEmitter emitter,
     ObjectMapper objectMapper
 ) {
+
+    /** Backward-compatible constructor for isolated tool tests and legacy callers. */
+    public ToolContext(
+        Long ownerUserId,
+        Long userId,
+        Long conversationId,
+        String runId,
+        SseEmitter emitter,
+        ObjectMapper objectMapper
+    ) {
+        this(ownerUserId, userId, null, conversationId, runId, emitter, objectMapper);
+    }
 
     /**
      * 判断当前是否流式调用（emitter 非空）。

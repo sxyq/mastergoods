@@ -944,6 +944,17 @@ public class ToolPlanner {
             return writeTargetRetry;
         }
 
+        Optional<AgentToolPlan> singleCandidateRetry = planRequiredSingleCandidateRetry(
+            message,
+            toolResults,
+            iteration,
+            allowedCandidateToolNames,
+            hasRealDataQuery
+        );
+        if (singleCandidateRetry.isPresent()) {
+            return singleCandidateRetry;
+        }
+
         String toolCatalog = buildToolCatalogForLlm(allowedCandidateToolNames);
         if (toolCatalog.isBlank()) {
             return Optional.empty();
@@ -1333,6 +1344,65 @@ public class ToolPlanner {
             false,
             Set.of(target),
             "native_tool_use_write_target_retry"
+        );
+    }
+
+    /**
+     * Recover a required follow-up when the model has already completed the
+     * first real query and only one declared candidate remains. The candidate
+     * is derived from the planner scope and still selected by the provider;
+     * this method never names or executes a business tool from a keyword.
+     */
+    private Optional<AgentToolPlan> planRequiredSingleCandidateRetry(
+        String message,
+        List<ToolExecutionResult> toolResults,
+        int iteration,
+        List<String> candidateToolNames,
+        boolean hasRealDataQuery
+    ) {
+        if (!hasRealDataQuery || candidateToolNames == null || candidateToolNames.size() != 1) {
+            return Optional.empty();
+        }
+        String candidate = candidateToolNames.get(0);
+        if (!isAllowedTool(candidate) || hasCompletedTool(toolResults, candidate)) {
+            return Optional.empty();
+        }
+        List<LongCatAnthropicClient.ToolDefinition> definitions = buildNativeToolDefinitions(List.of(candidate));
+        if (definitions.isEmpty()) {
+            return Optional.empty();
+        }
+        String facts = toolResults == null
+            ? "无"
+            : toolResults.stream()
+                .filter(result -> result != null)
+                .map(result -> "- " + result.toolName() + "：" + result.summary())
+                .collect(java.util.stream.Collectors.joining("\n"));
+        String systemPrompt = AgentPromptCatalog.reactSystemPrompt(
+            buildToolCatalogForLlm(List.of(candidate)),
+            AgentPromptCatalog.hasWriteIntent(message),
+            iteration,
+            message
+        ) + "上一轮已取得真实结果，当前只剩一个由规划器声明的后续工具候选。请通过原生 Function Calling 自主判断是否调用；不要返回终止文本。";
+        String userPrompt = "用户问题：" + message + "\n已执行真实结果：\n" + facts;
+        Optional<LongCatAnthropicClient.ToolUseResponse> response =
+            longCatAnthropicClient.createMessageWithTools(systemPrompt, userPrompt, definitions, "auto");
+        if (response.isEmpty() || !response.get().hasToolUses()) {
+            response = longCatAnthropicClient.createMessageWithTools(
+                systemPrompt + "请返回唯一候选工具的原生调用。",
+                userPrompt,
+                definitions,
+                "required"
+            );
+        }
+        return toNativeToolPlan(
+            message,
+            List.of(),
+            null,
+            response,
+            hasRealDataQuery,
+            Set.of(candidate),
+            "native_tool_use_single_candidate_retry",
+            false
         );
     }
 

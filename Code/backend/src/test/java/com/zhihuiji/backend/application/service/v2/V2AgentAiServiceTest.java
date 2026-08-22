@@ -52,6 +52,9 @@ import com.zhihuiji.backend.application.service.v2.agent.component.SafetyGuard;
 import com.zhihuiji.backend.application.service.v2.agent.component.SseStreamEmitter;
 import com.zhihuiji.backend.application.service.v2.agent.component.ToolPlanner;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolRegistry;
+import com.zhihuiji.backend.application.service.v2.agent.tool.AgentTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.ToolContext;
+import com.zhihuiji.backend.application.service.v2.agent.tool.ToolResult;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.AccountHealthLookupTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.CustomerProfileLookupTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.readonly.CustomerReceivableLookupTool;
@@ -103,6 +106,7 @@ import com.zhihuiji.backend.infrastructure.storage.MediaStorageService;
 import java.lang.reflect.Field;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -128,6 +132,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.springframework.security.access.AccessDeniedException;
 
 class V2AgentAiServiceTest {
     @Mock private CurrentOwnerService currentOwnerService;
@@ -867,6 +872,90 @@ class V2AgentAiServiceTest {
         verifyNoInteractions(accountRepository, accountTransferRepository, cashChangeRecordRepository,
             financeRecordRepository, productRepository, customerRepository, supplierRepository,
             saleOrderRepository, purchaseOrderRepository, payOrderRepository, paymentRepository);
+    }
+
+    @Test
+    void registeredToolUsesCurrentCallerPermissionAndOwnerStoreContext() throws Exception {
+        AtomicReference<ToolContext> captured = new AtomicReference<>();
+        AgentTool probe = permissionProbe("agent:view", captured);
+        ToolRegistry registry = spy(new ToolRegistry(List.of(probe)));
+        replaceToolRegistry(registry);
+        when(currentOwnerService.requireCurrentUserId()).thenReturn(9L);
+        when(currentOwnerService.findCurrentStoreId()).thenReturn(Optional.of(4L));
+
+        Optional<ToolResult> result = invokeRegisteredTool(
+            2L, 3L, null, "run-permission-positive", "permission_probe", objectMapper.createObjectNode()
+        );
+
+        assertTrue(result.isPresent() && result.get().success());
+        assertEquals(2L, captured.get().ownerUserId());
+        assertEquals(9L, captured.get().userId());
+        assertEquals(4L, captured.get().storeId());
+        verify(currentOwnerService).requirePermissions("agent:view");
+        verify(registry).executeTool(eq("permission_probe"), any(ToolContext.class), any(JsonNode.class));
+    }
+
+    @Test
+    void deniedCallerPermissionStopsToolBeforeBusinessExecution() throws Exception {
+        AtomicReference<ToolContext> captured = new AtomicReference<>();
+        AgentTool probe = permissionProbe("agent:write", captured);
+        ToolRegistry registry = spy(new ToolRegistry(List.of(probe)));
+        replaceToolRegistry(registry);
+        doThrow(new AccessDeniedException("denied"))
+            .when(currentOwnerService).requirePermissions("agent:write");
+
+        InvocationTargetException thrown = assertThrows(InvocationTargetException.class, () ->
+            invokeRegisteredTool(2L, 3L, null, "run-permission-negative", "permission_probe",
+                objectMapper.createObjectNode())
+        );
+
+        assertTrue(thrown.getCause() instanceof AccessDeniedException);
+        assertNull(captured.get());
+        verify(registry, never()).executeTool(anyString(), any(ToolContext.class), any(JsonNode.class));
+    }
+
+    private AgentTool permissionProbe(String permission, AtomicReference<ToolContext> captured) {
+        return new AgentTool() {
+            @Override public String name() { return "permission_probe"; }
+            @Override public String displayName() { return "权限测试工具"; }
+            @Override public String description() { return "权限测试工具"; }
+            @Override public ToolType type() { return ToolType.READ_ONLY; }
+            @Override public String requiredPermission() { return permission; }
+            @Override public ToolResult execute(ToolContext ctx, JsonNode params) {
+                captured.set(ctx);
+                return ToolResult.empty("permission probe");
+            }
+        };
+    }
+
+    private void replaceToolRegistry(ToolRegistry registry) throws Exception {
+        Field field = V2AgentAiService.class.getDeclaredField("toolRegistry");
+        field.setAccessible(true);
+        field.set(service, registry);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Optional<ToolResult> invokeRegisteredTool(
+        Long ownerUserId,
+        Long conversationId,
+        SseEmitter emitter,
+        String runId,
+        String tool,
+        JsonNode params
+    ) throws Exception {
+        Method method = V2AgentAiService.class.getDeclaredMethod(
+            "executeRegisteredTool",
+            Long.class,
+            Long.class,
+            SseEmitter.class,
+            String.class,
+            String.class,
+            JsonNode.class
+        );
+        method.setAccessible(true);
+        return (Optional<ToolResult>) method.invoke(
+            service, ownerUserId, conversationId, emitter, runId, tool, params
+        );
     }
 
     @Test
