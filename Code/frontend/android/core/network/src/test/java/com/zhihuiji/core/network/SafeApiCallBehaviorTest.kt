@@ -80,4 +80,12 @@ class SafeApiCallBehaviorTest {
         assertEquals(403, error.code)
         assertEquals("登录状态无效或没有权限，请重新登录后再试", error.message)
     }
+
+    @Test
+    fun networkException_exposesStableConflictAndValidationKinds() {
+        assertEquals(HttpErrorKind.CONFLICT, NetworkException(409, "冲突").kind)
+        assertEquals(HttpErrorKind.VALIDATION, NetworkException(422, "校验失败").kind)
+        assertEquals("请求与当前数据冲突，请刷新后重试", httpErrorMessage(409, ""))
+        assertEquals("请求参数未通过校验，请检查输入内容", httpErrorMessage(422, ""))
+    }
 }

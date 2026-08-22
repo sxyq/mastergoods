@@ -115,6 +115,7 @@ class AgentSseClient(
 
                 val eventData = StringBuilder()
                 var terminalEventSeen = false
+                val emittedEventKeys = mutableSetOf<String>()
 
                 fun flushBufferedEvent(): AgentStreamEvent? {
                     if (eventData.isEmpty()) return null
@@ -126,6 +127,8 @@ class AgentSseClient(
 
                 suspend fun emitEvent(event: AgentStreamEvent?) {
                     if (event == null) return
+                    val eventKey = event.identityKey()
+                    if (eventKey != null && !emittedEventKeys.add(eventKey)) return
                     emit(event)
                     terminalEventSeen = when (event) {
                         is AgentStreamEvent.RunCompleted,
@@ -218,6 +221,14 @@ class AgentSseClient(
             )
         }
     }
+}
+
+private fun AgentStreamEvent.identityKey(): String? = when (this) {
+    is AgentStreamEvent.ToolStarted -> eventId?.let { "tool_started:$it" } ?: seq?.let { "tool_started:$it" }
+    is AgentStreamEvent.ToolCompleted -> eventId?.let { "tool_completed:$it" } ?: seq?.let { "tool_completed:$it" }
+    is AgentStreamEvent.ToolFailed -> eventId?.let { "tool_failed:$it" } ?: seq?.let { "tool_failed:$it" }
+    is AgentStreamEvent.AnswerDelta -> eventId?.let { "answer_delta:$it" } ?: seq?.let { "answer_delta:$it" }
+    else -> null
 }
 
 internal const val STREAM_READ_TIMEOUT_SECONDS = 180L

@@ -46,6 +46,7 @@ import com.zhihuiji.core.model.v2.inventory.CreateInventorySnapshotV2Request
 import com.zhihuiji.core.model.v2.inventory.InventoryLedgerEntryV2Dto
 import com.zhihuiji.core.model.v2.inventory.InventoryMonthlyStatsV2Dto
 import com.zhihuiji.core.model.v2.inventory.InventorySnapshotV2Dto
+import com.zhihuiji.core.model.PageResponse
 import com.zhihuiji.core.model.v2.media.CreateMediaAssetRequest
 import com.zhihuiji.core.model.v2.media.CreateMediaBindingRequest
 import com.zhihuiji.core.model.v2.media.MediaAssetDto
@@ -498,7 +499,9 @@ interface ZhihuijiV2Api {
         @Query("productId") productId: Long? = null,
         @Query("startAt") startAt: Long? = null,
         @Query("endAt") endAt: Long? = null,
-    ): ApiResponse<List<InventoryLedgerEntryV2Dto>>
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 50,
+    ): ApiResponse<PageResponse<InventoryLedgerEntryV2Dto>>
 
     @GET("v2/inventory/ledger/by-source")
     suspend fun inventoryLedgerBySourceV2(
@@ -515,7 +518,9 @@ interface ZhihuijiV2Api {
         @Query("snapshotDate") snapshotDate: Long? = null,
         @Query("startDate") startDate: Long? = null,
         @Query("endDate") endDate: Long? = null,
-    ): ApiResponse<List<InventorySnapshotV2Dto>>
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 50,
+    ): ApiResponse<PageResponse<InventorySnapshotV2Dto>>
 
     @POST("v2/inventory/snapshots")
     suspend fun createInventorySnapshotV2(@Body body: CreateInventorySnapshotV2Request): ApiResponse<InventorySnapshotV2Dto>
@@ -524,7 +529,9 @@ interface ZhihuijiV2Api {
     suspend fun inventoryMonthlyStatsV2(
         @Query("year") year: Int,
         @Query("month") month: Int,
-    ): ApiResponse<List<InventoryMonthlyStatsV2Dto>>
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 50,
+    ): ApiResponse<PageResponse<InventoryMonthlyStatsV2Dto>>
 
     @GET("v2/sync/health")
     suspend fun syncHealthV2(): ApiResponse<SyncHealthV2Dto>

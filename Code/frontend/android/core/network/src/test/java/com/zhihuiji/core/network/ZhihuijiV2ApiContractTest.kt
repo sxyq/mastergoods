@@ -112,6 +112,8 @@ class ZhihuijiV2ApiContractTest {
         assertTrue(queryValues.contains("productId"))
         assertTrue(queryValues.contains("startAt"))
         assertTrue(queryValues.contains("endAt"))
+        assertTrue(queryValues.contains("page"))
+        assertTrue(queryValues.contains("size"))
     }
 
     @Test
@@ -129,6 +131,8 @@ class ZhihuijiV2ApiContractTest {
         assertTrue(queryValues.contains("snapshotDate"))
         assertTrue(queryValues.contains("startDate"))
         assertTrue(queryValues.contains("endDate"))
+        assertTrue(queryValues.contains("page"))
+        assertTrue(queryValues.contains("size"))
     }
 
     // ========== Reports V2 ==========
@@ -460,7 +464,7 @@ class ZhihuijiV2ApiContractTest {
     fun apiContract_inventoryMonthlyStatsQueryParamsMatchBackend() {
         // year/month use camelCase (backend V2InventoryController without explicit @RequestParam name).
         val queryValues = getQueryValues("inventoryMonthlyStatsV2")
-        assertEquals(listOf("year", "month"), queryValues)
+        assertEquals(listOf("year", "month", "page", "size"), queryValues)
     }
 
     // ========== Sync V2 ==========

@@ -140,6 +140,25 @@ class AgentSseClientCancellationTest {
     }
 
     @Test
+    fun chatStream_dropsDuplicateEventsWithSameEventId() = runBlocking {
+        val client = clientForBody(
+            """
+            data: {"event_type":"tool_completed","event_id":"tool-1","run_id":"run-1","tool_name":"inventory","result_summary":"ok"}
+
+            data: {"event_type":"tool_completed","event_id":"tool-1","run_id":"run-1","tool_name":"inventory","result_summary":"ok"}
+
+            data: {"event_type":"run_completed","run_id":"run-1","final_answer":"完成"}
+            """.trimIndent()
+        )
+
+        val events = client.chatStream("""{"message":"库存","stream":true}""").toList()
+
+        assertEquals(2, events.size)
+        assertTrue(events[0] is AgentStreamEvent.ToolCompleted)
+        assertTrue(events[1] is AgentStreamEvent.RunCompleted)
+    }
+
+    @Test
     fun chatStream_emitsParseErrorAndContinuesAfterMalformedSseData() = runBlocking {
         val client = clientForBody(
             """

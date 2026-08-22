@@ -18,7 +18,10 @@ class InventoryV2Repository @Inject constructor(
         productId: Long? = null,
         startAt: Long? = null,
         endAt: Long? = null,
-    ): Result<List<InventoryLedgerEntryV2Dto>> = safeApiCall { api.inventoryLedgerV2(productId, startAt, endAt) }
+        page: Int = 0,
+        size: Int = 50,
+    ): Result<List<InventoryLedgerEntryV2Dto>> =
+        safeApiCall { api.inventoryLedgerV2(productId, startAt, endAt, page, size) }.map { it.content }
 
     suspend fun listInventoryLedgerBySource(
         sourceType: String,
@@ -32,12 +35,19 @@ class InventoryV2Repository @Inject constructor(
         snapshotDate: Long? = null,
         startDate: Long? = null,
         endDate: Long? = null,
+        page: Int = 0,
+        size: Int = 50,
     ): Result<List<InventorySnapshotV2Dto>> =
-        safeApiCall { api.inventorySnapshotsV2(snapshotDate, startDate, endDate) }
+        safeApiCall { api.inventorySnapshotsV2(snapshotDate, startDate, endDate, page, size) }.map { it.content }
 
     suspend fun createInventorySnapshot(request: CreateInventorySnapshotV2Request): Result<InventorySnapshotV2Dto> =
         safeApiCall { api.createInventorySnapshotV2(request) }
 
-    suspend fun listInventoryMonthlyStats(year: Int, month: Int): Result<List<InventoryMonthlyStatsV2Dto>> =
-        safeApiCall { api.inventoryMonthlyStatsV2(year, month) }
+    suspend fun listInventoryMonthlyStats(
+        year: Int,
+        month: Int,
+        page: Int = 0,
+        size: Int = 50,
+    ): Result<List<InventoryMonthlyStatsV2Dto>> =
+        safeApiCall { api.inventoryMonthlyStatsV2(year, month, page, size) }.map { it.content }
 }

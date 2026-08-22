@@ -167,6 +167,9 @@ const loading = ref(false)
 const sending = ref(false)
 const stopping = ref(false)
 const error = ref('')
+const sidePanelError = ref('')
+const cancelError = ref('')
+const cancelRetryRunId = ref<string | null>(null)
 const inputText = ref('')
 const currentRunId = ref<string | null>(null)
 const currentStreamMessageId = ref<string | null>(null)
@@ -181,6 +184,7 @@ const draftType = ref('note')
 const draftContentJson = ref('')
 const draftStatus = ref<'active' | 'archived'>('active')
 const draftSaving = ref(false)
+const draftError = ref('')
 const mobileSidebarOpen = ref(false)
 const mobileSidepanelOpen = ref(false)
 const dismissedDraftIds = ref<Set<string>>(new Set())
@@ -204,6 +208,9 @@ const streamState = reactive<{
   controller: null,
   done: null,
 })
+const cancelInFlightRunIds = new Set<string>()
+const cancelledRunIds = new Set<string>()
+const stopRequested = ref(false)
 const markdownSectionsCache = new Map<string, MarkdownSection[]>()
 const blockDerivedCache = new WeakMap<AgentResultBlock, BlockDerivedState>()
 const messageById = new Map<string, UiMessage>()
@@ -258,19 +265,30 @@ watch(selectedConversationId, async (nextId, prevId) => {
 })
 
 async function fetchSidePanel() {
-  const [nextWorkbench, nextConversations, nextDrafts, nextTasks, nextNotifications] = await Promise.all([
+  const [nextWorkbench, nextConversations, nextDrafts, nextTasks, nextNotifications] = await Promise.allSettled([
     fetchAgentWorkbench(session.token.value),
     fetchAgentConversations(session.token.value, { page: 0, limit: 50 }),
     fetchAgentDrafts(session.token.value, { page: 0, limit: 20 }),
     fetchAgentTasks(session.token.value),
     fetchAgentNotifications(session.token.value),
   ])
-  workbench.value = nextWorkbench
-  conversations.value = nextConversations
-  drafts.value = nextDrafts
-  tasks.value = nextTasks
-  notifications.value = nextNotifications
-  return nextConversations
+  const failures: string[] = []
+  const readResult = <T>(result: PromiseSettledResult<T>, label: string, onValue: (value: T) => void) => {
+    if (result.status === 'fulfilled') {
+      onValue(result.value)
+      return
+    }
+    const reason = result.reason instanceof Error ? result.reason.message : '请求失败'
+    failures.push(`${label}：${reason}`)
+  }
+
+  readResult(nextWorkbench, '工作台', (value) => { workbench.value = value })
+  readResult(nextConversations, '会话列表', (value) => { conversations.value = value })
+  readResult(nextDrafts, '草稿列表', (value) => { drafts.value = value; draftError.value = '' })
+  readResult(nextTasks, '任务列表', (value) => { tasks.value = value })
+  readResult(nextNotifications, '通知列表', (value) => { notifications.value = value })
+  sidePanelError.value = failures.length > 0 ? failures.join('；') : ''
+  return conversations.value
 }
 
 async function loadPage() {
@@ -366,6 +384,9 @@ async function sendMessage(presetText?: string) {
   if (!text) return
 
   sending.value = true
+  stopRequested.value = false
+  cancelError.value = ''
+  cancelRetryRunId.value = null
   error.value = ''
   auditDrawerOpen.value = false
   auditRecord.value = null
@@ -421,6 +442,9 @@ async function sendMessage(presetText?: string) {
 
     await sessionStream.done
   } catch (sendErr) {
+    if (isAbortError(sendErr) && stopRequested.value) {
+      return
+    }
     const message = sendErr instanceof Error ? sendErr.message : 'AI 对话发送失败'
     error.value = message
     markStreamingMessageError(message)
@@ -431,23 +455,44 @@ async function sendMessage(presetText?: string) {
     streamState.done = null
     currentRunId.value = null
     currentStreamMessageId.value = null
+    stopRequested.value = false
     await refreshSidePanel()
   }
 }
 
-async function stopStreaming() {
-  if (!streamState.controller) return
-  stopping.value = true
-  streamState.controller.abort()
-  const runId = currentRunId.value
-  markStreamingMessageError('已停止本地接收，正在取消服务端运行')
-  if (runId && session.token.value) {
-    try {
-      await cancelAgentRun(session.token.value, runId)
-    } catch (cancelErr) {
-      error.value = cancelErr instanceof Error ? cancelErr.message : '服务端取消失败'
-    }
+async function requestServerCancel(runId: string) {
+  if (!session.token.value || cancelInFlightRunIds.has(runId) || cancelledRunIds.has(runId)) return
+  cancelInFlightRunIds.add(runId)
+  try {
+    await cancelAgentRun(session.token.value, runId)
+    cancelledRunIds.add(runId)
+    cancelError.value = ''
+    cancelRetryRunId.value = null
+  } catch (cancelErr) {
+    cancelRetryRunId.value = runId
+    cancelError.value = cancelErr instanceof Error ? cancelErr.message : '服务端取消失败'
+  } finally {
+    cancelInFlightRunIds.delete(runId)
   }
+}
+
+async function stopStreaming(showStatus = true) {
+  if (stopping.value) return
+  const controller = streamState.controller
+  const runId = currentRunId.value
+  if (!controller && !runId) return
+  stopping.value = true
+  stopRequested.value = true
+  if (controller) controller.abort()
+  if (showStatus) {
+    markStreamingMessageError('已停止本地接收，正在取消服务端运行')
+  }
+  if (runId) await requestServerCancel(runId)
+}
+
+async function retryServerCancel() {
+  if (!cancelRetryRunId.value) return
+  await requestServerCancel(cancelRetryRunId.value)
 }
 
 function handleStreamEvent(messageId: string, event: AgentStreamEvent) {
@@ -647,7 +692,7 @@ async function refreshSidePanel() {
   try {
     await fetchSidePanel()
   } catch {
-    // keep current side panel state if refresh fails
+    // fetchSidePanel isolates individual failures; retain this guard for unexpected errors.
   }
 }
 
@@ -708,9 +753,14 @@ async function loadDrafts() {
   if (!session.token.value) return
   try {
     drafts.value = await fetchAgentDrafts(session.token.value, { page: 0, limit: 20 })
-  } catch {
-    // keep current drafts if refresh fails
+    draftError.value = ''
+  } catch (loadErr) {
+    draftError.value = loadErr instanceof Error ? loadErr.message : '草稿列表加载失败'
   }
+}
+
+async function retryDrafts() {
+  await loadDrafts()
 }
 
 function openCreateDraftEditor() {
@@ -738,12 +788,24 @@ async function saveDraft() {
   const normalizedTitle = draftTitle.value.trim()
   const normalizedType = draftType.value.trim()
   const contentJson = draftStructuredPreview.value.trim()
-  if (!normalizedTitle || !normalizedType || !contentJson) return
-  const validationError = validateDraftEditor()
-  if (validationError) {
-    error.value = validationError
+  if (!normalizedTitle) {
+    draftError.value = '标题不能为空'
     return
   }
+  if (!normalizedType) {
+    draftError.value = '类型不能为空'
+    return
+  }
+  if (!contentJson) {
+    draftError.value = '内容不能为空'
+    return
+  }
+  const validationError = validateDraftEditor()
+  if (validationError) {
+    draftError.value = validationError
+    return
+  }
+  draftError.value = ''
   draftSaving.value = true
   try {
     if (editingDraftId.value) {
@@ -764,7 +826,7 @@ async function saveDraft() {
     isDraftEditorOpen.value = false
     await loadDrafts()
   } catch (saveErr) {
-    error.value = saveErr instanceof Error ? saveErr.message : '草稿保存失败'
+    draftError.value = saveErr instanceof Error ? saveErr.message : '草稿保存失败'
   } finally {
     draftSaving.value = false
   }
@@ -1151,9 +1213,18 @@ watch([mobileSidebarOpen, mobileSidepanelOpen], ([sidebarOpen, sidepanelOpen]) =
 })
 
 onBeforeUnmount(() => {
+  if (streamState.controller || currentRunId.value) {
+    void stopStreaming(false)
+  }
   if (typeof document === 'undefined') return
   document.body.style.overflow = ''
 })
+
+function isAbortError(value: unknown): boolean {
+  return value instanceof DOMException
+    ? value.name === 'AbortError'
+    : value instanceof Error && value.name === 'AbortError'
+}
 
 function createEmptyRunTrace(): UiRunTrace {
   return {
@@ -1676,6 +1747,22 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
     />
     <PageStatusBanner v-if="loading" tone="info" title="正在同步" message="正在加载 AI 工作台..." />
     <PageStatusBanner
+      v-if="sidePanelError"
+      tone="warning"
+      title="部分工作台数据加载失败"
+      :message="sidePanelError"
+      action-label="重试"
+      @action="retryPage"
+    />
+    <PageStatusBanner
+      v-if="cancelError"
+      tone="error"
+      title="服务端取消失败"
+      :message="cancelError"
+      action-label="重试取消"
+      @action="retryServerCancel"
+    />
+    <PageStatusBanner
       v-if="!canView && isApiSource"
       tone="warning"
       title="无查看权限"
@@ -1905,16 +1992,18 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
                       </div>
                     </div>
                     <div class="agent-draft-card__body" v-html="renderDraftContent(message.runTrace.draft)"></div>
-                    <div class="agent-draft-card__actions">
-                      <button
-                        type="button"
-                        :disabled="isDraftActionPending(message.runTrace.draft.draftId)"
+                  <div class="agent-draft-card__actions">
+                    <button
+                      v-if="canWrite"
+                      type="button"
+                      :disabled="!canWrite || isDraftActionPending(message.runTrace.draft.draftId)"
                         @click="confirmPendingDraft(message.runTrace.draft)"
                       >
                         {{ isDraftActionPending(message.runTrace.draft.draftId) ? '处理中...' : '确认' }}
                       </button>
-                      <button
-                        type="button"
+                    <button
+                      v-if="canWrite"
+                      type="button"
                         class="ghost-action"
                         :disabled="isDraftActionPending(message.runTrace.draft.draftId)"
                         @click="cancelPendingDraft(message.runTrace.draft)"
@@ -1938,7 +2027,7 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
           <textarea v-model="inputText" rows="4" placeholder="输入问题" />
           <div class="form-actions">
             <button type="button" :disabled="!canWrite || sending" @click="sendMessage()">{{ sending ? '发送中...' : '发送问题' }}</button>
-            <button type="button" class="ghost-action" :disabled="!sending && !streamState.controller" @click="stopStreaming">
+            <button type="button" class="ghost-action" :disabled="stopping || (!sending && !streamState.controller && !currentRunId)" @click="stopStreaming()">
               {{ stopping ? '正在停止...' : '停止生成' }}
             </button>
           </div>
@@ -1983,6 +2072,14 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
               <p class="eyebrow">待处理草稿</p>
               <button v-if="canWrite" type="button" class="ghost-action" @click="openCreateDraftEditor">新建草稿</button>
             </div>
+            <PageStatusBanner
+              v-if="draftError && !isDraftEditorOpen"
+              tone="error"
+              title="草稿列表加载失败"
+              :message="draftError"
+              action-label="重试"
+              @action="retryDrafts"
+            />
             <div v-if="drafts.length" class="mini-list">
               <div v-for="draft in drafts" :key="draft.id" class="draft-item">
                 <div class="draft-item-main">
@@ -1997,6 +2094,7 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
             </div>
             <PageEmptyState v-else title="暂无草稿" message="当前没有待处理草稿。" />
             <div v-if="isDraftEditorOpen" class="draft-editor">
+              <p v-if="draftError" class="form-error" role="alert">{{ draftError }}</p>
               <label class="compact-field">
                 <span>标题</span>
                 <input v-model="draftTitle" type="text" placeholder="草稿标题" />

@@ -259,6 +259,7 @@ data class PayOrderV2Dto(
 
 @Serializable
 data class CreatePayOrderV2Request(
+    @SerialName("idempotency_key") val idempotencyKey: String,
     @SerialName("supplier_id") val supplierId: Long? = null,
     @SerialName("supplier_name") val supplierName: String? = null,
     val amount: Double,

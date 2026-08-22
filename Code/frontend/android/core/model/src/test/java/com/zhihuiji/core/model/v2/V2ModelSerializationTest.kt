@@ -12,6 +12,17 @@ import org.junit.Test
 class V2ModelSerializationTest {
     private val json = Json { encodeDefaults = true }
 
+    @Test
+    fun createPayOrderRequest_serializesIdempotencyKeyAsSnakeCase() {
+        val request = com.zhihuiji.core.model.v2.order.CreatePayOrderV2Request(
+            idempotencyKey = "pay-key-1",
+            amount = 10.0,
+            method = 1,
+        )
+        val encoded = json.encodeToString(request)
+        assertTrue(encoded.contains("\"idempotency_key\":\"pay-key-1\""))
+    }
+
     // --- Finance ---
 
     @Test
