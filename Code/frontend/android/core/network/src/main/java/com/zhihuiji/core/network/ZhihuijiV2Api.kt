@@ -444,6 +444,8 @@ interface ZhihuijiV2Api {
         @Query("status") status: Int? = null,
         @Query("created_after") createdAfter: String? = null,
         @Query("created_before") createdBefore: String? = null,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 50,
     ): ApiResponse<List<PayOrderV2Dto>>
 
     @GET("v2/pay-orders/{id}")

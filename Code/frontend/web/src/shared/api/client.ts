@@ -277,6 +277,7 @@ export interface PayOrder {
 }
 
 export interface PayOrderCreatePayload {
+  idempotencyKey?: string | null
   supplierId?: EntityId | null
   supplierName?: string | null
   amount: number
@@ -2635,6 +2636,7 @@ function toSalesReturnBody(payload: SalesReturnCreatePayload) {
 
 function toPayOrderBody(payload: PayOrderCreatePayload) {
   return {
+    idempotency_key: payload.idempotencyKey?.trim() || createPayOrderIdempotencyKey(),
     supplier_id: payload.supplierId ?? null,
     supplier_name: payload.supplierName ?? null,
     amount: payload.amount,
@@ -2644,4 +2646,11 @@ function toPayOrderBody(payload: PayOrderCreatePayload) {
     account_id: payload.accountId ?? null,
     status: payload.status ?? null,
   }
+}
+
+function createPayOrderIdempotencyKey() {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID()
+  }
+  return `web-pay-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }

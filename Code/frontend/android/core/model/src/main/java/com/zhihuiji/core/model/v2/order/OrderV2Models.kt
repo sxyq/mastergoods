@@ -294,6 +294,8 @@ data class PayOrderV2Filter(
     val status: Int? = null,
     @SerialName("created_after") val createdAfter: String? = null,
     @SerialName("created_before") val createdBefore: String? = null,
+    val page: Int = 0,
+    val size: Int = 50,
 )
 
 @Serializable

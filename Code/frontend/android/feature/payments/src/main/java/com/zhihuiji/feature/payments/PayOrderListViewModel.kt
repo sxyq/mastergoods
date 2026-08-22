@@ -21,7 +21,9 @@ data class PayOrderListUiState(
     val error: String? = null,
     val orders: List<PayOrderItem> = emptyList(),
     val keyword: String = "",
-    val selectedTabIndex: Int = 0
+    val selectedTabIndex: Int = 0,
+    val page: Int = 0,
+    val pageSize: Int = 50,
 )
 
 data class PayOrderItem(
@@ -58,10 +60,12 @@ class PayOrderListViewModel @Inject constructor(
         loadOrders()
     }
 
-    fun loadOrders() {
+    fun loadOrders(page: Int = _uiState.value.page) {
+        val normalizedPage = page.coerceAtLeast(0)
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true, error = null, page = normalizedPage) }
             val keyword = _uiState.value.keyword.takeIf { it.isNotBlank() }
+            val pageSize = _uiState.value.pageSize
             val filter = PayOrderV2Filter(
                 keyword = keyword,
                 status = when (_uiState.value.selectedTabIndex) {
@@ -69,7 +73,9 @@ class PayOrderListViewModel @Inject constructor(
                     2 -> StatusLabels.Codes.PAY_PAID
                     3 -> StatusLabels.Codes.PAY_CANCELLED
                     else -> null
-                }
+                },
+                page = normalizedPage,
+                size = pageSize,
             )
             repository.listPayOrders(filter)
                 .onSuccess { orders ->
@@ -93,13 +99,23 @@ class PayOrderListViewModel @Inject constructor(
     }
 
     fun search(keyword: String) {
-        _uiState.update { it.copy(keyword = keyword) }
-        loadOrders()
+        _uiState.update { it.copy(keyword = keyword, page = 0) }
+        loadOrders(0)
     }
 
     fun selectTab(index: Int) {
-        _uiState.update { it.copy(selectedTabIndex = index) }
-        loadOrders()
+        _uiState.update { it.copy(selectedTabIndex = index, page = 0) }
+        loadOrders(0)
+    }
+
+    fun loadNextPage() {
+        loadOrders(_uiState.value.page + 1)
+    }
+
+    fun loadPreviousPage() {
+        if (_uiState.value.page > 0) {
+            loadOrders(_uiState.value.page - 1)
+        }
     }
 
     fun clearError() {

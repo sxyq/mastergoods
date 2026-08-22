@@ -437,9 +437,9 @@ class ZhihuijiV2ApiContractTest {
 
     @Test
     fun apiContract_payOrdersQueryParamsMatchBackend() {
-        // keyword/status/created_after/created_before (snake_case for explicit @RequestParam names).
+        // The backend accepts the four filters plus page/size for database pagination.
         val queryValues = getQueryValues("payOrdersV2")
-        assertEquals(listOf("keyword", "status", "created_after", "created_before"), queryValues)
+        assertEquals(listOf("keyword", "status", "created_after", "created_before", "page", "size"), queryValues)
     }
 
     // ========== Inventory V2 (ledger / ledger-by-source / snapshots / monthly-stats) ==========

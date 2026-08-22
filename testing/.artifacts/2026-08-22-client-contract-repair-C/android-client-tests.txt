@@ -1,0 +1,261 @@
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by net.rubygrapefruit.platform.internal.NativeLibraryLoader in an unnamed module (file:/Users/sunyiyang/.gradle/wrapper/dists/gradle-8.7-bin/bhs2wmbdwecv87pi65oeuq5iu/gradle-8.7/lib/native-platform-0.22-milestone-25.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build
+WARNING: We recommend using a newer Android Gradle plugin to use compileSdk = 35
+
+This Android Gradle plugin (8.5.2) was tested up to compileSdk = 34.
+
+You are strongly encouraged to update your project to use a newer
+Android Gradle plugin that has been tested with compileSdk = 35.
+
+If you are already using the latest version of the Android Gradle plugin,
+you may need to wait until a newer version with support for compileSdk = 35 is available.
+
+For more information refer to the compatibility table:
+https://d.android.com/r/tools/api-level-support
+
+To suppress this warning, add/update
+    android.suppressUnsupportedCompileSdk=35
+to this project's gradle.properties.
+> Task :backdrop:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:network:preBuild UP-TO-DATE
+> Task :core:model:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :data:order:preBuild UP-TO-DATE
+> Task :core:designsystem:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:database:preBuild UP-TO-DATE
+> Task :core:datastore:preBuild UP-TO-DATE
+> Task :data:sync:preBuild UP-TO-DATE
+> Task :core:common:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :data:supplier:preBuild UP-TO-DATE
+> Task :core:network:preDebugBuild UP-TO-DATE
+> Task :core:database:preDebugBuild UP-TO-DATE
+> Task :core:designsystem:preBuild UP-TO-DATE
+> Task :core:common:preBuild UP-TO-DATE
+> Task :data:supplier:preDebugBuild UP-TO-DATE
+> Task :core:database:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:network:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:model:preBuild UP-TO-DATE
+> Task :data:order:preDebugBuild UP-TO-DATE
+> Task :backdrop:preBuild UP-TO-DATE
+> Task :core:designsystem:preDebugBuild UP-TO-DATE
+> Task :core:model:preDebugBuild UP-TO-DATE
+> Task :core:common:preDebugBuild UP-TO-DATE
+> Task :core:datastore:preDebugBuild UP-TO-DATE
+> Task :data:sync:preDebugBuild UP-TO-DATE
+> Task :core:datastore:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :backdrop:preDebugBuild UP-TO-DATE
+> Task :data:order:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :data:sync:generateDebugResValues UP-TO-DATE
+> Task :backdrop:generateDebugResValues UP-TO-DATE
+> Task :core:datastore:generateDebugBuildConfig UP-TO-DATE
+> Task :core:database:generateDebugResValues UP-TO-DATE
+> Task :core:network:generateDebugBuildConfig UP-TO-DATE
+> Task :core:common:generateDebugResValues UP-TO-DATE
+> Task :data:supplier:generateDebugResValues UP-TO-DATE
+> Task :core:model:generateDebugResValues UP-TO-DATE
+> Task :core:designsystem:generateDebugResValues UP-TO-DATE
+> Task :core:datastore:generateDebugResValues UP-TO-DATE
+> Task :core:network:generateDebugResValues UP-TO-DATE
+> Task :backdrop:generateDebugResources UP-TO-DATE
+> Task :core:database:generateDebugResources UP-TO-DATE
+> Task :data:supplier:generateDebugResources UP-TO-DATE
+> Task :core:common:generateDebugResources UP-TO-DATE
+> Task :core:model:generateDebugResources UP-TO-DATE
+> Task :data:sync:generateDebugResources UP-TO-DATE
+> Task :core:designsystem:generateDebugResources UP-TO-DATE
+> Task :core:datastore:generateDebugResources UP-TO-DATE
+> Task :core:network:generateDebugResources UP-TO-DATE
+> Task :data:order:generateDebugResValues FROM-CACHE
+> Task :data:supplier:packageDebugResources UP-TO-DATE
+> Task :backdrop:packageDebugResources UP-TO-DATE
+> Task :data:sync:packageDebugResources UP-TO-DATE
+> Task :core:designsystem:packageDebugResources UP-TO-DATE
+> Task :core:common:packageDebugResources UP-TO-DATE
+> Task :core:network:packageDebugResources UP-TO-DATE
+> Task :core:model:packageDebugResources UP-TO-DATE
+> Task :core:datastore:packageDebugResources UP-TO-DATE
+> Task :core:database:packageDebugResources UP-TO-DATE
+> Task :data:order:generateDebugResources FROM-CACHE
+> Task :data:order:packageDebugResources FROM-CACHE
+> Task :core:network:parseDebugLocalResources UP-TO-DATE
+> Task :backdrop:parseDebugLocalResources UP-TO-DATE
+> Task :data:supplier:parseDebugLocalResources UP-TO-DATE
+> Task :core:datastore:parseDebugLocalResources UP-TO-DATE
+> Task :core:model:parseDebugLocalResources UP-TO-DATE
+> Task :core:designsystem:parseDebugLocalResources UP-TO-DATE
+> Task :data:sync:parseDebugLocalResources UP-TO-DATE
+> Task :core:common:parseDebugLocalResources UP-TO-DATE
+> Task :core:database:parseDebugLocalResources UP-TO-DATE
+> Task :core:network:generateDebugRFile UP-TO-DATE
+> Task :core:datastore:generateDebugRFile UP-TO-DATE
+> Task :data:supplier:generateDebugRFile UP-TO-DATE
+> Task :core:common:generateDebugRFile UP-TO-DATE
+> Task :core:model:generateDebugRFile UP-TO-DATE
+> Task :core:designsystem:generateDebugRFile UP-TO-DATE
+> Task :data:supplier:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :backdrop:generateDebugRFile UP-TO-DATE
+> Task :core:database:generateDebugRFile UP-TO-DATE
+> Task :data:sync:generateDebugRFile UP-TO-DATE
+> Task :data:order:parseDebugLocalResources FROM-CACHE
+> Task :core:common:javaPreCompileDebug UP-TO-DATE
+> Task :data:sync:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:designsystem:javaPreCompileDebug UP-TO-DATE
+> Task :feature:payments:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :feature:payments:preBuild UP-TO-DATE
+> Task :feature:payments:preDebugBuild UP-TO-DATE
+> Task :feature:payments:generateDebugResValues UP-TO-DATE
+> Task :feature:payments:generateDebugResources UP-TO-DATE
+> Task :data:order:generateDebugRFile FROM-CACHE
+> Task :feature:payments:packageDebugResources UP-TO-DATE
+> Task :feature:payments:parseDebugLocalResources UP-TO-DATE
+> Task :feature:payments:generateDebugRFile UP-TO-DATE
+> Task :data:supplier:javaPreCompileDebug UP-TO-DATE
+> Task :core:network:javaPreCompileDebug UP-TO-DATE
+> Task :data:sync:javaPreCompileDebug UP-TO-DATE
+> Task :core:network:preDebugUnitTestBuild UP-TO-DATE
+> Task :data:order:javaPreCompileDebug FROM-CACHE
+> Task :data:order:preDebugUnitTestBuild UP-TO-DATE
+> Task :core:database:javaPreCompileDebug UP-TO-DATE
+> Task :core:network:generateDebugUnitTestStubRFile UP-TO-DATE
+> Task :core:network:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :data:order:javaPreCompileDebugUnitTest FROM-CACHE
+> Task :core:model:compileDebugKotlin UP-TO-DATE
+> Task :backdrop:compileDebugKotlin UP-TO-DATE
+> Task :core:model:javaPreCompileDebug UP-TO-DATE
+> Task :backdrop:javaPreCompileDebug UP-TO-DATE
+> Task :core:model:compileDebugJavaWithJavac NO-SOURCE
+> Task :backdrop:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:datastore:kspDebugKotlin UP-TO-DATE
+> Task :core:model:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :backdrop:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:model:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:model:preDebugUnitTestBuild UP-TO-DATE
+> Task :core:model:generateDebugUnitTestStubRFile UP-TO-DATE
+> Task :core:datastore:compileDebugKotlin UP-TO-DATE
+> Task :core:datastore:javaPreCompileDebug UP-TO-DATE
+> Task :core:model:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :core:model:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :core:datastore:compileDebugJavaWithJavac UP-TO-DATE
+> Task :core:model:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :core:model:processDebugJavaRes UP-TO-DATE
+> Task :core:model:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :core:common:compileDebugKotlin UP-TO-DATE
+> Task :core:database:kspDebugKotlin UP-TO-DATE
+> Task :core:common:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:common:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:datastore:transformDebugClassesWithAsm UP-TO-DATE
+> Task :core:datastore:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:datastore:processDebugJavaRes UP-TO-DATE
+> Task :data:order:generateDebugUnitTestStubRFile
+> Task :core:datastore:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:model:testDebugUnitTest UP-TO-DATE
+> Task :core:database:compileDebugKotlin UP-TO-DATE
+> Task :core:database:compileDebugJavaWithJavac UP-TO-DATE
+> Task :core:designsystem:compileDebugKotlin UP-TO-DATE
+> Task :core:network:kspDebugKotlin UP-TO-DATE
+> Task :core:designsystem:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:designsystem:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:network:compileDebugKotlin UP-TO-DATE
+> Task :core:network:compileDebugJavaWithJavac UP-TO-DATE
+> Task :core:network:transformDebugClassesWithAsm UP-TO-DATE
+> Task :core:network:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:database:transformDebugClassesWithAsm UP-TO-DATE
+> Task :core:network:processDebugJavaRes UP-TO-DATE
+> Task :core:database:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:network:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:database:processDebugJavaRes UP-TO-DATE
+> Task :core:database:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:network:kspDebugUnitTestKotlin UP-TO-DATE
+> Task :data:sync:kspDebugKotlin UP-TO-DATE
+> Task :core:network:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :core:network:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :core:network:hiltAggregateDepsDebugUnitTest UP-TO-DATE
+> Task :core:network:hiltJavaCompileDebugUnitTest NO-SOURCE
+> Task :core:network:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :core:network:transformDebugUnitTestClassesWithAsm UP-TO-DATE
+> Task :core:network:testDebugUnitTest UP-TO-DATE
+> Task :data:sync:compileDebugKotlin
+> Task :data:order:kspDebugKotlin
+> Task :data:sync:compileDebugJavaWithJavac
+> Task :data:sync:transformDebugClassesWithAsm
+> Task :data:sync:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :data:sync:bundleLibRuntimeToJarDebug UP-TO-DATE
+
+> Task :data:supplier:kspDebugKotlin FAILED
+e: java.nio.file.NoSuchFileException: /Users/sunyiyang/Desktop/Project/master-goods/tmp/build/gradle-output/android/data/supplier/kspCaches/debug/backups/../../../../../../../../../Code/tmp
+	at java.base/sun.nio.fs.UnixException.translateToIOException(UnixException.java:92)
+	at java.base/sun.nio.fs.UnixException.rethrowAsIOException(UnixException.java:106)
+	at java.base/sun.nio.fs.UnixException.rethrowAsIOException(UnixException.java:111)
+	at java.base/sun.nio.fs.UnixFileSystem.copy(UnixFileSystem.java:954)
+	at java.base/sun.nio.fs.UnixFileSystemProvider.copy(UnixFileSystemProvider.java:280)
+	at java.base/java.nio.file.Files.copy(Files.java:1189)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:80)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:71)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:71)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:71)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:71)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:71)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:71)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:71)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:71)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:71)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:71)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:71)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:71)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:71)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:71)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:71)
+	at com.google.devtools.ksp.common.IncrementalUtilKt.copyWithTimestamp(IncrementalUtil.kt:71)
+	at com.google.devtools.ksp.common.IncrementalContextBase.updateOutputs(IncrementalContextBase.kt:355)
+	at com.google.devtools.ksp.common.IncrementalContextBase.access$updateOutputs(IncrementalContextBase.kt:62)
+	at com.google.devtools.ksp.common.IncrementalContextBase$updateCachesAndOutputs$1.invoke(IncrementalContextBase.kt:484)
+	at com.google.devtools.ksp.common.IncrementalContextBase$updateCachesAndOutputs$1.invoke(IncrementalContextBase.kt:428)
+	at com.google.devtools.ksp.common.IncrementalContextBase.closeFilesOnException(IncrementalContextBase.kt:408)
+	at com.google.devtools.ksp.common.IncrementalContextBase.updateCachesAndOutputs(IncrementalContextBase.kt:428)
+	at com.google.devtools.ksp.AbstractKotlinSymbolProcessingExtension.doAnalysis(KotlinSymbolProcessingExtension.kt:376)
+	at org.jetbrains.kotlin.cli.jvm.compiler.TopDownAnalyzerFacadeForJVM.analyzeFilesWithJavaIntegration(TopDownAnalyzerFacadeForJVM.kt:112)
+	at org.jetbrains.kotlin.cli.jvm.compiler.TopDownAnalyzerFacadeForJVM.analyzeFilesWithJavaIntegration$default(TopDownAnalyzerFacadeForJVM.kt:75)
+	at org.jetbrains.kotlin.cli.jvm.compiler.KotlinToJVMBytecodeCompiler.analyze$lambda$12(KotlinToJVMBytecodeCompiler.kt:373)
+	at org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport.analyzeAndReport(AnalyzerWithCompilerReport.kt:112)
+	at org.jetbrains.kotlin.cli.jvm.compiler.KotlinToJVMBytecodeCompiler.analyze(KotlinToJVMBytecodeCompiler.kt:364)
+	at org.jetbrains.kotlin.cli.jvm.compiler.KotlinToJVMBytecodeCompiler.runFrontendAndGenerateIrUsingClassicFrontend(KotlinToJVMBytecodeCompiler.kt:195)
+	at org.jetbrains.kotlin.cli.jvm.compiler.KotlinToJVMBytecodeCompiler.compileModules$cli(KotlinToJVMBytecodeCompiler.kt:106)
+	at org.jetbrains.kotlin.cli.jvm.K2JVMCompiler.doExecute(K2JVMCompiler.kt:170)
+	at org.jetbrains.kotlin.cli.jvm.K2JVMCompiler.doExecute(K2JVMCompiler.kt:43)
+	at org.jetbrains.kotlin.cli.common.CLICompiler.execImpl(CLICompiler.kt:103)
+	at org.jetbrains.kotlin.cli.common.CLICompiler.execImpl(CLICompiler.kt:49)
+	at org.jetbrains.kotlin.cli.common.CLITool.exec(CLITool.kt:101)
+	at org.jetbrains.kotlin.daemon.CompileServiceImpl.compile(CompileServiceImpl.kt:1555)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at java.rmi/sun.rmi.server.UnicastServerRef.dispatch(UnicastServerRef.java:351)
+	at java.rmi/sun.rmi.transport.Transport.serviceCall(Transport.java:166)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport.handleMessages(TCPTransport.java:543)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run0(TCPTransport.java:744)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run(TCPTransport.java:623)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1095)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:619)
+	at java.base/java.lang.Thread.run(Thread.java:1447)
+
+
+> Task :data:order:compileDebugKotlin
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':data:supplier:kspDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Internal compiler error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 5s
+122 actionable tasks: 7 executed, 7 from cache, 108 up-to-date

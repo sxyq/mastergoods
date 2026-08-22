@@ -174,11 +174,13 @@ class V2ModelSerializationTest {
     @Test
     fun payOrderV2Filter_serializesSnakeCaseFields() {
         val filter = com.zhihuiji.core.model.v2.order.PayOrderV2Filter(
-            createdAfter = "2026-01-01", createdBefore = "2026-06-01",
+            createdAfter = "2026-01-01", createdBefore = "2026-06-01", page = 2, size = 25,
         )
         val encoded = json.encodeToString(filter)
         assertTrue(encoded.contains("\"created_after\":\"2026-01-01\""))
         assertTrue(encoded.contains("\"created_before\":\"2026-06-01\""))
+        assertTrue(encoded.contains("\"page\":2"))
+        assertTrue(encoded.contains("\"size\":25"))
     }
 
     @Test

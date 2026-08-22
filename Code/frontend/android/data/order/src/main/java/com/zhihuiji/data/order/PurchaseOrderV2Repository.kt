@@ -5,6 +5,7 @@ import com.zhihuiji.core.model.v2.order.PurchaseOrderV2Dto
 import com.zhihuiji.core.model.v2.order.PurchaseOrderV2Filter
 import com.zhihuiji.core.network.ZhihuijiV2Api
 import com.zhihuiji.core.network.safeApiCall
+import com.zhihuiji.core.network.safeApiUnitCall
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,5 +26,5 @@ class PurchaseOrderV2Repository @Inject constructor(
         safeApiCall { api.updatePurchaseOrderV2(id, request) }
 
     suspend fun deletePurchaseOrder(id: Long): Result<Unit> =
-        safeApiCall { api.deletePurchaseOrderV2(id) }
+        safeApiUnitCall { api.deletePurchaseOrderV2(id) }
 }

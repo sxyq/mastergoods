@@ -1,0 +1,5 @@
+WEB-CLIENT-CONTRACT: Passed
+  pay-order path: /v2/pay-orders
+  idempotency_key: generated or caller-supplied and retained in request body
+  entity IDs: forwarded without Number coercion
+  conversation_id: snake_case

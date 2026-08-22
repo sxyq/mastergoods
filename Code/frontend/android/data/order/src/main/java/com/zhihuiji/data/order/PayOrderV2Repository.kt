@@ -20,6 +20,8 @@ class PayOrderV2Repository @Inject constructor(
                 status = filter.status,
                 createdAfter = filter.createdAfter,
                 createdBefore = filter.createdBefore,
+                page = filter.page,
+                size = filter.size,
             )
         }
 
