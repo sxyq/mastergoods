@@ -878,6 +878,12 @@ final class APIClient {
         let _: EmptyPayload = try await send(path: "/v2/agent/drafts/\(id.rawValue)", method: "DELETE")
     }
 
+    /// 草稿二次确认接口。仅后端在确认后才会触发正式业务写入。
+    /// - 重要：客户端不得直接调用正式业务创建接口，所有写入都必须经过此接口。
+    func confirmAgentDraft(id: EntityID) async throws -> AgentDraft {
+        try await send(path: "/v2/agent/drafts/\(id.rawValue)/confirm", method: "POST")
+    }
+
     func fetchAgentTasks() async throws -> [AgentTask] {
         try await send(path: "/v2/agent/tasks")
     }

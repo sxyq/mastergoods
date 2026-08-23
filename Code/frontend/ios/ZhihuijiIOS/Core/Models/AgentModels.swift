@@ -6,6 +6,91 @@ enum AgentContractStatus {
     static let archived = "archived"
 }
 
+/// 草稿确认相关状态字符串，与后端 `drafts.status` 字段保持一致。
+/// 客户端不会绕过草稿确认直接调用正式业务创建接口，所以这些状态是终态与二次授权的依据。
+enum AgentDraftStatus {
+    static let pendingConfirmation = "pending_confirmation"
+    static let confirmed = "confirmed"
+    static let rejected = "rejected"
+    static let cancelled = "cancelled"
+    static let expired = "expired"
+    static let active = "active"
+    static let archived = "archived"
+
+    /// 是否需要展示二次确认弹窗。
+    static func requiresConfirmation(_ status: String?) -> Bool {
+        guard let status = status?.lowercased() else { return false }
+        return status == pendingConfirmation || status == active
+    }
+
+    /// 是否已经进入终态（不能再确认）。
+    static func isTerminal(_ status: String?) -> Bool {
+        guard let status = status?.lowercased() else { return false }
+        return [
+            confirmed,
+            rejected,
+            cancelled,
+            expired,
+            archived,
+        ].contains(status)
+    }
+
+    /// 是否已经确认写入。
+    static func isConfirmed(_ status: String?) -> Bool {
+        status?.lowercased() == confirmed
+    }
+}
+
+/// Agent 运行的终态枚举。后端通过 `terminal_status` 字段下发，大小写不敏感。
+/// - 注意：`exhausted` 表示轮次耗尽，前端不应展示为成功样式。
+enum TerminalStatus: String, Codable, Equatable {
+    case completed = "COMPLETED"
+    case confirmationPending = "CONFIRMATION_PENDING"
+    case failed = "FAILED"
+    case blocked = "BLOCKED"
+    case cancelled = "CANCELLED"
+    case exhausted = "EXHAUSTED"
+
+    /// 大小写不敏感的解析，避免后端字段大小写变化导致解析失败。
+    init?(ciRawValue raw: String) {
+        switch raw.uppercased() {
+        case "COMPLETED": self = .completed
+        case "CONFIRMATION_PENDING": self = .confirmationPending
+        case "FAILED": self = .failed
+        case "BLOCKED": self = .blocked
+        case "CANCELLED": self = .cancelled
+        case "EXHAUSTED": self = .exhausted
+        default: return nil
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let raw = try? container.decode(String.self),
+           let value = TerminalStatus(ciRawValue: raw) {
+            self = value
+            return
+        }
+        self = .failed
+    }
+
+    /// 是否属于"成功"终态。`confirmationPending` 不计入成功，需要二次确认才算写入。
+    var isSuccessful: Bool { self == .completed }
+
+    /// 是否需要触发二次确认弹窗。
+    var requiresConfirmation: Bool { self == .confirmationPending }
+
+    /// 是否属于"非成功"终态，不应展示成功样式。
+    var isFailure: Bool {
+        switch self {
+        case .failed, .blocked, .cancelled, .exhausted:
+            return true
+        case .completed, .confirmationPending:
+            return false
+        }
+    }
+}
+
 struct AgentConversationSummary: Identifiable, Codable, Equatable {
     let id: EntityID
     let title: String
@@ -291,6 +376,10 @@ struct AgentStreamEvent: Codable, Equatable {
     let reason: String?
     let block: AgentResultBlock?
     let timestamp: Int64?
+    let terminalStatus: TerminalStatus?
+    let completedTools: [String]?
+    let missingTargetTools: [String]?
+    let status: String?
 
     enum CodingKeys: String, CodingKey {
         case eventType = "event_type"
@@ -323,6 +412,10 @@ struct AgentStreamEvent: Codable, Equatable {
         case reason
         case block
         case timestamp
+        case terminalStatus = "terminal_status"
+        case completedTools = "completed_tools"
+        case missingTargetTools = "missing_target_tools"
+        case status
     }
 }
 
@@ -410,6 +503,8 @@ struct AgentDraftCardBlockData: Codable, Equatable {
     let totalAmount: String?
     let partnerName: String?
     let warnings: [String]?
+    let status: String?
+    let actionLabel: String?
 
     enum CodingKeys: String, CodingKey {
         case draftId = "draft_id"
@@ -420,6 +515,8 @@ struct AgentDraftCardBlockData: Codable, Equatable {
         case totalAmount = "total_amount"
         case partnerName = "partner_name"
         case warnings
+        case status
+        case actionLabel = "action_label"
     }
 }
 

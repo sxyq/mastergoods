@@ -23,6 +23,7 @@ struct AgentChatView: View {
                 conversationsSection
                 messagesSection
                 runSection
+                terminalStatusSection
                 taskSection
                 notificationSection
                 composerSection
@@ -47,6 +48,35 @@ struct AgentChatView: View {
             }
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $viewModel.isConfirmationPresented) {
+            NavigationStack {
+                AgentDraftConfirmationSheet(
+                    draft: viewModel.pendingConfirmationDraft,
+                    state: viewModel.confirmationState,
+                    onConfirm: {
+                        Task { await viewModel.confirmPendingDraft(using: env.apiClient) }
+                    },
+                    onReject: {
+                        viewModel.rejectPendingDraft()
+                    },
+                    onDismiss: {
+                        viewModel.dismissConfirmation()
+                    }
+                )
+                .navigationTitle("草稿二次确认")
+                .toolbar {
+                    ToolbarItem {
+                        Button("关闭") {
+                            viewModel.dismissConfirmation()
+                        }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+            // 关闭弹窗（下拉、返回）不会触发确认；只有 "确认" 按钮才会调用草稿确认接口。
+            .interactiveDismissDisabled(viewModel.confirmationState == .confirming)
         }
         .sheet(item: $viewModel.editingDraft) { draft in
             NavigationStack {
@@ -453,7 +483,14 @@ struct AgentChatView: View {
                     Text("本次运行轨迹")
                         .font(ZhihuijiTheme.Typography.sectionTitle)
                     Spacer()
-                    if let llmStatus = currentRun.llmStatus?.nilIfBlank {
+                    if let terminal = viewModel.terminalStatus {
+                        StatusChip(
+                            title: terminal.displayLabel,
+                            tint: terminal.tint
+                        )
+                        .accessibilityLabel("运行终态")
+                        .accessibilityValue(terminal.voiceOverLabel)
+                    } else if let llmStatus = currentRun.llmStatus?.nilIfBlank {
                         StatusChip(title: llmStatus, tint: tintForStatus(llmStatus))
                     }
                 }
@@ -539,9 +576,75 @@ struct AgentChatView: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("查看完整审计")
+                .accessibilityHint("打开本次运行的审计详情")
             }
             .padding(16)
             .glassCard()
+        }
+    }
+
+    /// 终态展示区块。仅当后端下发 terminal_status 时显示。
+    /// 成功（COMPLETED）显示成功样式；非成功终态（FAILED/BLOCKED/CANCELLED/EXHAUSTED）
+    /// 不显示成功样式，避免误导用户。
+    @ViewBuilder
+    private var terminalStatusSection: some View {
+        if let terminal = viewModel.terminalStatus {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 12) {
+                    Circle()
+                        .fill(terminal.tint.opacity(0.18))
+                        .frame(width: 36, height: 36)
+                        .overlay(
+                            Image(systemName: terminal.iconName)
+                                .font(ZhihuijiTheme.Typography.bodyMedium)
+                                .foregroundStyle(terminal.tint)
+                        )
+                        .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(terminal.displayTitle)
+                            .font(ZhihuijiTheme.Typography.cardTitle)
+                            .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                            .accessibilityAddTraits(.isHeader)
+
+                        if let message = viewModel.terminalMessage?.nilIfBlank ?? terminal.defaultMessage?.nilIfBlank {
+                            Text(message)
+                                .font(ZhihuijiTheme.Typography.body)
+                                .foregroundStyle(terminal.isSuccessful ? ZhihuijiTheme.ColorToken.success : ZhihuijiTheme.ColorToken.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        if !viewModel.completedTools.isEmpty {
+                            Text("已完成工具：\(viewModel.completedTools.joined(separator: "、"))")
+                                .font(ZhihuijiTheme.Typography.caption)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        if !viewModel.missingTargetTools.isEmpty {
+                            Text("未完成的目标工具：\(viewModel.missingTargetTools.joined(separator: "、"))")
+                                .font(ZhihuijiTheme.Typography.caption)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .padding(14)
+                .background(
+                    terminal.tint.opacity(0.08),
+                    in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
+                        .stroke(terminal.tint.opacity(0.22), lineWidth: ZhihuijiTheme.Stroke.hairline)
+                )
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("运行终态")
+                .accessibilityValue(terminal.voiceOverLabel)
+            }
         }
     }
 
@@ -1295,27 +1398,34 @@ private struct AgentDraftCardBlock: View {
                 if let partnerName = data.partnerName?.nilIfBlank {
                     StatusChip(title: partnerName, tint: ZhihuijiTheme.ColorToken.warning)
                 }
+                if let status = data.status?.nilIfBlank {
+                    StatusChip(title: AgentDraftStatus.displayLabel(status), tint: AgentDraftStatus.tint(status))
+                }
             }
 
             Text(data.summary)
                 .font(ZhihuijiTheme.Typography.body)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             HStack {
                 if let itemCount = data.itemCount {
                     Text("\(itemCount) 项")
                         .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                        .accessibilityLabel("草稿包含 \(itemCount) 项")
                 }
                 Spacer()
                 if let totalAmount = data.totalAmount?.nilIfBlank {
                     AmountText(value: totalAmount, tint: ZhihuijiTheme.ColorToken.primary)
+                        .accessibilityLabel("草稿金额 \(totalAmount)")
                 }
             }
 
             Text("这是 AI 草稿，当前不会直接写入正式业务数据。")
                 .font(ZhihuijiTheme.Typography.caption)
                 .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
+                .accessibilityLabel("二次确认提示：草稿不会自动写入正式业务")
 
             if let warnings = data.warnings, !warnings.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
@@ -1327,6 +1437,251 @@ private struct AgentDraftCardBlock: View {
                 }
             }
         }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+/// 草稿二次确认弹窗。
+/// - 重要：仅 `确认` 按钮会调用草稿确认接口。`拒绝`/`关闭`/`下拉`/系统中断
+///   都不会触发正式写入。
+private struct AgentDraftConfirmationSheet: View {
+    let draft: AgentDraft?
+    let state: DraftConfirmationState
+    let onConfirm: () -> Void
+    let onReject: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if let draft {
+                    draftSummarySection(draft)
+                    actionSection(draft)
+                } else {
+                    EmptyStateView(title: "草稿不可用", message: "草稿已被移除或不存在，无需再次确认。")
+                }
+            }
+            .padding(20)
+        }
+        .accessibilityAction(named: "关闭") { onDismiss() }
+    }
+
+    @ViewBuilder
+    private func draftSummarySection(_ draft: AgentDraft) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("二次确认")
+                .font(ZhihuijiTheme.Typography.sectionTitle)
+                .accessibilityAddTraits(.isHeader)
+
+            Text("AI 草稿不会自动写入正式业务。请核验关键对象、数量与金额后再确认。")
+                .font(ZhihuijiTheme.Typography.body)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 10) {
+                summaryRow(label: "业务动作", value: draft.draftType)
+                summaryRow(label: "关键对象", value: draft.title)
+                summaryRow(label: "草稿状态", value: AgentDraftStatus.displayLabel(draft.status))
+                if let conversationId = draft.conversationId {
+                    summaryRow(label: "所属会话", value: conversationId.rawValue)
+                }
+                summaryRow(label: "创建时间", value: draft.createdAt.dateTimeText)
+            }
+        }
+        .padding(16)
+        .glassCard()
+    }
+
+    private func summaryRow(label: String, value: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(label)
+                .font(ZhihuijiTheme.Typography.caption)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+                .frame(width: 80, alignment: .leading)
+            Text(value)
+                .font(ZhihuijiTheme.Typography.bodyMedium)
+                .foregroundStyle(ZhihuijiTheme.ColorToken.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label)：\(value)")
+    }
+
+    @ViewBuilder
+    private func actionSection(_ draft: AgentDraft) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if AgentDraftStatus.isConfirmed(draft.status) {
+                Text("该草稿已确认，无需再次操作。")
+                    .font(ZhihuijiTheme.Typography.body)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.success)
+                    .accessibilityLabel("草稿已确认")
+            } else if AgentDraftStatus.isTerminal(draft.status) {
+                Text("草稿当前状态为 \(AgentDraftStatus.displayLabel(draft.status))，无法再确认。")
+                    .font(ZhihuijiTheme.Typography.body)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
+            } else {
+                PrimaryGlassButton(
+                    title: confirmButtonTitle,
+                    systemImage: "checkmark.shield.fill",
+                    disabled: isConfirmDisabled,
+                    action: onConfirm
+                )
+                .accessibilityLabel("确认写入草稿")
+                .accessibilityHint("将调用草稿确认接口，确认后才会写入正式业务数据")
+
+                Button {
+                    onReject()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "xmark.circle.fill")
+                        Text("拒绝")
+                            .font(ZhihuijiTheme.Typography.bodyMedium)
+                    }
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.danger)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        ZhihuijiTheme.ColorToken.danger.opacity(0.08),
+                        in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                            .stroke(ZhihuijiTheme.ColorToken.danger.opacity(0.18), lineWidth: ZhihuijiTheme.Stroke.hairline)
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(state == .confirming)
+                .opacity(state == .confirming ? 0.55 : 1)
+                .accessibilityLabel("拒绝写入")
+                .accessibilityHint("不调用正式业务接口，仅本地标记为已拒绝")
+
+                if case let .failed(message) = state {
+                    Text("确认失败：\(message)")
+                        .font(ZhihuijiTheme.Typography.caption)
+                        .foregroundStyle(ZhihuijiTheme.ColorToken.danger)
+                        .accessibilityLabel("确认失败提示")
+                        .accessibilityValue(message)
+                }
+
+                Text("关闭弹窗或返回页面都不会触发写入。")
+                    .font(ZhihuijiTheme.Typography.caption)
+                    .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                    .accessibilityLabel("关闭弹窗或返回页面都不会触发写入")
+            }
+        }
+        .padding(16)
+        .glassCard()
+    }
+
+    private var confirmButtonTitle: String {
+        switch state {
+        case .confirming: return "确认中..."
+        case .confirmed: return "已确认"
+        default: return "确认"
+        }
+    }
+
+    private var isConfirmDisabled: Bool {
+        switch state {
+        case .confirming, .confirmed: return true
+        default: return false
+        }
+    }
+}
+
+private extension TerminalStatus {
+    var displayLabel: String {
+        switch self {
+        case .completed: return "已完成"
+        case .confirmationPending: return "待确认"
+        case .failed: return "失败"
+        case .blocked: return "已阻止"
+        case .cancelled: return "已取消"
+        case .exhausted: return "轮次耗尽"
+        }
+    }
+
+    var displayTitle: String {
+        switch self {
+        case .completed: return "运行完成"
+        case .confirmationPending: return "等待二次确认"
+        case .failed: return "运行失败"
+        case .blocked: return "运行被阻止"
+        case .cancelled: return "运行已取消"
+        case .exhausted: return "本轮轮次耗尽"
+        }
+    }
+
+    var defaultMessage: String? {
+        switch self {
+        case .completed: return "AI 助手已完成本轮分析。"
+        case .confirmationPending: return "草稿已生成，请在二次确认弹窗中确认后再写入正式业务。"
+        case .failed: return "本轮运行失败，请重试或调整问题。"
+        case .blocked: return "本轮运行被安全策略阻止，请检查权限或问题内容。"
+        case .cancelled: return "运行已取消。"
+        case .exhausted: return "本轮可用轮次已用完，请稍后再试。"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .completed: return "checkmark.circle.fill"
+        case .confirmationPending: return "shield.lefthalf.filled.badge.checkmark"
+        case .failed: return "exclamationmark.circle.fill"
+        case .blocked: return "hand.raised.fill"
+        case .cancelled: return "xmark.circle.fill"
+        case .exhausted: return "arrow.uturn.backward.circle.fill"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .completed: return ZhihuijiTheme.ColorToken.success
+        case .confirmationPending: return ZhihuijiTheme.ColorToken.warning
+        case .failed, .blocked, .cancelled, .exhausted: return ZhihuijiTheme.ColorToken.danger
+        }
+    }
+
+    var voiceOverLabel: String {
+        switch self {
+        case .completed: return "运行已完成，结果可用"
+        case .confirmationPending: return "运行已完成，等待你确认草稿后再写入正式业务"
+        case .failed: return "运行失败"
+        case .blocked: return "运行被阻止"
+        case .cancelled: return "运行已取消"
+        case .exhausted: return "本轮轮次耗尽"
+        }
+    }
+}
+
+extension AgentDraftStatus {
+    static func displayLabel(_ status: String?) -> String {
+        switch status?.lowercased() {
+        case AgentDraftStatus.pendingConfirmation: return "待确认"
+        case AgentDraftStatus.confirmed: return "已确认"
+        case AgentDraftStatus.rejected: return "已拒绝"
+        case AgentDraftStatus.cancelled: return "已取消"
+        case AgentDraftStatus.expired: return "已过期"
+        case AgentDraftStatus.archived: return "已归档"
+        case AgentDraftStatus.active: return "进行中"
+        default: return status ?? "草稿"
+        }
+    }
+
+    static func tint(_ status: String?) -> Color {
+        switch status?.lowercased() {
+        case AgentDraftStatus.pendingConfirmation, AgentDraftStatus.active:
+            return ZhihuijiTheme.ColorToken.primary
+        case AgentDraftStatus.confirmed:
+            return ZhihuijiTheme.ColorToken.success
+        case AgentDraftStatus.rejected, AgentDraftStatus.cancelled, AgentDraftStatus.expired:
+            return ZhihuijiTheme.ColorToken.danger
+        case AgentDraftStatus.archived:
+            return ZhihuijiTheme.ColorToken.warning
+        default:
+            return ZhihuijiTheme.ColorToken.textTertiary
+        }
     }
 }
 
@@ -1334,8 +1689,7 @@ private struct AgentUnknownResultBlock: View {
     let block: AgentResultBlock
 
     private var fallbackTitle: String {
-        block.title?.nilIfBlank ?? "未识别的结构化结果"
-    }
+        block.title?.nilIfBlank ?? "未识别的结构化结果"    }
 
     private var fallbackPreview: String {
         block.data?.previewText.nilIfBlank ?? "当前结果块没有可直接识别的字段。"

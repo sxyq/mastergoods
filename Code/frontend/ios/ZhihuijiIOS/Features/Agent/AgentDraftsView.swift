@@ -54,6 +54,27 @@ struct AgentDraftsView: View {
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
+        // 二次确认弹窗：仅当 ViewModel 选中某个草稿并触发 confirm flow 时显示。
+        // 弹窗关闭（拒绝/下拉/系统中断）不会调用正式业务接口，只有"确认"按钮才会。
+        .confirmationDialog(
+            "草稿二次确认",
+            isPresented: $viewModel.isConfirmPresented,
+            titleVisibility: .visible,
+            presenting: viewModel.pendingConfirmDraft
+        ) { draft in
+            Button("确认写入：\(draft.title)", role: .none) {
+                Task { await viewModel.confirm(using: env.apiClient) }
+            }
+            .accessibilityLabel("确认写入草稿 \(draft.title)")
+            .accessibilityHint("将调用草稿确认接口，确认后才会写入正式业务数据")
+
+            Button("拒绝", role: .cancel) {
+                viewModel.reject()
+            }
+            .accessibilityHint("不调用正式业务接口，仅本地标记为已拒绝")
+        } message: { draft in
+            Text(summaryForConfirmationDialog(draft))
+        }
     }
 
     private var headerSection: some View {
@@ -95,24 +116,25 @@ struct AgentDraftsView: View {
                     tint: ZhihuijiTheme.ColorToken.primary
                 )
                 MetricCard(
-                    title: "进行中",
-                    value: "\(viewModel.activeCount)",
-                    subtitle: "未归档",
-                    tint: ZhihuijiTheme.ColorToken.success
-                )
-                MetricCard(
-                    title: "已归档",
-                    value: "\(viewModel.archivedCount)",
-                    subtitle: "历史草稿",
+                    title: "待确认",
+                    value: "\(viewModel.pendingCount)",
+                    subtitle: "需二次授权",
                     tint: ZhihuijiTheme.ColorToken.warning
                 )
                 MetricCard(
-                    title: "草稿类型",
-                    value: "\(viewModel.draftTypes.count)",
-                    subtitle: "覆盖范围",
-                    tint: ZhihuijiTheme.ColorToken.primaryBright
+                    title: "已确认",
+                    value: "\(viewModel.confirmedCount)",
+                    subtitle: "已写入",
+                    tint: ZhihuijiTheme.ColorToken.success
+                )
+                MetricCard(
+                    title: "已取消/拒绝",
+                    value: "\(viewModel.cancelledCount)",
+                    subtitle: "未写入",
+                    tint: ZhihuijiTheme.ColorToken.danger
                 )
             }
+            .accessibilityElement(children: .contain)
 
             if canWrite {
                 PrimaryGlassButton(
@@ -127,6 +149,7 @@ struct AgentDraftsView: View {
                     Image(systemName: "lock.shield.fill")
                         .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
                         .padding(.top, 1)
+                        .accessibilityHidden(true)
                     Text("只读模式下不会显示草稿写入操作。")
                         .font(ZhihuijiTheme.Typography.caption)
                         .foregroundStyle(ZhihuijiTheme.ColorToken.textSecondary)
@@ -151,23 +174,67 @@ struct AgentDraftsView: View {
                 EmptyStateView(title: "暂无草稿", message: canWrite ? "还没有 AI 草稿，可点击上方新建。" : "还没有可查看的 AI 草稿。")
             } else {
                 ForEach(viewModel.drafts) { draft in
-                    if canWrite {
-                        Button {
-                            viewModel.beginEdit(draft)
-                        } label: {
-                            draftRow(draft, canWrite: true)
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                viewModel.beginDelete(draft)
-                                Task { await viewModel.delete(using: env.apiClient) }
+                    VStack(alignment: .leading, spacing: 8) {
+                        if canWrite {
+                            Button {
+                                viewModel.beginEdit(draft)
                             } label: {
-                                Label("删除草稿", systemImage: "trash")
+                                draftRow(draft, canWrite: true)
                             }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    viewModel.beginDelete(draft)
+                                    Task { await viewModel.delete(using: env.apiClient) }
+                                } label: {
+                                    Label("删除草稿", systemImage: "trash")
+                                }
+                            }
+                            .accessibilityLabel("草稿：\(draft.title)")
+                            .accessibilityHint("打开草稿编辑")
+                        } else {
+                            draftRow(draft)
+                                .accessibilityLabel("草稿：\(draft.title)")
+                                .accessibilityHint("只读模式下不可编辑")
                         }
-                    } else {
-                        draftRow(draft)
+
+                        // 二次确认入口：仅当草稿状态需要确认时显示。
+                        // "确认"按钮只调用草稿确认接口；关闭/拒绝不触发正式写入。
+                        if canWrite, AgentDraftStatus.requiresConfirmation(draft.status) {
+                            Button {
+                                viewModel.beginConfirm(draft)
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "checkmark.shield.fill")
+                                    Text(viewModel.isConfirmingDraft(draft.id) ? "确认中..." : "二次确认")
+                                        .font(ZhihuijiTheme.Typography.captionSemibold)
+                                }
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.warning)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(
+                                    ZhihuijiTheme.ColorToken.warning.opacity(0.10),
+                                    in: RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.pill, style: .continuous)
+                                        .stroke(ZhihuijiTheme.ColorToken.warning.opacity(0.20), lineWidth: ZhihuijiTheme.Stroke.hairline)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(viewModel.isConfirmingDraft(draft.id))
+                            .opacity(viewModel.isConfirmingDraft(draft.id) ? 0.6 : 1)
+                            .accessibilityLabel("二次确认草稿 \(draft.title)")
+                            .accessibilityHint("调用草稿确认接口，确认后才写入正式业务数据")
+                        }
+
+                        if viewModel.confirmationErrorForDraft(draft.id) != nil {
+                            Text("确认失败：\(viewModel.confirmationErrorForDraft(draft.id) ?? "")")
+                                .font(ZhihuijiTheme.Typography.caption)
+                                .foregroundStyle(ZhihuijiTheme.ColorToken.danger)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityLabel("草稿确认失败")
+                        }
                     }
                 }
             }
@@ -180,10 +247,11 @@ struct AgentDraftsView: View {
                 .fill(draftTint(draft.status).opacity(0.16))
                 .frame(width: 36, height: 36)
                 .overlay(
-                    Image(systemName: "doc.text.fill")
+                    Image(systemName: draftIcon(draft.status))
                         .font(ZhihuijiTheme.Typography.bodyMedium)
                         .foregroundStyle(draftTint(draft.status))
                 )
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .top) {
@@ -200,6 +268,7 @@ struct AgentDraftsView: View {
                         Image(systemName: "chevron.right")
                             .font(ZhihuijiTheme.Typography.captionSemibold)
                             .foregroundStyle(ZhihuijiTheme.ColorToken.textTertiary)
+                            .accessibilityHidden(true)
                     }
                 }
 
@@ -210,7 +279,7 @@ struct AgentDraftsView: View {
 
                 HStack(spacing: 10) {
                     StatusChip(
-                        title: draft.status ?? AgentContractStatus.active,
+                        title: AgentDraftStatus.displayLabel(draft.status),
                         tint: draftTint(draft.status)
                     )
                     Text("更新于 \(draft.updatedAt.dateTimeText)")
@@ -225,13 +294,44 @@ struct AgentDraftsView: View {
 
     private func draftTint(_ status: String?) -> Color {
         switch status?.lowercased() {
-        case AgentContractStatus.archived:
-            return ZhihuijiTheme.ColorToken.warning
-        case AgentContractStatus.closed:
-            return ZhihuijiTheme.ColorToken.textTertiary
-        default:
+        case AgentDraftStatus.pendingConfirmation, AgentDraftStatus.active:
             return ZhihuijiTheme.ColorToken.primary
+        case AgentDraftStatus.confirmed:
+            return ZhihuijiTheme.ColorToken.success
+        case AgentDraftStatus.rejected, AgentDraftStatus.cancelled, AgentDraftStatus.expired:
+            return ZhihuijiTheme.ColorToken.danger
+        case AgentDraftStatus.archived:
+            return ZhihuijiTheme.ColorToken.warning
+        default:
+            return ZhihuijiTheme.ColorToken.textTertiary
         }
+    }
+
+    private func draftIcon(_ status: String?) -> String {
+        switch status?.lowercased() {
+        case AgentDraftStatus.pendingConfirmation, AgentDraftStatus.active:
+            return "doc.text.fill"
+        case AgentDraftStatus.confirmed:
+            return "checkmark.seal.fill"
+        case AgentDraftStatus.rejected, AgentDraftStatus.cancelled:
+            return "xmark.seal.fill"
+        case AgentDraftStatus.expired:
+            return "exclamationmark.triangle.fill"
+        case AgentDraftStatus.archived:
+            return "archivebox.fill"
+        default:
+            return "doc.text.fill"
+        }
+    }
+
+    private func summaryForConfirmationDialog(_ draft: AgentDraft) -> String {
+        var parts: [String] = []
+        parts.append("业务动作：\(draft.draftType)")
+        parts.append("关键对象：\(draft.title)")
+        parts.append("草稿状态：\(AgentDraftStatus.displayLabel(draft.status))")
+        parts.append("更新时间：\(draft.updatedAt.dateTimeText)")
+        parts.append("确认后才会写入正式业务数据，关闭弹窗或拒绝均不会写入。")
+        return parts.joined(separator: "\n")
     }
 }
 
@@ -355,8 +455,29 @@ final class AgentDraftsViewModel: ObservableObject {
     @Published var editorStatus = AgentContractStatus.active
     @Published var editorDraftType = "question"
     @Published var editorMode: AgentDraftEditorMode = .create
+    @Published var isConfirmPresented = false
+    @Published var pendingConfirmDraft: AgentDraft?
+    @Published var confirmingDraftId: EntityID?
+    @Published var confirmationErrors: [EntityID: String] = [:]
 
     private var editingDraftId: EntityID?
+
+    var pendingCount: Int {
+        drafts.filter { AgentDraftStatus.requiresConfirmation($0.status) }.count
+    }
+
+    var confirmedCount: Int {
+        drafts.filter { AgentDraftStatus.isConfirmed($0.status) }.count
+    }
+
+    var cancelledCount: Int {
+        drafts.filter { status in
+            let value = status.status?.lowercased()
+            return value == AgentDraftStatus.rejected
+                || value == AgentDraftStatus.cancelled
+                || value == AgentDraftStatus.expired
+        }.count
+    }
 
     var activeCount: Int {
         drafts.filter { ($0.status ?? AgentContractStatus.active) == AgentContractStatus.active }.count
@@ -413,6 +534,57 @@ final class AgentDraftsViewModel: ObservableObject {
     func dismissEditor() {
         isEditorPresented = false
         editingDraftId = nil
+    }
+
+    /// 打开 .confirmationDialog，但暂不调用接口；只有用户点击"确认"才会触发 confirm。
+    func beginConfirm(_ draft: AgentDraft) {
+        // 幂等：已确认/已拒绝/已过期/已取消 不再二次确认。
+        guard !AgentDraftStatus.isTerminal(draft.status) else { return }
+        pendingConfirmDraft = draft
+        confirmationErrors[draft.id] = nil
+        isConfirmPresented = true
+    }
+
+    /// 用户在 .confirmationDialog 中点击"确认"后调用，仅触发草稿确认接口。
+    func confirm(using client: APIClient) async {
+        guard let draft = pendingConfirmDraft else { return }
+        // 幂等：同一草稿正在确认中，直接返回。
+        if let confirming = confirmingDraftId, confirming == draft.id {
+            return
+        }
+        confirmingDraftId = draft.id
+        defer { confirmingDraftId = nil }
+
+        do {
+            let updated = try await client.confirmAgentDraft(id: draft.id)
+            if let index = drafts.firstIndex(where: { $0.id == updated.id }) {
+                drafts[index] = updated
+            } else {
+                drafts.insert(updated, at: 0)
+            }
+            confirmationErrors[draft.id] = nil
+            isConfirmPresented = false
+            pendingConfirmDraft = nil
+        } catch {
+            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            confirmationErrors[draft.id] = message
+            errorMessage = "草稿确认失败：\(message)"
+            // 失败后保留弹窗以便用户查看错误信息或重试。
+        }
+    }
+
+    /// 用户在 .confirmationDialog 中选择拒绝，仅本地标记，不调用任何写入接口。
+    func reject() {
+        isConfirmPresented = false
+        pendingConfirmDraft = nil
+    }
+
+    func isConfirmingDraft(_ id: EntityID) -> Bool {
+        confirmingDraftId == id
+    }
+
+    func confirmationErrorForDraft(_ id: EntityID) -> String? {
+        confirmationErrors[id]
     }
 
     func save(using client: APIClient) async {

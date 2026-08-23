@@ -1,5 +1,26 @@
 import Foundation
 
+/// 草稿二次确认的状态机。
+/// - idle：未发起确认
+/// - confirming：确认请求中。
+/// - confirmed：后端已确认写入。
+/// - rejected：用户主动拒绝（不调用正式业务接口）。
+/// - failed：确认请求失败（网络、权限、草稿过期等）。
+enum DraftConfirmationState: Equatable {
+    case idle
+    case confirming
+    case confirmed
+    case rejected
+    case failed(String)
+
+    var isTerminal: Bool {
+        switch self {
+        case .idle, .confirming: return false
+        case .confirmed, .rejected, .failed: return true
+        }
+    }
+}
+
 @MainActor
 final class AgentViewModel: ObservableObject {
     @Published var isLoading = false
@@ -26,8 +47,16 @@ final class AgentViewModel: ObservableObject {
     @Published var draftEditorTitle = ""
     @Published var draftEditorContent = ""
     @Published var draftEditorStatus = AgentContractStatus.active
+    @Published var terminalStatus: TerminalStatus?
+    @Published var terminalMessage: String?
+    @Published var pendingConfirmationDraft: AgentDraft?
+    @Published var confirmationState: DraftConfirmationState = .idle
+    @Published var isConfirmationPresented = false
+    @Published var missingTargetTools: [String] = []
+    @Published var completedTools: [String] = []
 
     private var streamTask: Task<Void, Never>?
+    private var confirmingDraftId: EntityID?
 
     func load(using client: APIClient) async {
         isLoading = true
@@ -276,6 +305,96 @@ final class AgentViewModel: ObservableObject {
         }
     }
 
+    // MARK: - 草稿二次确认
+
+    /// 当 SSE 推送 `draft_created` 事件或 `terminal_status = confirmationPending` 时，
+    /// 由 ViewModel 决定是否需要展示二次确认弹窗。
+    func requestConfirmation(for draft: AgentDraft) {
+        guard !AgentDraftStatus.isTerminal(draft.status) else {
+            // 已确认/已拒绝/已过期/已取消的草稿，不再二次确认。
+            return
+        }
+        pendingConfirmationDraft = draft
+        confirmationState = .idle
+        isConfirmationPresented = true
+        errorMessage = nil
+    }
+
+    /// 仅触发草稿确认接口。重复确认幂等：状态为 confirming/confirmed 时直接返回。
+    func confirmPendingDraft(using client: APIClient) async {
+        guard let draft = pendingConfirmationDraft else {
+            return
+        }
+        // 幂等：已经在确认中或已确认，直接返回。
+        switch confirmationState {
+        case .confirming, .confirmed:
+            return
+        default:
+            break
+        }
+        // 防止同一时间对同一草稿发起多次请求。
+        if let confirmingDraftId = confirmingDraftId, confirmingDraftId == draft.id {
+            return
+        }
+        confirmingDraftId = draft.id
+        confirmationState = .confirming
+        defer { confirmingDraftId = nil }
+
+        do {
+            let updated = try await client.confirmAgentDraft(id: draft.id)
+            applyConfirmedDraft(updated)
+            confirmationState = .confirmed
+            // 确认成功后关闭弹窗、重新读取草稿、审计与业务结果。
+            isConfirmationPresented = false
+            await refreshAfterConfirmation(using: client)
+        } catch {
+            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            confirmationState = .failed(message)
+            errorMessage = "草稿确认失败：\(message)"
+        }
+    }
+
+    /// 用户主动拒绝，仅更新本地状态，不调用任何写入接口。
+    func rejectPendingDraft() {
+        confirmationState = .rejected
+        isConfirmationPresented = false
+        pendingConfirmationDraft = nil
+    }
+
+    /// 关闭确认弹窗：不触发写入。区分于确认。
+    func dismissConfirmation() {
+        isConfirmationPresented = false
+        // 若仍处于 idle/confirming，关闭弹窗视为放弃确认，状态回到 idle。
+        if case .idle = confirmationState {
+            pendingConfirmationDraft = nil
+        }
+        if case .confirming = confirmationState {
+            confirmationState = .idle
+            pendingConfirmationDraft = nil
+        }
+    }
+
+    private func applyConfirmedDraft(_ updated: AgentDraft) {
+        if let index = drafts.firstIndex(where: { $0.id == updated.id }) {
+            drafts[index] = updated
+        } else {
+            drafts.insert(updated, at: 0)
+        }
+        pendingConfirmationDraft = updated
+    }
+
+    private func refreshAfterConfirmation(using client: APIClient) async {
+        async let workbenchRefresh: Void = refreshWorkbenchIfNeeded(using: client)
+        async let draftsRefresh: Void = refreshDrafts(conversationId: selectedConversationId, client: client)
+        async let tasksRefresh: Void = refreshTasksIfNeeded(using: client)
+        async let notificationsRefresh: Void = refreshNotificationsIfNeeded(using: client)
+        _ = await (workbenchRefresh, draftsRefresh, tasksRefresh, notificationsRefresh)
+        // 若有最近 run，重新拉取审计。
+        if let runId = liveRun?.runId {
+            _ = try? await client.fetchAgentRunAudit(runId: runId)
+        }
+    }
+
     func beginEditingDraft(_ draft: AgentDraft) {
         editingDraft = draft
         draftEditorTitle = draft.title
@@ -416,9 +535,13 @@ final class AgentViewModel: ObservableObject {
         }
     }
 
-    private func consume(_ event: AgentStreamEvent) {
+    func consume(_ event: AgentStreamEvent) {
         switch event.eventType {
         case "run_started":
+            // 启动新一轮时清空上一轮终态。
+            terminalStatus = nil
+            terminalMessage = nil
+            missingTargetTools = []
             liveRun = AgentLiveRunPreview(
                 runId: event.runId ?? UUID().uuidString,
                 conversationId: event.conversationId ?? selectedConversationId,
@@ -496,6 +619,9 @@ final class AgentViewModel: ObservableObject {
                     errorMessage: nil
                 )
             )
+            if let completedTools = event.completedTools, !completedTools.isEmpty {
+                self.completedTools = completedTools
+            }
         case "tool_failed":
             ensureLiveRun(from: event)
             let callId = event.toolCallId ?? [event.runId.orEmpty, event.toolName.orEmpty].joined(separator: ":")
@@ -537,6 +663,22 @@ final class AgentViewModel: ObservableObject {
                !(liveRun?.resultBlocks.contains(draftBlock) ?? false) {
                 liveRun?.resultBlocks.append(draftBlock)
             }
+            // 当后端下发 status 时，将其映射为待确认草稿，触发二次确认弹窗。
+            if let status = event.status?.nilIfBlank,
+               AgentDraftStatus.requiresConfirmation(status),
+               let draftId = event.draftId {
+                let draft = AgentDraft(
+                    id: draftId,
+                    conversationId: event.conversationId ?? selectedConversationId,
+                    draftType: event.draftType ?? "draft",
+                    title: event.title ?? "AI 草稿",
+                    contentJson: "",
+                    status: status,
+                    createdAt: event.timestamp ?? Int64(Date().timeIntervalSince1970 * 1000),
+                    updatedAt: event.timestamp ?? Int64(Date().timeIntervalSince1970 * 1000)
+                )
+                requestConfirmation(for: draft)
+            }
         case "context_compacted":
             ensureLiveRun(from: event)
             let countText = event.compactedCount.map { "\($0) 条" } ?? "部分"
@@ -553,13 +695,73 @@ final class AgentViewModel: ObservableObject {
                 latestResponse = makeLatestResponse(from: liveRun)
                 selectedConversationId = liveRun.conversationId ?? selectedConversationId
             }
+            // 终态事件统一字段：terminal_status。COMPLETED 或 CONFIRMATION_PENDING 都走这里。
+            applyTerminalStatus(event)
+        case "run_failed":
+            ensureLiveRun(from: event)
+            liveRun?.llmStatus = "failed"
+            applyTerminalStatus(event)
+            let message = event.safeMessage ?? event.errorSummary ?? "AI 助手运行失败"
+            errorMessage = message
+            terminalMessage = message
+        case "run_blocked":
+            ensureLiveRun(from: event)
+            liveRun?.llmStatus = "blocked"
+            applyTerminalStatus(event)
+            let message = event.safeMessage ?? "运行被阻止"
+            errorMessage = message
+            terminalMessage = message
+        case "run_exhausted":
+            ensureLiveRun(from: event)
+            liveRun?.llmStatus = "exhausted"
+            applyTerminalStatus(event)
+            let message = event.safeMessage ?? "本轮轮次已用完，请稍后再试"
+            errorMessage = message
+            terminalMessage = message
         case "run_cancelled":
             ensureLiveRun(from: event)
             liveRun?.llmStatus = "cancelled"
+            applyTerminalStatus(event)
         case "error", "safety_check_blocked":
             errorMessage = event.safeMessage ?? event.errorSummary ?? "AI 助手运行失败"
         default:
+            // 兼容未识别的终态事件：若携带 terminal_status，仍尝试解析。
+            if let status = event.terminalStatus {
+                terminalStatus = status
+                terminalMessage = event.safeMessage
+            }
             break
+        }
+    }
+
+    private func applyTerminalStatus(_ event: AgentStreamEvent) {
+        if let status = event.terminalStatus {
+            terminalStatus = status
+        } else {
+            // 兼容老版本后端：根据 event_type 推断。
+            switch event.eventType {
+            case "run_completed":
+                terminalStatus = .completed
+            case "run_failed":
+                terminalStatus = .failed
+            case "run_blocked":
+                terminalStatus = .blocked
+            case "run_cancelled":
+                terminalStatus = .cancelled
+            case "run_exhausted":
+                terminalStatus = .exhausted
+            default:
+                break
+            }
+        }
+        if let message = event.safeMessage, !message.isEmpty {
+            terminalMessage = message
+        }
+        if let completed = event.completedTools {
+            completedTools = completed
+        }
+        if let missing = event.missingTargetTools, !missing.isEmpty {
+            missingTargetTools = missing
         }
     }
 
@@ -567,6 +769,7 @@ final class AgentViewModel: ObservableObject {
         guard let draftId = event.draftId else { return nil }
         let draftType = event.draftType?.nilIfBlank ?? "draft"
         let title = event.title?.nilIfBlank ?? "AI 草稿"
+        let status = event.status?.nilIfBlank ?? AgentDraftStatus.pendingConfirmation
         return AgentResultBlock(
             blockType: "draft_card",
             title: title,
@@ -574,7 +777,9 @@ final class AgentViewModel: ObservableObject {
                 "draft_id": .string(draftId.rawValue),
                 "draft_type": .string(draftType),
                 "title": .string(title),
-                "summary": .string("草稿已生成，请在草稿管理中确认后再写入正式业务。")
+                "summary": .string("草稿已生成，请在草稿管理中确认后再写入正式业务。"),
+                "status": .string(status),
+                "action_label": .string("二次确认"),
             ])
         )
     }
