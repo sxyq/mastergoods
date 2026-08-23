@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -37,6 +38,9 @@ public class AccountHealthLookupTool extends ToolSupport {
     private static final ZoneId ZONE_ID = ZoneId.of("Asia/Shanghai");
     private static final int INCOME_TYPE = 1;
     private static final int EXPENSE_TYPE = 2;
+    private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final double LOW_BALANCE_THRESHOLD = 100D;
 
     private final AccountRepository accountRepository;
     private final AccountTransferRepository accountTransferRepository;
@@ -87,6 +91,15 @@ public class AccountHealthLookupTool extends ToolSupport {
         ObjectNode windowDays = properties.putObject("window_days");
         windowDays.put("type", "integer");
         windowDays.put("description", "观察窗口天数，默认 30");
+        ObjectNode page = properties.putObject("page");
+        page.put("type", "integer");
+        page.put("minimum", 0);
+        page.put("description", "账户结果页码，默认 0");
+        ObjectNode size = properties.putObject("size");
+        size.put("type", "integer");
+        size.put("minimum", 1);
+        size.put("maximum", MAX_PAGE_SIZE);
+        size.put("description", "账户结果条数，默认 20，最多 100");
         return schema;
     }
 
@@ -95,6 +108,8 @@ public class AccountHealthLookupTool extends ToolSupport {
         Long ownerUserId = ctx.ownerUserId();
         String keyword = paramString(params, "keyword");
         int windowDays = normalizeWindowDays(paramInt(params, "window_days", 30));
+        int page = normalizePage(paramInt(params, "page", 0));
+        int size = normalizePageSize(paramInt(params, "size", DEFAULT_PAGE_SIZE));
         long endAt = System.currentTimeMillis();
         long startAt = Instant.ofEpochMilli(endAt)
             .atZone(ZONE_ID)
@@ -105,40 +120,53 @@ public class AccountHealthLookupTool extends ToolSupport {
 
         Map<String, Object> input = mapOf(
             "keyword", keyword == null ? "" : keyword,
-            "window_days", windowDays
+            "window_days", windowDays,
+            "page", page,
+            "size", size
         );
         ToolAudit audit = startAudit(ctx, name(), input);
 
-        // 账户属于配置型固定小结果集（单 owner 账户数量通常 < 100），保留全量用于索引与汇总。
-        // 若未来账户数量增长，应改为分页查询 + 单独的汇总查询。
-        List<AccountEntity> allAccounts = accountRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId);
-        List<AccountEntity> filteredAccounts = filterAccounts(allAccounts, keyword);
-        List<AccountEntity> limitedAccounts = limit(filteredAccounts, DEFAULT_TOOL_LIMIT);
-        Map<Long, AccountEntity> accountById = indexAccounts(allAccounts);
+        String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        List<AccountEntity> filteredAccounts = accountRepository.search(
+            ownerUserId, normalizedKeyword, PageRequest.of(page, size));
+        List<AccountEntity> limitedAccounts = filteredAccounts;
+        long filteredAccountCount = accountRepository.countByKeyword(ownerUserId, normalizedKeyword);
+        double totalBalance = safeDouble(accountRepository.sumBalanceByKeyword(ownerUserId, normalizedKeyword));
+        int activeAccountCount = safeCount(accountRepository.countByKeywordAndStatus(ownerUserId, normalizedKeyword, 1));
+        int inactiveAccountCount = Math.max(0, (int) Math.min(Integer.MAX_VALUE, filteredAccountCount) - activeAccountCount);
+        int lowBalanceCount = safeCount(accountRepository.countByKeywordAndBalanceLessThan(
+            ownerUserId, normalizedKeyword, LOW_BALANCE_THRESHOLD));
+        Map<Long, AccountEntity> accountById = indexAccounts(filteredAccounts);
 
         // 转账与资金变动是时间序列，下推分页避免全量读取。
-        List<AccountTransferEntity> allTransfers = accountTransferRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(
-            ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
-        List<AccountTransferEntity> recentTransfers = filterTransfers(allTransfers, keyword, accountById, startAt, endAt);
+        List<AccountTransferEntity> recentTransfers = accountTransferRepository.search(
+            ownerUserId, normalizedKeyword, startAt, endAt, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
         List<AccountTransferEntity> limitedTransfers = limit(recentTransfers, DEFAULT_TOOL_LIMIT);
 
-        List<CashChangeRecordEntity> allCashChanges = cashChangeRecordRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(
-            ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
-        List<CashChangeRecordEntity> recentCashChanges = filterCashChanges(allCashChanges, keyword, accountById, startAt, endAt);
+        List<CashChangeRecordEntity> recentCashChanges = cashChangeRecordRepository.search(
+            ownerUserId, normalizedKeyword, startAt, endAt, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
         List<CashChangeRecordEntity> limitedCashChanges = limit(recentCashChanges, DEFAULT_TOOL_LIMIT);
+
+        Set<Long> referencedAccountIds = new java.util.LinkedHashSet<>(accountById.keySet());
+        recentTransfers.forEach(item -> {
+            referencedAccountIds.add(item.getFromAccountId());
+            referencedAccountIds.add(item.getToAccountId());
+        });
+        recentCashChanges.forEach(item -> referencedAccountIds.add(item.getAccountId()));
+        referencedAccountIds.remove(null);
+        if (!referencedAccountIds.isEmpty()) {
+            accountRepository.findAllByOwnerUserIdAndIdIn(ownerUserId, referencedAccountIds)
+                .forEach(item -> accountById.put(item.getId(), item));
+        }
 
         Object[] financeSummary = financeRecordRepository.cashflowSummary(ownerUserId, startAt, endAt, INCOME_TYPE, EXPENSE_TYPE);
         double totalIncome = safeDouble(financeSummary != null && financeSummary.length > 0 ? financeSummary[0] : null);
         double totalExpense = safeDouble(financeSummary != null && financeSummary.length > 1 ? financeSummary[1] : null);
         long financeRecordCount = safeLong(financeSummary != null && financeSummary.length > 2 ? financeSummary[2] : null);
 
-        double totalBalance = sumBalances(filteredAccounts);
         double totalTransferAmount = sumTransferAmounts(recentTransfers);
         double totalTransferFee = sumTransferFees(recentTransfers);
         double totalCashChange = sumCashChanges(recentCashChanges);
-        int activeAccountCount = countByStatus(filteredAccounts, 1);
-        int inactiveAccountCount = Math.max(0, filteredAccounts.size() - activeAccountCount);
-        int lowBalanceCount = countLowBalance(filteredAccounts);
         double incomeExpenseRatio = totalExpense <= 0D
             ? (totalIncome > 0D ? totalIncome : 0D)
             : totalIncome / totalExpense;
@@ -219,12 +247,14 @@ public class AccountHealthLookupTool extends ToolSupport {
             + "，收支比 " + formatRatio(incomeExpenseRatio)
             + "，低余额账户 " + lowBalanceCount + " 个";
         JsonNode toolFacts = toJsonNode(ctx, mapOf(
-            "account_count", filteredAccounts.size(),
+            "account_count", filteredAccountCount,
             "active_account_count", activeAccountCount,
             "inactive_account_count", inactiveAccountCount,
             "low_balance_count", lowBalanceCount,
             "total_balance", money(totalBalance),
             "window_days", windowDays,
+            "page", page,
+            "size", size,
             "recent_income", money(totalIncome),
             "recent_expense", money(totalExpense),
             "income_expense_ratio", formatRatio(incomeExpenseRatio),
@@ -250,6 +280,21 @@ public class AccountHealthLookupTool extends ToolSupport {
             return 30;
         }
         return Math.min(value, 180);
+    }
+
+    private int normalizePage(Integer value) {
+        return value == null || value < 0 ? 0 : value;
+    }
+
+    private int normalizePageSize(Integer value) {
+        if (value == null || value <= 0) {
+            return DEFAULT_PAGE_SIZE;
+        }
+        return Math.min(value, MAX_PAGE_SIZE);
+    }
+
+    private int safeCount(long value) {
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0, value));
     }
 
     private List<AccountEntity> filterAccounts(List<AccountEntity> accounts, String keyword) {

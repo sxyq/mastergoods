@@ -194,7 +194,8 @@ public class CustomerProfileLookupTool extends ToolSupport {
                 .findAllByOwnerUserIdOrderByNameAsc(ownerUserId, PageRequest.of(0, 2));
             return candidates.size() == 1 ? candidates.get(0) : null;
         }
-        List<CustomerEntity> matches = customerRepository.search(ownerUserId, keyword.trim(), null, null);
+        List<CustomerEntity> matches = customerRepository.search(
+            ownerUserId, keyword.trim(), null, null, PageRequest.of(0, 2));
         return matches.isEmpty() ? null : matches.get(0);
     }
 

@@ -9,6 +9,7 @@ public class AgentLlmProperties {
     private boolean enabled;
     private String baseUrl;
     private String apiKey;
+    private String provider;
     private String model;
     private String wireApi = "anthropic";
     private boolean requiresOpenaiAuth = true;
@@ -40,6 +41,14 @@ public class AgentLlmProperties {
 
     public void setApiKey(String apiKey) {
         this.apiKey = apiKey;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
     }
 
     public String getModel() {

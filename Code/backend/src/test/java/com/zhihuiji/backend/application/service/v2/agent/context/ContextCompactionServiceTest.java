@@ -171,6 +171,11 @@ class ContextCompactionServiceTest {
         valid.put("summary_version", 1);
         valid.put("conversation_goal", "查询欠款");
         valid.putArray("confirmed_facts").add("张三商贸欠款 600");
+        valid.putArray("decisions");
+        valid.putArray("pending_actions");
+        valid.putArray("entity_references");
+        valid.putArray("tool_evidence");
+        valid.putArray("open_questions");
         valid.put("source_boundary_message_id", 6L);
         valid.put("source_message_count", 6);
         when(llmClient.createJsonMessage(anyString(), anyString()))

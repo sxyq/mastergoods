@@ -135,6 +135,9 @@ public class AgentDraftConfirmService {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         AgentDraftEntity entity = agentDraftRepository.findByIdAndOwnerUserId(draftId, ownerUserId)
             .orElseThrow(() -> new BusinessException("草稿不存在"));
+        if (STATUS_CONFIRMED.equalsIgnoreCase(entity.getStatus())) {
+            return toDraftResponse(entity);
+        }
         if (!STATUS_ACTIVE.equalsIgnoreCase(entity.getStatus())) {
             throw new BusinessException("草稿状态不是 active，无法确认：" + entity.getStatus());
         }
@@ -209,7 +212,8 @@ public class AgentDraftConfirmService {
             case "create_purchase_return" ->
                 v2PurchaseReturnService.create(objectMapper.readValue(contentJson, V2PurchaseReturnDtos.CreateRequest.class));
             case "create_pay_order" ->
-                v2PayOrderService.create(objectMapper.readValue(contentJson, V2PayOrderDtos.CreateRequest.class));
+                v2PayOrderService.createWithRequiredIdempotencyKey(
+                    objectMapper.readValue(contentJson, V2PayOrderDtos.CreateRequest.class));
             case "create_customer" ->
                 v2CustomerService.create(objectMapper.readValue(contentJson, V2PartnerDtos.CustomerWriteRequest.class));
             case "create_supplier" ->

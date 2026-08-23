@@ -1527,15 +1527,20 @@ public class V2AgentAiService {
 
     private void executeToolPlan(Long ownerUserId, Long conversationId, SseEmitter emitter, String runId, AgentToolPlan plan,
                                   List<V2AgentDtos.ResultBlockDto> blocks,
-                                  List<ToolExecutionResult> toolResults, List<ToolFailureResult> toolFailures) {
+        List<ToolExecutionResult> toolResults, List<ToolFailureResult> toolFailures) {
         executeToolPlan(ownerUserId, conversationId, emitter, runId, plan, blocks, toolResults, toolFailures,
-            new LinkedHashSet<>(), new ToolExecutionBudget(MAX_TOOL_CALLS_PER_RUN), null);
+            new LinkedHashSet<>(), new ToolExecutionBudget(MAX_TOOL_CALLS_PER_RUN),
+            new AgentRunState(runId, conversationId, ownerUserId, currentStoreIdOrNull(), AgentRunState.HARD_ITERATION_CAP));
     }
 
     private void executeToolPlan(Long ownerUserId, Long conversationId, SseEmitter emitter, String runId, AgentToolPlan plan,
                                   List<V2AgentDtos.ResultBlockDto> blocks,
                                   List<ToolExecutionResult> toolResults, List<ToolFailureResult> toolFailures,
                                   Set<String> executedInvocationKeys, ToolExecutionBudget toolBudget, AgentRunState runState) {
+        if (runState == null) {
+            runState = new AgentRunState(
+                runId, conversationId, ownerUserId, currentStoreIdOrNull(), AgentRunState.HARD_ITERATION_CAP);
+        }
         if (plan != null && "model_tool_selection_failed".equals(plan.source())) {
             int sequence = toolResults.size() + toolFailures.size() + 1;
             List<NativeToolCallBlock> suppressedBlocks = plan.nativeToolCallBlocks() == null
@@ -1601,55 +1606,9 @@ public class V2AgentAiService {
                     sequence, invocation.modelToolCallId());
                 continue;
             }
-            Optional<AgentTool> registeredTool = toolRegistry.getTool(tool);
             if (!budget.tryAcquire()) {
                 emitToolSkipped(emitter, runId, tool, "run_tool_budget_exhausted", params,
                     sequence, invocation.modelToolCallId());
-                continue;
-            }
-            // 范围门：依赖工具必须已真实完成，或必填参数已齐备；否则跳过并保留
-            // 结构化失败，让下一轮先补依赖查询，而不是用编造参数执行目标工具。
-            ToolExecutor.GateDecision scopeDecision = toolExecutor.checkScope(runState, tool, null, params);
-            if (!scopeDecision.allowed() && ToolExecutor.TOOL_DEPENDENCY_MISSING.equals(scopeDecision.reasonCode())) {
-                emitToolSkipped(emitter, runId, tool, "dependency_missing", params,
-                    sequence, invocation.modelToolCallId());
-                toolFailures.add(new ToolFailureResult(
-                    tool, scopeDecision.safeMessage(), modelToolCallId, sequence));
-                continue;
-            }
-            if (registeredTool.isPresent()
-                && registeredTool.get().type() == AgentTool.ToolType.CREATE_ONLY
-                && !toolRegistry.hasAllRequiredParameters(tool, params)) {
-                // 先查真实实体，再由下一轮模型把 ID 补入草稿参数；不要把空参数变成一次失败写入。
-                emitToolSkipped(emitter, runId, tool, "required_parameters_missing", params,
-                    sequence, invocation.modelToolCallId());
-                // Keep the skipped model call in the ReAct state as a tool
-                // failure. The next planner round must see the missing-
-                // parameter result and may re-offer this same write target
-                // after dependency queries return real IDs.
-                toolFailures.add(new ToolFailureResult(
-                    tool,
-                    "必填参数缺失，已等待真实查询结果后重试",
-                    modelToolCallId,
-                    sequence
-                ));
-                continue;
-            }
-            // 参数门：结构化 Schema 校验（字段路径 + 稳定错误码）；参数错误不得进入业务 Repository。
-            ToolExecutor.GateDecision argumentsDecision = toolExecutor.checkArguments(tool, params);
-            if (!argumentsDecision.allowed()) {
-                String violationSummary = argumentsDecision.violations().stream()
-                    .map(violation -> violation.fieldPath() + "(" + violation.constraint() + ")")
-                    .limit(5)
-                    .reduce((left, right) -> left + "、" + right)
-                    .orElse("参数不符合约束");
-                String invalidMessage = "工具参数不符合声明的参数约束：" + violationSummary;
-                toolFailures.add(new ToolFailureResult(tool, invalidMessage, modelToolCallId, sequence));
-                sseStreamEmitter.emitToolFailed(
-                    emitter, runId, tool, invalidMessage,
-                    0L, System.currentTimeMillis(), defaultToolInput(params),
-                    sequence, modelToolCallId
-                );
                 continue;
             }
             String toolCallId = StringUtils.hasText(invocation.modelToolCallId())
@@ -1667,6 +1626,7 @@ public class V2AgentAiService {
                     conversationId,
                     emitter,
                     runId,
+                    runState,
                     tool,
                     params,
                     toolCallId,
@@ -1829,31 +1789,39 @@ public class V2AgentAiService {
         Long conversationId,
         SseEmitter emitter,
         String runId,
+        AgentRunState runState,
         String tool,
         JsonNode params,
         String toolCallId,
         int sequence
     ) {
-        Optional<ToolResult> registered = executeRegisteredTool(ownerUserId, conversationId, emitter, runId, tool, params);
-        if (registered.isPresent()) {
-            return adaptToolResult(registered.get(), tool, toolCallId, sequence);
+        ToolExecutor.ExecutionOutcome outcome = toolExecutor.execute(
+            runState, tool, params, null, conversationId, runId, emitter, objectMapper
+        );
+        if (!outcome.executed()) {
+            ToolExecutor.GateDecision decision = outcome.decision();
+            String message = decision == null || decision.safeMessage() == null
+                ? "工具执行被拒绝"
+                : "[" + decision.reasonCode() + "] " + decision.safeMessage();
+            return new ResponsePayload(
+                List.of(),
+                List.of(),
+                List.of(new ToolFailureResult(tool, message, toolCallId, sequence)),
+                new AgentToolPlan(List.of(tool), "工具执行门拒绝", "tool", Map.of())
+            );
         }
-        return null;
+        return adaptToolResult(outcome.result(), tool, toolCallId, sequence);
     }
 
-    /**
-     * 执行已注册到 {@link ToolRegistry} 的工具。
-     *
-     * <p>只有已注册的 {@link AgentTool} 才允许执行；未注册的工具直接返回空结果，
-     * 不再由服务端按关键词或固定分支代替模型规划。
-     *
-     * @param ownerUserId 归属用户 ID
-     * @param emitter     SSE 推送器
-     * @param runId       运行 ID
-     * @param tool        工具名
-     * @return 工具执行结果 Optional（未注册时返回 empty）
-     */
-    private Optional<ToolResult> executeRegisteredTool(Long ownerUserId, Long conversationId, SseEmitter emitter, String runId, String tool, JsonNode params) {
+    /** 保留给旧的隔离测试调用方；主执行链统一走 {@link ToolExecutor#execute}。 */
+    private Optional<ToolResult> executeRegisteredTool(
+        Long ownerUserId,
+        Long conversationId,
+        SseEmitter emitter,
+        String runId,
+        String tool,
+        JsonNode params
+    ) {
         toolRegistry.getTool(tool).ifPresent(registered ->
             currentOwnerService.requirePermissions(registered.requiredPermission())
         );
@@ -1870,6 +1838,7 @@ public class V2AgentAiService {
         );
         return toolRegistry.executeTool(tool, ctx, params);
     }
+
 
     private Map<String, Object> defaultToolInput(JsonNode params) {
         return paramsToInputMap(params);

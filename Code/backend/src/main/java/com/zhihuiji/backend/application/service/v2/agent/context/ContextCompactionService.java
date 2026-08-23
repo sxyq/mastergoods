@@ -14,12 +14,19 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import jakarta.annotation.PreDestroy;
 
 /**
  * 上下文压缩服务（plan 6.4 - 6.7）。
@@ -84,6 +91,7 @@ public class ContextCompactionService {
     private final AgentLlmProperties llmProperties;
     private final ObjectMapper objectMapper;
     private final TokenEstimator tokenEstimator;
+    private final ExecutorService semanticCompactionExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     public ContextCompactionService(
         AgentContextCheckpointRepository checkpointRepository,
@@ -97,6 +105,11 @@ public class ContextCompactionService {
         this.llmProperties = llmProperties;
         this.objectMapper = objectMapper;
         this.tokenEstimator = tokenEstimator;
+    }
+
+    @PreDestroy
+    void shutdownSemanticCompactionExecutor() {
+        semanticCompactionExecutor.shutdownNow();
     }
 
     /**
@@ -250,8 +263,20 @@ public class ContextCompactionService {
             messages.get(messages.size() - 1).getId());
         root.put("source_message_count", messages.size());
         String json = renderJson(root);
-        if (json.length() > DETERMINISTIC_SUMMARY_MAX_LEN) {
-            json = json.substring(0, DETERMINISTIC_SUMMARY_MAX_LEN);
+        if (json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > DETERMINISTIC_SUMMARY_MAX_LEN) {
+            ObjectNode bounded = objectMapper.createObjectNode();
+            bounded.put("summary_version", 1);
+            bounded.put("conversation_goal", root.path("conversation_goal").asText(""));
+            bounded.putArray("confirmed_facts");
+            bounded.putArray("decisions");
+            bounded.putArray("pending_actions");
+            bounded.putArray("entity_references");
+            bounded.putArray("tool_evidence");
+            bounded.putArray("open_questions");
+            bounded.put("last_message_at", lastMessageAt);
+            bounded.put("source_boundary_message_id", messages.get(messages.size() - 1).getId());
+            bounded.put("source_message_count", messages.size());
+            json = renderJson(bounded);
         }
         return json;
     }
@@ -297,16 +322,13 @@ public class ContextCompactionService {
             return SemanticCompactionOutcome.failed("payload_serialization_failed");
         }
         try {
-            Optional<String> response = llmClient.createJsonMessage(systemPrompt, userPrompt);
+            Optional<String> response = callSemanticCompactionWithTimeout(systemPrompt, userPrompt);
             if (response.isEmpty() || !StringUtils.hasText(response.get())) {
                 return SemanticCompactionOutcome.failed("empty_response");
             }
             String body = response.get();
             if (!isValidSemanticSummary(body, boundaryMessageId, compactableMessages.size())) {
                 return SemanticCompactionOutcome.failed("validation_failed");
-            }
-            if (body.length() > SEMANTIC_SUMMARY_MAX_LEN) {
-                body = body.substring(0, SEMANTIC_SUMMARY_MAX_LEN);
             }
             return SemanticCompactionOutcome.ok(body);
         } catch (Exception ex) {
@@ -332,12 +354,32 @@ public class ContextCompactionService {
             if (!parsed.isObject()) {
                 return false;
             }
+            if (body.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > SEMANTIC_SUMMARY_MAX_LEN
+                || treeDepth(parsed, 0) > 6
+                || treeNodeCount(parsed) > 160
+                || containsSensitiveText(parsed)) {
+                return false;
+            }
+            if (!parsed.path("summary_version").isIntegralNumber()
+                || parsed.path("summary_version").asInt() != 1
+                || !parsed.path("conversation_goal").isTextual()
+                || parsed.path("conversation_goal").asText().length() > 200) {
+                return false;
+            }
+            for (String field : List.of(
+                "confirmed_facts", "decisions", "pending_actions", "entity_references",
+                "tool_evidence", "open_questions")) {
+                JsonNode array = parsed.get(field);
+                if (array == null || !array.isArray() || array.size() > 24) {
+                    return false;
+                }
+            }
             JsonNode boundary = parsed.path("source_boundary_message_id");
-            if (!boundary.isNumber() || boundary.asLong() != expectedBoundary.longValue()) {
+            if (!boundary.isIntegralNumber() || boundary.asLong() != expectedBoundary.longValue()) {
                 return false;
             }
             JsonNode count = parsed.path("source_message_count");
-            if (!count.isNumber() || count.asInt() != expectedCount) {
+            if (!count.isIntegralNumber() || count.asInt() != expectedCount || count.asInt() < 1) {
                 return false;
             }
             // 字段数量与深度限制。
@@ -348,14 +390,62 @@ public class ContextCompactionService {
                     return false;
                 }
             }
-            int confirmedFactsSize = parsed.path("confirmed_facts").size();
-            if (confirmedFactsSize > 24) {
-                return false;
-            }
             return true;
         } catch (Exception ex) {
             return false;
         }
+    }
+
+    private Optional<String> callSemanticCompactionWithTimeout(String systemPrompt, String userPrompt) {
+        CompletableFuture<Optional<String>> task = CompletableFuture.supplyAsync(
+            () -> llmClient.createJsonMessage(systemPrompt, userPrompt), semanticCompactionExecutor);
+        try {
+            return task.get(COMPACTION_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            task.cancel(true);
+            return Optional.empty();
+        } catch (ExecutionException | TimeoutException ex) {
+            task.cancel(true);
+            return Optional.empty();
+        }
+    }
+
+    private int treeDepth(JsonNode node, int depth) {
+        if (node == null || node.isValueNode()) {
+            return depth;
+        }
+        int maximum = depth;
+        for (JsonNode child : node) {
+            maximum = Math.max(maximum, treeDepth(child, depth + 1));
+        }
+        return maximum;
+    }
+
+    private int treeNodeCount(JsonNode node) {
+        if (node == null) {
+            return 0;
+        }
+        int count = 1;
+        for (JsonNode child : node) {
+            count += treeNodeCount(child);
+        }
+        return count;
+    }
+
+    private boolean containsSensitiveText(JsonNode node) {
+        if (node == null) {
+            return false;
+        }
+        if (node.isTextual()) {
+            return SENSITIVE_SUMMARY_PATTERN.matcher(node.asText()).find();
+        }
+        for (JsonNode child : node) {
+            if (containsSensitiveText(child)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

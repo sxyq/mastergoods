@@ -101,7 +101,9 @@ public class ContextWindowResolver {
     }
 
     private String buildOverrideKey(String provider, String model, String wireApi) {
-        String providerText = StringUtils.hasText(provider) ? provider : (properties == null ? null : null);
+        String providerText = StringUtils.hasText(provider)
+            ? provider
+            : (properties == null ? null : properties.getProvider());
         String modelText = StringUtils.hasText(model) ? model : (properties == null ? null : properties.getModel());
         if (!StringUtils.hasText(modelText)) {
             return null;

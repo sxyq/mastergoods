@@ -3060,7 +3060,8 @@ class V2AgentAiServiceTest {
         com.zhihuiji.backend.domain.entity.CustomerEntity matchedCustomer = customer(1L, "张三商贸", 600.0);
         matchedCustomer.setPhone("13812345678");
         matchedCustomer.setLevel(2);
-        when(customerRepository.search(1L, "张三商贸", null, null)).thenReturn(List.of(matchedCustomer));
+        when(customerRepository.search(1L, "张三商贸", null, null, PageRequest.of(0, 2)))
+            .thenReturn(List.of(matchedCustomer));
         when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(matchedCustomer));
         when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(1L);
@@ -3268,17 +3269,21 @@ class V2AgentAiServiceTest {
             )))
             .thenReturn(Optional.empty());
         when(longCatAnthropicClient.createJsonMessage(anyString(), anyString())).thenReturn(Optional.empty());
-        when(accountRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(1L)).thenReturn(List.of(
+        when(accountRepository.search(1L, null, PageRequest.of(0, 20))).thenReturn(List.of(
             account(11L, "WX", "微信账户", 3, 5200.0, false, 1, "日常收款"),
             account(12L, "BANK", "招商银行", 1, 1800.0, true, 1, "默认结算"),
             account(13L, "CASH", "备用金", 0, 0.0, false, 0, "线下零用")
         ));
+        when(accountRepository.countByKeyword(1L, null)).thenReturn(3L);
+        when(accountRepository.sumBalanceByKeyword(1L, null)).thenReturn(7000.0);
+        when(accountRepository.countByKeywordAndStatus(1L, null, 1)).thenReturn(2L);
+        when(accountRepository.countByKeywordAndBalanceLessThan(1L, null, 100.0)).thenReturn(1L);
         long now = System.currentTimeMillis();
-        when(accountTransferRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(
+        when(accountTransferRepository.search(eq(1L), eq(null), any(), any(), eq(PageRequest.of(0, 100)))).thenReturn(List.of(
             accountTransfer(21L, "AT-002", 11L, 12L, 300.0, 1.0, 1, "周转", now - 3_600_000L),
             accountTransfer(22L, "AT-001", 12L, 11L, 500.0, 2.0, 1, "调拨", now - 7_200_000L)
         ));
-        when(cashChangeRecordRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(
+        when(cashChangeRecordRepository.search(eq(1L), eq(null), any(), any(), eq(PageRequest.of(0, 100)))).thenReturn(List.of(
             cashChange(31L, "sale_order", 901L, 100.0, 120.0, 20.0, 11L, "找零", now - 5_400_000L),
             cashChange(32L, "sale_order", 902L, 80.0, 80.0, 0.0, 12L, "整单收款", now - 2_700_000L)
         ));

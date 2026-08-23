@@ -10,6 +10,7 @@ import com.zhihuiji.backend.domain.entity.AgentDraftEntity;
 import com.zhihuiji.backend.infrastructure.repository.AgentDraftRepository;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -123,6 +124,7 @@ public class CreatePayOrderTool extends ToolSupport {
         }
 
         Map<String, Object> content = mapOf(
+            "idempotency_key", idempotencyKey(ctx),
             "supplier_id", supplierId,
             "supplier_name", supplierName,
             "amount", amount,
@@ -173,5 +175,11 @@ public class CreatePayOrderTool extends ToolSupport {
             "query_audit", audit.facts()
         ));
         return ToolResult.success(List.of(block), toolFacts, toolSummary);
+    }
+
+    private String idempotencyKey(ToolContext ctx) {
+        String runId = ctx.runId();
+        String suffix = runId == null || runId.isBlank() ? UUID.randomUUID().toString() : runId;
+        return "agent-pay-" + suffix;
     }
 }

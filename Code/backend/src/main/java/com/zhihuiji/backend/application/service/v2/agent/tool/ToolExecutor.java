@@ -108,7 +108,7 @@ public class ToolExecutor {
             }
             if (missingDependency) {
                 // 依赖未完成时，仅当必填参数已齐备才放行（模型直接给出真实 ID 的场景）。
-                if (!toolRegistry.hasAllRequiredParameters(toolName, params)) {
+                if (!hasRequiredFields(tool.get(), params)) {
                     return GateDecision.deny(TOOL_DEPENDENCY_MISSING,
                         "依赖工具未完成且必填参数缺失：" + toolName
                             + " 需要先完成真实查询并补齐参数");
@@ -116,6 +116,27 @@ public class ToolExecutor {
             }
         }
         return GateDecision.allow();
+    }
+
+    private boolean hasRequiredFields(AgentTool tool, JsonNode params) {
+        JsonNode required = tool.parameterSchema() == null ? null : tool.parameterSchema().get("required");
+        if (required == null || !required.isArray() || required.isEmpty()) {
+            return true;
+        }
+        if (params == null || !params.isObject()) {
+            return false;
+        }
+        for (JsonNode field : required) {
+            if (!field.isTextual()) {
+                continue;
+            }
+            JsonNode value = params.get(field.asText());
+            if (value == null || value.isNull()
+                || (value.isTextual() && value.asText().isBlank())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** 旧签名兼容：不传参数时按依赖完成情况判定（不检查参数齐备）。 */
@@ -256,7 +277,7 @@ public class ToolExecutor {
         org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter,
         com.fasterxml.jackson.databind.ObjectMapper objectMapper
     ) {
-        GateDecision scope = checkScope(runState, toolName, allowedTools);
+        GateDecision scope = checkScope(runState, toolName, allowedTools, params);
         if (!scope.allowed()) {
             return new ExecutionOutcome(scope, null);
         }
