@@ -302,6 +302,12 @@ export interface AgentStreamSession {
   done: Promise<void>
 }
 
+export interface AgentStreamReducerState {
+  seenEventKeys: Set<string>
+  terminalSeen: boolean
+  lastEventId: string | null
+}
+
 /**
  * 终态事件类型集合。HTTP 200 或文本回答不能单独判定业务成功，
  * 必须收到这些事件之一并依据 terminal_status 判定。
@@ -339,6 +345,42 @@ export function terminalStatusOf(event: AgentStreamEvent): AgentTerminalStatus |
   return status ?? null
 }
 
+export function parseAgentStreamEvent(raw: string): AgentStreamEvent | null {
+  const normalized = raw.trim()
+  if (!normalized || normalized === '[DONE]') return null
+  try {
+    return camelize(JSON.parse(preserveUnsafeIntegers(normalized))) as AgentStreamEvent
+  } catch {
+    return {
+      eventType: 'error',
+      code: 'STREAM_PARSE_ERROR',
+      message: `服务端返回了一条无法解析的 Agent 事件：${normalized.slice(0, 160)}`,
+      timestamp: Date.now(),
+    }
+  }
+}
+
+export function acceptAgentStreamEvent(
+  state: AgentStreamReducerState,
+  event: AgentStreamEvent,
+  sseId?: string | null,
+): boolean {
+  const keys = eventIdentityKeys(event, sseId)
+  if (keys.some((key) => state.seenEventKeys.has(key)) || (state.terminalSeen && isTerminalEvent(event))) {
+    if (sseId) state.lastEventId = sseId
+    return false
+  }
+  keys.forEach((key) => state.seenEventKeys.add(key))
+  if (sseId) state.lastEventId = sseId
+  else {
+    const eventId = (event as { eventId?: string | null }).eventId
+    const seq = (event as { seq?: number | null }).seq
+    state.lastEventId = eventId || (seq == null ? state.lastEventId : String(seq))
+  }
+  if (isTerminalEvent(event)) state.terminalSeen = true
+  return true
+}
+
 export function streamAgentChat(
   token: string,
   payload: AgentChatPayload,
@@ -355,102 +397,103 @@ async function openAgentStream(
   signal: AbortSignal,
   onEvent: (event: AgentStreamEvent) => void,
 ) {
-  const response = await fetch(`${API_BASE_URL}/v2/agent/chat/stream`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'text/event-stream',
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache',
-    },
-    body: JSON.stringify({
-      conversation_id: payload.conversationId ?? null,
-      message: payload.message,
-      stream: true,
-    }),
-    signal,
-  })
+  const state: AgentStreamReducerState = { seenEventKeys: new Set(), terminalSeen: false, lastEventId: null }
+  let reconnectAttempt = 0
+  while (!state.terminalSeen) {
+    try {
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+        Accept: 'text/event-stream',
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      }
+      if (state.lastEventId) headers['Last-Event-ID'] = state.lastEventId
+      const response = await fetch(`${API_BASE_URL}/v2/agent/chat/stream`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ conversation_id: payload.conversationId ?? null, message: payload.message, stream: true }),
+        signal,
+      })
 
-  if (response.status === 401 || response.status === 403) {
-    emitApiAuthEvent(response.status)
+      if (response.status === 401 || response.status === 403) emitApiAuthEvent(response.status)
+      if (!response.ok) throw new ApiError(`request failed: ${response.status}`, response.status)
+      if (!response.body) throw new ApiError('SSE 响应体为空', response.status)
+
+      await readAgentSseResponse(response.body, state, onEvent, signal)
+      return
+    } catch (error) {
+      if (signal.aborted) throw error
+      if (error instanceof ApiError && error.status >= 400) throw error
+      reconnectAttempt += 1
+      if (reconnectAttempt > 3) throw error
+      await waitForReconnect(reconnectAttempt, signal)
+    }
   }
+}
 
-  if (!response.ok) {
-    throw new ApiError(`request failed: ${response.status}`, response.status)
-  }
-
-  if (!response.body) {
-    throw new ApiError('SSE 响应体为空', response.status)
-  }
-
-  const reader = response.body.getReader()
+async function readAgentSseResponse(
+  body: ReadableStream<Uint8Array>,
+  state: AgentStreamReducerState,
+  onEvent: (event: AgentStreamEvent) => void,
+  signal: AbortSignal,
+) {
+  const reader = body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
   let eventData = ''
-
+  let eventId: string | null = null
+  const flush = () => {
+    const event = parseAgentStreamEvent(eventData)
+    eventData = ''
+    if (event && acceptAgentStreamEvent(state, event, eventId)) onEvent(event)
+    eventId = null
+  }
   try {
     while (true) {
       const { value, done } = await reader.read()
       if (done) break
-      const chunk = decoder.decode(value, { stream: true })
-      if (chunk) buffer += chunk
-
+      if (signal.aborted) throw new DOMException('The operation was aborted.', 'AbortError')
+      buffer += decoder.decode(value, { stream: true })
       while (true) {
         const lineBreak = buffer.indexOf('\n')
         if (lineBreak < 0) break
         const rawLine = buffer.slice(0, lineBreak)
         buffer = buffer.slice(lineBreak + 1)
         const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine
-
-        if (!line.trim()) {
-          flushEventData(eventData, onEvent)
-          eventData = ''
-          continue
-        }
+        if (!line.trim()) { flush(); continue }
         if (line.startsWith(':')) continue
-        if (line.startsWith('data:')) {
-          eventData += line.slice(5).trimStart() + '\n'
-          continue
-        }
-        if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
-          continue
-        }
-
-        flushEventData(eventData, onEvent)
-        eventData = ''
-        flushEventData(line, onEvent)
+        if (line.startsWith('data:')) { eventData += line.slice(5).trimStart() + '\n'; continue }
+        if (line.startsWith('id:')) { eventId = line.slice(3).trimStart(); continue }
+        if (line.startsWith('event:') || line.startsWith('retry:')) continue
+        flush()
+        eventData = line
+        flush()
       }
     }
-
     buffer += decoder.decode()
-    if (buffer.trim()) {
-      flushEventData(eventData, onEvent)
-      eventData = ''
-      flushEventData(buffer, onEvent)
-    } else {
-      flushEventData(eventData, onEvent)
-    }
+    if (buffer.trim()) { eventData += buffer; flush() } else flush()
   } finally {
     reader.releaseLock()
   }
 }
 
-function flushEventData(raw: string, onEvent: (event: AgentStreamEvent) => void) {
-  const normalized = raw.trim()
-  if (!normalized || normalized === '[DONE]') return
-  const parsed = parseEvent(normalized)
-  if (parsed) onEvent(parsed)
+function eventIdentityKeys(event: AgentStreamEvent, sseId?: string | null): string[] {
+  const keys: string[] = []
+  if (sseId) keys.push(`sse:${sseId}`)
+  const runId = (event as { runId?: string | null }).runId || ''
+  const eventId = (event as { eventId?: string | null }).eventId
+  const seq = (event as { seq?: number | null }).seq
+  const callId = (event as { toolCallId?: string | null }).toolCallId
+  if (eventId) keys.push(`event:${eventId}`)
+  if (seq != null) keys.push(`seq:${runId}:${seq}`)
+  if (callId) keys.push(`call:${event.eventType}:${runId}:${callId}`)
+  if (isTerminalEvent(event) && runId) keys.push(`terminal:${runId}`)
+  return keys
 }
 
-function parseEvent(raw: string): AgentStreamEvent | null {
-  try {
-    return camelize(JSON.parse(preserveUnsafeIntegers(raw))) as AgentStreamEvent
-  } catch {
-    return {
-      eventType: 'error',
-      code: 'STREAM_PARSE_ERROR',
-      message: `服务端返回了一条无法解析的 Agent 事件：${raw.slice(0, 160)}`,
-      timestamp: Date.now(),
-    }
-  }
+function waitForReconnect(attempt: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, Math.min(2000, attempt * 250))
+    signal.addEventListener('abort', () => { clearTimeout(timer); reject(new DOMException('The operation was aborted.', 'AbortError')) }, { once: true })
+  })
 }

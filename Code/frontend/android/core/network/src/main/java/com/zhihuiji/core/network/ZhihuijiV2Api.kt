@@ -109,6 +109,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.PUT
@@ -613,7 +614,10 @@ interface ZhihuijiV2Api {
     suspend fun createAgentDraftV2(@Body body: CreateAgentDraftRequest): ApiResponse<AgentDraftDto>
 
     @POST("v2/agent/drafts/{id}/confirm")
-    suspend fun confirmAgentDraftV2(@Path("id") id: Long): ApiResponse<AgentDraftDto>
+    suspend fun confirmAgentDraftV2(
+        @Path("id") id: Long,
+        @Header("Idempotency-Key") idempotencyKey: String,
+    ): ApiResponse<AgentDraftDto>
 
     @POST("v2/agent/drafts/{id}/cancel")
     suspend fun cancelAgentDraftV2(@Path("id") id: Long): ApiResponse<AgentDraftDto>

@@ -80,106 +80,108 @@ class AgentSseClient(
     fun chatStream(requestBodyJson: String): Flow<AgentStreamEvent> = flow {
         val url = NetworkConfig.endpointUrl(baseUrlProvider(), "v2/agent/chat/stream")
         val coroutineContext = currentCoroutineContext()
+        var lastEventId: String? = null
+        val emittedEventKeys = mutableSetOf<String>()
+        var terminalEventSeen = false
+        var reconnectAttempt = 0
 
-        val request = Request.Builder()
-            .url(url)
-            .post(requestBodyJson.toRequestBody("application/json".toMediaType()))
-            .header("Accept", "text/event-stream")
-            .header("Cache-Control", "no-cache")
-            .header("Connection", "keep-alive")
-            .build()
+        while (!terminalEventSeen) {
+            val requestBuilder = Request.Builder()
+                .url(url)
+                .post(requestBodyJson.toRequestBody("application/json".toMediaType()))
+                .header("Accept", "text/event-stream")
+                .header("Cache-Control", "no-cache")
+                .header("Connection", "keep-alive")
+            if (!lastEventId.isNullOrBlank()) requestBuilder.header("Last-Event-ID", lastEventId!!)
 
-        try {
-            val response = retryWithBackoff {
-                val call = callFactory(streamingOkHttpClient, request)
-                coroutineContext.job.invokeOnCompletion { cause ->
-                    if (cause != null && !call.isCanceled()) {
-                        call.cancel()
+            try {
+                val response = retryWithBackoff {
+                    val call = callFactory(streamingOkHttpClient, requestBuilder.build())
+                    coroutineContext.job.invokeOnCompletion { cause ->
+                        if (cause != null && !call.isCanceled()) call.cancel()
                     }
-                }
-                call.executeCancellable()
-            }
-
-            response.use { resp ->
-                if (!resp.isSuccessful) {
-                    throw NetworkException(
-                        resp.code,
-                        httpErrorMessage(resp.code, "SSE 连接失败: ${resp.code} ${resp.message}")
-                    )
+                    call.executeCancellable()
                 }
 
-                val body = resp.body
-                    ?: throw NetworkException(-1, "SSE 响应体为空")
-
-                val source = body.source()
-
-                val eventData = StringBuilder()
-                var terminalEventSeen = false
-                val emittedEventKeys = mutableSetOf<String>()
-
-                fun flushBufferedEvent(): AgentStreamEvent? {
-                    if (eventData.isEmpty()) return null
-                    val jsonLine = eventData.toString().trimEnd('\n')
-                    eventData.clear()
-                    if (jsonLine.isBlank() || jsonLine == "[DONE]") return null
-                    return parseEvent(jsonLine)
-                }
-
-                suspend fun emitEvent(event: AgentStreamEvent?) {
-                    if (event == null) return
-                    val eventKey = event.identityKey()
-                    if (eventKey != null && !emittedEventKeys.add(eventKey)) return
-                    emit(event)
-                    terminalEventSeen = when (event) {
-                        is AgentStreamEvent.RunCompleted,
-                        is AgentStreamEvent.RunFailed,
-                        is AgentStreamEvent.RunBlocked,
-                        is AgentStreamEvent.RunExhausted,
-                        is AgentStreamEvent.RunCancelled -> true
-                        // A locally generated parse error is recoverable; a
-                        // server error is the terminal event for this run.
-                        is AgentStreamEvent.ErrorEvent -> event.code != "STREAM_PARSE_ERROR"
-                        else -> false
+                response.use { resp ->
+                    if (!resp.isSuccessful) {
+                        throw NetworkException(
+                            resp.code,
+                            httpErrorMessage(resp.code, "SSE 连接失败: ${resp.code} ${resp.message}")
+                        )
                     }
-                }
+                    val body = resp.body ?: throw NetworkException(-1, "SSE 响应体为空")
+                    val source = body.source()
+                    val eventData = StringBuilder()
+                    var pendingEventId: String? = null
 
-                while (!terminalEventSeen && !source.exhausted()) {
-                    coroutineContext.ensureActive()
-                    val line = source.readUtf8Line() ?: break
-
-                    // 标准 SSE 以空行结束一个事件；后端当前单行 data 也兼容这个路径。
-                    if (line.isBlank()) {
-                        emitEvent(flushBufferedEvent())
-                        continue
-                    }
-
-                    // 跳过 SSE 注释行（如 :ping / :ok）
-                    if (line.startsWith(":")) continue
-
-                    when {
-                        line.startsWith("data:") -> {
-                            eventData.append(line.removePrefix("data:").trimStart())
-                            eventData.append('\n')
+                    suspend fun emitEvent(event: AgentStreamEvent?) {
+                        if (event == null) return
+                        val eventKeys = event.identityKeys(pendingEventId)
+                        if (eventKeys.any { it in emittedEventKeys }) {
+                            pendingEventId?.let { lastEventId = it }
+                            return
                         }
-                        line.startsWith("event:") || line.startsWith("id:") || line.startsWith("retry:") -> {
+                        emittedEventKeys += eventKeys
+                        pendingEventId?.let { lastEventId = it }
+                        if (pendingEventId == null) lastEventId = event.eventCursor() ?: lastEventId
+                        emit(event)
+                        terminalEventSeen = event.isTerminal()
+                        pendingEventId = null
+                    }
+
+                    suspend fun flushBufferedEvent() {
+                        if (eventData.isEmpty()) return
+                        val jsonLine = eventData.toString().trimEnd('\n')
+                        eventData.clear()
+                        if (jsonLine.isBlank() || jsonLine == "[DONE]") {
+                            pendingEventId = null
+                            return
+                        }
+                        emitEvent(parseEvent(jsonLine))
+                    }
+
+                    while (!terminalEventSeen && !source.exhausted()) {
+                        coroutineContext.ensureActive()
+                        val line = source.readUtf8Line() ?: break
+                        if (line.isBlank()) {
+                            flushBufferedEvent()
                             continue
                         }
-                        else -> {
-                            emitEvent(flushBufferedEvent())
-                            val jsonLine = line.trim()
-                            if (jsonLine.isBlank() || jsonLine == "[DONE]") continue
-                            emitEvent(parseEvent(jsonLine))
+                        if (line.startsWith(":")) continue
+                        when {
+                            line.startsWith("data:") -> {
+                                eventData.append(line.removePrefix("data:").trimStart())
+                                eventData.append('\n')
+                            }
+                            line.startsWith("id:") -> pendingEventId = line.removePrefix("id:").trimStart()
+                            line.startsWith("event:") || line.startsWith("retry:") -> continue
+                            else -> {
+                                flushBufferedEvent()
+                                eventData.append(line.trim())
+                                flushBufferedEvent()
+                            }
                         }
                     }
+                    if (!terminalEventSeen) flushBufferedEvent()
                 }
-                if (!terminalEventSeen) {
-                    emitEvent(flushBufferedEvent())
+                _retryState.value = RetryState()
+            } catch (e: IOException) {
+                currentCoroutineContext().ensureActive()
+                reconnectAttempt += 1
+                if (reconnectAttempt > MAX_STREAM_RECONNECTS) {
+                    throw NetworkException(-1, agentSseNetworkErrorMessage(e))
                 }
+                val delayMs = minOf(2000L, 250L * reconnectAttempt)
+                _retryState.value = RetryState(
+                    isRetrying = true,
+                    attempt = reconnectAttempt,
+                    maxAttempts = MAX_STREAM_RECONNECTS,
+                    nextRetryInMs = delayMs,
+                    lastError = e.message,
+                )
+                delay(delayMs)
             }
-        } catch (e: IOException) {
-            currentCoroutineContext().ensureActive()
-            _retryState.value = RetryState()
-            throw NetworkException(-1, agentSseNetworkErrorMessage(e))
         }
     }.flowOn(streamDispatcher)
 
@@ -226,15 +228,96 @@ class AgentSseClient(
     }
 }
 
-private fun AgentStreamEvent.identityKey(): String? = when (this) {
-    is AgentStreamEvent.ToolStarted -> eventId?.let { "tool_started:$it" } ?: seq?.let { "tool_started:$it" }
-    is AgentStreamEvent.ToolCompleted -> eventId?.let { "tool_completed:$it" } ?: seq?.let { "tool_completed:$it" }
-    is AgentStreamEvent.ToolFailed -> eventId?.let { "tool_failed:$it" } ?: seq?.let { "tool_failed:$it" }
-    is AgentStreamEvent.AnswerDelta -> eventId?.let { "answer_delta:$it" } ?: seq?.let { "answer_delta:$it" }
+private fun AgentStreamEvent.identityKeys(sseId: String?): List<String> = buildList {
+    sseId?.takeIf { it.isNotBlank() }?.let { add("sse:$it") }
+    eventId()?.let { add("event:$it") }
+    seq()?.let { add("seq:${runId()}:$it") }
+    toolCallId()?.let { add("call:${eventType()}:${runId()}:$it") }
+    if (isTerminal()) runId()?.let { add("terminal:$it") }
+}
+
+private fun AgentStreamEvent.eventCursor(): String? = eventId() ?: seq()?.toString()
+
+private fun AgentStreamEvent.eventId(): String? = when (this) {
+    is AgentStreamEvent.ToolStarted -> eventId
+    is AgentStreamEvent.ToolCompleted -> eventId
+    is AgentStreamEvent.ToolFailed -> eventId
+    is AgentStreamEvent.AnswerDelta -> eventId
     else -> null
 }
 
+private fun AgentStreamEvent.seq(): Int? = when (this) {
+    is AgentStreamEvent.ToolStarted -> seq
+    is AgentStreamEvent.ToolCompleted -> seq
+    is AgentStreamEvent.ToolFailed -> seq
+    is AgentStreamEvent.AnswerDelta -> seq
+    else -> null
+}
+
+private fun AgentStreamEvent.toolCallId(): String? = when (this) {
+    is AgentStreamEvent.ToolStarted -> toolCallId
+    is AgentStreamEvent.ToolCompleted -> toolCallId
+    is AgentStreamEvent.ToolFailed -> toolCallId
+    else -> null
+}
+
+private fun AgentStreamEvent.runId(): String? = when (this) {
+    is AgentStreamEvent.RunStarted -> runId
+    is AgentStreamEvent.SafetyCheckStarted -> runId
+    is AgentStreamEvent.SafetyCheckPassed -> runId
+    is AgentStreamEvent.SafetyCheckBlocked -> runId
+    is AgentStreamEvent.PlanDelta -> runId
+    is AgentStreamEvent.ToolStarted -> runId
+    is AgentStreamEvent.ToolProgress -> runId
+    is AgentStreamEvent.ToolCompleted -> runId
+    is AgentStreamEvent.ToolFailed -> runId
+    is AgentStreamEvent.AnswerDelta -> runId
+    is AgentStreamEvent.AnswerCompleted -> runId
+    is AgentStreamEvent.ResultBlockEvent -> runId
+    is AgentStreamEvent.DraftCreated -> runId
+    is AgentStreamEvent.ContextCompacted -> runId
+    is AgentStreamEvent.RunCompleted -> runId
+    is AgentStreamEvent.RunFailed -> runId
+    is AgentStreamEvent.RunBlocked -> runId
+    is AgentStreamEvent.RunExhausted -> runId
+    is AgentStreamEvent.RunCancelled -> runId
+    is AgentStreamEvent.ErrorEvent -> runId
+}
+
+private fun AgentStreamEvent.eventType(): String = when (this) {
+    is AgentStreamEvent.RunStarted -> "run_started"
+    is AgentStreamEvent.SafetyCheckStarted -> "safety_check_started"
+    is AgentStreamEvent.SafetyCheckPassed -> "safety_check_passed"
+    is AgentStreamEvent.SafetyCheckBlocked -> "safety_check_blocked"
+    is AgentStreamEvent.PlanDelta -> "plan_delta"
+    is AgentStreamEvent.ToolStarted -> "tool_started"
+    is AgentStreamEvent.ToolProgress -> "tool_progress"
+    is AgentStreamEvent.ToolCompleted -> "tool_completed"
+    is AgentStreamEvent.ToolFailed -> "tool_failed"
+    is AgentStreamEvent.AnswerDelta -> "answer_delta"
+    is AgentStreamEvent.AnswerCompleted -> "answer_completed"
+    is AgentStreamEvent.ResultBlockEvent -> "result_block"
+    is AgentStreamEvent.DraftCreated -> "draft_created"
+    is AgentStreamEvent.ContextCompacted -> "context_compacted"
+    is AgentStreamEvent.RunCompleted -> "run_completed"
+    is AgentStreamEvent.RunFailed -> "run_failed"
+    is AgentStreamEvent.RunBlocked -> "run_blocked"
+    is AgentStreamEvent.RunExhausted -> "run_exhausted"
+    is AgentStreamEvent.RunCancelled -> "run_cancelled"
+    is AgentStreamEvent.ErrorEvent -> "error"
+}
+
+private fun AgentStreamEvent.isTerminal(): Boolean = when (this) {
+    is AgentStreamEvent.RunCompleted,
+    is AgentStreamEvent.RunFailed,
+    is AgentStreamEvent.RunBlocked,
+    is AgentStreamEvent.RunExhausted,
+    is AgentStreamEvent.RunCancelled -> true
+    else -> false
+}
+
 internal const val STREAM_READ_TIMEOUT_SECONDS = 180L
+private const val MAX_STREAM_RECONNECTS = 3
 
 private fun agentSseNetworkErrorMessage(error: IOException): String {
     val detail = error.message?.takeIf { it.isNotBlank() }

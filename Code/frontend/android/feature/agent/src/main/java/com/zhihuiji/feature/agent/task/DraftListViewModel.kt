@@ -3,6 +3,7 @@ package com.zhihuiji.feature.agent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.model.v2.agent.AgentDraftDto
+import com.zhihuiji.core.model.v2.agent.AgentDraftConfirmRequest
 import com.zhihuiji.core.model.v2.agent.UpdateAgentDraftRequest
 import com.zhihuiji.data.agent.AgentV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import java.util.concurrent.ConcurrentHashMap
+import java.util.UUID
 
 data class DraftItem(
     val id: Long,
@@ -48,6 +50,8 @@ enum class DraftActionType {
 class DraftListViewModel @Inject constructor(
     private val repository: AgentV2Repository,
 ) : ViewModel() {
+
+    private val confirmKeys = mutableMapOf<Long, String>()
 
     private val _uiState = MutableStateFlow(DraftListUiState())
     val uiState: StateFlow<DraftListUiState> = _uiState.asStateFlow()
@@ -172,7 +176,10 @@ class DraftListViewModel @Inject constructor(
                     pendingActionType = null,
                 )
             }
-            repository.confirmDraft(draftId).onSuccess { updated ->
+            repository.confirmDraft(
+                draftId,
+                AgentDraftConfirmRequest(confirmKeys.getOrPut(draftId) { UUID.randomUUID().toString() }),
+            ).onSuccess { updated ->
                 _uiState.update { state ->
                     state.copy(
                         isArchiving = false,

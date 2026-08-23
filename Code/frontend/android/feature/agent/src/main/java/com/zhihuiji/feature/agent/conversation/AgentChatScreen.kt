@@ -1543,11 +1543,13 @@ private fun AnswerTraceStatus.toTerminalStatusOrNull(): RunTerminalStatus? = whe
     AnswerTraceStatus.FAILED -> RunTerminalStatus.FAILED
     AnswerTraceStatus.INTERRUPTED -> RunTerminalStatus.INTERRUPTED
     AnswerTraceStatus.NOT_STARTED, AnswerTraceStatus.STREAMING -> null
+    AnswerTraceStatus.CONFIRMATION_PENDING -> RunTerminalStatus.CONFIRMATION_PENDING
 }
 
 private fun AnswerTraceStatus.answerStatusLabel(): String = when (this) {
     AnswerTraceStatus.NOT_STARTED -> "等待回答"
     AnswerTraceStatus.STREAMING -> "正在生成回答"
+    AnswerTraceStatus.CONFIRMATION_PENDING -> "等待确认草稿"
     AnswerTraceStatus.COMPLETED -> "回答已生成"
     AnswerTraceStatus.BLOCKED -> "回答被安全策略阻止"
     AnswerTraceStatus.CANCELLED -> "回答已取消"

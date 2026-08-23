@@ -216,6 +216,26 @@ final class AgentTerminalStatusTests: XCTestCase {
         XCTAssertEqual(event.summary, "已整理早期追问")
     }
 
+    func testAgentStreamEventUsesStandardSummaryPreviewField() throws {
+        let data = Data(
+            """
+            {"event_type":"context_compacted","run_id":"run-preview","compacted_count":2,"summary_preview":"统一摘要预览"}
+            """.utf8
+        )
+
+        let event = try JSONDecoder().decode(AgentStreamEvent.self, from: data)
+        XCTAssertEqual(event.summaryPreview, "统一摘要预览")
+    }
+
+    func testAgentAccessibilityPoliciesCoverAssistiveSettings() {
+        XCTAssertTrue(AgentAccessibilityPolicy.dynamicTypeAllowsMultiline())
+        XCTAssertEqual(AgentAccessibilityPolicy.contrastStrokeWidth(increasedContrast: true), 2)
+        XCTAssertEqual(AgentAccessibilityPolicy.contrastStrokeWidth(increasedContrast: false), 1)
+        XCTAssertFalse(AgentAccessibilityPolicy.animationEnabled(reduceMotion: true))
+        XCTAssertTrue(AgentAccessibilityPolicy.animationEnabled(reduceMotion: false))
+        XCTAssertEqual(TerminalStatus.confirmationPending.voiceOverLabel, "运行已完成，等待你确认草稿后再写入正式业务")
+    }
+
     // MARK: - AgentDraftCardBlockData 状态字段
 
     func testAgentDraftCardBlockDataDecodesStatusAndActionLabel() throws {
@@ -500,8 +520,10 @@ final class AgentTerminalStatusTests: XCTestCase {
         tokenStore.save(accessToken: "access-token", refreshToken: "refresh-token")
 
         var confirmCallCount = 0
+        let idempotencyKey = "ios-confirm-test-key"
         MockURLProtocol.requestHandler = { request in
             XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer access-token")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Idempotency-Key"), idempotencyKey)
             let path = try XCTUnwrap(request.url?.path)
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(path, "/v2/agent/drafts/99005/confirm")
@@ -513,7 +535,7 @@ final class AgentTerminalStatusTests: XCTestCase {
         }
 
         let client = APIClient(baseURL: URL(string: "https://example.com")!, tokenStore: tokenStore, session: session)
-        let updated = try await client.confirmAgentDraft(id: EntityID(rawValue: "99005"))
+        let updated = try await client.confirmAgentDraft(id: EntityID(rawValue: "99005"), idempotencyKey: idempotencyKey)
 
         XCTAssertEqual(confirmCallCount, 1)
         XCTAssertEqual(updated.id.rawValue, "99005")

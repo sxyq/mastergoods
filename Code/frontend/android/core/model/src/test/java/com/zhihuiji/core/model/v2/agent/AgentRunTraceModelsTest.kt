@@ -238,6 +238,7 @@ class AgentRunTraceModelsTest {
         )
 
         assertEquals(RunTerminalStatus.CONFIRMATION_PENDING, trace.terminal?.status)
+        assertEquals(AnswerTraceStatus.CONFIRMATION_PENDING, trace.answerStatus)
         assertEquals("已生成草稿，请确认", trace.terminal?.message)
     }
 

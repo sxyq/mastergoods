@@ -23,14 +23,16 @@ final class APIClient {
         method: String = "GET",
         body: Encodable? = nil,
         authorized: Bool = true,
-        queryItems: [URLQueryItem] = []
+        queryItems: [URLQueryItem] = [],
+        headers: [String: String] = [:]
     ) async throws -> Response {
         try await send(
             path: endpoint.path,
             method: method,
             body: body,
             authorized: authorized,
-            queryItems: queryItems
+            queryItems: queryItems,
+            headers: headers
         )
     }
 
@@ -39,7 +41,8 @@ final class APIClient {
         method: String = "GET",
         body: Encodable? = nil,
         authorized: Bool = true,
-        queryItems: [URLQueryItem] = []
+        queryItems: [URLQueryItem] = [],
+        headers: [String: String] = [:]
     ) async throws -> Response {
         let (data, response) = try await performRequest(
             path: path,
@@ -47,7 +50,8 @@ final class APIClient {
             body: body,
             authorized: authorized,
             queryItems: queryItems,
-            retryOnAuthFailure: authorized
+            retryOnAuthFailure: authorized,
+            headers: headers
         )
         return try decodeEnvelope(response: response, data: data)
     }
@@ -880,8 +884,12 @@ final class APIClient {
 
     /// 草稿二次确认接口。仅后端在确认后才会触发正式业务写入。
     /// - 重要：客户端不得直接调用正式业务创建接口，所有写入都必须经过此接口。
-    func confirmAgentDraft(id: EntityID) async throws -> AgentDraft {
-        try await send(path: "/v2/agent/drafts/\(id.rawValue)/confirm", method: "POST")
+    func confirmAgentDraft(id: EntityID, idempotencyKey: String = UUID().uuidString) async throws -> AgentDraft {
+        try await send(
+            path: "/v2/agent/drafts/\(id.rawValue)/confirm",
+            method: "POST",
+            headers: ["Idempotency-Key": idempotencyKey]
+        )
     }
 
     func fetchAgentTasks() async throws -> [AgentTask] {
@@ -927,56 +935,90 @@ final class APIClient {
 
         return AsyncThrowingStream { continuation in
             let task = Task {
+                var lastEventId: String?
+                var seenKeys = Set<String>()
+                var terminalSeen = false
+                var reconnectAttempt = 0
                 do {
                     var request = request
                     request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-                    let (bytes, response) = try await session.bytes(for: request)
-                    if let http = response as? HTTPURLResponse,
-                       !(200 ..< 300).contains(http.statusCode) {
-                        let errorData = try await self.collectStreamErrorData(from: bytes)
-                        try self.validate(response: response, data: errorData)
+                    if let lastEventId { request.setValue(lastEventId, forHTTPHeaderField: "Last-Event-ID") }
+                    do {
+                        let (bytes, response) = try await session.bytes(for: request)
+                        if let http = response as? HTTPURLResponse,
+                           !(200 ..< 300).contains(http.statusCode) {
+                            let errorData = try await self.collectStreamErrorData(from: bytes)
+                            try self.validate(response: response, data: errorData)
+                        }
+                        try self.validate(response: response, data: Data())
+
+                        var dataLines: [String] = []
+                        var pendingEventId: String?
+                        func flushEvent() throws {
+                            guard !dataLines.isEmpty else { return }
+                            let payloadText = dataLines.joined(separator: "\n")
+                            dataLines.removeAll(keepingCapacity: true)
+                            guard let data = payloadText.data(using: .utf8) else { return }
+                            let event = try self.decoder.decode(AgentStreamEvent.self, from: data)
+                            let keys = agentStreamIdentityKeys(event, sseId: pendingEventId)
+                            let duplicate = keys.contains { seenKeys.contains($0) }
+                            if !duplicate {
+                                seenKeys.formUnion(keys)
+                                continuation.yield(event)
+                                terminalSeen = agentStreamIsTerminal(event)
+                            }
+                            if let pendingEventId { lastEventId = pendingEventId }
+                            else if let eventId = event.eventId { lastEventId = eventId }
+                            else if let seq = event.seq { lastEventId = String(seq) }
+                            pendingEventId = nil
+                        }
+
+                        for try await rawLine in bytes.lines {
+                            if Task.isCancelled { break }
+                            if rawLine.isEmpty { try flushEvent(); continue }
+                            if rawLine.hasPrefix(":") { continue }
+                            if rawLine.hasPrefix("id:") {
+                                pendingEventId = String(rawLine.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                            } else if rawLine.hasPrefix("data:") {
+                                dataLines.append(String(rawLine.dropFirst(5)).trimmingCharacters(in: .whitespaces))
+                            }
+                            if terminalSeen { break }
+                        }
+                        try flushEvent()
+                        if terminalSeen || Task.isCancelled { break }
+                        continuation.finish()
+                        return
+                    } catch {
+                        if Task.isCancelled { throw error }
+                        reconnectAttempt += 1
+                        if reconnectAttempt > 3 { throw error }
+                        try await Task.sleep(nanoseconds: UInt64(min(2000, reconnectAttempt * 250)) * 1_000_000)
                     }
-                    try self.validate(response: response, data: Data())
-
-                    var dataLines: [String] = []
-
-                    func flushEvent() throws {
-                        guard !dataLines.isEmpty else { return }
-                        let payloadText = dataLines.joined(separator: "\n")
-                        dataLines.removeAll(keepingCapacity: true)
-                        guard let data = payloadText.data(using: .utf8) else { return }
-                        let event = try self.decoder.decode(AgentStreamEvent.self, from: data)
-                        continuation.yield(event)
-                    }
-
-                    for try await rawLine in bytes.lines {
-                        if Task.isCancelled {
-                            break
-                        }
-                        if rawLine.isEmpty {
-                            try flushEvent()
-                            continue
-                        }
-                        if rawLine.hasPrefix(":") {
-                            continue
-                        }
-                        if rawLine.hasPrefix("data:") {
-                            let content = String(rawLine.dropFirst(5)).trimmingCharacters(in: .whitespaces)
-                            dataLines.append(content)
-                        }
-                    }
-
-                    try flushEvent()
-                    continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)
+                    return
                 }
+                continuation.finish()
             }
 
             continuation.onTermination = { @Sendable _ in
                 task.cancel()
             }
         }
+    }
+
+    private func agentStreamIdentityKeys(_ event: AgentStreamEvent, sseId: String?) -> [String] {
+        var keys: [String] = []
+        if let sseId, !sseId.isEmpty { keys.append("sse:\(sseId)") }
+        if let eventId = event.eventId { keys.append("event:\(eventId)") }
+        if let seq = event.seq { keys.append("seq:\(event.runId ?? ""):\(seq)") }
+        if let toolCallId = event.toolCallId { keys.append("call:\(event.eventType):\(event.runId ?? ""):\(toolCallId)") }
+        if agentStreamIsTerminal(event), let runId = event.runId { keys.append("terminal:\(runId)") }
+        return keys
+    }
+
+    private func agentStreamIsTerminal(_ event: AgentStreamEvent) -> Bool {
+        ["run_completed", "run_failed", "run_blocked", "run_exhausted", "run_cancelled"].contains(event.eventType)
     }
 
     private func decodeEnvelope<Response: Codable>(response: URLResponse, data: Data) throws -> Response {
@@ -1002,14 +1044,16 @@ final class APIClient {
         body: Encodable?,
         authorized: Bool,
         queryItems: [URLQueryItem],
-        retryOnAuthFailure: Bool
+        retryOnAuthFailure: Bool,
+        headers: [String: String]
     ) async throws -> (Data, URLResponse) {
         let request = try makeRequest(
             path: path,
             method: method,
             body: body,
             authorized: authorized,
-            queryItems: queryItems
+            queryItems: queryItems,
+            headers: headers
         )
         let (data, response) = try await session.data(for: request)
 
@@ -1023,7 +1067,8 @@ final class APIClient {
                 method: method,
                 body: body,
                 authorized: authorized,
-                queryItems: queryItems
+                queryItems: queryItems,
+                headers: headers
             )
             return try await session.data(for: retriedRequest)
         }
@@ -1123,13 +1168,15 @@ final class APIClient {
         method: String,
         body: Encodable?,
         authorized: Bool,
-        queryItems: [URLQueryItem]
+        queryItems: [URLQueryItem],
+        headers: [String: String] = [:]
     ) throws -> URLRequest {
         var request = try makeBaseRequest(path: path, method: method, queryItems: queryItems, authorized: authorized)
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try AnyEncodable(body).encode(using: encoder)
         }
+        headers.forEach { request.setValue($1, forHTTPHeaderField: $0) }
         return request
     }
 

@@ -122,6 +122,7 @@ data class SafetyResult(
 enum class AnswerTraceStatus {
     NOT_STARTED,
     STREAMING,
+    CONFIRMATION_PENDING,
     COMPLETED,
     BLOCKED,
     CANCELLED,

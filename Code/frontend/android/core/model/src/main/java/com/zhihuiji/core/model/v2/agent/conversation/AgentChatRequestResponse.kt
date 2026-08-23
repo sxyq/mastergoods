@@ -50,6 +50,16 @@ data class AgentChatResponse(
     @SerialName("audit_id") val auditId: String? = null,
     @SerialName("trace_id") val traceId: String? = null,
     val observability: AgentObservabilityDto? = null,
+    @SerialName("terminal_status") val terminalStatus: String? = null,
+    @SerialName("error_code") val errorCode: String? = null,
+    @SerialName("safe_message") val safeMessage: String? = null,
+    @SerialName("completed_tools") val completedTools: List<String> = emptyList(),
+    @SerialName("missing_target_tools") val missingTargetTools: List<String> = emptyList(),
+)
+
+@Serializable
+data class AgentDraftConfirmRequest(
+    @SerialName("idempotency_key") val idempotencyKey: String,
 )
 
 @Serializable

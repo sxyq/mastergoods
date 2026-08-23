@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct AgentChatView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityContrast) private var accessibilityContrast
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @EnvironmentObject private var session: AppSession
     @Environment(\.appEnvironment) private var env
     @StateObject private var viewModel = AgentViewModel()
@@ -30,6 +33,12 @@ struct AgentChatView: View {
             }
             .padding(20)
         }
+        .transaction { transaction in
+            if !AgentAccessibilityPolicy.animationEnabled(reduceMotion: accessibilityReduceMotion) {
+                transaction.animation = nil
+            }
+        }
+        .accessibilityIdentifier("agent-chat-\(dynamicTypeSize)")
         .navigationTitle("AI 助手")
         .task {
             await viewModel.load(using: env.apiClient)
@@ -639,7 +648,10 @@ struct AgentChatView: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: ZhihuijiTheme.Radius.cardSmall, style: .continuous)
-                        .stroke(terminal.tint.opacity(0.22), lineWidth: ZhihuijiTheme.Stroke.hairline)
+                        .stroke(
+                            terminal.tint.opacity(0.22),
+                            lineWidth: CGFloat(AgentAccessibilityPolicy.contrastStrokeWidth(increasedContrast: accessibilityContrast == .increased))
+                        )
                 )
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("运行终态")

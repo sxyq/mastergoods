@@ -341,7 +341,7 @@ object AgentRunTraceReducer {
                 val status = event.terminalStatus.toTerminalStatusOrDefault(RunTerminalStatus.COMPLETED)
                 val answerStatus = when (status) {
                     RunTerminalStatus.BLOCKED -> AnswerTraceStatus.BLOCKED
-                    RunTerminalStatus.CONFIRMATION_PENDING -> AnswerTraceStatus.COMPLETED
+                    RunTerminalStatus.CONFIRMATION_PENDING -> AnswerTraceStatus.CONFIRMATION_PENDING
                     else -> marked.answerStatus
                 }
                 val terminal = TerminalTrace(
@@ -771,7 +771,7 @@ object AgentRunTraceReducer {
 
     private fun String.toAnswerStatus(): AnswerTraceStatus = when (toTerminalStatus()) {
         RunTerminalStatus.COMPLETED -> AnswerTraceStatus.COMPLETED
-        RunTerminalStatus.CONFIRMATION_PENDING -> AnswerTraceStatus.COMPLETED
+        RunTerminalStatus.CONFIRMATION_PENDING -> AnswerTraceStatus.CONFIRMATION_PENDING
         RunTerminalStatus.BLOCKED -> AnswerTraceStatus.BLOCKED
         RunTerminalStatus.CANCELLED -> AnswerTraceStatus.CANCELLED
         RunTerminalStatus.FAILED -> AnswerTraceStatus.FAILED

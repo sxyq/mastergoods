@@ -3,6 +3,7 @@ package com.zhihuiji.data.agent
 import com.zhihuiji.core.model.v2.agent.AgentChatRequest
 import com.zhihuiji.core.model.v2.agent.AgentChatResponse
 import com.zhihuiji.core.model.v2.agent.AgentConversationDto
+import com.zhihuiji.core.model.v2.agent.AgentDraftConfirmRequest
 import com.zhihuiji.core.model.v2.agent.AgentDraftDto
 import com.zhihuiji.core.model.v2.agent.AgentImageGenerateRequest
 import com.zhihuiji.core.model.v2.agent.AgentImageGenerateResponse
@@ -92,8 +93,8 @@ class AgentV2Repository @Inject constructor(
     suspend fun createDraft(request: CreateAgentDraftRequest): Result<AgentDraftDto> =
         safeApiCall { api.createAgentDraftV2(request) }
 
-    suspend fun confirmDraft(id: Long): Result<AgentDraftDto> =
-        safeApiCall { api.confirmAgentDraftV2(id) }
+    suspend fun confirmDraft(id: Long, request: AgentDraftConfirmRequest): Result<AgentDraftDto> =
+        safeApiCall { api.confirmAgentDraftV2(id, request.idempotencyKey) }
 
     suspend fun cancelDraft(id: Long): Result<AgentDraftDto> =
         safeApiCall { api.cancelAgentDraftV2(id) }

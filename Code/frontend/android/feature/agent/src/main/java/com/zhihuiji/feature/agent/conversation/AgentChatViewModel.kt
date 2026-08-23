@@ -9,6 +9,7 @@ import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.model.v2.agent.AgentChatRequest
+import com.zhihuiji.core.model.v2.agent.AgentDraftConfirmRequest
 import com.zhihuiji.core.model.v2.agent.AgentImageGenerateRequest
 import com.zhihuiji.core.model.v2.agent.AgentConversationDto
 import com.zhihuiji.core.model.v2.agent.AgentMessageDto
@@ -162,6 +163,7 @@ class AgentChatViewModel @Inject constructor(
 
     /** 当前运行的审计记录构建器 */
     private var currentAuditBuilder: AuditRecordBuilder? = null
+    private val draftConfirmKeys = mutableMapOf<Long, String>()
 
     init {
         // 监听 SSE 重连状态，更新 UI 提示“重连中...”
@@ -1271,7 +1273,10 @@ class AgentChatViewModel @Inject constructor(
             )
         }
         viewModelScope.launch {
-            repository.confirmDraft(draftId)
+            repository.confirmDraft(
+                draftId,
+                AgentDraftConfirmRequest(draftConfirmKeys.getOrPut(draftId) { UUID.randomUUID().toString() }),
+            )
                 .onSuccess { updated ->
                     currentAuditBuilder?.draftInfo = currentAuditBuilder?.draftInfo?.copy(userConfirmed = true)
                     _uiState.update { state ->

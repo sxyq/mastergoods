@@ -41,6 +41,12 @@ enum AgentDraftStatus {
     }
 }
 
+enum AgentAccessibilityPolicy {
+    static func animationEnabled(reduceMotion: Bool) -> Bool { !reduceMotion }
+    static func contrastStrokeWidth(increasedContrast: Bool) -> Double { increasedContrast ? 2 : 1 }
+    static func dynamicTypeAllowsMultiline() -> Bool { true }
+}
+
 /// Agent 运行的终态枚举。后端通过 `terminal_status` 字段下发，大小写不敏感。
 /// - 注意：`exhausted` 表示轮次耗尽，前端不应展示为成功样式。
 enum TerminalStatus: String, Codable, Equatable {
@@ -239,6 +245,11 @@ struct AgentChatResponse: Codable, Equatable {
     let auditId: String?
     let traceId: String?
     let observability: AgentObservability?
+    let terminalStatus: TerminalStatus? = nil
+    let errorCode: String? = nil
+    let safeMessage: String? = nil
+    let completedTools: [String] = []
+    let missingTargetTools: [String] = []
 }
 
 struct AgentResultBlock: Identifiable, Codable, Equatable {
@@ -252,6 +263,7 @@ struct AgentToolCall: Identifiable, Codable, Equatable {
     let toolCallId: String
     let toolName: String
     let status: String?
+    let summaryPreview: String? = nil
     let inputSummary: String?
     let returnedCount: Int?
     let totalCount: Int?
@@ -406,6 +418,7 @@ struct AgentStreamEvent: Codable, Equatable {
         case suggestedAction = "suggested_action"
         case compactedCount = "compacted_count"
         case summary
+        case summaryPreview = "summary_preview"
         case mode
         case llmStatus = "llm_status"
         case planSource = "plan_source"

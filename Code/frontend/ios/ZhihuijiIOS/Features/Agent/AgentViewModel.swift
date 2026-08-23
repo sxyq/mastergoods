@@ -57,6 +57,7 @@ final class AgentViewModel: ObservableObject {
 
     private var streamTask: Task<Void, Never>?
     private var confirmingDraftId: EntityID?
+    private var draftConfirmKeys: [EntityID: String] = [:]
 
     /// 页面离开（返回/关闭/进程回收）时取消本地 SSE 接收。
     /// 仅取消本地流，不触发正式业务写入；若需要取消服务端运行，
@@ -348,7 +349,9 @@ final class AgentViewModel: ObservableObject {
         defer { confirmingDraftId = nil }
 
         do {
-            let updated = try await client.confirmAgentDraft(id: draft.id)
+            let key = draftConfirmKeys[draft.id] ?? UUID().uuidString
+            draftConfirmKeys[draft.id] = key
+            let updated = try await client.confirmAgentDraft(id: draft.id, idempotencyKey: key)
             applyConfirmedDraft(updated)
             confirmationState = .confirmed
             // 确认成功后关闭弹窗、重新读取草稿、审计与业务结果。
@@ -689,7 +692,8 @@ final class AgentViewModel: ObservableObject {
         case "context_compacted":
             ensureLiveRun(from: event)
             let countText = event.compactedCount.map { "\($0) 条" } ?? "部分"
-            contextCompactedNotice = "已压缩 \(countText) 上下文。\(event.summary?.nilIfBlank ?? "旧消息已整理为摘要，以保持连续追问稳定。")"
+            let summaryPreview = event.summaryPreview ?? event.summary
+            contextCompactedNotice = "已压缩 \(countText) 上下文。\(summaryPreview?.nilIfBlank ?? "旧消息已整理为摘要，以保持连续追问稳定。")"
         case "run_completed":
             ensureLiveRun(from: event)
             if let finalAnswer = event.finalAnswer, !finalAnswer.isEmpty {

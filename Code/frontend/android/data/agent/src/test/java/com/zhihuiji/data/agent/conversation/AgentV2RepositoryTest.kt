@@ -8,6 +8,7 @@ import com.zhihuiji.core.datastore.SettingsStore
 import com.zhihuiji.core.model.ApiResponse
 import com.zhihuiji.core.model.v2.agent.AgentConversationDto
 import com.zhihuiji.core.model.v2.agent.AgentDraftDto
+import com.zhihuiji.core.model.v2.agent.AgentDraftConfirmRequest
 import com.zhihuiji.core.model.v2.agent.AgentImageGenerateRequest
 import com.zhihuiji.core.model.v2.agent.AgentImageGenerateResponse
 import com.zhihuiji.core.model.v2.agent.AgentMessageDto
@@ -124,9 +125,11 @@ class AgentV2RepositoryTest {
     fun deleteDraftDelegatesToDeleteAgentDraftV2AndSucceeds() = runBlocking {
         var invokedMethod: String? = null
         var invokedId: Long? = null
+        var invokedArgs: Array<out Any?>? = null
         val api = fakeApi { methodName, args ->
             invokedMethod = methodName
             invokedId = args?.get(0) as Long
+            invokedArgs = args
             ApiResponse<Unit>(code = 0, message = "ok", data = null)
         }
 
@@ -142,18 +145,21 @@ class AgentV2RepositoryTest {
     fun confirmDraftDelegatesToConfirmAgentDraftV2AndSucceeds() = runBlocking {
         var invokedMethod: String? = null
         var invokedId: Long? = null
+        var invokedArgs: Array<out Any?>? = null
         val api = fakeApi { methodName, args ->
             invokedMethod = methodName
             invokedId = args?.get(0) as Long
+            invokedArgs = args
             ApiResponse(code = 0, message = "ok", data = AgentDraftDto(id = invokedId ?: 0L, draftType = "create_sale_order"))
         }
 
         val repository = AgentV2Repository(api, fakeSseClient, json)
-        val result = repository.confirmDraft(6L)
+        val result = repository.confirmDraft(6L, AgentDraftConfirmRequest("test-confirm-key"))
 
         assertTrue(result.isSuccess)
         assertEquals("confirmAgentDraftV2", invokedMethod)
         assertEquals(6L, invokedId)
+        assertEquals("test-confirm-key", invokedArgs?.get(1))
     }
 
     @Test

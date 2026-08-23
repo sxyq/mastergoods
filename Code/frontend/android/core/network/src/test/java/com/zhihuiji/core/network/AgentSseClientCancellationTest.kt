@@ -159,6 +159,36 @@ class AgentSseClientCancellationTest {
     }
 
     @Test
+    fun chatStream_reconnectsWithLastEventIdAndDoesNotReemitConfirmedEvent() = runBlocking {
+        val requests = mutableListOf<Request>()
+        var callCount = 0
+        val client = AgentSseClient(
+            okHttpClient = OkHttpClient(),
+            json = Json { ignoreUnknownKeys = true; classDiscriminator = "event_type" },
+            baseUrlProvider = { "http://localhost" },
+            callFactory = { _, request ->
+                requests += request
+                callCount += 1
+                if (callCount == 1) {
+                    InterruptingBodyCall(request)
+                } else {
+                    StaticBodyCall(
+                        request,
+                        "id: terminal-1\ndata: {\"event_type\":\"run_completed\",\"run_id\":\"run-1\",\"final_answer\":\"完成\"}\n\n",
+                    )
+                }
+            },
+        )
+
+        val events = client.chatStream("""{"message":"库存","stream":true}""").toList()
+
+        assertEquals(2, events.size)
+        assertTrue(events[0] is AgentStreamEvent.AnswerDelta)
+        assertTrue(events[1] is AgentStreamEvent.RunCompleted)
+        assertEquals("evt-1", requests[1].header("Last-Event-ID"))
+    }
+
+    @Test
     fun chatStream_emitsParseErrorAndContinuesAfterMalformedSseData() = runBlocking {
         val client = clientForBody(
             """
@@ -318,6 +348,48 @@ class AgentSseClientCancellationTest {
         override fun timeout(): okio.Timeout = okio.Timeout.NONE
 
         override fun clone(): Call = FailingCall(request, failure)
+    }
+
+    private class InterruptingBodyCall(
+        private val request: Request,
+    ) : Call {
+        override fun request(): Request = request
+
+        override fun execute(): Response = Response.Builder()
+            .request(request)
+            .protocol(Protocol.HTTP_1_1)
+            .code(200)
+            .message("OK")
+            .body(object : ResponseBody() {
+                override fun contentType() = "text/event-stream".toMediaType()
+                override fun contentLength(): Long = -1L
+
+                @Suppress("DEPRECATION_ERROR")
+                override fun source(): okio.BufferedSource = okio.Okio.buffer(object : okio.Source {
+                    private var firstRead = true
+
+                    override fun read(sink: okio.Buffer, byteCount: Long): Long {
+                        if (firstRead) {
+                            firstRead = false
+                            return okio.Buffer()
+                                .writeUtf8("id: evt-1\ndata: {\"event_type\":\"answer_delta\",\"run_id\":\"run-1\",\"delta\":\"真实\"}\n\n")
+                                .read(sink, byteCount)
+                        }
+                        throw IOException("socket closed while reading")
+                    }
+
+                    override fun timeout(): okio.Timeout = okio.Timeout.NONE
+                    override fun close() = Unit
+                })
+            })
+            .build()
+
+        override fun enqueue(responseCallback: okhttp3.Callback) = error("Not used")
+        override fun cancel() = Unit
+        override fun isExecuted(): Boolean = false
+        override fun isCanceled(): Boolean = false
+        override fun timeout(): okio.Timeout = okio.Timeout.NONE
+        override fun clone(): Call = InterruptingBodyCall(request)
     }
 
     private class BlockingBodyCall(

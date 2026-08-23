@@ -198,6 +198,7 @@ const dismissedDraftIds = ref<Set<string>>(new Set())
 const draftActionPendingIds = ref<Set<string>>(new Set())
 const confirmedDraftIds = ref<Set<string>>(new Set())
 const draftConfirmErrors = ref<Record<string, string>>({})
+const draftConfirmKeys = ref<Record<string, string>>({})
 const canWrite = computed(() => session.hasPermission(['agent:write']))
 const canView = computed(() => session.hasPermission(['agent:view']))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
@@ -982,7 +983,10 @@ async function confirmPendingDraft(draftEvent: AgentDraftCreatedEvent) {
   markDraftActionPending(draftEvent.draftId, true)
   clearDraftConfirmError(draftEvent.draftId)
   try {
-    await confirmAgentDraft(session.token.value, draftEvent.draftId)
+    const draftKey = String(draftEvent.draftId)
+    const idempotencyKey = draftConfirmKeys.value[draftKey] || createDraftConfirmKey(draftKey)
+    draftConfirmKeys.value = { ...draftConfirmKeys.value, [draftKey]: idempotencyKey }
+    await confirmAgentDraft(session.token.value, draftEvent.draftId, idempotencyKey)
     // 仅当 confirm 接口成功返回后才标记为已确认；后续业务结果展示依赖该状态。
     const next = new Set(confirmedDraftIds.value)
     next.add(String(draftEvent.draftId))
@@ -997,6 +1001,11 @@ async function confirmPendingDraft(draftEvent: AgentDraftCreatedEvent) {
   } finally {
     markDraftActionPending(draftEvent.draftId, false)
   }
+}
+
+function createDraftConfirmKey(draftId: string) {
+  if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID()
+  return `web-agent-draft-confirm-${draftId}-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 async function cancelPendingDraft(draftEvent: AgentDraftCreatedEvent) {

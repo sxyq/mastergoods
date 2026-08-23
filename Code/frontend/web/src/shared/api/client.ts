@@ -2225,10 +2225,13 @@ export async function deleteAgentDraft(token: string, id: EntityId) {
   })
 }
 
-export async function confirmAgentDraft(token: string, id: EntityId) {
+export async function confirmAgentDraft(token: string, id: EntityId, idempotencyKey?: string | null) {
   return request<AgentDraft>(`/v2/agent/drafts/${id}/confirm`, {
     method: 'POST',
-    headers: authHeaders(token),
+    headers: {
+      ...authHeaders(token),
+      'Idempotency-Key': idempotencyKey?.trim() || createIdempotencyKey('web-agent-draft-confirm'),
+    },
   })
 }
 
@@ -2654,8 +2657,10 @@ function toPayOrderBody(payload: PayOrderCreatePayload) {
 }
 
 function createPayOrderIdempotencyKey() {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID()
-  }
-  return `web-pay-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return createIdempotencyKey('web-pay')
+}
+
+function createIdempotencyKey(prefix: string) {
+  if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID()
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
