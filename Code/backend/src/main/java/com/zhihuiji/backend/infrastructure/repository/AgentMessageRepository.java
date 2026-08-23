@@ -47,4 +47,31 @@ public interface AgentMessageRepository extends JpaRepository<AgentMessageEntity
     Optional<AgentMessageEntity> findByIdAndOwnerUserId(Long id, Long ownerUserId);
 
     void deleteAllByOwnerUserIdAndConversationId(Long ownerUserId, Long conversationId);
+
+    /**
+     * 加载检查点边界之后的原始消息（时间正序），用于 ContextBuilder 拼装上下文。
+     *
+     * <p>边界按 {@code id > boundaryMessageId} 过滤，与 {@code AgentContextCheckpointEntity}
+     * 的 {@code source_boundary_message_id} 含义一致：边界本身已经压缩进检查点，
+     * 边界之后的消息仍以原始形式注入。
+     */
+    List<AgentMessageEntity> findAllByOwnerUserIdAndConversationIdAndIdGreaterThanOrderByIdAsc(
+        Long ownerUserId,
+        Long conversationId,
+        Long boundaryMessageId
+    );
+
+    /**
+     * 查找会话内最近 N 条原始消息（时间倒序），用于压缩策略选择最早的完整已完成轮次。
+     */
+    default List<AgentMessageEntity> findRecentForCompaction(
+        Long ownerUserId, Long conversationId, int limit
+    ) {
+        if (limit <= 0) {
+            return List.of();
+        }
+        return findAllByOwnerUserIdAndConversationIdOrderByCreatedAtDescIdDesc(
+            ownerUserId, conversationId, Pageable.ofSize(limit)
+        );
+    }
 }

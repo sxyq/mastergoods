@@ -42,6 +42,9 @@ import com.zhihuiji.backend.application.service.v2.agent.component.SafetyGuard;
 import com.zhihuiji.backend.application.service.v2.agent.component.SseStreamEmitter;
 import com.zhihuiji.backend.application.service.v2.agent.component.ToolPlanner;
 import com.zhihuiji.backend.application.service.v2.agent.component.ToolInvocationIdentity;
+import com.zhihuiji.backend.application.service.v2.agent.context.ContextBuilder;
+import com.zhihuiji.backend.application.service.v2.agent.context.ContextCompactionService;
+import com.zhihuiji.backend.application.service.v2.agent.context.ContextCompactionService.CompactionResult;
 import com.zhihuiji.backend.application.service.v2.agent.tool.AgentTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolArgumentsValidator;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolContext;
@@ -110,6 +113,8 @@ public class V2AgentAiService {
     private final SafetyGuard safetyGuard;
     private final ToolPlanner toolPlanner;
     private final AnswerSynthesizer answerSynthesizer;
+    private final ContextBuilder contextBuilder;
+    private final ContextCompactionService contextCompactionService;
     private final ExecutorService streamExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     public V2AgentAiService(
@@ -131,7 +136,9 @@ public class V2AgentAiService {
         SseStreamEmitter sseStreamEmitter,
         SafetyGuard safetyGuard,
         ToolPlanner toolPlanner,
-        AnswerSynthesizer answerSynthesizer
+        AnswerSynthesizer answerSynthesizer,
+        ContextBuilder contextBuilder,
+        ContextCompactionService contextCompactionService
     ) {
         this.currentOwnerService = currentOwnerService;
         this.agentConversationRepository = agentConversationRepository;
@@ -152,6 +159,8 @@ public class V2AgentAiService {
         this.safetyGuard = safetyGuard;
         this.toolPlanner = toolPlanner;
         this.answerSynthesizer = answerSynthesizer;
+        this.contextBuilder = contextBuilder;
+        this.contextCompactionService = contextCompactionService;
     }
 
     @PreDestroy
@@ -332,10 +341,27 @@ public class V2AgentAiService {
             finalAnswer = buildMultimodalDirectAnswer(message, imageInputs);
             outcome = new AgentRunOutcome(payload, AgentTerminalStatus.COMPLETED);
         } else {
-            List<AgentMessageEntity> history = loadRecentHistory(ownerUserId, conversation.getId(), 10);
-            outcome = buildResponse(ownerUserId, conversation.getId(), message, history, conversation.getLatestSummary(), null, runId);
+            ContextBuilder.ContextPackage contextPackage = contextBuilder.build(
+                ownerUserId,
+                conversation.getId(),
+                message,
+                buildToolCatalogForCurrentRequest(),
+                buildScopeDescription(ownerUserId)
+            );
+            CompactionResult compaction = contextCompactionService.compactIfNeeded(contextPackage);
+            // 压缩发生后，当前请求必须只使用新检查点边界之后的原始消息，
+            // 不能继续使用压缩前的完整消息列表（否则压缩对本次请求无效）。
+            List<AgentMessageEntity> history = compaction.occurred()
+                ? afterBoundary(contextPackage.messagesAfterBoundary(), compaction.boundaryMessageId())
+                : contextPackage.messagesAfterBoundary();
+            String effectiveSummary = compaction.occurred()
+                ? compaction.summaryPreview()
+                : (StringUtils.hasText(contextPackage.checkpointSummary())
+                    ? contextPackage.checkpointSummary()
+                    : conversation.getLatestSummary());
+            outcome = buildResponse(ownerUserId, conversation.getId(), message, history, effectiveSummary, null, runId);
             payload = outcome.payload();
-            finalAnswer = buildFinalAnswer(message, payload, history, conversation.getLatestSummary());
+            finalAnswer = buildFinalAnswer(message, payload, history, effectiveSummary);
             finalAnswer = applyTerminalAnswerSuffix(finalAnswer, outcome.terminalStatus(), outcome);
         }
         long completedAt = System.currentTimeMillis();
@@ -697,8 +723,38 @@ public class V2AgentAiService {
                 outcome = new AgentRunOutcome(payload, AgentTerminalStatus.COMPLETED);
                 finalAnswer = buildMultimodalDirectAnswerForStream(message, imageInputs, emitter, runId, emitBlocksAfterVisibleAnswer);
             } else {
-                List<AgentMessageEntity> history = loadRecentHistory(ownerUserId, conversation.getId(), 10);
-                outcome = buildResponse(ownerUserId, conversation.getId(), message, history, conversation.getLatestSummary(), emitter, runId);
+                ContextBuilder.ContextPackage contextPackage = contextBuilder.build(
+                    ownerUserId,
+                    conversation.getId(),
+                    message,
+                    buildToolCatalogForCurrentRequest(),
+                    buildScopeDescription(ownerUserId)
+                );
+                CompactionResult compaction = contextCompactionService.compactIfNeeded(contextPackage);
+                // 流式路径同样只使用压缩后边界之后的原始消息，避免压缩结果不生效。
+                List<AgentMessageEntity> history = compaction.occurred()
+                    ? afterBoundary(contextPackage.messagesAfterBoundary(), compaction.boundaryMessageId())
+                    : contextPackage.messagesAfterBoundary();
+                String effectiveSummary = compaction.occurred()
+                    ? compaction.summaryPreview()
+                    : (StringUtils.hasText(contextPackage.checkpointSummary())
+                        ? contextPackage.checkpointSummary()
+                        : conversation.getLatestSummary());
+                if (compaction.occurred() && StringUtils.hasText(runId)) {
+                    sseStreamEmitter.emitContextCompacted(
+                        emitter,
+                        runId,
+                        compaction.checkpoint() == null ? null : compaction.checkpoint().getId(),
+                        compaction.boundaryMessageId(),
+                        compaction.compactedCount(),
+                        compaction.summaryPreview(),
+                        compaction.inputTokenEstimate(),
+                        compaction.outputTokenEstimate(),
+                        compaction.reason(),
+                        compaction.reused()
+                    );
+                }
+                outcome = buildResponse(ownerUserId, conversation.getId(), message, history, effectiveSummary, emitter, runId);
                 payload = outcome.payload();
                 payloadRef[0] = payload;
                 runAuditService.ensureRunActive(runId);
@@ -709,7 +765,7 @@ public class V2AgentAiService {
                     runId,
                     emitBlocksAfterVisibleAnswer,
                     history,
-                    conversation.getLatestSummary()
+                    effectiveSummary
                 );
                 finalAnswer = applyTerminalAnswerSuffix(finalAnswer, outcome.terminalStatus(), outcome);
             }
@@ -1077,6 +1133,38 @@ public class V2AgentAiService {
         } catch (RuntimeException ignored) {
             return null;
         }
+    }
+
+    /**
+     * 构建当前请求的工具目录文本，用于 ContextBuilder 系统规则部分。
+     *
+     * <p>只读取已注册工具的 description 和用户语言提示；不包含凭据、价格或
+     * 客户隐私字段。工具实际执行由 ToolExecutor 在受控边界内进行。
+     */
+    private String buildToolCatalogForCurrentRequest() {
+        List<AgentTool> tools = new ArrayList<>();
+        tools.addAll(toolRegistry.listReadOnlyTools());
+        tools.addAll(toolRegistry.listCreateTools());
+        if (tools.isEmpty()) {
+            return "";
+        }
+        return com.zhihuiji.backend.application.service.v2.agent.component.AgentPromptCatalog.buildCatalog(tools, false);
+    }
+
+    /**
+     * 构建 owner/store 作用域说明，用于 ContextBuilder 上下文包 B 部分。
+     *
+     * <p>每次请求重新从认证上下文构建；不含手机号、地址、凭据或完整认证载荷。
+     */
+    private String buildScopeDescription(Long ownerUserId) {
+        Long storeId = currentStoreIdOrNull();
+        StringBuilder sb = new StringBuilder();
+        sb.append("当前 owner_user_id：").append(ownerUserId == null ? "unknown" : ownerUserId).append('\n');
+        if (storeId != null) {
+            sb.append("当前 store_id：").append(storeId).append('\n');
+        }
+        sb.append("数据作用域：仅当前账号和当前门店；不允许跨账号查询。\n");
+        return sb.toString();
     }
 
     private List<ToolExecutionResult> collapseToolResultsForPresentation(List<ToolExecutionResult> toolResults) {
@@ -1832,6 +1920,24 @@ public class V2AgentAiService {
 
     private List<AgentMessageEntity> loadRecentHistory(Long ownerUserId, Long conversationId, int limit) {
         return answerSynthesizer.loadRecentHistory(ownerUserId, conversationId, limit);
+    }
+
+    /**
+     * 保留边界之后（id > boundaryMessageId）的原始消息。
+     *
+     * <p>压缩检查点的边界消息本身已经压缩进摘要，边界之后的消息仍以原始形式
+     * 注入模型；边界为 null 或列表为空时原样返回。
+     */
+    private static List<AgentMessageEntity> afterBoundary(
+        List<AgentMessageEntity> messages, Long boundaryMessageId
+    ) {
+        if (messages == null || messages.isEmpty() || boundaryMessageId == null) {
+            return messages == null ? List.of() : messages;
+        }
+        return messages.stream()
+            .filter(message -> message != null && message.getId() != null
+                && message.getId() > boundaryMessageId)
+            .toList();
     }
 
     private List<V2AgentDtos.AgentToolCallDto> toToolCallDtos(String runId, ResponsePayload payload) {

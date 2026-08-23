@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
+import com.zhihuiji.backend.domain.entity.AgentContextCheckpointEntity;
 import com.zhihuiji.backend.domain.entity.AgentConversationEntity;
 import com.zhihuiji.backend.domain.entity.AgentDraftEntity;
 import com.zhihuiji.backend.domain.entity.AgentMessageEntity;
@@ -52,6 +53,10 @@ import com.zhihuiji.backend.application.service.v2.agent.component.SafetyDecisio
 import com.zhihuiji.backend.application.service.v2.agent.component.SafetyGuard;
 import com.zhihuiji.backend.application.service.v2.agent.component.SseStreamEmitter;
 import com.zhihuiji.backend.application.service.v2.agent.component.ToolPlanner;
+import com.zhihuiji.backend.application.service.v2.agent.context.ContextBuilder;
+import com.zhihuiji.backend.application.service.v2.agent.context.ContextCompactionService;
+import com.zhihuiji.backend.application.service.v2.agent.context.ContextWindowResolver;
+import com.zhihuiji.backend.application.service.v2.agent.context.TokenEstimator;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolExecutor;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolRegistry;
 import com.zhihuiji.backend.application.service.v2.agent.tool.AgentTool;
@@ -80,6 +85,8 @@ import com.zhihuiji.backend.application.service.v2.agent.tool.write.CreatePurcha
 import com.zhihuiji.backend.application.service.v2.agent.tool.write.CreateSaleOrderTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.write.CreateSupplierTool;
 import com.zhihuiji.backend.infrastructure.ai.LongCatAnthropicClient;
+import com.zhihuiji.backend.infrastructure.config.AgentLlmProperties;
+import com.zhihuiji.backend.infrastructure.repository.AgentContextCheckpointRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentConversationRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentDraftRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentMessageRepository;
@@ -165,6 +172,7 @@ class V2AgentAiServiceTest {
     @Mock private PurchaseReturnRepository purchaseReturnRepository;
     @Mock private com.zhihuiji.backend.infrastructure.repository.PurchaseOrderItemRepository purchaseOrderItemRepository;
     @Mock private LongCatAnthropicClient longCatAnthropicClient;
+    @Mock private AgentContextCheckpointRepository agentContextCheckpointRepository;
 
     private V2AgentAiService service;
     private List<AgentMessageEntity> agentMessages;
@@ -226,6 +234,25 @@ class V2AgentAiServiceTest {
             objectMapper,
             toolPlanner
         ));
+        AgentLlmProperties llmProperties = new AgentLlmProperties();
+        llmProperties.setModel("test-model");
+        llmProperties.setWireApi("anthropic");
+        TokenEstimator tokenEstimator = new TokenEstimator();
+        ContextWindowResolver windowResolver = new ContextWindowResolver(llmProperties);
+        ContextBuilder contextBuilder = new ContextBuilder(
+            agentMessageRepository,
+            agentContextCheckpointRepository,
+            windowResolver,
+            tokenEstimator,
+            llmProperties
+        );
+        ContextCompactionService contextCompactionService = new ContextCompactionService(
+            agentContextCheckpointRepository,
+            longCatAnthropicClient,
+            llmProperties,
+            objectMapper,
+            tokenEstimator
+        );
         service = new V2AgentAiService(
             currentOwnerService,
             agentConversationRepository,
@@ -245,7 +272,9 @@ class V2AgentAiServiceTest {
             sseStreamEmitter,
             safetyGuard,
             toolPlanner,
-            answerSynthesizer
+            answerSynthesizer,
+            contextBuilder,
+            contextCompactionService
         );
         when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
         when(longCatAnthropicClient.isConfigured()).thenReturn(false);
@@ -3527,6 +3556,90 @@ class V2AgentAiServiceTest {
             "tool_completed".equals(event.eventType())
                 && "customer_receivable_lookup".equals(event.payload().path("tool_name").asText())
         ));
+    }
+
+    @Test
+    void chatAfterCompactionUsesOnlyBoundaryAfterMessagesForCurrentRequest() throws Exception {
+        // LLM 未配置 -> 走确定性压缩降级路径，不依赖 Provider。
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        AgentConversationEntity conversation = conversation(401L);
+        when(agentConversationRepository.findByIdAndOwnerUserId(401L, 1L)).thenReturn(Optional.of(conversation));
+        // 保存检查点时返回带 id 的实体，使 CompactionResult.occurred() = true。
+        when(agentContextCheckpointRepository.save(any(AgentContextCheckpointEntity.class)))
+            .thenAnswer(invocation -> {
+                AgentContextCheckpointEntity entity = invocation.getArgument(0);
+                setId(entity, 999L);
+                return entity;
+            });
+        // 历史 7 条消息：两个完整轮次 + 当前 user 消息（id=7）。
+        List<AgentMessageEntity> descending = List.of(
+            message(7L, 401L, "user", "当前问题", 7L),
+            message(6L, 401L, "tool", null, 6L),
+            message(5L, 401L, "assistant", "第二轮回答", 5L),
+            message(4L, 401L, "user", "第二轮问题", 4L),
+            message(3L, 401L, "tool", null, 3L),
+            message(2L, 401L, "assistant", "第一轮回答", 2L),
+            message(1L, 401L, "user", "第一轮问题", 1L)
+        );
+        for (AgentMessageEntity toolMessage : List.of(descending.get(1), descending.get(4))) {
+            toolMessage.setStructuredDataJson("{\"tool_name\":\"product_catalog_lookup\",\"tool_call_id\":\"call-x\"}");
+        }
+        when(agentMessageRepository.findAllByOwnerUserIdAndConversationIdOrderByCreatedAtDescIdDesc(
+            1L, 401L, PageRequest.of(0, 24)))
+            .thenReturn(descending);
+
+        // 超长当前问题强制压缩预算超限。
+        String longQuestion = "请帮我仔细查询并核对这家门店的历史经营数据".repeat(2000);
+        ArgumentCaptor<List<AgentMessageEntity>> historyCaptor = ArgumentCaptor.forClass(List.class);
+        service.chat(new V2AgentDtos.AgentChatRequest(401L, longQuestion, false));
+
+        // 压缩发生后，当前请求只应使用检查点边界（id=6）之后的原始消息（id=7），
+        // 而不是压缩前的完整消息列表。
+        verify(answerSynthesizer).buildFinalAnswer(
+            anyString(), any(), historyCaptor.capture(), anyString()
+        );
+        List<AgentMessageEntity> history = historyCaptor.getValue();
+        assertEquals(1, history.size(), "压缩后历史只保留边界之后的原始消息");
+        assertEquals(7L, history.get(0).getId());
+    }
+
+    @Test
+    void streamCompactionEmitsContextCompactedAndKeepsBoundaryAfterMessages() throws Exception {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(false);
+        when(agentContextCheckpointRepository.save(any(AgentContextCheckpointEntity.class)))
+            .thenAnswer(invocation -> {
+                AgentContextCheckpointEntity entity = invocation.getArgument(0);
+                setId(entity, 888L);
+                return entity;
+            });
+        List<AgentMessageEntity> descending = List.of(
+            message(7L, 402L, "user", "当前问题", 7L),
+            message(6L, 402L, "tool", null, 6L),
+            message(5L, 402L, "assistant", "第二轮回答", 5L),
+            message(4L, 402L, "user", "第二轮问题", 4L),
+            message(3L, 402L, "tool", null, 3L),
+            message(2L, 402L, "assistant", "第一轮回答", 2L),
+            message(1L, 402L, "user", "第一轮问题", 1L)
+        );
+        for (AgentMessageEntity toolMessage : List.of(descending.get(1), descending.get(4))) {
+            toolMessage.setStructuredDataJson("{\"tool_name\":\"product_catalog_lookup\",\"tool_call_id\":\"call-y\"}");
+        }
+        when(agentMessageRepository.findAllByOwnerUserIdAndConversationIdOrderByCreatedAtDescIdDesc(
+            1L, 402L, PageRequest.of(0, 24)))
+            .thenReturn(descending);
+
+        String longQuestion = "请帮我统计所有客户这个季度的应收与付款计划".repeat(2000);
+        CapturingEmitter emitter = new CapturingEmitter();
+        service.runChatStream(1L, conversation(402L), longQuestion, List.of(), "run-ctx-compact", emitter);
+
+        // context_compacted 事件携带边界、压缩条数和摘要预览。
+        assertTrue(emitter.containsPayload("context_compacted"), String.join("\n", emitter.payloads));
+        String compacted = firstPayload(emitter, "context_compacted");
+        assertTrue(compacted.contains("\"compacted_count\":6"), compacted);
+        assertTrue(compacted.contains("\"source_boundary_message_id\":6"), compacted);
+        assertTrue(compacted.contains("\"reason\":\"context_budget_threshold\""), compacted);
+        // 压缩使用确定性摘要，不携带凭据类原文。
+        assertFalse(compacted.contains("sk-"), compacted);
     }
 
     private static boolean hasBlock(V2AgentDtos.AgentChatResponse response, String blockType) {
