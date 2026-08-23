@@ -542,6 +542,7 @@ public class AnswerSynthesizer {
         }
         if (!hasSuccessfulDraft(payload)
             && !hasSuccessfulVisualization(payload)
+            && !hasSuccessfulPosterPrompt(payload)
             && containsUnsupportedWriteClaim(answer)) {
             log.warn("Agent final answer rejected: reason=unsupported_write_claim");
             return Optional.empty();
@@ -767,6 +768,23 @@ public class AnswerSynthesizer {
                 && result.facts().path("draft_id").asLong(0L) > 0L
                 && (StringUtils.hasText(result.facts().path("draft_type").asText())
                     || (result.toolName() != null && result.toolName().startsWith("create_")))
+        );
+    }
+
+    /**
+     * generate_poster_prompt 是 READ_ONLY 文本产物工具：它只生成提示词文本，
+     * 不写入任何正式业务表。模型回答"已生成海报提示词"是真实事实，不应被
+     * unsupported_write_claim 当作"伪造正式写入"拒绝。
+     */
+    private boolean hasSuccessfulPosterPrompt(ResponsePayload payload) {
+        if (payload == null || payload.toolResults() == null) {
+            return false;
+        }
+        return payload.toolResults().stream().anyMatch(result ->
+            result != null
+                && "generate_poster_prompt".equals(result.toolName())
+                && result.facts() != null
+                && result.facts().isObject()
         );
     }
 
