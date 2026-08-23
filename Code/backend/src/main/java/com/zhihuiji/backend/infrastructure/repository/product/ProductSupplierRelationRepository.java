@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.infrastructure.repository.product;
 
 import com.zhihuiji.backend.domain.entity.product.ProductSupplierRelationEntity;
+import org.springframework.data.domain.Pageable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -10,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface ProductSupplierRelationRepository extends JpaRepository<ProductSupplierRelationEntity, Long> {
     List<ProductSupplierRelationEntity> findAllByOwnerUserIdOrderByUpdatedAtAscIdAsc(Long ownerUserId);
+    List<ProductSupplierRelationEntity> findAllByOwnerUserIdOrderByUpdatedAtAscIdAsc(Long ownerUserId, Pageable pageable);
 
     @Query("SELECT e FROM ProductSupplierRelationEntity e WHERE e.ownerUserId = :ownerUserId AND COALESCE(e.updatedAt, e.createdAt) >= :sinceTimestamp ORDER BY e.updatedAt ASC, e.id ASC")
     List<ProductSupplierRelationEntity> findChangedByOwnerUserId(@Param("ownerUserId") Long ownerUserId, @Param("sinceTimestamp") Long sinceTimestamp);

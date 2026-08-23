@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.application.service.v2.agent.tool.readonly;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.data.domain.PageRequest;
 import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolContext;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolResult;
@@ -56,8 +57,7 @@ public class AccountBalanceLookupTool extends ToolSupport {
         Map<String, Object> input = mapOf();
         ToolAudit audit = startAudit(ctx, name(), input);
 
-        List<AccountEntity> accounts = accountRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId);
-        List<AccountEntity> limited = limit(accounts, DEFAULT_TOOL_LIMIT);
+        List<AccountEntity> limited = accountRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
         List<AccountEntity> topAccounts = limit(limited, 5);
         audit.markLimitedResult(limited.size(), DEFAULT_TOOL_LIMIT);
         double totalBalance = 0D;

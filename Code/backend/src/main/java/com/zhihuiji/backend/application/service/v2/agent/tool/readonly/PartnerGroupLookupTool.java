@@ -12,6 +12,7 @@ import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -114,12 +115,17 @@ public class PartnerGroupLookupTool extends ToolSupport {
     }
 
     private List<PartnerGroupEntity> loadGroups(Long ownerUserId, String partnerType) {
+        // PartnerGroup 属于配置型小结果集（单 owner 分组数量通常 < 50），这里仍将 page/size 下推到
+        // Repository，由数据库截断到 DEFAULT_TOOL_LIMIT，避免全量加载到内存。
         if (StringUtils.hasText(partnerType)) {
-            return partnerGroupRepository.findAllByOwnerUserIdAndPartnerTypeOrderBySortOrderAscNameAsc(ownerUserId, partnerType);
+            return partnerGroupRepository.findAllByOwnerUserIdAndPartnerTypeOrderBySortOrderAscNameAsc(
+                ownerUserId, partnerType, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
         }
         List<PartnerGroupEntity> all = new ArrayList<>();
-        all.addAll(partnerGroupRepository.findAllByOwnerUserIdAndPartnerTypeOrderBySortOrderAscNameAsc(ownerUserId, PARTNER_TYPE_CUSTOMER));
-        all.addAll(partnerGroupRepository.findAllByOwnerUserIdAndPartnerTypeOrderBySortOrderAscNameAsc(ownerUserId, PARTNER_TYPE_SUPPLIER));
+        all.addAll(partnerGroupRepository.findAllByOwnerUserIdAndPartnerTypeOrderBySortOrderAscNameAsc(
+            ownerUserId, PARTNER_TYPE_CUSTOMER, PageRequest.of(0, DEFAULT_TOOL_LIMIT)));
+        all.addAll(partnerGroupRepository.findAllByOwnerUserIdAndPartnerTypeOrderBySortOrderAscNameAsc(
+            ownerUserId, PARTNER_TYPE_SUPPLIER, PageRequest.of(0, DEFAULT_TOOL_LIMIT)));
         return all;
     }
 

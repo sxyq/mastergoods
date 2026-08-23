@@ -12,6 +12,8 @@ public interface InventoryAdjustmentRepository extends JpaRepository<InventoryAd
 
     List<InventoryAdjustmentEntity> findByOwnerUserIdOrderByCreatedAtAsc(Long ownerUserId);
 
+    List<InventoryAdjustmentEntity> findByOwnerUserIdOrderByCreatedAtDesc(Long ownerUserId, Pageable pageable);
+
     @Query("SELECT e FROM InventoryAdjustmentEntity e WHERE e.ownerUserId = :ownerUserId AND e.createdAt >= :sinceTimestamp ORDER BY e.createdAt ASC")
     List<InventoryAdjustmentEntity> findChangedByOwnerUserId(@Param("ownerUserId") Long ownerUserId, @Param("sinceTimestamp") Long sinceTimestamp);
 

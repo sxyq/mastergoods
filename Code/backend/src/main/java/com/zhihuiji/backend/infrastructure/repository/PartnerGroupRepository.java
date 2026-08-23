@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.infrastructure.repository;
 
 import com.zhihuiji.backend.domain.entity.PartnerGroupEntity;
+import org.springframework.data.domain.Pageable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -10,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface PartnerGroupRepository extends JpaRepository<PartnerGroupEntity, Long> {
     List<PartnerGroupEntity> findAllByOwnerUserIdAndPartnerTypeOrderBySortOrderAscNameAsc(Long ownerUserId, String partnerType);
+    List<PartnerGroupEntity> findAllByOwnerUserIdAndPartnerTypeOrderBySortOrderAscNameAsc(Long ownerUserId, String partnerType, Pageable pageable);
 
     List<PartnerGroupEntity> findAllByOwnerUserIdAndPartnerTypeAndIdIn(Long ownerUserId, String partnerType, Collection<Long> ids);
 

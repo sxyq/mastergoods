@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.infrastructure.repository;
 
 import com.zhihuiji.backend.domain.entity.ImportJobEntity;
+import org.springframework.data.domain.Pageable;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface ImportJobRepository extends JpaRepository<ImportJobEntity, Long> {
     List<ImportJobEntity> findAllByOwnerUserIdOrderByCreatedAtDesc(Long ownerUserId);
+    List<ImportJobEntity> findAllByOwnerUserIdOrderByCreatedAtDesc(Long ownerUserId, Pageable pageable);
 
     List<ImportJobEntity> findAllByOwnerUserIdAndStatusOrderByUpdatedAtDesc(Long ownerUserId, String status);
 

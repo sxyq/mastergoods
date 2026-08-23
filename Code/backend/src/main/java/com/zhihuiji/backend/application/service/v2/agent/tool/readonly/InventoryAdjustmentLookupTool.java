@@ -8,9 +8,9 @@ import com.zhihuiji.backend.application.service.v2.agent.tool.ToolSupport;
 import com.zhihuiji.backend.domain.entity.InventoryAdjustmentEntity;
 import com.zhihuiji.backend.infrastructure.repository.InventoryAdjustmentRepository;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -72,13 +72,13 @@ public class InventoryAdjustmentLookupTool extends ToolSupport {
         if (startDate != null && endDate != null) {
             long startAt = Math.min(startDate, endDate);
             long endAt = Math.max(startDate, endDate);
-            records = inventoryAdjustmentRepository.findByOwnerUserIdAndCreatedAtBetween(ownerUserId, startAt, endAt);
-            Collections.reverse(records);
+            records = inventoryAdjustmentRepository.findByOwnerUserIdAndCreatedAtBetweenOrderByCreatedAtDesc(
+                ownerUserId, startAt, endAt, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
         } else {
-            records = inventoryAdjustmentRepository.findByOwnerUserIdOrderByCreatedAtAsc(ownerUserId);
-            Collections.reverse(records);
+            records = inventoryAdjustmentRepository.findByOwnerUserIdOrderByCreatedAtDesc(
+                ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
         }
-        List<InventoryAdjustmentEntity> recent = limit(records, DEFAULT_TOOL_LIMIT);
+        List<InventoryAdjustmentEntity> recent = records;
         audit.markLimitedResult(recent.size(), DEFAULT_TOOL_LIMIT);
 
         double totalQuantity = 0D;

@@ -10,6 +10,7 @@ import com.zhihuiji.backend.infrastructure.repository.InventorySnapshotRepositor
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -71,10 +72,14 @@ public class InventorySnapshotLookupTool extends ToolSupport {
 
         List<InventorySnapshotEntity> snapshots;
         if (snapshotDate != null) {
-            snapshots = inventorySnapshotRepository.findAllByOwnerUserIdAndSnapshotDateOrderByProductNameAsc(ownerUserId, snapshotDate);
+            snapshots = inventorySnapshotRepository.findAllByOwnerUserIdAndSnapshotDateOrderByProductNameAsc(
+                ownerUserId, snapshotDate, PageRequest.of(0, DEFAULT_TOOL_LIMIT)).getContent();
         } else if (startDate != null && endDate != null) {
-            snapshots = inventorySnapshotRepository.findAllByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateAscProductNameAsc(ownerUserId, startDate, endDate);
+            snapshots = inventorySnapshotRepository.findAllByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateAscProductNameAsc(
+                ownerUserId, startDate, endDate, PageRequest.of(0, DEFAULT_TOOL_LIMIT)).getContent();
         } else {
+            // 无时间筛选分支无 Pageable 重载，保留全量 + limit() 内存截断；
+            // 该分支命中条件为未传任何时间参数，线上调用方通常会带 snapshot_date 或时间窗口。
             snapshots = inventorySnapshotRepository.findAllByOwnerUserIdOrderBySnapshotDateAscIdAsc(ownerUserId);
         }
         if (productId != null) {

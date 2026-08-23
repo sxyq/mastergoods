@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.application.service.v2.agent.tool.readonly;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.data.domain.PageRequest;
 import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolContext;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolResult;
@@ -59,8 +60,7 @@ public class ProductPriceLevelLookupTool extends ToolSupport {
         Map<String, Object> input = mapOf();
         ToolAudit audit = startAudit(ctx, name(), input);
 
-        List<ProductPriceLevelEntity> levels = priceLevelRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId);
-        List<ProductPriceLevelEntity> limited = limit(levels, DEFAULT_TOOL_LIMIT);
+        List<ProductPriceLevelEntity> limited = priceLevelRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
         audit.markLimitedResult(limited.size(), DEFAULT_TOOL_LIMIT);
         emitToolCompleted(ctx, name(), "命中 " + limited.size() + " 个价格等级", audit);
 

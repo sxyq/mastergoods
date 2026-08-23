@@ -41,6 +41,7 @@ public interface PaymentRepository extends JpaRepository<PaymentEntity, Long> {
     );
 
     List<PaymentEntity> findAllByOwnerUserId(Long ownerUserId);
+    List<PaymentEntity> findAllByOwnerUserIdOrderByCreatedAtDescIdDesc(Long ownerUserId, Pageable pageable);
 
     @Query("SELECT e FROM PaymentEntity e WHERE e.ownerUserId = :ownerUserId AND e.createdAt >= :sinceTimestamp")
     List<PaymentEntity> findChangedByOwnerUserId(@Param("ownerUserId") Long ownerUserId, @Param("sinceTimestamp") Long sinceTimestamp);

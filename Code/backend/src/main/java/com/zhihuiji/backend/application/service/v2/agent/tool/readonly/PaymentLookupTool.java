@@ -85,9 +85,9 @@ public class PaymentLookupTool extends ToolSupport {
         } else if (startDate != null && endDate != null) {
             payments = paymentRepository.findByOwnerUserIdAndCreatedAtBetween(ownerUserId, startDate, endDate);
         } else {
-            payments = paymentRepository.findAllByOwnerUserId(ownerUserId);
+            payments = paymentRepository.findAllByOwnerUserIdOrderByCreatedAtDescIdDesc(ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
         }
-        List<PaymentEntity> limited = limit(payments, DEFAULT_TOOL_LIMIT);
+        List<PaymentEntity> limited = payments;
         List<PaymentEntity> topPayments = limit(limited, 5);
         audit.markLimitedResult(limited.size(), DEFAULT_TOOL_LIMIT);
         double receivedAmount = 0D;

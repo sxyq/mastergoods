@@ -100,6 +100,7 @@ public class CrossAnalysisLookupTool extends ToolSupport {
         List<Double> compareAmounts = new ArrayList<>();
 
         if (querySales) {
+            // 销售侧使用 SQL 聚合查询（SUM/COUNT），无需分页；数据窗口由 days 参数限定（默认 30 天）。
             double salesAmount = safeDouble(saleOrderRepository.sumTotalAmountBetween(ownerUserId, startAt, now));
             double paidAmount = safeDouble(saleOrderRepository.sumPaidAmountBetween(ownerUserId, startAt, now));
             long salesCount = safeLong(saleOrderRepository.countNonCancelledBetween(ownerUserId, startAt, now));
@@ -112,6 +113,9 @@ public class CrossAnalysisLookupTool extends ToolSupport {
             compareAmounts.add(paidAmount);
         }
         if (queryPurchase) {
+            // 采购侧为聚合计算（sum totalAmount/paidAmount），需全量遍历窗口内订单；
+            // 数据窗口由 days 参数限定（默认 30 天），保留全量加载用于内存聚合。
+            // TODO: 后续可下沉为 SQL 聚合查询（参考 SaleOrderRepository.salesSummaryAggregate）。
             List<PurchaseOrderEntity> purchaseOrders = purchaseOrderRepository
                 .findByOwnerUserIdAndCreatedAtBetween(ownerUserId, startAt, now);
             double purchaseAmount = 0D;

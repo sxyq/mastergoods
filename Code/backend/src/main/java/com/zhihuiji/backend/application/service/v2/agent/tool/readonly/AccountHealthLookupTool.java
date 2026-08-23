@@ -18,6 +18,7 @@ import com.zhihuiji.backend.infrastructure.repository.FinanceRecordRepository;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import org.springframework.data.domain.PageRequest;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -108,16 +109,21 @@ public class AccountHealthLookupTool extends ToolSupport {
         );
         ToolAudit audit = startAudit(ctx, name(), input);
 
+        // 账户属于配置型固定小结果集（单 owner 账户数量通常 < 100），保留全量用于索引与汇总。
+        // 若未来账户数量增长，应改为分页查询 + 单独的汇总查询。
         List<AccountEntity> allAccounts = accountRepository.findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId);
         List<AccountEntity> filteredAccounts = filterAccounts(allAccounts, keyword);
         List<AccountEntity> limitedAccounts = limit(filteredAccounts, DEFAULT_TOOL_LIMIT);
         Map<Long, AccountEntity> accountById = indexAccounts(allAccounts);
 
-        List<AccountTransferEntity> allTransfers = accountTransferRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
+        // 转账与资金变动是时间序列，下推分页避免全量读取。
+        List<AccountTransferEntity> allTransfers = accountTransferRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(
+            ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
         List<AccountTransferEntity> recentTransfers = filterTransfers(allTransfers, keyword, accountById, startAt, endAt);
         List<AccountTransferEntity> limitedTransfers = limit(recentTransfers, DEFAULT_TOOL_LIMIT);
 
-        List<CashChangeRecordEntity> allCashChanges = cashChangeRecordRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(ownerUserId);
+        List<CashChangeRecordEntity> allCashChanges = cashChangeRecordRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(
+            ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
         List<CashChangeRecordEntity> recentCashChanges = filterCashChanges(allCashChanges, keyword, accountById, startAt, endAt);
         List<CashChangeRecordEntity> limitedCashChanges = limit(recentCashChanges, DEFAULT_TOOL_LIMIT);
 

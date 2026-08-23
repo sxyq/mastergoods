@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.application.service.v2.agent.tool.readonly;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.data.domain.PageRequest;
 import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolContext;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolResult;
@@ -61,8 +62,8 @@ public class ProductCategoryLookupTool extends ToolSupport {
         ToolAudit audit = startAudit(ctx, name(), input);
 
         List<ProductCategoryEntity> categories = productCategoryRepository
-            .findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId);
-        List<ProductCategoryEntity> recent = limit(categories, DEFAULT_TOOL_LIMIT);
+            .findAllByOwnerUserIdOrderBySortOrderAscNameAsc(ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
+        List<ProductCategoryEntity> recent = categories;
         audit.markLimitedResult(recent.size(), DEFAULT_TOOL_LIMIT);
 
         long totalProductCount = 0L;
