@@ -33,6 +33,7 @@ import org.springframework.util.StringUtils;
 public class CustomerProfileLookupTool extends ToolSupport {
 
     private static final int CANCELLED_SALE_ORDER_STATUS = 2;
+    private static final int CUSTOMER_ORDER_LIMIT = 50;
 
     private final CustomerRepository customerRepository;
     private final SaleOrderRepository saleOrderRepository;
@@ -199,6 +200,7 @@ public class CustomerProfileLookupTool extends ToolSupport {
 
     private List<SaleOrderEntity> loadCustomerOrders(Long ownerUserId, CustomerEntity customer) {
         String customerName = safeText(customer.getName(), "");
+        // 使用分页搜索限制加载的订单数量（最近 50 笔），避免全量加载。
         List<SaleOrderEntity> matches = saleOrderRepository.search(
             ownerUserId,
             customerName,
@@ -208,7 +210,8 @@ public class CustomerProfileLookupTool extends ToolSupport {
             null,
             null,
             null,
-            null
+            null,
+            PageRequest.of(0, CUSTOMER_ORDER_LIMIT)
         );
         List<SaleOrderEntity> filtered = new ArrayList<>();
         for (SaleOrderEntity order : matches) {
@@ -226,19 +229,29 @@ public class CustomerProfileLookupTool extends ToolSupport {
     }
 
     private List<PaymentEntity> loadCustomerPayments(Long ownerUserId, List<SaleOrderEntity> orders) {
-        List<PaymentEntity> payments = new ArrayList<>();
-        for (SaleOrderEntity order : orders) {
-            payments.addAll(paymentRepository.findByOwnerUserIdAndOrderIdOrderByCreatedAtAsc(ownerUserId, order.getId()));
+        if (orders.isEmpty()) {
+            return List.of();
         }
+        // 批量加载所有订单的收款记录，避免 N+1 查询。
+        List<Long> orderIds = orders.stream().map(SaleOrderEntity::getId).filter(java.util.Objects::nonNull).toList();
+        if (orderIds.isEmpty()) {
+            return List.of();
+        }
+        List<PaymentEntity> payments = new ArrayList<>(paymentRepository.findByOwnerUserIdAndOrderIdIn(ownerUserId, orderIds));
         payments.sort(Comparator.comparingLong((PaymentEntity item) -> safeLong(item.getCreatedAt())).reversed());
         return payments;
     }
 
     private List<SalesReturnEntity> loadCustomerReturns(Long ownerUserId, List<SaleOrderEntity> orders) {
-        List<SalesReturnEntity> returns = new ArrayList<>();
-        for (SaleOrderEntity order : orders) {
-            returns.addAll(salesReturnRepository.findByOwnerUserIdAndOriginalOrderIdOrderByCreatedAtDesc(ownerUserId, order.getId()));
+        if (orders.isEmpty()) {
+            return List.of();
         }
+        // 批量加载所有订单的退货记录，避免 N+1 查询。
+        List<Long> orderIds = orders.stream().map(SaleOrderEntity::getId).filter(java.util.Objects::nonNull).toList();
+        if (orderIds.isEmpty()) {
+            return List.of();
+        }
+        List<SalesReturnEntity> returns = new ArrayList<>(salesReturnRepository.findByOwnerUserIdAndOriginalOrderIdInOrderByCreatedAtDesc(ownerUserId, orderIds));
         returns.sort(Comparator.comparingLong((SalesReturnEntity item) -> safeLong(item.getCreatedAt())).reversed());
         return returns;
     }

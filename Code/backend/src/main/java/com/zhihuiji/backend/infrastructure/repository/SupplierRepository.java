@@ -63,6 +63,29 @@ public interface SupplierRepository extends JpaRepository<SupplierEntity, Long> 
 
     long countByOwnerUserIdAndBalanceGreaterThan(Long ownerUserId, Double balance);
 
+    @Query("""
+        SELECT s FROM SupplierEntity s
+        WHERE s.ownerUserId = :ownerUserId
+          AND s.balance > :minBalance
+          AND (:status IS NULL OR s.status = :status)
+          AND (:groupId IS NULL OR s.groupId = :groupId)
+          AND (
+              :keyword IS NULL
+              OR :keyword = ''
+              OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(s.phone) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          )
+        ORDER BY s.balance DESC, s.id DESC
+        """)
+    List<SupplierEntity> findPayablesByOwnerUserIdAndFilters(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("minBalance") Double minBalance,
+        @Param("keyword") String keyword,
+        @Param("status") Integer status,
+        @Param("groupId") Long groupId,
+        Pageable pageable
+    );
+
     boolean existsByOwnerUserIdAndPhone(Long ownerUserId, String phone);
 
     boolean existsByOwnerUserIdAndPhoneAndIdNot(Long ownerUserId, String phone, Long id);

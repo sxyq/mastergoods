@@ -9,7 +9,6 @@ import com.zhihuiji.backend.domain.entity.product.ProductEntity;
 import com.zhihuiji.backend.infrastructure.repository.product.ProductRepository;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
@@ -71,8 +70,14 @@ public class ProductCatalogLookupTool extends ToolSupport {
         );
         ToolAudit audit = startAudit(ctx, name(), input);
 
-        List<ProductEntity> fetched = productRepository.findAllByOwnerUserIdOrderByNameAsc(ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
-        List<ProductEntity> products = filterInMemory(fetched, keyword, status, categoryId, unitId);
+        List<ProductEntity> products = productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(
+            ownerUserId,
+            keyword,
+            status,
+            categoryId,
+            unitId,
+            PageRequest.of(0, DEFAULT_TOOL_LIMIT)
+        );
         List<ProductEntity> topProducts = limit(products, 5);
         long totalProductCount = safeLong(productRepository.countByOwnerUserId(ownerUserId));
         double totalStock = safeDouble(productRepository.sumStockByOwnerUserId(ownerUserId));
@@ -143,35 +148,6 @@ public class ProductCatalogLookupTool extends ToolSupport {
             "top_products", topProductItems
         ));
         return ToolResult.success(blocks, toolFacts, toolSummary);
-    }
-
-    private List<ProductEntity> filterInMemory(List<ProductEntity> products, String keyword, Integer status, Long categoryId, Long unitId) {
-        if (products == null || products.isEmpty()) {
-            return List.of();
-        }
-        boolean hasKeyword = StringUtils.hasText(keyword);
-        String lowerKeyword = hasKeyword ? keyword.toLowerCase(Locale.ROOT) : null;
-        List<ProductEntity> filtered = new ArrayList<>(products.size());
-        for (ProductEntity item : products) {
-            if (status != null && !status.equals(item.getStatus())) {
-                continue;
-            }
-            if (categoryId != null && !categoryId.equals(item.getCategoryId())) {
-                continue;
-            }
-            if (unitId != null && !unitId.equals(item.getUnitId())) {
-                continue;
-            }
-            if (hasKeyword) {
-                String name = item.getName() == null ? "" : item.getName().toLowerCase(Locale.ROOT);
-                String code = item.getCode() == null ? "" : item.getCode().toLowerCase(Locale.ROOT);
-                if (!name.contains(lowerKeyword) && !code.contains(lowerKeyword)) {
-                    continue;
-                }
-            }
-            filtered.add(item);
-        }
-        return filtered;
     }
 
     private String safeText(String value, String fallback) {

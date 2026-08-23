@@ -20,4 +20,22 @@ public interface InventoryLedgerRepository extends JpaRepository<InventoryLedger
 
     Page<InventoryLedgerEntity> findAllByOwnerUserIdAndProductIdOrderByCreatedAtDescIdDesc(Long ownerUserId, Long productId, Pageable pageable);
     Page<InventoryLedgerEntity> findAllByOwnerUserIdAndCreatedAtBetweenOrderByCreatedAtDescIdDesc(Long ownerUserId, Long startAt, Long endAt, Pageable pageable);
+
+    @Query("""
+        SELECT e FROM InventoryLedgerEntity e
+        WHERE e.ownerUserId = :ownerUserId
+          AND (:productId IS NULL OR e.productId = :productId)
+          AND (:startAt IS NULL OR e.createdAt >= :startAt)
+          AND (:endAt IS NULL OR e.createdAt <= :endAt)
+          AND (:sourceType IS NULL OR e.sourceType = :sourceType)
+        ORDER BY e.createdAt DESC, e.id DESC
+        """)
+    Page<InventoryLedgerEntity> findByOwnerUserIdAndFilters(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("productId") Long productId,
+        @Param("startAt") Long startAt,
+        @Param("endAt") Long endAt,
+        @Param("sourceType") String sourceType,
+        Pageable pageable
+    );
 }

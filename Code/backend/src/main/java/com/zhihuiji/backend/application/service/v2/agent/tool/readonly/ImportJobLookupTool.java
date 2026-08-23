@@ -63,7 +63,7 @@ public class ImportJobLookupTool extends ToolSupport {
         ToolAudit audit = startAudit(ctx, name(), input);
 
         List<ImportJobEntity> jobs = StringUtils.hasText(status)
-            ? importJobRepository.findAllByOwnerUserIdAndStatusOrderByUpdatedAtDesc(ownerUserId, status)
+            ? importJobRepository.findAllByOwnerUserIdAndStatusOrderByUpdatedAtDesc(ownerUserId, status, PageRequest.of(0, DEFAULT_TOOL_LIMIT))
             : importJobRepository.findAllByOwnerUserIdOrderByCreatedAtDesc(ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
         List<ImportJobEntity> limited = jobs;
         audit.markLimitedResult(limited.size(), DEFAULT_TOOL_LIMIT);

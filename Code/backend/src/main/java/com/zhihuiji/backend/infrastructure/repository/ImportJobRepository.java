@@ -14,6 +14,8 @@ public interface ImportJobRepository extends JpaRepository<ImportJobEntity, Long
 
     List<ImportJobEntity> findAllByOwnerUserIdAndStatusOrderByUpdatedAtDesc(Long ownerUserId, String status);
 
+    List<ImportJobEntity> findAllByOwnerUserIdAndStatusOrderByUpdatedAtDesc(Long ownerUserId, String status, Pageable pageable);
+
     Optional<ImportJobEntity> findByIdAndOwnerUserId(Long id, Long ownerUserId);
 
     Optional<ImportJobEntity> findByOwnerUserIdAndIdempotencyKey(Long ownerUserId, String idempotencyKey);

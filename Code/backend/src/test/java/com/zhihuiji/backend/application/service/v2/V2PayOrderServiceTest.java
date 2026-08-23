@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.doAnswer;
@@ -156,6 +157,104 @@ class V2PayOrderServiceTest {
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.create(null));
 
         assertEquals("付款单参数不能为空", error.getMessage());
+        verify(payOrderService, never()).createForOwner(anyLong(), any(), any());
+    }
+
+    @Test
+    void publicCreateRejectsNullIdempotencyKey() {
+        IllegalArgumentException error = assertThrows(
+            IllegalArgumentException.class,
+            () -> service.createWithRequiredIdempotencyKey(request(null))
+        );
+
+        assertEquals("幂等键不能为空", error.getMessage());
+        verify(payOrderService, never()).createForOwner(anyLong(), any(), any());
+    }
+
+    @Test
+    void sameKeySamePayloadHashReturnsExistingOrder() throws Exception {
+        PayOrderEntity existing = payOrder(31L, null, PayOrderStatus.DRAFT.code(), 18.0);
+        existing.setSupplierId(null);
+        existing.setIdempotencyPayloadHash(hash("", "供应商A", "18.0", "1", "", "", "", ""));
+        when(payOrderRepository.findByOwnerUserIdAndIdempotencyKey(1L, "pay-same-payload-31"))
+            .thenReturn(Optional.of(existing));
+
+        V2PayOrderDtos.PayOrderResponse response = service.create(
+            new V2PayOrderDtos.CreateRequest("pay-same-payload-31", null, "供应商A", 18.0, 1, null, null, null, null)
+        );
+
+        assertEquals(31L, response.id());
+        verify(payOrderService, never()).createForOwner(anyLong(), any(), any());
+    }
+
+    @Test
+    void differentOwnerWithSameKeyCreatesIndependentOrders() {
+        when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L, 2L);
+        when(payOrderRepository.findByOwnerUserIdAndIdempotencyKey(1L, "shared-key-33"))
+            .thenReturn(Optional.empty());
+        when(payOrderRepository.findByOwnerUserIdAndIdempotencyKey(2L, "shared-key-33"))
+            .thenReturn(Optional.empty());
+        PayOrderEntity owner1Order = payOrder(101L, null, PayOrderStatus.DRAFT.code(), 50.0);
+        owner1Order.setOwnerUserId(1L);
+        PayOrderEntity owner2Order = payOrder(102L, null, PayOrderStatus.DRAFT.code(), 70.0);
+        owner2Order.setOwnerUserId(2L);
+        when(payOrderService.createForOwner(eq(1L), any(), eq("shared-key-33")))
+            .thenReturn(owner1Order);
+        when(payOrderService.createForOwner(eq(2L), any(), eq("shared-key-33")))
+            .thenReturn(owner2Order);
+
+        V2PayOrderDtos.PayOrderResponse response1 = service.create(
+            new V2PayOrderDtos.CreateRequest("shared-key-33", null, "供应商A", 50.0, 1, null, null, null, null)
+        );
+        V2PayOrderDtos.PayOrderResponse response2 = service.create(
+            new V2PayOrderDtos.CreateRequest("shared-key-33", null, "供应商B", 70.0, 1, null, null, null, null)
+        );
+
+        assertEquals(101L, response1.id());
+        assertEquals(102L, response2.id());
+        verify(payOrderService).createForOwner(eq(1L), any(), eq("shared-key-33"));
+        verify(payOrderService).createForOwner(eq(2L), any(), eq("shared-key-33"));
+    }
+
+    @Test
+    void retryAfterServiceFailureCreatesOrderSuccessfully() {
+        when(payOrderRepository.findByOwnerUserIdAndIdempotencyKey(1L, "pay-retry-35"))
+            .thenReturn(Optional.empty());
+        when(payOrderService.createForOwner(anyLong(), any(), eq("pay-retry-35")))
+            .thenThrow(new IllegalArgumentException("temporary failure"))
+            .thenReturn(payOrder(35L, null, PayOrderStatus.DRAFT.code(), 20.0));
+
+        assertThrows(IllegalArgumentException.class, () -> service.create(
+            new V2PayOrderDtos.CreateRequest("pay-retry-35", null, "供应商A", 20.0, 1, null, null, null, null)
+        ));
+
+        V2PayOrderDtos.PayOrderResponse response = service.create(
+            new V2PayOrderDtos.CreateRequest("pay-retry-35", null, "供应商A", 20.0, 1, null, null, null, null)
+        );
+
+        assertEquals(35L, response.id());
+        verify(payOrderService, times(2)).createForOwner(anyLong(), any(), eq("pay-retry-35"));
+    }
+
+    @Test
+    void illegalIdempotencyKeyWithControlCharacterIsRejected() {
+        IllegalArgumentException error = assertThrows(
+            IllegalArgumentException.class,
+            () -> service.createWithRequiredIdempotencyKey(request("pay\torder"))
+        );
+
+        assertEquals("幂等键格式不合法", error.getMessage());
+        verify(payOrderService, never()).createForOwner(anyLong(), any(), any());
+    }
+
+    @Test
+    void illegalIdempotencyKeyWithSpaceIsRejected() {
+        IllegalArgumentException error = assertThrows(
+            IllegalArgumentException.class,
+            () -> service.createWithRequiredIdempotencyKey(request("pay order"))
+        );
+
+        assertEquals("幂等键格式不合法", error.getMessage());
         verify(payOrderService, never()).createForOwner(anyLong(), any(), any());
     }
 

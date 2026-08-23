@@ -64,7 +64,8 @@ public class ProductSupplierRelationLookupTool extends ToolSupport {
 
         List<ProductSupplierRelationEntity> relations = productId == null
             ? relationRepository.findAllByOwnerUserIdOrderByUpdatedAtAscIdAsc(ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT))
-            : relationRepository.findAllByOwnerUserIdAndProductIdOrderByIsDefaultDescPurchasePriorityAscCreatedAtAsc(ownerUserId, productId);
+            : relationRepository.findAllByOwnerUserIdAndProductIdOrderByIsDefaultDescPurchasePriorityAscCreatedAtAsc(
+                ownerUserId, productId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
         List<ProductSupplierRelationEntity> limited = relations;
         audit.markLimitedResult(limited.size(), DEFAULT_TOOL_LIMIT);
         emitToolCompleted(ctx, name(), "命中 " + limited.size() + " 条商品供应商关系", audit);

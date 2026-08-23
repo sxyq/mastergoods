@@ -62,6 +62,29 @@ public interface CustomerRepository extends JpaRepository<CustomerEntity, Long> 
 
     long countByOwnerUserIdAndBalanceGreaterThan(Long ownerUserId, Double balance);
 
+    @Query("""
+        SELECT c FROM CustomerEntity c
+        WHERE c.ownerUserId = :ownerUserId
+          AND c.balance > :minBalance
+          AND (:status IS NULL OR c.status = :status)
+          AND (:groupId IS NULL OR c.groupId = :groupId)
+          AND (
+              :keyword IS NULL
+              OR :keyword = ''
+              OR LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              OR LOWER(c.phone) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          )
+        ORDER BY c.balance DESC, c.id DESC
+        """)
+    List<CustomerEntity> findReceivablesByOwnerUserIdAndFilters(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("minBalance") Double minBalance,
+        @Param("keyword") String keyword,
+        @Param("status") Integer status,
+        @Param("groupId") Long groupId,
+        Pageable pageable
+    );
+
     Optional<CustomerEntity> findByIdAndOwnerUserId(Long id, Long ownerUserId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.application.service.v2.agent.tool.readonly;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -39,7 +40,8 @@ class ProductCatalogLookupToolTest {
         product.setStock(12.0);
         product.setSalePrice(10.0);
         product.setStatus(1);
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(eq(1L), eq(PageRequest.of(0, 10))))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(
+                eq(1L), any(), any(), any(), any(), eq(PageRequest.of(0, 10))))
             .thenReturn(List.of(product));
         when(productRepository.countByOwnerUserId(1L)).thenReturn(1L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(12.0);
@@ -61,7 +63,8 @@ class ProductCatalogLookupToolTest {
         product.setStock(3.0);
         product.setSalePrice(5.0);
         product.setStatus(1);
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(eq(1L), eq(PageRequest.of(0, 10))))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(
+                eq(1L), any(), any(), any(), any(), eq(PageRequest.of(0, 10))))
             .thenReturn(List.of(product));
         when(productRepository.countByOwnerUserId(1L)).thenReturn(1L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(3.0);

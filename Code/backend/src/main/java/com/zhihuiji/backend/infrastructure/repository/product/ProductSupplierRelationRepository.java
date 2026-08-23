@@ -21,6 +21,12 @@ public interface ProductSupplierRelationRepository extends JpaRepository<Product
         Long productId
     );
 
+    List<ProductSupplierRelationEntity> findAllByOwnerUserIdAndProductIdOrderByIsDefaultDescPurchasePriorityAscCreatedAtAsc(
+        Long ownerUserId,
+        Long productId,
+        Pageable pageable
+    );
+
     List<ProductSupplierRelationEntity> findAllByOwnerUserIdAndProductIdInOrderByIsDefaultDescPurchasePriorityAscCreatedAtAsc(
         Long ownerUserId,
         Collection<Long> productIds

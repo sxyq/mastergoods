@@ -12,9 +12,13 @@ public interface PaymentRepository extends JpaRepository<PaymentEntity, Long> {
 
     List<PaymentEntity> findByOwnerUserIdAndOrderId(Long ownerUserId, Long orderId);
 
+    List<PaymentEntity> findByOwnerUserIdAndOrderIdIn(Long ownerUserId, java.util.Collection<Long> orderIds);
+
     List<PaymentEntity> findByOwnerUserIdAndOrderIdOrderByCreatedAtAsc(Long ownerUserId, Long orderId);
 
     List<PaymentEntity> findByOwnerUserIdAndCreatedAtBetween(Long ownerUserId, Long startAt, Long endAt);
+
+    List<PaymentEntity> findByOwnerUserIdAndCreatedAtBetween(Long ownerUserId, Long startAt, Long endAt, Pageable pageable);
 
     List<PaymentEntity> findByOwnerUserIdAndTypeAndCreatedAtBetweenOrderByCreatedAtDesc(
         Long ownerUserId,

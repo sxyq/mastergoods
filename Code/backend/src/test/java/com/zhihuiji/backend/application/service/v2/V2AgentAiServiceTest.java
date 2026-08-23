@@ -370,7 +370,7 @@ class V2AgentAiServiceTest {
                 "查询客户应收"
             )))
             .thenReturn(Optional.empty());
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of());
         when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(0L);
         when(customerRepository.sumPositiveBalance(1L)).thenReturn(0.0);
@@ -391,7 +391,7 @@ class V2AgentAiServiceTest {
 
     @Test
     void nativePlanExecutesDistinctCallsToTheSameReadToolOnceEach() throws Exception {
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any()))
             .thenReturn(List.of());
         when(productRepository.countByOwnerUserId(1L)).thenReturn(0L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(0D);
@@ -437,12 +437,12 @@ class V2AgentAiServiceTest {
 
         assertEquals(1, results.size());
         assertEquals("call-products-1", results.get(0).toolCallId());
-        verify(productRepository, times(1)).findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10));
+        verify(productRepository, times(1)).findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any());
     }
 
     @Test
     void nativePlanSkipsAnExactRepeatedCallIdAndArguments() throws Exception {
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any()))
             .thenReturn(List.of());
         when(productRepository.countByOwnerUserId(1L)).thenReturn(0L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(0D);
@@ -487,12 +487,12 @@ class V2AgentAiServiceTest {
         );
 
         assertEquals(1, results.size());
-        verify(productRepository, times(1)).findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10));
+        verify(productRepository, times(1)).findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any());
     }
 
     @Test
     void laterPlanSkipsSameSemanticReadWithDifferentCallId() throws Exception {
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any()))
             .thenReturn(List.of());
         when(productRepository.countByOwnerUserId(1L)).thenReturn(0L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(0D);
@@ -550,7 +550,7 @@ class V2AgentAiServiceTest {
         assertEquals(1, results.size());
         assertTrue(emitter.containsPayload("duplicate_tool_semantic_key"));
         assertTrue(emitter.containsPayload("call-later"));
-        verify(productRepository, times(1)).findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10));
+        verify(productRepository, times(1)).findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -609,7 +609,7 @@ class V2AgentAiServiceTest {
 
     @Test
     void nativePlanAllowsDifferentSemanticArgumentsEvenWhenCallIdRepeats() throws Exception {
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any()))
             .thenReturn(List.of());
         when(productRepository.countByOwnerUserId(1L)).thenReturn(0L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(0D);
@@ -658,12 +658,12 @@ class V2AgentAiServiceTest {
         assertEquals(0, emitter.payloads.stream()
             .filter(payload -> payload.contains("\"event_type\":\"tool_skipped\""))
             .count());
-        verify(productRepository, times(2)).findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10));
+        verify(productRepository, times(2)).findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any());
     }
 
     @Test
     void continuationPlanSkipsRepeatedReadWithSameSemanticArguments() throws Exception {
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any()))
             .thenReturn(List.of());
         when(productRepository.countByOwnerUserId(1L)).thenReturn(0L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(0D);
@@ -710,12 +710,12 @@ class V2AgentAiServiceTest {
 
         assertEquals(1, results.size());
         assertTrue(emitter.containsPayload("duplicate_tool_semantic_key"));
-        verify(productRepository, times(1)).findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10));
+        verify(productRepository, times(1)).findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any());
     }
 
     @Test
     void continuationPlanExecutesSameReadToolWithDifferentArguments() throws Exception {
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any()))
             .thenReturn(List.of());
         when(productRepository.countByOwnerUserId(1L)).thenReturn(0L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(0D);
@@ -764,7 +764,7 @@ class V2AgentAiServiceTest {
         assertEquals(0, emitter.payloads.stream()
             .filter(payload -> payload.contains("\"event_type\":\"tool_skipped\""))
             .count());
-        verify(productRepository, times(2)).findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10));
+        verify(productRepository, times(2)).findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -1052,7 +1052,7 @@ class V2AgentAiServiceTest {
                 "查询供应商应付"
             )))
             .thenReturn(Optional.empty());
-        when(supplierRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(supplierRepository.findPayablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of());
         when(supplierRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(0L);
         when(supplierRepository.sumPositiveBalance(1L)).thenReturn(0.0);
@@ -1067,11 +1067,7 @@ class V2AgentAiServiceTest {
 
         assertTrue(response.blocks().isEmpty(), response.blocks().toString());
         assertFalse(hasBlock(response, "bar_chart"));
-        verify(supplierRepository).findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(
-            1L,
-            0.0,
-            PageRequest.of(0, 10)
-        );
+        verify(supplierRepository).findPayablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any());
     }
 
     @Test
@@ -1157,7 +1153,7 @@ class V2AgentAiServiceTest {
 
     @Test
     void chatStreamDoesNotRequeryCurrentOwnerInsideAsyncWorker() throws Exception {
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of());
 
         service.chatStream(new V2AgentDtos.AgentChatRequest(null, "客户应收情况", true));
@@ -1230,7 +1226,7 @@ class V2AgentAiServiceTest {
                 "查询客户应收"
             )))
             .thenReturn(Optional.empty());
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of());
         // LLM streaming and fallback both fail to produce a grounded answer
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
@@ -1303,7 +1299,7 @@ class V2AgentAiServiceTest {
                 "查询客户应收"
             )))
             .thenReturn(Optional.empty());
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
@@ -1338,7 +1334,7 @@ class V2AgentAiServiceTest {
                 "查询客户应收"
             )))
             .thenReturn(Optional.empty());
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         // LLM streaming returns a non-grounded answer (invented numbers)
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
@@ -1382,7 +1378,7 @@ class V2AgentAiServiceTest {
                 "查询客户应收"
             )))
             .thenReturn(Optional.empty());
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
@@ -1421,7 +1417,7 @@ class V2AgentAiServiceTest {
                 "查询客户应收"
             )))
             .thenReturn(Optional.empty());
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         // LLM streaming returns non-grounded answer
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
@@ -1468,7 +1464,7 @@ class V2AgentAiServiceTest {
         for (int i = 1; i <= 10; i++) {
             customers.add(customer((long) i, "客户" + i, 100.0 + i));
         }
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(customers);
         when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(10L);
         when(customerRepository.sumPositiveBalance(1L)).thenReturn(1055.0);
@@ -1510,7 +1506,7 @@ class V2AgentAiServiceTest {
                 "查询客户应收"
             )))
             .thenReturn(Optional.empty());
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(customer(1L, "客户A", 100.0), customer(2L, "客户B", 80.0)));
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
@@ -1571,7 +1567,7 @@ class V2AgentAiServiceTest {
             .thenReturn(Optional.empty());
         when(productRepository.findLowStockProducts(1L, PageRequest.of(0, 10)))
             .thenReturn(List.of(product(1L, "SKU-1", "纸巾", 2.0, 10.0, 12.5)));
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
@@ -1630,7 +1626,7 @@ class V2AgentAiServiceTest {
             .thenReturn(Optional.empty());
         when(productRepository.findLowStockProducts(1L, PageRequest.of(0, 10)))
             .thenReturn(List.of(product(1L, "SKU-1", "纸巾", 2.0, 10.0, 12.5)));
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenThrow(new IllegalStateException("database timeout"));
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
@@ -1689,7 +1685,7 @@ class V2AgentAiServiceTest {
                 "查询客户应收"
             )))
             .thenReturn(Optional.empty());
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
@@ -1770,10 +1766,13 @@ class V2AgentAiServiceTest {
                 "resp-native-stream"
             )))
             .thenReturn(Optional.empty());
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(
-            1L,
-            0.0,
-            PageRequest.of(0, 10)
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(
+            eq(1L),
+            eq(0.0),
+            any(),
+            any(),
+            any(),
+            any()
         )).thenReturn(List.of(customer(1L, "客户A", 100.0)));
         when(longCatAnthropicClient.continueWithToolOutputs(
             anyString(),
@@ -2043,7 +2042,7 @@ class V2AgentAiServiceTest {
                 "查询客户应收"
             )))
             .thenReturn(Optional.empty());
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
@@ -2113,7 +2112,7 @@ class V2AgentAiServiceTest {
                 "查询客户应收"
             )))
             .thenReturn(Optional.empty());
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
@@ -2169,7 +2168,7 @@ class V2AgentAiServiceTest {
                 "查询客户应收"
             )))
             .thenReturn(Optional.empty());
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {
@@ -2227,7 +2226,7 @@ class V2AgentAiServiceTest {
             .thenReturn(Optional.empty());
         CountDownLatch toolQueryEntered = new CountDownLatch(1);
         CountDownLatch releaseToolQuery = new CountDownLatch(1);
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenAnswer(invocation -> {
                 toolQueryEntered.countDown();
                 assertTrue(releaseToolQuery.await(3, TimeUnit.SECONDS), "tool query release timed out");
@@ -2320,7 +2319,7 @@ class V2AgentAiServiceTest {
                 "查询客户应收"
             )))
             .thenReturn(Optional.empty());
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(customer(1L, "客户A", 100.0), customer(2L, "客户B", 80.0)));
         when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(2L);
         when(customerRepository.sumPositiveBalance(1L)).thenReturn(180.0);
@@ -2426,7 +2425,7 @@ class V2AgentAiServiceTest {
                 "查询商品目录"
             )))
             .thenReturn(Optional.empty());
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any()))
             .thenReturn(List.of(product(1L, "SKU-1", "纸巾", 12.0, 4.0, 10.0)));
         when(productRepository.countByOwnerUserId(1L)).thenReturn(3L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(35.0);
@@ -2470,7 +2469,7 @@ class V2AgentAiServiceTest {
             .thenReturn(Optional.of(
                 "当前商品数量为 3，已根据查询结果生成表格。"
             ));
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any()))
             .thenReturn(List.of(product(1L, "SKU-1", "纸巾", 12.0, 4.0, 10.0)));
         when(productRepository.countByOwnerUserId(1L)).thenReturn(3L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(35.0);
@@ -2512,7 +2511,7 @@ class V2AgentAiServiceTest {
                 )),
                 "根据真实商品结果调用表格展示工具"
             )));
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any()))
             .thenReturn(List.of(product(1L, "SKU-1", "纸巾", 12.0, 4.0, 10.0)));
         when(productRepository.countByOwnerUserId(1L)).thenReturn(3L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(35.0);
@@ -2552,7 +2551,7 @@ class V2AgentAiServiceTest {
                 "查询商品目录"
             )))
             .thenReturn(Optional.empty());
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any()))
             .thenReturn(List.of(product(1L, "SKU-1", "纸巾", 12.0, 4.0, 10.0)));
         when(productRepository.countByOwnerUserId(1L)).thenReturn(3L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(35.0);
@@ -2637,7 +2636,7 @@ class V2AgentAiServiceTest {
                 )),
                 null
             )), Optional.empty());
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any()))
             .thenReturn(List.of(product(1L, "SKU-1", "纸巾", 35.0, 10.0, 12.5)));
         when(productRepository.countByOwnerUserId(1L)).thenReturn(3L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(35.0);
@@ -2672,7 +2671,7 @@ class V2AgentAiServiceTest {
                 )),
                 null
             )), Optional.empty());
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any()))
             .thenReturn(List.of(product(1L, "SKU-1", "纸巾", 35.0, 10.0, 12.5)));
         when(productRepository.countByOwnerUserId(1L)).thenReturn(3L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(35.0);
@@ -2703,7 +2702,7 @@ class V2AgentAiServiceTest {
                 "查询商品目录"
             )))
             .thenReturn(Optional.empty());
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any()))
             .thenReturn(List.of(product(1L, "SKU-1", "纸巾", 35.0, 10.0, 12.5)));
         when(productRepository.countByOwnerUserId(1L)).thenReturn(3L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(35.0);
@@ -2737,7 +2736,7 @@ class V2AgentAiServiceTest {
                 "查询商品目录"
             )))
             .thenReturn(Optional.empty());
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any()))
             .thenReturn(List.of(product(1L, "SKU-1", "纸巾", 35.0, 10.0, 12.5)));
         when(productRepository.countByOwnerUserId(1L)).thenReturn(3L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(35.0);
@@ -2766,7 +2765,7 @@ class V2AgentAiServiceTest {
                 )),
                 null
             )), Optional.empty());
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any()))
             .thenReturn(List.of(product(1L, "SKU-1", "纸巾", 35.0, 10.0, 12.5)));
         when(productRepository.countByOwnerUserId(1L)).thenReturn(3L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(35.0);
@@ -2801,7 +2800,7 @@ class V2AgentAiServiceTest {
         for (int i = 1; i <= 10; i++) {
             customers.add(customer((long) i, "客户" + i, 100.0 + i));
         }
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(customers);
         when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(10L);
         when(customerRepository.sumPositiveBalance(1L)).thenReturn(1055.0);
@@ -2844,7 +2843,7 @@ class V2AgentAiServiceTest {
                 "查询商品目录"
             )))
             .thenReturn(Optional.empty());
-        when(productRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 10)))
+        when(productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(eq(1L), any(), any(), any(), any(), any()))
             .thenReturn(List.of(product(1L, "SKU-1", "纸巾", 2.0, 10.0, 12.5)));
         when(productRepository.countByOwnerUserId(1L)).thenReturn(25L);
         when(productRepository.sumStockByOwnerUserId(1L)).thenReturn(300.0);
@@ -2890,11 +2889,11 @@ class V2AgentAiServiceTest {
                 "查询应收应付对账"
             )))
             .thenReturn(Optional.empty());
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(12L);
         when(customerRepository.sumPositiveBalance(1L)).thenReturn(900.0);
-        when(supplierRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(supplierRepository.findPayablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(supplier(1L, "供应商A", 80.0)));
         when(supplierRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(8L);
         when(supplierRepository.sumPositiveBalance(1L)).thenReturn(700.0);
@@ -2954,7 +2953,7 @@ class V2AgentAiServiceTest {
             )))
             .thenReturn(Optional.empty());
         when(longCatAnthropicClient.createJsonMessage(anyString(), anyString())).thenReturn(Optional.empty());
-        when(supplierRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(supplierRepository.findPayablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of());
         when(supplierRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(0L);
         when(supplierRepository.sumPositiveBalance(1L)).thenReturn(0.0);
@@ -3008,11 +3007,11 @@ class V2AgentAiServiceTest {
                 "查询应收应付对账"
             )))
             .thenReturn(Optional.empty());
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(customer(1L, "张三商贸", 300.0), customer(2L, "李四超市", 120.0)));
         when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(5L);
         when(customerRepository.sumPositiveBalance(1L)).thenReturn(1500.0);
-        when(supplierRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(supplierRepository.findPayablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(supplier(1L, "晨光供货", 260.0), supplier(2L, "万联批发", 80.0)));
         when(supplierRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(4L);
         when(supplierRepository.sumPositiveBalance(1L)).thenReturn(900.0);
@@ -3062,24 +3061,24 @@ class V2AgentAiServiceTest {
         matchedCustomer.setPhone("13812345678");
         matchedCustomer.setLevel(2);
         when(customerRepository.search(1L, "张三商贸", null, null)).thenReturn(List.of(matchedCustomer));
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(matchedCustomer));
         when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(1L);
         when(customerRepository.sumPositiveBalance(1L)).thenReturn(600.0);
 
         SaleOrderEntity order1 = saleOrder(11L, 1L, "SO-001", "张三商贸", 500.0, 300.0, 1_720_000_000_000L);
         SaleOrderEntity order2 = saleOrder(12L, 1L, "SO-002", "张三商贸", 200.0, 200.0, 1_721_000_000_000L);
-        when(saleOrderRepository.search(1L, "张三商贸", null, null, null, null, null, null, null))
+        when(saleOrderRepository.search(1L, "张三商贸", null, null, null, null, null, null, null,
+            PageRequest.of(0, 50)))
             .thenReturn(List.of(order2, order1));
 
         PaymentEntity payment1 = payment(101L, 12L, 200.0, 1, 1_721_000_100_000L);
         PaymentEntity payment2 = payment(102L, 11L, 300.0, 1, 1_720_000_100_000L);
-        when(paymentRepository.findByOwnerUserIdAndOrderIdOrderByCreatedAtAsc(1L, 12L)).thenReturn(List.of(payment1));
-        when(paymentRepository.findByOwnerUserIdAndOrderIdOrderByCreatedAtAsc(1L, 11L)).thenReturn(List.of(payment2));
+        when(paymentRepository.findByOwnerUserIdAndOrderIdIn(eq(1L), any())).thenReturn(List.of(payment1, payment2));
 
         SalesReturnEntity salesReturn = salesReturn(201L, 11L, "SR-001", "张三商贸", 50.0, 20.0, 1_721_000_200_000L);
-        when(salesReturnRepository.findByOwnerUserIdAndOriginalOrderIdOrderByCreatedAtDesc(1L, 12L)).thenReturn(List.of());
-        when(salesReturnRepository.findByOwnerUserIdAndOriginalOrderIdOrderByCreatedAtDesc(1L, 11L)).thenReturn(List.of(salesReturn));
+        when(salesReturnRepository.findByOwnerUserIdAndOriginalOrderIdInOrderByCreatedAtDesc(eq(1L), any()))
+            .thenReturn(List.of(salesReturn));
         when(longCatAnthropicClient.createJsonMessage(anyString(), contains("本轮工具真实结果 JSON")))
             .thenReturn(Optional.of(
                 "客户张三商贸，累计销售额 ¥700.00，当前欠款 ¥600.00，付款习惯偏微信。"
@@ -3133,7 +3132,7 @@ class V2AgentAiServiceTest {
             ));
 
         com.zhihuiji.backend.domain.entity.CustomerEntity matchedCustomer = customer(1L, "张三商贸", 600.0);
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(matchedCustomer));
         when(customerRepository.countByOwnerUserIdAndBalanceGreaterThan(1L, 0.0)).thenReturn(1L);
         when(customerRepository.sumPositiveBalance(1L)).thenReturn(600.0);
@@ -3518,7 +3517,7 @@ class V2AgentAiServiceTest {
                 "查询客户应收"
             )))
             .thenReturn(Optional.empty());
-        when(customerRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(1L, 0.0, PageRequest.of(0, 10)))
+        when(customerRepository.findReceivablesByOwnerUserIdAndFilters(eq(1L), eq(0.0), any(), any(), any(), any()))
             .thenReturn(List.of(customer(1L, "客户A", 100.0)));
         when(longCatAnthropicClient.streamTextMessage(anyString(), anyString(), anyString(), any()))
             .thenAnswer(invocation -> {

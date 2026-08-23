@@ -7,7 +7,6 @@ import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolContext;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolResult;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolSupport;
-import com.zhihuiji.backend.domain.entity.PurchaseOrderEntity;
 import com.zhihuiji.backend.infrastructure.repository.product.ProductRepository;
 import com.zhihuiji.backend.infrastructure.repository.PurchaseOrderRepository;
 import com.zhihuiji.backend.infrastructure.repository.SaleOrderRepository;
@@ -113,20 +112,14 @@ public class CrossAnalysisLookupTool extends ToolSupport {
             compareAmounts.add(paidAmount);
         }
         if (queryPurchase) {
-            // 采购侧为聚合计算（sum totalAmount/paidAmount），需全量遍历窗口内订单；
-            // 数据窗口由 days 参数限定（默认 30 天），保留全量加载用于内存聚合。
-            // TODO: 后续可下沉为 SQL 聚合查询（参考 SaleOrderRepository.salesSummaryAggregate）。
-            List<PurchaseOrderEntity> purchaseOrders = purchaseOrderRepository
-                .findByOwnerUserIdAndCreatedAtBetween(ownerUserId, startAt, now);
-            double purchaseAmount = 0D;
-            double purchasePaid = 0D;
-            for (PurchaseOrderEntity order : purchaseOrders) {
-                purchaseAmount += safeDouble(order.getTotalAmount());
-                purchasePaid += safeDouble(order.getPaidAmount());
-            }
+            // 采购侧使用 SQL 聚合查询（SUM/COUNT），无需全量加载到内存。
+            Object[] purchaseSummary = purchaseOrderRepository.purchaseSummaryAggregate(ownerUserId, startAt, now);
+            double purchaseAmount = safeDouble(purchaseSummary != null && purchaseSummary.length > 0 ? purchaseSummary[0] : null);
+            double purchasePaid = safeDouble(purchaseSummary != null && purchaseSummary.length > 1 ? purchaseSummary[1] : null);
+            long purchaseCount = safeLong(purchaseSummary != null && purchaseSummary.length > 2 ? purchaseSummary[2] : null);
             kpis.add(mapOf("label", "采购额", "value", money(purchaseAmount), "trend_direction", purchaseAmount > 0 ? "up" : "flat"));
             kpis.add(mapOf("label", "采购已付", "value", money(purchasePaid), "trend_direction", purchasePaid > 0 ? "up" : "flat"));
-            kpis.add(mapOf("label", "采购单数", "value", String.valueOf(purchaseOrders.size()), "trend_direction", purchaseOrders.isEmpty() ? "flat" : "up"));
+            kpis.add(mapOf("label", "采购单数", "value", String.valueOf(purchaseCount), "trend_direction", purchaseCount > 0 ? "up" : "flat"));
             compareLabels.add("采购额");
             compareAmounts.add(purchaseAmount);
             compareLabels.add("采购已付");

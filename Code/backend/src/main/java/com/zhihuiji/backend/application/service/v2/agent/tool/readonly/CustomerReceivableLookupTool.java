@@ -9,7 +9,6 @@ import com.zhihuiji.backend.domain.entity.CustomerEntity;
 import com.zhihuiji.backend.infrastructure.repository.CustomerRepository;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
@@ -68,9 +67,9 @@ public class CustomerReceivableLookupTool extends ToolSupport {
         );
         ToolAudit audit = startAudit(ctx, name(), input);
 
-        List<CustomerEntity> fetched = customerRepository
-            .findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(ownerUserId, 0.0, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
-        List<CustomerEntity> customers = filterInMemory(fetched, keyword, status, groupId);
+        List<CustomerEntity> customers = customerRepository.findReceivablesByOwnerUserIdAndFilters(
+            ownerUserId, 0.0, keyword, status, groupId, PageRequest.of(0, DEFAULT_TOOL_LIMIT)
+        );
         List<CustomerEntity> topCustomers = limit(customers, 6);
         CustomerEntity highestReceivableCustomer = customers.isEmpty() ? null : customers.get(0);
         audit.markLimitedResult(customers.size(), DEFAULT_TOOL_LIMIT);
@@ -141,32 +140,6 @@ public class CustomerReceivableLookupTool extends ToolSupport {
             "top_customers", topCustomerItems
         ));
         return ToolResult.success(blocks, toolFacts, toolSummary);
-    }
-
-    private List<CustomerEntity> filterInMemory(List<CustomerEntity> customers, String keyword, Integer status, Long groupId) {
-        if (customers == null || customers.isEmpty()) {
-            return List.of();
-        }
-        boolean hasKeyword = StringUtils.hasText(keyword);
-        String lowerKeyword = hasKeyword ? keyword.toLowerCase(Locale.ROOT) : null;
-        List<CustomerEntity> filtered = new ArrayList<>(customers.size());
-        for (CustomerEntity item : customers) {
-            if (status != null && !status.equals(item.getStatus())) {
-                continue;
-            }
-            if (groupId != null && !groupId.equals(item.getGroupId())) {
-                continue;
-            }
-            if (hasKeyword) {
-                String name = item.getName() == null ? "" : item.getName().toLowerCase(Locale.ROOT);
-                String phone = item.getPhone() == null ? "" : item.getPhone().toLowerCase(Locale.ROOT);
-                if (!name.contains(lowerKeyword) && !phone.contains(lowerKeyword)) {
-                    continue;
-                }
-            }
-            filtered.add(item);
-        }
-        return filtered;
     }
 
     private double sumCustomerBalances(List<CustomerEntity> customers) {

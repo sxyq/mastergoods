@@ -70,27 +70,15 @@ public class InventoryLedgerLookupTool extends ToolSupport {
         );
         ToolAudit audit = startAudit(ctx, name(), input);
 
-        List<InventoryLedgerEntity> records;
-        if (productId != null) {
-            records = inventoryLedgerRepository.findAllByOwnerUserIdAndProductIdOrderByCreatedAtDescIdDesc(ownerUserId, productId);
-        } else if (startDate != null && endDate != null) {
-            records = inventoryLedgerRepository.findAllByOwnerUserIdAndCreatedAtBetweenOrderByCreatedAtDescIdDesc(ownerUserId, startDate, endDate);
-        } else {
-            records = inventoryLedgerRepository.findAllByOwnerUserIdOrderByCreatedAtDescIdDesc(
-                ownerUserId,
-                PageRequest.of(0, DEFAULT_TOOL_LIMIT * 5)
-            ).getContent();
-        }
-        if (StringUtils.hasText(sourceType)) {
-            List<InventoryLedgerEntity> filtered = new ArrayList<>(records.size());
-            for (InventoryLedgerEntity item : records) {
-                if (sourceType.equalsIgnoreCase(item.getSourceType())) {
-                    filtered.add(item);
-                }
-            }
-            records = filtered;
-        }
-        List<InventoryLedgerEntity> limited = limit(records, DEFAULT_TOOL_LIMIT);
+        List<InventoryLedgerEntity> records = inventoryLedgerRepository.findByOwnerUserIdAndFilters(
+            ownerUserId,
+            productId,
+            startDate,
+            endDate,
+            sourceType,
+            PageRequest.of(0, DEFAULT_TOOL_LIMIT)
+        ).getContent();
+        List<InventoryLedgerEntity> limited = records;
         List<InventoryLedgerEntity> topRecords = limit(limited, 5);
         audit.markLimitedResult(limited.size(), DEFAULT_TOOL_LIMIT);
         double inQty = 0D;

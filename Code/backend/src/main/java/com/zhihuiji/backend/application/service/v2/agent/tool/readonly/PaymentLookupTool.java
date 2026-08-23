@@ -83,7 +83,8 @@ public class PaymentLookupTool extends ToolSupport {
                 PageRequest.of(0, DEFAULT_TOOL_LIMIT)
             );
         } else if (startDate != null && endDate != null) {
-            payments = paymentRepository.findByOwnerUserIdAndCreatedAtBetween(ownerUserId, startDate, endDate);
+            payments = paymentRepository.findByOwnerUserIdAndCreatedAtBetween(
+                ownerUserId, startDate, endDate, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
         } else {
             payments = paymentRepository.findAllByOwnerUserIdOrderByCreatedAtDescIdDesc(ownerUserId, PageRequest.of(0, DEFAULT_TOOL_LIMIT));
         }

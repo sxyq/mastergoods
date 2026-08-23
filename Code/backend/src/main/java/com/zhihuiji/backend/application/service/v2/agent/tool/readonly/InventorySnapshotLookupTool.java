@@ -70,23 +70,14 @@ public class InventorySnapshotLookupTool extends ToolSupport {
         );
         ToolAudit audit = startAudit(ctx, name(), input);
 
-        List<InventorySnapshotEntity> snapshots;
-        if (snapshotDate != null) {
-            snapshots = inventorySnapshotRepository.findAllByOwnerUserIdAndSnapshotDateOrderByProductNameAsc(
-                ownerUserId, snapshotDate, PageRequest.of(0, DEFAULT_TOOL_LIMIT)).getContent();
-        } else if (startDate != null && endDate != null) {
-            snapshots = inventorySnapshotRepository.findAllByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateAscProductNameAsc(
-                ownerUserId, startDate, endDate, PageRequest.of(0, DEFAULT_TOOL_LIMIT)).getContent();
-        } else {
-            // 无时间筛选分支无 Pageable 重载，保留全量 + limit() 内存截断；
-            // 该分支命中条件为未传任何时间参数，线上调用方通常会带 snapshot_date 或时间窗口。
-            snapshots = inventorySnapshotRepository.findAllByOwnerUserIdOrderBySnapshotDateAscIdAsc(ownerUserId);
-        }
-        if (productId != null) {
-            snapshots = snapshots.stream()
-                .filter(item -> productId.equals(item.getProductId()))
-                .toList();
-        }
+        List<InventorySnapshotEntity> snapshots = inventorySnapshotRepository.findByOwnerUserIdAndFilters(
+            ownerUserId,
+            productId,
+            snapshotDate,
+            startDate,
+            endDate,
+            PageRequest.of(0, DEFAULT_TOOL_LIMIT)
+        ).getContent();
         List<InventorySnapshotEntity> limited = limit(snapshots, DEFAULT_TOOL_LIMIT);
         List<InventorySnapshotEntity> topSnapshots = limit(limited, 5);
         audit.markLimitedResult(limited.size(), DEFAULT_TOOL_LIMIT);

@@ -9,7 +9,6 @@ import com.zhihuiji.backend.domain.entity.SupplierEntity;
 import com.zhihuiji.backend.infrastructure.repository.SupplierRepository;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
@@ -68,12 +67,9 @@ public class SupplierPayableLookupTool extends ToolSupport {
         );
         ToolAudit audit = startAudit(ctx, name(), input);
 
-        List<SupplierEntity> fetched = supplierRepository.findByOwnerUserIdAndBalanceGreaterThanOrderByBalanceDesc(
-            ownerUserId,
-            0.0,
-            PageRequest.of(0, DEFAULT_TOOL_LIMIT)
+        List<SupplierEntity> topPayables = supplierRepository.findPayablesByOwnerUserIdAndFilters(
+            ownerUserId, 0.0, keyword, status, groupId, PageRequest.of(0, DEFAULT_TOOL_LIMIT)
         );
-        List<SupplierEntity> topPayables = filterInMemory(fetched, keyword, status, groupId);
         List<SupplierEntity> topSuppliers = limit(topPayables, 6);
         SupplierEntity highestPayableSupplier = topPayables.isEmpty() ? null : topPayables.get(0);
         long totalSupplierCount = safeLong(supplierRepository.countByOwnerUserIdAndBalanceGreaterThan(ownerUserId, 0.0));
@@ -143,32 +139,6 @@ public class SupplierPayableLookupTool extends ToolSupport {
             "top_suppliers", topSupplierItems
         ));
         return ToolResult.success(blocks, toolFacts, toolSummary);
-    }
-
-    private List<SupplierEntity> filterInMemory(List<SupplierEntity> suppliers, String keyword, Integer status, Long groupId) {
-        if (suppliers == null || suppliers.isEmpty()) {
-            return List.of();
-        }
-        boolean hasKeyword = StringUtils.hasText(keyword);
-        String lowerKeyword = hasKeyword ? keyword.toLowerCase(Locale.ROOT) : null;
-        List<SupplierEntity> filtered = new ArrayList<>(suppliers.size());
-        for (SupplierEntity item : suppliers) {
-            if (status != null && !status.equals(item.getStatus())) {
-                continue;
-            }
-            if (groupId != null && !groupId.equals(item.getGroupId())) {
-                continue;
-            }
-            if (hasKeyword) {
-                String name = item.getName() == null ? "" : item.getName().toLowerCase(Locale.ROOT);
-                String phone = item.getPhone() == null ? "" : item.getPhone().toLowerCase(Locale.ROOT);
-                if (!name.contains(lowerKeyword) && !phone.contains(lowerKeyword)) {
-                    continue;
-                }
-            }
-            filtered.add(item);
-        }
-        return filtered;
     }
 
     private double sumSupplierBalances(List<SupplierEntity> suppliers) {

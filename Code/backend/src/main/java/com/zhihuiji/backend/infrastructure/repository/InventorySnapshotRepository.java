@@ -20,4 +20,26 @@ public interface InventorySnapshotRepository extends JpaRepository<InventorySnap
 
     Page<InventorySnapshotEntity> findAllByOwnerUserIdAndSnapshotDateOrderByProductNameAsc(Long ownerUserId, Long snapshotDate, Pageable pageable);
     Page<InventorySnapshotEntity> findAllByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateAscProductNameAsc(Long ownerUserId, Long startDate, Long endDate, Pageable pageable);
+
+    Page<InventorySnapshotEntity> findAllByOwnerUserIdOrderBySnapshotDateDescIdDesc(Long ownerUserId, Pageable pageable);
+
+    Page<InventorySnapshotEntity> findAllByOwnerUserIdAndProductIdOrderBySnapshotDateDescIdDesc(Long ownerUserId, Long productId, Pageable pageable);
+
+    @Query("""
+        SELECT e FROM InventorySnapshotEntity e
+        WHERE e.ownerUserId = :ownerUserId
+          AND (:productId IS NULL OR e.productId = :productId)
+          AND (:snapshotDate IS NULL OR e.snapshotDate = :snapshotDate)
+          AND (:startDate IS NULL OR e.snapshotDate >= :startDate)
+          AND (:endDate IS NULL OR e.snapshotDate <= :endDate)
+        ORDER BY e.snapshotDate DESC, e.id DESC
+        """)
+    Page<InventorySnapshotEntity> findByOwnerUserIdAndFilters(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("productId") Long productId,
+        @Param("snapshotDate") Long snapshotDate,
+        @Param("startDate") Long startDate,
+        @Param("endDate") Long endDate,
+        Pageable pageable
+    );
 }

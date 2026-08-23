@@ -51,7 +51,7 @@ class CustomerProfileLookupToolTest {
         customer.setBalance(25.0);
         when(customerRepository.findAllByOwnerUserIdOrderByNameAsc(1L, PageRequest.of(0, 2)))
             .thenReturn(List.of(customer));
-        when(saleOrderRepository.search(eq(1L), eq("真实客户"), any(), any(), any(), any(), any(), any(), any()))
+        when(saleOrderRepository.search(eq(1L), eq("真实客户"), any(), any(), any(), any(), any(), any(), any(), any()))
             .thenReturn(List.of());
 
         var params = objectMapper.createObjectNode()

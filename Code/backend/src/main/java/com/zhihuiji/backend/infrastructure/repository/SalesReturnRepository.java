@@ -23,6 +23,8 @@ public interface SalesReturnRepository extends JpaRepository<SalesReturnEntity, 
 
     List<SalesReturnEntity> findByOwnerUserIdAndOriginalOrderIdOrderByCreatedAtDesc(Long ownerUserId, Long originalOrderId);
 
+    List<SalesReturnEntity> findByOwnerUserIdAndOriginalOrderIdInOrderByCreatedAtDesc(Long ownerUserId, java.util.Collection<Long> originalOrderIds);
+
     List<SalesReturnEntity> findByOwnerUserIdAndStatusOrderByCreatedAtDesc(Long ownerUserId, Integer status);
 
     List<SalesReturnEntity> findByOwnerUserIdAndStatusOrderByCreatedAtDescIdDesc(

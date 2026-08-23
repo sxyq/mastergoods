@@ -49,4 +49,18 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrderEnti
         @Param("status") Integer status,
         Pageable pageable
     );
+
+    @Query("""
+        SELECT COALESCE(SUM(o.totalAmount), 0),
+               COALESCE(SUM(o.paidAmount), 0),
+               COUNT(o)
+        FROM PurchaseOrderEntity o
+        WHERE o.ownerUserId = :ownerUserId
+          AND o.createdAt BETWEEN :startAt AND :endAt
+        """)
+    Object[] purchaseSummaryAggregate(
+        @Param("ownerUserId") Long ownerUserId,
+        @Param("startAt") Long startAt,
+        @Param("endAt") Long endAt
+    );
 }
