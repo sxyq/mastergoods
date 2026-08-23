@@ -59,6 +59,12 @@ public class CreateInventoryCountDraftTool extends ToolSupport {
     }
 
     @Override
+    public java.util.List<String> dependsOn() {
+        // 商品和当前库存快照均查询成功后才能生成盘点草稿。
+        return java.util.List.of("product_catalog_lookup", "inventory_snapshot_lookup");
+    }
+
+    @Override
     public JsonNode parameterSchema() {
         ObjectNode schema = objectMapper.createObjectNode();
         schema.put("type", "object");

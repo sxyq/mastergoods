@@ -326,6 +326,7 @@ public class SseStreamEmitter {
             sendEvent(emitter, eventMap("run_cancelled", mapOf(
                 "run_id", runId,
                 "reason", reason,
+                "terminal_status", AgentTerminalStatus.CANCELLED.name(),
                 "audit_id", auditId,
                 "trace_id", traceId,
                 "observability", observabilityFor(runId, auditId, traceId),
@@ -335,6 +336,128 @@ public class SseStreamEmitter {
             // 客户端可能已经断开；取消状态仍以 API 返回为准。
         }
     }
+
+    /**
+     * 发送统一终态事件：每个 run 只出现一次终态事件。
+     *
+     * <p>事件名由 {@link AgentTerminalStatus#terminalEventName()} 决定：
+     * run_completed（COMPLETED / CONFIRMATION_PENDING）、run_failed、run_blocked、
+     * run_exhausted、run_cancelled。所有终态事件都携带大写 terminal_status 字段；
+     * 缺少 terminal_status 的旧事件不能作为新回归用例的成功依据。
+     *
+     * @param emitter              SSE emitter（可为 null，仅审计）
+     * @param runId                运行 ID
+     * @param status               终态
+     * @param finalAnswer          正式回答（可为 null）
+     * @param mode                 模式
+     * @param llmStatus            llm 状态
+     * @param planSource           计划来源
+     * @param errorCode            稳定错误码（FAILED/EXHAUSTED 等非成功终态必填）
+     * @param safeMessage          安全消息（非成功终态使用）
+     * @param completedTools       已完成工具（EXHAUSTED 使用）
+     * @param missingTargetTools   未完成目标工具（EXHAUSTED 使用）
+     */
+    public void emitTerminalEvent(
+        SseEmitter emitter,
+        String runId,
+        AgentTerminalStatus status,
+        String finalAnswer,
+        String mode,
+        String llmStatus,
+        String planSource,
+        String errorCode,
+        String safeMessage,
+        List<String> completedTools,
+        List<String> missingTargetTools
+    ) {
+        String auditId = RunAuditService.auditIdFor(runId);
+        String traceId = RunAuditService.traceIdFor(runId);
+        Map<String, Object> payload = mapOf(
+            "run_id", runId,
+            "terminal_status", status.name(),
+            "audit_id", auditId,
+            "trace_id", traceId,
+            "observability", observabilityFor(runId, auditId, traceId),
+            "timestamp", System.currentTimeMillis()
+        );
+        if (finalAnswer != null) {
+            payload.put("final_answer", finalAnswer);
+        }
+        if (mode != null) {
+            payload.put("mode", mode);
+        }
+        if (llmStatus != null) {
+            payload.put("llm_status", llmStatus);
+        }
+        if (planSource != null) {
+            payload.put("plan_source", planSource);
+        }
+        if (errorCode != null) {
+            payload.put("code", errorCode);
+        }
+        if (safeMessage != null) {
+            payload.put("safe_message", safeMessage);
+        }
+        if (completedTools != null && !completedTools.isEmpty()) {
+            payload.put("completed_tools", completedTools);
+        }
+        if (missingTargetTools != null && !missingTargetTools.isEmpty()) {
+            payload.put("missing_target_tools", missingTargetTools);
+        }
+        try {
+            sendEvent(emitter, eventMap(status.terminalEventName(), payload));
+        } catch (IOException ex) {
+            throw new IllegalStateException("发送 " + status.terminalEventName() + " 失败", ex);
+        }
+    }
+
+    /**
+     * 发送上下文压缩事件（context_compacted）。
+     *
+     * <p>事件只携带边界、原因、压缩条数与摘要预览，不携带完整检查点原文。
+     */
+    public void emitContextCompacted(
+        SseEmitter emitter,
+        String runId,
+        Long checkpointId,
+        Long sourceBoundaryMessageId,
+        int compactedCount,
+        String summaryPreview,
+        long inputTokenEstimate,
+        long outputTokenEstimate,
+        String reason,
+        boolean reused
+    ) {
+        if (runId == null) {
+            return;
+        }
+        try {
+            Map<String, Object> payload = mapOf(
+                "run_id", runId,
+                "compacted_count", compactedCount,
+                "input_token_estimate", inputTokenEstimate,
+                "output_token_estimate", outputTokenEstimate,
+                "reason", reason == null ? "context_budget_threshold" : reason,
+                "reused", reused,
+                "audit_id", RunAuditService.auditIdFor(runId),
+                "trace_id", RunAuditService.traceIdFor(runId),
+                "timestamp", System.currentTimeMillis()
+            );
+            if (checkpointId != null) {
+                payload.put("checkpoint_id", checkpointId);
+            }
+            if (sourceBoundaryMessageId != null) {
+                payload.put("source_boundary_message_id", sourceBoundaryMessageId);
+            }
+            if (summaryPreview != null) {
+                payload.put("summary_preview", summaryPreview);
+            }
+            sendEvent(emitter, eventMap("context_compacted", payload));
+        } catch (IOException ex) {
+            throw new IllegalStateException("发送 context_compacted 失败", ex);
+        }
+    }
+
 
     public AnswerDeltaBatcher newAnswerDeltaBatcher(SseEmitter emitter, String runId) {
         return new AnswerDeltaBatcher(emitter, runId);

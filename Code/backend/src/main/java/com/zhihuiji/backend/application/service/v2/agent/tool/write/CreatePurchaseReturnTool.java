@@ -61,6 +61,12 @@ public class CreatePurchaseReturnTool extends ToolSupport {
     }
 
     @Override
+    public java.util.List<String> dependsOn() {
+        // 退货草稿必须绑定真实采购单及可退数量。
+        return java.util.List.of("purchase_order_lookup");
+    }
+
+    @Override
     public JsonNode parameterSchema() {
         var schema = objectSchema();
         addIntegerProperty(schema, "purchase_order_id", "采购单 ID");

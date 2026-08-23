@@ -30,6 +30,11 @@ import com.zhihuiji.backend.application.service.v2.agent.component.AgentTypes.Fi
 import com.zhihuiji.backend.application.service.v2.agent.component.AgentTypes.ResponsePayload;
 import com.zhihuiji.backend.application.service.v2.agent.component.AgentTypes.ToolExecutionResult;
 import com.zhihuiji.backend.application.service.v2.agent.component.AgentTypes.ToolFailureResult;
+import com.zhihuiji.backend.application.service.v2.agent.component.AgentIterationPolicy;
+import com.zhihuiji.backend.application.service.v2.agent.component.AgentPromptCatalog;
+import com.zhihuiji.backend.application.service.v2.agent.component.AgentRunState;
+import com.zhihuiji.backend.application.service.v2.agent.component.AgentTerminalStatus;
+import com.zhihuiji.backend.application.service.v2.agent.component.AgentTypes.AgentRunOutcome;
 import com.zhihuiji.backend.application.service.v2.agent.component.AnswerSynthesizer;
 import com.zhihuiji.backend.application.service.v2.agent.component.RunAuditService;
 import com.zhihuiji.backend.application.service.v2.agent.component.SafetyDecision;
@@ -38,7 +43,9 @@ import com.zhihuiji.backend.application.service.v2.agent.component.SseStreamEmit
 import com.zhihuiji.backend.application.service.v2.agent.component.ToolPlanner;
 import com.zhihuiji.backend.application.service.v2.agent.component.ToolInvocationIdentity;
 import com.zhihuiji.backend.application.service.v2.agent.tool.AgentTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.ToolArgumentsValidator;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolContext;
+import com.zhihuiji.backend.application.service.v2.agent.tool.ToolExecutor;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolRegistry;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolResult;
 import java.io.IOException;
@@ -97,6 +104,7 @@ public class V2AgentAiService {
     private final ObjectMapper objectMapper;
     private final LongCatAnthropicClient longCatAnthropicClient;
     private final ToolRegistry toolRegistry;
+    private final ToolExecutor toolExecutor;
     private final RunAuditService runAuditService;
     private final SseStreamEmitter sseStreamEmitter;
     private final SafetyGuard safetyGuard;
@@ -118,6 +126,7 @@ public class V2AgentAiService {
         ObjectMapper objectMapper,
         LongCatAnthropicClient longCatAnthropicClient,
         ToolRegistry toolRegistry,
+        ToolExecutor toolExecutor,
         RunAuditService runAuditService,
         SseStreamEmitter sseStreamEmitter,
         SafetyGuard safetyGuard,
@@ -137,6 +146,7 @@ public class V2AgentAiService {
         this.objectMapper = objectMapper;
         this.longCatAnthropicClient = longCatAnthropicClient;
         this.toolRegistry = toolRegistry;
+        this.toolExecutor = toolExecutor;
         this.runAuditService = runAuditService;
         this.sseStreamEmitter = sseStreamEmitter;
         this.safetyGuard = safetyGuard;
@@ -317,18 +327,23 @@ public class V2AgentAiService {
 
         FinalAnswer finalAnswer;
         long modelStartedAt = System.currentTimeMillis();
+        AgentRunOutcome outcome;
         if (!imageInputs.isEmpty()) {
             finalAnswer = buildMultimodalDirectAnswer(message, imageInputs);
+            outcome = new AgentRunOutcome(payload, AgentTerminalStatus.COMPLETED);
         } else {
             List<AgentMessageEntity> history = loadRecentHistory(ownerUserId, conversation.getId(), 10);
-            payload = buildResponse(ownerUserId, conversation.getId(), message, history, conversation.getLatestSummary(), null, runId);
+            outcome = buildResponse(ownerUserId, conversation.getId(), message, history, conversation.getLatestSummary(), null, runId);
+            payload = outcome.payload();
             finalAnswer = buildFinalAnswer(message, payload, history, conversation.getLatestSummary());
+            finalAnswer = applyTerminalAnswerSuffix(finalAnswer, outcome.terminalStatus(), outcome);
         }
         long completedAt = System.currentTimeMillis();
         long modelDurationMs = finalAnswer.modelAttempted()
             ? Math.max(0L, completedAt - modelStartedAt)
             : 0L;
         boolean llmFailed = isLlmFailure(finalAnswer);
+        AgentTerminalStatus terminalStatus = llmFailed ? AgentTerminalStatus.FAILED : outcome.terminalStatus();
         if (llmFailed) {
             persistTerminalAssistantMessage(
                 ownerUserId,
@@ -351,13 +366,13 @@ public class V2AgentAiService {
         runAuditService.finishRunAudit(
             ownerUserId,
             runId,
-            llmFailed ? "failed" : "completed",
+            terminalStatus.auditStatus(),
             finalAnswer.mode(),
             finalAnswer.llmStatus(),
             payload.planSource(),
             payload.toolResults().size(),
-            llmFailed ? finalAnswer.mode().toUpperCase(java.util.Locale.ROOT) : null,
-            llmFailed ? llmFailureMessage(finalAnswer) : null,
+            llmFailed ? finalAnswer.mode().toUpperCase(java.util.Locale.ROOT) : outcome.errorCode(),
+            llmFailed ? llmFailureMessage(finalAnswer) : outcome.safeMessage(),
             completedAt
         );
 
@@ -385,7 +400,12 @@ public class V2AgentAiService {
             ),
             auditId,
             traceId,
-            SseStreamEmitter.observabilityFor(runId, auditId, traceId)
+            SseStreamEmitter.observabilityFor(runId, auditId, traceId),
+            terminalStatus.name(),
+            llmFailed ? finalAnswer.mode().toUpperCase(java.util.Locale.ROOT) : outcome.errorCode(),
+            llmFailed ? llmFailureMessage(finalAnswer) : outcome.safeMessage(),
+            outcome.completedTools(),
+            outcome.missingTargetTools()
         );
         } catch (IOException ex) {
             IllegalStateException failure = new IllegalStateException("记录 Agent run_started 失败", ex);
@@ -397,6 +417,36 @@ public class V2AgentAiService {
         } finally {
             runAuditService.removeRun(runId);
         }
+    }
+
+    /**
+     * 按终态给正式回答追加确定性的状态说明，保证 CONFIRMATION_PENDING 不被表述为
+     * 已写入、EXHAUSTED 明确列出已完成与未完成目标。
+     */
+    private FinalAnswer applyTerminalAnswerSuffix(FinalAnswer finalAnswer, AgentTerminalStatus terminalStatus, AgentRunOutcome outcome) {
+        if (finalAnswer == null || !StringUtils.hasText(finalAnswer.answer())) {
+            return finalAnswer;
+        }
+        String suffix = switch (terminalStatus) {
+            case CONFIRMATION_PENDING ->
+                "\n\n[状态] 草稿已生成，等待你确认后才会写入正式业务数据；当前未创建任何正式单据。";
+            case EXHAUSTED -> {
+                StringBuilder text = new StringBuilder("\n\n[状态] 本次运行已达轮次预算上限");
+                if (outcome != null && !outcome.completedTools().isEmpty()) {
+                    text.append("；已完成：").append(String.join("、", outcome.completedTools()));
+                }
+                if (outcome != null && !outcome.missingTargetTools().isEmpty()) {
+                    text.append("；未完成：").append(String.join("、", outcome.missingTargetTools()));
+                }
+                text.append("。未写入任何正式业务数据。");
+                yield text.toString();
+            }
+            default -> null;
+        };
+        if (suffix == null) {
+            return finalAnswer;
+        }
+        return new FinalAnswer(finalAnswer.answer() + suffix, finalAnswer.mode(), finalAnswer.llmStatus(), finalAnswer.modelAttempted());
     }
 
     public SseEmitter chatStream(V2AgentDtos.AgentChatRequest request) {
@@ -604,27 +654,20 @@ public class V2AgentAiService {
                     blockedMessage,
                     System.currentTimeMillis()
                 );
-                sseStreamEmitter.sendEvent(emitter, SseStreamEmitter.eventMap("run_completed", mapOf(
-                    "run_id", runId,
-                    "final_answer", null,
-                    "safe_message", blockedMessage,
-                    "mode", "blocked",
-                    "llm_status", "not_requested",
-                    "plan_source", "safety",
-                    "audit_id", auditId,
-                    "trace_id", traceId,
-                    "observability", SseStreamEmitter.observabilityFor(runId, auditId, traceId),
-                    "timestamp", System.currentTimeMillis()
-                )));
+                sseStreamEmitter.emitTerminalEvent(
+                    emitter, runId, AgentTerminalStatus.BLOCKED,
+                    null, "blocked", "not_requested", "safety",
+                    "SAFETY_BLOCKED", blockedMessage, List.of(), List.of()
+                );
                 runAuditService.finishRunAudit(
                     ownerUserId,
                     runId,
-                    "blocked",
+                    AgentTerminalStatus.BLOCKED.auditStatus(),
                     "blocked",
                     "not_requested",
                     "safety",
                     0,
-                    null,
+                    "SAFETY_BLOCKED",
                     null,
                     System.currentTimeMillis()
                 );
@@ -633,6 +676,7 @@ public class V2AgentAiService {
             }
 
             ResponsePayload payload;
+            AgentRunOutcome outcome;
             FinalAnswer finalAnswer;
             final ResponsePayload[] payloadRef = new ResponsePayload[1];
             AtomicBoolean blocksEmitted = new AtomicBoolean(false);
@@ -650,10 +694,12 @@ public class V2AgentAiService {
                     new AgentToolPlan(List.of(), "图片直接分析", "multimodal_direct", Map.of())
                 );
                 payloadRef[0] = payload;
+                outcome = new AgentRunOutcome(payload, AgentTerminalStatus.COMPLETED);
                 finalAnswer = buildMultimodalDirectAnswerForStream(message, imageInputs, emitter, runId, emitBlocksAfterVisibleAnswer);
             } else {
                 List<AgentMessageEntity> history = loadRecentHistory(ownerUserId, conversation.getId(), 10);
-                payload = buildResponse(ownerUserId, conversation.getId(), message, history, conversation.getLatestSummary(), emitter, runId);
+                outcome = buildResponse(ownerUserId, conversation.getId(), message, history, conversation.getLatestSummary(), emitter, runId);
+                payload = outcome.payload();
                 payloadRef[0] = payload;
                 runAuditService.ensureRunActive(runId);
                 finalAnswer = buildFinalAnswerForStream(
@@ -665,6 +711,7 @@ public class V2AgentAiService {
                     history,
                     conversation.getLatestSummary()
                 );
+                finalAnswer = applyTerminalAnswerSuffix(finalAnswer, outcome.terminalStatus(), outcome);
             }
             runAuditService.ensureRunActive(runId);
             if (isLlmFailure(finalAnswer)) {
@@ -681,7 +728,7 @@ public class V2AgentAiService {
                 runAuditService.finishRunAudit(
                     ownerUserId,
                     runId,
-                    "failed",
+                    AgentTerminalStatus.FAILED.auditStatus(),
                     finalAnswer.mode(),
                     finalAnswer.llmStatus(),
                     payloadRef[0].planSource(),
@@ -697,6 +744,12 @@ public class V2AgentAiService {
                     "message", failureMessage,
                     "timestamp", System.currentTimeMillis()
                 )));
+                sseStreamEmitter.emitTerminalEvent(
+                    emitter, runId, AgentTerminalStatus.FAILED,
+                    null, finalAnswer.mode(), finalAnswer.llmStatus(), payloadRef[0].planSource(),
+                    failureCode, failureMessage,
+                    List.of(), List.of()
+                );
                 emitter.complete();
                 return;
             }
@@ -717,27 +770,31 @@ public class V2AgentAiService {
                 payloadRef[0].blocks(),
                 System.currentTimeMillis()
             );
-            sseStreamEmitter.sendEvent(emitter, SseStreamEmitter.eventMap("run_completed", mapOf(
-                "run_id", runId,
-                "final_answer", finalAnswer.answer(),
-                "mode", finalAnswer.mode(),
-                "llm_status", finalAnswer.llmStatus(),
-                "plan_source", payloadRef[0].planSource(),
-                "audit_id", auditId,
-                "trace_id", traceId,
-                "observability", SseStreamEmitter.observabilityFor(runId, auditId, traceId),
-                "timestamp", System.currentTimeMillis()
-            )));
+            // 统一终态事件：run_completed（COMPLETED/CONFIRMATION_PENDING）/
+            // run_exhausted；每个 run 只出现一次终态事件。
+            sseStreamEmitter.emitTerminalEvent(
+                emitter,
+                runId,
+                outcome.terminalStatus(),
+                finalAnswer.answer(),
+                finalAnswer.mode(),
+                finalAnswer.llmStatus(),
+                payloadRef[0].planSource(),
+                outcome.errorCode(),
+                outcome.safeMessage(),
+                outcome.completedTools(),
+                outcome.missingTargetTools()
+            );
             runAuditService.finishRunAudit(
                 ownerUserId,
                 runId,
-                "completed",
+                outcome.terminalStatus().auditStatus(),
                 finalAnswer.mode(),
                 finalAnswer.llmStatus(),
                 payloadRef[0].planSource(),
                 payloadRef[0].toolResults().size(),
-                null,
-                null,
+                outcome.errorCode(),
+                outcome.safeMessage(),
                 System.currentTimeMillis()
             );
             emitter.complete();
@@ -749,14 +806,14 @@ public class V2AgentAiService {
     }
 
     private ResponsePayload buildResponse(Long ownerUserId, Long conversationId, String message) {
-        return buildResponse(ownerUserId, conversationId, message, List.of(), null, null, null);
+        return buildResponse(ownerUserId, conversationId, message, List.of(), null, null, null).payload();
     }
 
     private ResponsePayload buildResponse(Long ownerUserId, Long conversationId, String message, SseEmitter emitter, String runId) {
-        return buildResponse(ownerUserId, conversationId, message, List.of(), null, emitter, runId);
+        return buildResponse(ownerUserId, conversationId, message, List.of(), null, emitter, runId).payload();
     }
 
-    private ResponsePayload buildResponse(
+    private AgentRunOutcome buildResponse(
         Long ownerUserId,
         Long conversationId,
         String message,
@@ -769,21 +826,38 @@ public class V2AgentAiService {
         emitPlan(emitter, runId, plan);
         boolean createIntentPlan = containsCreateOnlyTool(plan);
 
+        // 复杂度轮次预算：按目标创建工具与依赖数量计算，受硬上限约束。
+        int iterationBudget = AgentIterationPolicy.budgetFor(message, plan, toolRegistry);
+        AgentRunState runState = new AgentRunState(
+            runId, conversationId, ownerUserId, currentStoreIdOrNull(), iterationBudget
+        );
+        registerRequiredTargetTools(runState, message, plan);
+
         List<V2AgentDtos.ResultBlockDto> candidateBlocks = new ArrayList<>();
         List<ToolExecutionResult> toolResults = new ArrayList<>();
         List<ToolFailureResult> toolFailures = new ArrayList<>();
         Set<String> executedInvocationKeys = new LinkedHashSet<>();
         ToolExecutionBudget toolBudget = new ToolExecutionBudget(MAX_TOOL_CALLS_PER_RUN);
         int initialResultCount = toolResults.size();
+        int initialFailureCount = toolFailures.size();
         executeToolPlan(ownerUserId, conversationId, emitter, runId, plan, candidateBlocks, toolResults, toolFailures,
-            executedInvocationKeys, toolBudget);
+            executedInvocationKeys, toolBudget, runState);
+        recordTranscriptRound(runState, plan, initialResultCount, initialFailureCount, toolResults, toolFailures);
         emitDraftCreatedEvents(emitter, runId, toolResults.subList(initialResultCount, toolResults.size()));
         if (plan != null && "model_tool_selection_failed".equals(plan.source())) {
-            return new ResponsePayload(List.of(), List.of(), List.of(), plan);
+            return new AgentRunOutcome(
+                new ResponsePayload(List.of(), List.of(), List.of(), plan),
+                AgentTerminalStatus.FAILED,
+                "MODEL_TOOL_SELECTION_FAILED",
+                "模型未能选择有效工具",
+                List.copyOf(runState.completedToolNames()),
+                runState.missingTargetTools()
+            );
         }
 
-        // ReAct 多轮迭代：每轮工具执行后，由 LLM 判断是否需要补充查询，最多 MAX_AGENT_ITERATIONS 轮
-        for (int iteration = 2; iteration <= ToolPlanner.MAX_AGENT_ITERATIONS; iteration++) {
+        // ReAct 多轮迭代：每轮工具执行后，由 LLM 判断是否需要补充查询。
+        // 轮次受复杂度预算约束；预算耗尽且目标工具未完成时进入 EXHAUSTED。
+        while (runState.hasIterationLeft()) {
             if (createIntentPlan && hasCompletedCreateTool(toolResults)) {
                 break;
             }
@@ -793,11 +867,14 @@ public class V2AgentAiService {
             if (!longCatAnthropicClient.isConfigured()) {
                 break;
             }
-            Optional<AgentToolPlan> nextPlan = planNextIteration(message, plan, toolResults, toolFailures, iteration);
+            int nextIteration = runState.iteration() + 1;
+            Optional<AgentToolPlan> nextPlan = toolPlanner.planNextIteration(
+                message, plan, toolResults, toolFailures, nextIteration);
             if (nextPlan.isEmpty()) {
                 break;
             }
             AgentToolPlan iterationPlan = nextPlan.get();
+            runState.advanceIteration();
             if (iterationPlan.tools() == null || iterationPlan.tools().isEmpty()) {
                 // The model returned a terminal text-only continuation. Do not
                 // send another tool-selection request after it decided that
@@ -809,8 +886,10 @@ public class V2AgentAiService {
             emitPlan(emitter, runId, iterationPlan);
             int iterationResultCount = toolResults.size();
             int iterationFailureCount = toolFailures.size();
+            registerRequiredTargetTools(runState, message, iterationPlan);
             executeToolPlan(ownerUserId, conversationId, emitter, runId, iterationPlan, candidateBlocks, toolResults, toolFailures,
-                executedInvocationKeys, toolBudget);
+                executedInvocationKeys, toolBudget, runState);
+            recordTranscriptRound(runState, iterationPlan, iterationResultCount, iterationFailureCount, toolResults, toolFailures);
             emitDraftCreatedEvents(emitter, runId, toolResults.subList(iterationResultCount, toolResults.size()));
             if (toolResults.size() == iterationResultCount
                 && toolFailures.size() == iterationFailureCount) {
@@ -820,7 +899,7 @@ public class V2AgentAiService {
             }
             plan = new AgentToolPlan(
                 mergeTools(plan.tools(), iterationPlan.tools()),
-                plan.rationale() + " + 迭代补充(" + iteration + ")",
+                plan.rationale() + " + 迭代补充(" + runState.iteration() + ")",
                 iterationPlan.source(),
                 mergeToolParams(plan.toolParams(), iterationPlan.toolParams()),
                 iterationPlan.nativeResponseId(),
@@ -835,7 +914,169 @@ public class V2AgentAiService {
         }
 
         List<V2AgentDtos.ResultBlockDto> blocks = selectVisibleResultBlocks(toolResults, candidateBlocks);
-        return new ResponsePayload(blocks, toolResults, toolFailures, plan);
+        ResponsePayload payload = new ResponsePayload(blocks, toolResults, toolFailures, plan);
+        return resolveRunOutcome(runState, message, createIntentPlan, toolResults, payload);
+    }
+
+    /**
+     * 依据运行状态、目标工具完成情况与模型回答计算统一终态。
+     *
+     * <p>创建类任务：目标 CREATE_ONLY 工具成功生成草稿 → CONFIRMATION_PENDING；
+     * 目标未完成且预算耗尽 → EXHAUSTED。查询类任务满足完成策略 → COMPLETED。
+     */
+    private AgentRunOutcome resolveRunOutcome(
+        AgentRunState runState,
+        String message,
+        boolean createIntentPlan,
+        List<ToolExecutionResult> toolResults,
+        ResponsePayload payload
+    ) {
+        boolean hasCompletedCreateTool = hasCompletedCreateTool(toolResults);
+        boolean writeTargetPending = !runState.missingTargetTools().isEmpty();
+        if (createIntentPlan || writeTargetPending) {
+            if (hasCompletedCreateTool || runState.anyTargetToolCompleted()) {
+                return new AgentRunOutcome(
+                    payload,
+                    AgentTerminalStatus.CONFIRMATION_PENDING,
+                    null,
+                    "草稿已生成，等待用户确认后才会写入正式业务数据。",
+                    List.copyOf(runState.completedToolNames()),
+                    runState.missingTargetTools()
+                );
+            }
+            // 查询完成但目标工具未完成：不返回成功语义。
+            return new AgentRunOutcome(
+                payload,
+                AgentTerminalStatus.EXHAUSTED,
+                "AGENT_ITERATION_EXHAUSTED",
+                exhaustedSafeMessage(runState),
+                List.copyOf(runState.completedToolNames()),
+                runState.missingTargetTools()
+            );
+        }
+        return new AgentRunOutcome(payload, AgentTerminalStatus.COMPLETED);
+    }
+
+    private String exhaustedSafeMessage(AgentRunState runState) {
+        Set<String> completed = runState.completedToolNames();
+        List<String> missing = runState.missingTargetTools();
+        StringBuilder message = new StringBuilder("本次运行已达轮次预算上限。");
+        if (!completed.isEmpty()) {
+            message.append("已完成工具：").append(String.join("、", completed)).append("。");
+        } else {
+            message.append("未完成任何工具。");
+        }
+        if (!missing.isEmpty()) {
+            message.append("未完成目标：").append(String.join("、", missing)).append("。");
+        }
+        message.append("未写入任何正式业务数据。");
+        return message.toString();
+    }
+
+    /** 登记完成任务所需的目标工具（写目标 + 本轮计划中的 CREATE_ONLY 工具 + 海报目标）。 */
+    private void registerRequiredTargetTools(AgentRunState runState, String message, AgentToolPlan plan) {
+        String writeTarget = AgentPromptCatalog.targetWriteTool(message);
+        if (StringUtils.hasText(writeTarget)) {
+            runState.requireTargetTools(Set.of(writeTarget));
+        }
+        if (message != null && message.contains("海报")) {
+            runState.requireTargetTools(Set.of("generate_poster_prompt"));
+        }
+        if (plan != null && plan.tools() != null) {
+            for (String toolName : plan.tools()) {
+                toolRegistry.getTool(toolName)
+                    .filter(tool -> tool.type() == AgentTool.ToolType.CREATE_ONLY)
+                    .ifPresent(tool -> runState.requireTargetTools(Set.of(tool.name())));
+            }
+        }
+    }
+
+    /**
+     * 追加一轮原生 transcript：assistant tool call 与 tool result 按 call_id 配对。
+     *
+     * <p>本轮新增的 toolResults（fromResultIndex 起）与 toolFailures（fromFailureIndex 起）
+     * 与计划中的 native tool call 块配对；缺少结果的调用记录为结构化失败，不静默丢弃。
+     */
+    private void recordTranscriptRound(
+        AgentRunState runState,
+        AgentToolPlan plan,
+        int fromResultIndex,
+        int fromFailureIndex,
+        List<ToolExecutionResult> toolResults,
+        List<ToolFailureResult> toolFailures
+    ) {
+        if (runState == null || plan == null) {
+            return;
+        }
+        List<AgentRunState.AssistantToolCall> assistantCalls = new ArrayList<>();
+        if (plan.nativeToolCallBlocks() != null) {
+            for (NativeToolCallBlock block : plan.nativeToolCallBlocks()) {
+                if (block == null || !StringUtils.hasText(block.toolName())) {
+                    continue;
+                }
+                assistantCalls.add(new AgentRunState.AssistantToolCall(
+                    block.toolCallId(), block.toolName(), block.arguments()
+                ));
+            }
+        }
+        if (plan.tools() != null && assistantCalls.isEmpty()) {
+            // JSON 兼容计划没有原生 call_id；按本轮执行顺序生成运行内身份。
+            for (String toolName : plan.tools()) {
+                if (!StringUtils.hasText(toolName)) {
+                    continue;
+                }
+                assistantCalls.add(new AgentRunState.AssistantToolCall(null, toolName, null));
+            }
+        }
+        List<AgentRunState.ToolMessage> toolMessages = new ArrayList<>();
+        Set<String> pairedCallIds = new LinkedHashSet<>();
+        if (toolResults != null) {
+            for (int i = Math.max(0, fromResultIndex); i < toolResults.size(); i++) {
+                ToolExecutionResult result = toolResults.get(i);
+                if (result == null) {
+                    continue;
+                }
+                toolMessages.add(new AgentRunState.ToolMessage(
+                    result.toolCallId(), result.toolName(), "completed", result.summary()
+                ));
+                if (StringUtils.hasText(result.toolCallId())) {
+                    pairedCallIds.add(result.toolCallId());
+                }
+            }
+        }
+        if (toolFailures != null) {
+            for (int i = Math.max(0, fromFailureIndex); i < toolFailures.size(); i++) {
+                ToolFailureResult failure = toolFailures.get(i);
+                if (failure == null) {
+                    continue;
+                }
+                toolMessages.add(new AgentRunState.ToolMessage(
+                    failure.toolCallId(), failure.toolName(), "failed", failure.safeMessage()
+                ));
+                if (StringUtils.hasText(failure.toolCallId())) {
+                    pairedCallIds.add(failure.toolCallId());
+                }
+            }
+        }
+        // 缺少配对结果的原生调用记录为结构化失败，不静默丢弃。
+        for (AgentRunState.AssistantToolCall call : assistantCalls) {
+            if (call.callId() != null && !pairedCallIds.contains(call.callId())) {
+                toolMessages.add(new AgentRunState.ToolMessage(
+                    call.callId(), call.toolName(), "missing_output", "调用缺少配对结果"
+                ));
+            }
+        }
+        runState.appendTranscriptRound(AgentRunState.TranscriptRound.of(
+            runState.iteration(), assistantCalls, toolMessages
+        ));
+    }
+
+    private Long currentStoreIdOrNull() {
+        try {
+            return currentOwnerService.findCurrentStoreId().orElse(null);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     private List<ToolExecutionResult> collapseToolResultsForPresentation(List<ToolExecutionResult> toolResults) {
@@ -1082,13 +1323,13 @@ public class V2AgentAiService {
                                   List<V2AgentDtos.ResultBlockDto> blocks,
                                   List<ToolExecutionResult> toolResults, List<ToolFailureResult> toolFailures) {
         executeToolPlan(ownerUserId, conversationId, emitter, runId, plan, blocks, toolResults, toolFailures,
-            new LinkedHashSet<>(), new ToolExecutionBudget(MAX_TOOL_CALLS_PER_RUN));
+            new LinkedHashSet<>(), new ToolExecutionBudget(MAX_TOOL_CALLS_PER_RUN), null);
     }
 
     private void executeToolPlan(Long ownerUserId, Long conversationId, SseEmitter emitter, String runId, AgentToolPlan plan,
                                   List<V2AgentDtos.ResultBlockDto> blocks,
                                   List<ToolExecutionResult> toolResults, List<ToolFailureResult> toolFailures,
-                                  Set<String> executedInvocationKeys, ToolExecutionBudget toolBudget) {
+                                  Set<String> executedInvocationKeys, ToolExecutionBudget toolBudget, AgentRunState runState) {
         if (plan != null && "model_tool_selection_failed".equals(plan.source())) {
             int sequence = toolResults.size() + toolFailures.size() + 1;
             List<NativeToolCallBlock> suppressedBlocks = plan.nativeToolCallBlocks() == null
@@ -1107,6 +1348,9 @@ public class V2AgentAiService {
                     sequence++,
                     block.toolCallId()
                 );
+                if (runState != null) {
+                    runState.markAttempted(block.toolName());
+                }
             }
             return;
         }
@@ -1119,6 +1363,20 @@ public class V2AgentAiService {
             JsonNode params = invocation.params();
             int sequence = toolResults.size() + toolFailures.size() + 1;
             String modelToolCallId = invocation.modelToolCallId();
+            if (runState != null) {
+                runState.markAttempted(tool);
+            }
+            // 原始参数 JSON 解析失败时记录结构化失败，禁止用 {} 掩盖参数丢失。
+            if (invocation.rawArgumentsInvalid()) {
+                String invalidMessage = "模型原始参数不是合法 JSON（TOOL_ARGUMENTS_INVALID）";
+                toolFailures.add(new ToolFailureResult(tool, invalidMessage, modelToolCallId, sequence));
+                sseStreamEmitter.emitToolFailed(
+                    emitter, runId, tool, invalidMessage,
+                    0L, System.currentTimeMillis(), defaultToolInput(null),
+                    sequence, modelToolCallId
+                );
+                continue;
+            }
             String invocationKey = ToolInvocationIdentity.key(
                 tool, null, params, objectMapper
             );
@@ -1143,6 +1401,16 @@ public class V2AgentAiService {
                     sequence, invocation.modelToolCallId());
                 continue;
             }
+            // 范围门：依赖工具必须已真实完成，或必填参数已齐备；否则跳过并保留
+            // 结构化失败，让下一轮先补依赖查询，而不是用编造参数执行目标工具。
+            ToolExecutor.GateDecision scopeDecision = toolExecutor.checkScope(runState, tool, null, params);
+            if (!scopeDecision.allowed() && ToolExecutor.TOOL_DEPENDENCY_MISSING.equals(scopeDecision.reasonCode())) {
+                emitToolSkipped(emitter, runId, tool, "dependency_missing", params,
+                    sequence, invocation.modelToolCallId());
+                toolFailures.add(new ToolFailureResult(
+                    tool, scopeDecision.safeMessage(), modelToolCallId, sequence));
+                continue;
+            }
             if (registeredTool.isPresent()
                 && registeredTool.get().type() == AgentTool.ToolType.CREATE_ONLY
                 && !toolRegistry.hasAllRequiredParameters(tool, params)) {
@@ -1159,6 +1427,23 @@ public class V2AgentAiService {
                     modelToolCallId,
                     sequence
                 ));
+                continue;
+            }
+            // 参数门：结构化 Schema 校验（字段路径 + 稳定错误码）；参数错误不得进入业务 Repository。
+            ToolExecutor.GateDecision argumentsDecision = toolExecutor.checkArguments(tool, params);
+            if (!argumentsDecision.allowed()) {
+                String violationSummary = argumentsDecision.violations().stream()
+                    .map(violation -> violation.fieldPath() + "(" + violation.constraint() + ")")
+                    .limit(5)
+                    .reduce((left, right) -> left + "、" + right)
+                    .orElse("参数不符合约束");
+                String invalidMessage = "工具参数不符合声明的参数约束：" + violationSummary;
+                toolFailures.add(new ToolFailureResult(tool, invalidMessage, modelToolCallId, sequence));
+                sseStreamEmitter.emitToolFailed(
+                    emitter, runId, tool, invalidMessage,
+                    0L, System.currentTimeMillis(), defaultToolInput(params),
+                    sequence, modelToolCallId
+                );
                 continue;
             }
             String toolCallId = StringUtils.hasText(invocation.modelToolCallId())
@@ -1203,6 +1488,10 @@ public class V2AgentAiService {
                     populateToolAudit(audit, payload.toolResults());
                     blocks.addAll(payload.blocks());
                     toolResults.addAll(payload.toolResults());
+                    if (runState != null) {
+                        runState.recordToolCall();
+                        runState.markCompleted(tool);
+                    }
                     sseStreamEmitter.emitToolCompleted(
                         emitter,
                         runId,
@@ -1269,10 +1558,8 @@ public class V2AgentAiService {
                 if (block == null || !StringUtils.hasText(block.toolName())) {
                     continue;
                 }
-                ToolInvocation invocation = new ToolInvocation(
-                    block.toolCallId(),
-                    block.toolName(),
-                    parseToolArguments(block.arguments())
+                ToolInvocation invocation = parseInvocationArguments(
+                    block.toolCallId(), block.toolName(), block.arguments()
                 );
                 representedToolNames.add(block.toolName());
                 if (RESULT_VISUALIZATION_TOOL.equals(block.toolName())) {
@@ -1301,6 +1588,22 @@ public class V2AgentAiService {
         }
         regular.addAll(visualization);
         return regular;
+    }
+
+    /**
+     * 严格解析模型原始参数：非法 JSON 返回 rawArgumentsInvalid=true 的调用，
+     * 由执行层记录 TOOL_ARGUMENTS_INVALID 结构化失败，禁止用 {} 掩盖。
+     */
+    private ToolInvocation parseInvocationArguments(String toolCallId, String toolName, String rawArguments) {
+        if (!StringUtils.hasText(rawArguments)) {
+            return new ToolInvocation(toolCallId, toolName, objectMapper.createObjectNode(), false);
+        }
+        try {
+            JsonNode parsed = objectMapper.readTree(rawArguments);
+            return new ToolInvocation(toolCallId, toolName, parsed == null ? objectMapper.createObjectNode() : parsed, false);
+        } catch (JsonProcessingException ex) {
+            return new ToolInvocation(toolCallId, toolName, objectMapper.createObjectNode(), true);
+        }
     }
 
     private JsonNode parseToolArguments(String arguments) {
@@ -2171,7 +2474,12 @@ public class V2AgentAiService {
         };
     }
 
-    private record ToolInvocation(String modelToolCallId, String toolName, JsonNode params) {}
+    private record ToolInvocation(String modelToolCallId, String toolName, JsonNode params,
+                                  boolean rawArgumentsInvalid) {
+        ToolInvocation(String modelToolCallId, String toolName, JsonNode params) {
+            this(modelToolCallId, toolName, params, false);
+        }
+    }
 
     private static final class ToolExecutionBudget {
         private final int limit;

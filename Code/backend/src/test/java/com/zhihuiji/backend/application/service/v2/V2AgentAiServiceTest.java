@@ -45,12 +45,14 @@ import com.zhihuiji.backend.domain.entity.SaleOrderEntity;
 import com.zhihuiji.backend.domain.entity.SalesReturnEntity;
 import com.zhihuiji.backend.domain.entity.SupplierEntity;
 import com.zhihuiji.backend.application.service.v2.agent.component.AnswerSynthesizer;
+import com.zhihuiji.backend.application.service.v2.agent.component.AgentTerminalStatus;
 import com.zhihuiji.backend.application.service.v2.agent.component.AgentTypes;
 import com.zhihuiji.backend.application.service.v2.agent.component.RunAuditService;
 import com.zhihuiji.backend.application.service.v2.agent.component.SafetyDecision;
 import com.zhihuiji.backend.application.service.v2.agent.component.SafetyGuard;
 import com.zhihuiji.backend.application.service.v2.agent.component.SseStreamEmitter;
 import com.zhihuiji.backend.application.service.v2.agent.component.ToolPlanner;
+import com.zhihuiji.backend.application.service.v2.agent.tool.ToolExecutor;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolRegistry;
 import com.zhihuiji.backend.application.service.v2.agent.tool.AgentTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolContext;
@@ -215,6 +217,7 @@ class V2AgentAiServiceTest {
             new CreateFinanceRecordTool(agentDraftRepository)
         ));
         toolPlanner = new ToolPlanner(longCatAnthropicClient, toolRegistry, objectMapper);
+        ToolExecutor toolExecutor = new ToolExecutor(toolRegistry, currentOwnerService);
         answerSynthesizer = spy(new AnswerSynthesizer(
             longCatAnthropicClient,
             sseStreamEmitter,
@@ -237,6 +240,7 @@ class V2AgentAiServiceTest {
             objectMapper,
             longCatAnthropicClient,
             toolRegistry,
+            toolExecutor,
             runAuditService,
             sseStreamEmitter,
             safetyGuard,
@@ -482,7 +486,8 @@ class V2AgentAiServiceTest {
             List.class,
             List.class,
             java.util.Set.class,
-            budgetType
+            budgetType,
+            com.zhihuiji.backend.application.service.v2.agent.component.AgentRunState.class
         );
         executeToolPlan.setAccessible(true);
 
@@ -509,9 +514,9 @@ class V2AgentAiServiceTest {
         java.util.Set<String> invocationKeys = new LinkedHashSet<>();
 
         executeToolPlan.invoke(service, 1L, 9L, emitter, "run-semantic-dedupe",
-            firstPlan, blocks, results, failures, invocationKeys, budget);
+            firstPlan, blocks, results, failures, invocationKeys, budget, null);
         executeToolPlan.invoke(service, 1L, 9L, emitter, "run-semantic-dedupe",
-            laterPlan, blocks, results, failures, invocationKeys, budget);
+            laterPlan, blocks, results, failures, invocationKeys, budget, null);
 
         assertEquals(1, results.size());
         assertTrue(emitter.containsPayload("duplicate_tool_semantic_key"));
@@ -844,7 +849,7 @@ class V2AgentAiServiceTest {
             String.class
         );
         buildResponse.setAccessible(true);
-        AgentTypes.ResponsePayload payload = (AgentTypes.ResponsePayload) buildResponse.invoke(
+        AgentTypes.AgentRunOutcome outcome = (AgentTypes.AgentRunOutcome) buildResponse.invoke(
             service,
             1L,
             9L,
@@ -854,11 +859,13 @@ class V2AgentAiServiceTest {
             emitter,
             "run-selection-failed-react"
         );
+        AgentTypes.ResponsePayload payload = outcome.payload();
 
         assertTrue(payload.blocks().isEmpty());
         assertTrue(payload.toolResults().isEmpty());
         assertTrue(payload.toolFailures().isEmpty());
         assertEquals("model_tool_selection_failed", payload.plan().source());
+        assertEquals(AgentTerminalStatus.FAILED, outcome.terminalStatus());
         assertEquals(2, emitter.payloads.stream()
             .filter(value -> value.contains("\"event_type\":\"tool_skipped\""))
             .count());

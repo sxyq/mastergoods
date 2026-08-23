@@ -215,4 +215,27 @@ public final class AgentTypes {
 
     /** 最终答案，由 AnswerSynthesizer 产出。 */
     public record FinalAnswer(String answer, String mode, String llmStatus, boolean modelAttempted) {}
+
+    /**
+     * 一次 Agent 运行的编排结论：响应负载 + 统一终态。
+     *
+     * <p>终态是业务完成判断的唯一依据；HTTP 200、存在文本回答或
+     * llm_status=completed 不能单独判定业务成功。
+     */
+    public record AgentRunOutcome(
+        ResponsePayload payload,
+        AgentTerminalStatus terminalStatus,
+        String errorCode,
+        String safeMessage,
+        List<String> completedTools,
+        List<String> missingTargetTools
+    ) {
+        public AgentRunOutcome(ResponsePayload payload, AgentTerminalStatus terminalStatus) {
+            this(payload, terminalStatus, null, null, List.of(), List.of());
+        }
+
+        public boolean isSuccessful() {
+            return terminalStatus == AgentTerminalStatus.COMPLETED;
+        }
+    }
 }

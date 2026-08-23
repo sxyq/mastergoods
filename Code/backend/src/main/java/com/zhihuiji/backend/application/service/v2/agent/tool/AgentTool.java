@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.application.service.v2.agent.tool;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.List;
 
 /**
  * Agent 工具统一接口。
@@ -67,6 +68,36 @@ public interface AgentTool {
     }
 
     /**
+     * 执行此工具前必须已成功完成的依赖工具名（真实注册名）。
+     *
+     * <p>依赖由元数据表达，服务端在统一执行门校验：目标工具只有在所有必需依赖
+     * 完成、参数由依赖结果构建后才进入执行范围。默认无依赖。
+     *
+     * @return 依赖工具名列表
+     */
+    default List<String> dependsOn() {
+        return List.of();
+    }
+
+    /**
+     * 工具在任务完成策略中的角色。
+     *
+     * @return 完成角色
+     */
+    default CompletionRole completionRole() {
+        return type() == ToolType.CREATE_ONLY ? CompletionRole.TARGET_ACTION : CompletionRole.DEPENDENCY_QUERY;
+    }
+
+    /**
+     * 工具结果是否需要用户二次确认后才进入正式业务写入。
+     *
+     * @return CREATE_ONLY 工具恒为 true
+     */
+    default boolean requiresConfirmation() {
+        return type() == ToolType.CREATE_ONLY;
+    }
+
+    /**
      * 执行工具。
      *
      * @param ctx    工具执行上下文，包含 ownerUserId、runId、emitter 等
@@ -81,5 +112,15 @@ public interface AgentTool {
         READ_ONLY,
         /** 仅创建工具，强制走草稿确认流程。 */
         CREATE_ONLY
+    }
+
+    /** 任务完成策略中的工具角色。 */
+    enum CompletionRole {
+        /** 依赖查询：为创建类工具提供真实实体 ID 与事实。 */
+        DEPENDENCY_QUERY,
+        /** 目标动作：任务完成所需的目标工具（例如生成草稿）。 */
+        TARGET_ACTION,
+        /** 展示决策：依赖真实数据结果，不查询数据库。 */
+        PRESENTATION
     }
 }

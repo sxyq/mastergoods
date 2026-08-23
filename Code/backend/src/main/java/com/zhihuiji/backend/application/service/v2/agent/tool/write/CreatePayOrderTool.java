@@ -63,6 +63,12 @@ public class CreatePayOrderTool extends ToolSupport {
     }
 
     @Override
+    public java.util.List<String> dependsOn() {
+        // 收款对象必须来自当前作用域的供应商查询。
+        return java.util.List.of("supplier_directory_lookup");
+    }
+
+    @Override
     public JsonNode parameterSchema() {
         var schema = objectSchema();
         addStringProperty(schema, "supplier_name", "供应商名称");

@@ -61,6 +61,12 @@ public class CreateSaleOrderTool extends ToolSupport {
     }
 
     @Override
+    public java.util.List<String> dependsOn() {
+        // 客户与销售商品均需通过当前 owner/store 校验的真实查询结果。
+        return java.util.List.of("customer_directory_lookup", "product_catalog_lookup");
+    }
+
+    @Override
     public JsonNode parameterSchema() {
         var schema = objectSchema();
         addStringProperty(schema, "customer_name", "客户名称");

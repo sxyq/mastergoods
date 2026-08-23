@@ -297,8 +297,43 @@ public final class V2AgentDtos {
         AgentPerformanceSummaryDto performanceSummary,
         String auditId,
         String traceId,
-        AgentObservabilityDto observability
-    ) {}
+        AgentObservabilityDto observability,
+        String terminalStatus,
+        String errorCode,
+        String safeMessage,
+        List<String> completedTools,
+        List<String> missingTargetTools
+    ) {
+        /**
+         * 兼容旧调用方的构造器：终态缺省按 COMPLETED 处理仅限旧路径；
+         * 新代码必须显式传入 terminalStatus。
+         */
+        public AgentChatResponse(
+            String runId,
+            Long conversationId,
+            String answer,
+            List<ResultBlockDto> blocks,
+            Long draftId,
+            Boolean safetyPassed,
+            String safetyReason,
+            String mode,
+            String llmStatus,
+            String planSource,
+            String planSummary,
+            List<AgentToolCallDto> toolCalls,
+            List<AgentEvidenceRefDto> evidenceRefs,
+            List<ResultBlockDto> resultBlocks,
+            AgentPerformanceSummaryDto performanceSummary,
+            String auditId,
+            String traceId,
+            AgentObservabilityDto observability
+        ) {
+            this(runId, conversationId, answer, blocks, draftId, safetyPassed, safetyReason,
+                mode, llmStatus, planSource, planSummary, toolCalls, evidenceRefs, resultBlocks,
+                performanceSummary, auditId, traceId, observability,
+                "COMPLETED", null, null, List.of(), List.of());
+        }
+    }
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record AgentToolCallDto(

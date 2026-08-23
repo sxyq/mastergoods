@@ -828,7 +828,7 @@ public class ToolPlanner {
         List<ToolFailureResult> toolFailures,
         int iteration
     ) {
-        if (iteration > MAX_AGENT_ITERATIONS || !longCatAnthropicClient.isConfigured()) {
+        if (iteration > AgentRunState.HARD_ITERATION_CAP || !longCatAnthropicClient.isConfigured()) {
             return Optional.empty();
         }
         Set<String> attemptedToolNames = observedToolNames(previousPlan, toolResults, toolFailures);

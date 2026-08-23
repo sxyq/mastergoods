@@ -48,6 +48,17 @@ public class GeneratePosterPromptTool extends ToolSupport {
     }
 
     @Override
+    public java.util.List<String> dependsOn() {
+        // 海报提示词必须引用真实商品 ID、名称或规格（已通过 owner/store 校验）。
+        return java.util.List.of("product_catalog_lookup");
+    }
+
+    @Override
+    public CompletionRole completionRole() {
+        return CompletionRole.TARGET_ACTION;
+    }
+
+    @Override
     public JsonNode parameterSchema() {
         var schema = objectSchema();
         addIntegerProperty(schema, "product_id", "真实商品 ID，必须来自当前账号的商品查询结果");

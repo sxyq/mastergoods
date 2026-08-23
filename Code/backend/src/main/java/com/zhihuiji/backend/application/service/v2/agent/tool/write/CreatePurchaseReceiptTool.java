@@ -61,6 +61,12 @@ public class CreatePurchaseReceiptTool extends ToolSupport {
     }
 
     @Override
+    public java.util.List<String> dependsOn() {
+        // 入库草稿必须绑定真实采购单及其可入库明细。
+        return java.util.List.of("purchase_order_lookup");
+    }
+
+    @Override
     public JsonNode parameterSchema() {
         var schema = objectSchema();
         addIntegerProperty(schema, "purchase_order_id", "采购单 ID");

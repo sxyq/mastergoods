@@ -61,6 +61,12 @@ public class CreatePurchaseOrderTool extends ToolSupport {
     }
 
     @Override
+    public java.util.List<String> dependsOn() {
+        // 供应商和采购商品都必须有当前作用域内的真实 ID。
+        return java.util.List.of("supplier_directory_lookup", "product_catalog_lookup");
+    }
+
+    @Override
     public JsonNode parameterSchema() {
         var schema = objectSchema();
         addStringProperty(schema, "supplier_name", "供应商名称");
