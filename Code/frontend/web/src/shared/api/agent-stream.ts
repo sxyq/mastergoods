@@ -3,6 +3,30 @@ import { ApiError, emitApiAuthEvent, preserveUnsafeIntegers } from '@/shared/api
 import { camelize } from '@/shared/utils/camelize'
 import { API_BASE_URL } from '@/shared/api/config'
 
+/**
+ * Agent 运行统一终态。后端 REST、SSE、审计与 Web/Android/iOS 共用同一组大写值。
+ * HTTP 200 或文本回答不能单独判定业务成功，必须依据 terminal_status。
+ */
+export type AgentTerminalStatus =
+  | 'COMPLETED'
+  | 'CONFIRMATION_PENDING'
+  | 'FAILED'
+  | 'BLOCKED'
+  | 'CANCELLED'
+  | 'EXHAUSTED'
+
+/**
+ * 终态事件公共字段：每个终态事件都携带大写 terminal_status；
+ * 非成功终态必填 errorCode/safeMessage，EXHAUSTED 使用 completedTools/missingTargetTools。
+ */
+export interface AgentTerminalEventFields {
+  terminalStatus: AgentTerminalStatus
+  errorCode?: string | null
+  safeMessage?: string | null
+  completedTools?: string[]
+  missingTargetTools?: string[]
+}
+
 export type AgentStreamEvent =
   | AgentRunStartedEvent
   | AgentSafetyCheckStartedEvent
@@ -19,6 +43,9 @@ export type AgentStreamEvent =
   | AgentDraftCreatedEvent
   | AgentContextCompactedEvent
   | AgentRunCompletedEvent
+  | AgentRunFailedEvent
+  | AgentRunBlockedEvent
+  | AgentRunExhaustedEvent
   | AgentRunCancelledEvent
   | AgentErrorEvent
 
@@ -173,20 +200,32 @@ export interface AgentDraftCreatedEvent {
   draftId: string | number
   draftType: string
   title: string
+  status?: string | null
+  toolName?: string | null
+  summary?: string | null
   timestamp: number
 }
 
 export interface AgentContextCompactedEvent {
   eventType: 'context_compacted'
   runId: string
+  checkpointId?: string | number | null
+  sourceBoundaryMessageId?: string | number | null
   compactedCount: number
-  summary: string
+  summaryPreview?: string | null
+  reason?: string | null
+  reused?: boolean | null
+  inputTokenEstimate?: number | null
+  outputTokenEstimate?: number | null
+  auditId?: string | null
+  traceId?: string | null
   timestamp: number
 }
 
-export interface AgentRunCompletedEvent {
+export interface AgentRunCompletedEvent extends AgentTerminalEventFields {
   eventType: 'run_completed'
   runId: string
+  terminalStatus: 'COMPLETED' | 'CONFIRMATION_PENDING'
   finalAnswer?: string | null
   mode?: string | null
   llmStatus?: string | null
@@ -197,10 +236,56 @@ export interface AgentRunCompletedEvent {
   timestamp: number
 }
 
-export interface AgentRunCancelledEvent {
+export interface AgentRunFailedEvent extends AgentTerminalEventFields {
+  eventType: 'run_failed'
+  runId: string
+  terminalStatus: 'FAILED'
+  finalAnswer?: string | null
+  mode?: string | null
+  llmStatus?: string | null
+  planSource?: string | null
+  auditId?: string | null
+  traceId?: string | null
+  observability?: AgentObservability | null
+  timestamp: number
+}
+
+export interface AgentRunBlockedEvent extends AgentTerminalEventFields {
+  eventType: 'run_blocked'
+  runId: string
+  terminalStatus: 'BLOCKED'
+  finalAnswer?: string | null
+  mode?: string | null
+  llmStatus?: string | null
+  planSource?: string | null
+  auditId?: string | null
+  traceId?: string | null
+  observability?: AgentObservability | null
+  timestamp: number
+}
+
+export interface AgentRunExhaustedEvent extends AgentTerminalEventFields {
+  eventType: 'run_exhausted'
+  runId: string
+  terminalStatus: 'EXHAUSTED'
+  finalAnswer?: string | null
+  mode?: string | null
+  llmStatus?: string | null
+  planSource?: string | null
+  auditId?: string | null
+  traceId?: string | null
+  observability?: AgentObservability | null
+  timestamp: number
+}
+
+export interface AgentRunCancelledEvent extends AgentTerminalEventFields {
   eventType: 'run_cancelled'
   runId: string
+  terminalStatus: 'CANCELLED'
   reason?: string | null
+  auditId?: string | null
+  traceId?: string | null
+  observability?: AgentObservability | null
   timestamp: number
 }
 
@@ -215,6 +300,43 @@ export interface AgentErrorEvent {
 export interface AgentStreamSession {
   controller: AbortController
   done: Promise<void>
+}
+
+/**
+ * 终态事件类型集合。HTTP 200 或文本回答不能单独判定业务成功，
+ * 必须收到这些事件之一并依据 terminal_status 判定。
+ */
+export const TERMINAL_EVENT_TYPES = [
+  'run_completed',
+  'run_failed',
+  'run_blocked',
+  'run_exhausted',
+  'run_cancelled',
+] as const
+
+export type TerminalEventType = (typeof TERMINAL_EVENT_TYPES)[number]
+
+export type AgentTerminalStreamEvent =
+  | AgentRunCompletedEvent
+  | AgentRunFailedEvent
+  | AgentRunBlockedEvent
+  | AgentRunExhaustedEvent
+  | AgentRunCancelledEvent
+
+export function isTerminalEvent(event: AgentStreamEvent): event is AgentTerminalStreamEvent {
+  return TERMINAL_EVENT_TYPES.includes(event.eventType as TerminalEventType)
+}
+
+/**
+ * 提取终态事件的 terminal_status；非终态事件返回 null。
+ * 旧版缺少 terminal_status 的事件不能作为业务成功依据，返回 null 由调用方按失败处理。
+ */
+export function terminalStatusOf(event: AgentStreamEvent): AgentTerminalStatus | null {
+  if (!isTerminalEvent(event)) {
+    return null
+  }
+  const status = (event as AgentTerminalStreamEvent).terminalStatus
+  return status ?? null
 }
 
 export function streamAgentChat(

@@ -34,10 +34,15 @@ import {
   type AgentDraftCreatedEvent,
   type AgentErrorEvent,
   type AgentPlanDeltaEvent,
+  type AgentRunBlockedEvent,
   type AgentRunCancelledEvent,
   type AgentRunCompletedEvent,
+  type AgentRunExhaustedEvent,
+  type AgentRunFailedEvent,
   type AgentRunStartedEvent,
   type AgentStreamEvent,
+  type AgentTerminalStatus,
+  type AgentTerminalStreamEvent,
   type AgentToolCompletedEvent,
   type AgentToolFailedEvent,
   type AgentToolProgressEvent,
@@ -73,6 +78,7 @@ interface UiRunTrace {
   resultBlocks: AgentResultBlock[]
   draft: AgentDraftCreatedEvent | null
   compacted: AgentContextCompactedEvent | null
+  terminal: AgentTerminalStreamEvent | null
 }
 
 interface UiMessage {
@@ -189,6 +195,8 @@ const mobileSidebarOpen = ref(false)
 const mobileSidepanelOpen = ref(false)
 const dismissedDraftIds = ref<Set<string>>(new Set())
 const draftActionPendingIds = ref<Set<string>>(new Set())
+const confirmedDraftIds = ref<Set<string>>(new Set())
+const draftConfirmErrors = ref<Record<string, string>>({})
 const canWrite = computed(() => session.hasPermission(['agent:write']))
 const canView = computed(() => session.hasPermission(['agent:view']))
 const isApiSource = computed(() => session.source.value === 'api' && Boolean(session.token.value))
@@ -541,6 +549,15 @@ function handleStreamEvent(messageId: string, event: AgentStreamEvent) {
     case 'run_completed':
       onRunCompleted(messageId, event)
       break
+    case 'run_failed':
+      onRunFailed(messageId, event)
+      break
+    case 'run_blocked':
+      onRunBlocked(messageId, event)
+      break
+    case 'run_exhausted':
+      onRunExhausted(messageId, event)
+      break
     case 'run_cancelled':
       onRunCancelled(messageId, event)
       break
@@ -655,6 +672,64 @@ function onRunCompleted(messageId: string, event: AgentRunCompletedEvent) {
       message.runTrace.planSource = event.planSource || message.runTrace.planSource
       message.runTrace.auditId = event.auditId || message.runTrace.auditId
       message.runTrace.traceId = event.traceId || message.runTrace.traceId
+      message.runTrace.terminal = event
+    }
+  })
+}
+
+function onRunFailed(messageId: string, event: AgentRunFailedEvent) {
+  mutateMessage(messageId, (message) => {
+    if (event.finalAnswer && !message.content.trim()) {
+      message.content = event.finalAnswer
+    }
+    message.isStreaming = false
+    const safeMessage = event.safeMessage || `运行失败（${event.errorCode || 'UNKNOWN'}）`
+    if (!message.error) {
+      message.error = safeMessage
+    }
+    if (message.runTrace) {
+      message.runTrace.mode = event.mode || message.runTrace.mode
+      message.runTrace.llmStatus = event.llmStatus || message.runTrace.llmStatus
+      message.runTrace.planSource = event.planSource || message.runTrace.planSource
+      message.runTrace.auditId = event.auditId || message.runTrace.auditId
+      message.runTrace.traceId = event.traceId || message.runTrace.traceId
+      message.runTrace.terminal = event
+    }
+  })
+}
+
+function onRunBlocked(messageId: string, event: AgentRunBlockedEvent) {
+  mutateMessage(messageId, (message) => {
+    if (event.finalAnswer && !message.content.trim()) {
+      message.content = event.finalAnswer
+    }
+    message.isStreaming = false
+    const safeMessage = event.safeMessage || '安全策略阻止了本次运行'
+    if (!message.error) {
+      message.error = safeMessage
+    }
+    if (message.runTrace) {
+      message.runTrace.auditId = event.auditId || message.runTrace.auditId
+      message.runTrace.traceId = event.traceId || message.runTrace.traceId
+      message.runTrace.terminal = event
+    }
+  })
+}
+
+function onRunExhausted(messageId: string, event: AgentRunExhaustedEvent) {
+  mutateMessage(messageId, (message) => {
+    if (event.finalAnswer && !message.content.trim()) {
+      message.content = event.finalAnswer
+    }
+    message.isStreaming = false
+    const safeMessage = event.safeMessage || '已达到轮次或工具预算上限，未能完成全部目标工具'
+    if (!message.error) {
+      message.error = safeMessage
+    }
+    if (message.runTrace) {
+      message.runTrace.auditId = event.auditId || message.runTrace.auditId
+      message.runTrace.traceId = event.traceId || message.runTrace.traceId
+      message.runTrace.terminal = event
     }
   })
 }
@@ -662,7 +737,12 @@ function onRunCompleted(messageId: string, event: AgentRunCompletedEvent) {
 function onRunCancelled(messageId: string, event: AgentRunCancelledEvent) {
   mutateMessage(messageId, (message) => {
     message.isStreaming = false
-    message.error = event.reason || '本次生成已取消'
+    if (!message.error) {
+      message.error = event.reason || '本次生成已取消'
+    }
+    if (message.runTrace) {
+      message.runTrace.terminal = event
+    }
   })
 }
 
@@ -883,13 +963,22 @@ function isDraftActionPending(draftId: string | number) {
 
 async function confirmPendingDraft(draftEvent: AgentDraftCreatedEvent) {
   if (!session.token.value || !canWrite.value) return
+  if (isDraftActionPending(draftEvent.draftId)) return
   markDraftActionPending(draftEvent.draftId, true)
+  clearDraftConfirmError(draftEvent.draftId)
   try {
     await confirmAgentDraft(session.token.value, draftEvent.draftId)
+    // 仅当 confirm 接口成功返回后才标记为已确认；后续业务结果展示依赖该状态。
+    const next = new Set(confirmedDraftIds.value)
+    next.add(String(draftEvent.draftId))
+    confirmedDraftIds.value = next
     dismissDraft(draftEvent.draftId)
     await loadDrafts()
   } catch (confirmErr) {
-    error.value = confirmErr instanceof Error ? confirmErr.message : '草稿确认失败'
+    // 确认失败不得展示成功样式，错误信息单独展示在草稿卡片下方。
+    const message = confirmErr instanceof Error ? confirmErr.message : '草稿确认失败'
+    setDraftConfirmError(draftEvent.draftId, message)
+    error.value = message
   } finally {
     markDraftActionPending(draftEvent.draftId, false)
   }
@@ -897,16 +986,37 @@ async function confirmPendingDraft(draftEvent: AgentDraftCreatedEvent) {
 
 async function cancelPendingDraft(draftEvent: AgentDraftCreatedEvent) {
   if (!session.token.value || !canWrite.value) return
+  if (isDraftActionPending(draftEvent.draftId)) return
   markDraftActionPending(draftEvent.draftId, true)
+  clearDraftConfirmError(draftEvent.draftId)
   try {
     await cancelAgentDraftAction(session.token.value, draftEvent.draftId)
+    // 取消草稿后不得展示成功样式；保持 confirmedDraftIds 不变。
     dismissDraft(draftEvent.draftId)
     await loadDrafts()
   } catch (cancelErr) {
-    error.value = cancelErr instanceof Error ? cancelErr.message : '草稿取消失败'
+    const message = cancelErr instanceof Error ? cancelErr.message : '草稿取消失败'
+    setDraftConfirmError(draftEvent.draftId, message)
+    error.value = message
   } finally {
     markDraftActionPending(draftEvent.draftId, false)
   }
+}
+
+function setDraftConfirmError(draftId: string | number, message: string) {
+  draftConfirmErrors.value = { ...draftConfirmErrors.value, [String(draftId)]: message }
+}
+
+function clearDraftConfirmError(draftId: string | number) {
+  const key = String(draftId)
+  if (!(key in draftConfirmErrors.value)) return
+  const next = { ...draftConfirmErrors.value }
+  delete next[key]
+  draftConfirmErrors.value = next
+}
+
+function draftConfirmErrorOf(draftId: string | number): string {
+  return draftConfirmErrors.value[String(draftId)] || ''
 }
 
 function createEmptyDraftLine(): DraftLineForm {
@@ -1239,7 +1349,122 @@ function createEmptyRunTrace(): UiRunTrace {
     resultBlocks: [],
     draft: null,
     compacted: null,
+    terminal: null,
   }
+}
+
+/**
+ * 终态展示语义。HTTP 200 或存在文本回答不能单独判定业务成功，
+ * 必须依据 terminal_status 字段。缺少 terminal_status 的事件按未知处理。
+ */
+interface TerminalDisplay {
+  status: AgentTerminalStatus | 'UNKNOWN'
+  tone: 'success' | 'warning' | 'error' | 'muted' | 'info'
+  title: string
+  description: string
+  showSuccess: boolean
+}
+
+const TERMINAL_DISPLAY_PRESETS: Record<AgentTerminalStatus, Omit<TerminalDisplay, 'status'>> = {
+  COMPLETED: {
+    tone: 'success',
+    title: '运行完成',
+    description: '本次运行已成功完成。',
+    showSuccess: true,
+  },
+  CONFIRMATION_PENDING: {
+    tone: 'warning',
+    title: '草稿待确认',
+    description: '草稿已生成，等待用户确认后才会写入正式业务数据。',
+    showSuccess: false,
+  },
+  FAILED: {
+    tone: 'error',
+    title: '运行失败',
+    description: '工具、模型或上下文错误导致本次运行失败。',
+    showSuccess: false,
+  },
+  BLOCKED: {
+    tone: 'error',
+    title: '安全阻止',
+    description: '安全或权限策略拒绝执行。',
+    showSuccess: false,
+  },
+  CANCELLED: {
+    tone: 'muted',
+    title: '已取消',
+    description: '本次运行已被取消，未写入业务数据。',
+    showSuccess: false,
+  },
+  EXHAUSTED: {
+    tone: 'warning',
+    title: '轮次耗尽',
+    description: '已达到轮次或工具预算上限，未完成全部目标工具。',
+    showSuccess: false,
+  },
+}
+
+function describeTerminal(trace: UiRunTrace | null): TerminalDisplay | null {
+  if (!trace || !trace.terminal) return null
+  const event = trace.terminal
+  const status = event.terminalStatus as AgentTerminalStatus | 'UNKNOWN'
+  if (status === 'UNKNOWN' || !(status in TERMINAL_DISPLAY_PRESETS)) {
+    return {
+      status: 'UNKNOWN',
+      tone: 'warning',
+      title: '终态未知',
+      description: '未收到明确的 terminal_status，不能判定为业务成功。',
+      showSuccess: false,
+    }
+  }
+  const preset = TERMINAL_DISPLAY_PRESETS[status as AgentTerminalStatus]
+  return { ...preset, status }
+}
+
+function terminalErrorCode(trace: UiRunTrace | null): string | null {
+  const terminal = trace?.terminal
+  if (!terminal) return null
+  const code = (terminal as AgentTerminalStreamEvent).errorCode
+  return code || null
+}
+
+function terminalSafeMessage(trace: UiRunTrace | null): string | null {
+  const terminal = trace?.terminal
+  if (!terminal) return null
+  const message = (terminal as AgentTerminalStreamEvent).safeMessage
+  return message || null
+}
+
+function terminalCompletedTools(trace: UiRunTrace | null): string[] {
+  const terminal = trace?.terminal
+  if (!terminal) return []
+  const tools = (terminal as AgentTerminalStreamEvent).completedTools
+  return Array.isArray(tools) ? tools : []
+}
+
+function terminalMissingTools(trace: UiRunTrace | null): string[] {
+  const terminal = trace?.terminal
+  if (!terminal) return []
+  const tools = (terminal as AgentTerminalStreamEvent).missingTargetTools
+  return Array.isArray(tools) ? tools : []
+}
+
+function compactedSummary(compacted: AgentContextCompactedEvent | null): string {
+  if (!compacted) return ''
+  const count = compacted.compactedCount ?? 0
+  const reason = compacted.reason || 'context_budget_threshold'
+  const preview = compacted.summaryPreview?.trim() || ''
+  const reusedSuffix = compacted.reused ? '（复用已有检查点）' : ''
+  const head = `已压缩 ${count} 条历史消息，原因：${reason}${reusedSuffix}`
+  if (!preview) return head
+  // 仅展示摘要预览，不展示敏感原文；截断以防过长。
+  const trimmedPreview = preview.length > 240 ? `${preview.slice(0, 240)}…` : preview
+  return `${head}。摘要预览：${trimmedPreview}`
+}
+
+function isDraftConfirmed(draftId: string | number | null | undefined): boolean {
+  if (draftId == null) return false
+  return confirmedDraftIds.value.has(String(draftId))
 }
 
 function localId(prefix: string) {
@@ -1889,6 +2114,47 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
               </template>
             </div>
             <p v-else-if="message.isStreaming" class="agent-markdown__placeholder">正在生成...</p>
+            <div
+              v-if="message.role === 'assistant' && describeTerminal(message.runTrace)"
+              class="agent-terminal-banner"
+              :data-tone="describeTerminal(message.runTrace)?.tone"
+              :data-status="describeTerminal(message.runTrace)?.status"
+            >
+              <div class="agent-terminal-banner__head">
+                <span class="agent-terminal-banner__title">{{ describeTerminal(message.runTrace)?.title }}</span>
+                <span class="agent-terminal-banner__status">{{ describeTerminal(message.runTrace)?.status }}</span>
+              </div>
+              <p class="agent-terminal-banner__desc">{{ describeTerminal(message.runTrace)?.description }}</p>
+              <p v-if="terminalErrorCode(message.runTrace)" class="agent-terminal-banner__meta">
+                错误码：{{ terminalErrorCode(message.runTrace) }}
+              </p>
+              <p v-if="terminalSafeMessage(message.runTrace)" class="agent-terminal-banner__meta">
+                {{ terminalSafeMessage(message.runTrace) }}
+              </p>
+              <div
+                v-if="describeTerminal(message.runTrace)?.status === 'EXHAUSTED' && (terminalCompletedTools(message.runTrace).length || terminalMissingTools(message.runTrace).length)"
+                class="agent-terminal-banner__tools"
+              >
+                <div v-if="terminalCompletedTools(message.runTrace).length" class="agent-terminal-banner__tool-group">
+                  <span>已完成工具</span>
+                  <ul>
+                    <li v-for="tool in terminalCompletedTools(message.runTrace)" :key="`done-${tool}`">{{ tool }}</li>
+                  </ul>
+                </div>
+                <div v-if="terminalMissingTools(message.runTrace).length" class="agent-terminal-banner__tool-group">
+                  <span>未完成目标工具</span>
+                  <ul>
+                    <li v-for="tool in terminalMissingTools(message.runTrace)" :key="`miss-${tool}`">{{ tool }}</li>
+                  </ul>
+                </div>
+              </div>
+              <p
+                v-if="describeTerminal(message.runTrace)?.status === 'CONFIRMATION_PENDING' && message.runTrace?.draft && isDraftConfirmed(message.runTrace.draft.draftId)"
+                class="agent-terminal-banner__meta agent-terminal-banner__meta--ok"
+              >
+                草稿已确认，业务结果已写入。
+              </p>
+            </div>
             <p v-if="message.error" class="form-error">{{ message.error }}</p>
 
             <div v-if="message.runTrace" class="agent-run-trace">
@@ -1983,7 +2249,7 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
                   class="agent-trace-block"
                 >
                   <strong>待确认草稿</strong>
-                  <div class="agent-draft-card">
+                  <div class="agent-draft-card" :data-status="message.runTrace.draft.status || 'active'">
                     <div class="agent-draft-card__head">
                       <span class="agent-draft-card__icon" aria-hidden="true">{{ draftIcon(message.runTrace.draft.draftType) }}</span>
                       <div class="agent-draft-card__head-text">
@@ -1992,6 +2258,12 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
                       </div>
                     </div>
                     <div class="agent-draft-card__body" v-html="renderDraftContent(message.runTrace.draft)"></div>
+                    <p v-if="message.runTrace.draft.summary" class="agent-draft-card__summary">
+                      {{ message.runTrace.draft.summary }}
+                    </p>
+                    <p class="agent-draft-card__hint">
+                      草稿仅作为预览，确认后才会调用 <code>POST /v2/agent/drafts/{id}/confirm</code> 写入正式业务数据。
+                    </p>
                   <div class="agent-draft-card__actions">
                     <button
                       v-if="canWrite"
@@ -2007,16 +2279,26 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
                         class="ghost-action"
                         :disabled="isDraftActionPending(message.runTrace.draft.draftId)"
                         @click="cancelPendingDraft(message.runTrace.draft)"
-                      >
-                        取消
-                      </button>
-                    </div>
+                    >
+                      取消
+                    </button>
+                  </div>
+                  <p
+                    v-if="draftConfirmErrorOf(message.runTrace.draft.draftId)"
+                    class="form-error agent-draft-card__error"
+                  >
+                    {{ draftConfirmErrorOf(message.runTrace.draft.draftId) }}
+                  </p>
                   </div>
                 </div>
 
                 <div v-if="message.runTrace.compacted" class="agent-trace-block">
                   <strong>上下文压缩</strong>
-                  <p>{{ message.runTrace.compacted.summary }}</p>
+                  <p class="agent-compacted-summary">{{ compactedSummary(message.runTrace.compacted) }}</p>
+                  <ul v-if="message.runTrace.compacted.checkpointId != null || message.runTrace.compacted.sourceBoundaryMessageId != null" class="agent-compacted-meta">
+                    <li v-if="message.runTrace.compacted.checkpointId != null">检查点 ID：{{ message.runTrace.compacted.checkpointId }}</li>
+                    <li v-if="message.runTrace.compacted.sourceBoundaryMessageId != null">边界消息 ID：{{ message.runTrace.compacted.sourceBoundaryMessageId }}</li>
+                  </ul>
                 </div>
               </div>
             </div>
@@ -2834,6 +3116,176 @@ function deriveBlockState(block: AgentResultBlock): BlockDerivedState {
 .agent-draft-card__actions {
   display: flex;
   gap: 8px;
+}
+
+.agent-draft-card__hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.agent-draft-card__hint code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.08);
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+
+.agent-draft-card__summary {
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.agent-draft-card__error {
+  margin: 0;
+}
+
+.agent-terminal-banner {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: 12px;
+  background: #f8fafc;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.agent-terminal-banner[data-tone="success"] {
+  border-color: #bbf7d0;
+  border-left-color: var(--green, #16a34a);
+  background: #f0fdf4;
+}
+
+.agent-terminal-banner[data-tone="warning"] {
+  border-color: #fde68a;
+  border-left-color: #d97706;
+  background: #fffbeb;
+}
+
+.agent-terminal-banner[data-tone="error"] {
+  border-color: #fecdd3;
+  border-left-color: var(--red, #dc2626);
+  background: #fff1f2;
+}
+
+.agent-terminal-banner[data-tone="muted"] {
+  border-color: #e5e7eb;
+  border-left-color: #6b7280;
+  background: #f9fafb;
+}
+
+.agent-terminal-banner[data-tone="info"] {
+  border-color: #c7d8ff;
+  border-left-color: #2563eb;
+  background: #eef4ff;
+}
+
+.agent-terminal-banner__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.agent-terminal-banner__title {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.agent-terminal-banner__status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.agent-terminal-banner[data-tone="success"] .agent-terminal-banner__status {
+  background: rgba(22, 163, 74, 0.12);
+  color: #166534;
+}
+
+.agent-terminal-banner[data-tone="warning"] .agent-terminal-banner__status {
+  background: rgba(217, 119, 6, 0.14);
+  color: #92400e;
+}
+
+.agent-terminal-banner[data-tone="error"] .agent-terminal-banner__status {
+  background: rgba(220, 38, 38, 0.12);
+  color: #991b1b;
+}
+
+.agent-terminal-banner[data-tone="muted"] .agent-terminal-banner__status {
+  background: rgba(75, 85, 99, 0.12);
+  color: #374151;
+}
+
+.agent-terminal-banner__desc {
+  margin: 0;
+  color: var(--text);
+}
+
+.agent-terminal-banner__meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.agent-terminal-banner__meta--ok {
+  color: #166534;
+  font-weight: 700;
+}
+
+.agent-terminal-banner__tools {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.agent-terminal-banner__tool-group {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.agent-terminal-banner__tool-group span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.agent-terminal-banner__tool-group ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+}
+
+.agent-compacted-summary {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.agent-compacted-meta {
+  display: grid;
+  gap: 2px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 @media (max-width: 767px) {

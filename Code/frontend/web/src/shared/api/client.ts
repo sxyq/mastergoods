@@ -1178,6 +1178,11 @@ export interface AgentChatResponse {
   auditId: string | null
   traceId: string | null
   observability: AgentObservability | null
+  terminalStatus: string | null
+  errorCode: string | null
+  safeMessage: string | null
+  completedTools: string[]
+  missingTargetTools: string[]
 }
 
 export function configureAuthRuntime(config: AuthRuntimeConfig) {
