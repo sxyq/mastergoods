@@ -147,9 +147,13 @@ enum class SafetyTraceStatus {
 @Immutable
 enum class RunTerminalStatus {
     COMPLETED,
+    /** CREATE_ONLY 工具已生成草稿，等待用户确认；不能声称已写入正式表 */
+    CONFIRMATION_PENDING,
     BLOCKED,
     CANCELLED,
     FAILED,
+    /** 轮次或工具预算耗尽但完成策略未满足；非成功语义 */
+    EXHAUSTED,
     INTERRUPTED,
 }
 

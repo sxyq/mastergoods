@@ -196,6 +196,11 @@ sealed class AgentStreamEvent {
         @SerialName("draft_id") val draftId: Long,
         @SerialName("draft_type") val draftType: String,
         val title: String,
+        /**
+         * 草稿状态：active/confirmed/cancelled 等。
+         * 后端契约要求 draft_created 携带 status 字段，旧版本可能不下发，反序列化时保持可空。
+         */
+        val status: String? = null,
         val timestamp: Long = System.currentTimeMillis(),
     ) : AgentStreamEvent()
 
@@ -204,21 +209,83 @@ sealed class AgentStreamEvent {
     @SerialName("context_compacted")
     data class ContextCompacted(
         @SerialName("run_id") val runId: String,
+        @SerialName("checkpoint_id") val checkpointId: Long? = null,
+        @SerialName("source_boundary_message_id") val sourceBoundaryMessageId: Long? = null,
         @SerialName("compacted_count") val compactedCount: Int,
-        val summary: String,
+        @SerialName("summary_preview") val summaryPreview: String? = null,
+        val reason: String? = null,
+        val reused: Boolean = false,
         val timestamp: Long = System.currentTimeMillis(),
     ) : AgentStreamEvent()
 
-    /** 运行完成 */
+    /**
+     * 统一终态事件约束：每个 run 只接受一次终态。
+     * terminal_status 为大写枚举名，是业务终态的唯一判断依据。
+     * RunCompleted/RunFailed/RunBlocked/RunExhausted/RunCancelled 均携带这些字段。
+     */
+
+    /** 运行完成（COMPLETED 或 CONFIRMATION_PENDING） */
     @Serializable
     @SerialName("run_completed")
     data class RunCompleted(
         @SerialName("run_id") val runId: String,
+        @SerialName("terminal_status") val terminalStatus: String? = null,
         @SerialName("final_answer") val finalAnswer: String? = null,
         @SerialName("safe_message") val safeMessage: String? = null,
         val mode: String? = null,
         @SerialName("llm_status") val llmStatus: String? = null,
         @SerialName("plan_source") val planSource: String? = null,
+        @SerialName("code") val errorCode: String? = null,
+        @SerialName("completed_tools") val completedTools: List<String>? = null,
+        @SerialName("missing_target_tools") val missingTargetTools: List<String>? = null,
+        @SerialName("audit_id") val auditId: String? = null,
+        @SerialName("trace_id") val traceId: String? = null,
+        val observability: AgentObservabilityDto? = null,
+        val timestamp: Long = System.currentTimeMillis(),
+    ) : AgentStreamEvent()
+
+    /** 运行失败（FAILED） */
+    @Serializable
+    @SerialName("run_failed")
+    data class RunFailed(
+        @SerialName("run_id") val runId: String,
+        @SerialName("terminal_status") val terminalStatus: String? = null,
+        @SerialName("code") val errorCode: String? = null,
+        @SerialName("safe_message") val safeMessage: String? = null,
+        @SerialName("completed_tools") val completedTools: List<String>? = null,
+        @SerialName("missing_target_tools") val missingTargetTools: List<String>? = null,
+        @SerialName("audit_id") val auditId: String? = null,
+        @SerialName("trace_id") val traceId: String? = null,
+        val observability: AgentObservabilityDto? = null,
+        val timestamp: Long = System.currentTimeMillis(),
+    ) : AgentStreamEvent()
+
+    /** 运行被安全/权限策略阻止（BLOCKED） */
+    @Serializable
+    @SerialName("run_blocked")
+    data class RunBlocked(
+        @SerialName("run_id") val runId: String,
+        @SerialName("terminal_status") val terminalStatus: String? = null,
+        @SerialName("code") val errorCode: String? = null,
+        @SerialName("safe_message") val safeMessage: String? = null,
+        @SerialName("completed_tools") val completedTools: List<String>? = null,
+        @SerialName("missing_target_tools") val missingTargetTools: List<String>? = null,
+        @SerialName("audit_id") val auditId: String? = null,
+        @SerialName("trace_id") val traceId: String? = null,
+        val observability: AgentObservabilityDto? = null,
+        val timestamp: Long = System.currentTimeMillis(),
+    ) : AgentStreamEvent()
+
+    /** 运行轮次/工具预算耗尽（EXHAUSTED） */
+    @Serializable
+    @SerialName("run_exhausted")
+    data class RunExhausted(
+        @SerialName("run_id") val runId: String,
+        @SerialName("terminal_status") val terminalStatus: String? = null,
+        @SerialName("code") val errorCode: String? = null,
+        @SerialName("safe_message") val safeMessage: String? = null,
+        @SerialName("completed_tools") val completedTools: List<String>? = null,
+        @SerialName("missing_target_tools") val missingTargetTools: List<String>? = null,
         @SerialName("audit_id") val auditId: String? = null,
         @SerialName("trace_id") val traceId: String? = null,
         val observability: AgentObservabilityDto? = null,
@@ -230,7 +297,15 @@ sealed class AgentStreamEvent {
     @SerialName("run_cancelled")
     data class RunCancelled(
         @SerialName("run_id") val runId: String,
+        @SerialName("terminal_status") val terminalStatus: String? = null,
         val reason: String? = null,
+        @SerialName("code") val errorCode: String? = null,
+        @SerialName("safe_message") val safeMessage: String? = null,
+        @SerialName("completed_tools") val completedTools: List<String>? = null,
+        @SerialName("missing_target_tools") val missingTargetTools: List<String>? = null,
+        @SerialName("audit_id") val auditId: String? = null,
+        @SerialName("trace_id") val traceId: String? = null,
+        val observability: AgentObservabilityDto? = null,
         val timestamp: Long = System.currentTimeMillis(),
     ) : AgentStreamEvent()
 

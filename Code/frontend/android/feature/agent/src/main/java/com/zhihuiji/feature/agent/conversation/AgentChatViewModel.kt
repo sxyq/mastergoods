@@ -113,7 +113,21 @@ data class DraftConfirmState(
     val draftId: Long,
     val draftType: String,
     val title: String,
+    val status: String? = null,
+    val confirmPhase: DraftConfirmPhase = DraftConfirmPhase.IDLE,
+    val errorMessage: String? = null,
 )
+
+/**
+ * 草稿确认状态机：idle → confirming → confirmed/rejected/failed
+ */
+enum class DraftConfirmPhase {
+    IDLE,
+    CONFIRMING,
+    CONFIRMED,
+    REJECTED,
+    FAILED,
+}
 
 /**
  * 上下文压缩提示状态
@@ -121,6 +135,9 @@ data class DraftConfirmState(
 data class ContextCompactedState(
     val compactedCount: Int,
     val summary: String,
+    val summaryPreview: String? = null,
+    val reason: String? = null,
+    val reused: Boolean = false,
 )
 
 @HiltViewModel
@@ -832,6 +849,7 @@ class AgentChatViewModel @Inject constructor(
                             draftId = event.draftId,
                             draftType = event.draftType,
                             title = event.title,
+                            status = event.status,
                         )
                     )
                 }
@@ -848,7 +866,10 @@ class AgentChatViewModel @Inject constructor(
                     it.copy(
                         contextCompacted = ContextCompactedState(
                             compactedCount = event.compactedCount,
-                            summary = event.summary,
+                            summary = event.summaryPreview ?: event.reason ?: "上下文已压缩",
+                            summaryPreview = event.summaryPreview,
+                            reason = event.reason,
+                            reused = event.reused,
                         )
                     )
                 }
@@ -879,6 +900,18 @@ class AgentChatViewModel @Inject constructor(
                 }
                 currentAuditBuilder?.finalAnswerSummary = event.safeMessage ?: finalAnswer
                 saveAuditRecord()
+            }
+
+            is AgentStreamEvent.RunFailed -> {
+                handleTerminalFailure(assistantMessageId, event.safeMessage ?: event.errorCode ?: "运行失败")
+            }
+
+            is AgentStreamEvent.RunBlocked -> {
+                handleTerminalFailure(assistantMessageId, event.safeMessage ?: "运行被安全策略阻止")
+            }
+
+            is AgentStreamEvent.RunExhausted -> {
+                handleTerminalFailure(assistantMessageId, event.safeMessage ?: "运行预算耗尽，未能完成任务")
             }
 
             is AgentStreamEvent.RunCancelled -> {
@@ -942,6 +975,34 @@ class AgentChatViewModel @Inject constructor(
         currentAuditBuilder?.errorInfo = ErrorAuditInfo(
             message = errorMessage,
         )
+        saveAuditRecord()
+    }
+
+    /**
+     * 处理统一终态中的非成功事件（FAILED/BLOCKED/EXHAUSTED）。
+     * 不显示成功样式；保留已有回答内容，标记错误状态。
+     */
+    private fun handleTerminalFailure(assistantMessageId: String, errorMessage: String) {
+        flushPendingAnswerDelta()
+        _uiState.update {
+            it.copy(
+                isStreaming = false,
+                canStop = false,
+                currentRunId = null,
+                error = errorMessage,
+                retryState = RetryState(),
+            )
+        }
+        currentStreamingAssistantMessageId = null
+        updateAssistantMessage(assistantMessageId) { msg ->
+            msg.copy(
+                isStreaming = false,
+                isError = true,
+                errorMessage = errorMessage,
+                animateReveal = false,
+            )
+        }
+        currentAuditBuilder?.errorInfo = ErrorAuditInfo(message = errorMessage)
         saveAuditRecord()
     }
 
@@ -1188,35 +1249,118 @@ class AgentChatViewModel @Inject constructor(
         _uiState.update { it.copy(contextCompacted = null) }
     }
 
+    /**
+     * 草稿确认状态机：idle → confirming → confirmed/failed。
+     * 幂等处理：confirming/confirmed 状态下重复调用直接返回。
+     * "确认"只调用草稿确认接口 POST /v2/agent/drafts/{id}/confirm，不触发正式业务创建接口。
+     */
     fun confirmDraftFromDialog(draftId: Long) {
+        val current = _uiState.value.showDraftConfirm ?: return
+        if (current.draftId != draftId) return
+        // 幂等：已经在确认中或已确认，不重复调用
+        if (current.confirmPhase == DraftConfirmPhase.CONFIRMING ||
+            current.confirmPhase == DraftConfirmPhase.CONFIRMED
+        ) return
+
+        _uiState.update { state ->
+            state.copy(
+                showDraftConfirm = current.copy(
+                    confirmPhase = DraftConfirmPhase.CONFIRMING,
+                    errorMessage = null,
+                )
+            )
+        }
         viewModelScope.launch {
-            repository.confirmDraft(draftId).onSuccess {
-                currentAuditBuilder?.draftInfo = currentAuditBuilder?.draftInfo?.copy(userConfirmed = true)
-                _uiState.update { state ->
-                    state.copy(showDraftConfirm = null, error = "草稿已确认执行")
+            repository.confirmDraft(draftId)
+                .onSuccess { updated ->
+                    currentAuditBuilder?.draftInfo = currentAuditBuilder?.draftInfo?.copy(userConfirmed = true)
+                    _uiState.update { state ->
+                        state.copy(
+                            showDraftConfirm = state.showDraftConfirm?.copy(
+                                confirmPhase = DraftConfirmPhase.CONFIRMED,
+                                status = updated.status,
+                            ),
+                            error = "草稿已确认执行",
+                        )
+                    }
                 }
-            }.onFailure { e ->
-                _uiState.update { it.copy(error = e.message ?: "草稿确认失败") }
-            }
+                .onFailure { e ->
+                    _uiState.update { state ->
+                        state.copy(
+                            showDraftConfirm = state.showDraftConfirm?.copy(
+                                confirmPhase = DraftConfirmPhase.FAILED,
+                                errorMessage = e.message ?: "草稿确认失败",
+                            ),
+                            error = e.message ?: "草稿确认失败",
+                        )
+                    }
+                }
         }
     }
 
+    /**
+     * 草稿拒绝状态机：idle → confirming → rejected/failed。
+     * 拒绝只调用草稿取消接口，不触发正式写入。
+     */
     fun cancelDraftFromDialog(draftId: Long) {
+        val current = _uiState.value.showDraftConfirm ?: return
+        if (current.draftId != draftId) return
+        // 确认中不能取消
+        if (current.confirmPhase == DraftConfirmPhase.CONFIRMING) return
+        // 幂等：已经取消，不重复调用
+        if (current.confirmPhase == DraftConfirmPhase.REJECTED) return
+
+        _uiState.update { state ->
+            state.copy(
+                showDraftConfirm = current.copy(
+                    confirmPhase = DraftConfirmPhase.CONFIRMING,
+                    errorMessage = null,
+                )
+            )
+        }
         viewModelScope.launch {
-            repository.cancelDraft(draftId).onSuccess {
-                currentAuditBuilder?.draftInfo = currentAuditBuilder?.draftInfo?.copy(userConfirmed = false)
-                _uiState.update { state ->
-                    state.copy(showDraftConfirm = null, error = "草稿已取消")
+            repository.cancelDraft(draftId)
+                .onSuccess { updated ->
+                    currentAuditBuilder?.draftInfo = currentAuditBuilder?.draftInfo?.copy(userConfirmed = false)
+                    _uiState.update { state ->
+                        state.copy(
+                            showDraftConfirm = state.showDraftConfirm?.copy(
+                                confirmPhase = DraftConfirmPhase.REJECTED,
+                                status = updated.status,
+                            ),
+                            error = "草稿已取消",
+                        )
+                    }
                 }
-            }.onFailure { e ->
-                _uiState.update { it.copy(error = e.message ?: "草稿取消失败") }
-            }
+                .onFailure { e ->
+                    _uiState.update { state ->
+                        state.copy(
+                            showDraftConfirm = state.showDraftConfirm?.copy(
+                                confirmPhase = DraftConfirmPhase.FAILED,
+                                errorMessage = e.message ?: "草稿取消失败",
+                            ),
+                            error = e.message ?: "草稿取消失败",
+                        )
+                    }
+                }
         }
     }
 }
 
 internal fun isUsableAgentNetwork(hasInternetCapability: Boolean, isValidated: Boolean): Boolean =
     hasInternetCapability && isValidated
+
+/**
+ * 草稿确认幂等判断：confirming/confirmed 状态下不重复发起确认请求。
+ */
+internal fun shouldSkipConfirm(phase: DraftConfirmPhase): Boolean =
+    phase == DraftConfirmPhase.CONFIRMING || phase == DraftConfirmPhase.CONFIRMED
+
+/**
+ * 草稿取消幂等判断：confirming 状态下不能取消；rejected 状态下不重复取消。
+ */
+internal fun shouldSkipCancel(phase: DraftConfirmPhase): Boolean =
+    phase == DraftConfirmPhase.CONFIRMING || phase == DraftConfirmPhase.REJECTED
 
 private fun AgentStreamEvent.runIdOrNull(): String? = when (this) {
     is AgentStreamEvent.RunStarted -> runId
@@ -1234,6 +1378,9 @@ private fun AgentStreamEvent.runIdOrNull(): String? = when (this) {
     is AgentStreamEvent.DraftCreated -> runId
     is AgentStreamEvent.ContextCompacted -> runId
     is AgentStreamEvent.RunCompleted -> runId
+    is AgentStreamEvent.RunFailed -> runId
+    is AgentStreamEvent.RunBlocked -> runId
+    is AgentStreamEvent.RunExhausted -> runId
     is AgentStreamEvent.RunCancelled -> runId
     is AgentStreamEvent.ErrorEvent -> runId
 }

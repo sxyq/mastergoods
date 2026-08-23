@@ -55,6 +55,8 @@ data class AgentTraceEventDto(
     @SerialName("draft_id") val draftId: Long? = null,
     @SerialName("draft_type") val draftType: String? = null,
     val title: String? = null,
+    /** 草稿状态（active/confirmed/cancelled 等），用于 draft_created 审计事件恢复 */
+    val status: String? = null,
     @SerialName("created_at") val createdAt: Long? = null,
 )
 
@@ -323,6 +325,7 @@ object AgentRunTraceReducer {
                     draftId = event.draftId,
                     draftType = event.draftType,
                     title = event.title,
+                    status = event.status,
                     timestamp = event.timestamp,
                 )
                 marked.copy(
@@ -334,9 +337,15 @@ object AgentRunTraceReducer {
             is AgentStreamEvent.ContextCompacted -> marked
 
             is AgentStreamEvent.RunCompleted -> {
-                val blocked = event.mode == "blocked"
+                // 终态以 terminal_status 为准：COMPLETED / CONFIRMATION_PENDING / BLOCKED
+                val status = event.terminalStatus.toTerminalStatusOrDefault(RunTerminalStatus.COMPLETED)
+                val answerStatus = when (status) {
+                    RunTerminalStatus.BLOCKED -> AnswerTraceStatus.BLOCKED
+                    RunTerminalStatus.CONFIRMATION_PENDING -> AnswerTraceStatus.COMPLETED
+                    else -> marked.answerStatus
+                }
                 val terminal = TerminalTrace(
-                    status = if (blocked) RunTerminalStatus.BLOCKED else RunTerminalStatus.COMPLETED,
+                    status = status,
                     message = event.safeMessage ?: event.finalAnswer,
                     timestamp = event.timestamp,
                 )
@@ -346,7 +355,7 @@ object AgentRunTraceReducer {
                     planSource = event.planSource ?: marked.planSource,
                     auditId = event.auditId ?: marked.auditId,
                     traceId = event.traceId ?: marked.traceId,
-                    answerStatus = if (blocked) AnswerTraceStatus.BLOCKED else marked.answerStatus,
+                    answerStatus = answerStatus,
                     toolCalls = marked.toolCalls.closeOpenTools("运行已结束，未收到工具完成事件", event.timestamp),
                     terminal = terminal,
                     timeline = marked.timeline
@@ -355,10 +364,31 @@ object AgentRunTraceReducer {
                 )
             }
 
+            is AgentStreamEvent.RunFailed -> marked.withTerminal(
+                status = RunTerminalStatus.FAILED,
+                answerStatus = AnswerTraceStatus.FAILED,
+                message = event.safeMessage ?: event.errorCode,
+                timestamp = event.timestamp,
+            )
+
+            is AgentStreamEvent.RunBlocked -> marked.withTerminal(
+                status = RunTerminalStatus.BLOCKED,
+                answerStatus = AnswerTraceStatus.BLOCKED,
+                message = event.safeMessage,
+                timestamp = event.timestamp,
+            )
+
+            is AgentStreamEvent.RunExhausted -> marked.withTerminal(
+                status = RunTerminalStatus.EXHAUSTED,
+                answerStatus = AnswerTraceStatus.FAILED,
+                message = event.safeMessage,
+                timestamp = event.timestamp,
+            )
+
             is AgentStreamEvent.RunCancelled -> marked.withTerminal(
                 status = RunTerminalStatus.CANCELLED,
                 answerStatus = AnswerTraceStatus.CANCELLED,
-                message = event.reason,
+                message = event.reason ?: event.safeMessage,
                 timestamp = event.timestamp,
             )
 
@@ -403,13 +433,17 @@ object AgentRunTraceReducer {
                 ),
             )
         }
-        if (result.terminal == null && trace.status != null) {
-            result = result.withTerminal(
-                status = trace.status.toTerminalStatus(),
-                answerStatus = trace.status.toAnswerStatus(),
-                message = trace.errorMessage,
-                timestamp = trace.completedAt ?: trace.updatedAt ?: trace.startedAt ?: 0L,
-            )
+        if (trace.status != null) {
+            val expectedStatus = trace.status.toTerminalStatus()
+            if (result.terminal?.status != expectedStatus) {
+                result = result.withTerminal(
+                    status = expectedStatus,
+                    answerStatus = trace.status.toAnswerStatus(),
+                    message = result.terminal?.message ?: trace.errorMessage,
+                    timestamp = result.terminal?.timestamp
+                        ?: trace.completedAt ?: trace.updatedAt ?: trace.startedAt ?: 0L,
+                )
+            }
         }
         return result
     }
@@ -597,6 +631,7 @@ object AgentRunTraceReducer {
                     draftId = draftId,
                     draftType = draftType,
                     title = title,
+                    status = status,
                     timestamp = timestamp,
                 )
             } else {
@@ -604,6 +639,7 @@ object AgentRunTraceReducer {
             }
             "run_completed" -> AgentStreamEvent.RunCompleted(
                 runId = runId,
+                terminalStatus = null,
                 finalAnswer = content,
                 safeMessage = safeMessage,
                 mode = mode,
@@ -614,9 +650,36 @@ object AgentRunTraceReducer {
                 observability = null,
                 timestamp = timestamp,
             )
+            "run_failed" -> AgentStreamEvent.RunFailed(
+                runId = runId,
+                terminalStatus = "FAILED",
+                safeMessage = safeMessage ?: content,
+                auditId = auditId,
+                traceId = traceId,
+                timestamp = timestamp,
+            )
+            "run_blocked" -> AgentStreamEvent.RunBlocked(
+                runId = runId,
+                terminalStatus = "BLOCKED",
+                safeMessage = safeMessage ?: content,
+                auditId = auditId,
+                traceId = traceId,
+                timestamp = timestamp,
+            )
+            "run_exhausted" -> AgentStreamEvent.RunExhausted(
+                runId = runId,
+                terminalStatus = "EXHAUSTED",
+                safeMessage = safeMessage ?: content,
+                auditId = auditId,
+                traceId = traceId,
+                timestamp = timestamp,
+            )
             "run_cancelled" -> AgentStreamEvent.RunCancelled(
                 runId = runId,
+                terminalStatus = "CANCELLED",
                 reason = safeMessage ?: content,
+                auditId = auditId,
+                traceId = traceId,
                 timestamp = timestamp,
             )
             else -> null
@@ -693,19 +756,26 @@ object AgentRunTraceReducer {
         else -> "运行轨迹不完整，部分过程事件可能缺失"
     }
 
-    private fun String.toTerminalStatus(): RunTerminalStatus = when (lowercase()) {
-        "completed", "success", "succeeded" -> RunTerminalStatus.COMPLETED
-        "blocked" -> RunTerminalStatus.BLOCKED
-        "cancelled", "canceled" -> RunTerminalStatus.CANCELLED
-        "failed", "error" -> RunTerminalStatus.FAILED
+    private fun String.toTerminalStatus(): RunTerminalStatus = when (uppercase()) {
+        "COMPLETED", "SUCCESS", "SUCCEEDED" -> RunTerminalStatus.COMPLETED
+        "CONFIRMATION_PENDING" -> RunTerminalStatus.CONFIRMATION_PENDING
+        "BLOCKED" -> RunTerminalStatus.BLOCKED
+        "CANCELLED", "CANCELED" -> RunTerminalStatus.CANCELLED
+        "FAILED", "ERROR" -> RunTerminalStatus.FAILED
+        "EXHAUSTED" -> RunTerminalStatus.EXHAUSTED
         else -> RunTerminalStatus.INTERRUPTED
     }
 
+    private fun String?.toTerminalStatusOrDefault(fallback: RunTerminalStatus): RunTerminalStatus =
+        if (isNullOrBlank()) fallback else toTerminalStatus()
+
     private fun String.toAnswerStatus(): AnswerTraceStatus = when (toTerminalStatus()) {
         RunTerminalStatus.COMPLETED -> AnswerTraceStatus.COMPLETED
+        RunTerminalStatus.CONFIRMATION_PENDING -> AnswerTraceStatus.COMPLETED
         RunTerminalStatus.BLOCKED -> AnswerTraceStatus.BLOCKED
         RunTerminalStatus.CANCELLED -> AnswerTraceStatus.CANCELLED
         RunTerminalStatus.FAILED -> AnswerTraceStatus.FAILED
+        RunTerminalStatus.EXHAUSTED -> AnswerTraceStatus.FAILED
         RunTerminalStatus.INTERRUPTED -> AnswerTraceStatus.INTERRUPTED
     }
 
@@ -715,6 +785,12 @@ object AgentRunTraceReducer {
         is AgentStreamEvent.ToolCompleted -> eventId ?: seq?.let { "tool_completed:$it" }
         is AgentStreamEvent.ToolFailed -> eventId ?: seq?.let { "tool_failed:$it" }
         is AgentStreamEvent.AnswerDelta -> eventId ?: seq?.let { "answer_delta:$it" }
+        // 终态事件去重：每个 run 只接受一次终态，后续重复/乱序终态事件直接忽略
+        is AgentStreamEvent.RunCompleted,
+        is AgentStreamEvent.RunFailed,
+        is AgentStreamEvent.RunBlocked,
+        is AgentStreamEvent.RunExhausted,
+        is AgentStreamEvent.RunCancelled -> "terminal"
         else -> null
     }
 

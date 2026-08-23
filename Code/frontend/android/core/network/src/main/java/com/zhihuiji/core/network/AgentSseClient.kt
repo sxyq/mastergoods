@@ -132,6 +132,9 @@ class AgentSseClient(
                     emit(event)
                     terminalEventSeen = when (event) {
                         is AgentStreamEvent.RunCompleted,
+                        is AgentStreamEvent.RunFailed,
+                        is AgentStreamEvent.RunBlocked,
+                        is AgentStreamEvent.RunExhausted,
                         is AgentStreamEvent.RunCancelled -> true
                         // A locally generated parse error is recoverable; a
                         // server error is the terminal event for this run.

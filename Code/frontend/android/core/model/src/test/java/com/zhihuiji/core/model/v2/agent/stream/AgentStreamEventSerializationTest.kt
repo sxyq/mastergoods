@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -288,5 +289,157 @@ class AgentStreamEventSerializationTest {
             "## 销售结论\n- 今日销售额 1280 元",
             blockEvent.block.data!!.jsonObject["markdown"]!!.jsonPrimitive.content
         )
+    }
+
+    @Test
+    fun decodesRunCompletedWithTerminalStatusConfirmationPending() {
+        val event = json.decodeFromString(
+            AgentStreamEvent.serializer(),
+            """
+            {
+              "event_type": "run_completed",
+              "run_id": "run-1",
+              "terminal_status": "CONFIRMATION_PENDING",
+              "final_answer": "已生成草稿，请确认",
+              "safe_message": "已生成草稿，请确认",
+              "completed_tools": ["sale_order_create"],
+              "missing_target_tools": [],
+              "audit_id": "run-1:audit",
+              "trace_id": "run-1:trace",
+              "timestamp": 1003
+            }
+            """.trimIndent()
+        )
+
+        assertTrue(event is AgentStreamEvent.RunCompleted)
+        val completed = event as AgentStreamEvent.RunCompleted
+        assertEquals("CONFIRMATION_PENDING", completed.terminalStatus)
+        assertEquals("已生成草稿，请确认", completed.safeMessage)
+        assertEquals(listOf("sale_order_create"), completed.completedTools)
+    }
+
+    @Test
+    fun decodesRunFailedEventWithTerminalStatus() {
+        val event = json.decodeFromString(
+            AgentStreamEvent.serializer(),
+            """
+            {
+              "event_type": "run_failed",
+              "run_id": "run-1",
+              "terminal_status": "FAILED",
+              "code": "PROVIDER_ERROR",
+              "safe_message": "模型调用失败",
+              "completed_tools": ["inventory_lookup"],
+              "missing_target_tools": ["sale_order_create"],
+              "timestamp": 1004
+            }
+            """.trimIndent()
+        )
+
+        assertTrue(event is AgentStreamEvent.RunFailed)
+        val failed = event as AgentStreamEvent.RunFailed
+        assertEquals("FAILED", failed.terminalStatus)
+        assertEquals("PROVIDER_ERROR", failed.errorCode)
+        assertEquals("模型调用失败", failed.safeMessage)
+        assertEquals(listOf("sale_order_create"), failed.missingTargetTools)
+    }
+
+    @Test
+    fun decodesRunBlockedEventWithTerminalStatus() {
+        val event = json.decodeFromString(
+            AgentStreamEvent.serializer(),
+            """
+            {
+              "event_type": "run_blocked",
+              "run_id": "run-1",
+              "terminal_status": "BLOCKED",
+              "safe_message": "权限不足",
+              "timestamp": 1005
+            }
+            """.trimIndent()
+        )
+
+        assertTrue(event is AgentStreamEvent.RunBlocked)
+        val blocked = event as AgentStreamEvent.RunBlocked
+        assertEquals("BLOCKED", blocked.terminalStatus)
+        assertEquals("权限不足", blocked.safeMessage)
+    }
+
+    @Test
+    fun decodesRunExhaustedEventWithTerminalStatus() {
+        val event = json.decodeFromString(
+            AgentStreamEvent.serializer(),
+            """
+            {
+              "event_type": "run_exhausted",
+              "run_id": "run-1",
+              "terminal_status": "EXHAUSTED",
+              "code": "TOOL_BUDGET_EXHAUSTED",
+              "safe_message": "工具预算耗尽",
+              "completed_tools": ["inventory_lookup", "customer_lookup"],
+              "missing_target_tools": ["sale_order_create"],
+              "timestamp": 1006
+            }
+            """.trimIndent()
+        )
+
+        assertTrue(event is AgentStreamEvent.RunExhausted)
+        val exhausted = event as AgentStreamEvent.RunExhausted
+        assertEquals("EXHAUSTED", exhausted.terminalStatus)
+        assertEquals("TOOL_BUDGET_EXHAUSTED", exhausted.errorCode)
+        assertEquals(2, exhausted.completedTools?.size)
+    }
+
+    @Test
+    fun decodesDraftCreatedWithStatusField() {
+        val event = json.decodeFromString(
+            AgentStreamEvent.serializer(),
+            """
+            {
+              "event_type": "draft_created",
+              "run_id": "run-1",
+              "draft_id": 9001,
+              "draft_type": "sale_order",
+              "title": "销售单草稿 #2024-001",
+              "status": "active",
+              "timestamp": 1002
+            }
+            """.trimIndent()
+        )
+
+        assertTrue(event is AgentStreamEvent.DraftCreated)
+        val draft = event as AgentStreamEvent.DraftCreated
+        assertEquals(9001L, draft.draftId)
+        assertEquals("sale_order", draft.draftType)
+        assertEquals("active", draft.status)
+    }
+
+    @Test
+    fun decodesContextCompactedWithExtendedFields() {
+        val event = json.decodeFromString(
+            AgentStreamEvent.serializer(),
+            """
+            {
+              "event_type": "context_compacted",
+              "run_id": "run-1",
+              "checkpoint_id": 12345,
+              "source_boundary_message_id": 67890,
+              "compacted_count": 8,
+              "summary_preview": "用户询问了近7天销售数据",
+              "reason": "context_budget_threshold",
+              "reused": false,
+              "timestamp": 1002
+            }
+            """.trimIndent()
+        )
+
+        assertTrue(event is AgentStreamEvent.ContextCompacted)
+        val compacted = event as AgentStreamEvent.ContextCompacted
+        assertEquals(12345L, compacted.checkpointId)
+        assertEquals(67890L, compacted.sourceBoundaryMessageId)
+        assertEquals(8, compacted.compactedCount)
+        assertEquals("用户询问了近7天销售数据", compacted.summaryPreview)
+        assertEquals("context_budget_threshold", compacted.reason)
+        assertFalse(compacted.reused)
     }
 }

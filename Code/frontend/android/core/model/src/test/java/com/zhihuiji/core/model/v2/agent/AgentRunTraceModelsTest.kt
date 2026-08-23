@@ -196,4 +196,182 @@ class AgentRunTraceModelsTest {
         assertTrue(cancelled.timeline.any { it is RunTraceItem.PlanSummary })
         assertEquals("已停止本机接收，正在请求服务端取消", cancelled.terminal?.message)
     }
+
+    @Test
+    fun reduceDeduplicatesTerminalEventsPerRun() {
+        val initial = AgentRunTraceReducer.initial("run-dedup")
+        val first = AgentRunTraceReducer.reduce(
+            initial,
+            AgentStreamEvent.RunCompleted(
+                runId = "run-dedup",
+                terminalStatus = "COMPLETED",
+                finalAnswer = "第一次完成",
+                timestamp = 100L,
+            ),
+        )
+        // 第二次终态事件应被忽略
+        val second = AgentRunTraceReducer.reduce(
+            first,
+            AgentStreamEvent.RunFailed(
+                runId = "run-dedup",
+                terminalStatus = "FAILED",
+                safeMessage = "后续失败",
+                timestamp = 200L,
+            ),
+        )
+
+        assertEquals(RunTerminalStatus.COMPLETED, second.terminal?.status)
+        assertEquals("第一次完成", second.terminal?.message)
+    }
+
+    @Test
+    fun reduceHandlesConfirmationPendingTerminalStatus() {
+        val trace = AgentRunTraceReducer.reduce(
+            AgentRunTraceReducer.initial("run-confirm"),
+            AgentStreamEvent.RunCompleted(
+                runId = "run-confirm",
+                terminalStatus = "CONFIRMATION_PENDING",
+                finalAnswer = "已生成草稿",
+                safeMessage = "已生成草稿，请确认",
+                timestamp = 100L,
+            ),
+        )
+
+        assertEquals(RunTerminalStatus.CONFIRMATION_PENDING, trace.terminal?.status)
+        assertEquals("已生成草稿，请确认", trace.terminal?.message)
+    }
+
+    @Test
+    fun reduceHandlesExhaustedTerminalEvent() {
+        val trace = AgentRunTraceReducer.reduce(
+            AgentRunTraceReducer.initial("run-exhausted"),
+            AgentStreamEvent.RunExhausted(
+                runId = "run-exhausted",
+                terminalStatus = "EXHAUSTED",
+                safeMessage = "工具预算耗尽",
+                timestamp = 100L,
+            ),
+        )
+
+        assertEquals(RunTerminalStatus.EXHAUSTED, trace.terminal?.status)
+        assertEquals(AnswerTraceStatus.FAILED, trace.answerStatus)
+    }
+
+    @Test
+    fun reduceHandlesBlockedTerminalEvent() {
+        val trace = AgentRunTraceReducer.reduce(
+            AgentRunTraceReducer.initial("run-blocked-terminal"),
+            AgentStreamEvent.RunBlocked(
+                runId = "run-blocked-terminal",
+                terminalStatus = "BLOCKED",
+                safeMessage = "安全策略阻止",
+                timestamp = 100L,
+            ),
+        )
+
+        assertEquals(RunTerminalStatus.BLOCKED, trace.terminal?.status)
+        assertEquals(AnswerTraceStatus.BLOCKED, trace.answerStatus)
+    }
+
+    @Test
+    fun reduceHandlesFailedTerminalEvent() {
+        val trace = AgentRunTraceReducer.reduce(
+            AgentRunTraceReducer.initial("run-failed"),
+            AgentStreamEvent.RunFailed(
+                runId = "run-failed",
+                terminalStatus = "FAILED",
+                safeMessage = "系统错误",
+                errorCode = "SYSTEM_ERROR",
+                timestamp = 100L,
+            ),
+        )
+
+        assertEquals(RunTerminalStatus.FAILED, trace.terminal?.status)
+        assertEquals(AnswerTraceStatus.FAILED, trace.answerStatus)
+    }
+
+    @Test
+    fun reduceHandlesRunCancelledWithTerminalStatus() {
+        val trace = AgentRunTraceReducer.reduce(
+            AgentRunTraceReducer.initial("run-cancelled-ts"),
+            AgentStreamEvent.RunCancelled(
+                runId = "run-cancelled-ts",
+                terminalStatus = "CANCELLED",
+                reason = "用户取消",
+                timestamp = 100L,
+            ),
+        )
+
+        assertEquals(RunTerminalStatus.CANCELLED, trace.terminal?.status)
+        assertEquals("用户取消", trace.terminal?.message)
+    }
+
+    @Test
+    fun reduceAuditRestoresExhaustedTerminalFromAuditStatus() {
+        val reduced = AgentRunTraceReducer.reduceAudit(
+            AgentRunTraceDto(
+                runId = "run-audit-exhausted",
+                status = "exhausted",
+                events = listOf(
+                    AgentTraceEventDto(
+                        eventId = "event-terminal",
+                        seq = 1,
+                        eventType = "run_exhausted",
+                        safeMessage = "预算耗尽",
+                        createdAt = 500L,
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(RunTerminalStatus.EXHAUSTED, reduced.terminal?.status)
+        assertEquals("预算耗尽", reduced.terminal?.message)
+    }
+
+    @Test
+    fun reduceAuditRestoresConfirmationPendingFromAuditStatus() {
+        val reduced = AgentRunTraceReducer.reduceAudit(
+            AgentRunTraceDto(
+                runId = "run-audit-confirm",
+                status = "confirmation_pending",
+                events = listOf(
+                    AgentTraceEventDto(
+                        eventId = "event-terminal",
+                        seq = 1,
+                        eventType = "run_completed",
+                        content = "草稿已生成",
+                        createdAt = 500L,
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(RunTerminalStatus.CONFIRMATION_PENDING, reduced.terminal?.status)
+    }
+
+    @Test
+    fun reduceAuditRestoresDraftStatusFromEventDto() {
+        val reduced = AgentRunTraceReducer.reduceAudit(
+            AgentRunTraceDto(
+                runId = "run-draft-status",
+                status = "completed",
+                events = listOf(
+                    AgentTraceEventDto(
+                        eventId = "event-draft",
+                        seq = 1,
+                        eventType = "draft_created",
+                        draftId = 100L,
+                        draftType = "sale_order",
+                        title = "销售单草稿",
+                        status = "active",
+                        createdAt = 100L,
+                    ),
+                ),
+            ),
+        )
+
+        val draft = reduced.draft
+        assertEquals(100L, draft?.draftId)
+        assertEquals("active", draft?.status)
+    }
 }

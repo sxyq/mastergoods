@@ -394,18 +394,6 @@ fun AgentChatScreen(
                                         onRegenerate = { viewModel.regenerateMessage(message.id) },
                                     )
                                 }
-                                uiState.showDraftConfirm?.let { draft ->
-                                    item(
-                                        key = "draft-confirm-${draft.draftId}",
-                                        contentType = "draft-confirm",
-                                    ) {
-                                        DraftConfirmInlineCard(
-                                            draft = draft,
-                                            onConfirm = { viewModel.confirmDraftFromDialog(draft.draftId) },
-                                            onCancelDraft = { viewModel.cancelDraftFromDialog(draft.draftId) },
-                                        )
-                                    }
-                                }
                             }
                         }
                     }
@@ -494,6 +482,21 @@ fun AgentChatScreen(
                 viewModel.editAndResend(editState.messageId, updatedText)
                 editUserMessageState = null
             },
+        )
+    }
+
+    // 创建类工具的待确认状态使用覆盖式弹窗表达二次授权。
+    // 确认/拒绝只调用草稿确认接口，关闭弹窗不触发正式写入。
+    val draftConfirmState = uiState.showDraftConfirm
+    if (draftConfirmState != null &&
+        draftConfirmState.confirmPhase != DraftConfirmPhase.CONFIRMED &&
+        draftConfirmState.confirmPhase != DraftConfirmPhase.REJECTED
+    ) {
+        DraftConfirmDialog(
+            draft = draftConfirmState,
+            onConfirm = { viewModel.confirmDraftFromDialog(draftConfirmState.draftId) },
+            onCancel = { viewModel.cancelDraftFromDialog(draftConfirmState.draftId) },
+            onDismiss = { viewModel.dismissDraftConfirm() },
         )
     }
 }
@@ -1259,8 +1262,8 @@ private fun AssistantTerminalStatusCard(
     modifier: Modifier = Modifier,
 ) {
     val accent = when (terminal.status) {
-        RunTerminalStatus.COMPLETED -> AgentAssistantAccent
-        RunTerminalStatus.BLOCKED, RunTerminalStatus.CANCELLED -> WarningOrange
+        RunTerminalStatus.COMPLETED, RunTerminalStatus.CONFIRMATION_PENDING -> AgentAssistantAccent
+        RunTerminalStatus.BLOCKED, RunTerminalStatus.CANCELLED, RunTerminalStatus.EXHAUSTED -> WarningOrange
         RunTerminalStatus.FAILED, RunTerminalStatus.INTERRUPTED -> DangerRed
     }
     Row(
@@ -1554,9 +1557,11 @@ private fun AnswerTraceStatus.answerStatusLabel(): String = when (this) {
 
 private fun RunTerminalStatus.terminalStatusLabel(): String = when (this) {
     RunTerminalStatus.COMPLETED -> "完成"
+    RunTerminalStatus.CONFIRMATION_PENDING -> "待确认"
     RunTerminalStatus.BLOCKED -> "受阻"
     RunTerminalStatus.CANCELLED -> "取消"
     RunTerminalStatus.FAILED -> "失败"
+    RunTerminalStatus.EXHAUSTED -> "耗尽"
     RunTerminalStatus.INTERRUPTED -> "中断"
 }
 
@@ -2540,64 +2545,100 @@ private fun ContextCompactedBanner(
 }
 
 @Composable
-private fun DraftConfirmInlineCard(
+private fun DraftConfirmDialog(
     draft: DraftConfirmState,
     onConfirm: () -> Unit,
-    onCancelDraft: () -> Unit,
+    onCancel: () -> Unit,
+    onDismiss: () -> Unit,
 ) {
-    LiquidGlassCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .widthIn(max = 360.dp),
-        surfaceColor = Color.White.copy(alpha = 0.94f),
-        shape = RoundedCornerShape(20.dp),
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+    val isBusy = draft.confirmPhase == DraftConfirmPhase.CONFIRMING
+    val errorMessage = draft.errorMessage
+    AlertDialog(
+        onDismissRequest = {
+            // 拒绝、关闭弹窗、返回页面不触发正式写入
+            if (!isBusy) onDismiss()
+        },
+        title = {
             Text(
                 text = "操作确认",
-                style = MaterialTheme.typography.labelMedium,
-                color = TextSecondary,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = "是否允许我${draftTypeLabelForChat(draft.draftType)}？",
                 style = MaterialTheme.typography.titleMedium,
                 color = TextPrimary,
                 fontWeight = FontWeight.SemiBold,
             )
-            Text(
-                text = draft.title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = ZhihuijiPrimary,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = "允许一次将写入当前门店数据。",
-                style = MaterialTheme.typography.labelSmall,
-                color = TextSecondary,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                TextButton(
-                    onClick = onCancelDraft,
-                ) {
-                    Text("拒绝", color = TextSecondary)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "是否允许我${draftTypeLabelForChat(draft.draftType)}？",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text = draft.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ZhihuijiPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                draft.status?.takeIf { it.isNotBlank() }?.let { status ->
+                    Text(
+                        text = "草稿状态：${draftStatusLabelForChat(status)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary,
+                    )
                 }
-                Button(
-                    onClick = onConfirm,
-                ) {
+                Text(
+                    text = "允许一次将写入当前门店数据，请确认。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary,
+                )
+                errorMessage?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = DangerRed,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = !isBusy,
+            ) {
+                if (isBusy) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("确认中")
+                } else {
                     Text("允许一次")
                 }
             }
-        }
-    }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onCancel,
+                enabled = !isBusy,
+            ) {
+                Text("拒绝", color = TextSecondary)
+            }
+        },
+    )
+}
+
+private fun draftStatusLabelForChat(status: String): String = when (status.lowercase()) {
+    "active" -> "待确认"
+    "pending" -> "待确认"
+    "confirmed" -> "已确认"
+    "cancelled" -> "已取消"
+    "archived" -> "已归档"
+    else -> status
 }
 
 private fun draftTypeLabelForChat(type: String): String = when (type.lowercase()) {
