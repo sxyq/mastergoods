@@ -53,9 +53,10 @@ public class AgentMemoryService {
         "(?:" +
             "\\b1[3-9]\\d{9}\\b" +                              // 中国手机号
             "|\\b[\\w.+-]+@[\\w-]+(?:\\.[\\w-]+)+\\b" +         // 邮箱
-            "|\\b\\d{15}(?:\\d{2}|\\d{3}[0-9Xx])\\b" +           // 身份证号
-            "|\\b\\d{16,19}\\b" +                                // 银行卡号 / 长数字串
-            "|\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b" +                // IPv4
+            "|\\b\\d{17}[0-9Xx]\\b" +                           // 18 位身份证号（含末位 X）
+            "|\\b\\d{15}(?:\\d{2}|\\d{3}[0-9Xx])\\b" +          // 17/18 位身份证号（旧模式兼容）
+            "|\\b\\d{16,19}\\b" +                               // 银行卡号 / 长数字串
+            "|\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b" +               // IPv4
             ")", Pattern.UNICODE_CHARACTER_CLASS);
 
     private static final String REDACTED_PLACEHOLDER = "[REDACTED]";
@@ -92,9 +93,16 @@ public class AgentMemoryService {
         int effectiveLimit = clampLimit(limit, properties.getDefaultRecallLimit(), properties.getMaxRecallLimit());
         String safeQuery = sanitizeQuery(query);
         Pageable pageable = PageRequest.of(0, effectiveLimit);
-        List<AgentMemoryEntity> entities = storeId != null
-            ? memoryRepository.findActiveByOwnerAndStore(ownerUserId, storeId, safeQuery, pageable)
-            : memoryRepository.findActiveByOwner(ownerUserId, safeQuery, pageable);
+        List<AgentMemoryEntity> entities;
+        try {
+            entities = storeId != null
+                ? memoryRepository.findActiveByOwnerAndStore(ownerUserId, storeId, safeQuery, pageable)
+                : memoryRepository.findActiveByOwner(ownerUserId, safeQuery, pageable);
+        } catch (RuntimeException ex) {
+            // 召回失败不能阻塞主回答：返回空记忆列表，由调用方降级。
+            log.debug("memory recall failed for owner={} store={}: {}", ownerUserId, storeId, ex.getMessage());
+            return List.of();
+        }
 
         long now = System.currentTimeMillis();
         List<RecalledMemory> memories = new ArrayList<>(entities.size());

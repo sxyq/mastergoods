@@ -78,19 +78,24 @@ final class WebSearchUrlSafety {
             return true;
         }
         String normalizedHost = host.toLowerCase();
-        if (BLOCKED_HOSTNAMES.contains(normalizedHost)) {
+        // Java 21 的 URI.getHost() 对 IPv6 字面量返回带方括号的 "[::1]"。
+        // 去掉方括号后再做主机名/网段判断，否则 ::1、fc00::/7 等无法被识别。
+        String addressHost = normalizedHost.startsWith("[") && normalizedHost.endsWith("]")
+            ? normalizedHost.substring(1, normalizedHost.length() - 1)
+            : normalizedHost;
+        if (BLOCKED_HOSTNAMES.contains(addressHost)) {
             return true;
         }
-        if (normalizedHost.endsWith(LOCAL_SUFFIX)) {
+        if (addressHost.endsWith(LOCAL_SUFFIX)) {
             return true;
         }
-        if (isBlockedIpv4(normalizedHost) || isBlockedIpv6(normalizedHost)) {
+        if (isBlockedIpv4(addressHost) || isBlockedIpv6(addressHost)) {
             return true;
         }
         // Resolve hostname and check each returned address. This guards against
         // DNS rebinding where the hostname is public but resolves to a private IP.
         try {
-            InetAddress[] addresses = InetAddress.getAllByName(host);
+            InetAddress[] addresses = InetAddress.getAllByName(addressHost);
             for (InetAddress address : addresses) {
                 if (isBlockedAddress(address)) {
                     return true;

@@ -45,6 +45,7 @@ import com.zhihuiji.backend.application.service.v2.agent.component.ToolInvocatio
 import com.zhihuiji.backend.application.service.v2.agent.context.ContextBuilder;
 import com.zhihuiji.backend.application.service.v2.agent.context.ContextCompactionService;
 import com.zhihuiji.backend.application.service.v2.agent.context.ContextCompactionService.CompactionResult;
+import com.zhihuiji.backend.application.service.v2.agent.memory.AgentMemoryService;
 import com.zhihuiji.backend.application.service.v2.agent.tool.AgentTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolArgumentsValidator;
 import com.zhihuiji.backend.application.service.v2.agent.tool.ToolContext;
@@ -74,6 +75,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 public class V2AgentAiService {
@@ -116,6 +118,13 @@ public class V2AgentAiService {
     private final ContextBuilder contextBuilder;
     private final ContextCompactionService contextCompactionService;
     private final ExecutorService streamExecutor = Executors.newVirtualThreadPerTaskExecutor();
+
+    /**
+     * 长期记忆服务（可选注入）：请求开始时按 owner/store 召回历史记忆注入上下文，
+     * 回答完成后异步提取候选记忆。字段注入避免改动构造器，保持既有测试与调用方兼容。
+     */
+    @Autowired(required = false)
+    private AgentMemoryService agentMemoryService;
 
     public V2AgentAiService(
         CurrentOwnerService currentOwnerService,
@@ -245,7 +254,7 @@ public class V2AgentAiService {
         List<LongCatAnthropicClient.ImageInput> imageInputs = resolveImageInputs(ownerUserId, request.imageAssetIds());
         AgentConversationEntity conversation = resolveConversation(request.conversationId(), ownerUserId, message, now);
         String runId = UUID.randomUUID().toString();
-        saveMessage(
+        AgentMessageEntity userMessageEntity = saveMessage(
             ownerUserId,
             conversation.getId(),
             runId,
@@ -255,6 +264,7 @@ public class V2AgentAiService {
             null,
             now
         );
+        Long userMessageId = userMessageEntity == null ? null : userMessageEntity.getId();
 
         runAuditService.createRunAudit(ownerUserId, conversation.getId(), runId, runStartedAt);
         RunAuditService.ActiveAgentRun auditRun = new RunAuditService.ActiveAgentRun(
@@ -346,7 +356,7 @@ public class V2AgentAiService {
                 conversation.getId(),
                 message,
                 buildToolCatalogForCurrentRequest(),
-                buildScopeDescription(ownerUserId)
+                buildScopeDescriptionWithMemory(ownerUserId, conversation.getId(), message)
             );
             CompactionResult compaction = contextCompactionService.compactIfNeeded(contextPackage);
             // 压缩发生后，当前请求必须只使用新检查点边界之后的原始消息，
@@ -387,6 +397,12 @@ public class V2AgentAiService {
                 finalAnswer.answer(),
                 payload.blocks(),
                 System.currentTimeMillis()
+            );
+        }
+        // 回答完成后异步提取候选记忆（自动学习关闭时跳过；失败不阻塞主回答）。
+        if (!llmFailed && StringUtils.hasText(finalAnswer.answer())) {
+            extractMemoriesAfterAnswer(
+                ownerUserId, conversation.getId(), userMessageId, message, finalAnswer.answer()
             );
         }
         runAuditService.finishRunAudit(
@@ -728,7 +744,7 @@ public class V2AgentAiService {
                     conversation.getId(),
                     message,
                     buildToolCatalogForCurrentRequest(),
-                    buildScopeDescription(ownerUserId)
+                    buildScopeDescriptionWithMemory(ownerUserId, conversation.getId(), message)
                 );
                 CompactionResult compaction = contextCompactionService.compactIfNeeded(contextPackage);
                 // 流式路径同样只使用压缩后边界之后的原始消息，避免压缩结果不生效。
@@ -826,6 +842,16 @@ public class V2AgentAiService {
                 payloadRef[0].blocks(),
                 System.currentTimeMillis()
             );
+            // 流式回答完成后异步提取候选记忆（尽力而为；失败不阻塞）。
+            if (!isLlmFailure(finalAnswer) && StringUtils.hasText(finalAnswer.answer())) {
+                extractMemoriesAfterAnswer(
+                    ownerUserId,
+                    conversation.getId(),
+                    resolveLatestUserMessageId(ownerUserId, conversation.getId(), runId),
+                    message,
+                    finalAnswer.answer()
+                );
+            }
             // 统一终态事件：run_completed（COMPLETED/CONFIRMATION_PENDING）/
             // run_exhausted；每个 run 只出现一次终态事件。
             sseStreamEmitter.emitTerminalEvent(
@@ -1165,6 +1191,98 @@ public class V2AgentAiService {
         }
         sb.append("数据作用域：仅当前账号和当前门店；不允许跨账号查询。\n");
         return sb.toString();
+    }
+
+    /**
+     * 构建作用域说明并附加召回的历史记忆（标记为历史记忆，不可与实时业务查询混淆）。
+     *
+     * <p>召回失败只影响记忆块，不阻塞主回答（AgentMemoryService 内部已保证 owner 隔离）。
+     */
+    private String buildScopeDescriptionWithMemory(
+        Long ownerUserId, Long conversationId, String message
+    ) {
+        String scope = buildScopeDescription(ownerUserId);
+        if (agentMemoryService == null) {
+            return scope;
+        }
+        try {
+            List<AgentMemoryService.RecalledMemory> memories = agentMemoryService.recallMemories(
+                ownerUserId, currentStoreIdOrNull(), message, 3
+            );
+            if (memories == null || memories.isEmpty()) {
+                return scope;
+            }
+            StringBuilder sb = new StringBuilder(scope);
+            sb.append("历史记忆（来自之前会话，仅供参考，不是当前实时业务数据）：\n");
+            int shown = 0;
+            for (AgentMemoryService.RecalledMemory memory : memories) {
+                if (memory == null || memory.summary() == null || memory.summary().isBlank()) {
+                    continue;
+                }
+                if (shown >= 3) {
+                    break;
+                }
+                sb.append("- ").append(memory.summary()).append('\n');
+                shown++;
+            }
+            return sb.toString();
+        } catch (RuntimeException ex) {
+            // 召回失败不能阻塞主回答：只丢弃记忆块。
+            return scope;
+        }
+    }
+
+    /**
+     * 回答完成后异步提取候选记忆（自动学习关闭或服务未注入时跳过）。
+     */
+    private void extractMemoriesAfterAnswer(
+        Long ownerUserId, Long conversationId, Long userMessageId,
+        String userQuestion, String answer
+    ) {
+        if (agentMemoryService == null || userMessageId == null
+            || !StringUtils.hasText(userQuestion)) {
+            return;
+        }
+        try {
+            agentMemoryService.extractMemoriesAsync(
+                ownerUserId,
+                currentStoreIdOrNull(),
+                conversationId,
+                userMessageId,
+                userQuestion,
+                answer,
+                null
+            );
+        } catch (RuntimeException ex) {
+            // 提取失败不影响主回答（服务内部已是异步 + 异常兜底）。
+        }
+    }
+
+    /**
+     * 解析最近一条属于当前运行的 user 消息 ID（用于流式路径回答后的记忆提取）。
+     * 尽力而为：查询不到时返回 null（提取跳过）。
+     */
+    private Long resolveLatestUserMessageId(
+        Long ownerUserId, Long conversationId, String runId
+    ) {
+        if (!StringUtils.hasText(runId)) {
+            return null;
+        }
+        try {
+            List<AgentMessageEntity> recent = agentMessageRepository
+                .findAllByOwnerUserIdAndConversationIdOrderByCreatedAtDescIdDesc(
+                    ownerUserId, conversationId, PageRequest.of(0, 30)
+                );
+            for (AgentMessageEntity message : recent) {
+                if (message != null && "user".equalsIgnoreCase(message.getRole())
+                    && runId.equals(message.getRunId())) {
+                    return message.getId();
+                }
+            }
+            return null;
+        } catch (RuntimeException ex) {
+            return null;
+        }
     }
 
     private List<ToolExecutionResult> collapseToolResultsForPresentation(List<ToolExecutionResult> toolResults) {
