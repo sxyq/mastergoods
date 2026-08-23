@@ -47,6 +47,7 @@ import {
   type AgentToolFailedEvent,
   type AgentToolProgressEvent,
   type AgentToolStartedEvent,
+  isTerminalEvent,
   streamAgentChat,
 } from '@/shared/api/agent-stream'
 import { readQueryId, sameEntityId, type EntityId } from '@/shared/utils/id'
@@ -504,6 +505,20 @@ async function retryServerCancel() {
 }
 
 function handleStreamEvent(messageId: string, event: AgentStreamEvent) {
+  // 终态幂等保护：一旦收到终态事件，后续重复/乱序/迟到事件不再覆盖终态，
+  // 也不再把已结束的流重新置为 streaming，避免断线恢复或重复事件破坏终态。
+  if (isTerminalEvent(event)) {
+    const target = messageById.get(messageId)
+    if (target?.runTrace?.terminal) {
+      return
+    }
+  } else {
+    // 非终态事件到达时，若消息已终态，忽略后续数据增量，防止把 isStreaming 重新置回。
+    const target = messageById.get(messageId)
+    if (target?.runTrace?.terminal) {
+      return
+    }
+  }
   switch (event.eventType) {
     case 'run_started':
       onRunStarted(messageId, event)

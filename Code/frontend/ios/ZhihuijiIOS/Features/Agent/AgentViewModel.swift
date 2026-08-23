@@ -58,6 +58,13 @@ final class AgentViewModel: ObservableObject {
     private var streamTask: Task<Void, Never>?
     private var confirmingDraftId: EntityID?
 
+    /// 页面离开（返回/关闭/进程回收）时取消本地 SSE 接收。
+    /// 仅取消本地流，不触发正式业务写入；若需要取消服务端运行，
+    /// 由 [stopStreaming] 显式调用服务端 cancel 接口。
+    deinit {
+        streamTask?.cancel()
+    }
+
     func load(using client: APIClient) async {
         isLoading = true
         defer { isLoading = false }
