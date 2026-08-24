@@ -1,0 +1,133 @@
+{
+  "source_commit": "f07529903904832767ad6a3fade820d3aabbc4c0",
+  "deployment_commit": null,
+  "deployment_commit_status": "unavailable_from_server_artifact",
+  "provider_ref": "default",
+  "provider_configured": false,
+  "model_ref": "gpt-5.6-luna",
+  "wire_api": "chat_completions",
+  "configured_maximum": 32768,
+  "model_override": {
+    "status": "none_in_production_path",
+    "known_model_windows": {},
+    "production_override_map": {},
+    "note": "The production constructor supplies Map.of(); KNOWN_MODEL_WINDOWS is empty. Programmatic test constructors can supply provider:model:wireApi overrides."
+  },
+  "default_window": 8192,
+  "resolved_window_for_current_model": 8192,
+  "reserved_output_tokens": 1228,
+  "reserved_output_ratio": 0.15,
+  "llm_max_tokens": 4096,
+  "budget_window": 8192,
+  "system_budget": 819,
+  "scope_budget": 245,
+  "current_question_budget": 655,
+  "tool_budget": 1638,
+  "history_budget": 1969,
+  "safety_budget": 1638,
+  "nominal_history_ratio": 0.34,
+  "degraded_safety_margin_boost": 0.10,
+  "compaction_threshold_ratio": 0.70,
+  "history_message_limit": 24,
+  "trigger_condition": {
+    "actual_context_builder": "estimatedInputTokens > historyBudget * 0.70 OR messagesAfterBoundary.size() > 24",
+    "estimated_input_tokens_formula": "systemTokens + scopeTokens + checkpointTokens + historyTokens + currentQuestionTokens",
+    "service_documented_additional_conditions": [
+      "tool results make history plus current turn exceed the tool budget",
+      "provider returns a context-overflow error",
+      "rebuilding after checkpoint invalidation remains over budget"
+    ],
+    "service_runtime_note": "ContextCompactionService.compactIfNeeded currently receives the ContextBuilder boolean; the three additional conditions are documented but are not independently represented as input branches in this method."
+  },
+  "token_estimator": {
+    "algorithm": "For non-blank text, cap UTF-16 char length at 64000 and return ceil(length / 3.0), with a minimum of 1. Blank text returns 0.",
+    "chars_per_token": 3.0,
+    "per_message_overhead": 4,
+    "json": "Serialize JsonNode with toString() and add 4; null, null-node and missing-node return 0; serialization failure returns 4.",
+    "messages": "Sum estimateJson for non-null, non-missing messages.",
+    "history_text": "estimate(formattedHistory) plus 4 for every newline. No provider tokenizer or usage response is used."
+  },
+  "checkpoint_estimates": {
+    "context_budget_estimated_input_tokens": "Estimated system + scope + checkpoint summary + formatted history + current question for ContextBuilder budgeting; tool results and output are reserved separately.",
+    "checkpoint_estimated_input_tokens": "tokenEstimator.estimate(summaryBody), stored on estimated_input_tokens and reused as the compaction result input estimate.",
+    "checkpoint_estimated_output_tokens": 0,
+    "meaning_limit": "These are estimates, not provider usage. Semantic compaction output usage is not returned by the client and is not recorded."
+  },
+  "context_compacted_payload": {
+    "event_type": "context_compacted",
+    "required_fields": [
+      "run_id",
+      "compacted_count",
+      "input_token_estimate",
+      "output_token_estimate",
+      "reason",
+      "reused",
+      "audit_id",
+      "trace_id",
+      "timestamp"
+    ],
+    "optional_fields": [
+      "checkpoint_id",
+      "source_boundary_message_id",
+      "summary_preview"
+    ],
+    "emission_path": "V2AgentAiService streaming path only, after compaction.occurred(); non-stream path uses the compacted context but does not emit this SSE event."
+  },
+  "server_deployment": {
+    "host": "8.220.206.9",
+    "hostname": "iZmj78qgg67a6wdpd8u262Z",
+    "observed_at": "2026-08-24T09:24:31+08:00",
+    "container": "sxyq27-zhj-api",
+    "image": "sxyq27-zhj-api:20260818",
+    "image_id": "sha256:3b526c02ba425908cf4859625568c964c113e53903f8693b1456a573f6fffc48",
+    "image_created": "2026-08-19T07:26:53.34323332+08:00",
+    "artifact_sha256": "4289b73346780986647ed1140fa92552656e7cc2ba53a54826e8eaa01832edd2",
+    "profile": "prod",
+    "observed_model": "gpt-5.6-luna",
+    "observed_wire_api": "chat_completions",
+    "env_presence": {
+      "AGENT_LLM_ENABLED": true,
+      "AGENT_LLM_BASE_URL": true,
+      "AGENT_LLM_API_KEY": true,
+      "AGENT_LLM_MODEL": true,
+      "AGENT_LLM_WIRE_API": true,
+      "AGENT_LLM_REQUIRES_OPENAI_AUTH": true,
+      "AGENT_LLM_MAX_TOKENS": false,
+      "AGENT_CONTEXT_WINDOW": false,
+      "AGENT_CONTEXT_MAXIMUM_WINDOW": false,
+      "AGENT_CONTEXT_WINDOW_OVERRIDES": false
+    },
+    "health_get": "HTTP 403 from http://127.0.0.1:18080/actuator/health without authentication",
+    "deployment_git_metadata": "No Git repository or commit marker found under /opt/sxyq27/master-goods during the read-only probe."
+  },
+  "server_value_status": "partial_match_unconfirmed",
+  "server_value_status_detail": "The server explicitly matches the current model and wire API and has no runtime context override. The compiled implementation commit is unavailable; the 20260818 image predates the local 20260824 source snapshot, so complete equality of the window and budget values cannot be asserted.",
+  "live_context_compacted_event": {
+    "status": "not_run",
+    "reason": "No authenticated long-session diagnostic was available. A read-only health GET returned 403; no SSE runtime value was fabricated."
+  },
+  "evidence_paths": [
+    "/Users/sunyiyang/Desktop/Project/master-goods/testing/Agent/功能测试/阶段报告-20260824-Agent-Context-Window-E.md",
+    "/Users/sunyiyang/Desktop/Project/master-goods/testing/.artifacts/2026-08-24-agent-context-window-E/context-window.json",
+    "/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/config/AgentLlmProperties.java",
+    "/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/agent/context/ContextWindowResolver.java",
+    "/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/agent/context/ContextBuilder.java",
+    "/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/agent/context/ContextCompactionService.java",
+    "/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/agent/context/TokenEstimator.java",
+    "/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java",
+    "/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/agent/component/SseStreamEmitter.java",
+    "/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/src/main/resources/application.yml",
+    "/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/src/main/resources/application-local.yml",
+    "/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/src/main/resources/application-prod.yml",
+    "/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/agent/context/ContextWindowResolverTest.java",
+    "/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/agent/context/ContextBuilderTest.java",
+    "/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/agent/context/ContextCompactionServiceTest.java",
+    "/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/src/test/java/com/zhihuiji/backend/application/service/v2/agent/context/TokenEstimatorTest.java",
+    "/Users/sunyiyang/Desktop/Project/master-goods/docs/04_详细设计与实现/Agent三要素与上下文压缩优化执行计划.md",
+    "/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/src/main/java/com/zhihuiji/backend/domain/entity/AgentContextCheckpointEntity.java",
+    "/Users/sunyiyang/Desktop/Project/master-goods/Code/backend/src/main/resources/db/migration/V32__agent_context_checkpoints.sql",
+    "server:/opt/sxyq27/master-goods/runtime.env",
+    "server:/opt/sxyq27/master-goods/compose.yml",
+    "server:docker://sxyq27-zhj-api@sha256:3b526c02ba425908cf4859625568c964c113e53903f8693b1456a573f6fffc48"
+  ]
+}
