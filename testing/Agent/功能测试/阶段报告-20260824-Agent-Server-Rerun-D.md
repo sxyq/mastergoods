@@ -59,3 +59,15 @@ Deferred 项：`AG-FT-BE-ALL-057, LOOP-003, LOOP-004, LOOP-006, LOOP-008, LOOP-0
 ## 提交边界
 
 提交时只暂存本轮 D CSV 和阶段报告；原始 artifacts 保留为本地证据，不纳入提交。
+
+## 测试账户 Session 准备
+
+本轮只完成服务器和数据库结构级准备，没有执行账户行或 session 行查询。已确认 SSH root 登录成功，master-goods 的 `backend/postgres/redis` 容器在运行，PostgreSQL 连接可用；相关表为 `users`、`store_memberships`、`sessions`，session 状态列为 `is_active`，有效期列为 `expires_at`。上一轮在执行脱敏账户/session 汇总 SQL 前被用户中断，因此当前账户数量、owner/store 作用域和有效 session 是否存在均记为未知。
+
+本轮未读取 session token 原值，`token_retrieved=false`、`token_persisted=false`、`token_printed=false`、`token_length_bucket=not_read`。没有发送 HTTP 业务请求，`api_calls_made=0`、`provider_calls_made=0`、`agent_requests_sent=0`。脱敏准备材料位于 `testing/.artifacts/2026-08-24-agent-session-prep-F/`，未写入共享功能台账。
+
+## 下一轮服务器真实测试计划
+
+取得受控且当前有效的 session 后，先验证认证门禁，认证成功才进入真实测试。测试覆盖 `AG-FT-BE-ALL-001..063` 的 63 个工具、Loop 六终态（completed、failed、cancelled、disconnected、timed_out、awaiting_confirmation）、SSE cancel/断线恢复与 Last-Event-ID、长会话 `context_compacted`/checkpoint、草稿确认/取消/重复确认、owner/store 隔离、并发竞争和测试数据清理。每组记录脱敏输入输出摘要、SSE、audit/run-trace、状态落库和清理结果；不记录 token，不发 Provider 或 Agent API 以外的未授权请求。
+
+本轮真实请求数保持为 0，当前材料不能判断 Agent、Provider、工具选择、上下文压缩或终态实现是否通过。账户与 session 行查询是下一轮认证前置条件。
