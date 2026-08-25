@@ -62,9 +62,11 @@ Deferred 项：`AG-FT-BE-ALL-057, LOOP-003, LOOP-004, LOOP-006, LOOP-008, LOOP-0
 
 ## 测试账户 Session 准备
 
-本轮只完成服务器和数据库结构级准备，没有执行账户行或 session 行查询。已确认 SSH root 登录成功，master-goods 的 `backend/postgres/redis` 容器在运行，PostgreSQL 连接可用；相关表为 `users`、`store_memberships`、`sessions`，session 状态列为 `is_active`，有效期列为 `expires_at`。上一轮在执行脱敏账户/session 汇总 SQL 前被用户中断，因此当前账户数量、owner/store 作用域和有效 session 是否存在均记为未知。
+本轮完成服务器和数据库的脱敏行查询。共 2 个用户、1 条 `store_memberships`、4 条 `sessions`；`account-01` 对应 `user_id=1` 且没有 membership，`account-02` 对应 `user_id=2`，作用域为 `store_id=2`、`owner_user_id=1`、`role_code=OWNER`、membership status 为 1。数据库查询表没有独立权限列，权限摘要按 membership 的 `role_code` 记录。
 
-本轮未读取 session token 原值，`token_retrieved=false`、`token_persisted=false`、`token_printed=false`、`token_length_bucket=not_read`。没有发送 HTTP 业务请求，`api_calls_made=0`、`provider_calls_made=0`、`agent_requests_sent=0`。脱敏准备材料位于 `testing/.artifacts/2026-08-24-agent-session-prep-F/`，未写入共享功能台账。
+4 条 session 均为 `is_active=true`，等价撤销状态均为 false，当前均未过期；有效 session 数为 4，均属于 `account-02`。
+
+本轮在远程单次进程内读取 1 个当前有效 session 的原值，只检查有效期和长度桶 `1-64` 后立即 `unset`；`token_retrieved=true`、`token_persisted=false`、`token_printed=false`。没有发送 HTTP 业务请求，`api_calls_made=0`、`provider_calls_made=0`、`agent_requests_sent=0`。脱敏准备材料位于 `testing/.artifacts/2026-08-24-agent-session-prep-F/`，未写入共享功能台账。
 
 ## 下一轮服务器真实测试计划
 
