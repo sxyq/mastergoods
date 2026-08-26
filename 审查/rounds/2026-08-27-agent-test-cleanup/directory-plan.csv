@@ -1,0 +1,7 @@
+action_id,path,action,scope,approval_state,retention_or_replacement,verification
+agent-dir-delete,testing/Agent,delete_contents,Agent 专项活动测试资产,approved_by_user_continue_20260827,replace with testing/Agent/Agent综合功能与性能测试方案.md and new execution artifacts,find path check plus git diff --name-status
+agent-script-delete,testing/scripts,delete_selected_files,Agent 专项脚本 only,approved_by_user_continue_20260827,retain general scripts and README,explicit path list and rg reference scan
+agent-backend-tool-delete,Code/backend/tools,delete_selected_files,Agent evidence/capture tools only,approved_by_user_continue_20260827,retain non-Agent backend tools,explicit path list and build source check
+agent-doc-delete,docs/05_测试与验收,delete_selected_files,Agent-only acceptance docs,approved_by_user_continue_20260827,replace with the new Agent plan and update direct references,rg broken-reference scan
+agent-artifacts-retain,testing/.artifacts,retain,all historical raw evidence,not_applicable,retain HTTP/SSE/audit/database/device evidence for traceability,find and git status check
+agent-source-tests-retain,Code/backend/src/test,retain,production-adjacent Agent unit and integration tests,not_applicable,retain source tests for later full test run,Gradle test discovery check
