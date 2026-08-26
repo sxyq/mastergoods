@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" tests="55" skipped="0" failures="0" errors="0" timestamp="2026-08-26T17:34:00" hostname="sunyiyangdeMacBook-Air.local" time="0.059">
+  <properties/>
+  <testcase name="jsonPlanningPathRecoversOnlyExplicitMissingCustomerFields()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="focusedNativeSelectionDoesNotRepeatTheSameCandidateRequest()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="modelCannotChooseVisualizationWithoutExplicitDisplayRequest()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="trendReceivableContinuationExposesOnlyTheMissingSource()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="purchaseDependencyFactsExposeOnlyTheCreateTargetOnContinuation()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="multiDomainQuestionKeepsModelChoiceWithinRelevantToolScope()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="emptyCreateCustomerArgumentsRecoverOnlyExplicitNameAndPhone()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.0"/>
+  <testcase name="initialInventoryAndRestockPlanningOnlyAdvertisesExplicitlyRelevantTools()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="completedInventoryRestockStateAccumulatesAcrossVisualizationContinuation()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.002"/>
+  <testcase name="llmPlanningUsesHighConfidenceProductSupplierCandidateScope()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="simpleCustomerDraftDoesNotExposeOptionalGroupLookupToInitialModelChoice()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="inventoryVisualizationIsNotAdvertisedBeforeRestockFactsAreReady()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.002"/>
+  <testcase name="partialCreateCustomerArgumentsRecoverOnlyMissingExplicitFields()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="combinedReceivablePayableResultDoesNotReopenNarrowTools()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.0"/>
+  <testcase name="modelAutoChoiceUsesVisualizationToolAfterRealFactsWhenUserRequestsAChart()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="initialCustomerDraftPlanningDoesNotAdvertiseOptionalGroupLookup()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.0"/>
+  <testcase name="initialNativePlanningExposesOnlyRelevantToolsForDraftRequest()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.0"/>
+  <testcase name="trendAndCollectionQuestionDoesNotOfferRedundantSalesOverview()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.0"/>
+  <testcase name="unresolvedMultipleReadCallsBecomeAuditableSelectionFailureWithoutExecutionPlan()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.002"/>
+  <testcase name="purchaseChainMayContinueWithRelatedQueriesButNotVisualizationByDefault()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.002"/>
+  <testcase name="inventoryAndRestockQuestionKeepsBothReadToolsAvailableToModel()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="completedReceivablePayableStateAccumulatesAcrossVisualizationContinuation()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="textOnlyToolContinuationStopsWithoutStartingAnotherSelectionRound()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="nativeContinuationUsesRealToolOutputForDependentPosterTool()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="ambiguousAccountHealthQuestionDoesNotExpandIntoAnomalyScan()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.0"/>
+  <testcase name="continuationDoesNotExpandAPlainCashChangeQuestionIntoAnUnrelatedScan()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="failedSaleDraftTargetRemainsAvailableAfterDependencyFacts()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="simpleManagementSummaryAdvertisesOnlyRelevantToolAndStopsAfterItReturnsFacts()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="explicitMultiSourceRequestKeepsMultipleModelCallsWithoutClarification()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="combinedReceivablePayableContinuationDoesNotReopenSplitTools()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="stopsPlanningAfterTheBoundedContinuationBudget()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.0"/>
+  <testcase name="modelAutoChoiceUsesSalesReturnToolAfterRealOrderItemsAreAvailable()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.0"/>
+  <testcase name="inventoryAndRestockContinuationRequiresTheRemainingExplicitDataSource()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="explicitChartRequestUsesNamedVisualizationToolAfterRequiredFactsArePresent()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="continuationKeepsModelAutoChoiceForVisualizationCandidate()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="highSignalCompoundQuestionsUseDedicatedReadTools()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.0"/>
+  <testcase name="inventoryAndRestockContinuationExcludesCompletedSources()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.002"/>
+  <testcase name="modelAutoChoiceUsesAccountTransferAfterDirectionAndRealAccountsAreAvailable()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.002"/>
+  <testcase name="initialNativePlanningLetsTheModelChooseAmongPermittedTools()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="invalidWriteCallGetsOneTargetOnlyAutoRetryAfterDependencyFacts()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="initialNativePlanningExposesAllPermittedToolsToTheModel()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="singleTopicMultipleReadCallsAreClarifiedAndOnlyOneIsReturned()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="purchaseDependencyReadsAreNotCollapsedIntoSingleToolClarification()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.0"/>
+  <testcase name="modelAutoChoiceUsesSupplierStatementForExplicitSupplierReconciliation()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.0"/>
+  <testcase name="modelAutoChoiceUsesProductDraftAfterProductFactsAreAvailable()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="supplierPayableDoesNotReopenTheWholeRegistryAfterTheTargetQueryReturnsFacts()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="unknownQuestionMayUseTheInitialRegistryButCannotExpandAfterACompletedLookup()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.0"/>
+  <testcase name="chartRequestAdvertisesAllPermittedReadToolsBeforeVisualizationDecision()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.0"/>
+  <testcase name="supplierFactsKeepPaymentDraftOnModelAutoChoiceAndExposeResolvedParameters()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.0"/>
+  <testcase name="singleReadResultStopsBeforeProviderCanAddUnrelatedTools()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.0"/>
+  <testcase name="initialReceivablePayablePlanningUsesTheCombinedCoverageTool()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="inventoryRestockContinuationDoesNotExposeLowStockOrSnapshotTools()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="writeRequestExposesAllRegisteredToolsAndLeavesSelectionToTheModel()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="ordinaryInventoryPanoramaDoesNotBecomeAnInventoryAndRestockMultiSourceRequest()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <testcase name="simpleProductDraftKeepsModelChoiceInsideTheWriteIntentScope()" classname="com.zhihuiji.backend.application.service.v2.agent.component.ToolPlannerTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

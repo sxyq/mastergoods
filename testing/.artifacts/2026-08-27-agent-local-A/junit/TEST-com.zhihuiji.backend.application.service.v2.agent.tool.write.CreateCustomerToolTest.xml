@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.zhihuiji.backend.application.service.v2.agent.tool.write.CreateCustomerToolTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-08-26T17:34:01" hostname="sunyiyangdeMacBook-Air.local" time="0.003">
+  <properties/>
+  <testcase name="validCustomerInputCreatesDraftWithRealInput()" classname="com.zhihuiji.backend.application.service.v2.agent.tool.write.CreateCustomerToolTest" time="0.001"/>
+  <testcase name="schemaRequiresNonEmptyCustomerName()" classname="com.zhihuiji.backend.application.service.v2.agent.tool.write.CreateCustomerToolTest" time="0.001"/>
+  <testcase name="blankCustomerNameFailsWithoutCreatingDraft()" classname="com.zhihuiji.backend.application.service.v2.agent.tool.write.CreateCustomerToolTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

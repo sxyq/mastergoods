@@ -1,0 +1,109 @@
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by net.rubygrapefruit.platform.internal.NativeLibraryLoader in an unnamed module (file:/Users/sunyiyang/.gradle/wrapper/dists/gradle-8.7-bin/bhs2wmbdwecv87pi65oeuq5iu/gradle-8.7/lib/native-platform-0.22-milestone-25.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :compileTestJava UP-TO-DATE
+> Task :processTestResources UP-TO-DATE
+> Task :testClasses UP-TO-DATE
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+> Task :test
+
+V2BillDomainControllerTest > purchaseReceiptListReturnsSnakeCaseFields() FAILED
+    java.lang.AssertionError at V2BillDomainControllerTest.java:221
+        Caused by: com.jayway.jsonpath.PathNotFoundException
+
+2026-08-27T01:34:03.868+08:00  INFO 43814 --- [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-08-27T01:34:04.113+08:00  INFO 43814 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-08-27T01:34:04.115+08:00  INFO 43814 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-08-27T01:34:04.121+08:00  INFO 43814 --- [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-08-27T01:34:04.130+08:00  INFO 43814 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown initiated...
+2026-08-27T01:34:04.131+08:00  INFO 43814 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown completed.
+2026-08-27T01:34:04.137+08:00  INFO 43814 --- [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-08-27T01:34:04.138+08:00  INFO 43814 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Shutdown initiated...
+2026-08-27T01:34:04.138+08:00  INFO 43814 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Shutdown completed.
+2026-08-27T01:34:04.144+08:00  INFO 43814 --- [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+Hibernate: drop table if exists account_transfers cascade 
+Hibernate: drop table if exists accounts cascade 
+Hibernate: drop table if exists agent_context_checkpoints cascade 
+Hibernate: drop table if exists agent_conversations cascade 
+Hibernate: drop table if exists agent_drafts cascade 
+Hibernate: drop table if exists agent_memories cascade 
+Hibernate: drop table if exists agent_messages cascade 
+Hibernate: drop table if exists agent_notifications cascade 
+Hibernate: drop table if exists agent_run_audit_events cascade 
+Hibernate: drop table if exists agent_run_audits cascade 
+Hibernate: drop table if exists agent_tasks cascade 
+Hibernate: drop table if exists bill_fund_links cascade 
+Hibernate: drop table if exists cash_change_records cascade 
+Hibernate: drop table if exists credit_transactions cascade 
+Hibernate: drop table if exists customers cascade 
+Hibernate: drop table if exists finance_records cascade 
+Hibernate: drop table if exists import_jobs cascade 
+Hibernate: drop table if exists inventory_adjustments cascade 
+Hibernate: drop table if exists inventory_ledger cascade 
+Hibernate: drop table if exists inventory_monthly_stats cascade 
+Hibernate: drop table if exists inventory_snapshots cascade 
+Hibernate: drop table if exists media_assets cascade 
+Hibernate: drop table if exists media_bindings cascade 
+Hibernate: drop table if exists partner_contacts cascade 
+Hibernate: drop table if exists partner_groups cascade 
+Hibernate: drop table if exists pay_orders cascade 
+Hibernate: drop table if exists payments cascade 
+Hibernate: drop table if exists poster_generations cascade 
+Hibernate: drop table if exists product_categories cascade 
+Hibernate: drop table if exists product_price_levels cascade 
+Hibernate: drop table if exists product_supplier_relations cascade 
+Hibernate: drop table if exists product_units cascade 
+Hibernate: drop table if exists products cascade 
+Hibernate: drop table if exists purchase_order_items cascade 
+Hibernate: drop table if exists purchase_orders cascade 
+Hibernate: drop table if exists purchase_receipt_items cascade 
+Hibernate: drop table if exists purchase_receipts cascade 
+Hibernate: drop table if exists purchase_return_items cascade 
+Hibernate: drop table if exists purchase_return_refunds cascade 
+Hibernate: drop table if exists purchase_returns cascade 
+Hibernate: drop table if exists sale_order_items cascade 
+Hibernate: drop table if exists sale_orders cascade 
+Hibernate: drop table if exists sales_return_items cascade 
+Hibernate: drop table if exists sales_returns cascade 
+Hibernate: drop table if exists sessions cascade 
+Hibernate: drop table if exists store_memberships cascade 
+Hibernate: drop table if exists stores cascade 
+Hibernate: drop table if exists suppliers cascade 
+Hibernate: drop table if exists sync_change_log cascade 
+Hibernate: drop table if exists sync_cursors cascade 
+Hibernate: drop table if exists sync_operation_log cascade 
+Hibernate: drop table if exists sync_tombstones cascade 
+Hibernate: drop table if exists user_credits cascade 
+Hibernate: drop table if exists users cascade 
+
+> Task :test
+
+592 tests completed, 1 failed
+
+> Task :test FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':test'.
+> There were failing tests. See the report at: file:///Users/sunyiyang/Desktop/Project/master-goods/tmp/build/gradle-output/backend/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 37s
+5 actionable tasks: 1 executed, 4 up-to-date

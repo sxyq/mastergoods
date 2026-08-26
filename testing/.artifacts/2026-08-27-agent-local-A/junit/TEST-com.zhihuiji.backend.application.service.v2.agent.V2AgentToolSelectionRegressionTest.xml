@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.zhihuiji.backend.application.service.v2.agent.V2AgentToolSelectionRegressionTest" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-08-26T17:34:00" hostname="sunyiyangdeMacBook-Air.local" time="0.104">
+  <properties/>
+  <testcase name="payOrderDependencyQueryOnlyReturnsExhaustedNotCompleted()" classname="com.zhihuiji.backend.application.service.v2.agent.V2AgentToolSelectionRegressionTest" time="0.008"/>
+  <testcase name="purchaseReceiptDraftUsesRealPurchaseOrderId()" classname="com.zhihuiji.backend.application.service.v2.agent.V2AgentToolSelectionRegressionTest" time="0.009"/>
+  <testcase name="posterDependencyQueryAndPosterToolReturnsCompleted()" classname="com.zhihuiji.backend.application.service.v2.agent.V2AgentToolSelectionRegressionTest" time="0.007"/>
+  <testcase name="confirmationPendingAnswerDoesNotClaimFormalWrite()" classname="com.zhihuiji.backend.application.service.v2.agent.V2AgentToolSelectionRegressionTest" time="0.009"/>
+  <testcase name="inventoryCountDraftDependencyQueryOnlyReturnsExhausted()" classname="com.zhihuiji.backend.application.service.v2.agent.V2AgentToolSelectionRegressionTest" time="0.006"/>
+  <testcase name="payOrderDependencyQueryAndCreateToolReturnsConfirmationPending()" classname="com.zhihuiji.backend.application.service.v2.agent.V2AgentToolSelectionRegressionTest" time="0.006"/>
+  <testcase name="purchaseReturnDraftUsesRealPurchaseOrderId()" classname="com.zhihuiji.backend.application.service.v2.agent.V2AgentToolSelectionRegressionTest" time="0.009"/>
+  <testcase name="saleOrderDraftUsesRealIdsFromDependencyQueries()" classname="com.zhihuiji.backend.application.service.v2.agent.V2AgentToolSelectionRegressionTest" time="0.007"/>
+  <testcase name="exhaustedResponseDoesNotClaimSuccessInAnswerOrAudit()" classname="com.zhihuiji.backend.application.service.v2.agent.V2AgentToolSelectionRegressionTest" time="0.009"/>
+  <testcase name="purchaseOrderDraftUsesRealIdsFromDependencyQueries()" classname="com.zhihuiji.backend.application.service.v2.agent.V2AgentToolSelectionRegressionTest" time="0.009"/>
+  <testcase name="posterDependencyQueryOnlyReturnsExhaustedNotCompleted()" classname="com.zhihuiji.backend.application.service.v2.agent.V2AgentToolSelectionRegressionTest" time="0.006"/>
+  <testcase name="createPurchaseOrderWithMissingParametersIsSkippedAndExhausted()" classname="com.zhihuiji.backend.application.service.v2.agent.V2AgentToolSelectionRegressionTest" time="0.005"/>
+  <testcase name="readOnlyReceivableQueryCompletesWithCompletedTerminalStatus()" classname="com.zhihuiji.backend.application.service.v2.agent.V2AgentToolSelectionRegressionTest" time="0.007"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

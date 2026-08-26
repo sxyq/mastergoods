@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.zhihuiji.backend.application.service.v2.agent.context.ContextWindowResolverTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-08-26T17:34:00" hostname="sunyiyangdeMacBook-Air.local" time="0.001">
+  <properties/>
+  <testcase name="configuredMaximumIsFloorClampedToMinimum()" classname="com.zhihuiji.backend.application.service.v2.agent.context.ContextWindowResolverTest" time="0.0"/>
+  <testcase name="resolveForCurrentUsesConfiguredModel()" classname="com.zhihuiji.backend.application.service.v2.agent.context.ContextWindowResolverTest" time="0.0"/>
+  <testcase name="unknownModelFallsBackToConservativeWindow()" classname="com.zhihuiji.backend.application.service.v2.agent.context.ContextWindowResolverTest" time="0.0"/>
+  <testcase name="conservativeFallbackRaisedForUnknownWireApi()" classname="com.zhihuiji.backend.application.service.v2.agent.context.ContextWindowResolverTest" time="0.0"/>
+  <testcase name="knownModelWindowComesFromOverrideAndIsNotGlobal()" classname="com.zhihuiji.backend.application.service.v2.agent.context.ContextWindowResolverTest" time="0.0"/>
+  <testcase name="overrideIsClampedToConfiguredMaximum()" classname="com.zhihuiji.backend.application.service.v2.agent.context.ContextWindowResolverTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

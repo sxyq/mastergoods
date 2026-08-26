@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" tests="22" skipped="0" failures="0" errors="0" timestamp="2026-08-26T17:33:58" hostname="sunyiyangdeMacBook-Air.local" time="0.035">
+  <properties/>
+  <testcase name="updateConversationRejectsInvalidStatus()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.001"/>
+  <testcase name="createConversationDefaultsStatusToActive()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.001"/>
+  <testcase name="listRunTracesReturnsStableToolCallIdAndSafeAuditMetadata()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.005"/>
+  <testcase name="deleteDraftRemovesOwnedDraft()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.001"/>
+  <testcase name="createMessageRejectsClosedConversation()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.002"/>
+  <testcase name="listConversationsClampsInvalidPageAndOversizedLimit()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.002"/>
+  <testcase name="updateConversationUpdatesTitleAndStatus()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.001"/>
+  <testcase name="createDraftPersistsOwnerScopedDraft()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.001"/>
+  <testcase name="listDraftsReturnsOwnerScopedRows()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.002"/>
+  <testcase name="createMessageRejectsArchivedConversation()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.001"/>
+  <testcase name="listMessagesReturnsRecentWindowInTimelineOrder()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.001"/>
+  <testcase name="deleteConversationRejectsForeignOwner()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.001"/>
+  <testcase name="getConversationReturnsOwnedConversation()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.001"/>
+  <testcase name="updateDraftPersistsOwnerScopedConversationReference()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.0"/>
+  <testcase name="createMessageRefreshesConversationSummaryAndLastMessageAt()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.001"/>
+  <testcase name="deleteConversationCascadeDeletesMessagesAndDrafts()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.002"/>
+  <testcase name="listRunTracesDoesNotFabricateToolCallIdWhenPayloadOmitsIt()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.002"/>
+  <testcase name="createDraftRejectsForeignConversation()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.001"/>
+  <testcase name="createDraftRejectsInvalidStatus()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.001"/>
+  <testcase name="createConversationRejectsInvalidStatus()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.001"/>
+  <testcase name="listDraftsWithoutConversationUsesOwnerScopedDefaultPage()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.002"/>
+  <testcase name="listConversationsReturnsOwnerScopedRowsInRepositoryOrder()" classname="com.zhihuiji.backend.application.service.v2.V2AgentConversationServiceTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" tests="23" skipped="0" failures="0" errors="0" timestamp="2026-08-26T17:33:52" hostname="sunyiyangdeMacBook-Air.local" time="0.186">
+  <properties/>
+  <testcase name="listBindingsReturnsSnakeCaseFields()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.012"/>
+  <testcase name="listConversationsBindsPageAndLimitQuery()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.008"/>
+  <testcase name="createAssetReturnsSnakeCaseFields()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.015"/>
+  <testcase name="updateDraftReturnsSnakeCaseFields()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.012"/>
+  <testcase name="getConversationReturnsDetail()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.004"/>
+  <testcase name="listDraftsReturnsSnakeCaseFields()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.004"/>
+  <testcase name="listAssetsReturnsSnakeCaseFields()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.004"/>
+  <testcase name="listDraftsBindsConversationPageAndLimitQuery()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.004"/>
+  <testcase name="deleteBindingReturnsSuccess()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.006"/>
+  <testcase name="listConversationsReturnsSnakeCaseFields()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.01"/>
+  <testcase name="createDraftReturnsSnakeCaseFields()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.008"/>
+  <testcase name="deleteDraftReturnsSuccess()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.003"/>
+  <testcase name="createMessageReturnsSnakeCaseFields()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.01"/>
+  <testcase name="createConversationReturnsSnakeCaseFields()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.007"/>
+  <testcase name="createAssetRejectsInvalidBody()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.006"/>
+  <testcase name="getRunAuditReturnsSnakeCaseFieldsAndEvents()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.013"/>
+  <testcase name="updateConversationReturnsUpdatedFields()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.006"/>
+  <testcase name="deleteAssetReturnsSuccess()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.004"/>
+  <testcase name="listMessagesBindsPageAndLimitQuery()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.005"/>
+  <testcase name="createBindingReturnsSnakeCaseFields()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.007"/>
+  <testcase name="listMessagesReturnsSnakeCaseFields()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.005"/>
+  <testcase name="getAssetReturnsDetail()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.004"/>
+  <testcase name="deleteConversationReturnsSuccess()" classname="com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest" time="0.003"/>
+  <system-out><![CDATA[2026-08-27T01:33:51.742+08:00  INFO 43814 --- [    Test worker] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest]: V2AgentMediaControllerTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-27T01:33:51.749+08:00  INFO 43814 --- [    Test worker] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.zhihuiji.backend.ZhihuijiBackendApplication for test class com.zhihuiji.backend.api.controller.V2AgentMediaControllerTest
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v3.2.6)
+
+2026-08-27T01:33:51.806+08:00  INFO 43814 --- [    Test worker] c.z.b.a.c.V2AgentMediaControllerTest     : Starting V2AgentMediaControllerTest using Java 21.0.11 with PID 43814 (started by sunyiyang in /Users/sunyiyang/Desktop/Project/master-goods/Code/backend)
+2026-08-27T01:33:51.806+08:00  INFO 43814 --- [    Test worker] c.z.b.a.c.V2AgentMediaControllerTest     : No active profile set, falling back to 1 default profile: "default"
+2026-08-27T01:33:52.470+08:00  WARN 43814 --- [    Test worker] .s.s.UserDetailsServiceAutoConfiguration : 
+
+[REDACTED SENSITIVE TEST LOG LINE]
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-08-27T01:33:52.477+08:00  INFO 43814 --- [    Test worker] o.s.s.web.DefaultSecurityFilterChain     : Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@18ff5812, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@65812306, org.springframework.security.web.context.SecurityContextHolderFilter@3d9aaf71, org.springframework.security.web.header.HeaderWriterFilter@2d1a84f0, org.springframework.web.filter.CorsFilter@31e70bf0, org.springframework.security.web.csrf.CsrfFilter@488f0ad1, org.springframework.security.web.authentication.logout.LogoutFilter@46cace4f, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter@708486c0, org.springframework.security.web.authentication.ui.DefaultLoginPageGeneratingFilter@3cbe81f2, org.springframework.security.web.authentication.ui.DefaultLogoutPageGeneratingFilter@35fece3b, org.springframework.security.web.authentication.www.BasicAuthenticationFilter@60ac9629, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@d73f391, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@457ab0a9, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@57233f5e, org.springframework.security.web.access.ExceptionTranslationFilter@251dab95, org.springframework.security.web.access.intercept.AuthorizationFilter@1e5c7bf0]
+2026-08-27T01:33:52.481+08:00  INFO 43814 --- [    Test worker] o.s.b.t.m.w.SpringBootMockServletContext : Initializing Spring TestDispatcherServlet ''
+2026-08-27T01:33:52.481+08:00  INFO 43814 --- [    Test worker] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-08-27T01:33:52.482+08:00  INFO 43814 --- [    Test worker] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 1 ms
+2026-08-27T01:33:52.489+08:00  INFO 43814 --- [    Test worker] c.z.b.a.c.V2AgentMediaControllerTest     : Started V2AgentMediaControllerTest in 0.735 seconds (process running for 20.424)
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

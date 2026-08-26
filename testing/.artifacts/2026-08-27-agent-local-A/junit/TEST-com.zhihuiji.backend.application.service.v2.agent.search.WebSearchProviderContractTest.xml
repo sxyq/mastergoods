@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.zhihuiji.backend.application.service.v2.agent.search.WebSearchProviderContractTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-08-26T17:34:01" hostname="sunyiyangdeMacBook-Air.local" time="0.006">
+  <properties/>
+  <testcase name="resultFactoriesMapToStatuses()" classname="com.zhihuiji.backend.application.service.v2.agent.search.WebSearchProviderContractTest" time="0.001"/>
+  <testcase name="urlSafetyDelegatesToSharedGuard()" classname="com.zhihuiji.backend.application.service.v2.agent.search.WebSearchProviderContractTest" time="0.003"/>
+  <testcase name="citationIdsCorrespondOneToOneToResults()" classname="com.zhihuiji.backend.application.service.v2.agent.search.WebSearchProviderContractTest" time="0.001"/>
+  <testcase name="disabledProviderReturnsDeferredWithoutFabricatingResults()" classname="com.zhihuiji.backend.application.service.v2.agent.search.WebSearchProviderContractTest" time="0.0"/>
+  <testcase name="requestCarriesQueryLimitRecencyAndDomains()" classname="com.zhihuiji.backend.application.service.v2.agent.search.WebSearchProviderContractTest" time="0.001"/>
+  <testcase name="requestDefaultsToSensibleLimits()" classname="com.zhihuiji.backend.application.service.v2.agent.search.WebSearchProviderContractTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
