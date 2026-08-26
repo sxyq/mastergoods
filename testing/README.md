@@ -113,11 +113,15 @@
 - `功能测试/functional_feature_matrix.csv`
 - `性能测试/performance_scope_matrix.csv`
 
-本轮真实执行明细另同步到以下 live ledger：
+当前 Agent 方案与台账入口：
+
+- `testing/Agent/Agent综合功能与性能测试方案.md`
+- `testing/Agent/Agent执行台账.csv`
+- `testing/Agent/Agent问题台账.csv`
+
+其他主体的本轮真实执行明细同步到以下 live ledger：
 
 - `testing/后端/功能测试/live_execution_ledger.csv`
-- `testing/Agent/功能测试/live_execution_ledger.csv`
-- `testing/Agent/性能测试/live_execution_ledger.csv`
 - `testing/安卓/功能测试/live_execution_ledger.csv`
 - `testing/安卓/性能测试/live_execution_ledger.csv`
 
