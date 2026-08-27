@@ -1,0 +1,6 @@
+test_type,category_id,category_name,primary_scope,must_cover,evidence_standard,priority,status,script_path,ledger_link,notes
+功能测试,WEB-FT,Web功能测试,Code/frontend/web/src/pages|src/features,路由|页面状态|按钮事件|Agent流程|权限边界,请求响应|状态断言|界面证据|清理记录,P0,规划中,待执行,待执行,仅保留规划
+单元测试,WEB-UT,Web单元测试,Code/frontend/web/src/app|src/entities|src/features|src/pages|src/shared,工具函数|Store|解析器|适配器|派生状态,测试输出|覆盖率|失败堆栈,P1,规划中,待执行,待执行,仅保留规划
+性能测试,WEB-PT,Web性能测试,页面加载|路由|列表|图表|Agent流式渲染,FCP|LCP|交互延迟|脚本耗时|内存变化,原始测量|运行配置|指标摘要,P1,规划中,待执行,待执行,仅保留规划
+审计,WEB-AU,Web代码与契约审计,Code/frontend/web/src,权限|输入输出|XSS|大ID|重复逻辑|调用边界,审计条目|文件定位|复核记录,P1,规划中,待执行,待执行,仅保留规划
+破坏性逆向安全测试,WEB-RST,Web破坏性逆向安全测试,构建产物|本地状态|请求协议|上传入口,篡改|重放|绕过|敏感数据暴露,请求样本|响应快照|服务端日志|影响判断,P0,规划中,待执行,待执行,仅保留规划

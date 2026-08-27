@@ -1,0 +1,6 @@
+test_type,category_id,category_name,primary_scope,must_cover,evidence_standard,priority,status,script_path,ledger_link,notes
+功能测试,IOS-FT,iOS功能测试,Code/frontend/ios/ZhihuijiIOS,页面|导航|表单|Agent|权限边界,请求响应|状态断言|设备证据|清理记录,P0,规划中,待执行,待执行,仅保留规划
+单元测试,IOS-UT,iOS单元测试,Code/frontend/ios/ZhihuijiIOS|Code/frontend/ios/ZhihuijiIOSTests,API|认证|模型|ViewModel|Agent状态,测试输出|覆盖率|失败堆栈,P1,规划中,待执行,待执行,仅保留规划
+性能测试,IOS-PT,iOS性能测试,启动|首屏|长列表|Agent渲染,启动时延|首屏|丢帧|内存|CPU,原始测量|运行配置|指标摘要,P1,规划中,待执行,待执行,仅保留规划
+审计,IOS-AU,iOS代码与契约审计,Code/frontend/ios,权限|网络|模型契约|状态管理|重复逻辑,审计条目|文件定位|复核记录,P1,规划中,待执行,待执行,仅保留规划
+破坏性逆向安全测试,IOS-RST,iOS破坏性逆向安全测试,App产物|Keychain|缓存|网络|Agent入口,篡改|绕过|重放|敏感数据暴露,请求样本|响应快照|设备日志|影响判断,P0,规划中,待执行,待执行,仅保留规划

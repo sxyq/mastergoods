@@ -1,64 +1,32 @@
 # 测试目录规划
 
-本目录只保留测试规划入口和按类别划分的空执行目录。历史报告、执行台账、原始日志、测试脚本和旧证据已清理，不作为当前结论来源。
+测试资料按端和测试类别维护。规划文档、执行结果、日志、原始证据和脚本分开管理，不把历史结果当作当前结论。
 
-## 三端规划入口
+## 目录入口
 
-| 端 | 规划目录 | 规划内容 |
+| 端 | 入口 | 分类形态 |
 | --- | --- | --- |
-| Android | `testing/安卓/plans/` | 功能、单元、性能、安全测试规划及分类说明 |
-| iOS | `testing/ios/plans/` | 功能、单元、性能、安全测试规划 |
-| Web | `testing/web/plans/` | 功能、单元、性能、安全测试规划 |
+| 后端 | `testing/后端/README.md` | 中文分类目录，包含分类总台账和各类测试手册 |
+| Android | `testing/安卓/` | 保留现有规划目录与分类空目录 |
+| iOS | `testing/ios/README.md` | 与后端一致的中文分类目录 |
+| Web | `testing/web/README.md` | 与后端一致的中文分类目录 |
 
-规划文档可以描述测试范围、步骤、输入、预期、边界、验收条件和环境要求，但不保存本轮执行结果。
-
-## 测试类别目录
-
-Android、iOS、Web 均使用相同的类别目录：
+## iOS 与 Web 统一分类
 
 ```text
-client/
-contract/
-data/
-functional/
-integration/
-observability/
-performance/
-reliability/
-security/
-unit/
+testing/<端>/
+├── README.md
+├── 测试分类总台账.csv
+├── 测试分类说明.md
+├── 功能测试/TEST_PLAN.md
+├── 单元测试/TEST_PLAN.md
+├── 性能测试/TEST_PLAN.md
+├── 审计/TEST_PLAN.md
+└── 破坏性逆向安全测试/TEST_PLAN.md
 ```
 
-每个类别下预留以下目录，当前只保留 `.gitkeep`：
+当前 iOS 与 Web 只保留规划文档，尚未执行的项目不填写通过结果。实际执行时，日志、报告、原始证据和脚本放到对应类别目录下，并使用统一字段记录：`test_id`、`category_id`、`category_name`、环境、账号/store、前置状态、操作、预期、实际、证据路径、清理动作和 `result`。
 
-```text
-<category>/
-├── artifacts/   # 原始证据
-├── logs/        # 命令、请求和运行日志
-├── reports/     # 阶段报告和汇总结果
-└── scripts/     # 该类别的测试脚本
-```
+结果值只使用 `Passed`、`Failed`、`Blocked`、`Deferred`。Token、Cookie、密码、私钥、完整认证载荷和模型密钥不得进入测试资料或 Git。
 
-执行测试时，资料必须放入对应端和类别目录，不在端目录根部创建台账、报告或脚本。所有敏感信息必须脱敏，禁止保存 Token、Cookie、密码、私钥、完整认证载荷和模型密钥。
-
-## 结果记录规则
-
-重新执行测试时，每条记录至少包含：
-
-- `test_id`
-- `category_id`
-- `wave_id`
-- 环境、账号/store 和前置状态
-- 操作、预期和实际结果
-- 证据路径
-- 清理动作
-- `result`
-
-结果值只使用 `Passed`、`Failed`、`Blocked`、`Deferred`。未执行项目不得写成通过；设备、服务或数据条件不足时，应记录阻塞原因。
-
-## 当前状态
-
-- Android、iOS、Web 业务源码未因本次清理修改。
-- Android、iOS、Web 业务测试源码未因本次清理修改。
-- 本轮未执行测试、构建、浏览器操作、设备操作或真实接口调用。
-- 后端测试目录、公共测试脚本、数据库和业务数据不在本次三端清理范围内。
+本次调整只涉及 iOS/Web 测试目录和规划索引，未修改业务源码、客户端测试源码、后端实现、数据库或部署配置。
