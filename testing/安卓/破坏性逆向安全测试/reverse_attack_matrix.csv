@@ -1,7 +1,0 @@
-case_id,route_skill,attack_surface,destructive_goal,test_vector,required_tooling,evidence_requirements,status,notes
-AND-REV-01,"attack-chain|apk-reverse",APK static package,验证 Manifest/exported/network config/调试开关是否能被逆向利用,"jadx + apktool 解包并核查组件暴露、证书信任、明文流量、deeplink",jadx|apktool,解包目录 + 关键清单截图,规划中,
-AND-REV-02,"attack-chain|apk-reverse",Tamper and resign,验证改包重签后是否还能正常访问核心链路,"修改客户端校验或 UI 限制并重签安装，验证服务端是否仍正确拒绝",apktool|apksigner|adb,改包 diff + 安装录屏,规划中,
-AND-REV-03,"attack-chain|mobile-reverse",Runtime instrumentation,验证 Root/Frida/SSL Pinning 绕过后是否能抓到敏感链路,"Frida Hook 网络层、会话层、Agent 上传链路",frida|objection|adb,Hook 脚本 + 抓包记录,规划中,
-AND-REV-04,"attack-chain|mobile-reverse",Local secrets and cache,验证本地缓存/数据库/DataStore 是否可直接提取有效凭据,"导出数据库、首选项、附件缓存、通知缓存并回放",adb|sqlite3|frida,导出样本 + 回放结果,规划中,
-AND-REV-05,"attack-chain|apk-reverse|api-security",Intent and deeplink,验证 deeplink/intent 参数篡改是否可越权进入 Agent 或业务详情,"构造外部 intent、修改启动参数、伪造 query/path",adb,命令记录 + 页面结果,规划中,
-AND-REV-06,"attack-chain|mobile-reverse|api-security",Agent chain,验证 Agent SSE/草稿/附件/通知链路在客户端被篡改后是否仍被服务端保护,"替换 message/run/draft/image id，重放取消、确认、上传、通知动作",frida|adb|proxy,请求重放记录 + 服务端响应,规划中,

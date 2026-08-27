@@ -1,7 +1,0 @@
-case_id,route_skill,attack_surface,destructive_goal,test_vector,required_tooling,evidence_requirements,status,notes
-WEB-REV-01,"attack-chain|js-reverse",Bundle and source map,验证构建产物是否暴露 API 结构、调试入口、未清理常量,"分析 bundle、source map、env 注入、静态 token/route 表",node|browser devtools,bundle 证据 + 截图,规划中,
-WEB-REV-02,"attack-chain|js-reverse",Local client state,验证 localStorage/sessionStorage/Pinia 状态篡改是否能越权,"篡改 token、role、member、feature flag、draft/run 缓存",browser devtools,状态篡改录屏 + 请求对比,规划中,
-WEB-REV-03,"attack-chain|js-reverse|api-security",Route and ID parsing,验证 query/path/id 替换是否能突破页面限制或引发错误回退利用,"直接改 query、hash、BigInt/string id、页面参数",browser devtools,URL 变体记录 + 页面结果,规划中,
-WEB-REV-04,"attack-chain|js-reverse|api-security",Agent SSE chain,验证 Agent 页面对 SSE/event/result block 的信任边界,"伪造/重放 stream、cancel、history、audit、side panel 请求",browser devtools|proxy,SSE 片段 + 页面状态证据,规划中,
-WEB-REV-05,"attack-chain|js-reverse|api-security",Client-only guards,验证按钮禁用、字段只读、页面条件渲染是否可被绕过,"手工调用前端 action、移除 disabled、直接发请求",browser devtools,绕过录屏 + 服务端响应,规划中,
-WEB-REV-06,"attack-chain|js-reverse|api-security",Upload and multimodal,验证图片上传/附件引用的前端校验是否可绕过,"修改 mime、大小、文件名、asset 引用和关联 id",browser devtools|proxy,上传回放证据,规划中,
