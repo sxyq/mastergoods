@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.zhihuiji.backend.application.service.v2.AgentImageServiceTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-08-26T17:33:56" hostname="sunyiyangdeMacBook-Air.local" time="0.171">
-  <properties/>
-  <testcase name="generatePostsImageEditMultipartRequestWhenReferenceImageExists()" classname="com.zhihuiji.backend.application.service.v2.AgentImageServiceTest" time="0.165"/>
-  <testcase name="generatePostsTextToImageJsonRequest()" classname="com.zhihuiji.backend.application.service.v2.AgentImageServiceTest" time="0.005"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

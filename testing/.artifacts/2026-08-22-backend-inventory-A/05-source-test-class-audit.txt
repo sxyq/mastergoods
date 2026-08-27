@@ -1,6 +1,0 @@
-source_java_files=95
-source_test_class_declarations=94
-xml_test_suite_files=95
-source_classes_missing_xml=0
-xml_suites_without_source_declaration=1
-NO_SOURCE_DECLARATION	com.zhihuiji.backend.ZhihuijiBackendApplicationTests	TEST-com.zhihuiji.backend.ZhihuijiBackendApplicationTests.xml

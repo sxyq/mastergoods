@@ -1,2 +1,0 @@
-artifact_dir=testing/.artifacts/2026-08-22-android-api-C
-created=true

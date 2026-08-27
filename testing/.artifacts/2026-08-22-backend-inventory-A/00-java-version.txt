@@ -1,3 +1,0 @@
-openjdk version "24.0.1" 2025-04-15
-OpenJDK Runtime Environment Temurin-24.0.1+9 (build 24.0.1+9)
-OpenJDK 64-Bit Server VM Temurin-24.0.1+9 (build 24.0.1+9, mixed mode, sharing)

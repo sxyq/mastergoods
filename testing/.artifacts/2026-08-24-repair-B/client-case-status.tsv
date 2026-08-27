@@ -1,7 +1,0 @@
-test_id	category_id	wave_id	environment	account/store	precondition	operation	expected	actual	evidence_path	cleanup	result
-B-WEB-001	WEB-UT	Repair-B	local Web workspace	none	Node runtime required	npm run build	Web type-check and bundle complete	node executable unavailable	web-build.log	none	Blocked
-B-WEB-002	WEB-UT	Repair-B	local Web workspace	none	Node runtime required	web-contract-test.mjs	Static SSE and idempotency assertions pass	node executable unavailable	web-build.log	none	Blocked
-B-ANDROID-001	AND-CT	Repair-B	local Android Gradle project	none	Java and Gradle wrapper available	:feature:agent:compileDebugKotlin --no-daemon --rerun-tasks	Agent feature compiles	BUILD SUCCESSFUL	android-test.log	none	Passed
-B-ANDROID-002	AND-UT	Repair-B	local Android Gradle project	none	Unit-test dependencies available	:core:network:testDebugUnitTest :data:agent:testDebugUnitTest :feature:agent:testDebugUnitTest --no-daemon --rerun-tasks	All selected unit tests complete	Compile issue fixed; rerun hit OutOfMemoryError and was stopped without completion	android-test.log	stopped own test process	Failed
-B-ANDROID-003	AND-UT	Repair-B	local Android Gradle project	none	Test source compiles	:core:network:compileDebugUnitTestKotlin --no-daemon --rerun-tasks --max-workers=1	Network test sources compile	BUILD SUCCESSFUL	android-test.log	none	Passed
-B-IOS-001	IOS-UT	Repair-B	local macOS workspace	none	Full Xcode installation required	xcodebuild ... test	iOS XCTest completes	Only CommandLineTools is active	ios-test.log	none	Blocked

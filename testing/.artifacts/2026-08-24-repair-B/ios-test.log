@@ -1,8 +1,0 @@
-Command: `xcodebuild -project Code/frontend/ios/ZhihuijiIOS/ZhihuijiIOS.xcodeproj -scheme ZhihuijiIOS -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 16' test`
-Result: Blocked
-
-```text
-xcode-select: error: tool 'xcodebuild' requires Xcode, but active developer directory '/Library/Developer/CommandLineTools' is a command line tools instance
-```
-
-No simulator, VoiceOver session, authenticated request, or production write was executed.
