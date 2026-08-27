@@ -1,4 +1,4 @@
-# Agent 数据一致性与清理测试规划（data）
+# Agent 数据一致性与清理测试规划（数据）
 
 更新日期：2026-08-28。覆盖草稿边界、正式表变化、重复确认、失败回滚、同 key 幂等、测试数据清理与迁移数据核对。每条用例记录业务表 before/after 差异，清理后无预期外残留。
 
@@ -28,9 +28,9 @@
 ## 三、清理实现
 
 - 会话与草稿可通过 API（DELETE /v2/agent/conversations/{id}、/v2/agent/drafts/{id}）清理；业务测试数据按既有业务接口或数据库脚本（受控、带 owner 条件）清理。
-- 清理脚本只放 `../scripts/data/`，必须支持 `--owner` 参数并默认拒绝无 owner 条件的全表删除。
+- 清理脚本只放 `../脚本/数据/`，必须支持 `--owner` 参数并默认拒绝无 owner 条件的全表删除。
 - before/after 快照：`06-database-before.json`、`07-database-after.json`、`09-cleanup.json` 三份文件为必填证据。
 
 ## 四、证据存放
 
-`data/artifacts/<日期>-<波次>-<用例>/`；SQL/脚本与计数查询 → `data/logs/`；报告 → `data/reports/`。
+`数据/artifacts/<日期>-<波次>-<用例>/`；SQL/脚本与计数查询 → `数据/logs/`；报告 → `数据/reports/`。

@@ -11,20 +11,20 @@ testing/Agent/
 ├── README.md                  # 本文件：总览、分类说明、状态口径、证据规范、执行顺序、维护规则
 ├── 代码事实基线.md             # 从当前源码核准的功能与工具基线（工具清单/调用链/SSE/终态/预算/表/路由/配置）
 ├── 映射台账.md                 # 功能域与工具到测试类别的映射、编号规则、断言链
-├── functional/TEST_PLAN.md    # 功能测试
-├── security/TEST_PLAN.md      # 安全与租户隔离测试（含敏感信息扫描；不设独立“审计”类别）
-├── performance/TEST_PLAN.md   # 性能、并发、长会话与 Soak 测试
-├── unit/TEST_PLAN.md          # 单元与组件测试（映射现有测试类，登记缺失项）
-├── contract/TEST_PLAN.md      # API、SSE 与序列化契约测试
-├── integration/TEST_PLAN.md   # 服务、Provider、数据库与事务集成测试
-├── reliability/TEST_PLAN.md   # 超时、取消、断线、重试与恢复测试
-├── data/TEST_PLAN.md          # 数据一致性与清理测试
-├── client/TEST_PLAN.md        # Android/iOS 联调与 Web 协议对照
-├── scripts/README.md + <category>/   # 各类别执行脚本
-└── <category>/{artifacts,logs,reports}/.gitkeep   # 各类别证据、日志、报告目录
+├── 功能/TEST_PLAN.md          # 功能测试
+├── 安全/TEST_PLAN.md          # 安全与租户隔离测试（含敏感信息扫描；不设独立“审计”类别）
+├── 性能/TEST_PLAN.md          # 性能、并发、长会话与 Soak 测试
+├── 单元/TEST_PLAN.md          # 单元与组件测试（映射现有测试类，登记缺失项）
+├── 契约/TEST_PLAN.md          # API、SSE 与序列化契约测试
+├── 集成/TEST_PLAN.md          # 服务、Provider、数据库与事务集成测试
+├── 可靠性/TEST_PLAN.md        # 超时、取消、断线、重试与恢复测试
+├── 数据/TEST_PLAN.md          # 数据一致性与清理测试
+├── 客户端/TEST_PLAN.md        # Android/iOS 联调与 Web 协议对照
+├── 脚本/README.md + <类别>/   # 各类别执行脚本
+└── <类别>/{artifacts,logs,reports}/.gitkeep   # 各类别证据、日志、报告目录
 ```
 
-类别目录均同时承担执行证据存放：`artifacts/<日期>-<波次>-<用例>/`、`logs/`、`reports/`。脚本只放 `scripts/<category>/`。
+类别目录均同时承担执行证据存放：`artifacts/<日期>-<波次>-<用例>/`、`logs/`、`reports/`。脚本只放 `脚本/<类别>/`。
 
 ## 二、分类说明
 
@@ -39,7 +39,7 @@ testing/Agent/
 | 可靠性与故障 | `R` | Provider 超时/429/空响应/非法 JSON、SSE 断线/取消/重复事件、Last-Event-ID、重连、资源释放 | 状态机收敛；允许的重试不产生重复写入；失败不伪装成功 |
 | 数据一致性 | `D` | 草稿边界、正式表变化、重复确认、确认失败回滚、同 key 幂等、测试数据清理、迁移数据核对 | before/after 差异准确；清理后无预期外残留 |
 | 客户端联调 | `CLI` | Android/iOS 输入、收流、工具过程、结果块/图表、草稿弹窗、历史恢复、后台切换；Web 协议对照 | 服务端与 APP 展示一致；设备/签名条件缺失记 `Blocked` |
-| 脚本 | `scripts/` | 各类别执行脚本、数据准备、清理与探针 | 脚本本身纳入 Git 检查，凭据/密钥不得入脚本 |
+| 脚本 | `脚本/` | 各类别执行脚本、数据准备、清理与探针 | 脚本本身纳入 Git 检查，凭据/密钥不得入脚本 |
 
 旧文档中的“可观测性与审计 `O`”类别不再单列：run-trace/audit 对齐作为每条用例的固定观察项（见下文“最小字段”），敏感信息扫描归入 `S`，SSE/audit 字段契约归入 `C`。
 
@@ -80,7 +80,7 @@ testing/Agent/
 
 ## 五、证据与脱敏规范
 
-单条用例目录 `testing/Agent/<category>/artifacts/<日期>-<波次>-<用例>/` 按顺序保存：
+单条用例目录 `testing/Agent/<类别>/artifacts/<日期>-<波次>-<用例>/` 按顺序保存：
 
 ```text
 00-environment.md           # 服务版本、Provider、设备、账号脱敏标签
@@ -101,14 +101,14 @@ testing/Agent/
 ## 六、执行顺序
 
 1. 建立环境记录：工作树版本、服务版本、APP 版本、Provider 配置、数据库、账号与设备。
-2. 执行 `unit/`（现有测试 + 新增组件测试）与 `contract/`（静态契约核对，不依赖真机）。
+2. 执行 `单元/`（现有测试 + 新增组件测试）与 `契约/`（静态契约核对，不依赖真机）。
 3. 前置验证认证、会话、owner/store、清理权限；前置不满足记 `Blocked`。
-4. 按 `functional/` 执行 46 个只读工具（非流式 + 流式）与 14 个创建工具（草稿/拒绝/确认/重复确认）。
+4. 按 `功能/` 执行 46 个只读工具（非流式 + 流式）与 14 个创建工具（草稿/拒绝/确认/重复确认）。
 5. 执行多工具链、Loop 六种终态、SSE 取消/断线/重连、上下文压缩 14 个场景。
 6. 执行多模态图片、长期记忆、海报、Web 搜索与新建任务/通知/工作台功能。
-7. 按 `security/` 执行越权/注入/幂等/敏感信息专项（真实账号与真实服务）。
-8. 按 `performance/` 先做单用户基线，再并发、长会话、取消、Soak。
-9. 按 `client/` 在真实设备上执行 Android/iOS 联调；Web 只做协议对照。
+7. 按 `安全/` 执行越权/注入/幂等/敏感信息专项（真实账号与真实服务）。
+8. 按 `性能/` 先做单用户基线，再并发、长会话、取消、Soak。
+9. 按 `客户端/` 在真实设备上执行 Android/iOS 联调；Web 只做协议对照。
 10. 汇总：回写各档用例的 `result`；未满足证据要求的项目不得填 `Passed`。
 
 ## 七、维护规则

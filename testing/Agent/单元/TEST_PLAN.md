@@ -1,4 +1,4 @@
-# Agent 单元与组件测试规划（unit）
+# Agent 单元与组件测试规划（单元）
 
 更新日期：2026-08-28。目标：把现有后端/Android 测试类映射到 Agent 组件，登记缺失项，明确每个组件的必测边界。测试数为现状盘点；未运行内容一律不得写 `Passed`。
 
@@ -44,4 +44,4 @@
 
 - 运行：`./Code/backend/gradlew -p Code/backend test` 与 Android 相关模块单测；iOS 侧仅在有本机 Xcode 工具时运行 `xcodebuild`。
 - 门槛：目标模块测试全部 `Passed` 或明确登记 `Blocked`（依赖环境）；失败项按 `AG-U-*` 编号单独登记，不得并入相邻通过项。
-- 证据：JUnit XML/HTML 报告 → `unit/reports/`；失败堆栈与日志 → `unit/logs/`；脚本 → `../scripts/unit/`。
+- 证据：JUnit XML/HTML 报告 → `单元/reports/`；失败堆栈与日志 → `单元/logs/`；脚本 → `../脚本/单元/`。

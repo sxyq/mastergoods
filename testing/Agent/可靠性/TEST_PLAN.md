@@ -1,4 +1,4 @@
-# Agent 可靠性与故障测试规划（reliability）
+# Agent 可靠性与故障测试规划（可靠性）
 
 更新日期：2026-08-28。覆盖 Provider 故障、SSE 断线/取消/重连、重复与异常输入、资源释放与状态机收敛。判定：失败不伪装成功、可恢复场景恢复、不可恢复场景有明确终态、允许的重试不产生重复写入。
 
@@ -28,4 +28,4 @@
 
 ## 三、证据存放
 
-`reliability/artifacts/<日期>-<波次>-<用例>/`（README 第五节文件序列，重点 03-raw-sse.log 与 05-run-audit.json）；脚本 `../scripts/reliability/`。
+`可靠性/artifacts/<日期>-<波次>-<用例>/`（README 第五节文件序列，重点 03-raw-sse.log 与 05-run-audit.json）；脚本 `../脚本/可靠性/`。

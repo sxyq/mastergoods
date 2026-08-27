@@ -1,4 +1,4 @@
-# Agent 集成测试规划（integration）
+# Agent 集成测试规划（集成）
 
 更新日期：2026-08-28。集成测试覆盖“多个真实组件协同”的路径：V2AgentAiService 全链路、Provider 客户端、Repository、事务边界、真实数据库、记忆与媒体落库。需要真实服务、Provider 或数据库的项目，条件缺失时记 `Blocked`/`Deferred`。
 
@@ -26,4 +26,4 @@
 
 ## 三、证据存放
 
-`integration/artifacts/<日期>-<波次>-<用例>/`；服务与 SQL 观察 → `integration/logs/`；脚本 → `../scripts/integration/`（含 refresh 表脚本按类别目录存放）。
+`集成/artifacts/<日期>-<波次>-<用例>/`；服务与 SQL 观察 → `集成/logs/`；脚本 → `../脚本/集成/`（含 refresh 表脚本按类别目录存放）。

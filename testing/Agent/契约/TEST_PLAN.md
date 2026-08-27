@@ -1,4 +1,4 @@
-# Agent API、SSE 与序列化契约测试规划（contract）
+# Agent API、SSE 与序列化契约测试规划（契约）
 
 更新日期：2026-08-28。以 [V2AgentController.java](../../../Code/backend/src/main/java/com/zhihuiji/backend/api/controller/v2/V2AgentController.java) 实际路由与 [SseStreamEmitter.java](../../../Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/agent/component/SseStreamEmitter.java) 事件契约为准。每个端点至少执行：成功、空数据、缺字段/空白、错误类型、未登录、无权限、跨 owner/store、非法 ID、重复请求；写接口核对 before/after 与重复提交。SSE 接口检查原始事件，HTTP 200 不等于完成。
 
@@ -55,4 +55,4 @@
 
 ## 四、证据存放
 
-`contract/artifacts/<日期>-<波次>-<用例>/`（README 第五节文件序列）；脚本 `../scripts/contract/`；HTTP 探针与 SSE 抓包样本存档到 logs。
+`契约/artifacts/<日期>-<波次>-<用例>/`（README 第五节文件序列）；脚本 `../脚本/契约/`；HTTP 探针与 SSE 抓包样本存档到 logs。

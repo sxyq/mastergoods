@@ -1,4 +1,4 @@
-# Agent 功能测试规划（functional）
+# Agent 功能测试规划（功能）
 
 更新日期：2026-08-28。代码基线见 [../代码事实基线.md](../代码事实基线.md)，编号与映射见 [../映射台账.md](../映射台账.md)。本文件所有用例初始状态 `Deferred`；真实执行后仅能更新为 `Passed/Failed/Blocked/Deferred`。
 
@@ -170,7 +170,7 @@
 
 ## 九、会话/消息/草稿/工作台/任务/通知功能侧断言（AG-F-API-*）
 
-API 契约细节见 [../contract/TEST_PLAN.md](../contract/TEST_PLAN.md)，本节只列功能侧业务断言（非流式即流式入口各一遍）。
+API 契约细节见 [../契约/TEST_PLAN.md](../契约/TEST_PLAN.md)，本节只列功能侧业务断言（非流式即流式入口各一遍）。
 
 | 编号 | 目标 | 功能断言 |
 |---|---|---|
@@ -201,7 +201,7 @@ API 契约细节见 [../contract/TEST_PLAN.md](../contract/TEST_PLAN.md)，本�
 | db_changes | 商品/库存表不变；agent_messages、agent_run_audits、agent_run_audit_events 新增本 run 记录 |
 | boundaries | 无数据、非法参数（含未知字段）、未登录、无权限、跨 owner 商品 ID、limit 边界、重复请求、清理 |
 | acceptance | 目标工具唯一执行；回答全部数字可追溯；业务表差异为 0；审计与 SSE 对齐 |
-| evidence_path | `functional/artifacts/<日期>-<波次>/03-raw-sse.log`、04-tool-trace.jsonl、05-run-audit.json、06/07-database-before/after.json |
+| evidence_path | `功能/artifacts/<日期>-<波次>/03-raw-sse.log`、04-tool-trace.jsonl、05-run-audit.json、06/07-database-before/after.json |
 | result | Deferred |
 
 ### 样例 2：AG-F-DRAFT-CO-006 create_pay_order（草稿/确认/幂等）
@@ -220,12 +220,12 @@ API 契约细节见 [../contract/TEST_PLAN.md](../contract/TEST_PLAN.md)，本�
 | db_changes | 草稿阶段仅 agent_drafts 增 active 行；确认后 v2 pay_order + 支付链路 + draft=confirmed；拒绝 draft=cancelled 且零业务写入；同 key 不同 payload 409 |
 | boundaries | 缺 required(supplier_id/supplier_name/amount)、跨 owner 供应商、重复确认、并发确认、确认失败保持 active、清理 |
 | acceptance | 拒绝 0 变化、确认 1 单、重复 0 单；500=0；审计含确认者与正式业务 ID |
-| evidence_path | `functional/artifacts/<日期>-<波次>/` 02-http-response.json、04-tool-trace.jsonl、05-run-audit.json、06/07-db、09-cleanup.json |
+| evidence_path | `功能/artifacts/<日期>-<波次>/` 02-http-response.json、04-tool-trace.jsonl、05-run-audit.json、06/07-db、09-cleanup.json |
 | result | Deferred |
 
 ## 十一、证据存放
 
-- 每条用例：`functional/artifacts/<日期>-<波次>-<用例>/` 按 README 第五节文件序列。
-- 服务端观察：`functional/logs/`（服务日志、查询集）。
-- APP 观察：`functional/reports/` 或由 client/ 设备测试提供。
-- 执行脚本：`../scripts/functional/`。
+- 每条用例：`功能/artifacts/<日期>-<波次>-<用例>/` 按 README 第五节文件序列。
+- 服务端观察：`功能/logs/`（服务日志、查询集）。
+- APP 观察：`功能/reports/` 或由 客户端/ 设备测试提供。
+- 执行脚本：`../脚本/功能/`。

@@ -1,4 +1,4 @@
-# Agent 客户端联调测试规划（client）
+# Agent 客户端联调测试规划（客户端）
 
 更新日期：2026-08-28。Android 与 iOS 使用相同的服务端断言，客户端只记录各自版本、设备标签与展示状态。Web 仅作协议与展示对照。登录必须走 APP 正常登录流程，测试人员不手工提取/复制 Cookie、Session Token、Authorization 或完整认证载荷。
 
@@ -40,4 +40,4 @@
 
 ## 四、证据存放
 
-`client/artifacts/<日期>-<波次>-<用例>/`：请求摘要（脱敏）、UI 树/截图（有设备时）、原始 SSE（来自服务端观察）；`client/logs/`（logcat/Console 脱敏）；`client/reports/`（设备观测报告）。缺少设备时不创建伪证据，仅记录 `Blocked`。
+`客户端/artifacts/<日期>-<波次>-<用例>/`：请求摘要（脱敏）、UI 树/截图（有设备时）、原始 SSE（来自服务端观察）；`客户端/logs/`（logcat/Console 脱敏）；`客户端/reports/`（设备观测报告）。缺少设备时不创建伪证据，仅记录 `Blocked`。
