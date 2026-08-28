@@ -197,6 +197,17 @@ public class ToolExecutor {
             return Either.denied(new GateDecision(false, TOOL_PERMISSION_DENIED,
                 "当前调用者没有执行该工具所需的权限：" + tool.name(), List.of()));
         }
+        Long currentOwnerUserId;
+        try {
+            currentOwnerUserId = currentOwnerService.requireCurrentOwnerUserId();
+        } catch (RuntimeException ex) {
+            return Either.denied(new GateDecision(false, TOOL_CONTEXT_INVALID,
+                "无法解析当前调用者上下文", List.of()));
+        }
+        if (ownerUserId == null || !ownerUserId.equals(currentOwnerUserId)) {
+            return Either.denied(new GateDecision(false, TOOL_CONTEXT_INVALID,
+                "工具执行上下文无效：owner 与当前调用者不一致", List.of()));
+        }
         Long currentUserId;
         Long currentStoreId;
         try {
@@ -205,10 +216,6 @@ public class ToolExecutor {
         } catch (RuntimeException ex) {
             return Either.denied(new GateDecision(false, TOOL_CONTEXT_INVALID,
                 "无法解析当前调用者上下文", List.of()));
-        }
-        if (ownerUserId == null) {
-            return Either.denied(new GateDecision(false, TOOL_CONTEXT_INVALID,
-                "工具执行上下文无效：缺少 owner", List.of()));
         }
         return Either.context(new ToolContext(
             ownerUserId,

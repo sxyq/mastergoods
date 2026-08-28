@@ -135,7 +135,7 @@ class AgentDraftConfirmServiceTest {
     }
 
     @Test
-    void confirmImageDraftCallsProviderOnlyAfterConfirmationAndReturnsImageResult() {
+    void confirmImageDraftCallsProviderOnlyAfterConfirmationAndReturnsImageResult() throws Exception {
         AgentDraftEntity draft = activeDraft(
             15L,
             "image_generate",
@@ -152,10 +152,55 @@ class AgentDraftConfirmServiceTest {
         assertEquals("confirmed", draft.getStatus());
         assertEquals("data:image/png;base64,ZmFrZQ==", response.imageResult().imageUrl());
         assertEquals("优化后的提示词", response.imageResult().revisedPrompt());
+        assertEquals("data:image/png;base64,ZmFrZQ==", new ObjectMapper()
+            .readTree(draft.getContentJson()).path("image_result").path("image_url").asText());
+        assertEquals("优化后的提示词", new ObjectMapper()
+            .readTree(draft.getContentJson()).path("image_result").path("revised_prompt").asText());
     }
 
     @Test
-    void providerFailureLeavesImageDraftActiveForRetryWithoutSavingConfirmedState() {
+    void repeatedImageConfirmationRestoresPersistedResultWithoutCallingProvider() {
+        AgentDraftEntity draft = activeDraft(
+            17L,
+            "image_generate",
+            "{\"prompt\":\"生成商品主图\",\"reference_asset_ids\":[],"
+                + "\"image_result\":{\"image_url\":\"https://mock/generated.png\","
+                + "\"revised_prompt\":\"优化后的提示词\"}}"
+        );
+        draft.setStatus("confirmed");
+        when(agentDraftRepository.findByIdAndOwnerUserId(17L, 1L)).thenReturn(Optional.of(draft));
+
+        var response = service.confirmDraft(17L);
+
+        assertEquals("https://mock/generated.png", response.imageResult().imageUrl());
+        assertEquals("优化后的提示词", response.imageResult().revisedPrompt());
+        verifyNoInteractions(agentImageService);
+        verify(agentDraftRepository, org.mockito.Mockito.never()).updateStatusIfCurrent(
+            anyLong(), anyLong(), anyString(), anyString(), anyLong()
+        );
+    }
+
+    @Test
+    void confirmedImageDraftWithoutPersistedResultFailsLoudly() {
+        AgentDraftEntity draft = activeDraft(
+            18L,
+            "image_generate",
+            "{\"prompt\":\"生成商品主图\",\"reference_asset_ids\":[]}"
+        );
+        draft.setStatus("confirmed");
+        when(agentDraftRepository.findByIdAndOwnerUserId(18L, 1L)).thenReturn(Optional.of(draft));
+
+        var error = assertThrows(
+            com.zhihuiji.backend.api.common.BusinessException.class,
+            () -> service.confirmDraft(18L)
+        );
+
+        assertEquals("已确认的生图草稿缺少可恢复的图片结果", error.getMessage());
+        verifyNoInteractions(agentImageService);
+    }
+
+    @Test
+    void providerFailureLeavesImageDraftActiveForRetryWithoutSavingConfirmedState() throws Exception {
         AgentDraftEntity draft = activeDraft(
             16L,
             "image_generate",
@@ -173,6 +218,7 @@ class AgentDraftConfirmServiceTest {
 
         assertEquals("生图服务请求超时", error.getMessage());
         assertEquals("active", draft.getStatus());
+        assertEquals(false, new ObjectMapper().readTree(draft.getContentJson()).has("image_result"));
         verify(agentDraftRepository, org.mockito.Mockito.never()).save(any(AgentDraftEntity.class));
     }
 

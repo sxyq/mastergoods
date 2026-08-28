@@ -163,9 +163,14 @@ public class AgentDraftConfirmService {
             Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
             throw new BusinessException("草稿确认失败（" + entity.getDraftType() + "）：" + cause.getMessage());
         }
+        if (imageResult != null) {
+            entity.setContentJson(AgentDraftImageResultCodec.withImageResult(
+                objectMapper, entity.getContentJson(), imageResult
+            ));
+        }
         entity.setStatus(STATUS_CONFIRMED);
         entity.setUpdatedAt(System.currentTimeMillis());
-        return toDraftResponse(agentDraftRepository.save(entity), imageResult);
+        return toDraftResponse(agentDraftRepository.save(entity));
     }
 
     /**
@@ -235,9 +240,7 @@ public class AgentDraftConfirmService {
                 // 媒体上传草稿仅用于承载上传意图与参数，确认后由前端继续执行真实上传。
             }
             case "image_generate" -> {
-                return agentImageService.generate(
-                    objectMapper.readValue(contentJson, V2AgentDtos.AgentImageGenerateRequest.class)
-                );
+                return agentImageService.generate(AgentDraftImageResultCodec.readRequest(objectMapper, contentJson));
             }
             default -> throw new BusinessException("不支持的草稿类型：" + draftType);
         }
@@ -245,13 +248,6 @@ public class AgentDraftConfirmService {
     }
 
     private V2AgentDtos.AgentDraftResponse toDraftResponse(AgentDraftEntity entity) {
-        return toDraftResponse(entity, null);
-    }
-
-    private V2AgentDtos.AgentDraftResponse toDraftResponse(
-        AgentDraftEntity entity,
-        V2AgentDtos.AgentImageGenerateResponse imageResult
-    ) {
         return new V2AgentDtos.AgentDraftResponse(
             entity.getId(),
             entity.getConversationId(),
@@ -261,7 +257,7 @@ public class AgentDraftConfirmService {
             entity.getStatus(),
             entity.getCreatedAt(),
             entity.getUpdatedAt(),
-            imageResult
+            AgentDraftImageResultCodec.readPersistedResult(objectMapper, entity)
         );
     }
 }

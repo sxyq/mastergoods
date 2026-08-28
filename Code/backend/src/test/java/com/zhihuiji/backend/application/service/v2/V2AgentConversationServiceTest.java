@@ -439,6 +439,23 @@ class V2AgentConversationServiceTest {
     }
 
     @Test
+    void listDraftsRestoresPersistedImageResultFromContentJson() {
+        AgentDraftEntity draft = draft(14L, null);
+        draft.setDraftType("image_generate");
+        draft.setStatus("confirmed");
+        draft.setContentJson("{\"prompt\":\"生成商品主图\",\"reference_asset_ids\":[],"
+            + "\"image_result\":{\"image_url\":\"data:image/png;base64,ZmFrZQ==\","
+            + "\"revised_prompt\":\"优化后的提示词\"}}");
+        when(agentDraftRepository.findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(eq(1L), any(Pageable.class)))
+            .thenReturn(java.util.List.of(draft));
+
+        var result = service.listDrafts(null);
+
+        assertEquals("data:image/png;base64,ZmFrZQ==", result.get(0).imageResult().imageUrl());
+        assertEquals("优化后的提示词", result.get(0).imageResult().revisedPrompt());
+    }
+
+    @Test
     void updateDraftPersistsOwnerScopedConversationReference() {
         AgentDraftEntity draft = draft(12L, 7L);
         AgentConversationEntity conversation = conversation(8L);

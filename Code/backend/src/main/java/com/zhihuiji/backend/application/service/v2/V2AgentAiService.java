@@ -412,7 +412,7 @@ public class V2AgentAiService {
             finalAnswer.mode(),
             finalAnswer.llmStatus(),
             payload.planSource(),
-            payload.toolResults().size(),
+            toolCount(payload),
             llmFailed ? finalAnswer.mode().toUpperCase(java.util.Locale.ROOT) : outcome.errorCode(),
             llmFailed ? llmFailureMessage(finalAnswer) : outcome.safeMessage(),
             completedAt
@@ -804,7 +804,7 @@ public class V2AgentAiService {
                     finalAnswer.mode(),
                     finalAnswer.llmStatus(),
                     payloadRef[0].planSource(),
-                    payloadRef[0].toolResults().size(),
+                    toolCount(payloadRef[0]),
                     failureCode,
                     failureMessage,
                     System.currentTimeMillis()
@@ -874,7 +874,7 @@ public class V2AgentAiService {
                 finalAnswer.mode(),
                 finalAnswer.llmStatus(),
                 payloadRef[0].planSource(),
-                payloadRef[0].toolResults().size(),
+                toolCount(payloadRef[0]),
                 outcome.errorCode(),
                 outcome.safeMessage(),
                 System.currentTimeMillis()
@@ -1844,6 +1844,14 @@ public class V2AgentAiService {
         return paramsToInputMap(params);
     }
 
+    private int toolCount(ResponsePayload payload) {
+        if (payload == null) {
+            return 0;
+        }
+        return (payload.toolResults() == null ? 0 : payload.toolResults().size())
+            + (payload.toolFailures() == null ? 0 : payload.toolFailures().size());
+    }
+
     private void populateToolAudit(SseStreamEmitter.ToolAudit audit, List<ToolExecutionResult> results) {
         if (results == null || results.isEmpty()) {
             return;
@@ -2433,7 +2441,7 @@ public class V2AgentAiService {
                 "runtime_exception",
                 "failed",
                 payload == null || payload.planSource() == null ? "unknown" : payload.planSource(),
-                payload == null || payload.toolResults() == null ? 0 : payload.toolResults().size(),
+                toolCount(payload),
                 "AGENT_RUN_FAILED",
                 safeMessage,
                 completedAt

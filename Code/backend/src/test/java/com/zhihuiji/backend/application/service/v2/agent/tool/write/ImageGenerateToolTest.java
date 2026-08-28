@@ -118,6 +118,7 @@ class ImageGenerateToolTest {
         CurrentOwnerService currentOwnerService = mock(CurrentOwnerService.class);
         when(currentOwnerService.findCurrentStoreId()).thenReturn(Optional.of(200L));
         when(currentOwnerService.requireCurrentUserId()).thenReturn(8L);
+        when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(7L);
         ToolExecutor executor = new ToolExecutor(new ToolRegistry(List.of(tool)), currentOwnerService);
         AgentRunState runState = new AgentRunState("run-image", 300L, 7L, 200L, 1);
 
@@ -137,6 +138,30 @@ class ImageGenerateToolTest {
         verify(currentOwnerService).requirePermissions("agent:write");
         verify(currentOwnerService).findCurrentStoreId();
         verify(agentDraftRepository).save(any(AgentDraftEntity.class));
+    }
+
+    @Test
+    void executorRejectsRunStateOwnerDifferentFromCurrentOwnerBeforeToolOrRepository() throws Exception {
+        CurrentOwnerService currentOwnerService = mock(CurrentOwnerService.class);
+        when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(7L);
+        ToolExecutor executor = new ToolExecutor(new ToolRegistry(List.of(tool)), currentOwnerService);
+        AgentRunState runState = new AgentRunState("run-image-cross-owner", 300L, 8L, 200L, 1);
+
+        var outcome = executor.execute(
+            runState,
+            tool.name(),
+            objectMapper.createObjectNode().put("prompt", "生成图片"),
+            null,
+            300L,
+            "run-image-cross-owner",
+            null,
+            objectMapper
+        );
+
+        assertFalse(outcome.executed());
+        assertEquals(ToolExecutor.TOOL_CONTEXT_INVALID, outcome.decision().reasonCode());
+        verify(currentOwnerService).requireCurrentOwnerUserId();
+        verify(agentDraftRepository, never()).save(any(AgentDraftEntity.class));
     }
 
     @Test

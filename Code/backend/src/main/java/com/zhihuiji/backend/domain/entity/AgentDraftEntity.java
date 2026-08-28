@@ -6,6 +6,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "agent_drafts")
@@ -26,7 +28,8 @@ public class AgentDraftEntity {
     @Column(nullable = false, length = 255)
     private String title;
 
-    @Column(name = "content_json", nullable = false, length = 4000)
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
+    @Column(name = "content_json", nullable = false, columnDefinition = "TEXT")
     private String contentJson;
 
     @Column(nullable = false, length = 32)

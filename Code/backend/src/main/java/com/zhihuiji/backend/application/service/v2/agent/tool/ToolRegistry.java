@@ -16,8 +16,9 @@ import org.springframework.stereotype.Component;
  * <p>Spring 启动时自动扫描所有 {@link AgentTool} Bean 并注册到 {@link ConcurrentHashMap}。
  * 后续工具扩展只需实现 {@code AgentTool} + {@code @Component}，0 核心代码改动。
  *
- * <p>提供工具查询、权限过滤与统一执行入口。{@code V2AgentAiService} 通过此注册表
- * 动态获取可用工具列表并执行已注册的 {@link AgentTool}；未注册工具不会进入执行链路。
+ * <p>提供工具查询、权限过滤与兼容执行入口。{@code V2AgentAiService} 通过此注册表
+ * 获取工具定义，但生产 Agent 执行链统一使用 {@link ToolExecutor}；本类的
+ * {@link #executeTool} 只供隔离测试和旧调用方使用，不承担 owner、权限或确认门。
  *
  * <p>安全约束：
  * <ul>
@@ -117,8 +118,8 @@ public class ToolRegistry {
     /**
      * 执行已注册工具。
      *
-     * <p>调用方负责在执行前进行安全审查与（对 CREATE_ONLY 工具的）草稿确认流程。
-     * 此方法仅负责查找工具并调用其 {@link AgentTool#execute}。
+     * <p>兼容入口：调用方负责 owner、权限审查与（对 CREATE_ONLY 工具的）草稿确认流程。
+     * 生产 Agent 链路必须调用 {@link ToolExecutor#execute}，此方法不应视为 Agent 安全执行入口。
      *
      * @param name   工具名
      * @param ctx    执行上下文

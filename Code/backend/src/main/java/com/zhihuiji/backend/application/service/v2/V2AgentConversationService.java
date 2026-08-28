@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
+import com.zhihuiji.backend.application.service.v2.agent.AgentDraftImageResultCodec;
 import com.zhihuiji.backend.domain.entity.AgentConversationEntity;
 import com.zhihuiji.backend.domain.entity.AgentDraftEntity;
 import com.zhihuiji.backend.domain.entity.AgentMessageEntity;
@@ -527,7 +528,8 @@ public class V2AgentConversationService {
             entity.getContentJson(),
             entity.getStatus(),
             entity.getCreatedAt(),
-            entity.getUpdatedAt()
+            entity.getUpdatedAt(),
+            AgentDraftImageResultCodec.readPersistedResult(objectMapper, entity)
         );
     }
 

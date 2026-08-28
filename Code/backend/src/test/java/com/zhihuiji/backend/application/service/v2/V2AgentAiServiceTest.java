@@ -1658,6 +1658,10 @@ class V2AgentAiServiceTest {
             .anyMatch(payload -> payload.contains("\"event_type\":\"tool_completed\"")
                 && payload.contains("\"tool_name\":\"customer_receivable_lookup\"")));
 
+        AgentRunAuditEntity audit = runAudits.get("run-partial-tool-failure");
+        assertNotNull(audit);
+        assertEquals(2, audit.getToolCount(), "audit tool_count should include failed tool calls");
+
         String answerCompleted = firstPayload(emitter, "\"event_type\":\"answer_completed\"");
         assertTrue(answerCompleted.contains("库存侧共发现 1 个低库存商品"), answerCompleted);
         assertTrue(answerCompleted.contains("部分查询失败"), answerCompleted);
