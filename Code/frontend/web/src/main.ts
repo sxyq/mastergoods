@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import App from './App.vue'
 import { routes } from './app/router/routes'
 import { useSession } from './app/stores/session'
+import { useAdminSession } from './app/stores/admin-session'
 import './style.css'
 
 const router = createRouter({
@@ -10,7 +11,7 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const session = useSession()
   if (to.path === '/login') {
     if (router.currentRoute.value.path === '/403' && session.source.value === 'api') {
@@ -20,6 +21,10 @@ router.beforeEach((to) => {
   }
   if (to.meta.adminOnly) {
     if (!session.isAuthenticated.value || session.source.value !== 'api') return '/login'
+    const adminSession = useAdminSession()
+    if (!(await adminSession.ensure(session.token.value))) return adminSession.forbidden.value ? '/403' : '/login'
+    const required = to.meta.adminPermission as Parameters<typeof adminSession.can>[0] | undefined
+    if (required && !adminSession.can(required)) return '/403'
     return true
   }
   if (!session.hasAppSession.value) return '/login'

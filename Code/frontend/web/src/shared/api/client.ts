@@ -2285,6 +2285,19 @@ export async function requestAdmin<T>(token: string, path: string, init: Request
   })
 }
 
+/** Opens an authenticated administrator event stream; callers own its reader and abort signal. */
+export async function requestAdminStream(token: string, path: string, signal?: AbortSignal): Promise<Response> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'GET',
+    headers: buildHeaders(authHeaders(token)),
+    signal,
+  })
+  if (!response.ok) {
+    throw new ApiError(`event stream failed: ${response.status}`, response.status)
+  }
+  return response
+}
+
 async function request<T>(path: string, init: RequestInit = {}, hasRetriedAuth = false): Promise<T> {
   const requestHeaders = headersToRecord(init.headers)
   const headers = buildHeaders(requestHeaders, init.body)

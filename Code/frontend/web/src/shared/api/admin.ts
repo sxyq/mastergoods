@@ -1,6 +1,7 @@
 import type { AdminPermission, AdminRole, AdminSession } from '@/entities/admin/contracts'
 import type { AdminEvent, AdminRunSummary } from '@/entities/admin/contracts'
-import { requestAdmin } from '@/shared/api/client'
+import { requestAdmin, requestAdminStream } from '@/shared/api/client'
+import { camelize } from '@/shared/utils/camelize'
 
 export const adminApiPaths = {
   session: '/v2/admin/session',
@@ -9,6 +10,7 @@ export const adminApiPaths = {
   stores: '/v2/admin/stores',
   agentRuns: '/v2/admin/agent/runs',
   agentUsage: '/v2/admin/agent/usage',
+  agentConfig: '/v2/admin/agent/config',
   auditEvents: '/v2/admin/audit/events',
   systemHealth: '/v2/admin/system/health',
   exports: '/v2/admin/exports',
@@ -54,6 +56,13 @@ export interface AdminOverviewPayload {
   scopeCompleteness?: string
   generatedAt?: string
   scope?: AdminScopePayload
+}
+
+export interface AdminConfigPayload {
+  modelId: string | null
+  agentEnabled: boolean
+  version: number
+  effectiveState: string
 }
 
 export interface AdminStoreSummary {
@@ -145,6 +154,26 @@ export interface AdminHealthPayload {
   errors?: Array<Record<string, unknown>>
 }
 
+export interface AdminExportJob {
+  exportId: string
+  exportType?: string
+  status?: string
+  createdAt?: string
+  expiresAt?: string
+  downloadUrl?: string | null
+  contentRedacted?: boolean
+}
+
+export interface AdminRetentionPayload {
+  version?: number
+  auditDays?: number
+  messageDays?: number
+  toolResultDays?: number
+  metricsDays?: number
+  effectiveAt?: string
+  contentMode?: string
+}
+
 function query(params: Record<string, string | number | boolean | undefined | null>) {
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
@@ -195,6 +224,41 @@ export function fetchAdminEvents(token: string, runId: string, params: { afterSe
   return requestAdmin<AdminEventPage>(token, `/v2/admin/agent/runs/${encodeURIComponent(runId)}/events${query(params)}`)
 }
 
+export async function streamAdminEvents(
+  token: string,
+  runId: string,
+  params: { afterSequence?: number; includeContent?: boolean; ownerUserId?: string; storeId?: string } = {},
+  onEvent: (event: AdminEvent) => void,
+  signal?: AbortSignal,
+) {
+  const response = await requestAdminStream(token, `/v2/admin/agent/runs/${encodeURIComponent(runId)}/events/stream${query(params)}`, signal)
+  if (!response.body) return
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  try {
+    while (true) {
+      const chunk = await reader.read()
+      if (chunk.done) break
+      buffer += decoder.decode(chunk.value, { stream: true })
+      const frames = buffer.split(/\r?\n\r?\n/)
+      buffer = frames.pop() ?? ''
+      for (const frame of frames) {
+        const data = frame.split(/\r?\n/).filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trim()).join('\n')
+        if (!data) continue
+        try {
+          const parsed = camelize(JSON.parse(data)) as AdminEvent
+          if (parsed && typeof parsed === 'object' && typeof parsed.sequence === 'number') onEvent(parsed)
+        } catch {
+          // A malformed SSE frame is ignored; the persisted list remains the source of truth.
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
+}
+
 export function fetchAdminUsage(token: string, params: { from?: string; to?: string; ownerUserId?: string; storeId?: string; page?: number; size?: number } = {}) {
   return requestAdmin<{ items: AdminUsage[]; total: number; generatedAt?: string }>(token, adminApiPaths.agentUsage + query(params))
 }
@@ -208,7 +272,7 @@ export function fetchAdminDrafts(token: string, runId: string, params: { ownerUs
 }
 
 export function fetchAdminConfig(token: string) {
-  return requestAdmin<Record<string, unknown>>(token, '/v2/admin/agent/config')
+  return requestAdmin<AdminConfigPayload>(token, adminApiPaths.agentConfig)
 }
 
 export function fetchAdminAuditEvents(token: string, params: { from?: string; to?: string; action?: string; resourceType?: string; result?: string; page?: number; size?: number } = {}) {
@@ -217,4 +281,16 @@ export function fetchAdminAuditEvents(token: string, params: { from?: string; to
 
 export function fetchAdminSystemHealth(token: string, params: { serviceName?: string; from?: string; to?: string } = {}) {
   return requestAdmin<AdminHealthPayload>(token, `${adminApiPaths.systemHealth}${query(params)}`)
+}
+
+export function fetchAdminExports(token: string, params: { page?: number; size?: number } = {}) {
+  return requestAdmin<AdminPage<AdminExportJob>>(token, `${adminApiPaths.exports}${query(params)}`)
+}
+
+export function createAdminExport(token: string, payload: { exportType: string; fields: string[]; from?: string; to?: string; ownerUserId?: string; storeId?: string; reason: string; idempotencyKey: string }) {
+  return requestAdmin<AdminExportJob>(token, adminApiPaths.exports, { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export function fetchAdminRetention(token: string) {
+  return requestAdmin<AdminRetentionPayload>(token, adminApiPaths.retention)
 }

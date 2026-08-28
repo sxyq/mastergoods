@@ -1,19 +1,20 @@
 export type AdminRole = 'SUPER_ADMIN' | 'AUDIT_OBSERVER'
 
 export type AdminPermission =
-  | 'admin:session:view'
-  | 'admin:overview:view'
-  | 'admin:users:view'
-  | 'admin:users:manage'
-  | 'admin:stores:view'
-  | 'admin:stores:manage'
-  | 'admin:agent:view'
-  | 'admin:agent:content:view'
-  | 'admin:config:manage'
-  | 'admin:audit:view'
-  | 'admin:system:view'
-  | 'admin:export:create'
-  | 'admin:retention:manage'
+  | 'admin.dashboard.read'
+  | 'admin.user.read'
+  | 'admin.user.manage'
+  | 'admin.store.read'
+  | 'admin.store.manage'
+  | 'admin.permission.manage'
+  | 'admin.agent.run.read'
+  | 'admin.agent.content.read'
+  | 'admin.agent.config.read'
+  | 'admin.agent.config.manage'
+  | 'admin.audit.read'
+  | 'admin.system.read'
+  | 'admin.system.retention.manage'
+  | 'admin.export'
 
 export interface AdminDataScope {
   ownerUserIds: string[]
@@ -24,7 +25,8 @@ export interface AdminSession {
   adminUserId: string
   role: AdminRole
   permissions: AdminPermission[]
-  scope: AdminDataScope
+  ownerUserIds: string[]
+  storeIds: string[]
   contentAccess: boolean
   scopeCompleteness: 'COMPLETE' | 'PARTIAL' | 'UNKNOWN'
 }
