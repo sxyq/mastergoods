@@ -1,0 +1,17 @@
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import { Activity, CircleAlert, RefreshCw, Server, ShieldAlert } from 'lucide-vue-next'
+import AdminLayout from '@/features/admin/components/AdminLayout.vue'
+import AdminPanelState from '@/features/admin/components/AdminPanelState.vue'
+import { useSession } from '@/app/stores/session'
+import { fetchAdminSystemHealth, type AdminHealthPayload, type AdminHealthService } from '@/shared/api/admin'
+
+const session = useSession(); const loading = ref(false); const error = ref<unknown>(null); const health = ref<AdminHealthPayload | null>(null)
+const errorMessage = computed(() => error.value instanceof Error ? error.value.message : '系统健康读取失败')
+function statusTone(status?: string) { return /healthy|up|ok|正常/i.test(status ?? '') ? 'ok' : /down|failed|error|异常/i.test(status ?? '') ? 'bad' : 'warn' }
+async function load() { if (!session.token.value) { error.value = new Error('管理员会话已失效'); return }; loading.value = true; error.value = null; try { health.value = await fetchAdminSystemHealth(session.token.value) } catch (cause) { error.value = cause } finally { loading.value = false } }
+onMounted(load)
+</script>
+<template>
+  <AdminLayout active-id="system"><section class="admin-page-v2"><header class="admin-page-v2__header"><div><div class="admin-page-v2__crumb">Admin / <strong>System</strong></div><h1>系统状态</h1><p>查看管理员范围内的服务健康、版本和错误摘要。</p></div><button class="admin-button-v2" type="button" :disabled="loading" @click="load"><RefreshCw :class="{ 'is-spinning': loading }" aria-hidden="true" />刷新</button></header><div v-if="error" class="admin-error-v2" role="alert"><ShieldAlert aria-hidden="true" /><span>{{ errorMessage }}</span><button type="button" @click="load">重试</button></div><div class="admin-grid"><article class="admin-card-v2 admin-span-8"><div class="admin-card-v2__header"><div><h2>服务健康</h2><p>不使用本地默认状态覆盖服务端结果。</p></div><Server aria-hidden="true" /></div><AdminPanelState v-if="loading" state="loading" title="正在检查系统状态" /><AdminPanelState v-else-if="error" state="error" :message="errorMessage" @retry="load" /><AdminPanelState v-else-if="!health" state="empty" title="尚未返回健康状态" message="服务端没有返回健康检查数据。" /><div v-else class="admin-table-wrap"><table class="admin-table-v2"><thead><tr><th>服务</th><th>状态</th><th>版本</th><th>检查时间</th><th>错误摘要</th></tr></thead><tbody><tr v-for="service in (health.services || []) as AdminHealthService[]" :key="service.serviceName"><td><strong>{{ service.serviceName || '未命名服务' }}</strong></td><td><span class="admin-status-v2" :class="`admin-status-v2--${statusTone(service.status)}`">{{ service.status || '未知' }}</span></td><td>{{ service.version || '-' }}</td><td>{{ service.checkedAt ? new Date(service.checkedAt).toLocaleString('zh-CN') : '-' }}</td><td>{{ service.errorSummary || '-' }}</td></tr></tbody></table><div v-if="!(health.services || []).length" class="admin-empty-v2"><Activity aria-hidden="true" /><div><strong>没有服务条目</strong><p>健康接口已返回，但没有可展示的服务记录。</p></div></div></div></article><article class="admin-card-v2 admin-span-4 admin-card-v2--pad"><h2>平台状态</h2><p>总体状态：<span class="admin-status-v2" :class="`admin-status-v2--${statusTone(health?.status)}`">{{ health?.status || '未读取' }}</span></p><p>版本：{{ health?.version || '-' }}</p><p>生成时间：{{ health?.generatedAt || '-' }}</p><p><CircleAlert aria-hidden="true" /> 保留策略和系统写操作需要独立权限，当前页面只读。</p></article></div></section></AdminLayout>
+</template>

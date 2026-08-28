@@ -18,6 +18,10 @@ router.beforeEach((to) => {
     }
     return session.isAuthenticated.value ? '/dashboard' : true
   }
+  if (to.meta.adminOnly) {
+    if (!session.isAuthenticated.value || session.source.value !== 'api') return '/login'
+    return true
+  }
   if (!session.hasAppSession.value) return '/login'
   const permissions = to.meta.permissions as Parameters<typeof session.hasPermission>[0]
   const permissionMode = to.meta.permissionMode as 'all' | 'any' | undefined

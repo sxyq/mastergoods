@@ -35,6 +35,7 @@ import RoleAccessPage from '@/pages/settings/RoleAccessPage.vue'
 import DatabasePage from '@/pages/settings/DatabasePage.vue'
 import SettingsOverviewPage from '@/pages/settings/SettingsOverviewPage.vue'
 import { mobileReferenceScreens, pcDesktopScreens } from './stitch-screens'
+import { adminRoutes } from './admin-routes'
 
 const screenComponentByRoute: Record<string, Component> = {
   '/dashboard': DashboardPage,
@@ -85,6 +86,7 @@ const stitchRoutes: RouteRecordRaw[] = [...pcDesktopScreens, ...mobileReferenceS
 }))
 
 export const routes: RouteRecordRaw[] = [
+  ...adminRoutes,
   {
     path: '/login',
     name: 'login',

@@ -48,3 +48,7 @@ function closeSidebar() {
     </div>
   </div>
 </template>
+
+<style>
+@import '../admin.css';
+</style>

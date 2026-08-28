@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
+import { useRouter } from 'vue-router'
 
 withDefaults(defineProps<{
   open?: boolean
@@ -53,14 +54,25 @@ const documentationGroups = [
 ]
 
 const openGroups = ref<Record<string, boolean>>({ Agent: true, 组织: false, 系统: false })
+const router = useRouter()
+
+const routeById: Record<string, string> = {
+  overview: '/admin/overview',
+  users: '/admin/users',
+  agent: '/admin/agent/runs',
+  audit: '/admin/audit',
+  system: '/admin/system',
+  config: '/admin/agent/config',
+}
+
+function goTo(id: string) {
+  const route = routeById[id]
+  if (route) void router.push(route)
+  emit('close')
+}
 
 function selectItem(item: AdminNavItem) {
-  if (item.id === 'overview') {
-    emit('navigate', item.id)
-    emit('close')
-    return
-  }
-  emit('notice', `${item.label}将在后续阶段接入`)
+  goTo(item.id)
 }
 
 function toggleGroup(label: string) {
@@ -110,7 +122,7 @@ function toggleGroup(label: string) {
             <ChevronDown aria-hidden="true" :class="{ 'is-collapsed': !openGroups[group.label] }" />
           </button>
           <div v-if="openGroups[group.label]" class="admin-documentation-items">
-            <button v-for="item in group.items" :key="item" type="button" @click="emit('notice', `${group.label} / ${item}将在后续阶段接入`)">
+            <button v-for="item in group.items" :key="item" type="button" @click="goTo(group.label === 'Agent' ? (item === '运行记录' ? 'agent' : item === '上下文窗口' ? 'agent' : 'config') : group.label === '组织' ? 'users' : 'system')">
               {{ item }}
             </button>
           </div>

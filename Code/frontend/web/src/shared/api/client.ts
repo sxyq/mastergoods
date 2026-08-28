@@ -2274,6 +2274,17 @@ export async function fetchAgentRunAudit(token: string, runId: string) {
   })
 }
 
+/** Shared authenticated request boundary for feature-specific API clients. */
+export async function requestAdmin<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
+  return request<T>(path, {
+    ...init,
+    headers: {
+      ...headersToRecord(init.headers),
+      ...authHeaders(token),
+    },
+  })
+}
+
 async function request<T>(path: string, init: RequestInit = {}, hasRetriedAuth = false): Promise<T> {
   const requestHeaders = headersToRecord(init.headers)
   const headers = buildHeaders(requestHeaders, init.body)
