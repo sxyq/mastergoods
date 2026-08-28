@@ -1,26 +1,21 @@
 package com.zhihuiji.backend.infrastructure.security.admin;
 
-/**
- * Permission vocabulary for the administrator surface.
- *
- * <p>This is a contract-only skeleton. Resolution from the existing session
- * model is intentionally deferred until the administrator identity source is
- * confirmed.</p>
- */
+/** Permission vocabulary defined by the administrator authorization design. */
 public enum AdminPermission {
-    SESSION_VIEW("admin:session:view"),
-    OVERVIEW_VIEW("admin:overview:view"),
-    USERS_VIEW("admin:users:view"),
-    USERS_MANAGE("admin:users:manage"),
-    STORES_VIEW("admin:stores:view"),
-    STORES_MANAGE("admin:stores:manage"),
-    AGENT_VIEW("admin:agent:view"),
-    AGENT_CONTENT_VIEW("admin:agent:content:view"),
-    CONFIG_MANAGE("admin:config:manage"),
-    AUDIT_VIEW("admin:audit:view"),
-    SYSTEM_VIEW("admin:system:view"),
-    EXPORT_CREATE("admin:export:create"),
-    RETENTION_MANAGE("admin:retention:manage");
+    DASHBOARD_READ("admin.dashboard.read"),
+    USER_READ("admin.user.read"),
+    USER_MANAGE("admin.user.manage"),
+    STORE_READ("admin.store.read"),
+    STORE_MANAGE("admin.store.manage"),
+    PERMISSION_MANAGE("admin.permission.manage"),
+    AGENT_RUN_READ("admin.agent.run.read"),
+    AGENT_CONTENT_READ("admin.agent.content.read"),
+    AGENT_CONFIG_READ("admin.agent.config.read"),
+    AGENT_CONFIG_MANAGE("admin.agent.config.manage"),
+    AUDIT_READ("admin.audit.read"),
+    SYSTEM_READ("admin.system.read"),
+    SYSTEM_RETENTION_MANAGE("admin.system.retention.manage"),
+    EXPORT("admin.export");
 
     private final String code;
 

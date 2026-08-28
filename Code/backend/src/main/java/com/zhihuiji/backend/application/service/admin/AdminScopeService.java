@@ -5,8 +5,6 @@ import com.zhihuiji.backend.infrastructure.security.admin.AdminPrincipal;
 
 /**
  * Calculates and checks server-owned visibility for administrator requests.
- * Implementations will be added after the identity and authorization source
- * is confirmed.
  */
 public interface AdminScopeService {
     AdminDataScope resolve(AdminPrincipal principal, Long requestedOwnerUserId, Long requestedStoreId);
