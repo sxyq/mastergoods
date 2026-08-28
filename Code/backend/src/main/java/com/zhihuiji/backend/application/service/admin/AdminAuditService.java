@@ -1,0 +1,188 @@
+package com.zhihuiji.backend.application.service.admin;
+
+import com.zhihuiji.backend.api.common.AdminConflictException;
+import com.zhihuiji.backend.api.common.PaginationUtils;
+import com.zhihuiji.backend.api.dto.admin.AdminAuditDtos;
+import com.zhihuiji.backend.api.dto.admin.AdminPageDtos;
+import com.zhihuiji.backend.api.dto.admin.AdminScopeDtos;
+import com.zhihuiji.backend.domain.entity.AdminAuditEventEntity;
+import com.zhihuiji.backend.infrastructure.repository.admin.AdminAuditEventRepository;
+import com.zhihuiji.backend.infrastructure.repository.admin.AdminScopeQuery;
+import com.zhihuiji.backend.infrastructure.security.admin.AdminAuthorizationService;
+import com.zhihuiji.backend.infrastructure.security.admin.AdminDataScope;
+import com.zhihuiji.backend.infrastructure.security.admin.AdminPermission;
+import com.zhihuiji.backend.infrastructure.security.admin.AdminPrincipal;
+import jakarta.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Instant;
+import java.util.HexFormat;
+import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
+/** Persistent administrator audit boundary shared by reads and mutations. */
+@Service
+public class AdminAuditService {
+    private static final int MAX_REASON_LENGTH = 512;
+    private static final int MAX_SUMMARY_LENGTH = 1000;
+    private static final int MAX_FILTER_LENGTH = 64;
+
+    private final AdminAuditEventRepository repository;
+    private final AdminAuthorizationService authorizationService;
+
+    public AdminAuditService(AdminAuditEventRepository repository, AdminAuthorizationService authorizationService) {
+        this.repository = repository;
+        this.authorizationService = authorizationService;
+    }
+
+    @Transactional
+    public AdminAuditEventEntity record(
+        AdminPrincipal principal,
+        String action,
+        String resourceType,
+        String resourceId,
+        Long ownerUserId,
+        Long storeId,
+        String result,
+        String reason,
+        String summary,
+        String idempotencyKey,
+        String payloadHash
+    ) {
+        if (principal == null) {
+            return null;
+        }
+        if (idempotencyKey != null) {
+            AdminAuditEventEntity existing = repository
+                .findByAdminUserIdAndIdempotencyKey(principal.userId(), idempotencyKey)
+                .orElse(null);
+            if (existing != null) {
+                if (payloadHash != null && !payloadHash.equals(existing.getIdempotencyPayloadHash())) {
+                    throw new AdminConflictException("idempotency key was already used with a different payload");
+                }
+                return existing;
+            }
+        }
+        long now = System.currentTimeMillis();
+        AdminAuditEventEntity entity = new AdminAuditEventEntity();
+        entity.setEventId(UUID.randomUUID().toString());
+        entity.setAdminUserId(principal.userId());
+        entity.setRoleCode(principal.role().name());
+        entity.setAction(normalizeRequired(action, "audit action is required", MAX_FILTER_LENGTH));
+        entity.setResourceType(normalizeOptional(resourceType, MAX_FILTER_LENGTH));
+        entity.setResourceId(normalizeOptional(resourceId, 128));
+        entity.setOwnerUserId(ownerUserId);
+        entity.setStoreId(storeId);
+        entity.setResult(normalizeRequired(result, "audit result is required", 32));
+        entity.setReason(normalizeOptional(reason, MAX_REASON_LENGTH));
+        entity.setSummary(normalizeOptional(summary, MAX_SUMMARY_LENGTH));
+        entity.setIdempotencyKey(normalizeOptional(idempotencyKey, 128));
+        entity.setIdempotencyPayloadHash(payloadHash);
+        entity.setOccurredAt(now);
+        RequestMetadata metadata = requestMetadata();
+        entity.setSourceIp(metadata.sourceIp());
+        entity.setUserAgentSummary(metadata.userAgent());
+        entity.setRequestId(metadata.requestId());
+        return repository.save(entity);
+    }
+
+    public AdminAuditEventEntity recordRead(AdminPrincipal principal, String action, String resourceType, String resourceId,
+                                            Long ownerUserId, Long storeId, String summary) {
+        return record(principal, action, resourceType, resourceId, ownerUserId, storeId, "SUCCESS", null, summary, null, null);
+    }
+
+    public String payloadHash(String payload) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                .digest((payload == null ? "" : payload).getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("audit hash is unavailable", ex);
+        }
+    }
+
+    public AdminAuditEventEntity findIdempotent(AdminPrincipal principal, String idempotencyKey, String payloadHash) {
+        if (principal == null || idempotencyKey == null || idempotencyKey.isBlank()) return null;
+        AdminAuditEventEntity existing = repository.findByAdminUserIdAndIdempotencyKey(principal.userId(), idempotencyKey.trim()).orElse(null);
+        if (existing == null) return null;
+        if (payloadHash != null && !payloadHash.equals(existing.getIdempotencyPayloadHash())) {
+            throw new AdminConflictException("idempotency key was already used with a different payload");
+        }
+        return existing;
+    }
+
+    @Transactional
+    public AdminPageDtos.PageResponse<AdminAuditDtos.Event> list(
+        AdminPrincipal principal,
+        String action,
+        String resourceType,
+        String result,
+        Instant from,
+        Instant to,
+        Integer page,
+        Integer size
+    ) {
+        AdminDataScope scope = authorizationService.authorize(principal, AdminPermission.AUDIT_READ, null, null);
+        if (from != null && to != null && !from.isBefore(to)) {
+            throw new IllegalArgumentException("from must be before to");
+        }
+        AdminScopeQuery query = AdminScopeQuery.from(scope);
+        Page<AdminAuditEventEntity> resultPage = repository.findVisible(
+            principal.userId(), query.allOwners(), query.ownerUserIds(), query.allStores(), query.storeIds(),
+            normalizeOptional(action, MAX_FILTER_LENGTH), normalizeOptional(resourceType, MAX_FILTER_LENGTH),
+            normalizeOptional(result, 32), from == null ? null : from.toEpochMilli(), to == null ? null : to.toEpochMilli(),
+            PaginationUtils.pageable(page, size)
+        );
+        var items = resultPage.getContent().stream().map(this::toDto).toList();
+        recordRead(principal, "admin.audit.read", "AUDIT", null, null, null,
+            "page=" + resultPage.getNumber() + ",size=" + resultPage.getSize());
+        return new AdminPageDtos.PageResponse<>(items, resultPage.getNumber(), resultPage.getSize(),
+            resultPage.getTotalElements(), resultPage.hasNext(), Instant.now(), AdminScopeDtos.Scope.from(scope),
+            scope.allOwners() || scope.storeIds().isEmpty() ? "COMPLETE" : "PARTIAL");
+    }
+
+    public AdminAuditDtos.Event toDto(AdminAuditEventEntity entity) {
+        return new AdminAuditDtos.Event(
+            entity.getEventId(), entity.getAction(), id(entity.getAdminUserId()), entity.getResourceType(), entity.getResourceId(),
+            entity.getResult(), entity.getReason(), instant(entity.getOccurredAt()), entity.getRoleCode(), id(entity.getOwnerUserId()),
+            id(entity.getStoreId()), entity.getSourceIp(), entity.getUserAgentSummary(), entity.getRequestId(), entity.getSummary()
+        );
+    }
+
+    private RequestMetadata requestMetadata() {
+        if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)) {
+            return new RequestMetadata(null, null, null);
+        }
+        HttpServletRequest request = attributes.getRequest();
+        String requestId = request.getHeader("X-Request-ID");
+        return new RequestMetadata(
+            normalizeOptional(request.getRemoteAddr(), 64),
+            normalizeOptional(request.getHeader("User-Agent"), 256),
+            normalizeOptional(requestId, 128)
+        );
+    }
+
+    private String normalizeRequired(String value, String message, int maxLength) {
+        String normalized = normalizeOptional(value, maxLength);
+        if (normalized == null) throw new IllegalArgumentException(message);
+        return normalized;
+    }
+
+    private String normalizeOptional(String value, int maxLength) {
+        if (value == null) return null;
+        String normalized = value.trim();
+        if (normalized.isEmpty()) return null;
+        if (normalized.length() > maxLength) throw new IllegalArgumentException("audit field is too long");
+        return normalized;
+    }
+
+    private String id(Long value) { return value == null ? null : value.toString(); }
+    private Instant instant(Long value) { return value == null ? null : Instant.ofEpochMilli(value); }
+
+    private record RequestMetadata(String sourceIp, String userAgent, String requestId) {}
+}
