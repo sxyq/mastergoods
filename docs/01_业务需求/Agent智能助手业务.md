@@ -8,7 +8,7 @@
 | 当前状态 | 已完成 |
 | 适用端 | Agent（后端 / Android / iOS / Web） |
 | 依据源码 | `Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java`、`application/service/v2/agent/`、`infrastructure/ai/LongCatAnthropicClient.java` |
-| 依据测试 | `testing/Agent/功能测试/TEST_PLAN.md`、`Code/backend/src/test/java/.../application/service/v2/V2AgentAiServiceTest.java` |
+| 依据测试 | `testing/Agent/Agent综合功能与性能测试方案.md`、`Code/backend/src/test/java/.../application/service/v2/V2AgentAiServiceTest.java` |
 | 依据证据 | `testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md` |
 | 最后核对 | 2026-08-20 |
 
@@ -52,7 +52,7 @@ flowchart TD
 
 对应源码：`Code/backend/src/main/java/com/zhihuiji/backend/application/service/v2/V2AgentAiService.java`。
 对应接口：`POST /v2/agent/chat`、`POST /v2/agent/chat/stream`、`POST /v2/agent/runs/{runId}/cancel`、`GET /v2/agent/runs/{runId}/audit`。
-对应测试：`testing/Agent/功能测试/TEST_PLAN.md`。
+对应测试：`testing/Agent/Agent综合功能与性能测试方案.md`。
 当前状态：后端链路源码已完成；8220 生产链路 Blocked（无会话数据）。
 
 ## 三、业务规则要点（源码事实）
@@ -97,9 +97,9 @@ flowchart TD
 ## 对应测试
 
 - 单元测试：`Code/backend/src/test/java/.../application/service/v2/V2AgentAiServiceTest.java`、`V2AgentConversationServiceTest.java`、`AgentDraftConfirmServiceTest.java`、`component/*Test.java`、`tool/*Test.java`
-- 功能测试：`testing/Agent/功能测试/TEST_PLAN.md`
-- 性能测试：`testing/Agent/性能测试/TEST_PLAN.md`
-- 审计：`testing/Agent/审计/`
+- 功能测试：`testing/Agent/Agent综合功能与性能测试方案.md`
+- 性能测试：`testing/Agent/Agent综合功能与性能测试方案.md`
+- 审计：`testing/Agent/Agent执行台账.csv`
 
 ## 当前限制
 

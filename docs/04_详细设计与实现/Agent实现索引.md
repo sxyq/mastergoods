@@ -76,9 +76,9 @@
 
 - 单元测试：`Code/backend/src/test/java/.../application/service/v2/`（V2AgentAiServiceTest、V2AgentToolSelectionRegressionTest、ToolRegistryTest、ToolPlannerTest、AnswerSynthesizerTest、SafetyGuardTest、context/Context*Test、memory/AgentMemoryServiceTest、search/WebSearch*Test）
 - Android 测试：`feature/agent/src/test/`、`core/network/src/test/`、`core/model/src/test/`
-- 功能测试：`testing/Agent/功能测试/TEST_PLAN.md`
-- 性能测试：`testing/Agent/性能测试/TEST_PLAN.md`
-- 审计：`testing/Agent/审计/`
+- 功能测试：`testing/Agent/Agent综合功能与性能测试方案.md`
+- 性能测试：`testing/Agent/Agent综合功能与性能测试方案.md`
+- 审计：`testing/Agent/Agent执行台账.csv`
 
 ## 当前限制
 

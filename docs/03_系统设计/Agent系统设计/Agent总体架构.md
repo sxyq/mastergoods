@@ -8,7 +8,7 @@
 | 当前状态 | 已完成 |
 | 适用端 | Agent（后端 / Android / iOS / Web） |
 | 依据源码 | `application/service/v2/V2AgentAiService.java`、`application/service/v2/agent/component/`、`application/service/v2/agent/tool/`、`infrastructure/ai/LongCatAnthropicClient.java` |
-| 依据测试 | `testing/Agent/功能测试/TEST_PLAN.md`、`Code/backend/src/test/java/.../application/service/v2/` |
+| 依据测试 | `testing/Agent/Agent综合功能与性能测试方案.md`、`Code/backend/src/test/java/.../application/service/v2/` |
 | 依据证据 | `testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md` |
 | 最后核对 | 2026-08-20 |
 
@@ -41,7 +41,7 @@ flowchart TD
 
 对应源码：`V2AgentAiService.runChatStream()`。
 对应接口：`POST /v2/agent/chat/stream`。
-对应测试：`testing/Agent/功能测试/TEST_PLAN.md`。
+对应测试：`testing/Agent/Agent综合功能与性能测试方案.md`。
 当前状态：后端链路已完成；8220 生产链路 Blocked。
 
 ## 二、组件职责
@@ -102,8 +102,8 @@ flowchart TD
 ## 对应测试
 
 - 单元测试：`V2AgentAiServiceTest.java`、`V2AgentConversationServiceTest.java`、`component/*`、`tool/*`
-- 功能测试：`testing/Agent/功能测试/TEST_PLAN.md`
-- 审计：`testing/Agent/审计/`
+- 功能测试：`testing/Agent/Agent综合功能与性能测试方案.md`
+- 审计：`testing/Agent/Agent执行台账.csv`
 
 ## 当前限制
 

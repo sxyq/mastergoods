@@ -92,7 +92,7 @@ erDiagram
 
 - 单元测试：`V2AgentConversationServiceTest.java`、`V2AgentAiServiceTest.java`
 - 序列化测试：`AgentChatResponseSerializationTest.kt`、`AgentStreamEventSerializationTest.kt`（Android）
-- 功能测试：`testing/Agent/功能测试/TEST_PLAN.md`
+- 功能测试：`testing/Agent/Agent综合功能与性能测试方案.md`
 
 ## 当前限制
 

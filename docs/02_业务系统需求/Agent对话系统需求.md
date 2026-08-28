@@ -8,7 +8,7 @@
 | 当前状态 | 已完成 |
 | 适用端 | Agent（后端 / Android / iOS / Web） |
 | 依据源码 | `application/service/v2/V2AgentAiService.java`、`application/service/v2/agent/component/`、`application/service/v2/agent/tool/`、`infrastructure/ai/LongCatAnthropicClient.java` |
-| 依据测试 | `testing/Agent/功能测试/TEST_PLAN.md`、`V2AgentAiServiceTest.java`、`V2AgentConversationServiceTest.java`、`AgentDraftConfirmServiceTest.java` |
+| 依据测试 | `testing/Agent/Agent综合功能与性能测试方案.md`、`V2AgentAiServiceTest.java`、`V2AgentConversationServiceTest.java`、`AgentDraftConfirmServiceTest.java` |
 | 依据证据 | `testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md` |
 | 最后核对 | 2026-08-20 |
 
@@ -52,7 +52,7 @@
 | 涉及端 | 后端 / Android / Web（iOS 待验证） |
 | 对应接口 | `POST /v2/agent/chat/stream`（`produces = "text/event-stream"`） |
 | 对应源码 | `V2AgentAiService.chatStream()`、`SseStreamEmitter.java` |
-| 对应测试 | `testing/Agent/功能测试/TEST_PLAN.md`（流式对话）；`AgentSseClientCancellationTest.kt`（Android） |
+| 对应测试 | `testing/Agent/Agent综合功能与性能测试方案.md`（流式对话）；`AgentSseClientCancellationTest.kt`（Android） |
 | 验收标准 | 事件顺序与终态正确（`answer_completed` 后 `run_completed`） |
 | 当前状态 | 后端已完成（8220 SSE 直连探针 Passed）；Android 本地已完成；iOS/Web 待验证 |
 
@@ -73,7 +73,7 @@
 | 涉及端 | 多端 |
 | 对应接口 | `GET /v2/agent/conversations`、`GET /v2/agent/conversations/{id}/messages` |
 | 对应源码 | `application/service/v2/V2AgentConversationService.java` |
-| 对应测试 | `testing/Agent/功能测试/TEST_PLAN.md`（Wave 1 history reload）；`AgentWorkbenchHistoryTest.kt`（Android） |
+| 对应测试 | `testing/Agent/Agent综合功能与性能测试方案.md`（Wave 1 history reload）；`AgentWorkbenchHistoryTest.kt`（Android） |
 | 验收标准 | 历史消息与分页位置正确恢复 |
 | 当前状态 | Android 已完成（历史分页恢复首个可见消息位置）；iOS/Web 待验证；8220 无会话数据 |
 
@@ -136,7 +136,7 @@
 | 涉及端 | 多端 |
 | 对应接口 | SSE `result_block` |
 | 对应源码 | 后端 `V2AgentAiService.selectVisibleResultBlocks()`；Android `feature/agent/result/ResultBlockRenderer.kt`；iOS `AgentChatView.resultBlockView()`；Web `AgentPage.vue` |
-| 对应测试 | `ResultBlockRendererContractTest.kt`、`AgentStoredResultBlockParseTest.kt`（Android）；`testing/Agent/功能测试/TEST_PLAN.md` |
+| 对应测试 | `ResultBlockRendererContractTest.kt`、`AgentStoredResultBlockParseTest.kt`（Android）；`testing/Agent/Agent综合功能与性能测试方案.md` |
 | 验收标准 | 结果块按 part 顺序渲染且图表数据真实 |
 | 当前状态 | Android 已完成（本地验证）；iOS/Web 待验证 |
 
@@ -199,7 +199,7 @@
 | 涉及端 | 后端 / Android / iOS / Web |
 | 对应接口 | `GET /v2/agent/runs/{runId}/audit` |
 | 对应源码 | `application/service/v2/agent/component/RunAuditService.java`、`AgentRunAuditRepository` |
-| 对应测试 | `testing/Agent/审计/`、`V2AgentAiServiceTest.java` |
+| 对应测试 | `testing/Agent/Agent执行台账.csv`、`V2AgentAiServiceTest.java` |
 | 验收标准 | 审计事件与 SSE 事件一致 |
 | 当前状态 | 已完成（源码+测试）；Android 历史消息未恢复 RunTrace（已知问题 #3） |
 
@@ -221,9 +221,9 @@
 ## 对应测试
 
 - 单元测试：`V2AgentAiServiceTest.java`、`V2AgentConversationServiceTest.java`、`AgentDraftConfirmServiceTest.java`、`component/*`、`tool/*`
-- 功能测试：`testing/Agent/功能测试/TEST_PLAN.md`
-- 性能测试：`testing/Agent/性能测试/TEST_PLAN.md`
-- 审计：`testing/Agent/审计/`
+- 功能测试：`testing/Agent/Agent综合功能与性能测试方案.md`
+- 性能测试：`testing/Agent/Agent综合功能与性能测试方案.md`
+- 审计：`testing/Agent/Agent执行台账.csv`
 
 ## 当前限制
 

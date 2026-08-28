@@ -8,7 +8,7 @@
 | 当前状态 | Android 已完成；iOS/Web 待验证 |
 | 适用端 | 多端 |
 | 依据源码 | Android `feature/agent/conversation/AgentChatScreen.kt`、`docs/03_系统设计/UI设计/android-agent-reference-collapsed.png`、iOS `AgentChatView.swift`、Web `AgentPage.vue` |
-| 依据测试 | `AgentChatScreenToolStatusTest.kt`、`testing/Agent/功能测试/TEST_PLAN.md` |
+| 依据测试 | `AgentChatScreenToolStatusTest.kt`、`testing/Agent/Agent综合功能与性能测试方案.md` |
 | 依据证据 | `testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md`（参考图静态检查） |
 | 最后核对 | 2026-08-20 |
 
@@ -65,7 +65,7 @@ flowchart TB
 ## 对应测试
 
 - 单元测试：`AgentChatScreenToolStatusTest.kt`、`AgentChatViewModelAnswerMergeTest.kt`
-- 功能测试：`testing/Agent/功能测试/TEST_PLAN.md`
+- 功能测试：`testing/Agent/Agent综合功能与性能测试方案.md`
 
 ## 当前限制
 
