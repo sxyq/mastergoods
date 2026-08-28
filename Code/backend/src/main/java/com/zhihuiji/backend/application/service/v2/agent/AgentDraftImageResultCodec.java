@@ -52,14 +52,32 @@ public final class AgentDraftImageResultCodec {
         ObjectMapper objectMapper,
         AgentDraftEntity entity
     ) {
-        if (entity == null || !"image_generate".equalsIgnoreCase(entity.getDraftType())
-            || !"confirmed".equalsIgnoreCase(entity.getStatus())) {
+        if (entity == null || !"image_generate".equalsIgnoreCase(entity.getDraftType())) {
             return null;
         }
-        ObjectNode content = readObject(objectMapper, entity.getContentJson(), "已确认的生图草稿结果无法恢复");
+        boolean confirmed = "confirmed".equalsIgnoreCase(entity.getStatus());
+        ObjectNode content;
+        try {
+            content = readObject(objectMapper, entity.getContentJson(), "生图草稿结果无法恢复");
+        } catch (BusinessException ex) {
+            if (!confirmed) {
+                return null;
+            }
+            throw new BusinessException("已确认的生图草稿结果无法恢复");
+        }
         JsonNode resultNode = content.get(IMAGE_RESULT_FIELD);
         if (resultNode == null || !resultNode.isObject()) {
-            throw new BusinessException("已确认的生图草稿缺少可恢复的图片结果");
+            if (confirmed) {
+                throw new BusinessException("已确认的生图草稿缺少可恢复的图片结果");
+            }
+            return null;
+        }
+        JsonNode imageUrlNode = resultNode.get("image_url");
+        if (imageUrlNode == null || !imageUrlNode.isTextual() || imageUrlNode.asText().isBlank()) {
+            if (confirmed) {
+                throw new BusinessException("已确认的生图草稿缺少可恢复的图片结果");
+            }
+            return null;
         }
         try {
             V2AgentDtos.AgentImageGenerateResponse result = objectMapper.treeToValue(
@@ -71,8 +89,14 @@ public final class AgentDraftImageResultCodec {
             }
             return result;
         } catch (BusinessException ex) {
-            throw ex;
+            if (confirmed) {
+                throw ex;
+            }
+            return null;
         } catch (Exception ex) {
+            if (!confirmed) {
+                return null;
+            }
             throw new BusinessException("已确认的生图草稿结果无法恢复");
         }
     }

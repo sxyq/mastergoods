@@ -456,6 +456,46 @@ class V2AgentConversationServiceTest {
     }
 
     @Test
+    void listDraftsRestoresImageResultAfterUpdateChangesStateAndLeavesPendingImageDraftWithoutResult() {
+        AgentDraftEntity draft = draft(15L, null);
+        draft.setDraftType("image_generate");
+        draft.setStatus("confirmed");
+        String contentJson = "{\"prompt\":\"生成商品主图\",\"reference_asset_ids\":[],"
+            + "\"image_result\":{\"image_url\":\"data:image/png;base64,ZmFrZQ==\","
+            + "\"revised_prompt\":\"优化后的提示词\"}}";
+        draft.setContentJson(contentJson);
+        when(agentDraftRepository.findByIdAndOwnerUserId(15L, 1L)).thenReturn(Optional.of(draft));
+        when(agentDraftRepository.findAllByOwnerUserIdOrderByUpdatedAtDescIdDesc(eq(1L), any(Pageable.class)))
+            .thenReturn(java.util.List.of(draft));
+
+        for (String status : List.of("active", "archived")) {
+            var updated = service.updateDraft(
+                15L,
+                new V2AgentDtos.AgentDraftUpdateRequest(
+                    null, "image_generate", "生成图片", contentJson, status
+                )
+            );
+            var listed = service.listDrafts(null);
+
+            assertEquals(status, updated.status());
+            assertEquals("data:image/png;base64,ZmFrZQ==", updated.imageResult().imageUrl());
+            assertEquals("data:image/png;base64,ZmFrZQ==", listed.get(0).imageResult().imageUrl());
+        }
+
+        draft.setStatus("active");
+        draft.setContentJson("{\"prompt\":\"生成商品主图\",\"reference_asset_ids\":[]}");
+        var pending = service.listDrafts(null);
+
+        assertNull(pending.get(0).imageResult());
+
+        draft.setContentJson("{\"prompt\":\"生成商品主图\",\"reference_asset_ids\":[],"
+            + "\"image_result\":{\"image_url\":123}}");
+        var malformedPending = service.listDrafts(null);
+
+        assertNull(malformedPending.get(0).imageResult());
+    }
+
+    @Test
     void updateDraftPersistsOwnerScopedConversationReference() {
         AgentDraftEntity draft = draft(12L, 7L);
         AgentConversationEntity conversation = conversation(8L);
