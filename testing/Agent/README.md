@@ -56,7 +56,33 @@ testing/Agent/
 
 未执行内容不得写成 `Passed`。任何一条记录缺实际输入、工具调用链或证据路径时保持 `Deferred`，不能用相邻工具结果代替。
 
-## 四、每条用例的最小字段
+## 四、规划数量与执行覆盖口径
+
+规划文档中的父场景、可执行用例和实际执行记录是三个不同概念，统计时必须分开：
+
+| 统计项 | 计算方式 | 当前规划基线 | 说明 |
+|---|---|---:|---|
+| 工具静态映射率 | 已映射工具数 / 源码注册工具数 | 60 / 60 | 46 个 `READ_ONLY` + 14 个 `CREATE_ONLY`，只说明名称和类型已对齐 |
+| 工具分支规划数 | 46 × 11 + 14 × 11 | 660 | 每个派生用例都必须使用独立 `test_id`，不能只引用父卡 |
+| 父场景数 | 各 `TEST_PLAN.md` 中带 `AG-` 的规划行 | 以当前文件实际行数为准 | 父场景用于组织范围，不能直接计入执行覆盖 |
+| 已执行覆盖率 | `Passed + Failed + Blocked` / 应执行的派生用例数 | 执行前为 0% | `Deferred` 不进入已执行分子 |
+| 有效通过率 | `Passed` / (`Passed + Failed`) | 执行后计算 | `Blocked` 单独报告，不与失败混算 |
+| 证据完整率 | 满足必填证据的已执行记录 / 已执行记录 | 执行前为 0% | 缺任一关键证据时不能标 `Passed` |
+
+### 4.1 工具分支的独立编号
+
+功能父卡采用如下派生编号，执行台账、日志目录和报告必须使用同一个编号：
+
+```text
+AG-F-TOOL-RO-001-B01 ... AG-F-TOOL-RO-001-B11
+AG-F-DRAFT-CO-001-B01 ... AG-F-DRAFT-CO-001-B11
+```
+
+只读工具的 `B01` 至 `B11` 依次对应成功有数据、成功空数据、非法参数、未登录、无权限、跨 owner/store、数量或分页边界、重复请求、流式路径、清理、审计；需要比较 REST 与 SSE 时在编号后追加 `-REST` 或 `-SSE`。创建工具的 `B01` 至 `B11` 依次对应草稿生成、用户拒绝、用户确认、重复确认、确认失败、非法参数、未登录、无权限、跨 owner/store、并发确认、清理；审计字段是每一条分支的必填观察项，不另占编号。每一条都要记录真实输入、实际工具链、响应、数据差异和结果。
+
+多工具、Loop、上下文、契约、安全、可靠性、数据和客户端场景仍使用自身的 `AG-*` 编号；同一父场景在非流式和流式执行时增加 `-REST`、`-SSE` 后缀，不能共用一条结果。
+
+## 五、每条用例的最小字段
 
 统一覆盖：测试目标、前置条件、输入提示词或请求参数、预期调用工具、预期工具调用顺序、Loop 循环与上下文压缩行为、预期 SSE 或普通响应、正式回答内容、数据库/草稿/审计/业务表变化、边界条件、验收条件、日志/脚本/原始证据位置。
 
@@ -64,21 +90,37 @@ testing/Agent/
 |---|---|---|
 | `test_id` | 唯一编号，如 `AG-F-TOOL-RO-001`、`AG-S-010`、`AG-P-001` | 是 |
 | `category_id` | `F/S/P/U/C/I/R/D/CLI` | 是 |
+| `wave_id` | 执行波次，如 `20260828-agent-plan-01` | 是 |
+| `environment` | 服务版本、数据库类型、Provider、设备条件 | 是 |
+| `account_store_label` | 脱敏后的调用者、owner、store 标签 | 是 |
 | `test_objective` | 测试目标 | 是 |
 | `preconditions` | 前置条件（环境、账号、数据、Provider、设备） | 是 |
 | `input` | 输入提示词或请求参数 | 是 |
+| `operation` | 实际执行步骤、请求方式和重试/并发动作 | 是 |
 | `expected_tools` | 预期调用工具（含允许的依赖工具） | 是 |
 | `expected_order` | 预期工具调用顺序 | 是 |
 | `loop_and_compaction` | 预计 Loop 轮数/终止点、是否会触发上下文压缩、检查点行为 | 是 |
 | `expected_response` | 预期 SSE 事件序列或 REST 响应 | 是 |
 | `expected_answer` | 正式回答内容要求（非空、可追溯、不得编造） | 是 |
+| `actual` | 实际状态码、工具调用、事件、回答和数据变化 | 执行后是 |
 | `db_changes` | 数据库、草稿、审计与业务表变化（before/after） | 是 |
 | `boundaries` | 边界条件（空数据、非法参数、权限、跨域、重复、并发、分页） | 是 |
 | `acceptance` | 验收条件 | 是 |
 | `evidence_path` | 日志、脚本与原始证据存放位置 | 是 |
+| `cleanup_action` | 清理动作及其结果路径 | 执行后是 |
 | `result` | `Passed/Failed/Blocked/Deferred` | 是 |
 
-## 五、证据与脱敏规范
+### 5.1 执行台账格式
+
+各类别的执行台账放在对应的 `reports/` 目录，建议文件名为 `live_execution_ledger.csv`。一行只表示一个独立派生用例，不把多个账号、端点、工具或状态合并到一行。CSV 表头固定为：
+
+```text
+test_id,category_id,wave_id,environment,account_store_label,preconditions,input,operation,expected_tools,expected_order,loop_and_compaction,expected_response,expected_answer,actual,db_changes,boundaries,acceptance,evidence_path,cleanup_action,result
+```
+
+父卡只保留规划说明；当父卡还没有派生执行记录时，不能填入 `Passed`。每个类别报告应同时给出：父卡数量、派生应执行数量、Passed、Failed、Blocked、Deferred、证据完整率和未覆盖项。
+
+## 六、证据与脱敏规范
 
 单条用例目录 `testing/Agent/<类别>/artifacts/<日期>-<波次>-<用例>/` 按顺序保存：
 
@@ -98,7 +140,7 @@ testing/Agent/
 
 禁止写入：Authorization、Cookie、Session Token、密码、私钥、API key、模型密钥、完整认证载荷、未脱敏手机号/地址、其他 owner 的完整业务数据。提交前按这些模式扫描，命中任何一项不得标记为可交付。
 
-## 六、执行顺序
+## 七、执行顺序
 
 1. 建立环境记录：工作树版本、服务版本、APP 版本、Provider 配置、数据库、账号与设备。
 2. 执行 `单元/`（现有测试 + 新增组件测试）与 `契约/`（静态契约核对，不依赖真机）。
@@ -111,11 +153,11 @@ testing/Agent/
 9. 按 `客户端/` 在真实设备上执行 Android/iOS 联调；Web 只做协议对照。
 10. 汇总：回写各档用例的 `result`；未满足证据要求的项目不得填 `Passed`。
 
-## 七、维护规则
+## 八、维护规则
 
 1. 本目录是 Agent 测试唯一体系；不再新建第二份 Agent 方案、阶段报告或重复台账。
 2. 新增工具、新增创建类草稿类型、压缩策略或 SSE 事件变更时，先更新 `代码事实基线.md` 与 `映射台账.md`，再补充对应类别用例。
 3. 结果状态只能使用四值口径；历史旧状态（如部分完成、未闭环）必须在迁移时折算为 `Passed/Failed/Blocked/Deferred` 之一。
 4. 旧的《Agent 综合功能与性能测试方案》已删除，其编号体系（`AG-F-*`、`AG-S-*`、`AG-P-*`、`AG-C-*`、`AG-U-*`、`AG-CTX-*`）由各类别文档按原编号续用，避免追溯断裂。
-5. `testing/已知问题与解除条件.md` 中引用 `testing/Agent/功能测试/functional_feature_matrix.csv`、`testing/Agent/功能测试/...` 的历史条目（第 6、7 条）属于旧结构的失效引用；现状是台账并入各 `TEST_PLAN.md` 的用例行，不再存在独立的 Agent CSV 台账。根目录该文档不在本次调整范围，相关 Agent 问题状态以上方链接原文为准。
+5. 根目录 `testing/已知问题与解除条件.md` 如仍保留旧目录文字，只作为历史记录处理，不作为本目录入口；当前台账并入各 `TEST_PLAN.md` 的用例行，不再存在独立的 Agent CSV 台账。本轮不修改根目录历史文档。
 6. Git 检查只纳入本文档体系、对应类别脚本与脱敏文本证据；凭据、APK、JAR、`dist`、`node_modules`、Gradle 缓存和运行数据库文件不得提交。
