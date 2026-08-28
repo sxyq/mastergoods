@@ -33,6 +33,8 @@
 | AG-CLI-IOS-008 | iOS 错误与重试 | 401/403/409/422/429/5xx 或 SSE error | 分别展示登录失效/无权限/冲突/参数/限流/服务异常；可重试 |
 | AG-CLI-IOS-009 | iOS 后台/前台切换 | 运行状态 | 恢复后状态一致；无重复事件 |
 | AG-CLI-WEB-001 | 协议对照 | 同上服务端事实 | 事件/Schema 与移动端一致；ID 全程字符串/BigInt，禁止 `Number()` |
+| AG-CLI-AND-010 | Android 生图草稿确认 | `image_generate` 产生 `draft_card`；覆盖式确认/拒绝；确认后显示结果或安全错误 | 拒绝不显示已保存；确认后结果与 `image_url/revised_prompt` 一致；Provider/设备缺失记 `Blocked` | 输入、UI 树/截图、SSE/REST 摘要、audit、清理、状态 |
+| AG-CLI-IOS-010 | iOS 生图草稿确认 | 同上，使用独立 iOS `test_id` | 不用 Android/Web 结果替代；确认、拒绝、失败状态与服务端一致；设备缺失记 `Blocked` | 输入、UI 树/截图、响应摘要、audit、清理、状态 |
 
 ## 三、展示断言（服务端→客户端一致性）
 
@@ -46,6 +48,7 @@
 | 草稿确认 | draft_id/type/title/content/status | 覆盖式弹窗；确认/拒绝明确；未确认无“已保存”文案 |
 | 错误 | HTTP/SSE 错误与终态 | 分状态展示；可恢复状态提供重试 |
 | 取消/断线 | run_cancelled、断线终态 | 停止后不增量；不可恢复明确终止 |
+| 生图结果 | 确认后的 `image_url` 或受控 data URL、`revised_prompt` | 只在确认成功后展示；不显示 key、完整 b64 或内部错误；结果失败可重试 |
 
 ## 四、证据存放
 

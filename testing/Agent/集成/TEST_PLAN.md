@@ -9,7 +9,7 @@
 - mock Provider 只用于稳定控制工具选择、超时和错误分支；使用 mock 时必须在结果中标记，不能把它作为真实 Provider 性能或可用性结论。
 - H2/H2-PG 模式可以验证应用逻辑和部分 SQL 行为；不能代替 PostgreSQL 的锁、索引和 `EXPLAIN/EXPLAIN ANALYZE` 结果。
 
-## 二、专项用例（AG-I-001~012，初始 `Deferred`）
+## 二、专项用例（AG-I-001~013，初始 `Deferred`）
 
 | 编号 | 场景 | 步骤 | 预期 | 边界/前提 |
 |---|---|---|---|---|
@@ -25,12 +25,15 @@
 | AG-I-010 | Web 搜索集成 | `WebSearchProvider` → 结果解析 → 安全 URL 过滤 | 来源、摘要、引用一致；危险来源不进结果 | Provider 已配置 |
 | AG-I-011 | 真实分页查询 | Repository 层 page/size/count 与大表 | SQL 正确、有界 | 真实 PostgreSQL（否则 Blocked/Deferred） |
 | AG-I-012 | 数据库迁移数据 | 现有迁移后的 Agent 表结构与索引（V13/14/15/17/32/33） | 表字段、CASCADE、唯一约束符合基线第十二节 | 需重建或既有库 |
+| AG-I-013 | Agent 生图确认闭环 | `image_generate` 工具请求 → active 草稿 → 手机/客户端确认 → Provider Mock `url`/`b64_json`/失败/超时/取消 → `AgentImageService` | 工具阶段 Provider 调用 0；确认后调用一次；owner/reference image 校验；成功返回受控结果；拒绝不写正式业务表；失败保留可重试草稿；audit/run-trace、清理结果可对齐 | 隔离服务 + mock Provider；真实 Provider、设备 UI 和生产 PG 记 `Blocked`/`Deferred` |
 
 ## 三、组件边界与记录要求
 
 每条集成用例至少记录以下边界：Controller 输入、认证主体和 owner/store、Provider 请求/响应摘要、ToolPlanner 计划、ToolExecutor 门结果、业务 Service/Repository 调用、事务结果、SSE/REST 输出、audit/run-trace 和数据库 before/after。任何一个环节缺少证据时，结果保持 `Deferred` 或按缺失条件记 `Blocked`。
 
 特别核对两个草稿路由：`create_inventory_count_draft` 工具生成的草稿类型是 `create_inventory_adjustment`，确认时进入库存调整 Service；`media_upload_tool`工具生成的草稿类型是`media_upload`，确认后后端不直接落媒体资产，由客户端继续上传。路由名称、工具名称和草稿类型必须分开记录。
+
+`image_generate` 是第三条独立边界：工具名与草稿类型均为 `image_generate`，确认才调用 `AgentImageService`；`POST /v2/agent/images/generate` 的直接 REST 调用单独记录，不计入 Agent 工具选择或工具调用统计。每条 `AG-I-013` 记录必须包含输入摘要、ToolPlanner/ToolExecutor 结果、Provider Mock 请求摘要、响应类型、草稿/业务表 before-after、audit、清理和唯一状态；初始为 `Deferred`，缺隔离服务或 Provider Mock 能力时为 `Blocked`。
 
 ## 四、证据存放
 
