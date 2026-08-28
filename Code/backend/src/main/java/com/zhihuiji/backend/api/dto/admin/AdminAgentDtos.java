@@ -58,4 +58,85 @@ public final class AdminAgentDtos {
             items = List.copyOf(items == null ? List.of() : items);
         }
     }
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record Message(
+        String messageId,
+        String conversationId,
+        String runId,
+        String role,
+        String messageType,
+        String content,
+        String redactionState,
+        Instant occurredAt
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record ContextCheckpoint(
+        String checkpointId,
+        String conversationId,
+        String sourceBoundaryMessageId,
+        Integer sourceMessageCount,
+        Integer summaryVersion,
+        Integer contextPolicyVersion,
+        Integer toolSchemaVersion,
+        Integer revision,
+        String quality,
+        String status,
+        String modelName,
+        Integer estimatedInputTokens,
+        Integer estimatedOutputTokens,
+        Instant createdAt,
+        Instant updatedAt,
+        boolean contentRedacted
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record ContextResponse(
+        String runId,
+        String conversationId,
+        Integer contextWindowTokens,
+        Integer estimatedInputTokens,
+        Integer estimatedOutputTokens,
+        List<ContextCheckpoint> checkpoints,
+        boolean contentRedacted,
+        String scopeCompleteness
+    ) {
+        public ContextResponse {
+            checkpoints = List.copyOf(checkpoints == null ? List.of() : checkpoints);
+        }
+    }
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record Draft(
+        String draftId,
+        String conversationId,
+        String draftType,
+        String title,
+        String status,
+        Instant createdAt,
+        Instant updatedAt,
+        boolean contentRedacted
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record Usage(
+        String runId,
+        String modelId,
+        Long inputTokens,
+        Long outputTokens,
+        Long totalTokens,
+        Long durationMs,
+        Long timeToFirstTokenMs,
+        TokenSource tokenSource,
+        boolean estimated,
+        String scopeCompleteness
+    ) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record UsagePage(List<Usage> items, long total, Instant generatedAt) {
+        public UsagePage {
+            items = List.copyOf(items == null ? List.of() : items);
+        }
+    }
 }
