@@ -5,6 +5,11 @@ import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.zhihuiji.backend.domain.entity.AdminScopeGrantEntity;
+import com.zhihuiji.backend.infrastructure.repository.admin.AdminAccountRepository;
+import com.zhihuiji.backend.infrastructure.repository.admin.AdminScopeGrantRepository;
+import java.util.HashSet;
 
 /**
  * Resolves an administrator only when a trusted authentication component has
@@ -16,14 +21,68 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class AdminPrincipalResolver {
+    private final AdminAccountRepository accountRepository;
+    private final AdminScopeGrantRepository scopeGrantRepository;
+
+    /** Retained for focused unit tests that place an AdminPrincipal directly. */
+    public AdminPrincipalResolver() {
+        this.accountRepository = null;
+        this.scopeGrantRepository = null;
+    }
+
+    @Autowired
+    public AdminPrincipalResolver(
+        AdminAccountRepository accountRepository,
+        AdminScopeGrantRepository scopeGrantRepository
+    ) {
+        this.accountRepository = accountRepository;
+        this.scopeGrantRepository = scopeGrantRepository;
+    }
+
     public AdminPrincipal requireCurrent() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null
             || !authentication.isAuthenticated()
             || authentication instanceof AnonymousAuthenticationToken
-            || !(authentication.getPrincipal() instanceof AdminPrincipal principal)) {
+            || authentication.getPrincipal() == null) {
             throw new AccessDeniedException("administrator authentication required");
         }
-        return principal;
+        if (authentication.getPrincipal() instanceof AdminPrincipal principal) {
+            return principal;
+        }
+        Object subject = authentication.getPrincipal();
+        if (subject instanceof Number number) return resolveUserId(number.longValue());
+        if (subject instanceof String text) {
+            try { return resolveUserId(Long.parseLong(text)); }
+            catch (NumberFormatException ignored) { }
+        }
+        throw new AccessDeniedException("administrator authentication required");
+    }
+
+    /** Resolves the database-backed administrator account from the trusted user ID. */
+    public AdminPrincipal resolveUserId(Long userId) {
+        if (accountRepository == null || scopeGrantRepository == null || userId == null || userId <= 0) {
+            throw new AccessDeniedException("administrator authentication required");
+        }
+        var account = accountRepository.findByUserIdAndStatus(userId, 1)
+            .orElseThrow(() -> new AccessDeniedException("administrator authentication required"));
+        AdminPrincipal.AdminRole role;
+        try {
+            role = AdminPrincipal.AdminRole.valueOf(account.getRoleCode());
+        } catch (RuntimeException ex) {
+            throw new AccessDeniedException("administrator role is invalid");
+        }
+        if (role == AdminPrincipal.AdminRole.SUPER_ADMIN) {
+            return AdminPrincipal.forRole(userId, role,
+                AdminDataScope.allOwners(true, AdminDataScope.ContentMode.AUTHORIZED));
+        }
+        var ownerIds = new HashSet<Long>();
+        var storeIds = new HashSet<Long>();
+        for (AdminScopeGrantEntity grant : scopeGrantRepository.findAllByAdminAccountIdAndStatusOrderByIdAsc(account.getId(), 1)) {
+            if (grant.getOwnerUserId() != null) ownerIds.add(grant.getOwnerUserId());
+            if (grant.getStoreId() != null) storeIds.add(grant.getStoreId());
+        }
+        return AdminPrincipal.forRole(userId, role,
+            new AdminDataScope(false, ownerIds, storeIds, false, AdminDataScope.ContentMode.REDACTED));
     }
 }
