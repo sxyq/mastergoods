@@ -1,0 +1,8 @@
+{
+  "test_id": "AG-S-REMOTE-ENV-001",
+  "category_id": "AG-S-ENV-REMOTE",
+  "wave_id": "Wave 2",
+  "result": "Blocked",
+  "database_observation": "not_available",
+  "reason": "no remote database access and no authenticated request reached business services"
+}

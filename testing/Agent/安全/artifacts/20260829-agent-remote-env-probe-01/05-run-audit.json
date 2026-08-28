@@ -1,0 +1,10 @@
+{
+  "test_id": "AG-S-REMOTE-ENV-001",
+  "category_id": "AG-S-ENV-REMOTE",
+  "wave_id": "Wave 2",
+  "result": "Blocked",
+  "run_id": null,
+  "trace_id": null,
+  "audit_query": "not_run",
+  "reason": "Android had no authenticated Agent run and anonymous HTTP requests were rejected"
+}

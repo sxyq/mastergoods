@@ -1,0 +1,16 @@
+{
+  "test_id": "AG-F-LIVE-LAZY-ROUTE-001",
+  "category_id": "AG-F-ENV-LAZY",
+  "wave_id": "Wave 0",
+  "account": "anonymous",
+  "store": "redacted",
+  "requests": [
+    {"method": "GET", "path": "/actuator/health"},
+    {"method": "GET", "path": "/v2/agent/tools"},
+    {"method": "POST", "path": "/v2/agent/chat", "body": "{}"},
+    {"method": "POST", "path": "/v2/agent/chat/stream", "body": "{}"},
+    {"method": "POST", "path": "/v2/agent/images/generate", "body": "{\"prompt\":\"local-negative-probe\"}"}
+  ],
+  "credentials_sent": false,
+  "provider_call": false
+}

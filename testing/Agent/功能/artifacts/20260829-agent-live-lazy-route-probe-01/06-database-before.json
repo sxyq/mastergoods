@@ -1,0 +1,9 @@
+{
+  "test_id": "AG-F-LIVE-LAZY-ROUTE-001",
+  "category_id": "AG-F-ENV-LAZY",
+  "wave_id": "Wave 0",
+  "result": "Blocked",
+  "database": "local H2",
+  "snapshot": "not_captured",
+  "reason": "the request did not pass authorization and no business read was issued"
+}

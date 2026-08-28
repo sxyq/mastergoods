@@ -1,0 +1,17 @@
+{
+  "test_id": "AG-F-LIVE-LAZY-ROUTE-001",
+  "category_id": "AG-F-ENV-LAZY",
+  "wave_id": "Wave 0",
+  "result": "Blocked",
+  "service": "127.0.0.1:18080",
+  "responses": [
+    {"method": "GET", "path": "/actuator/health", "status": 403, "content_type": "application/json", "body_bytes": 104},
+    {"method": "GET", "path": "/v2/agent/tools", "status": 403, "content_type": "application/json", "body_bytes": 103},
+    {"method": "POST", "path": "/v2/agent/chat", "status": 403, "content_type": "application/json", "body_bytes": 102},
+    {"method": "POST", "path": "/v2/agent/chat/stream", "status": 403, "content_type": "application/json", "body_bytes": 109},
+    {"method": "POST", "path": "/v2/agent/images/generate", "status": 403, "content_type": "application/json", "body_bytes": 113}
+  ],
+  "response_bodies_saved": false,
+  "set_cookie_saved": false,
+  "authorization_saved": false
+}

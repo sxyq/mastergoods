@@ -1,0 +1,22 @@
+{
+  "test_id": "AG-S-REMOTE-ENV-001",
+  "category_id": "AG-S-ENV-REMOTE",
+  "wave_id": "Wave 2",
+  "account": "anonymous",
+  "store": "redacted",
+  "requests": [
+    {"method": "GET", "path": "/"},
+    {"method": "GET", "path": "/health"},
+    {"method": "GET", "path": "/actuator/health"},
+    {"method": "GET", "path": "/v2/agent/tools"},
+    {"method": "GET", "path": "/v2/agent/chat"},
+    {"method": "POST", "path": "/v1/auth/login", "body": "{}"},
+    {"method": "POST", "path": "/v2/auth/login", "body": "{}"},
+    {"method": "POST", "path": "/v2/agent/chat", "body": "{}"},
+    {"method": "POST", "path": "/v2/agent/chat/stream", "body": "{}"},
+    {"method": "POST", "path": "/v2/agent/images/generate", "body": "{}"},
+    {"method": "POST", "path": "/v2/agent/cancel", "body": "{}"}
+  ],
+  "credentials_sent": false,
+  "provider_call": false
+}

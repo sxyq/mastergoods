@@ -1,0 +1,23 @@
+{
+  "test_id": "AG-S-REMOTE-ENV-001",
+  "category_id": "AG-S-ENV-REMOTE",
+  "wave_id": "Wave 2",
+  "result": "Blocked",
+  "target": "user-provided HTTPS development endpoint",
+  "responses": [
+    {"method": "GET", "path": "/", "status": 403, "content_type": "application/json", "body_bytes": 89},
+    {"method": "GET", "path": "/health", "status": 403, "content_type": "application/json", "body_bytes": 95},
+    {"method": "GET", "path": "/actuator/health", "status": 403, "content_type": "application/json", "body_bytes": 104},
+    {"method": "GET", "path": "/v2/agent/tools", "status": 403, "content_type": "application/json", "body_bytes": 103},
+    {"method": "GET", "path": "/v2/agent/chat", "status": 403, "content_type": "application/json", "body_bytes": 102},
+    {"method": "POST", "path": "/v1/auth/login", "status": 400, "content_type": "application/json", "body_bytes": 86},
+    {"method": "POST", "path": "/v2/auth/login", "status": 400, "content_type": "application/json", "body_bytes": 89},
+    {"method": "POST", "path": "/v2/agent/chat", "status": 403, "content_type": "application/json", "body_bytes": 102},
+    {"method": "POST", "path": "/v2/agent/chat/stream", "status": 403, "content_type": "application/json", "body_bytes": 109},
+    {"method": "POST", "path": "/v2/agent/images/generate", "status": 403, "content_type": "application/json", "body_bytes": 113},
+    {"method": "POST", "path": "/v2/agent/cancel", "status": 403, "content_type": "application/json", "body_bytes": 104}
+  ],
+  "response_bodies_saved": false,
+  "set_cookie_saved": false,
+  "authorization_saved": false
+}

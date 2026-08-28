@@ -1,0 +1,9 @@
+{
+  "test_id": "AG-S-REMOTE-ENV-001",
+  "category_id": "AG-S-ENV-REMOTE",
+  "wave_id": "Wave 2",
+  "result": "Blocked",
+  "database_observation": "not_available",
+  "business_write_assertion": "not_evaluable",
+  "reason": "no authenticated request reached business services"
+}

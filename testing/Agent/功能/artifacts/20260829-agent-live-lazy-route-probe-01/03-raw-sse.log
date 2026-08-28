@@ -1,0 +1,9 @@
+test_id=AG-F-LIVE-LAZY-ROUTE-001
+category_id=AG-F-ENV-LAZY
+wave_id=Wave 0
+result=Blocked
+request=POST /v2/agent/chat/stream
+stream_opened=false
+http_status=403
+reason=anonymous request rejected by the local security chain
+raw_response_body=not_saved

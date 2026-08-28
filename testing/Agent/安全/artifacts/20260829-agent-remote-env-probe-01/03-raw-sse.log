@@ -1,0 +1,9 @@
+test_id=AG-S-REMOTE-ENV-001
+category_id=AG-S-ENV-REMOTE
+wave_id=Wave 2
+result=Blocked
+stream_request=POST /v2/agent/chat/stream
+stream_opened=false
+http_status=403
+reason=anonymous request rejected before an SSE stream was established
+raw_response_body=not_saved

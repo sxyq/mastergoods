@@ -1,0 +1,11 @@
+{
+  "test_id": "AG-S-REMOTE-ENV-001",
+  "category_id": "AG-S-ENV-REMOTE",
+  "wave_id": "Wave 2",
+  "result": "Blocked",
+  "created_test_data": false,
+  "provider_call": false,
+  "connections_closed": true,
+  "credentials_retained": false,
+  "cleanup": "no remote mutation was attempted"
+}
