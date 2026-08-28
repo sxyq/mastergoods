@@ -1,0 +1,115 @@
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :resolveMainClassName
+
+> Task :bootRun
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+[32m :: Spring Boot :: [39m              [2m (v3.2.6)[0;39m
+
+[2m2026-08-29T03:02:41.175+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mc.z.backend.ZhihuijiBackendApplication  [0;39m [2m:[0;39m Starting ZhihuijiBackendApplication using Java 21.0.11 with PID 8191 (/Users/sunyiyang/Desktop/Project/master-goods/tmp/build/gradle-output/backend/classes/java/main started by sunyiyang in /Users/sunyiyang/Desktop/Project/master-goods/Code/backend)
+[2m2026-08-29T03:02:41.176+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mc.z.backend.ZhihuijiBackendApplication  [0;39m [2m:[0;39m The following 1 profile is active: "local"
+[2m2026-08-29T03:02:41.702+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36m.s.d.r.c.RepositoryConfigurationDelegate[0;39m [2m:[0;39m Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+[2m2026-08-29T03:02:41.818+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36m.s.d.r.c.RepositoryConfigurationDelegate[0;39m [2m:[0;39m Finished Spring Data repository scanning in 111 ms. Found 64 JPA repository interfaces.
+[2m2026-08-29T03:02:42.358+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mo.s.b.w.embedded.tomcat.TomcatWebServer [0;39m [2m:[0;39m Tomcat initialized with port 18080 (http)
+[2m2026-08-29T03:02:42.378+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mo.apache.catalina.core.StandardService  [0;39m [2m:[0;39m Starting service [Tomcat]
+[2m2026-08-29T03:02:42.379+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mo.apache.catalina.core.StandardEngine   [0;39m [2m:[0;39m Starting Servlet engine: [Apache Tomcat/10.1.24]
+[2m2026-08-29T03:02:42.604+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mo.a.c.c.C.[Tomcat].[localhost].[/]      [0;39m [2m:[0;39m Initializing Spring embedded WebApplicationContext
+[2m2026-08-29T03:02:42.606+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mw.s.c.ServletWebServerApplicationContext[0;39m [2m:[0;39m Root WebApplicationContext: initialization completed in 1408 ms
+[2m2026-08-29T03:02:42.902+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mo.hibernate.jpa.internal.util.LogHelper [0;39m [2m:[0;39m HHH000204: Processing PersistenceUnitInfo [name: default]
+[2m2026-08-29T03:02:42.984+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36morg.hibernate.Version                   [0;39m [2m:[0;39m HHH000412: Hibernate ORM core version 6.4.8.Final
+[2m2026-08-29T03:02:43.027+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mo.h.c.internal.RegionFactoryInitiator   [0;39m [2m:[0;39m HHH000026: Second-level cache disabled
+[2m2026-08-29T03:02:44.137+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mo.s.o.j.p.SpringPersistenceUnitInfo     [0;39m [2m:[0;39m No LoadTimeWeaver setup: ignoring JPA class transformer
+[2m2026-08-29T03:02:44.163+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mcom.zaxxer.hikari.HikariDataSource      [0;39m [2m:[0;39m HikariPool-1 - Starting...
+[2m2026-08-29T03:02:44.516+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mcom.zaxxer.hikari.pool.HikariPool       [0;39m [2m:[0;39m HikariPool-1 - Added connection conn1: url=jdbc:h2:file:/Users/sunyiyang/Desktop/Project/master-goods/tmp/build/gradle-cache/backend-local/zhihuiji_local user=SA
+[2m2026-08-29T03:02:44.517+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mcom.zaxxer.hikari.HikariDataSource      [0;39m [2m:[0;39m HikariPool-1 - Start completed.
+[2m2026-08-29T03:02:45.579+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mo.h.e.t.j.p.i.JtaPlatformInitiator      [0;39m [2m:[0;39m HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+[2m2026-08-29T03:02:45.612+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mj.LocalContainerEntityManagerFactoryBean[0;39m [2m:[0;39m Initialized JPA EntityManagerFactory for persistence unit 'default'
+[2m2026-08-29T03:02:45.721+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mo.s.d.j.r.query.QueryEnhancerFactory    [0;39m [2m:[0;39m Hibernate is in classpath; If applicable, HQL parser will be used.
+[2m2026-08-29T03:02:46.812+08:00[0;39m [33m WARN[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mConfigServletWebServerApplicationContext[0;39m [2m:[0;39m Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'adminAgentController' defined in file [/Users/sunyiyang/Desktop/Project/master-goods/tmp/build/gradle-output/backend/classes/java/main/com/zhihuiji/backend/api/controller/admin/AdminAgentController.class]: Failed to instantiate [com.zhihuiji.backend.api.controller.admin.AdminAgentController]: No default constructor found
+[2m2026-08-29T03:02:46.813+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mj.LocalContainerEntityManagerFactoryBean[0;39m [2m:[0;39m Closing JPA EntityManagerFactory for persistence unit 'default'
+[2m2026-08-29T03:02:46.814+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mcom.zaxxer.hikari.HikariDataSource      [0;39m [2m:[0;39m HikariPool-1 - Shutdown initiated...
+[2m2026-08-29T03:02:46.815+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mcom.zaxxer.hikari.HikariDataSource      [0;39m [2m:[0;39m HikariPool-1 - Shutdown completed.
+[2m2026-08-29T03:02:46.815+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mo.apache.catalina.core.StandardService  [0;39m [2m:[0;39m Stopping service [Tomcat]
+[2m2026-08-29T03:02:46.816+08:00[0;39m [33m WARN[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mo.a.c.loader.WebappClassLoaderBase      [0;39m [2m:[0;39m The web application [ROOT] appears to have started a thread named [H2 TCP Server (tcp://192.168.1.99:59174)] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base/sun.nio.ch.Net.accept(Native Method)
+ java.base/sun.nio.ch.NioSocketImpl.accept(NioSocketImpl.java:748)
+ java.base/java.net.ServerSocket.implAccept(ServerSocket.java:698)
+ java.base/java.net.ServerSocket.platformImplAccept(ServerSocket.java:663)
+ java.base/java.net.ServerSocket.implAccept(ServerSocket.java:639)
+ java.base/java.net.ServerSocket.implAccept(ServerSocket.java:585)
+ java.base/java.net.ServerSocket.accept(ServerSocket.java:543)
+ org.h2.server.TcpServer.listen(TcpServer.java:259)
+ org.h2.tools.Server.run(Server.java:647)
+ java.base/java.lang.Thread.run(Thread.java:1583)
+[2m2026-08-29T03:02:46.816+08:00[0;39m [33m WARN[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mo.a.c.loader.WebappClassLoaderBase      [0;39m [2m:[0;39m The web application [ROOT] appears to have started a thread named [MVStore background writer /Users/sunyiyang/Desktop/Project/master-goods/tmp/build/gradle-cache/backend-local/zhihuiji_local.mv.db] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base/java.lang.Object.wait0(Native Method)
+ java.base/java.lang.Object.wait(Object.java:366)
+ org.h2.mvstore.FileStore$BackgroundWriterThread.run(FileStore.java:2242)
+[2m2026-08-29T03:02:46.816+08:00[0;39m [33m WARN[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mo.a.c.loader.WebappClassLoaderBase      [0;39m [2m:[0;39m The web application [ROOT] appears to have started a thread named [H2-serialization] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base/java.util.concurrent.locks.LockSupport.park(LockSupport.java:371)
+ java.base/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(AbstractQueuedSynchronizer.java:519)
+ java.base/java.util.concurrent.ForkJoinPool.unmanagedBlock(ForkJoinPool.java:3780)
+ java.base/java.util.concurrent.ForkJoinPool.managedBlock(ForkJoinPool.java:3725)
+ java.base/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:1746)
+ java.base/java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:435)
+ java.base/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1070)
+ java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1130)
+ java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+ java.base/java.lang.Thread.run(Thread.java:1583)
+[2m2026-08-29T03:02:46.817+08:00[0;39m [33m WARN[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mo.a.c.loader.WebappClassLoaderBase      [0;39m [2m:[0;39m The web application [ROOT] appears to have started a thread named [H2-save] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base/java.util.concurrent.locks.LockSupport.park(LockSupport.java:371)
+ java.base/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(AbstractQueuedSynchronizer.java:519)
+ java.base/java.util.concurrent.ForkJoinPool.unmanagedBlock(ForkJoinPool.java:3780)
+ java.base/java.util.concurrent.ForkJoinPool.managedBlock(ForkJoinPool.java:3725)
+ java.base/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:1746)
+ java.base/java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:435)
+ java.base/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1070)
+ java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1130)
+ java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+ java.base/java.lang.Thread.run(Thread.java:1583)
+[2m2026-08-29T03:02:46.821+08:00[0;39m [32m INFO[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36m.s.b.a.l.ConditionEvaluationReportLogger[0;39m [2m:[0;39m
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+[2m2026-08-29T03:02:46.830+08:00[0;39m [31mERROR[0;39m [35m8191[0;39m [2m---[0;39m [2m[zhihuiji-backend] [           main][0;39m [2m[0;39m[36mo.s.boot.SpringApplication              [0;39m [2m:[0;39m Application run failed
+
+org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'adminAgentController' defined in file [/Users/sunyiyang/Desktop/Project/master-goods/tmp/build/gradle-output/backend/classes/java/main/com/zhihuiji/backend/api/controller/admin/AdminAgentController.class]: Failed to instantiate [com.zhihuiji.backend.api.controller.admin.AdminAgentController]: No default constructor found
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateBean(AbstractAutowireCapableBeanFactory.java:1319) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1204) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:562) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:522) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:337) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:335) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:975) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:962) ~[spring-context-6.1.8.jar:6.1.8]
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:624) ~[spring-context-6.1.8.jar:6.1.8]
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146) ~[spring-boot-3.2.6.jar:3.2.6]
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:754) ~[spring-boot-3.2.6.jar:3.2.6]
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:456) ~[spring-boot-3.2.6.jar:3.2.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:335) ~[spring-boot-3.2.6.jar:3.2.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1363) ~[spring-boot-3.2.6.jar:3.2.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1352) ~[spring-boot-3.2.6.jar:3.2.6]
+	at com.zhihuiji.backend.ZhihuijiBackendApplication.main(ZhihuijiBackendApplication.java:12) ~[main/:na]
+Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [com.zhihuiji.backend.api.controller.admin.AdminAgentController]: No default constructor found
+	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.instantiate(SimpleInstantiationStrategy.java:84) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateBean(AbstractAutowireCapableBeanFactory.java:1313) ~[spring-beans-6.1.8.jar:6.1.8]
+	... 17 common frames omitted
+Caused by: java.lang.NoSuchMethodException: com.zhihuiji.backend.api.controller.admin.AdminAgentController.<init>()
+	at java.base/java.lang.Class.getConstructor0(Class.java:3763) ~[na:na]
+	at java.base/java.lang.Class.getDeclaredConstructor(Class.java:2932) ~[na:na]
+	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.instantiate(SimpleInstantiationStrategy.java:80) ~[spring-beans-6.1.8.jar:6.1.8]
+	... 18 common frames omitted
+
+
+> Task :bootRun FAILED
+4 actionable tasks: 2 executed, 2 up-to-date
