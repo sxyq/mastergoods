@@ -37,7 +37,9 @@ public class DefaultAdminScopeService implements AdminScopeService {
             if (actualOwnerUserId == null
                 || (requestedOwnerUserId != null && !Objects.equals(requestedOwnerUserId, actualOwnerUserId))
                 || !principal.scope().allowsOwner(actualOwnerUserId)
-                || !principal.scope().allowsStore(requestedStoreId)) {
+                || (!principal.scope().allOwners()
+                    && !principal.scope().storeIds().isEmpty()
+                    && !principal.scope().allowsStore(requestedStoreId))) {
                 throw denied();
             }
             return narrowedScope(principal.scope(), actualOwnerUserId, requestedStoreId);
@@ -50,10 +52,13 @@ public class DefaultAdminScopeService implements AdminScopeService {
     }
 
     private AdminDataScope narrowedScope(AdminDataScope source, Long ownerUserId, Long storeId) {
+        Set<Long> narrowedStoreIds = storeId != null
+            ? Set.of(storeId)
+            : source.storeIds();
         return new AdminDataScope(
             false,
             Set.of(ownerUserId),
-            storeId == null ? Set.of() : Set.of(storeId),
+            narrowedStoreIds,
             source.includeInactive(),
             source.contentMode()
         );

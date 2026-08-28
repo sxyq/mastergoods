@@ -86,6 +86,35 @@ class DefaultAdminScopeServiceTest {
     }
 
     @Test
+    void ownerScopeCanNarrowToAnyStoreOwnedByThatOwner() {
+        when(storeRepository.findById(501L)).thenReturn(Optional.of(store(101L)));
+        AdminPrincipal principal = observer(AdminDataScope.owners(
+            Set.of(101L), false, AdminDataScope.ContentMode.REDACTED
+        ));
+
+        AdminDataScope narrowed = scopeService.resolve(principal, null, 501L);
+
+        assertEquals(Set.of(101L), narrowed.ownerUserIds());
+        assertEquals(Set.of(501L), narrowed.storeIds());
+    }
+
+    @Test
+    void ownerFilterKeepsAnExistingStoreRestriction() {
+        AdminPrincipal principal = observer(new AdminDataScope(
+            false,
+            Set.of(101L),
+            Set.of(501L),
+            false,
+            AdminDataScope.ContentMode.REDACTED
+        ));
+
+        AdminDataScope narrowed = scopeService.resolve(principal, 101L, null);
+
+        assertEquals(Set.of(101L), narrowed.ownerUserIds());
+        assertEquals(Set.of(501L), narrowed.storeIds());
+    }
+
+    @Test
     void requestedStoreCannotCrossOwnerEvenWhenStoreIsInTheRequestedStoreSet() {
         when(storeRepository.findById(501L)).thenReturn(Optional.of(store(202L)));
         AdminPrincipal principal = observer(new AdminDataScope(

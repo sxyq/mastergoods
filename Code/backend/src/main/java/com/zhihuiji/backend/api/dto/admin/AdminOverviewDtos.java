@@ -16,7 +16,9 @@ public final class AdminOverviewDtos {
         List<Metric> metrics,
         List<TrendPoint> trend,
         boolean estimated,
-        String scopeCompleteness
+        String scopeCompleteness,
+        Instant generatedAt,
+        AdminScopeDtos.Scope scope
     ) {
         public OverviewResponse {
             metrics = List.copyOf(metrics == null ? List.of() : metrics);
