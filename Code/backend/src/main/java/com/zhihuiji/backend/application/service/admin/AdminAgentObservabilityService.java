@@ -59,16 +59,16 @@ public class AdminAgentObservabilityService {
         requirePersistedStoreScope(scope);
         validateTimeRange(from, to);
         AdminScopeQuery queryScope = AdminScopeQuery.from(scope);
-        Page<AgentRunAuditEntity> result = agentQueryRepository.findRuns(
-            queryScope.allOwners(),
-            queryScope.ownerUserIds(),
-            normalizeRunId(runId),
-            conversationId,
-            normalizeStatus(status),
-            from == null ? null : from.toEpochMilli(),
-            to == null ? null : to.toEpochMilli(),
-            PaginationUtils.pageable(page, size)
-        );
+        Page<AgentRunAuditEntity> result = queryScope.storeIds().equals(java.util.Set.of(Long.MIN_VALUE))
+            ? agentQueryRepository.findRuns(
+                queryScope.allOwners(), queryScope.ownerUserIds(), normalizeRunId(runId), conversationId,
+                normalizeStatus(status), from == null ? null : from.toEpochMilli(),
+                to == null ? null : to.toEpochMilli(), PaginationUtils.pageable(page, size))
+            : agentQueryRepository.findRunsScoped(
+                queryScope.allOwners(), queryScope.ownerUserIds(), queryScope.allStores(), queryScope.storeIds(),
+                normalizeRunId(runId), conversationId, null, normalizeStatus(status),
+                from == null ? null : from.toEpochMilli(), to == null ? null : to.toEpochMilli(),
+                PaginationUtils.pageable(page, size));
         List<AdminAgentDtos.RunSummary> items = result.getContent().stream()
             .map(this::toSummary)
             .toList();
@@ -99,12 +99,12 @@ public class AdminAgentObservabilityService {
         );
         requirePersistedStoreScope(scope);
         AdminScopeQuery queryScope = AdminScopeQuery.from(scope);
-        AgentRunAuditEntity run = agentQueryRepository.findRun(
-            normalizeRequiredRunId(runId),
-            queryScope.allOwners(),
-            queryScope.ownerUserIds()
-        ).orElseThrow(() -> new AccessDeniedException("administrator resource not visible"));
-        return toSummary(run);
+        String normalizedRunId = normalizeRequiredRunId(runId);
+        java.util.Optional<AgentRunAuditEntity> run = queryScope.storeIds().equals(java.util.Set.of(Long.MIN_VALUE))
+            ? agentQueryRepository.findRun(normalizedRunId, queryScope.allOwners(), queryScope.ownerUserIds())
+            : agentQueryRepository.findRunScoped(normalizedRunId, queryScope.allOwners(), queryScope.ownerUserIds(),
+                queryScope.allStores(), queryScope.storeIds());
+        return toSummary(run.orElseThrow(() -> new AccessDeniedException("administrator resource not visible")));
     }
 
     private void requirePersistedStoreScope(AdminDataScope scope) {
@@ -155,9 +155,9 @@ public class AdminAgentObservabilityService {
         return new AdminAgentDtos.RunSummary(
             run.getRunId(),
             id(run.getConversationId()),
-            null,
+            id(run.getActorUserId()),
             id(run.getOwnerUserId()),
-            null,
+            id(run.getStoreId()),
             terminalStatus(run.getStatus()),
             null,
             startedAt,

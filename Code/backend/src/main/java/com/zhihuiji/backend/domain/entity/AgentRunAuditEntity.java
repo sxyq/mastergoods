@@ -20,6 +20,12 @@ public class AgentRunAuditEntity {
     @Column(name = "conversation_id")
     private Long conversationId;
 
+    @Column(name = "actor_user_id")
+    private Long actorUserId;
+
+    @Column(name = "store_id")
+    private Long storeId;
+
     @Column(name = "run_id", nullable = false, length = 64)
     private String runId;
 
@@ -79,6 +85,10 @@ public class AgentRunAuditEntity {
     public void setOwnerUserId(Long ownerUserId) { this.ownerUserId = ownerUserId; }
     public Long getConversationId() { return conversationId; }
     public void setConversationId(Long conversationId) { this.conversationId = conversationId; }
+    public Long getActorUserId() { return actorUserId; }
+    public void setActorUserId(Long actorUserId) { this.actorUserId = actorUserId; }
+    public Long getStoreId() { return storeId; }
+    public void setStoreId(Long storeId) { this.storeId = storeId; }
     public String getRunId() { return runId; }
     public void setRunId(String runId) { this.runId = runId; }
     public String getAuditId() { return auditId; }

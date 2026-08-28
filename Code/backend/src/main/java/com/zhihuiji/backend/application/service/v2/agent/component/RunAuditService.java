@@ -132,9 +132,18 @@ public class RunAuditService {
     // ===== 审计记录生命周期 =====
 
     public void createRunAudit(Long ownerUserId, Long conversationId, String runId, long startedAt) {
+        createRunAudit(ownerUserId, conversationId, runId, startedAt, null, null);
+    }
+
+    public void createRunAudit(
+        Long ownerUserId, Long conversationId, String runId, long startedAt,
+        Long actorUserId, Long storeId
+    ) {
         AgentRunAuditEntity entity = new AgentRunAuditEntity();
         entity.setOwnerUserId(ownerUserId);
         entity.setConversationId(conversationId);
+        entity.setActorUserId(actorUserId);
+        entity.setStoreId(storeId);
         entity.setRunId(runId);
         entity.setAuditId(auditIdFor(runId));
         entity.setTraceId(traceIdFor(runId));
@@ -150,8 +159,15 @@ public class RunAuditService {
     }
 
     public void ensureRunAuditStarted(Long ownerUserId, Long conversationId, String runId, long startedAt) {
+        ensureRunAuditStarted(ownerUserId, conversationId, runId, startedAt, null, null);
+    }
+
+    public void ensureRunAuditStarted(
+        Long ownerUserId, Long conversationId, String runId, long startedAt,
+        Long actorUserId, Long storeId
+    ) {
         if (agentRunAuditRepository.findByRunId(runId).isEmpty()) {
-            createRunAudit(ownerUserId, conversationId, runId, startedAt);
+            createRunAudit(ownerUserId, conversationId, runId, startedAt, actorUserId, storeId);
         }
     }
 
@@ -345,6 +361,8 @@ public class RunAuditService {
         private final Long ownerUserId;
         private final String runId;
         private final Long conversationId;
+        private final Long actorUserId;
+        private final Long storeId;
         private final SseEmitter emitter;
         private final AtomicInteger eventSequence = new AtomicInteger(1);
         private final AtomicInteger droppedAuditEventCount = new AtomicInteger(0);
@@ -355,10 +373,19 @@ public class RunAuditService {
         private volatile CompletableFuture<?> future;
 
         public ActiveAgentRun(Long ownerUserId, String runId, Long conversationId, SseEmitter emitter) {
+            this(ownerUserId, runId, conversationId, emitter, null, null);
+        }
+
+        public ActiveAgentRun(
+            Long ownerUserId, String runId, Long conversationId, SseEmitter emitter,
+            Long actorUserId, Long storeId
+        ) {
             this.ownerUserId = ownerUserId;
             this.runId = runId;
             this.conversationId = conversationId;
             this.emitter = emitter;
+            this.actorUserId = actorUserId;
+            this.storeId = storeId;
         }
 
         public Long ownerUserId() {
@@ -375,6 +402,14 @@ public class RunAuditService {
 
         public Long conversationId() {
             return conversationId;
+        }
+
+        public Long actorUserId() {
+            return actorUserId;
+        }
+
+        public Long storeId() {
+            return storeId;
         }
 
         private int nextSeq() {

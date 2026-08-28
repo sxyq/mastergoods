@@ -9,34 +9,39 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.zhihuiji.backend.domain.entity.AdminScopeGrantEntity;
 import com.zhihuiji.backend.infrastructure.repository.admin.AdminAccountRepository;
 import com.zhihuiji.backend.infrastructure.repository.admin.AdminScopeGrantRepository;
+import com.zhihuiji.backend.infrastructure.repository.StoreRepository;
 import java.util.HashSet;
 
 /**
  * Resolves an administrator only when a trusted authentication component has
  * already placed an {@link AdminPrincipal} in the security context.
  *
- * <p>The current token filter places a regular user ID in the context, so that
- * authentication is deliberately rejected here until an administrator role
- * source is implemented. Request parameters never participate in resolution.</p>
+ * <p>The token filter places a trusted session user ID in the context. This
+ * resolver maps that ID through the server-owned administrator account and
+ * scope tables; request parameters never participate in role resolution.</p>
  */
 @Component
 public class AdminPrincipalResolver {
     private final AdminAccountRepository accountRepository;
     private final AdminScopeGrantRepository scopeGrantRepository;
+    private final StoreRepository storeRepository;
 
     /** Retained for focused unit tests that place an AdminPrincipal directly. */
     public AdminPrincipalResolver() {
         this.accountRepository = null;
         this.scopeGrantRepository = null;
+        this.storeRepository = null;
     }
 
     @Autowired
     public AdminPrincipalResolver(
         AdminAccountRepository accountRepository,
-        AdminScopeGrantRepository scopeGrantRepository
+        AdminScopeGrantRepository scopeGrantRepository,
+        StoreRepository storeRepository
     ) {
         this.accountRepository = accountRepository;
         this.scopeGrantRepository = scopeGrantRepository;
+        this.storeRepository = storeRepository;
     }
 
     public AdminPrincipal requireCurrent() {
@@ -45,7 +50,7 @@ public class AdminPrincipalResolver {
             || !authentication.isAuthenticated()
             || authentication instanceof AnonymousAuthenticationToken
             || authentication.getPrincipal() == null) {
-            throw new AccessDeniedException("administrator authentication required");
+            throw new AdminAuthenticationRequiredException();
         }
         if (authentication.getPrincipal() instanceof AdminPrincipal principal) {
             return principal;
@@ -56,7 +61,7 @@ public class AdminPrincipalResolver {
             try { return resolveUserId(Long.parseLong(text)); }
             catch (NumberFormatException ignored) { }
         }
-        throw new AccessDeniedException("administrator authentication required");
+        throw new AccessDeniedException("administrator account required");
     }
 
     /** Resolves the database-backed administrator account from the trusted user ID. */
@@ -80,7 +85,14 @@ public class AdminPrincipalResolver {
         var storeIds = new HashSet<Long>();
         for (AdminScopeGrantEntity grant : scopeGrantRepository.findAllByAdminAccountIdAndStatusOrderByIdAsc(account.getId(), 1)) {
             if (grant.getOwnerUserId() != null) ownerIds.add(grant.getOwnerUserId());
-            if (grant.getStoreId() != null) storeIds.add(grant.getStoreId());
+            if (grant.getStoreId() != null) {
+                storeIds.add(grant.getStoreId());
+                if (storeRepository != null) {
+                    storeRepository.findById(grant.getStoreId())
+                        .map(store -> store.getOwnerUserId())
+                        .ifPresent(ownerIds::add);
+                }
+            }
         }
         return AdminPrincipal.forRole(userId, role,
             new AdminDataScope(false, ownerIds, storeIds, false, AdminDataScope.ContentMode.REDACTED));

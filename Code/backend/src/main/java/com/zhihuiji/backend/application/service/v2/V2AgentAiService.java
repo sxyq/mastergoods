@@ -247,6 +247,8 @@ public class V2AgentAiService {
     // transaction so a failed read query cannot roll back the run audit parent
     // or make asynchronous audit events violate their foreign key.
     public V2AgentDtos.AgentChatResponse chat(V2AgentDtos.AgentChatRequest request) {
+        Long actorUserId = currentOwnerService.requireCurrentUserId();
+        Long actorStoreId = currentOwnerService.findCurrentStoreId().orElse(null);
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         long now = System.currentTimeMillis();
         long runStartedAt = now;
@@ -266,9 +268,9 @@ public class V2AgentAiService {
         );
         Long userMessageId = userMessageEntity == null ? null : userMessageEntity.getId();
 
-        runAuditService.createRunAudit(ownerUserId, conversation.getId(), runId, runStartedAt);
+        runAuditService.createRunAudit(ownerUserId, conversation.getId(), runId, runStartedAt, actorUserId, actorStoreId);
         RunAuditService.ActiveAgentRun auditRun = new RunAuditService.ActiveAgentRun(
-            ownerUserId, runId, conversation.getId(), null
+            ownerUserId, runId, conversation.getId(), null, actorUserId, actorStoreId
         );
         runAuditService.registerRun(auditRun);
         ResponsePayload payload = new ResponsePayload(
@@ -492,6 +494,8 @@ public class V2AgentAiService {
     }
 
     public SseEmitter chatStream(V2AgentDtos.AgentChatRequest request) {
+        Long actorUserId = currentOwnerService.requireCurrentUserId();
+        Long actorStoreId = currentOwnerService.findCurrentStoreId().orElse(null);
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         long now = System.currentTimeMillis();
         String message = normalizeRequired(request.message(), "message 不能为空");
@@ -508,10 +512,12 @@ public class V2AgentAiService {
             null,
             now
         );
-        runAuditService.createRunAudit(ownerUserId, conversation.getId(), runId, now);
+        runAuditService.createRunAudit(ownerUserId, conversation.getId(), runId, now, actorUserId, actorStoreId);
 
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
-        RunAuditService.ActiveAgentRun activeRun = new RunAuditService.ActiveAgentRun(ownerUserId, runId, conversation.getId(), emitter);
+        RunAuditService.ActiveAgentRun activeRun = new RunAuditService.ActiveAgentRun(
+            ownerUserId, runId, conversation.getId(), emitter, actorUserId, actorStoreId
+        );
         runAuditService.registerRun(activeRun);
         emitter.onCompletion(() -> runAuditService.removeRun(runId));
         emitter.onTimeout(() -> runAuditService.removeRun(runId));
@@ -667,10 +673,18 @@ public class V2AgentAiService {
         String runId,
         SseEmitter emitter
     ) throws IOException {
+        RunAuditService.ActiveAgentRun existingRun = runAuditService.getActiveRun(runId);
         boolean registeredForDirectRun = runAuditService.registerRunIfAbsent(
             new RunAuditService.ActiveAgentRun(ownerUserId, runId, conversation.getId(), emitter)
         );
-        runAuditService.ensureRunAuditStarted(ownerUserId, conversation.getId(), runId, System.currentTimeMillis());
+        RunAuditService.ActiveAgentRun activeRun = existingRun == null
+            ? runAuditService.getActiveRun(runId)
+            : existingRun;
+        runAuditService.ensureRunAuditStarted(
+            ownerUserId, conversation.getId(), runId, System.currentTimeMillis(),
+            activeRun == null ? null : activeRun.actorUserId(),
+            activeRun == null ? null : activeRun.storeId()
+        );
         try {
             String auditId = RunAuditService.auditIdFor(runId);
             String traceId = RunAuditService.traceIdFor(runId);

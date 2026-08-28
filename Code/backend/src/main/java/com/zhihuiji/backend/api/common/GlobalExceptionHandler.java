@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import com.zhihuiji.backend.infrastructure.security.admin.AdminAuthenticationRequiredException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
@@ -93,6 +94,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
             .body(ApiResponse.failure(HttpStatus.FORBIDDEN.value(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(AdminAuthenticationRequiredException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAdminAuthenticationRequired(AdminAuthenticationRequiredException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body(ApiResponse.failure(ApiResponse.CODE_UNAUTHORIZED, "administrator authentication required"));
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
