@@ -166,6 +166,22 @@ class AdminI4ServiceContractTest {
     }
 
     @Test
+    void exportListPassesServerResolvedOwnerAndStoreScopeToRepository() {
+        when(exportRepository.findVisible(
+            eq(900L), eq(false), eq(Set.of(101L)), eq(false), eq(Set.of(501L)), any(Pageable.class)
+        )).thenReturn(new PageImpl<>(List.of(), Pageable.ofSize(25), 0));
+        AdminExportService service = exportService();
+
+        AdminPageDtos.PageResponse<AdminExportDtos.Job> response = service.list(principal, 0, 25);
+
+        assertEquals(0, response.total());
+        verify(authorizationService).authorize(principal, AdminPermission.EXPORT, null, null);
+        verify(exportRepository).findVisible(
+            eq(900L), eq(false), eq(Set.of(101L)), eq(false), eq(Set.of(501L)), any(Pageable.class)
+        );
+    }
+
+    @Test
     void expiredExportIsMarkedAndAuditedBeforeDownloadFails() {
         AdminExportService service = exportService();
         AdminExportJobEntity job = exportJob("export-expired", System.currentTimeMillis() - 1L);

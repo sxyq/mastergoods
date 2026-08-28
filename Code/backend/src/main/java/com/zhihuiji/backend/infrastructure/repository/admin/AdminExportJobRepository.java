@@ -17,16 +17,16 @@ public interface AdminExportJobRepository extends JpaRepository<AdminExportJobEn
     @Query(value = """
         select e from AdminExportJobEntity e
          where (:allOwners = true
-             or e.adminUserId = :requestingAdminUserId
-             or e.scopeOwnerUserId in :ownerUserIds)
+             or e.scopeOwnerUserId in :ownerUserIds
+             or (e.scopeOwnerUserId is null and e.scopeStoreId is null and e.adminUserId = :requestingAdminUserId))
            and (:allStores = true or e.scopeStoreId in :storeIds
                 or (e.scopeStoreId is null and e.scopeOwnerUserId is null and e.adminUserId = :requestingAdminUserId))
          order by e.createdAt desc, e.id desc
         """, countQuery = """
         select count(e.id) from AdminExportJobEntity e
          where (:allOwners = true
-             or e.adminUserId = :requestingAdminUserId
-             or e.scopeOwnerUserId in :ownerUserIds)
+             or e.scopeOwnerUserId in :ownerUserIds
+             or (e.scopeOwnerUserId is null and e.scopeStoreId is null and e.adminUserId = :requestingAdminUserId))
            and (:allStores = true or e.scopeStoreId in :storeIds
                 or (e.scopeStoreId is null and e.scopeOwnerUserId is null and e.adminUserId = :requestingAdminUserId))
         """)
