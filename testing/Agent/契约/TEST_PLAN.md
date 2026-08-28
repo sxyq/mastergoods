@@ -50,7 +50,7 @@
 | `AG-C-API-018` | `GET /v2/agent/notifications` | `unread_only` 缺省、true、false、非法文本 | 布尔过滤准确；当前 owner；查询不产生写入 |
 | `AG-C-API-019` | `POST /v2/agent/notifications/{id}/read` | 当前、不存在、已读、跨 owner、非法 ID、重复 | 只改目标通知；重复调用稳定；他人通知不改变 |
 | `AG-C-API-020` | `POST /v2/agent/chat` | message、显式 `conversation_id`、`image_asset_ids` 0/1/9/10、非法/跨 owner ID | `run_id`、会话、answer、blocks、draft、mode、tool、audit、trace、终态和错误字段类型一致 |
-| `AG-C-API-021` | `POST /v2/agent/images/generate` | prompt 缺失/空白/超长；reference asset 空、非法、跨 owner | 成功时 `image_url/revised_prompt` 可解析；失败时错误包络稳定且无半写入 |
+| `AG-C-API-021` | `POST /v2/agent/images/generate`（独立 REST） | prompt 缺失/空白/超长；reference asset 空、非法、跨 owner | 成功时 `image_url/revised_prompt` 可解析；失败时错误包络稳定且无半写入；该行不计为 AgentTool 调用 |
 | `AG-C-API-022` | `POST /v2/agent/chat/stream` | 同 chat；空白/超长、跨域会话、9/10 图片、重复提交、客户端断开 | HTTP 200 后仍须有合法 SSE 终态；认证错误应是 HTTP 错误；取消后无新回答增量 |
 | `AG-C-API-023` | `POST /v2/agent/runs/{runId}/cancel` | 运行中、完成、已取消、不存在、跨 owner、非法、重复 | `run_id/status/cancelled` 可解析；不影响他人 run；完成后状态不可被错误改写 |
 | `AG-C-API-024` | `GET /v2/agent/runs/{runId}/audit` | 运行中、完成、失败、取消、不存在、跨 owner、非法 | audit、事件、seq、event_id、tool_call_id、错误和脱敏字段可解析并互相对齐 |
@@ -70,7 +70,7 @@
 | `AG-C-SSE-007` | 未知字段/事件 | 客户端收到新增字段、未知事件类型和空 data | 不崩溃、不改变业务状态、不吞掉终态 |
 | `AG-C-SSE-008` | JSON 序列化 | 单行 JSON、中文、引号、换行、转义、null、数字精度 | Android/iOS/Web 能解析；大 ID 不转为 JS 不安全数字 |
 
-## 四、错误与跨端序列化契约（AG-C-SCHEMA-001~007）
+## 四、错误与跨端序列化契约（AG-C-SCHEMA-001~008）
 
 | 编号 | 契约项 | 检查输入 | 验收 |
 |---|---|---|---|
@@ -81,6 +81,7 @@
 | `AG-C-SCHEMA-005` | ID 精度 | 大于 JavaScript 安全整数的会话、草稿、业务 ID | Java/Kotlin 使用 64 位整数；Web 使用 string/BigInt；禁止 `Number()` |
 | `AG-C-SCHEMA-006` | snake_case | 请求和响应中的 `conversation_id`、`run_id`、`tool_call_id`、时间字段 | 序列化名称与后端 DTO 一致；未知字段策略明确 |
 | `AG-C-SCHEMA-007` | 分页 | `page/limit` 或工具 `page/size/limit` 的 0、负、最大和超大 | 无无界查询；空页可解析；总数和返回条数关系正确 |
+| `AG-C-SCHEMA-008` | `image_generate` 工具 Schema | Agent 原生工具调用：合法/缺失/空白/超长 `prompt`；`reference_asset_ids` 0/1/2 个、0/负数和未知字段 | 对象 Schema、`additionalProperties=false`、`prompt` 必填且 1..2000、参考图正整数数组最多 1；非法在草稿/Provider 前拒绝；合法只返回 active `draft_card` |
 
 ## 五、执行顺序与证据
 
@@ -109,3 +110,12 @@
 ```
 
 脚本放在 `../脚本/契约/`，日志放在 `契约/logs/`，阶段报告放在 `契约/reports/`。每条记录必须回写 `result`，只允许 `Passed`、`Failed`、`Blocked`、`Deferred`。
+
+### `image_generate` 契约执行记录
+
+| 用例 | 输入 | 预期 | 证据位置 | 初始状态 |
+|---|---|---|---|---|
+| `AG-C-SCHEMA-008` | 原生工具 Schema 与 6 组合法/非法参数；另对 REST `AG-C-API-021` 做独立请求 | 工具名、类型、权限、Schema 与源码一致；非法参数无草稿/Provider 调用；合法请求只产生 active 草稿；REST 成功/失败字段与 Agent 工具结果分开 | `契约/artifacts/<日期>-<波次>-AG-C-SCHEMA-008/01-input-redacted.json`、`02-http-response.json`、`04-tool-trace.jsonl`、`05-run-audit.json`、`06-database-before.json`、`07-database-after.json`、`09-cleanup.json` | `Deferred` |
+| `AG-C-SSE-009` | `/chat/stream` 选择 `image_generate`，并分别拒绝、确认和 Provider 失败 | `tool_started/completed` 只覆盖草稿阶段；`draft_created` 与 `CONFIRMATION_PENDING` 对齐；确认结果和错误不伪装成工具阶段成功 | `契约/artifacts/<日期>-<波次>-AG-C-SSE-009/03-raw-sse.log`、`04-tool-trace.jsonl`、`05-run-audit.json`、`10-conclusion.md` | `Deferred` |
+
+`image_url` 的 URL 或 `data:image/...;base64,...` 只在授权响应中核对格式；完整 `b64_json`、key、认证头和完整提示词不得写入契约日志或审计摘要。缺少 Provider 时 `AG-C-SCHEMA-008` 的真实结果记 `Blocked` 或 `Deferred`，不能以 DTO 静态存在标记通过。

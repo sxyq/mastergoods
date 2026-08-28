@@ -4,7 +4,7 @@
 
 ## 一、范围与统一判定
 
-覆盖：会话与消息、60 个工具逐项、多工具链、Loop 六终态、SSE 事件顺序、草稿与二次授权、结果块与图表、上下文压缩、多模态图片、长期记忆、海报、Web 搜索、任务/通知/工作台。每条用例必须同时断言数据库 before/after、草稿状态与 run-audit。
+覆盖：会话与消息、61 个工具逐项、多工具链、Loop 六终态、SSE 事件顺序、草稿与二次授权、结果块与图表、上下文压缩、多模态图片、Agent 生图、长期记忆、海报、Web 搜索、任务/通知/工作台。每条用例必须同时断言数据库 before/after、草稿状态与 run-audit。
 
 | 检查项 | 边界 | 验收 |
 |---|---|---|
@@ -17,7 +17,7 @@
 | 审计 | 工具失败、取消、压缩、草稿、完成 | 用 `run_id` 可从输入追到终态；`audit_lossy` 为 false 或告警可解释 |
 | 清理 | 测试产生的会话/消息/草稿/临时对象 | 清理成功；正式业务数据符合预期保留或无变化 |
 
-## 二、逐工具执行卡统一分支（11 分支，60 工具 × 按分支独立记录）
+## 二、逐工具执行卡统一分支（11 分支，61 工具 × 按分支独立记录）
 
 本节的 11 个分支必须展开为独立记录。只在父卡中写“同上”属于规划简写，执行时要把实际输入、实际工具链和证据路径复制到派生记录，不得以一个成功分支代表其他分支。
 
@@ -40,9 +40,9 @@
 | 父卡 | 派生记录编号 | 说明 |
 |---|---|---|
 | `AG-F-TOOL-RO-001` 至 `AG-F-TOOL-RO-046` | `AG-F-TOOL-RO-xxx-B01` 至 `B11` | `B01` 至 `B08`对应功能边界，`B09`流式路径，`B10`清理，`B11`审计；REST 与 SSE 需要比较时再追加 `-REST`/`-SSE` |
-| `AG-F-DRAFT-CO-001` 至 `AG-F-DRAFT-CO-014` | `AG-F-DRAFT-CO-xxx-B01` 至 `B11` | 草稿、拒绝、确认、重复确认、失败、非法参数、认证、权限、跨域、并发确认、清理；审计字段每条必填 |
+| `AG-F-DRAFT-CO-001` 至 `AG-F-DRAFT-CO-015` | `AG-F-DRAFT-CO-xxx-B01` 至 `B11` | 草稿、拒绝、确认、重复确认、失败、非法参数、认证、权限、跨域、并发确认、清理；审计字段每条必填 |
 
-每条派生记录都必须填写 README 的最小字段，并在 `result` 中给出唯一状态。理论分支总量为 `60 × 11 = 660`；该数字是应规划量，不代表已经执行。
+每条派生记录都必须填写 README 的最小字段，并在 `result` 中给出唯一状态。理论分支总量为 `61 × 11 = 671`；该数字是应规划量，不代表已经执行。
 
 ## 三、46 个 READ_ONLY 工具执行卡（AG-F-TOOL-RO-*）
 
@@ -97,7 +97,7 @@
 | AG-F-TOOL-RO-045 | `sync_status_lookup` | “查看数据同步状态。” | 单独调用 | 同上 | 同上 | 同步任务只读 | 非对象参数 | 不执行同步 |
 | AG-F-TOOL-RO-046 | `web_search_lookup` | “搜索最近的库存管理建议，列出标题、摘要和来源。” | `web_search_lookup` → `WebSearchProvider` | 无业务依赖 | 同上或 Provider 错误 | 业务表不变 | query required；result_limit≤10；recency/domains；恶意 URL；Provider 未配置 | Provider 未配置记 `Blocked`；可用时来源/摘要/链接一致；恶意 URL 拒绝 |
 
-## 四、14 个 CREATE_ONLY 工具执行卡（AG-F-DRAFT-CO-*）
+## 四、15 个 CREATE_ONLY 工具执行卡（AG-F-DRAFT-CO-*）
 
 统一流程：依赖查询（按 2.2 表）→ CREATE_ONLY 工具 → `agent_drafts(status=active)` → APP 覆盖式确认弹窗 → 分支执行。11 分支见第二节；正式写入只发生在确认后，拒绝/失败不得改变正式业务表。
 
@@ -117,6 +117,23 @@
 | AG-F-DRAFT-CO-012 | `create_sales_return` | “把一张销售单退 1 件，先做草稿。” | `sale_order_lookup` → 工具草稿 | 草稿不写；确认写退货+按规则回补库存 | 超可退量 | 明细与回补一致 |
 | AG-F-DRAFT-CO-013 | `create_supplier` | “新增供应商 全量工具测试供应商，电话 13900000002，先确认。” | 工具草稿（分组可选） | 草稿；确认 1 条；重复 0；冲突稳定错误 | name required | owner 唯一；无跨域 |
 | AG-F-DRAFT-CO-014 | `media_upload_tool` | “上传 all-tools-eval.txt（16 字节、文本），先生成上传意图草稿。” | 工具草稿（工具名为 `media_upload_tool`，草稿类型为 `media_upload`） | 只生成上传意图草稿；拒绝不创建媒体；确认后由前端续传（后端仅确认不落资产） | 文件名/大小/MIME/跨 owner 绑定 | 不存在未确认媒体资产；确认行为按前端续传流程实测 |
+| AG-F-DRAFT-CO-015 | `image_generate` | “根据提示词生成一张商品主图，先生成草稿让我确认。” | 工具只建 `agent_drafts(status=active)`；手机/客户端覆盖式确认后才调用 `AgentImageService` | 确认前 Provider 调用 0；拒绝 `cancelled` 且正式业务表不变；确认成功返回 `image_url/revised_prompt` 并置 `confirmed`；失败/超时/取消保持可重试 | `prompt` 1..2000；参考图正整数数组最多 1 个且当前 owner；未知字段；Provider `url/b64_json` 脱敏 | 工具、草稿、Provider Mock、确认响应和 audit 可按 ID 对齐；初始 `Deferred` |
+
+### 4.1 `image_generate` 派生执行记录
+
+| 派生编号 | 输入/操作 | 预期结果 | 证据位置 | 初始状态 |
+|---|---|---|---|---|
+| `AG-F-DRAFT-CO-015-B01` | 合法 `prompt`，无参考图，调用 Agent chat | 只创建当前 owner 的 active 生图草稿；Provider 不被调用；返回 `draft_card` | `功能/artifacts/<日期>-<波次>-AG-F-DRAFT-CO-015-B01/04-tool-trace.jsonl`、`06-database-before.json`、`07-database-after.json` | `Deferred` |
+| `AG-F-DRAFT-CO-015-B02` | 合法 prompt + 1 个当前 owner 图片 ID，取消草稿 | 草稿为 `cancelled`；Provider 调用 0；正式业务表无变化 | 同目录 `02-http-response.json`、`05-run-audit.json`、`09-cleanup.json` | `Deferred` |
+| `AG-F-DRAFT-CO-015-B03` | 确认 active 草稿，Provider Mock 返回 `url` | 只发生一次 Provider 调用；返回 `image_url/revised_prompt`；草稿为 `confirmed` | 同目录 `04-tool-trace.jsonl`、`05-run-audit.json`、`07-database-after.json` | `Deferred` |
+| `AG-F-DRAFT-CO-015-B04` | 对已 confirmed 草稿重复确认 | 返回稳定已处理结果；不重复消耗 Provider 或生成第二结果 | 同目录 `02-http-response.json`、`04-tool-trace.jsonl`、`05-run-audit.json` | `Deferred` |
+| `AG-F-DRAFT-CO-015-B05` | Provider Mock 返回空/非法结果、HTTP 失败或超时 | 返回安全失败；草稿保持可重试；不写正式业务表；审计含错误类型 | 同目录 `02-http-response.json`、`05-run-audit.json`、`07-database-after.json` | `Deferred` |
+| `AG-F-DRAFT-CO-015-B06` | 缺 prompt、空白、超过 2000、数组元素 0/负数/超过 1、未知字段 | 工具执行前返回 Schema 错误；草稿和 Provider 调用均为 0 | 同目录 `01-input-redacted.json`、`04-tool-trace.jsonl`、`06-database-before.json` | `Deferred` |
+| `AG-F-DRAFT-CO-015-B07` | 无认证调用 Agent 生图意图 | 认证拒绝；不创建草稿、不访问 Provider | 同目录 `02-http-response.json`、`05-run-audit.json` | `Deferred` |
+| `AG-F-DRAFT-CO-015-B08` | 只有 `agent:view` 的调用者执行工具 | `TOOL_PERMISSION_DENIED`/403；业务表、草稿和 Provider 均无变化 | 同目录 `02-http-response.json`、`04-tool-trace.jsonl`、`06-database-before.json` | `Deferred` |
+| `AG-F-DRAFT-CO-015-B09` | A 请求 B owner 的参考图或伪造 store | 拒绝或安全空结果；不读取 B 资产、不调用 Provider | 同目录 `01-input-redacted.json`、`04-tool-trace.jsonl`、`05-run-audit.json` | `Deferred` |
+| `AG-F-DRAFT-CO-015-B10` | 同一草稿并发确认与取消 | 只有一个合法状态胜者；Provider 最多一次；无重复结果；失败可重试 | 同目录 `04-tool-trace.jsonl`、`05-run-audit.json`、`07-database-after.json` | `Deferred` |
+| `AG-F-DRAFT-CO-015-B11` | 清理生图草稿、临时参考图和测试会话 | 仅清理当前 owner 测试对象；无未预期临时资源和正式业务残留 | 同目录 `09-cleanup.json`、`10-conclusion.md` | `Deferred` |
 
 ## 五、多工具组合场景（AG-F-MULTI-*）
 
@@ -166,7 +183,8 @@
 | AG-F-MULTIMODAL-001 | 图片直答（非流式） | `image_asset_ids` 1 张 + 文字 | `multimodal_direct`/`multimodal_direct_llm`；回答基于图片可见事实 | 不伪装成系统业务数据 |
 | AG-F-MULTIMODAL-002 | 图片直答（流式） | 同上走 stream | `answer_delta(model_stream)`、`answer_completed`；非流式重试降级路径 | Provider 不可用时 `llm_answer_unavailable` |
 | AG-F-MULTIMODAL-003 | 图片数量边界 | 0/1/9/10 张；非图片 MIME；跨 owner asset | ≤9 校验；非法拒绝；不读取他人资产 | 9 张上限稳定 |
-| AG-F-MULTIMODAL-004 | 文本生图 | `POST /v2/agent/images/generate` | `image_url,revised_prompt` 或稳定 Provider 错误 | reference_asset_ids 当前 owner；临时资产清理 |
+| AG-F-MULTIMODAL-004 | REST 文本生图 | `POST /v2/agent/images/generate` | `image_url,revised_prompt` 或稳定 Provider 错误 | 独立 REST；不计为 AgentTool 调用；reference_asset_ids 当前 owner |
+| AG-F-MULTIMODAL-005 | Agent 生图工具 | Agent prompt 请求生成图片；`image_generate` | 先 `draft_created`/`CONFIRMATION_PENDING`；确认后才有 Provider 结果；拒绝不写正式表 | 工具阶段 Provider 调用 0；`url/b64_json` 只进入受控结果；详见 AG-F-DRAFT-CO-015 |
 | AG-F-MEMORY-001 | 记忆配置关闭 | `agent.memory.enabled=false` | 不召回、不提取、不落库 | 不阻塞主回答 |
 | AG-F-MEMORY-002 | 记忆召回注入 | 已有记忆 + 新问题 | 上下文带“历史记忆（仅供参考，非实时业务数据）” ≤3 条；不混淆实时业务 | 召回失败仅丢弃记忆块 |
 | AG-F-MEMORY-003 | 异步提取落库 | 回答完成后 | `agent_memories` 按 sourceMessageId 去重更新（conf=0.3、status=active） | 失败不阻塞主回答 |
