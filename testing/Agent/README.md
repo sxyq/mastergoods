@@ -30,7 +30,7 @@ testing/Agent/
 
 | 类别 | category_id | 范围 | 判定边界 |
 |---|---|---|---|
-| 功能测试 | `F` | 会话/消息、60 个工具逐项、多工具链、Loop、SSE、草稿与二次授权、结果块、上下文压缩、多模态图片、长期记忆、海报、Web 搜索、任务/通知/工作台 | 以业务终态、事件顺序、回答完整性、数据库变化为准；HTTP 200 不等于业务成功 |
+| 功能测试 | `F` | 会话/消息、61 个工具逐项、多工具链、Loop、SSE、草稿与二次授权、结果块、上下文压缩、多模态图片、Agent 生图、长期记忆、海报、Web 搜索、任务/通知/工作台 | 以业务终态、事件顺序、回答完整性、数据库变化为准；HTTP 200 不等于业务成功 |
 | 安全与租户隔离 | `S` | 未登录/权限不足、IDOR、store/owner 伪造、Prompt 注入、工具越界、未注册工具、确认重放、付款幂等、SSRF、路径穿越、SSE 串线、错误泄露、敏感信息扫描、并发身份切换、压缩脱敏 | 越权/未确认写入/敏感泄露均为 0；拒绝必须可审计且错误码稳定 |
 | 性能测试 | `P` | 时延基线、SSE 首事件/完整流、工具与循环、压缩、并发流式、草稿确认竞争、取消/重连时延、结果块规模、Provider 慢响应、分页、长会话 Soak | 无 SLA 前只建可复现基线，记 `Deferred`；有效请求 5xx=0 是起点而非通过条件 |
 | 单元/组件测试 | `U` | ToolPlanner、ToolExecutor、ToolRegistry、ToolArgumentsValidator、ContextBuilder、ContextCompactionService、ContextWindowResolver、TokenEstimator、SafetyGuard、RunAuditService、SseStreamEmitter、AnswerSynthesizer、AgentIterationPolicy、AgentRunState、AgentPromptCatalog、ToolInvocationIdentity、AgentMemoryService、AgentDraftConfirmService、AgentImageService、DTO/实体映射、Android/iOS 组件 | 以现有 JUnit/Kotlin 测试与新增测试为准；目标模块全部 `Passed`，失败单独登记 |
@@ -62,8 +62,8 @@ testing/Agent/
 
 | 统计项 | 计算方式 | 当前规划基线 | 说明 |
 |---|---|---:|---|
-| 工具静态映射率 | 已映射工具数 / 源码注册工具数 | 60 / 60 | 46 个 `READ_ONLY` + 14 个 `CREATE_ONLY`，只说明名称和类型已对齐 |
-| 工具分支规划数 | 46 × 11 + 14 × 11 | 660 | 每个派生用例都必须使用独立 `test_id`，不能只引用父卡 |
+| 工具静态映射率 | 已映射工具数 / 源码注册工具数 | 61 / 61 | 46 个 `READ_ONLY` + 15 个 `CREATE_ONLY`；只说明名称和类型已对齐，不等于运行通过 |
+| 工具分支规划数 | 46 × 11 + 15 × 11 | 671 | 每个派生用例都必须使用独立 `test_id`，不能只引用父卡 |
 | 父场景数 | 各 `TEST_PLAN.md` 中带 `AG-` 的规划行 | 以当前文件实际行数为准 | 父场景用于组织范围，不能直接计入执行覆盖 |
 | 已执行覆盖率 | `Passed + Failed + Blocked` / 应执行的派生用例数 | 执行前为 0% | `Deferred` 不进入已执行分子 |
 | 有效通过率 | `Passed` / (`Passed + Failed`) | 执行后计算 | `Blocked` 单独报告，不与失败混算 |
@@ -145,7 +145,7 @@ test_id,category_id,wave_id,environment,account_store_label,preconditions,input,
 1. 建立环境记录：工作树版本、服务版本、APP 版本、Provider 配置、数据库、账号与设备。
 2. 执行 `单元/`（现有测试 + 新增组件测试）与 `契约/`（静态契约核对，不依赖真机）。
 3. 前置验证认证、会话、owner/store、清理权限；前置不满足记 `Blocked`。
-4. 按 `功能/` 执行 46 个只读工具（非流式 + 流式）与 14 个创建工具（草稿/拒绝/确认/重复确认）。
+4. 按 `功能/` 执行 46 个只读工具（非流式 + 流式）与 15 个创建工具（草稿/拒绝/确认/重复确认），其中 `image_generate` 的 Provider 调用只发生在确认后。
 5. 执行多工具链、Loop 六种终态、SSE 取消/断线/重连、上下文压缩 14 个场景。
 6. 执行多模态图片、长期记忆、海报、Web 搜索与新建任务/通知/工作台功能。
 7. 按 `安全/` 执行越权/注入/幂等/敏感信息专项（真实账号与真实服务）。
