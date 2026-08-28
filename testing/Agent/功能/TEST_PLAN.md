@@ -1,6 +1,6 @@
 # Agent 功能测试规划（功能）
 
-更新日期：2026-08-28。代码基线见 [../代码事实基线.md](../代码事实基线.md)，编号与映射见 [../映射台账.md](../映射台账.md)。本文件所有用例初始状态 `Deferred`；真实执行后仅能更新为 `Passed/Failed/Blocked/Deferred`。
+更新日期：2026-08-28。代码基线见 [../代码事实基线.md](../代码事实基线.md)，编号与映射见 [../映射台账.md](../映射台账.md)。本文件所有父卡初始状态为 `Deferred`；真实执行后仅能更新为 `Passed/Failed/Blocked/Deferred`。父卡只组织场景，不能替代派生执行记录。
 
 ## 一、范围与统一判定
 
@@ -19,6 +19,8 @@
 
 ## 二、逐工具执行卡统一分支（11 分支，60 工具 × 按分支独立记录）
 
+本节的 11 个分支必须展开为独立记录。只在父卡中写“同上”属于规划简写，执行时要把实际输入、实际工具链和证据路径复制到派生记录，不得以一个成功分支代表其他分支。
+
 | 分支 | 输入变化 | 必须观察 |
 |---|---|---|
 | 成功有数据 | 当前作用域存在的实体/时间范围 | 目标工具、参数、结果、正式回答、结果块与事实 |
@@ -32,6 +34,15 @@
 | 流式 | 同输入走 `/v2/agent/chat/stream` | 事件可解析、`tool_call_id` 配对、终态明确 |
 | 清理 | 删除测试会话/草稿/临时媒体 | 核对清理结果；正式数据符合预期 |
 | 审计观察 | 全部上述分支 | audit/trace 与 SSE、数据库可对齐，敏感字段脱敏 |
+
+### 2.1 派生编号与单项结果
+
+| 父卡 | 派生记录编号 | 说明 |
+|---|---|---|
+| `AG-F-TOOL-RO-001` 至 `AG-F-TOOL-RO-046` | `AG-F-TOOL-RO-xxx-B01` 至 `B11` | `B01` 至 `B08`对应功能边界，`B09`流式路径，`B10`清理，`B11`审计；REST 与 SSE 需要比较时再追加 `-REST`/`-SSE` |
+| `AG-F-DRAFT-CO-001` 至 `AG-F-DRAFT-CO-014` | `AG-F-DRAFT-CO-xxx-B01` 至 `B11` | 草稿、拒绝、确认、重复确认、失败、非法参数、认证、权限、跨域、并发确认、清理；审计字段每条必填 |
+
+每条派生记录都必须填写 README 的最小字段，并在 `result` 中给出唯一状态。理论分支总量为 `60 × 11 = 660`；该数字是应规划量，不代表已经执行。
 
 ## 三、46 个 READ_ONLY 工具执行卡（AG-F-TOOL-RO-*）
 
@@ -96,8 +107,8 @@
 | AG-F-DRAFT-CO-002 | `create_customer` | “新增客户全量工具测试客户，电话 13900000001，先确认。” | 组可选 `partner_group_lookup` → 工具草稿 | 草稿；确认 1 条；重复 0；冲突按 owner 唯一性稳定失败且草稿可重试 | name required、电话唯一冲突 | 正式表准确一条；电话日志脱敏 |
 | AG-F-DRAFT-CO-003 | `create_finance_record` | “记一笔收入 1.23 元，先做成草稿。” | 工具草稿 | 草稿；确认 1 条流水；重复 0；失败回滚 | type/amount required；账户不存在 | 金额、类型、账户一致 |
 | AG-F-DRAFT-CO-004 | `create_inventory_adjustment` | “把现有商品库存加 1 件，先做调整草稿。” | `product_catalog_lookup`(若缺) → 工具草稿 | 草稿；确认产生调整并改库存；重复 0；quantity=0 预拒绝 | 数量 0/超限；并发确认无双重调整 | 库存差异可解释 |
-| AG-F-DRAFT-CO-005 | `create_inventory_count_draft` | “按现在库存做一次盘点，先确认。” | `product_catalog_lookup` → `inventory_snapshot_lookup` → 工具草稿（draftType=create_inventory_adjustment） | 草稿；确认走库存调整链；快照过期/跨 owner 拒绝 | 两依赖必须完成；客户端自报库存无效 | 确认路由与库存调整一致后再写入 |
-| AG-F-DRAFT-CO-006 | `create_pay_order` | “给供应商记 1.23 元付款，先别直接付。” | `supplier_directory_lookup` → 工具草稿 | 草稿不建付款单、不扣余额；确认 1 单；重复 0；同 key 不同 payload 409 | 幂等键；并发唯一 | 唯一约束竞争下有且仅一张 |
+| AG-F-DRAFT-CO-005 | `create_inventory_count_draft` | “按现在库存做一次盘点，先确认。” | `product_catalog_lookup` → `inventory_snapshot_lookup` → 工具草稿（存储 `draftType=create_inventory_adjustment`） | 草稿；确认走库存调整链；快照过期/跨 owner 拒绝 | 两依赖必须完成；客户端自报库存无效 | 确认路由与库存调整一致后再写入；工具名与草稿类型均记录 |
+| AG-F-DRAFT-CO-006 | `create_pay_order` | “给供应商记 1.23 元付款，先别直接付。” | `supplier_directory_lookup` → 工具草稿 | 草稿不建付款单、不扣余额；确认 1 单；重复 0；同 key 不同 payload 409 | 区分请求级幂等 key 与工具生成的 `agent-pay-<run_id>` key；并发唯一 | 唯一约束竞争下有且仅一张；key 和 payload 可从脱敏审计摘要对应 |
 | AG-F-DRAFT-CO-007 | `create_product` | “新增商品 EVAL-ONLY-20260802，先生成草稿。” | 工具草稿（分类可选） | 草稿；确认 1 条；重复 0；编码冲突稳定 4xx | code/name required；编码唯一 | owner-scoped code 唯一 |
 | AG-F-DRAFT-CO-008 | `create_purchase_order` | “向现有供应商买一个真实商品，数量 1、单价 1.23，先做采购草稿。” | `supplier_directory_lookup` → `product_catalog_lookup` → 工具草稿 | 草稿不建采购单不增库存；确认 1 单+明细；事务失败全回滚 | items minItems=1；依赖过期失败不半写 | 依赖顺序、数组校验、事务边界 |
 | AG-F-DRAFT-CO-009 | `create_purchase_receipt` | “把采购单里的 1 件货做入库，先生成草稿。” | `purchase_order_lookup` → 工具草稿 | 草稿不入库；确认写入库+库存；超可入库量失败 | 数量超过可入库量；并发 | 正式库存与入库明细一致 |
@@ -105,7 +116,7 @@
 | AG-F-DRAFT-CO-011 | `create_sale_order` | “给现有客户开一单，商品 1 件、单价 1.23，先生成销售草稿。” | `customer_directory_lookup` → `product_catalog_lookup` → 工具草稿 | 草稿不建单不扣库存；确认建单+扣库存；库存不足失败且回滚 | 库存不足；items 校验；并发无重复 | 工具/回答/审计/库存变化一致 |
 | AG-F-DRAFT-CO-012 | `create_sales_return` | “把一张销售单退 1 件，先做草稿。” | `sale_order_lookup` → 工具草稿 | 草稿不写；确认写退货+按规则回补库存 | 超可退量 | 明细与回补一致 |
 | AG-F-DRAFT-CO-013 | `create_supplier` | “新增供应商 全量工具测试供应商，电话 13900000002，先确认。” | 工具草稿（分组可选） | 草稿；确认 1 条；重复 0；冲突稳定错误 | name required | owner 唯一；无跨域 |
-| AG-F-DRAFT-CO-014 | `media_upload_tool` | “上传 all-tools-eval.txt（16 字节、文本），先生成上传意图草稿。” | 工具草稿 | 只生成上传意图草稿；拒绝不创建媒体；确认后由前端续传（后端仅确认不落资产） | 文件名/大小/MIME/跨 owner 绑定 | 不存在未确认媒体资产；确认行为按前端续传流程实测 |
+| AG-F-DRAFT-CO-014 | `media_upload_tool` | “上传 all-tools-eval.txt（16 字节、文本），先生成上传意图草稿。” | 工具草稿（工具名为 `media_upload_tool`，草稿类型为 `media_upload`） | 只生成上传意图草稿；拒绝不创建媒体；确认后由前端续传（后端仅确认不落资产） | 文件名/大小/MIME/跨 owner 绑定 | 不存在未确认媒体资产；确认行为按前端续传流程实测 |
 
 ## 五、多工具组合场景（AG-F-MULTI-*）
 
@@ -201,7 +212,7 @@ API 契约细节见 [../契约/TEST_PLAN.md](../契约/TEST_PLAN.md)，本节只
 | db_changes | 商品/库存表不变；agent_messages、agent_run_audits、agent_run_audit_events 新增本 run 记录 |
 | boundaries | 无数据、非法参数（含未知字段）、未登录、无权限、跨 owner 商品 ID、limit 边界、重复请求、清理 |
 | acceptance | 目标工具唯一执行；回答全部数字可追溯；业务表差异为 0；审计与 SSE 对齐 |
-| evidence_path | `功能/artifacts/<日期>-<波次>/03-raw-sse.log`、04-tool-trace.jsonl、05-run-audit.json、06/07-database-before/after.json |
+| evidence_path | `功能/artifacts/<日期>-<波次>-<test_id>/03-raw-sse.log`、04-tool-trace.jsonl、05-run-audit.json、06/07-database-before/after.json |
 | result | Deferred |
 
 ### 样例 2：AG-F-DRAFT-CO-006 create_pay_order（草稿/确认/幂等）
@@ -218,14 +229,14 @@ API 契约细节见 [../契约/TEST_PLAN.md](../契约/TEST_PLAN.md)，本节只
 | expected_response | 非流式：`AgentChatResponse` 含 draftId、terminal_status=CONFIRMATION_PENDING、状态后缀；流式同序列 |
 | expected_answer | “已生成付款草稿，等待确认”；不声称已付款 |
 | db_changes | 草稿阶段仅 agent_drafts 增 active 行；确认后 v2 pay_order + 支付链路 + draft=confirmed；拒绝 draft=cancelled 且零业务写入；同 key 不同 payload 409 |
-| boundaries | 缺 required(supplier_id/supplier_name/amount)、跨 owner 供应商、重复确认、并发确认、确认失败保持 active、清理 |
+| boundaries | 缺 required(supplier_id/supplier_name/amount)、跨 owner 供应商、重复确认、并发确认、确认失败保持 active、请求级幂等 key 缺失/冲突、清理 |
 | acceptance | 拒绝 0 变化、确认 1 单、重复 0 单；500=0；审计含确认者与正式业务 ID |
-| evidence_path | `功能/artifacts/<日期>-<波次>/` 02-http-response.json、04-tool-trace.jsonl、05-run-audit.json、06/07-db、09-cleanup.json |
+| evidence_path | `功能/artifacts/<日期>-<波次>-<test_id>/` 02-http-response.json、04-tool-trace.jsonl、05-run-audit.json、06/07-db、09-cleanup.json |
 | result | Deferred |
 
 ## 十一、证据存放
 
-- 每条用例：`功能/artifacts/<日期>-<波次>-<用例>/` 按 README 第五节文件序列。
+- 每条用例：`功能/artifacts/<日期>-<波次>-<用例>/` 按 README 第六节文件序列。
 - 服务端观察：`功能/logs/`（服务日志、查询集）。
 - APP 观察：`功能/reports/` 或由 客户端/ 设备测试提供。
 - 执行脚本：`../脚本/功能/`。
