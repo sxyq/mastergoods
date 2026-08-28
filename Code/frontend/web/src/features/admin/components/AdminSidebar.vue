@@ -42,13 +42,13 @@ interface AdminNavItem {
 const primaryItems: AdminNavItem[] = [
   { id: 'overview', label: '平台总览', icon: LayoutDashboard },
   { id: 'users', label: '用户与门店', icon: UsersRound },
-  { id: 'agent', label: 'Agent 运行', icon: Bot, badge: '12' },
+  { id: 'agent', label: 'Agent 运行', icon: Bot },
   { id: 'audit', label: '操作审计', icon: Eye },
   { id: 'system', label: '系统状态', icon: Server },
 ]
 
 const documentationGroups = [
-  { label: 'Agent', icon: Bot, items: ['运行记录', '工具调用', '上下文窗口'] },
+  { label: 'Agent', icon: Bot, items: ['运行记录', '工具调用', '上下文窗口', '运行配置'] },
   { label: '组织', icon: UsersRound, items: ['门店成员', '权限范围'] },
   { label: '系统', icon: Database, items: ['服务健康', '数据保留'] },
 ]
@@ -122,7 +122,7 @@ function toggleGroup(label: string) {
             <ChevronDown aria-hidden="true" :class="{ 'is-collapsed': !openGroups[group.label] }" />
           </button>
           <div v-if="openGroups[group.label]" class="admin-documentation-items">
-            <button v-for="item in group.items" :key="item" type="button" @click="goTo(group.label === 'Agent' ? (item === '运行记录' ? 'agent' : item === '上下文窗口' ? 'agent' : 'config') : group.label === '组织' ? 'users' : 'system')">
+            <button v-for="item in group.items" :key="item" type="button" @click="goTo(group.label === 'Agent' ? (item === '运行配置' ? 'config' : 'agent') : group.label === '组织' ? 'users' : 'system')">
               {{ item }}
             </button>
           </div>
@@ -131,14 +131,14 @@ function toggleGroup(label: string) {
     </nav>
 
     <div class="admin-sidebar-footer">
-      <div class="admin-connection-status"><span class="admin-status-dot admin-status-dot--online" /> 服务状态待接入</div>
+      <div class="admin-connection-status"><span class="admin-status-dot admin-status-dot--online" /> 服务状态见系统页</div>
       <button type="button" class="admin-account-control" @click="emit('notice', '管理员身份由服务端会话提供')">
         <span class="admin-account-avatar">SA</span>
         <span class="admin-account-copy"><strong>系统管理员</strong><small>SERVER SESSION</small></span>
         <MoreHorizontal class="admin-account-menu" aria-hidden="true" />
       </button>
       <div class="admin-sidebar-footer-links">
-        <button type="button" @click="emit('notice', '系统设置将在后续阶段接入')"><Settings2 aria-hidden="true" />系统设置</button>
+        <button type="button" @click="goTo('system')"><Settings2 aria-hidden="true" />系统状态</button>
         <button type="button" @click="emit('notice', '权限范围由服务端会话决定')"><Store aria-hidden="true" />授权范围</button>
       </div>
       <span class="admin-sidebar-mark"><Activity aria-hidden="true" /> 观察、追踪、核验</span>

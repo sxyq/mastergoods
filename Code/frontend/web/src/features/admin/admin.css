@@ -15,6 +15,7 @@
 .admin-button-v2 svg, .admin-control svg { width:15px; height:15px; }
 .admin-button-v2--dark { border-color:var(--admin-v2-ink); background:var(--admin-v2-ink); color:#fff; }
 .admin-button-v2--dark:hover { background:#383838; }
+.admin-button-v2--compact { min-height:30px; padding:5px 8px; font-size:11px; }
 .admin-field { display:flex; min-height:34px; align-items:center; gap:8px; border:1px solid var(--admin-v2-border); border-radius:7px; background:#fff; padding:0 10px; }
 .admin-field svg { width:15px; color:var(--admin-v2-subtle); }
 .admin-field input, .admin-field select { min-width:140px; border:0; outline:0; background:transparent; color:var(--admin-v2-ink); font-size:12px; }

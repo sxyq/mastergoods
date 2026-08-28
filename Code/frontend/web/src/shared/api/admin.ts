@@ -61,8 +61,11 @@ export interface AdminOverviewPayload {
 export interface AdminConfigPayload {
   modelId: string | null
   agentEnabled: boolean
+  enabledTools?: string[]
   version: number
   effectiveState: string
+  effectiveAt?: string | null
+  updatedBy?: string | null
 }
 
 export interface AdminStoreSummary {
@@ -73,6 +76,7 @@ export interface AdminStoreSummary {
   memberCount: number
   createdAt: string
   updatedAt: string
+  version?: number
 }
 
 export interface AdminMessage {
@@ -136,6 +140,13 @@ export interface AdminAuditEvent {
   result?: string | null
   occurredAt?: string
   summary?: string | null
+  role?: string | null
+  ownerUserId?: string | null
+  storeId?: string | null
+  sourceIp?: string | null
+  userAgentSummary?: string | null
+  requestId?: string | null
+  reason?: string | null
 }
 
 export interface AdminHealthService {
@@ -144,12 +155,14 @@ export interface AdminHealthService {
   version?: string
   checkedAt?: string
   errorSummary?: string | null
+  queueDepth?: number | null
 }
 
 export interface AdminHealthPayload {
   status?: string
   version?: string
   generatedAt?: string
+  components?: AdminHealthService[]
   services?: AdminHealthService[]
   errors?: Array<Record<string, unknown>>
 }
@@ -162,6 +175,10 @@ export interface AdminExportJob {
   expiresAt?: string
   downloadUrl?: string | null
   contentRedacted?: boolean
+  fields?: string[]
+  completedAt?: string | null
+  errorSummary?: string | null
+  downloadCount?: number
 }
 
 export interface AdminRetentionPayload {
@@ -172,6 +189,7 @@ export interface AdminRetentionPayload {
   metricsDays?: number
   effectiveAt?: string
   contentMode?: string
+  updatedBy?: string | null
 }
 
 function query(params: Record<string, string | number | boolean | undefined | null>) {
@@ -202,10 +220,76 @@ export interface AdminUserPayload {
   status: string
   createdAt: string
   updatedAt: string
+  version?: number
+}
+
+export function fetchAdminUser(token: string, userId: string, params: { ownerUserId?: string; storeId?: string } = {}) {
+  return requestAdmin<AdminUserPayload>(token, `${adminApiPaths.users}/${encodeURIComponent(userId)}${query(params)}`)
+}
+
+export function updateAdminUser(token: string, userId: string, payload: {
+  nickname?: string
+  status?: number
+  keepSessions?: boolean
+  expectedVersion: number
+  idempotencyKey: string
+  reason: string
+  confirmed: boolean
+  ownerUserId?: string
+  storeId?: string
+}) {
+  return requestAdmin<AdminUserPayload>(token, `${adminApiPaths.users}/${encodeURIComponent(userId)}`, { method: 'PATCH', body: adminJson(payload) })
 }
 
 export function fetchAdminStores(token: string, params: { ownerUserId?: string; storeId?: string; page?: number; size?: number } = {}) {
   return requestAdmin<AdminPage<AdminStoreSummary>>(token, `${adminApiPaths.stores}${query(params)}`)
+}
+
+export function fetchAdminStore(token: string, storeId: string, params: { ownerUserId?: string } = {}) {
+  return requestAdmin<AdminStoreSummary>(token, `${adminApiPaths.stores}/${encodeURIComponent(storeId)}${query(params)}`)
+}
+
+export interface AdminMemberSummary {
+  userId: string
+  storeId: string
+  nickname: string
+  phoneMasked: string
+  role: string
+  title: string
+  status: string
+  createdAt: string
+  updatedAt: string
+  version: number
+}
+
+export function fetchAdminStoreMembers(token: string, storeId: string, params: { ownerUserId?: string; page?: number; size?: number } = {}) {
+  return requestAdmin<AdminPage<AdminMemberSummary>>(token, `${adminApiPaths.stores}/${encodeURIComponent(storeId)}/members${query(params)}`)
+}
+
+export function updateAdminStore(token: string, storeId: string, payload: {
+  name?: string
+  status?: number
+  expectedVersion: number
+  idempotencyKey: string
+  reason: string
+  confirmed: boolean
+  ownerUserId?: string
+}) {
+  return requestAdmin<AdminStoreSummary>(token, `${adminApiPaths.stores}/${encodeURIComponent(storeId)}`, { method: 'PATCH', body: adminJson(payload) })
+}
+
+export function updateAdminStoreMember(token: string, storeId: string, userId: string, payload: {
+  nickname?: string
+  role?: string
+  title?: string
+  status?: number
+  keepSessions?: boolean
+  expectedVersion: number
+  idempotencyKey: string
+  reason: string
+  confirmed: boolean
+}) {
+  return requestAdmin<AdminMemberSummary>(token, `${adminApiPaths.stores}/${encodeURIComponent(storeId)}/members/${encodeURIComponent(userId)}`, { method: 'PATCH', body: adminJson(payload) })
 }
 
 export function fetchAdminRuns(token: string, params: { runId?: string; conversationId?: string; terminalStatus?: string; from?: string; to?: string; ownerUserId?: string; storeId?: string; page?: number; size?: number } = {}) {
@@ -275,6 +359,20 @@ export function fetchAdminConfig(token: string) {
   return requestAdmin<AdminConfigPayload>(token, adminApiPaths.agentConfig)
 }
 
+export function updateAdminConfig(token: string, payload: {
+  modelId?: string
+  agentEnabled?: boolean
+  enabledTools?: string[]
+  expectedVersion: number
+  idempotencyKey: string
+  reason: string
+  confirmed: boolean
+  ownerUserId?: string
+  storeId?: string
+}) {
+  return requestAdmin<AdminConfigPayload>(token, adminApiPaths.agentConfig, { method: 'PATCH', body: adminJson(payload) })
+}
+
 export function fetchAdminAuditEvents(token: string, params: { from?: string; to?: string; action?: string; resourceType?: string; result?: string; page?: number; size?: number } = {}) {
   return requestAdmin<AdminPage<AdminAuditEvent>>(token, `${adminApiPaths.auditEvents}${query(params)}`)
 }
@@ -288,9 +386,49 @@ export function fetchAdminExports(token: string, params: { page?: number; size?:
 }
 
 export function createAdminExport(token: string, payload: { exportType: string; fields: string[]; from?: string; to?: string; ownerUserId?: string; storeId?: string; reason: string; idempotencyKey: string }) {
-  return requestAdmin<AdminExportJob>(token, adminApiPaths.exports, { method: 'POST', body: JSON.stringify(payload) })
+  return requestAdmin<AdminExportJob>(token, adminApiPaths.exports, { method: 'POST', body: adminJson(payload) })
 }
 
 export function fetchAdminRetention(token: string) {
   return requestAdmin<AdminRetentionPayload>(token, adminApiPaths.retention)
+}
+
+export function updateAdminRetention(token: string, payload: {
+  auditDays: number
+  messageDays: number
+  toolResultDays: number
+  metricsDays: number
+  contentMode?: string
+  expectedVersion: number
+  idempotencyKey: string
+  reason: string
+  confirmed: boolean
+}) {
+  return requestAdmin<AdminRetentionPayload>(token, adminApiPaths.retention, { method: 'PATCH', body: adminJson(payload) })
+}
+
+export function fetchAdminExport(token: string, exportId: string) {
+  return requestAdmin<AdminExportJob>(token, `${adminApiPaths.exports}/${encodeURIComponent(exportId)}`)
+}
+
+export async function downloadAdminExport(token: string, exportId: string) {
+  const response = await requestAdminStream(token, `${adminApiPaths.exports}/${encodeURIComponent(exportId)}/download`)
+  return response.blob()
+}
+
+/** Admin DTOs use the backend's snake_case naming strategy on write. */
+function adminJson(payload: unknown) {
+  return JSON.stringify(toSnakeCase(payload))
+}
+
+function toSnakeCase(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(toSnakeCase)
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, entry]) => [snakeCase(key), toSnakeCase(entry)]))
+  }
+  return value
+}
+
+function snakeCase(value: string) {
+  return value.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
 }
