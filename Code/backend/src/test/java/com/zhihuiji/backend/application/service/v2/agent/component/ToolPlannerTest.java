@@ -34,6 +34,33 @@ class ToolPlannerTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
+    void imageGenerationIntentOffersImageGenerateAsTheNativeToolChoice() {
+        LongCatAnthropicClient client = mock(LongCatAnthropicClient.class);
+        when(client.isConfigured()).thenReturn(true);
+        ObjectNode params = objectMapper.createObjectNode().put("prompt", "生成商品主图");
+        when(client.createMessageWithTools(anyString(), anyString(), anyList()))
+            .thenReturn(Optional.of(new LongCatAnthropicClient.ToolUseResponse(
+                List.of(new LongCatAnthropicClient.ToolUseBlock(
+                    "call-image", "image_generate", params
+                )),
+                null
+            )));
+
+        ToolRegistry registry = new ToolRegistry(List.of(
+            new TestTool("image_generate", AgentTool.ToolType.CREATE_ONLY)
+        ));
+        ToolPlanner planner = new ToolPlanner(client, registry, objectMapper);
+
+        Optional<AgentToolPlan> plan = planner.planToolsWithNativeFunctionCalling(
+            "帮我生成一张商品图片，先给我确认。", List.of(), null
+        );
+
+        assertTrue(plan.isPresent());
+        assertEquals(List.of("image_generate"), plan.get().tools());
+        assertEquals("image_generate", plan.get().nativeToolCallBlocks().get(0).toolName());
+    }
+
+    @Test
     void modelAutoChoiceUsesSalesReturnToolAfterRealOrderItemsAreAvailable() {
         LongCatAnthropicClient client = mock(LongCatAnthropicClient.class);
         when(client.isConfigured()).thenReturn(true);

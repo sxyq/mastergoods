@@ -9,8 +9,12 @@ import com.zhihuiji.backend.domain.entity.MediaAssetEntity;
 import com.zhihuiji.backend.infrastructure.config.AgentImageProperties;
 import com.zhihuiji.backend.infrastructure.repository.MediaAssetRepository;
 import com.zhihuiji.backend.infrastructure.storage.MediaStorageService;
+import java.io.InterruptedIOException;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.net.SocketTimeoutException;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.TimeoutException;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -19,7 +23,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 @Service
 public class AgentImageService {
@@ -37,7 +44,7 @@ public class AgentImageService {
         MediaAssetRepository mediaAssetRepository,
         MediaStorageService mediaStorageService,
         AgentImageProperties properties,
-        RestClient.Builder restClientBuilder
+        @Qualifier("agentImageRestClientBuilder") RestClient.Builder restClientBuilder
     ) {
         this.currentOwnerService = currentOwnerService;
         this.mediaAssetRepository = mediaAssetRepository;
@@ -55,15 +62,32 @@ public class AgentImageService {
     }
 
     public V2AgentDtos.AgentImageGenerateResponse generate(V2AgentDtos.AgentImageGenerateRequest request) {
+        if (request == null) {
+            throw new BusinessException("生图请求不能为空");
+        }
         String prompt = normalizeRequired(request.prompt(), "prompt 不能为空");
         if (!isConfigured()) {
             throw new BusinessException("生图服务未配置，请先补充 URL、Key 与模型");
         }
+        if (Thread.currentThread().isInterrupted()) {
+            throw new BusinessException("生图服务请求已取消");
+        }
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         List<OwnedImageAsset> referenceImages = loadReferenceImages(ownerUserId, request.referenceAssetIds());
-        String responseBody = referenceImages.isEmpty()
-            ? postTextToImage(prompt)
-            : postImageToImage(prompt, referenceImages.get(0));
+        String responseBody;
+        try {
+            responseBody = referenceImages.isEmpty()
+                ? postTextToImage(prompt)
+                : postImageToImage(prompt, referenceImages.get(0));
+        } catch (RestClientResponseException ex) {
+            throw new BusinessException("生图服务请求失败");
+        } catch (ResourceAccessException ex) {
+            throw providerAccessFailure(ex);
+        } catch (CancellationException ex) {
+            throw new BusinessException("生图服务请求已取消");
+        } catch (RuntimeException ex) {
+            throw new BusinessException("生图服务请求失败");
+        }
         return parseGenerateResponse(responseBody);
     }
 
@@ -145,9 +169,10 @@ public class AgentImageService {
         }
         LinkedHashSet<Long> normalizedIds = new LinkedHashSet<>();
         for (Long referenceAssetId : referenceAssetIds) {
-            if (referenceAssetId != null && referenceAssetId > 0L) {
-                normalizedIds.add(referenceAssetId);
+            if (referenceAssetId == null || referenceAssetId <= 0L) {
+                throw new BusinessException("参考图片资源 ID 必须是正整数");
             }
+            normalizedIds.add(referenceAssetId);
         }
         if (normalizedIds.isEmpty()) {
             return List.of();
@@ -197,6 +222,31 @@ public class AgentImageService {
         }
         String path = uri.startsWith("/") ? uri.substring(1) : uri;
         return normalizedBaseUrl + "/" + path;
+    }
+
+    private BusinessException providerAccessFailure(ResourceAccessException ex) {
+        if (Thread.currentThread().isInterrupted()
+            || hasCause(ex, InterruptedException.class)
+            || hasCause(ex, CancellationException.class)
+            || (hasCause(ex, InterruptedIOException.class) && !hasCause(ex, SocketTimeoutException.class))) {
+            Thread.currentThread().interrupt();
+            return new BusinessException("生图服务请求已取消");
+        }
+        if (hasCause(ex, SocketTimeoutException.class) || hasCause(ex, TimeoutException.class)) {
+            return new BusinessException("生图服务请求超时");
+        }
+        return new BusinessException("生图服务暂时不可用");
+    }
+
+    private boolean hasCause(Throwable error, Class<? extends Throwable> type) {
+        Throwable current = error;
+        while (current != null) {
+            if (type.isInstance(current)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private record TextToImageRequest(String model, String prompt, String size) {}

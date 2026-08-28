@@ -26,6 +26,7 @@ import com.zhihuiji.backend.application.service.v2.V2PurchaseReturnService;
 import com.zhihuiji.backend.application.service.v2.V2SaleOrderService;
 import com.zhihuiji.backend.application.service.v2.V2SalesReturnService;
 import com.zhihuiji.backend.application.service.v2.V2SupplierService;
+import com.zhihuiji.backend.application.service.v2.AgentImageService;
 import com.zhihuiji.backend.domain.entity.AgentDraftEntity;
 import com.zhihuiji.backend.infrastructure.repository.AgentDraftRepository;
 import java.util.List;
@@ -71,6 +72,7 @@ public class AgentDraftConfirmService {
     private final FinanceRecordService financeRecordService;
     private final V2InventoryService v2InventoryService;
     private final V2AccountTransferService v2AccountTransferService;
+    private final AgentImageService agentImageService;
 
     public AgentDraftConfirmService(
         AgentDraftRepository agentDraftRepository,
@@ -87,7 +89,8 @@ public class AgentDraftConfirmService {
         V2ProductService v2ProductService,
         FinanceRecordService financeRecordService,
         V2InventoryService v2InventoryService,
-        V2AccountTransferService v2AccountTransferService
+        V2AccountTransferService v2AccountTransferService,
+        AgentImageService agentImageService
     ) {
         this.agentDraftRepository = agentDraftRepository;
         this.currentOwnerService = currentOwnerService;
@@ -104,6 +107,7 @@ public class AgentDraftConfirmService {
         this.financeRecordService = financeRecordService;
         this.v2InventoryService = v2InventoryService;
         this.v2AccountTransferService = v2AccountTransferService;
+        this.agentImageService = agentImageService;
     }
 
     /**
@@ -150,8 +154,9 @@ public class AgentDraftConfirmService {
         ) != 1) {
             throw new BusinessException("草稿已被其他请求确认或状态已变化");
         }
+        V2AgentDtos.AgentImageGenerateResponse imageResult;
         try {
-            dispatchCreate(entity);
+            imageResult = dispatchCreate(entity);
         } catch (BusinessException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -160,7 +165,7 @@ public class AgentDraftConfirmService {
         }
         entity.setStatus(STATUS_CONFIRMED);
         entity.setUpdatedAt(System.currentTimeMillis());
-        return toDraftResponse(agentDraftRepository.save(entity));
+        return toDraftResponse(agentDraftRepository.save(entity), imageResult);
     }
 
     /**
@@ -197,7 +202,7 @@ public class AgentDraftConfirmService {
      * @param entity 草稿实体
      * @throws Exception 反序列化或业务创建异常
      */
-    private void dispatchCreate(AgentDraftEntity entity) throws Exception {
+    private V2AgentDtos.AgentImageGenerateResponse dispatchCreate(AgentDraftEntity entity) throws Exception {
         String contentJson = entity.getContentJson();
         String draftType = entity.getDraftType();
         switch (draftType) {
@@ -229,11 +234,24 @@ public class AgentDraftConfirmService {
             case "media_upload" -> {
                 // 媒体上传草稿仅用于承载上传意图与参数，确认后由前端继续执行真实上传。
             }
+            case "image_generate" -> {
+                return agentImageService.generate(
+                    objectMapper.readValue(contentJson, V2AgentDtos.AgentImageGenerateRequest.class)
+                );
+            }
             default -> throw new BusinessException("不支持的草稿类型：" + draftType);
         }
+        return null;
     }
 
     private V2AgentDtos.AgentDraftResponse toDraftResponse(AgentDraftEntity entity) {
+        return toDraftResponse(entity, null);
+    }
+
+    private V2AgentDtos.AgentDraftResponse toDraftResponse(
+        AgentDraftEntity entity,
+        V2AgentDtos.AgentImageGenerateResponse imageResult
+    ) {
         return new V2AgentDtos.AgentDraftResponse(
             entity.getId(),
             entity.getConversationId(),
@@ -242,7 +260,8 @@ public class AgentDraftConfirmService {
             entity.getContentJson(),
             entity.getStatus(),
             entity.getCreatedAt(),
-            entity.getUpdatedAt()
+            entity.getUpdatedAt(),
+            imageResult
         );
     }
 }

@@ -40,6 +40,10 @@ class AgentPromptCatalogTest {
             AgentPromptCatalog.targetWriteTool("把第一个商品库存加 1 件，先做调整草稿")
         );
         org.junit.jupiter.api.Assertions.assertEquals(
+            "image_generate",
+            AgentPromptCatalog.targetWriteTool("帮我生成一张商品图片，先给我确认")
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(
             "create_product",
             AgentPromptCatalog.targetWriteTool("帮我加个商品，先生成草稿")
         );
@@ -136,6 +140,9 @@ class AgentPromptCatalogTest {
         assertNull(AgentPromptCatalog.targetWriteTool("最近有哪些销售退货？退货明细和状态给我看看。"));
         assertEquals("create_customer", AgentPromptCatalog.targetWriteTool("帮我新建客户李四，先生成草稿"));
         assertEquals("create_sale_order", AgentPromptCatalog.targetWriteTool("帮张三开一张销售单，先确认"));
+        assertTrue(AgentPromptCatalog.hasWriteIntent("帮我生成一张商品图片，先给我确认"));
+        assertEquals("image_generate", AgentPromptCatalog.targetWriteTool("做一张蓝白色商品海报"));
+        assertNull(AgentPromptCatalog.targetWriteTool("帮我写商品海报提示词"));
     }
 
     @Test

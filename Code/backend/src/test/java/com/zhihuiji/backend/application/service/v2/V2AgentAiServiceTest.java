@@ -84,6 +84,7 @@ import com.zhihuiji.backend.application.service.v2.agent.tool.write.CreateProduc
 import com.zhihuiji.backend.application.service.v2.agent.tool.write.CreatePurchaseOrderTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.write.CreateSaleOrderTool;
 import com.zhihuiji.backend.application.service.v2.agent.tool.write.CreateSupplierTool;
+import com.zhihuiji.backend.application.service.v2.agent.tool.write.ImageGenerateTool;
 import com.zhihuiji.backend.infrastructure.ai.LongCatAnthropicClient;
 import com.zhihuiji.backend.infrastructure.config.AgentLlmProperties;
 import com.zhihuiji.backend.infrastructure.repository.AgentContextCheckpointRepository;
@@ -222,7 +223,8 @@ class V2AgentAiServiceTest {
             new CreateSaleOrderTool(agentDraftRepository),
             new CreatePurchaseOrderTool(agentDraftRepository),
             new CreatePayOrderTool(agentDraftRepository),
-            new CreateFinanceRecordTool(agentDraftRepository)
+            new CreateFinanceRecordTool(agentDraftRepository),
+            new ImageGenerateTool(agentDraftRepository)
         ));
         toolPlanner = new ToolPlanner(longCatAnthropicClient, toolRegistry, objectMapper);
         ToolExecutor toolExecutor = new ToolExecutor(toolRegistry, currentOwnerService);
@@ -3395,6 +3397,54 @@ class V2AgentAiServiceTest {
         verify(agentDraftRepository).save(draftCaptor.capture());
         assertEquals(101L, draftCaptor.getValue().getConversationId());
         verify(longCatAnthropicClient).createMessageWithTools(anyString(), anyString(), any());
+    }
+
+    @Test
+    void chatUsesImageGenerateToolForDraftAndCarriesStructuredResultAndAudit() {
+        when(longCatAnthropicClient.isConfigured()).thenReturn(true);
+        when(longCatAnthropicClient.configurationStatus()).thenReturn("configured");
+        when(longCatAnthropicClient.createMessageWithTools(anyString(), anyString(), any()))
+            .thenReturn(Optional.of(new LongCatAnthropicClient.ToolUseResponse(
+                List.of(new LongCatAnthropicClient.ToolUseBlock(
+                    "call-image-generate",
+                    "image_generate",
+                    objectMapper.createObjectNode().put("prompt", "生成蓝白色商品主图")
+                )),
+                "直接生成图片草稿"
+            )));
+        when(longCatAnthropicClient.createJsonMessage(anyString(), contains("本轮工具真实结果 JSON")))
+            .thenReturn(Optional.of("已生成图片草稿，请确认后执行生图。"));
+
+        V2AgentDtos.AgentChatResponse response = service.chat(
+            new V2AgentDtos.AgentChatRequest(null, "帮我生成一张蓝白色商品图片，先给我确认", false)
+        );
+
+        assertEquals("native_tool_use", response.planSource());
+        assertTrue(response.planSummary().contains("image_generate"), response.planSummary());
+        assertEquals(1, response.toolCalls().size());
+        assertEquals("image_generate", response.toolCalls().get(0).toolName());
+        assertEquals("completed", response.toolCalls().get(0).status());
+        assertTrue(response.answer().contains("已生成图片草稿"), response.answer());
+        assertTrue(response.blocks().stream().anyMatch(block ->
+            "draft_card".equals(block.blockType())
+                && "image_generate".equals(block.data().path("draft_type").asText())
+        ));
+        assertEquals(AgentTerminalStatus.CONFIRMATION_PENDING.name(), response.terminalStatus());
+
+        ArgumentCaptor<AgentDraftEntity> draftCaptor = ArgumentCaptor.forClass(AgentDraftEntity.class);
+        verify(agentDraftRepository).save(draftCaptor.capture());
+        AgentDraftEntity draft = draftCaptor.getValue();
+        assertEquals(1L, draft.getOwnerUserId());
+        assertEquals("active", draft.getStatus());
+        assertEquals("image_generate", draft.getDraftType());
+        assertTrue(runAuditEvents.stream().anyMatch(event ->
+            "tool_started".equals(event.getEventType())
+                && event.getPayloadJson().contains("image_generate")
+        ));
+        AgentRunAuditEntity audit = runAudits.get(response.runId());
+        assertNotNull(audit);
+        assertEquals("native_tool_use", audit.getPlanSource());
+        assertEquals(1, audit.getToolCount());
     }
 
     @Test

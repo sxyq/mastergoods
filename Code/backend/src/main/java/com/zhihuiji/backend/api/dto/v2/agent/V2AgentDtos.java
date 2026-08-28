@@ -78,8 +78,22 @@ public final class V2AgentDtos {
         String contentJson,
         String status,
         Long createdAt,
-        Long updatedAt
-    ) {}
+        Long updatedAt,
+        AgentImageGenerateResponse imageResult
+    ) {
+        public AgentDraftResponse(
+            Long id,
+            Long conversationId,
+            String draftType,
+            String title,
+            String contentJson,
+            String status,
+            Long createdAt,
+            Long updatedAt
+        ) {
+            this(id, conversationId, draftType, title, contentJson, status, createdAt, updatedAt, null);
+        }
+    }
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record AgentDraftCreateRequest(

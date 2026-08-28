@@ -12,9 +12,11 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
 import com.zhihuiji.backend.api.dto.v2.inventory.V2InventoryDtos;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
 import com.zhihuiji.backend.application.service.FinanceRecordService;
+import com.zhihuiji.backend.application.service.v2.AgentImageService;
 import com.zhihuiji.backend.application.service.v2.V2AccountTransferService;
 import com.zhihuiji.backend.application.service.v2.V2CustomerService;
 import com.zhihuiji.backend.application.service.v2.V2InventoryService;
@@ -29,6 +31,7 @@ import com.zhihuiji.backend.application.service.v2.V2SupplierService;
 import com.zhihuiji.backend.domain.entity.AgentDraftEntity;
 import com.zhihuiji.backend.infrastructure.repository.AgentDraftRepository;
 import java.lang.reflect.Field;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,6 +54,7 @@ class AgentDraftConfirmServiceTest {
     @Mock private FinanceRecordService financeRecordService;
     @Mock private V2InventoryService v2InventoryService;
     @Mock private V2AccountTransferService v2AccountTransferService;
+    @Mock private AgentImageService agentImageService;
 
     private AgentDraftConfirmService service;
 
@@ -72,7 +76,8 @@ class AgentDraftConfirmServiceTest {
             v2ProductService,
             financeRecordService,
             v2InventoryService,
-            v2AccountTransferService
+            v2AccountTransferService,
+            agentImageService
         );
         when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
         when(agentDraftRepository.updateStatusIfCurrent(
@@ -127,6 +132,48 @@ class AgentDraftConfirmServiceTest {
         verifyNoInteractions(v2InventoryService, v2SaleOrderService, v2PurchaseOrderService, v2AccountTransferService);
         assertEquals("confirmed", draft.getStatus());
         assertEquals("media_upload", response.draftType());
+    }
+
+    @Test
+    void confirmImageDraftCallsProviderOnlyAfterConfirmationAndReturnsImageResult() {
+        AgentDraftEntity draft = activeDraft(
+            15L,
+            "image_generate",
+            "{\"prompt\":\"生成商品主图\",\"reference_asset_ids\":[]}"
+        );
+        when(agentDraftRepository.findByIdAndOwnerUserId(15L, 1L)).thenReturn(Optional.of(draft));
+        when(agentImageService.generate(any())).thenReturn(
+            new V2AgentDtos.AgentImageGenerateResponse("data:image/png;base64,ZmFrZQ==", "优化后的提示词")
+        );
+
+        var response = service.confirmDraft(15L);
+
+        verify(agentImageService).generate(new V2AgentDtos.AgentImageGenerateRequest("生成商品主图", List.of()));
+        assertEquals("confirmed", draft.getStatus());
+        assertEquals("data:image/png;base64,ZmFrZQ==", response.imageResult().imageUrl());
+        assertEquals("优化后的提示词", response.imageResult().revisedPrompt());
+    }
+
+    @Test
+    void providerFailureLeavesImageDraftActiveForRetryWithoutSavingConfirmedState() {
+        AgentDraftEntity draft = activeDraft(
+            16L,
+            "image_generate",
+            "{\"prompt\":\"生成商品主图\",\"reference_asset_ids\":[]}"
+        );
+        when(agentDraftRepository.findByIdAndOwnerUserId(16L, 1L)).thenReturn(Optional.of(draft));
+        when(agentImageService.generate(any())).thenThrow(
+            new com.zhihuiji.backend.api.common.BusinessException("生图服务请求超时")
+        );
+
+        var error = org.junit.jupiter.api.Assertions.assertThrows(
+            com.zhihuiji.backend.api.common.BusinessException.class,
+            () -> service.confirmDraft(16L)
+        );
+
+        assertEquals("生图服务请求超时", error.getMessage());
+        assertEquals("active", draft.getStatus());
+        verify(agentDraftRepository, org.mockito.Mockito.never()).save(any(AgentDraftEntity.class));
     }
 
     @Test

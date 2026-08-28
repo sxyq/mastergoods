@@ -93,6 +93,7 @@ public final class AgentPromptCatalog {
         entry("create_sale_order", "给客户开一单，先别直接保存"),
         entry("create_sales_return", "这张销售单退几件，先做草稿"),
         entry("create_supplier", "帮我加个供应商，先看看要保存什么"),
+        entry("image_generate", "生成一张图片或商品海报，先把生图草稿给我确认"),
         entry("media_upload_tool", "我有个文件，先生成上传意图，不要直接上传")
     );
 
@@ -307,6 +308,9 @@ public final class AgentPromptCatalog {
             return null;
         }
         boolean createRequest = containsCreateVerb(message);
+        if (hasImageGenerateIntent(message)) {
+            return "image_generate";
+        }
         if (message.contains("采购") && message.contains("退")) {
             return "create_purchase_return";
         }
@@ -408,7 +412,29 @@ public final class AgentPromptCatalog {
         if (message.contains("把") && message.contains("做入库")) {
             return true;
         }
-        return containsExplicitReturnOperation(message);
+        return containsExplicitReturnOperation(message) || hasImageGenerateIntent(message);
+    }
+
+    private static boolean hasImageGenerateIntent(String message) {
+        if (message == null || message.isBlank() || requestsVisualization(message)) {
+            return false;
+        }
+        if (message.contains("提示词") || message.contains("文案")) {
+            return false;
+        }
+        boolean imageSubject = message.contains("图片")
+            || message.contains("图像")
+            || message.contains("商品图")
+            || message.contains("主图")
+            || message.contains("配图")
+            || message.contains("插画")
+            || message.contains("海报");
+        boolean generationVerb = message.contains("生成")
+            || message.contains("生图")
+            || message.contains("绘制")
+            || message.contains("画一张")
+            || message.contains("做一张");
+        return imageSubject && generationVerb;
     }
 
     private static boolean containsExplicitReturnOperation(String message) {
