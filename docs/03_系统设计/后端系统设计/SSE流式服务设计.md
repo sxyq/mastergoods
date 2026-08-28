@@ -8,7 +8,7 @@
 | 当前状态 | 已完成 |
 | 适用端 | 后端 / Android / Web（iOS 待验证） |
 | 依据源码 | `application/service/v2/V2AgentAiService.java`（`chatStream`/`runChatStream`）、`application/service/v2/agent/component/SseStreamEmitter.java` |
-| 依据测试 | `testing/Agent/Agent综合功能与性能测试方案.md`、`AgentSseClientCancellationTest.kt`、`AgentStreamEventSerializationTest.kt` |
+| 依据测试 | `testing/Agent/契约/TEST_PLAN.md`、`testing/Agent/可靠性/TEST_PLAN.md`、`AgentSseClientCancellationTest.kt`、`AgentStreamEventSerializationTest.kt` |
 | 依据证据 | `testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md`（SSE 直连 200、3 chunk、1 DONE） |
 | 最后核对 | 2026-08-20 |
 
@@ -43,7 +43,7 @@ stateDiagram-v2
 
 对应源码：`V2AgentAiService.runChatStream()`、`SseStreamEmitter.java`。
 对应接口：`POST /v2/agent/chat/stream`。
-对应测试：`AgentStreamEventSerializationTest.kt`、`testing/Agent/Agent综合功能与性能测试方案.md`。
+对应测试：`AgentStreamEventSerializationTest.kt`、`testing/Agent/契约/TEST_PLAN.md`、`testing/Agent/可靠性/TEST_PLAN.md`。
 当前状态：已完成（后端）；Android 本地完成；iOS/Web 待验证。
 
 ## 二、事件清单（源码事实）
@@ -97,7 +97,7 @@ stateDiagram-v2
 ## 对应测试
 
 - 单元测试：`AgentSseClientCancellationTest.kt`、`AgentStreamEventSerializationTest.kt`
-- 功能测试：`testing/Agent/Agent综合功能与性能测试方案.md`（流式对话）
+- 功能测试：`testing/Agent/功能/TEST_PLAN.md`、`testing/Agent/契约/TEST_PLAN.md`（流式对话）
 - 证据：`testing/.artifacts/2026-08-03-*/sse-performance-20260803/`、验收证据中 SSE log
 
 ## 当前限制

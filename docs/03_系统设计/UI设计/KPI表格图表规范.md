@@ -49,7 +49,7 @@
 ## 对应测试
 
 - 单元测试：`ResultBlockRendererContractTest.kt`、`AgentStoredResultBlockParseTest.kt`
-- 功能测试：`testing/Agent/Agent综合功能与性能测试方案.md`（result-block）
+- 功能测试：`testing/Agent/功能/TEST_PLAN.md`（result-block）
 
 ## 当前限制
 

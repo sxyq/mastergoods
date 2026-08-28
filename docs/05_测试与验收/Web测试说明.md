@@ -23,7 +23,7 @@
 ## 二、当前状态
 
 - 源码存在（AgentPage、agent-stream、routes）。
-- Agent 主流程本轮未展开测试（`testing/Agent/Agent综合功能与性能测试方案.md`：本轮不展开 Web/iOS 主流程）。
+- Agent 主流程本轮未展开测试（`testing/Agent/客户端/TEST_PLAN.md`：本轮不展开 Web/iOS 主流程）。
 - 无 8220 运行证据——所有 Web Agent 行为标记待验证。
 
 ## 三、历史证据

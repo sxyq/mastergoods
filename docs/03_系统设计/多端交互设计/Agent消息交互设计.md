@@ -8,7 +8,7 @@
 | 当前状态 | 已完成 |
 | 适用端 | 多端 |
 | 依据源码 | `V2AgentDtos.AgentMessageResponse`（后端）、`AgentChatModels.kt`（Android）、`AgentModels.swift`（iOS）、`AgentPage.vue`（Web） |
-| 依据测试 | `AgentChatResponseSerializationTest.kt`、`testing/Agent/Agent综合功能与性能测试方案.md` |
+| 依据测试 | `AgentChatResponseSerializationTest.kt`、`testing/Agent/功能/TEST_PLAN.md` |
 | 依据证据 | `testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md` |
 | 最后核对 | 2026-08-20 |
 
@@ -81,7 +81,7 @@ flowchart LR
 ## 对应测试
 
 - 单元测试：`AgentChatViewModelAnswerMergeTest.kt`、`AgentChatResponseSerializationTest.kt`
-- 功能测试：`testing/Agent/Agent综合功能与性能测试方案.md`
+- 功能测试：`testing/Agent/功能/TEST_PLAN.md`
 
 ## 当前限制
 

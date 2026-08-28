@@ -26,7 +26,7 @@
 
 - `testing/ios/功能测试/TEST_PLAN.md` + `functional_feature_matrix.csv`。
 - `testing/ios/性能测试/TEST_PLAN.md` + `performance_scope_matrix.csv`。
-- 本轮 Agent 主流程未展开（`testing/Agent/Agent综合功能与性能测试方案.md`）。
+- 本轮 Agent 主流程未展开（`testing/Agent/客户端/TEST_PLAN.md`）。
 
 ## 三、当前状态
 

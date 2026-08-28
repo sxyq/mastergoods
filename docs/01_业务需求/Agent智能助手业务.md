@@ -85,7 +85,7 @@ flowchart TD
 | Wave 1 真实数据 Agent | Blocked |
 | Wave 2 最小夹具 | Blocked（未获授权，无隔离评测库） |
 | Wave 3 长链路/性能 | Blocked |
-| Agent `image_generate` 工具注册与单元事实 | Passed（提交 `180bb7be` 的源码测试已覆盖注册、Schema、权限和草稿） |
+| Agent `image_generate` 工具注册与实现事实 | 已提交（`180bb7be` 包含注册、Schema、权限门和草稿实现；本轮未执行测试） |
 | 生图 Provider、客户端确认和真实结果回传 | Deferred（Provider、设备和端到端证据尚未具备） |
 
 ## 对应实现
