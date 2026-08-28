@@ -22,6 +22,7 @@
 | 安全检查 | `SafetyGuard.java` | UI 展示 | `SafetyDecision` 展示 | 事件模型 |
 | 工具规划 | `ToolPlanner.java`（候选范围/续轮/写目标重试） | 工具过程 UI | 工具状态 | UiToolCall |
 | 工具执行 | `ToolRegistry.java` + `tool/` + `ToolExecutor.java`（范围/参数/权限门） | 工具状态 | 待验证 | 事件模型 |
+| 生图工具 | `ImageGenerateTool.java` → `agent_drafts` → `AgentDraftConfirmService` → `AgentImageService` → Provider | 覆盖式确认 | 待验证 | `image_url` / `revised_prompt` |
 | 上下文预算/构建/压缩 | `agent/context/`（ContextWindowResolver/TokenEstimator/ContextBuilder/ContextCompactionService） | — | — | 压缩展示 |
 | 检查点 | `AgentContextCheckpointEntity` + `AgentContextCheckpointRepository` + V32 迁移 | — | — | — |
 | 长期记忆 | `agent/memory/AgentMemoryService`（已接入请求链）+ V33 迁移 | — | — | — |
@@ -40,7 +41,7 @@
 | context | `ContextWindowResolver`、`TokenEstimator`、`ContextBuilder`、`ContextCompactionService` |
 | memory | `AgentMemoryService`（召回/异步提取/脱敏/隔离） |
 | search | `WebSearchProvider`、`DisabledWebSearchProvider`、`WebSearchUrlSafety`、`WebSearchRequest/Result` |
-| tool | `AgentTool`、`ToolContext`、`ToolRegistry`、`ToolExecutor`、`ToolResult`、`readonly/`（40+ 工具）、`write/`（CREATE_ONLY 工具） |
+| tool | `AgentTool`、`ToolContext`、`ToolRegistry`、`ToolExecutor`、`ToolResult`、`readonly/`（46 个）、`write/`（15 个 CREATE_ONLY 工具，含 `ImageGenerateTool`） |
 
 ## 三、工具注册机制
 
@@ -76,9 +77,10 @@
 
 - 单元测试：`Code/backend/src/test/java/.../application/service/v2/`（V2AgentAiServiceTest、V2AgentToolSelectionRegressionTest、ToolRegistryTest、ToolPlannerTest、AnswerSynthesizerTest、SafetyGuardTest、context/Context*Test、memory/AgentMemoryServiceTest、search/WebSearch*Test）
 - Android 测试：`feature/agent/src/test/`、`core/network/src/test/`、`core/model/src/test/`
-- 功能测试：`testing/Agent/Agent综合功能与性能测试方案.md`
-- 性能测试：`testing/Agent/Agent综合功能与性能测试方案.md`
-- 审计：`testing/Agent/Agent执行台账.csv`
+- 功能测试：`testing/Agent/功能/TEST_PLAN.md`
+- 性能测试：`testing/Agent/性能/TEST_PLAN.md`
+- 单元/契约/集成/安全/可靠性/客户端/数据：对应 `testing/Agent/` 分类 `TEST_PLAN.md`
+- 映射与证据：`testing/Agent/README.md`、`testing/Agent/映射台账.md`
 
 ## 当前限制
 

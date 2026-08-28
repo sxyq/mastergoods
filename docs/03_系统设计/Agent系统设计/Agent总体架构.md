@@ -8,7 +8,7 @@
 | 当前状态 | 已完成 |
 | 适用端 | Agent（后端 / Android / iOS / Web） |
 | 依据源码 | `application/service/v2/V2AgentAiService.java`、`application/service/v2/agent/component/`、`application/service/v2/agent/tool/`、`infrastructure/ai/LongCatAnthropicClient.java` |
-| 依据测试 | `testing/Agent/Agent综合功能与性能测试方案.md`、`Code/backend/src/test/java/.../application/service/v2/` |
+| 依据测试 | `testing/Agent/功能/TEST_PLAN.md`、`testing/Agent/契约/TEST_PLAN.md`、`testing/Agent/集成/TEST_PLAN.md`、`Code/backend/src/test/java/.../application/service/v2/` |
 | 依据证据 | `testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md` |
 | 最后核对 | 2026-08-20 |
 
@@ -41,8 +41,26 @@ flowchart TD
 
 对应源码：`V2AgentAiService.runChatStream()`。
 对应接口：`POST /v2/agent/chat/stream`。
-对应测试：`testing/Agent/Agent综合功能与性能测试方案.md`。
+对应测试：`testing/Agent/功能/TEST_PLAN.md`、`testing/Agent/契约/TEST_PLAN.md`、`testing/Agent/集成/TEST_PLAN.md`。
 当前状态：后端链路已完成；8220 生产链路 Blocked。
+
+### 生图工具调用链
+
+`ToolRegistry` 从 `@Component` 收集 61 个 `AgentTool`，`ToolExecutor` 先执行注册、范围、Schema、权限和 owner/store 上下文校验。对 `image_generate`，通过校验后进入 `ImageGenerateTool`，只向 `agent_drafts` 写入 `draft_type=image_generate`、`status=active` 的草稿；手机/客户端以覆盖式确认或拒绝。确认请求进入 `AgentDraftConfirmService`，再由 `dispatchCreate` 调用 `AgentImageService`，最后访问 Provider。拒绝、确认前取消、参数/权限/参考图校验失败都不访问 Provider，也不写正式业务表。
+
+```mermaid
+flowchart LR
+    A[ToolRegistry] --> B[ToolExecutor]
+    B --> C[ImageGenerateTool]
+    C --> D[agent_drafts active]
+    D --> E[手机/客户端覆盖式确认]
+    E --> F[AgentDraftConfirmService]
+    F --> G[AgentImageService]
+    G --> H[Provider]
+    E -->|拒绝| I[cancelled，不写正式业务表]
+```
+
+`POST /v2/agent/images/generate` 是 `V2AgentController` 直接调用 `AgentImageService` 的独立 REST 入口；它不经过 `ToolRegistry`、`ImageGenerateTool` 或 Agent 草稿工具调用，不能作为 AgentTool 已执行的证据。生图 Provider 的 URL、模型和 key 只来自运行时占位配置；key、认证头、结果完整 URL、完整 `b64_json` 不进入日志、SSE 或客户端通用状态。
 
 ## 二、组件职责
 
@@ -54,6 +72,7 @@ flowchart TD
 | `ToolPlanner` | `component/ToolPlanner.java` | 工具规划（模型选择 → AgentToolPlan） |
 | `ToolRegistry` | `tool/ToolRegistry.java` | 工具注册、参数校验、执行分发 |
 | `AgentTool` | `tool/AgentTool.java` | 工具接口（READ_ONLY / CREATE_ONLY） |
+| `ImageGenerateTool` | `tool/write/ImageGenerateTool.java` | `image_generate` CREATE_ONLY 工具，只创建生图 active 草稿 |
 | `ToolContext` | `tool/ToolContext.java` | 工具执行上下文（owner） |
 | `AnswerSynthesizer` | `component/AnswerSynthesizer.java` | 正式回答生成（model_stream / non_stream_retry） |
 | `SseStreamEmitter` | `component/SseStreamEmitter.java` | SSE 事件发送与审计联动 |
@@ -63,7 +82,7 @@ flowchart TD
 
 ## 三、运行上下文（8220）
 
-- Provider：`gpt-5.6-luna` / `https://oneapi.sxyq27.online/v1` / `chat_completions`。
+- Provider：模型和地址使用 `<LLM_PROVIDER_MODEL>`、`https://provider.example/v1` 等运行时占位符；wire API 为 `chat_completions`。
 - SSE 超时：180 秒；工具上限 12 次/run；迭代上限 3 轮。
 - 事件与审计：每个 run 有 `audit_id` / `trace_id` / `observability`。
 
@@ -102,12 +121,13 @@ flowchart TD
 ## 对应测试
 
 - 单元测试：`V2AgentAiServiceTest.java`、`V2AgentConversationServiceTest.java`、`component/*`、`tool/*`
-- 功能测试：`testing/Agent/Agent综合功能与性能测试方案.md`
-- 审计：`testing/Agent/Agent执行台账.csv`
+- 功能测试：`testing/Agent/功能/TEST_PLAN.md`
+- 契约/集成/安全/性能/可靠性/客户端/数据：对应 `testing/Agent/` 分类 `TEST_PLAN.md`
+- 映射与证据规则：`testing/Agent/README.md`、`testing/Agent/映射台账.md`
 
 ## 当前限制
 
 - 未完成内容：iOS / Web Agent 主流程测试
 - Blocked 内容：8220 生产 Agent 链路（无会话数据）
-- Deferred 内容：多模态
+- Deferred 内容：生图 Provider 真实调用、客户端覆盖式确认和结果展示；真实资源消耗与结果脱敏仍待分类测试证据
 - historical-only 内容：154 环境 Agent 链路证据

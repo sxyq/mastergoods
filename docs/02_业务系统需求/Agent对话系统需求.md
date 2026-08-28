@@ -8,7 +8,7 @@
 | 当前状态 | 已完成 |
 | 适用端 | Agent（后端 / Android / iOS / Web） |
 | 依据源码 | `application/service/v2/V2AgentAiService.java`、`application/service/v2/agent/component/`、`application/service/v2/agent/tool/`、`infrastructure/ai/LongCatAnthropicClient.java` |
-| 依据测试 | `testing/Agent/Agent综合功能与性能测试方案.md`、`V2AgentAiServiceTest.java`、`V2AgentConversationServiceTest.java`、`AgentDraftConfirmServiceTest.java` |
+| 依据测试 | `testing/Agent/功能/TEST_PLAN.md`、`testing/Agent/契约/TEST_PLAN.md`、`testing/Agent/集成/TEST_PLAN.md`、`V2AgentAiServiceTest.java`、`V2AgentConversationServiceTest.java`、`AgentDraftConfirmServiceTest.java` |
 | 依据证据 | `testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md` |
 | 最后核对 | 2026-08-20 |
 
@@ -52,7 +52,7 @@
 | 涉及端 | 后端 / Android / Web（iOS 待验证） |
 | 对应接口 | `POST /v2/agent/chat/stream`（`produces = "text/event-stream"`） |
 | 对应源码 | `V2AgentAiService.chatStream()`、`SseStreamEmitter.java` |
-| 对应测试 | `testing/Agent/Agent综合功能与性能测试方案.md`（流式对话）；`AgentSseClientCancellationTest.kt`（Android） |
+| 对应测试 | `testing/Agent/契约/TEST_PLAN.md`、`testing/Agent/可靠性/TEST_PLAN.md`（流式对话）；`AgentSseClientCancellationTest.kt`（Android） |
 | 验收标准 | 事件顺序与终态正确（`answer_completed` 后 `run_completed`） |
 | 当前状态 | 后端已完成（8220 SSE 直连探针 Passed）；Android 本地已完成；iOS/Web 待验证 |
 
@@ -73,7 +73,7 @@
 | 涉及端 | 多端 |
 | 对应接口 | `GET /v2/agent/conversations`、`GET /v2/agent/conversations/{id}/messages` |
 | 对应源码 | `application/service/v2/V2AgentConversationService.java` |
-| 对应测试 | `testing/Agent/Agent综合功能与性能测试方案.md`（Wave 1 history reload）；`AgentWorkbenchHistoryTest.kt`（Android） |
+| 对应测试 | `testing/Agent/功能/TEST_PLAN.md`、`testing/Agent/客户端/TEST_PLAN.md`（Wave 1 history reload）；`AgentWorkbenchHistoryTest.kt`（Android） |
 | 验收标准 | 历史消息与分页位置正确恢复 |
 | 当前状态 | Android 已完成（历史分页恢复首个可见消息位置）；iOS/Web 待验证；8220 无会话数据 |
 
@@ -136,7 +136,7 @@
 | 涉及端 | 多端 |
 | 对应接口 | SSE `result_block` |
 | 对应源码 | 后端 `V2AgentAiService.selectVisibleResultBlocks()`；Android `feature/agent/result/ResultBlockRenderer.kt`；iOS `AgentChatView.resultBlockView()`；Web `AgentPage.vue` |
-| 对应测试 | `ResultBlockRendererContractTest.kt`、`AgentStoredResultBlockParseTest.kt`（Android）；`testing/Agent/Agent综合功能与性能测试方案.md` |
+| 对应测试 | `ResultBlockRendererContractTest.kt`、`AgentStoredResultBlockParseTest.kt`（Android）；`testing/Agent/契约/TEST_PLAN.md`、`testing/Agent/客户端/TEST_PLAN.md` |
 | 验收标准 | 结果块按 part 顺序渲染且图表数据真实 |
 | 当前状态 | Android 已完成（本地验证）；iOS/Web 待验证 |
 
@@ -160,6 +160,27 @@
 | 对应测试 | `AgentDraftConfirmServiceTest.java`；`testing/.artifacts/2026-07-28-draft-closedloop/evidence-summary.md` |
 | 验收标准 | 确认后写操作生效且草稿终态正确 |
 | 当前状态 | 后端已完成；Android 草稿列表无可达 UI 入口（已知问题 #2） |
+
+### SR-AGT-010 `image_generate` AgentTool
+
+| 字段 | 内容 |
+|---|---|
+| 需求编号 | SR-AGT-010 |
+| 需求名称 | Agent 生图工具 |
+| 业务目标 | 在用户确认前准备生图草稿，确认后生成图片并返回受控结果 |
+| 参与角色 | 具有 `agent:write` 的当前 owner 成员 |
+| 前置条件 | `image_generate` 已由 `ToolRegistry` 注册；执行上下文包含当前 owner/store；Provider 配置只从运行时占位配置读取 |
+| 输入 | 必填 `prompt`：字符串，长度 1..2000；可选 `reference_asset_ids`：正整数数组，最多 1 个；未知字段拒绝 |
+| 处理规则 | `ToolPlanner` → `ToolExecutor` 完成注册、范围、Schema、权限和上下文校验；`ImageGenerateTool` 只写 `agent_drafts(status=active)`，不调用 Provider、不写正式业务表；手机/客户端覆盖式确认后，`AgentDraftConfirmService` 才调用 `AgentImageService`，再访问 Provider |
+| 输出 | 工具阶段返回 `draft_id`、`draft_type=image_generate`、`status=active` 和 `draft_card`；确认成功返回 `image_url` 与可选 `revised_prompt` |
+| 异常情况 | Schema/权限/owner/store/参考图校验失败在 Provider 前拒绝；用户拒绝置 `cancelled`；Provider 未配置、HTTP 失败、空/非法响应、超时或取消不得宣称成功，草稿保持可重试并写脱敏审计 |
+| 权限要求 | `agent:write`；权限和 owner/store 取当前认证上下文，不信任模型或客户端参数 |
+| 涉及端 | 后端 Agent；手机/客户端负责覆盖式确认和结果展示（待验证） |
+| 对应接口 | Agent chat/tool 链路；独立 REST 为 `POST /v2/agent/images/generate`，不计为 AgentTool 调用 |
+| 对应源码 | `ImageGenerateTool.java:24-152`、`ToolExecutor.java:12-24`、`AgentDraftConfirmService.java:137-168,205-240`、`AgentImageService.java:64-198` |
+| 对应测试 | `ImageGenerateToolTest.java`、`AgentImageServiceTest.java`；`testing/Agent/功能/TEST_PLAN.md`（AG-F-DRAFT-CO-015）、`testing/Agent/契约/TEST_PLAN.md`（AG-C-SCHEMA-008）、`testing/Agent/集成/TEST_PLAN.md`（AG-I-013）、`testing/Agent/可靠性/TEST_PLAN.md`（AG-R-013）、`testing/Agent/安全/TEST_PLAN.md`（AG-S-031）、`testing/Agent/性能/TEST_PLAN.md`（AG-P-027）、`testing/Agent/客户端/TEST_PLAN.md` |
+| 验收标准 | 创建阶段 Provider 调用为 0；确认后只使用当前 owner 的参考图；拒绝、失败、超时、取消不写正式业务表；结果、错误和审计均完成脱敏 |
+| 当前状态 | 工具注册、Schema、权限门和草稿实现已提交；测试执行、Provider、客户端确认和真实结果回传尚未完成，状态为 Deferred/Blocked |
 
 ### SR-AGT-008 取消运行
 
@@ -199,7 +220,7 @@
 | 涉及端 | 后端 / Android / iOS / Web |
 | 对应接口 | `GET /v2/agent/runs/{runId}/audit` |
 | 对应源码 | `application/service/v2/agent/component/RunAuditService.java`、`AgentRunAuditRepository` |
-| 对应测试 | `testing/Agent/Agent执行台账.csv`、`V2AgentAiServiceTest.java` |
+| 对应测试 | `testing/Agent/映射台账.md`、`testing/Agent/安全/TEST_PLAN.md`、`V2AgentAiServiceTest.java` |
 | 验收标准 | 审计事件与 SSE 事件一致 |
 | 当前状态 | 已完成（源码+测试）；Android 历史消息未恢复 RunTrace（已知问题 #3） |
 
@@ -221,9 +242,10 @@
 ## 对应测试
 
 - 单元测试：`V2AgentAiServiceTest.java`、`V2AgentConversationServiceTest.java`、`AgentDraftConfirmServiceTest.java`、`component/*`、`tool/*`
-- 功能测试：`testing/Agent/Agent综合功能与性能测试方案.md`
-- 性能测试：`testing/Agent/Agent综合功能与性能测试方案.md`
-- 审计：`testing/Agent/Agent执行台账.csv`
+- 功能测试：`testing/Agent/功能/TEST_PLAN.md`
+- 性能测试：`testing/Agent/性能/TEST_PLAN.md`
+- 契约/集成/安全/可靠性/客户端/数据：对应 `testing/Agent/` 分类 `TEST_PLAN.md`
+- 映射与审计字段：`testing/Agent/映射台账.md`、`testing/Agent/README.md`
 
 ## 当前限制
 
