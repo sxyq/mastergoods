@@ -1,0 +1,6 @@
+{
+  "business_data_created": false,
+  "agent_run_created": false,
+  "provider_called": false,
+  "cleanup": "not applicable; no authenticated test data created"
+}

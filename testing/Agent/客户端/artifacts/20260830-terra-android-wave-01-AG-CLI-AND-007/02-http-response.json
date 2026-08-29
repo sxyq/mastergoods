@@ -1,0 +1,7 @@
+{
+  "request": "anonymous GET /",
+  "base_url": "https://zhj-api.sxyq27.online/",
+  "http_status": 403,
+  "body": "redacted security response; no authentication payload",
+  "login_request": "not sent"
+}
