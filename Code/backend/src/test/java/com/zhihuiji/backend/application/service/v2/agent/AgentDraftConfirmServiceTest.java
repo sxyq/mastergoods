@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
 import com.zhihuiji.backend.api.dto.v2.inventory.V2InventoryDtos;
+import com.zhihuiji.backend.api.dto.v2.sales.V2SaleOrderDtos;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
 import com.zhihuiji.backend.application.service.FinanceRecordService;
 import com.zhihuiji.backend.application.service.v2.AgentImageService;
@@ -55,6 +56,7 @@ class AgentDraftConfirmServiceTest {
     @Mock private V2InventoryService v2InventoryService;
     @Mock private V2AccountTransferService v2AccountTransferService;
     @Mock private AgentImageService agentImageService;
+    @Mock private AgentDraftConfirmationStateService confirmationStateService;
 
     private AgentDraftConfirmService service;
 
@@ -77,7 +79,8 @@ class AgentDraftConfirmServiceTest {
             financeRecordService,
             v2InventoryService,
             v2AccountTransferService,
-            agentImageService
+            agentImageService,
+            confirmationStateService
         );
         when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
         when(agentDraftRepository.updateStatusIfCurrent(
@@ -109,6 +112,30 @@ class AgentDraftConfirmServiceTest {
         assertEquals("confirmed", draft.getStatus());
         assertEquals("inventory_adjustment", response.draftType());
         assertNotNull(response.updatedAt());
+    }
+
+    @Test
+    void confirmationStoresActorTimeAndCreatedBusinessReference() {
+        AgentDraftEntity draft = activeDraft(
+            19L,
+            "create_sale_order",
+            "{\"items\":[],\"customer_id\":null,\"customer_name\":\"测试客户\"}"
+        );
+        when(agentDraftRepository.findByIdAndOwnerUserId(19L, 1L)).thenReturn(Optional.of(draft));
+        when(v2SaleOrderService.create(any(V2SaleOrderDtos.CreateRequest.class))).thenReturn(
+            new V2SaleOrderDtos.SaleOrderResponse(
+                7001L, "SO-7001", null, null, List.of(), 0.0, 0.0, 0.0, 0.0, null, 1, 2L, 3L
+            )
+        );
+
+        var response = service.confirmDraft(19L);
+
+        assertEquals("confirmed", draft.getStatus());
+        assertEquals(1L, draft.getConfirmedBy());
+        assertNotNull(draft.getConfirmedAt());
+        assertEquals("create_sale_order:7001", draft.getBusinessReference());
+        assertEquals(null, draft.getFailureReason());
+        assertEquals("confirmed", response.status());
     }
 
     @Test
@@ -219,6 +246,7 @@ class AgentDraftConfirmServiceTest {
         assertEquals("生图服务请求超时", error.getMessage());
         assertEquals("active", draft.getStatus());
         assertEquals(false, new ObjectMapper().readTree(draft.getContentJson()).has("image_result"));
+        verify(confirmationStateService).recordFailure(16L, 1L, "生图服务请求超时");
         verify(agentDraftRepository, org.mockito.Mockito.never()).save(any(AgentDraftEntity.class));
     }
 

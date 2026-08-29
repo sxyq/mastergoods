@@ -46,6 +46,24 @@ public interface AdminOverviewQueryRepository extends Repository<UserEntity, Lon
         select count(a.id)
           from AgentRunAuditEntity a
          where (:allOwners = true or a.ownerUserId in :ownerUserIds)
+           and (:allStores = true or a.storeId in :storeIds)
+           and (:fromAt is null or a.startedAt >= :fromAt)
+           and (:toAt is null or a.startedAt < :toAt)
+        """)
+    long countAgentRuns(
+        @Param("allOwners") boolean allOwners,
+        @Param("ownerUserIds") Collection<Long> ownerUserIds,
+        @Param("allStores") boolean allStores,
+        @Param("storeIds") Collection<Long> storeIds,
+        @Param("fromAt") Long fromAt,
+        @Param("toAt") Long toAt
+    );
+
+    /** Compatibility overload for callers that already have an owner-wide scope. */
+    @Query("""
+        select count(a.id)
+          from AgentRunAuditEntity a
+         where (:allOwners = true or a.ownerUserId in :ownerUserIds)
            and (:fromAt is null or a.startedAt >= :fromAt)
            and (:toAt is null or a.startedAt < :toAt)
         """)
@@ -60,12 +78,135 @@ public interface AdminOverviewQueryRepository extends Repository<UserEntity, Lon
         select coalesce(sum(a.toolCount), 0)
           from AgentRunAuditEntity a
          where (:allOwners = true or a.ownerUserId in :ownerUserIds)
+           and (:allStores = true or a.storeId in :storeIds)
            and (:fromAt is null or a.startedAt >= :fromAt)
            and (:toAt is null or a.startedAt < :toAt)
         """)
     long sumAgentToolCount(
         @Param("allOwners") boolean allOwners,
         @Param("ownerUserIds") Collection<Long> ownerUserIds,
+        @Param("allStores") boolean allStores,
+        @Param("storeIds") Collection<Long> storeIds,
+        @Param("fromAt") Long fromAt,
+        @Param("toAt") Long toAt
+    );
+
+    @Query("""
+        select count(a.id)
+          from AgentRunAuditEntity a
+         where (:allOwners = true or a.ownerUserId in :ownerUserIds)
+           and (:status is null or lower(a.status) = lower(:status))
+           and (:fromAt is null or a.startedAt >= :fromAt)
+           and (:toAt is null or a.startedAt < :toAt)
+        """)
+    long countAgentRunsByStatus(
+        @Param("allOwners") boolean allOwners,
+        @Param("ownerUserIds") Collection<Long> ownerUserIds,
+        @Param("status") String status,
+        @Param("fromAt") Long fromAt,
+        @Param("toAt") Long toAt
+    );
+
+    @Query("""
+        select count(a.id)
+          from AgentRunAuditEntity a
+         where (:allOwners = true or a.ownerUserId in :ownerUserIds)
+           and lower(a.status) in :statuses
+           and (:fromAt is null or a.startedAt >= :fromAt)
+           and (:toAt is null or a.startedAt < :toAt)
+        """)
+    long countAgentRunsByStatuses(
+        @Param("allOwners") boolean allOwners,
+        @Param("ownerUserIds") Collection<Long> ownerUserIds,
+        @Param("statuses") Collection<String> statuses,
+        @Param("fromAt") Long fromAt,
+        @Param("toAt") Long toAt
+    );
+
+    @Query("""
+        select avg(a.completedAt - a.startedAt)
+          from AgentRunAuditEntity a
+         where (:allOwners = true or a.ownerUserId in :ownerUserIds)
+           and lower(a.status) in ('completed', 'confirmation_pending')
+           and a.completedAt is not null
+           and (:fromAt is null or a.startedAt >= :fromAt)
+           and (:toAt is null or a.startedAt < :toAt)
+        """)
+    Double averageAgentRunDuration(
+        @Param("allOwners") boolean allOwners,
+        @Param("ownerUserIds") Collection<Long> ownerUserIds,
+        @Param("fromAt") Long fromAt,
+        @Param("toAt") Long toAt
+    );
+
+    /** Compatibility overload for callers that already have an owner-wide scope. */
+    @Query("""
+        select coalesce(sum(a.toolCount), 0)
+          from AgentRunAuditEntity a
+         where (:allOwners = true or a.ownerUserId in :ownerUserIds)
+           and (:fromAt is null or a.startedAt >= :fromAt)
+           and (:toAt is null or a.startedAt < :toAt)
+        """)
+    long sumAgentToolCount(
+        @Param("allOwners") boolean allOwners,
+        @Param("ownerUserIds") Collection<Long> ownerUserIds,
+        @Param("fromAt") Long fromAt,
+        @Param("toAt") Long toAt
+    );
+
+    @Query("""
+        select count(a.id)
+          from AgentRunAuditEntity a
+         where (:allOwners = true or a.ownerUserId in :ownerUserIds)
+           and (:allStores = true or a.storeId in :storeIds)
+           and (:status is null or lower(a.status) = lower(:status))
+           and (:fromAt is null or a.startedAt >= :fromAt)
+           and (:toAt is null or a.startedAt < :toAt)
+        """)
+    long countAgentRunsByStatus(
+        @Param("allOwners") boolean allOwners,
+        @Param("ownerUserIds") Collection<Long> ownerUserIds,
+        @Param("allStores") boolean allStores,
+        @Param("storeIds") Collection<Long> storeIds,
+        @Param("status") String status,
+        @Param("fromAt") Long fromAt,
+        @Param("toAt") Long toAt
+    );
+
+    @Query("""
+        select count(a.id)
+          from AgentRunAuditEntity a
+         where (:allOwners = true or a.ownerUserId in :ownerUserIds)
+           and (:allStores = true or a.storeId in :storeIds)
+           and lower(a.status) in :statuses
+           and (:fromAt is null or a.startedAt >= :fromAt)
+           and (:toAt is null or a.startedAt < :toAt)
+        """)
+    long countAgentRunsByStatuses(
+        @Param("allOwners") boolean allOwners,
+        @Param("ownerUserIds") Collection<Long> ownerUserIds,
+        @Param("allStores") boolean allStores,
+        @Param("storeIds") Collection<Long> storeIds,
+        @Param("statuses") Collection<String> statuses,
+        @Param("fromAt") Long fromAt,
+        @Param("toAt") Long toAt
+    );
+
+    @Query("""
+        select avg(a.completedAt - a.startedAt)
+          from AgentRunAuditEntity a
+         where (:allOwners = true or a.ownerUserId in :ownerUserIds)
+           and (:allStores = true or a.storeId in :storeIds)
+           and lower(a.status) in ('completed', 'confirmation_pending')
+           and a.completedAt is not null
+           and (:fromAt is null or a.startedAt >= :fromAt)
+           and (:toAt is null or a.startedAt < :toAt)
+        """)
+    Double averageAgentRunDuration(
+        @Param("allOwners") boolean allOwners,
+        @Param("ownerUserIds") Collection<Long> ownerUserIds,
+        @Param("allStores") boolean allStores,
+        @Param("storeIds") Collection<Long> storeIds,
         @Param("fromAt") Long fromAt,
         @Param("toAt") Long toAt
     );

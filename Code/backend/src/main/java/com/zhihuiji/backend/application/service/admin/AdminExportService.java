@@ -18,7 +18,6 @@ import com.zhihuiji.backend.infrastructure.security.admin.AdminPermission;
 import com.zhihuiji.backend.infrastructure.security.admin.AdminPrincipal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -26,6 +25,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,7 +64,7 @@ public class AdminExportService {
             query.allStores(), query.storeIds(), PaginationUtils.pageable(page, size));
         var items = jobs.getContent().stream().map(this::toDto).toList();
         return new AdminPageDtos.PageResponse<>(items, jobs.getNumber(), jobs.getSize(), jobs.getTotalElements(), jobs.hasNext(),
-            Instant.now(), AdminScopeDtos.Scope.from(scope), scope.allOwners() || scope.storeIds().isEmpty() ? "COMPLETE" : "PARTIAL");
+            Instant.now(), AdminScopeDtos.Scope.from(scope), scope.allOwners() ? "COMPLETE" : "PARTIAL");
     }
 
     @Transactional
@@ -86,9 +86,6 @@ public class AdminExportService {
             return toDto(existing);
         }
         AdminScopeQuery query = AdminScopeQuery.from(scope);
-        Page<AdminAuditEventEntity> source = auditRepository.findVisible(principal.userId(), query.allOwners(), query.ownerUserIds(),
-            query.allStores(), query.storeIds(), null, null, null, request.from() == null ? null : request.from().toEpochMilli(),
-            request.to() == null ? null : request.to().toEpochMilli(), PageRequest.of(0, MAX_EXPORT_ROWS));
         long now = System.currentTimeMillis();
         AdminExportJobEntity job = new AdminExportJobEntity();
         job.setExportId(UUID.randomUUID().toString());
@@ -97,23 +94,63 @@ public class AdminExportService {
         job.setFieldsJson(writeFields(fields));
         job.setScopeOwnerUserId(request.ownerUserId());
         job.setScopeStoreId(request.storeId());
-        job.setStatus("READY");
-        job.setContentCsv(csv(fields, source.getContent()));
+        job.setScopeOwnerUserIdsJson(writeIds(scope.ownerUserIds()));
+        job.setScopeStoreIdsJson(writeIds(scope.storeIds()));
+        job.setScopeAllOwners(query.allOwners());
+        job.setScopeAllStores(query.allStores());
+        job.setRequestedFromAt(request.from() == null ? null : request.from().toEpochMilli());
+        job.setRequestedToAt(request.to() == null ? null : request.to().toEpochMilli());
+        job.setStatus("PENDING");
+        job.setContentCsv(null);
         job.setIdempotencyKey(request.idempotencyKey().trim());
         job.setIdempotencyPayloadHash(hash);
         job.setCreatedAt(now);
         job.setExpiresAt(now + TTL_MILLIS);
-        job.setCompletedAt(now);
+        job.setCompletedAt(null);
         job.setDownloadCount(0);
         AdminExportJobEntity saved = jobRepository.saveAndFlush(job);
         auditService.record(principal, "admin.export.create", "EXPORT", saved.getExportId(), request.ownerUserId(), request.storeId(),
-            "SUCCESS", request.reason(), "rows=" + source.getContent().size(), request.idempotencyKey(), hash);
+            "SUCCESS", request.reason(), "status=PENDING", request.idempotencyKey(), hash);
         return toDto(saved);
+    }
+
+    /** Processes one claimed job using only the authorization snapshot captured at creation. */
+    @Transactional
+    public void processClaimed(String exportId) {
+        AdminExportJobEntity job = jobRepository.findByExportId(exportId).orElse(null);
+        if (job == null || !"RUNNING".equalsIgnoreCase(job.getStatus())) return;
+        long now = System.currentTimeMillis();
+        try {
+            if (job.getExpiresAt() == null || job.getExpiresAt() <= now) {
+                job.setStatus("EXPIRED");
+                job.setContentCsv(null);
+                job.setCompletedAt(now);
+                jobRepository.save(job);
+                return;
+            }
+            AdminScopeQuery snapshot = snapshot(job);
+            Page<AdminAuditEventEntity> source = auditRepository.findVisible(
+                job.getAdminUserId(), snapshot.allOwners(), snapshot.ownerUserIds(), snapshot.allStores(), snapshot.storeIds(),
+                null, null, null, job.getRequestedFromAt(), job.getRequestedToAt(), PageRequest.of(0, MAX_EXPORT_ROWS)
+            );
+            job.setContentCsv(csv(parseFields(job.getFieldsJson()), source.getContent()));
+            job.setStatus("READY");
+            job.setCompletedAt(now);
+            job.setErrorSummary(null);
+            jobRepository.save(job);
+        } catch (RuntimeException ex) {
+            job.setStatus("FAILED");
+            job.setCompletedAt(now);
+            job.setContentCsv(null);
+            job.setErrorSummary(safeError(ex));
+            jobRepository.save(job);
+        }
     }
 
     @Transactional
     public AdminExportDtos.Job get(AdminPrincipal principal, String exportId) {
         AdminExportJobEntity job = visibleJob(principal, exportId);
+        markExpired(job);
         return toDto(job);
     }
 
@@ -122,18 +159,33 @@ public class AdminExportService {
         AdminExportJobEntity job = visibleJob(principal, exportId);
         long now = System.currentTimeMillis();
         if (job.getExpiresAt() == null || job.getExpiresAt() <= now) {
-            job.setStatus("EXPIRED");
-            jobRepository.save(job);
+            markExpired(job);
             auditService.record(principal, "admin.export.download", "EXPORT", exportId, job.getScopeOwnerUserId(), job.getScopeStoreId(),
                 "EXPIRED", null, "export expired", null, null);
             throw new IllegalArgumentException("export has expired");
         }
-        if (!"READY".equalsIgnoreCase(job.getStatus())) throw new IllegalArgumentException("export is not ready");
-        job.setDownloadedAt(now);
-        job.setDownloadCount((job.getDownloadCount() == null ? 0 : job.getDownloadCount()) + 1);
+        if (!"READY".equalsIgnoreCase(job.getStatus())) {
+            auditService.record(principal, "admin.export.download", "EXPORT", exportId, job.getScopeOwnerUserId(), job.getScopeStoreId(),
+                "REJECTED", null, "export status=" + job.getStatus(), null, null);
+            throw new IllegalArgumentException("export is not ready");
+        }
+        int previousDownloadCount = job.getDownloadCount() == null ? 0 : job.getDownloadCount();
+        if (previousDownloadCount == 0) job.setDownloadedAt(now);
+        job.setDownloadCount(previousDownloadCount + 1);
         jobRepository.save(job);
-        auditService.recordRead(principal, "admin.export.download", "EXPORT", exportId, job.getScopeOwnerUserId(), job.getScopeStoreId(), "downloaded");
+        auditService.recordRead(principal, "admin.export.download", "EXPORT", exportId, job.getScopeOwnerUserId(), job.getScopeStoreId(),
+            previousDownloadCount == 0 ? "downloaded" : "redownloaded");
         return (job.getContentCsv() == null ? "" : job.getContentCsv()).getBytes(StandardCharsets.UTF_8);
+    }
+
+    /** Removes expired export payloads while retaining the status and audit trail. */
+    @Scheduled(
+        fixedDelayString = "${admin.export.cleanup.fixed-delay-ms:3600000}",
+        initialDelayString = "${admin.export.cleanup.initial-delay-ms:3600000}"
+    )
+    @Transactional
+    public int cleanupExpired() {
+        return jobRepository.expireAndClearExpired(System.currentTimeMillis());
     }
 
     private AdminExportJobEntity visibleJob(AdminPrincipal principal, String exportId) {
@@ -149,10 +201,21 @@ public class AdminExportService {
     }
 
     private AdminExportDtos.Job toDto(AdminExportJobEntity job) {
+        boolean downloadable = "READY".equalsIgnoreCase(job.getStatus())
+            && job.getExpiresAt() != null && job.getExpiresAt() > System.currentTimeMillis();
         return new AdminExportDtos.Job(job.getExportId(), job.getExportType(), parseFields(job.getFieldsJson()), job.getStatus(),
             instant(job.getCreatedAt()), instant(job.getExpiresAt()), instant(job.getCompletedAt()),
-            "/v2/admin/exports/" + job.getExportId() + "/download", true, job.getErrorSummary(),
+            downloadable ? "/v2/admin/exports/" + job.getExportId() + "/download" : null, true, job.getErrorSummary(),
             job.getDownloadCount() == null ? 0 : job.getDownloadCount());
+    }
+
+    private void markExpired(AdminExportJobEntity job) {
+        if (job.getExpiresAt() != null && job.getExpiresAt() <= System.currentTimeMillis()
+            && !"EXPIRED".equalsIgnoreCase(job.getStatus())) {
+            job.setStatus("EXPIRED");
+            job.setContentCsv(null);
+            jobRepository.save(job);
+        }
     }
 
     private List<String> normalizeFields(List<String> values) {
@@ -207,6 +270,37 @@ public class AdminExportService {
     }
 
     private String writeFields(List<String> fields) { try { return objectMapper.writeValueAsString(fields); } catch (Exception ex) { throw new IllegalStateException("export fields serialization failed", ex); } }
+    private String writeIds(Set<Long> ids) { try { return objectMapper.writeValueAsString(ids == null ? List.of() : ids); } catch (Exception ex) { throw new IllegalStateException("export scope serialization failed", ex); } }
     private List<String> parseFields(String value) { try { return objectMapper.readValue(value == null ? "[]" : value, new TypeReference<List<String>>() {}); } catch (Exception ignored) { return List.of(); } }
+    private AdminScopeQuery snapshot(AdminExportJobEntity job) {
+        Boolean allOwners = job.getScopeAllOwners();
+        Boolean allStores = job.getScopeAllStores();
+        if (allOwners == null || allStores == null || job.getScopeOwnerUserIdsJson() == null || job.getScopeStoreIdsJson() == null) {
+            throw new IllegalStateException("export authorization snapshot is unavailable");
+        }
+        Set<Long> ownerIds = parseIds(job.getScopeOwnerUserIdsJson());
+        Set<Long> storeIds = parseIds(job.getScopeStoreIdsJson());
+        if (!allOwners && ownerIds.isEmpty() && job.getScopeOwnerUserId() == null && job.getScopeStoreId() == null) {
+            throw new IllegalStateException("export authorization snapshot is empty");
+        }
+        if (!allOwners && ownerIds.isEmpty() && job.getScopeOwnerUserId() != null) ownerIds = Set.of(job.getScopeOwnerUserId());
+        if (!allStores && storeIds.isEmpty() && job.getScopeStoreId() != null) storeIds = Set.of(job.getScopeStoreId());
+        return new AdminScopeQuery(allOwners, ownerIds, storeIds, allStores);
+    }
+
+    private Set<Long> parseIds(String value) {
+        try {
+            List<Long> values = objectMapper.readValue(value, new TypeReference<List<Long>>() {});
+            return new LinkedHashSet<>(values == null ? List.of() : values.stream().filter(id -> id != null && id > 0).toList());
+        } catch (Exception ex) {
+            throw new IllegalStateException("export authorization snapshot is invalid");
+        }
+    }
+
+    private String safeError(RuntimeException ex) {
+        String message = ex.getMessage();
+        if (message == null || message.isBlank()) return "export processing failed";
+        return message.length() > 512 ? message.substring(0, 512) : message;
+    }
     private Instant instant(Long value) { return value == null ? null : Instant.ofEpochMilli(value); }
 }

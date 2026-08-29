@@ -2,12 +2,21 @@ package com.zhihuiji.backend.application.service.admin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.zhihuiji.backend.api.dto.admin.AdminOrganizationDtos;
 import com.zhihuiji.backend.api.dto.admin.AdminPageDtos;
 import com.zhihuiji.backend.domain.entity.UserEntity;
+import com.zhihuiji.backend.domain.entity.StoreEntity;
+import com.zhihuiji.backend.domain.entity.StoreMembershipEntity;
+import com.zhihuiji.backend.infrastructure.repository.SessionRepository;
+import com.zhihuiji.backend.infrastructure.repository.StoreMembershipRepository;
+import com.zhihuiji.backend.infrastructure.repository.StoreRepository;
+import com.zhihuiji.backend.infrastructure.repository.UserRepository;
 import com.zhihuiji.backend.infrastructure.repository.admin.AdminStoreQueryRepository;
 import com.zhihuiji.backend.infrastructure.repository.admin.AdminUserQueryRepository;
 import com.zhihuiji.backend.infrastructure.security.admin.AdminAuthorizationService;
@@ -23,6 +32,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
 class AdminOrganizationServiceTest {
@@ -32,6 +42,19 @@ class AdminOrganizationServiceTest {
     private AdminUserQueryRepository userQueryRepository;
     @Mock
     private AdminStoreQueryRepository storeQueryRepository;
+
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private StoreRepository storeRepository;
+    @Mock
+    private StoreMembershipRepository membershipRepository;
+    @Mock
+    private SessionRepository sessionRepository;
+    @Mock
+    private PasswordEncoder passwordEncoder;
+    @Mock
+    private AdminAuditService auditService;
 
     private AdminOrganizationService organizationService;
     private AdminPrincipal principal;
@@ -70,7 +93,7 @@ class AdminOrganizationServiceTest {
         assertEquals(1, response.total());
         assertEquals("*******8000", response.items().get(0).phoneMasked());
         assertEquals("ACTIVE", response.items().get(0).status());
-        assertEquals("COMPLETE", response.scopeCompleteness());
+        assertEquals("PARTIAL", response.scopeCompleteness());
         verify(authorizationService).authorize(principal, AdminPermission.USER_READ, 101L, null);
     }
 
@@ -101,5 +124,47 @@ class AdminOrganizationServiceTest {
         assertEquals("501", response.items().get(0).storeId());
         assertEquals(3, response.items().get(0).memberCount());
         verify(authorizationService).authorize(principal, AdminPermission.STORE_READ, 101L, null);
+    }
+
+    @Test
+    void listMembersUsesDatabasePaginationInsteadOfLoadingAllMemberships() {
+        AdminOrganizationService service = new AdminOrganizationService(
+            authorizationService, userQueryRepository, storeQueryRepository, userRepository, storeRepository,
+            membershipRepository, sessionRepository, passwordEncoder, auditService
+        );
+        when(authorizationService.authorize(principal, AdminPermission.STORE_READ, null, 501L))
+            .thenReturn(principal.scope());
+        StoreEntity store = mock(StoreEntity.class);
+        when(store.getOwnerUserId()).thenReturn(101L);
+        when(storeRepository.findById(501L)).thenReturn(java.util.Optional.of(store));
+
+        StoreMembershipEntity membership = new StoreMembershipEntity();
+        membership.setOwnerUserId(101L);
+        membership.setStoreId(501L);
+        membership.setUserId(701L);
+        membership.setRoleCode("STAFF");
+        membership.setTitle("店员");
+        membership.setStatus(1);
+        membership.setCreatedAt(1000L);
+        membership.setUpdatedAt(2000L);
+        UserEntity user = mock(UserEntity.class);
+        when(user.getId()).thenReturn(701L);
+        when(user.getNickname()).thenReturn("店员");
+        when(user.getPhone()).thenReturn("13800138000");
+        when(user.getUpdatedAt()).thenReturn(2000L);
+        when(membershipRepository.findByOwnerUserIdAndStoreIdOrderByCreatedAtAsc(
+            eq(101L), eq(501L), any(Pageable.class)
+        )).thenReturn(new PageImpl<>(List.of(membership), Pageable.ofSize(1), 101L));
+        when(userRepository.findAllById(any())).thenReturn(List.of(user));
+
+        AdminPageDtos.PageResponse<AdminOrganizationDtos.MemberSummary> response = service.listMembers(
+            principal, 501L, null, 0, 1
+        );
+
+        assertEquals(101L, response.total());
+        assertEquals(1, response.items().size());
+        assertEquals("701", response.items().get(0).userId());
+        verify(membershipRepository).findByOwnerUserIdAndStoreIdOrderByCreatedAtAsc(eq(101L), eq(501L), any(Pageable.class));
+        verify(membershipRepository, never()).findByOwnerUserIdAndStoreIdOrderByCreatedAtAsc(eq(101L), eq(501L));
     }
 }

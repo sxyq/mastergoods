@@ -50,6 +50,11 @@ public final class AdminAuditDtos {
         Instant from,
         Instant to,
         Integer page,
-        Integer size
-    ) {}
+        Integer size,
+        String eventId
+    ) {
+        public Query(String action, String resourceType, String result, Instant from, Instant to, Integer page, Integer size) {
+            this(action, resourceType, result, from, to, page, size, null);
+        }
+    }
 }

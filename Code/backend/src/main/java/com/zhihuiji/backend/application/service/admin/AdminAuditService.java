@@ -119,6 +119,46 @@ public class AdminAuditService {
     @Transactional
     public AdminPageDtos.PageResponse<AdminAuditDtos.Event> list(
         AdminPrincipal principal,
+        String eventId,
+        String action,
+        String resourceType,
+        String result,
+        Instant from,
+        Instant to,
+        Long requestedOwnerUserId,
+        Long requestedStoreId,
+        Integer page,
+        Integer size
+    ) {
+        AdminDataScope scope = authorizationService.authorize(
+            principal, AdminPermission.AUDIT_READ, requestedOwnerUserId, requestedStoreId
+        );
+        if (from != null && to != null && !from.isBefore(to)) {
+            throw new IllegalArgumentException("from must be before to");
+        }
+        AdminScopeQuery query = AdminScopeQuery.from(scope);
+        String normalizedEventId = normalizeOptional(eventId, 128);
+        Page<AdminAuditEventEntity> resultPage = normalizedEventId == null
+            ? repository.findVisible(
+                principal.userId(), query.allOwners(), query.ownerUserIds(), query.allStores(), query.storeIds(),
+                normalizeOptional(action, MAX_FILTER_LENGTH), normalizeOptional(resourceType, MAX_FILTER_LENGTH),
+                normalizeOptional(result, 32), from == null ? null : from.toEpochMilli(), to == null ? null : to.toEpochMilli(),
+                PaginationUtils.pageable(page, size))
+            : repository.findVisibleByEventId(
+                normalizedEventId, principal.userId(), query.allOwners(), query.ownerUserIds(), query.allStores(), query.storeIds(),
+                PaginationUtils.pageable(page, size));
+        var items = resultPage.getContent().stream().map(this::toDto).toList();
+        recordRead(principal, "admin.audit.read", "AUDIT", normalizedEventId, requestedOwnerUserId, requestedStoreId,
+            "page=" + resultPage.getNumber() + ",size=" + resultPage.getSize());
+        return new AdminPageDtos.PageResponse<>(items, resultPage.getNumber(), resultPage.getSize(),
+            resultPage.getTotalElements(), resultPage.hasNext(), Instant.now(), AdminScopeDtos.Scope.from(scope),
+            scope.allOwners() ? "COMPLETE" : "PARTIAL");
+    }
+
+    /** Compatibility overload for callers that do not provide an owner/store filter. */
+    @Transactional
+    public AdminPageDtos.PageResponse<AdminAuditDtos.Event> list(
+        AdminPrincipal principal,
         String action,
         String resourceType,
         String result,
@@ -127,23 +167,39 @@ public class AdminAuditService {
         Integer page,
         Integer size
     ) {
-        AdminDataScope scope = authorizationService.authorize(principal, AdminPermission.AUDIT_READ, null, null);
-        if (from != null && to != null && !from.isBefore(to)) {
-            throw new IllegalArgumentException("from must be before to");
-        }
-        AdminScopeQuery query = AdminScopeQuery.from(scope);
-        Page<AdminAuditEventEntity> resultPage = repository.findVisible(
-            principal.userId(), query.allOwners(), query.ownerUserIds(), query.allStores(), query.storeIds(),
-            normalizeOptional(action, MAX_FILTER_LENGTH), normalizeOptional(resourceType, MAX_FILTER_LENGTH),
-            normalizeOptional(result, 32), from == null ? null : from.toEpochMilli(), to == null ? null : to.toEpochMilli(),
-            PaginationUtils.pageable(page, size)
-        );
-        var items = resultPage.getContent().stream().map(this::toDto).toList();
-        recordRead(principal, "admin.audit.read", "AUDIT", null, null, null,
-            "page=" + resultPage.getNumber() + ",size=" + resultPage.getSize());
-        return new AdminPageDtos.PageResponse<>(items, resultPage.getNumber(), resultPage.getSize(),
-            resultPage.getTotalElements(), resultPage.hasNext(), Instant.now(), AdminScopeDtos.Scope.from(scope),
-            scope.allOwners() || scope.storeIds().isEmpty() ? "COMPLETE" : "PARTIAL");
+        return list(principal, null, action, resourceType, result, from, to, null, null, page, size);
+    }
+
+    /** Compatibility overload for callers that provide an owner/store filter without eventId. */
+    @Transactional
+    public AdminPageDtos.PageResponse<AdminAuditDtos.Event> list(
+        AdminPrincipal principal,
+        String action,
+        String resourceType,
+        String result,
+        Instant from,
+        Instant to,
+        Long requestedOwnerUserId,
+        Long requestedStoreId,
+        Integer page,
+        Integer size
+    ) {
+        return list(principal, null, action, resourceType, result, from, to,
+            requestedOwnerUserId, requestedStoreId, page, size);
+    }
+
+    /** Compatibility overload for callers that need exact event tracing without an owner/store filter. */
+    @Transactional
+    public AdminPageDtos.PageResponse<AdminAuditDtos.Event> listByEventId(
+        AdminPrincipal principal,
+        String eventId,
+        Long requestedOwnerUserId,
+        Long requestedStoreId,
+        Integer page,
+        Integer size
+    ) {
+        return list(principal, eventId, null, null, null, null, null,
+            requestedOwnerUserId, requestedStoreId, page, size);
     }
 
     public AdminAuditDtos.Event toDto(AdminAuditEventEntity entity) {

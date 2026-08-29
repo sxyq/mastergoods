@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,9 @@ public class AdminOverviewService {
     private static final Duration DEFAULT_WINDOW = Duration.ofDays(30);
     private static final Duration MAX_WINDOW = Duration.ofDays(90);
     private static final Duration TREND_BUCKET = Duration.ofDays(1);
+    private static final Set<String> TERMINAL_STATUSES = Set.of(
+        "completed", "confirmation_pending", "failed", "blocked", "cancelled", "exhausted"
+    );
 
     private final AdminAuthorizationService authorizationService;
     private final AdminOverviewQueryRepository overviewQueryRepository;
@@ -48,13 +52,14 @@ public class AdminOverviewService {
             requestedOwnerUserId,
             requestedStoreId
         );
-        if (!scope.allOwners() && !scope.storeIds().isEmpty()) {
-            throw new IllegalStateException("Agent store scope is unavailable in persisted run audits");
-        }
         TimeRange range = timeRange(requestedFrom, requestedTo);
         AdminScopeQuery queryScope = AdminScopeQuery.from(scope);
         long fromAt = range.from().toEpochMilli();
         long toAt = range.to().toEpochMilli();
+        long activeRuns = countAgentRunsByStatus(queryScope, fromAt, toAt, "running");
+        long completedRuns = countAgentRunsByStatus(queryScope, fromAt, toAt, "completed");
+        long terminalRuns = countAgentRunsByStatuses(queryScope, fromAt, toAt, TERMINAL_STATUSES);
+        Double averageLatencyMs = averageAgentRunDuration(queryScope, fromAt, toAt);
         List<AdminOverviewDtos.Metric> metrics = List.of(
             new AdminOverviewDtos.Metric(
                 "users",
@@ -72,18 +77,29 @@ public class AdminOverviewService {
             ),
             new AdminOverviewDtos.Metric(
                 "agent_runs",
-                overviewQueryRepository.countAgentRuns(
-                    queryScope.allOwners(), queryScope.ownerUserIds(), fromAt, toAt
-                ),
+                countAgentRuns(queryScope, fromAt, toAt),
                 "count"
             ),
             new AdminOverviewDtos.Metric(
                 "agent_tool_calls",
-                overviewQueryRepository.sumAgentToolCount(
-                    queryScope.allOwners(), queryScope.ownerUserIds(), fromAt, toAt
-                ),
+                sumAgentToolCount(queryScope, fromAt, toAt),
                 "count"
-            )
+            ),
+            new AdminOverviewDtos.Metric(
+                "agent_active_runs",
+                activeRuns,
+                "count"
+            ),
+            terminalRuns == 0
+                ? new AdminOverviewDtos.Metric("agent_success_rate", null, "percent", "UNAVAILABLE")
+                : new AdminOverviewDtos.Metric(
+                    "agent_success_rate",
+                    completedRuns * 100.0 / terminalRuns,
+                    "percent"
+                ),
+            averageLatencyMs == null
+                ? new AdminOverviewDtos.Metric("agent_average_latency", null, "milliseconds", "UNAVAILABLE")
+                : new AdminOverviewDtos.Metric("agent_average_latency", averageLatencyMs, "milliseconds")
         );
         return new AdminOverviewDtos.OverviewResponse(
             range.from(),
@@ -91,7 +107,7 @@ public class AdminOverviewService {
             metrics,
             trend(queryScope, range),
             false,
-            "COMPLETE",
+            scopeCompleteness(scope),
             Instant.now(),
             AdminScopeDtos.Scope.from(scope)
         );
@@ -105,15 +121,7 @@ public class AdminOverviewService {
             if (next.isAfter(range.to())) {
                 next = range.to();
             }
-            points.add(new AdminOverviewDtos.TrendPoint(
-                bucket,
-                overviewQueryRepository.countAgentRuns(
-                    scope.allOwners(),
-                    scope.ownerUserIds(),
-                    bucket.toEpochMilli(),
-                    next.toEpochMilli()
-                )
-            ));
+            points.add(new AdminOverviewDtos.TrendPoint(bucket, countAgentRuns(scope, bucket.toEpochMilli(), next.toEpochMilli())));
             bucket = next;
         }
         return points;
@@ -129,6 +137,61 @@ public class AdminOverviewService {
             throw new IllegalArgumentException("time range is too wide");
         }
         return new TimeRange(normalizedFrom, normalizedTo);
+    }
+
+    private long countAgentRuns(AdminScopeQuery scope, long fromAt, long toAt) {
+        if (scope.allStores()) {
+            return overviewQueryRepository.countAgentRuns(scope.allOwners(), scope.ownerUserIds(), fromAt, toAt);
+        }
+        return overviewQueryRepository.countAgentRuns(
+            scope.allOwners(), scope.ownerUserIds(), scope.allStores(), scope.storeIds(), fromAt, toAt
+        );
+    }
+
+    private long sumAgentToolCount(AdminScopeQuery scope, long fromAt, long toAt) {
+        if (scope.allStores()) {
+            return overviewQueryRepository.sumAgentToolCount(scope.allOwners(), scope.ownerUserIds(), fromAt, toAt);
+        }
+        return overviewQueryRepository.sumAgentToolCount(
+            scope.allOwners(), scope.ownerUserIds(), scope.allStores(), scope.storeIds(), fromAt, toAt
+        );
+    }
+
+    private long countAgentRunsByStatus(AdminScopeQuery scope, long fromAt, long toAt, String status) {
+        if (scope.allStores()) {
+            return overviewQueryRepository.countAgentRunsByStatus(
+                scope.allOwners(), scope.ownerUserIds(), status, fromAt, toAt
+            );
+        }
+        return overviewQueryRepository.countAgentRunsByStatus(
+            scope.allOwners(), scope.ownerUserIds(), scope.allStores(), scope.storeIds(), status, fromAt, toAt
+        );
+    }
+
+    private long countAgentRunsByStatuses(AdminScopeQuery scope, long fromAt, long toAt, Set<String> statuses) {
+        if (scope.allStores()) {
+            return overviewQueryRepository.countAgentRunsByStatuses(
+                scope.allOwners(), scope.ownerUserIds(), statuses, fromAt, toAt
+            );
+        }
+        return overviewQueryRepository.countAgentRunsByStatuses(
+            scope.allOwners(), scope.ownerUserIds(), scope.allStores(), scope.storeIds(), statuses, fromAt, toAt
+        );
+    }
+
+    private Double averageAgentRunDuration(AdminScopeQuery scope, long fromAt, long toAt) {
+        if (scope.allStores()) {
+            return overviewQueryRepository.averageAgentRunDuration(
+                scope.allOwners(), scope.ownerUserIds(), fromAt, toAt
+            );
+        }
+        return overviewQueryRepository.averageAgentRunDuration(
+            scope.allOwners(), scope.ownerUserIds(), scope.allStores(), scope.storeIds(), fromAt, toAt
+        );
+    }
+
+    private String scopeCompleteness(AdminDataScope scope) {
+        return scope.allOwners() ? "COMPLETE" : "PARTIAL";
     }
 
     private record TimeRange(Instant from, Instant to) {}

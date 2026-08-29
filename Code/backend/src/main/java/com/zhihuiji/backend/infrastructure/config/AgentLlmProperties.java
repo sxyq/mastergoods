@@ -2,6 +2,8 @@ package com.zhihuiji.backend.infrastructure.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
+import java.util.ArrayList;
+import java.util.List;
 
 @Component
 @ConfigurationProperties(prefix = "agent.llm")
@@ -18,6 +20,7 @@ public class AgentLlmProperties {
     private double temperature = 0.2;
     private boolean enableThinking = true;
     private int thinkingBudget = 2048;
+    private List<String> allowedModels = new ArrayList<>();
 
     public boolean isEnabled() {
         return enabled;
@@ -113,5 +116,13 @@ public class AgentLlmProperties {
 
     public void setThinkingBudget(int thinkingBudget) {
         this.thinkingBudget = thinkingBudget;
+    }
+
+    public List<String> getAllowedModels() {
+        return List.copyOf(allowedModels == null ? List.of() : allowedModels);
+    }
+
+    public void setAllowedModels(List<String> allowedModels) {
+        this.allowedModels = allowedModels == null ? new ArrayList<>() : new ArrayList<>(allowedModels);
     }
 }

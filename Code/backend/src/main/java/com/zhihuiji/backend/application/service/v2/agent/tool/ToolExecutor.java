@@ -2,11 +2,13 @@ package com.zhihuiji.backend.application.service.v2.agent.tool;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
+import com.zhihuiji.backend.application.service.admin.AdminAgentRuntimeConfigService;
 import com.zhihuiji.backend.application.service.v2.agent.component.AgentRunState;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 
 /**
@@ -39,10 +41,21 @@ public class ToolExecutor {
 
     private final ToolRegistry toolRegistry;
     private final CurrentOwnerService currentOwnerService;
+    private AdminAgentRuntimeConfigService runtimeConfigService;
 
     public ToolExecutor(ToolRegistry toolRegistry, CurrentOwnerService currentOwnerService) {
+        this(toolRegistry, currentOwnerService, null);
+    }
+
+    @Autowired
+    public ToolExecutor(
+        ToolRegistry toolRegistry,
+        CurrentOwnerService currentOwnerService,
+        AdminAgentRuntimeConfigService runtimeConfigService
+    ) {
         this.toolRegistry = toolRegistry;
         this.currentOwnerService = currentOwnerService;
+        this.runtimeConfigService = runtimeConfigService;
     }
 
     /** 执行门判定结果：不允许执行时携带稳定码与安全描述。 */
@@ -93,6 +106,10 @@ public class ToolExecutor {
         Optional<AgentTool> tool = toolRegistry.getTool(toolName);
         if (tool.isEmpty()) {
             return GateDecision.deny(TOOL_NOT_REGISTERED, "工具未注册：" + toolName);
+        }
+        if (runtimeConfigService != null && runState != null
+            && !runtimeConfigService.isToolEnabled(runState.ownerUserId(), runState.storeId(), toolName)) {
+            return GateDecision.deny(TOOL_OUT_OF_SCOPE, "工具已被管理员配置禁用：" + toolName);
         }
         if (allowedTools != null && !allowedTools.contains(toolName)) {
             return GateDecision.deny(TOOL_OUT_OF_SCOPE, "工具不在当前任务的允许范围内：" + toolName);

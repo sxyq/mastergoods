@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Read-only API-ADM-11 and API-ADM-13 metadata endpoints. */
@@ -25,8 +26,11 @@ public class AdminSystemController {
     }
 
     @GetMapping("/agent/config")
-    public ApiResponse<AdminConfigDtos.ConfigResponse> config() {
-        return ApiResponse.success(systemService.config(principalResolver.requireCurrent()));
+    public ApiResponse<AdminConfigDtos.ConfigResponse> config(
+        @RequestParam(value = "ownerUserId", required = false) Long ownerUserId,
+        @RequestParam(value = "storeId", required = false) Long storeId
+    ) {
+        return ApiResponse.success(systemService.config(principalResolver.requireCurrent(), ownerUserId, storeId));
     }
 
     @PatchMapping("/agent/config")

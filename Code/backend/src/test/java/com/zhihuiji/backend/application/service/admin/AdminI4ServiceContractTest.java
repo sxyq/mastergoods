@@ -8,6 +8,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhihuiji.backend.api.common.AdminConflictException;
@@ -16,6 +17,7 @@ import com.zhihuiji.backend.api.dto.admin.AdminConfigDtos;
 import com.zhihuiji.backend.api.dto.admin.AdminExportDtos;
 import com.zhihuiji.backend.api.dto.admin.AdminPageDtos;
 import com.zhihuiji.backend.api.dto.admin.AdminRetentionDtos;
+import com.zhihuiji.backend.api.dto.admin.AdminSystemDtos;
 import com.zhihuiji.backend.domain.entity.AdminAgentConfigEntity;
 import com.zhihuiji.backend.domain.entity.AdminAuditEventEntity;
 import com.zhihuiji.backend.domain.entity.AdminExportJobEntity;
@@ -89,6 +91,23 @@ class AdminI4ServiceContractTest {
     }
 
     @Test
+    void auditListPassesRequestedOwnerAndStoreToAuthorizationBeforeQuery() {
+        when(auditRepository.findVisible(
+            eq(900L), eq(false), eq(Set.of(101L)), eq(false), eq(Set.of(501L)),
+            any(), any(), any(), any(), any(), any(Pageable.class)
+        )).thenReturn(new PageImpl<>(List.of(), Pageable.ofSize(25), 0));
+        AdminAuditService service = new AdminAuditService(auditRepository, authorizationService);
+
+        service.list(principal, null, null, null, null, null, 101L, 501L, 0, 25);
+
+        verify(authorizationService).authorize(principal, AdminPermission.AUDIT_READ, 101L, 501L);
+        verify(auditRepository).findVisible(
+            eq(900L), eq(false), eq(Set.of(101L)), eq(false), eq(Set.of(501L)),
+            any(), any(), any(), any(), any(), any(Pageable.class)
+        );
+    }
+
+    @Test
     void configUpdateRejectsUnregisteredToolAndInvalidModel() {
         when(toolRegistry.isRegistered("unknown.tool")).thenReturn(false);
         AgentLlmProperties properties = new AgentLlmProperties();
@@ -127,6 +146,58 @@ class AdminI4ServiceContractTest {
             "model-a", true, List.of(), 1L, "config-conflict", "test", true, null, null
         );
         assertThrows(AdminConflictException.class, () -> service.updateConfig(principal, conflict));
+    }
+
+    @Test
+    void healthKeepsDependencyFailuresInComponentStateInsteadOfThrowing() throws Exception {
+        AgentLlmProperties properties = new AgentLlmProperties();
+        properties.setModel("model-a");
+        AdminSystemService service = systemService(properties);
+        when(dataSource.getConnection()).thenThrow(new java.sql.SQLException("database unavailable"));
+        when(auditRepository.count()).thenThrow(new RuntimeException("audit unavailable"));
+        when(exportRepository.countByStatus("PENDING")).thenThrow(new RuntimeException("export unavailable"));
+
+        AdminSystemDtos.HealthResponse response = service.health(principal);
+
+        assertEquals("DOWN", response.status());
+        assertEquals("DOWN", response.components().stream()
+            .filter(component -> component.serviceName().equals("database")).findFirst().orElseThrow().status());
+        assertEquals("UNAVAILABLE", response.components().stream()
+            .filter(component -> component.serviceName().equals("admin_audit")).findFirst().orElseThrow().status());
+        assertEquals("UNAVAILABLE", response.components().stream()
+            .filter(component -> component.serviceName().equals("export_queue")).findFirst().orElseThrow().status());
+    }
+
+    @Test
+    void healthRemainsAvailableWhenHealthAuditWriteFails() {
+        AgentLlmProperties properties = new AgentLlmProperties();
+        properties.setModel("model-a");
+        AdminSystemService service = systemService(properties);
+        doThrow(new RuntimeException("audit write unavailable")).when(auditService).recordRead(
+            principal, "admin.system.health.read", "SYSTEM", null, null, null, "DOWN");
+
+        AdminSystemDtos.HealthResponse response = service.health(principal);
+
+        assertEquals("DOWN", response.status());
+    }
+
+    @Test
+    void configReadAuthorizesRequestedScopeAndReadsMatchingRecord() {
+        AgentLlmProperties properties = new AgentLlmProperties();
+        properties.setModel("runtime-model");
+        AdminAgentConfigEntity scoped = config("scope-read", "payload-hash", 3L);
+        scoped.setModelId("scoped-model");
+        scoped.setAgentEnabled(true);
+        scoped.setEnabledToolsJson("[]");
+        when(authorizationService.authorize(principal, AdminPermission.AGENT_CONFIG_READ, 101L, 501L))
+            .thenReturn(scope);
+        when(configRepository.findByScopeOwnerUserIdAndScopeStoreId(101L, 501L)).thenReturn(Optional.of(scoped));
+
+        AdminConfigDtos.ConfigResponse response = systemService(properties).config(principal, 101L, 501L);
+
+        assertEquals("scoped-model", response.modelId());
+        assertEquals(3L, response.version());
+        verify(configRepository).findByScopeOwnerUserIdAndScopeStoreId(101L, 501L);
     }
 
     @Test

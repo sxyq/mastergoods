@@ -73,6 +73,8 @@ class AdminAgentSseContractTest {
             .andReturn();
 
         String body = result.getResponse().getContentAsString();
+        org.junit.jupiter.api.Assertions.assertTrue(body.contains("event:stream_integrity"));
+        org.junit.jupiter.api.Assertions.assertTrue(body.contains("event_integrity"));
         org.junit.jupiter.api.Assertions.assertTrue(body.contains("id:9"));
         org.junit.jupiter.api.Assertions.assertTrue(body.contains("event:tool_progress"));
         org.junit.jupiter.api.Assertions.assertTrue(body.contains("id:10"));

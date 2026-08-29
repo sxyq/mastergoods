@@ -15,6 +15,7 @@ public interface AdminStoreQueryRepository extends Repository<StoreEntity, Long>
                s.ownerUserId as ownerUserId,
                s.storeName as name,
                s.status as status,
+               s.adminVersion as adminVersion,
                (select count(m.id) from StoreMembershipEntity m
                  where m.storeId = s.id and m.ownerUserId = s.ownerUserId) as memberCount,
                s.createdAt as createdAt,
@@ -53,6 +54,7 @@ public interface AdminStoreQueryRepository extends Repository<StoreEntity, Long>
         Long getOwnerUserId();
         String getName();
         Integer getStatus();
+        Long getAdminVersion();
         Long getMemberCount();
         Long getCreatedAt();
         Long getUpdatedAt();

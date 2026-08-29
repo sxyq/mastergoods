@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.ColumnDefault;
 
 @Entity
 @Table(name = "users")
@@ -32,6 +33,10 @@ public class UserEntity {
 
     @Column(name = "updated_at", nullable = false)
     private Long updatedAt;
+
+    @Column(name = "admin_version", nullable = false)
+    @ColumnDefault("0")
+    private Long adminVersion = 0L;
 
     public Long getId() {
         return id;
@@ -84,5 +89,12 @@ public class UserEntity {
     public void setUpdatedAt(Long updatedAt) {
         this.updatedAt = updatedAt;
     }
-}
 
+    public Long getAdminVersion() {
+        return adminVersion;
+    }
+
+    public void setAdminVersion(Long adminVersion) {
+        this.adminVersion = adminVersion;
+    }
+}

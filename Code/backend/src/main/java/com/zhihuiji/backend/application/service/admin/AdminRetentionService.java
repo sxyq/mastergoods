@@ -27,7 +27,7 @@ public class AdminRetentionService {
         this.auditService = auditService;
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public AdminRetentionDtos.Policy get(AdminPrincipal principal) {
         authorizationService.requirePermission(principal, AdminPermission.SYSTEM_READ);
         AdminRetentionPolicyEntity policy = repository.findById(POLICY_ID).orElse(null);
@@ -45,16 +45,19 @@ public class AdminRetentionService {
     public AdminRetentionDtos.Policy update(AdminPrincipal principal, AdminRetentionDtos.UpdateRequest request) {
         authorizationService.requirePermission(principal, AdminPermission.SYSTEM_RETENTION_MANAGE);
         validate(request);
+        String normalizedContentMode = normalizeContentMode(request.contentMode());
         String payload = request.auditDays() + "|" + request.messageDays() + "|" + request.toolResultDays() + "|"
-            + request.metricsDays() + "|" + request.contentMode();
+            + request.metricsDays() + "|" + normalizedContentMode;
         String hash = auditService.payloadHash(payload);
-        AdminRetentionPolicyEntity policy = repository.findById(POLICY_ID).orElse(null);
-        if (policy != null && request.idempotencyKey().trim().equals(policy.getIdempotencyKey())) {
-            if (!hash.equals(policy.getIdempotencyPayloadHash())) {
+        String idempotencyKey = request.idempotencyKey().trim();
+        AdminRetentionPolicyEntity existingByKey = repository.findByIdempotencyKey(idempotencyKey).orElse(null);
+        if (existingByKey != null) {
+            if (!hash.equals(existingByKey.getIdempotencyPayloadHash())) {
                 throw new AdminConflictException("idempotency key was already used with a different payload");
             }
-            return toDto(policy);
+            return toDto(existingByKey);
         }
+        AdminRetentionPolicyEntity policy = repository.findById(POLICY_ID).orElse(null);
         long current = policy == null || policy.getVersion() == null ? 0L : policy.getVersion();
         if (request.expectedVersion() != current) throw new AdminConflictException("retention policy version conflict");
         long now = System.currentTimeMillis();
@@ -66,11 +69,11 @@ public class AdminRetentionService {
         policy.setMessageDays(request.messageDays());
         policy.setToolResultDays(request.toolResultDays());
         policy.setMetricsDays(request.metricsDays());
-        policy.setContentMode(normalizeContentMode(request.contentMode()));
+        policy.setContentMode(normalizedContentMode);
         policy.setVersion(current + 1L);
         policy.setEffectiveAt(now);
         policy.setUpdatedBy(principal.userId());
-        policy.setIdempotencyKey(request.idempotencyKey().trim());
+        policy.setIdempotencyKey(idempotencyKey);
         policy.setIdempotencyPayloadHash(hash);
         policy.setReason(request.reason().trim());
         AdminRetentionPolicyEntity saved = repository.saveAndFlush(policy);

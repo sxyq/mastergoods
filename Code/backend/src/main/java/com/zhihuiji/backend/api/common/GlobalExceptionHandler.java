@@ -18,10 +18,29 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import com.zhihuiji.backend.application.service.admin.AdminAuditService;
+import com.zhihuiji.backend.infrastructure.security.admin.AdminPrincipal;
+import com.zhihuiji.backend.infrastructure.security.admin.AdminPrincipalResolver;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private final AdminAuditService adminAuditService;
+    private final AdminPrincipalResolver adminPrincipalResolver;
+
+    public GlobalExceptionHandler() {
+        this.adminAuditService = null;
+        this.adminPrincipalResolver = null;
+    }
+
+    @Autowired(required = false)
+    public GlobalExceptionHandler(AdminAuditService adminAuditService, AdminPrincipalResolver adminPrincipalResolver) {
+        this.adminAuditService = adminAuditService;
+        this.adminPrincipalResolver = adminPrincipalResolver;
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException ex) {
@@ -77,6 +96,12 @@ public class GlobalExceptionHandler {
             .body(ApiResponse.failure(ex.getCode(), ex.getMessage()));
     }
 
+    @ExceptionHandler(AdminConflictException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAdminConflict(AdminConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(ApiResponse.failure(HttpStatus.CONFLICT.value(), ex.getMessage()));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusiness(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
@@ -92,12 +117,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
+        recordAdminDenial("permission_denied", ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
             .body(ApiResponse.failure(HttpStatus.FORBIDDEN.value(), ex.getMessage()));
     }
 
     @ExceptionHandler(AdminAuthenticationRequiredException.class)
     public ResponseEntity<ApiResponse<Void>> handleAdminAuthenticationRequired(AdminAuthenticationRequiredException ex) {
+        recordAdminDenial("authentication_required", ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
             .body(ApiResponse.failure(ApiResponse.CODE_UNAUTHORIZED, "administrator authentication required"));
     }
@@ -119,5 +146,18 @@ public class GlobalExceptionHandler {
         log.error("Unhandled backend exception", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(ApiResponse.failure(ApiResponse.CODE_INTERNAL_ERROR, "Internal server error"));
+    }
+
+    private void recordAdminDenial(String reason, String summary) {
+        if (adminAuditService == null || adminPrincipalResolver == null) return;
+        if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)
+            || !attributes.getRequest().getRequestURI().startsWith("/v2/admin")) return;
+        try {
+            AdminPrincipal principal = adminPrincipalResolver.requireCurrent();
+            adminAuditService.record(principal, "admin.access.denied", "ADMIN", null, null, null,
+                "DENIED", reason, summary, null, null);
+        } catch (RuntimeException ignored) {
+            log.warn("Unable to persist administrator denial audit");
+        }
     }
 }

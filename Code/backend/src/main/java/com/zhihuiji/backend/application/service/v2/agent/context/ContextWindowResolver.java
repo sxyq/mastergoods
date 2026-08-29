@@ -18,6 +18,14 @@ import org.springframework.util.StringUtils;
  */
 @Component
 public class ContextWindowResolver {
+    public enum Source {
+        CONFIGURED_OVERRIDE,
+        KNOWN_MODEL,
+        CONSERVATIVE_FALLBACK
+    }
+
+    public record Resolution(int tokens, Source source) {}
+
     /**
      * 保守预算：在 Provider 真实窗口未知时使用。该值小于主流模型典型窗口，
      * 确保未确认窗口前不会盲目发送完整历史。
@@ -66,29 +74,46 @@ public class ContextWindowResolver {
      * @return 模型上下文窗口 token 数；未知时返回 {@link #CONSERVATIVE_FALLBACK_WINDOW}
      */
     public int resolve(String provider, String model, String wireApi) {
+        return resolveWithSource(provider, model, wireApi).tokens();
+    }
+
+    /**
+     * Resolves a window and keeps the provenance for observability callers.
+     * The source is intentionally explicit so an administrator can distinguish
+     * a configured value from the conservative fallback used for unknown models.
+     */
+    public Resolution resolveWithSource(String provider, String model, String wireApi) {
         String key = buildOverrideKey(provider, model, wireApi);
         if (key != null) {
             Integer overridden = overrides.get(key);
             if (overridden != null && overridden > 0) {
-                return Math.min(overridden, configuredMaximum);
+                return new Resolution(Math.min(overridden, configuredMaximum), Source.CONFIGURED_OVERRIDE);
             }
         }
         if (StringUtils.hasText(model)) {
             Integer known = KNOWN_MODEL_WINDOWS.get(model);
             if (known != null && known > 0) {
-                return Math.min(known, configuredMaximum);
+                return new Resolution(Math.min(known, configuredMaximum), Source.KNOWN_MODEL);
             }
         }
         // Provider、model 或 wire API 的窗口无法确认时使用保守预算，并交由
         // TokenEstimator / ContextBuilder 提高安全余量。
-        return Math.min(CONSERVATIVE_FALLBACK_WINDOW, configuredMaximum);
+        return new Resolution(Math.min(CONSERVATIVE_FALLBACK_WINDOW, configuredMaximum), Source.CONSERVATIVE_FALLBACK);
     }
 
     /**
      * 解析当前配置 provider 的窗口大小（便捷方法）。
      */
     public int resolveForCurrent() {
-        return resolve(null, properties.getModel(), properties.getWireApi());
+        return resolveForCurrentWithSource().tokens();
+    }
+
+    public Resolution resolveForCurrentWithSource() {
+        return resolveWithSource(
+            properties == null ? null : properties.getProvider(),
+            properties == null ? null : properties.getModel(),
+            properties == null ? null : properties.getWireApi()
+        );
     }
 
     /**

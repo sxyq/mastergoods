@@ -1,7 +1,9 @@
 package com.zhihuiji.backend.api.controller.admin;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -117,5 +119,27 @@ class AdminReadControllerTest {
             .andExpect(jsonPath("$.data.actor_user_id").doesNotExist())
             .andExpect(jsonPath("$.data.store_id").doesNotExist())
             .andExpect(jsonPath("$.data.token_source").value("UNAVAILABLE"));
+    }
+
+    @Test
+    void agentRunListRouteForwardsActorToolAndModelFilters() throws Exception {
+        AdminPageDtos.PageResponse<AdminAgentDtos.RunSummary> runs = new AdminPageDtos.PageResponse<>(
+            List.of(), 0, 50, 0, false, Instant.EPOCH, scope, "COMPLETE"
+        );
+        when(observabilityService.listRuns(
+            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+        )).thenReturn(runs);
+
+        mockMvc.perform(get("/v2/admin/agent/runs")
+                .param("actorUserId", "9007199254740993")
+                .param("toolName", "inventory")
+                .param("modelId", "model-a"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.total").value(0));
+
+        verify(observabilityService).listRuns(
+            eq(principal), eq(null), eq(null), eq(9007199254740993L), eq("inventory"), eq("model-a"),
+            eq(null), eq(null), eq(null), eq(null), eq(null), eq(null), eq(null)
+        );
     }
 }

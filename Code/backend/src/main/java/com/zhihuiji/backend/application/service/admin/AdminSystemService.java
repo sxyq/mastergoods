@@ -76,20 +76,32 @@ public class AdminSystemService {
         this(authorizationService, llmProperties, llmClient, null, null, null, null, null, new ObjectMapper(), null);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public AdminConfigDtos.ConfigResponse config(AdminPrincipal principal) {
-        authorizationService.requirePermission(principal, AdminPermission.AGENT_CONFIG_READ);
+        return config(principal, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public AdminConfigDtos.ConfigResponse config(AdminPrincipal principal, Long requestedOwnerUserId, Long requestedStoreId) {
+        if (requestedOwnerUserId == null && requestedStoreId == null) {
+            authorizationService.requirePermission(principal, AdminPermission.AGENT_CONFIG_READ);
+        } else {
+            authorizationService.authorize(principal, AdminPermission.AGENT_CONFIG_READ, requestedOwnerUserId, requestedStoreId);
+        }
         if (configRepository != null) {
-            AdminAgentConfigEntity persisted = configRepository.findByScopeOwnerUserIdAndScopeStoreId(null, null).orElse(null);
+            AdminAgentConfigEntity persisted = configRepository
+                .findByScopeOwnerUserIdAndScopeStoreId(requestedOwnerUserId, requestedStoreId).orElse(null);
             if (persisted != null) {
-                if (auditService != null) auditService.recordRead(principal, "admin.agent.config.read", "CONFIG", persisted.getId() == null ? null : persisted.getId().toString(), null, null, "config");
+                if (auditService != null) auditService.recordRead(principal, "admin.agent.config.read", "CONFIG",
+                    persisted.getId() == null ? null : persisted.getId().toString(), requestedOwnerUserId, requestedStoreId, "config");
                 return toConfig(persisted);
             }
         }
         var response = new AdminConfigDtos.ConfigResponse(
             llmProperties.getModel(), llmProperties.isEnabled(), registeredToolNames(), 0L, llmClient.configurationStatus(), null, null
         );
-        if (auditService != null) auditService.recordRead(principal, "admin.agent.config.read", "CONFIG", null, null, null, "runtime");
+        if (auditService != null) auditService.recordRead(principal, "admin.agent.config.read", "CONFIG", null,
+            requestedOwnerUserId, requestedStoreId, "runtime");
         return response;
     }
 
@@ -167,20 +179,41 @@ public class AdminSystemService {
         String providerStatus = llmClient.configurationStatus();
         components.add(new AdminSystemDtos.Component("agent_llm", providerStatus, packageVersion(), checkedAt,
             "configuration status only"));
-        boolean auditUp = auditRepository != null;
-        long auditCount = auditUp ? auditRepository.count() : 0L;
-        long auditFailures = auditUp ? auditRepository.countByResult("FAILED") : 0L;
+        boolean auditUp = false;
+        long auditCount = 0L;
+        long auditFailures = 0L;
+        if (auditRepository != null) {
+            try {
+                auditCount = auditRepository.count();
+                auditFailures = auditRepository.countByResult("FAILED");
+                auditUp = true;
+            } catch (RuntimeException ignored) {
+                // Keep the health endpoint available when the audit store is unavailable.
+            }
+        }
         components.add(new AdminSystemDtos.Component("admin_audit", auditUp ? "UP" : "UNAVAILABLE", packageVersion(), checkedAt,
             auditUp ? "events=" + auditCount + ",failures=" + auditFailures : "audit repository unavailable", auditCount));
-        boolean exportUp = exportRepository != null;
-        long exportQueueDepth = exportUp
-            ? exportRepository.countByStatus("PENDING") + exportRepository.countByStatus("RUNNING")
-            : 0L;
+        boolean exportUp = false;
+        long exportQueueDepth = 0L;
+        if (exportRepository != null) {
+            try {
+                exportQueueDepth = exportRepository.countByStatus("PENDING") + exportRepository.countByStatus("RUNNING");
+                exportUp = true;
+            } catch (RuntimeException ignored) {
+                // Keep the health endpoint available when the export store is unavailable.
+            }
+        }
         components.add(new AdminSystemDtos.Component("export_queue", exportUp ? "UP" : "UNAVAILABLE", packageVersion(), checkedAt,
             exportUp ? "pending_or_running=" + exportQueueDepth : "export repository unavailable", exportQueueDepth));
         if (!databaseUp) errors.add(new AdminSystemDtos.ErrorSummary("database", "DEPENDENCY", "database check failed", checkedAt));
         String status = databaseUp && !"not_configured".equals(providerStatus) ? "UP" : databaseUp ? "DEGRADED" : "DOWN";
-        if (auditService != null) auditService.recordRead(principal, "admin.system.health.read", "SYSTEM", null, null, null, status);
+        if (auditService != null) {
+            try {
+                auditService.recordRead(principal, "admin.system.health.read", "SYSTEM", null, null, null, status);
+            } catch (RuntimeException ignored) {
+                // Health remains useful when its own audit sink is unavailable.
+            }
+        }
         return new AdminSystemDtos.HealthResponse(status, packageVersion(), checkedAt, components, errors);
     }
 

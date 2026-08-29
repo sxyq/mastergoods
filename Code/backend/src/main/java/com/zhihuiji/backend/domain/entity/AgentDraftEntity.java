@@ -41,6 +41,18 @@ public class AgentDraftEntity {
     @Column(name = "updated_at", nullable = false)
     private Long updatedAt;
 
+    @Column(name = "confirmed_by")
+    private Long confirmedBy;
+
+    @Column(name = "confirmed_at")
+    private Long confirmedAt;
+
+    @Column(name = "business_reference", length = 128)
+    private String businessReference;
+
+    @Column(name = "failure_reason", length = 512)
+    private String failureReason;
+
     public Long getId() { return id; }
     public Long getOwnerUserId() { return ownerUserId; }
     public void setOwnerUserId(Long ownerUserId) { this.ownerUserId = ownerUserId; }
@@ -58,4 +70,12 @@ public class AgentDraftEntity {
     public void setCreatedAt(Long createdAt) { this.createdAt = createdAt; }
     public Long getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Long updatedAt) { this.updatedAt = updatedAt; }
+    public Long getConfirmedBy() { return confirmedBy; }
+    public void setConfirmedBy(Long confirmedBy) { this.confirmedBy = confirmedBy; }
+    public Long getConfirmedAt() { return confirmedAt; }
+    public void setConfirmedAt(Long confirmedAt) { this.confirmedAt = confirmedAt; }
+    public String getBusinessReference() { return businessReference; }
+    public void setBusinessReference(String businessReference) { this.businessReference = businessReference; }
+    public String getFailureReason() { return failureReason; }
+    public void setFailureReason(String failureReason) { this.failureReason = failureReason; }
 }

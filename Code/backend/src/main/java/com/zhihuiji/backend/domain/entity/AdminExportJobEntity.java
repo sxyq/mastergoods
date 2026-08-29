@@ -23,6 +23,14 @@ public class AdminExportJobEntity {
     @Column(name = "fields_json", nullable = false, columnDefinition = "TEXT") private String fieldsJson;
     @Column(name = "scope_owner_user_id") private Long scopeOwnerUserId;
     @Column(name = "scope_store_id") private Long scopeStoreId;
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
+    @Column(name = "scope_owner_user_ids_json", columnDefinition = "TEXT") private String scopeOwnerUserIdsJson;
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
+    @Column(name = "scope_store_ids_json", columnDefinition = "TEXT") private String scopeStoreIdsJson;
+    @Column(name = "scope_all_owners") private Boolean scopeAllOwners;
+    @Column(name = "scope_all_stores") private Boolean scopeAllStores;
+    @Column(name = "requested_from_at") private Long requestedFromAt;
+    @Column(name = "requested_to_at") private Long requestedToAt;
     @Column(nullable = false, length = 32) private String status;
     @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     @Column(name = "content_csv", columnDefinition = "TEXT") private String contentCsv;
@@ -48,6 +56,18 @@ public class AdminExportJobEntity {
     public void setScopeOwnerUserId(Long scopeOwnerUserId) { this.scopeOwnerUserId = scopeOwnerUserId; }
     public Long getScopeStoreId() { return scopeStoreId; }
     public void setScopeStoreId(Long scopeStoreId) { this.scopeStoreId = scopeStoreId; }
+    public String getScopeOwnerUserIdsJson() { return scopeOwnerUserIdsJson; }
+    public void setScopeOwnerUserIdsJson(String scopeOwnerUserIdsJson) { this.scopeOwnerUserIdsJson = scopeOwnerUserIdsJson; }
+    public String getScopeStoreIdsJson() { return scopeStoreIdsJson; }
+    public void setScopeStoreIdsJson(String scopeStoreIdsJson) { this.scopeStoreIdsJson = scopeStoreIdsJson; }
+    public Boolean getScopeAllOwners() { return scopeAllOwners; }
+    public void setScopeAllOwners(Boolean scopeAllOwners) { this.scopeAllOwners = scopeAllOwners; }
+    public Boolean getScopeAllStores() { return scopeAllStores; }
+    public void setScopeAllStores(Boolean scopeAllStores) { this.scopeAllStores = scopeAllStores; }
+    public Long getRequestedFromAt() { return requestedFromAt; }
+    public void setRequestedFromAt(Long requestedFromAt) { this.requestedFromAt = requestedFromAt; }
+    public Long getRequestedToAt() { return requestedToAt; }
+    public void setRequestedToAt(Long requestedToAt) { this.requestedToAt = requestedToAt; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public String getContentCsv() { return contentCsv; }

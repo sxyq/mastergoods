@@ -27,7 +27,15 @@ public final class AdminOverviewDtos {
     }
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    public record Metric(String key, long value, String unit) {}
+    public record Metric(String key, Number value, String unit, String availability) {
+        public Metric(String key, long value, String unit) {
+            this(key, value, unit, "AVAILABLE");
+        }
+
+        public Metric(String key, Number value, String unit) {
+            this(key, value, unit, value == null ? "UNAVAILABLE" : "AVAILABLE");
+        }
+    }
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record TrendPoint(Instant at, long value) {}

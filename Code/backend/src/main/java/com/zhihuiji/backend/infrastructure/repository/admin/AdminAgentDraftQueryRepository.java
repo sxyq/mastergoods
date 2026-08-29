@@ -20,4 +20,24 @@ public interface AdminAgentDraftQueryRepository extends Repository<AgentDraftEnt
         @Param("allOwners") boolean allOwners,
         @Param("ownerUserIds") Collection<Long> ownerUserIds
     );
+
+    @Query("""
+        select d from AgentDraftEntity d
+         where d.conversationId = :conversationId
+           and (:allOwners = true or d.ownerUserId in :ownerUserIds)
+           and (:allStores = true or exists (
+               select a.id from AgentRunAuditEntity a
+                where a.conversationId = d.conversationId
+                  and (:allOwners = true or a.ownerUserId in :ownerUserIds)
+                  and a.storeId in :storeIds
+           ))
+         order by d.updatedAt desc, d.id desc
+        """)
+    List<AgentDraftEntity> findDraftsScoped(
+        @Param("conversationId") Long conversationId,
+        @Param("allOwners") boolean allOwners,
+        @Param("ownerUserIds") Collection<Long> ownerUserIds,
+        @Param("allStores") boolean allStores,
+        @Param("storeIds") Collection<Long> storeIds
+    );
 }

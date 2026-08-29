@@ -52,6 +52,8 @@ public final class AdminAgentDtos {
 
     public enum RedactionState { FULL_ALLOWED, PARTIAL, REDACTED }
 
+    public enum ContextWindowSource { CONFIGURED_OVERRIDE, KNOWN_MODEL, CONSERVATIVE_FALLBACK }
+
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record EventPage(List<Event> items, long total, boolean eventIntegrity) {
         public EventPage {
@@ -100,8 +102,23 @@ public final class AdminAgentDtos {
         Integer estimatedOutputTokens,
         List<ContextCheckpoint> checkpoints,
         boolean contentRedacted,
-        String scopeCompleteness
+        String scopeCompleteness,
+        ContextWindowSource contextWindowSource
     ) {
+        public ContextResponse(
+            String runId,
+            String conversationId,
+            Integer contextWindowTokens,
+            Integer estimatedInputTokens,
+            Integer estimatedOutputTokens,
+            List<ContextCheckpoint> checkpoints,
+            boolean contentRedacted,
+            String scopeCompleteness
+        ) {
+            this(runId, conversationId, contextWindowTokens, estimatedInputTokens, estimatedOutputTokens,
+                checkpoints, contentRedacted, scopeCompleteness, null);
+        }
+
         public ContextResponse {
             checkpoints = List.copyOf(checkpoints == null ? List.of() : checkpoints);
         }
@@ -116,25 +133,98 @@ public final class AdminAgentDtos {
         String status,
         Instant createdAt,
         Instant updatedAt,
-        boolean contentRedacted
-    ) {}
+        boolean contentRedacted,
+        String confirmedBy,
+        Instant confirmedAt,
+        String businessReference,
+        String failureReason
+    ) {
+        /** Compatibility constructor for callers that only have the persisted draft fields. */
+        public Draft(
+            String draftId,
+            String conversationId,
+            String draftType,
+            String title,
+            String status,
+            Instant createdAt,
+            Instant updatedAt,
+            boolean contentRedacted
+        ) {
+            this(draftId, conversationId, draftType, title, status, createdAt, updatedAt, contentRedacted,
+                null, null, null, null);
+        }
+    }
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record Usage(
         String runId,
         String modelId,
+        Instant bucketStart,
+        Instant bucketEnd,
+        Long requestCount,
         Long inputTokens,
         Long outputTokens,
         Long totalTokens,
         Long durationMs,
         Long timeToFirstTokenMs,
+        Long averageDurationMs,
+        Long p95DurationMs,
+        Long averageTimeToFirstTokenMs,
+        Long p95TimeToFirstTokenMs,
         TokenSource tokenSource,
         boolean estimated,
         String scopeCompleteness
-    ) {}
+    ) {
+        /** Compatibility constructor for the per-run usage shape used by existing callers. */
+        public Usage(
+            String runId,
+            String modelId,
+            Long inputTokens,
+            Long outputTokens,
+            Long totalTokens,
+            Long durationMs,
+            Long timeToFirstTokenMs,
+            TokenSource tokenSource,
+            boolean estimated,
+            String scopeCompleteness
+        ) {
+            this(
+                runId,
+                modelId,
+                null,
+                null,
+                runId == null ? null : 1L,
+                inputTokens,
+                outputTokens,
+                totalTokens,
+                durationMs,
+                timeToFirstTokenMs,
+                durationMs,
+                durationMs,
+                timeToFirstTokenMs,
+                timeToFirstTokenMs,
+                tokenSource,
+                estimated,
+                scopeCompleteness
+            );
+        }
+    }
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    public record UsagePage(List<Usage> items, long total, Instant generatedAt) {
+    public record UsagePage(
+        List<Usage> items,
+        long total,
+        Instant generatedAt,
+        Instant from,
+        Instant to,
+        String granularity,
+        AdminScopeDtos.Scope scope,
+        String scopeCompleteness
+    ) {
+        public UsagePage(List<Usage> items, long total, Instant generatedAt) {
+            this(items, total, generatedAt, null, null, null, null, null);
+        }
+
         public UsagePage {
             items = List.copyOf(items == null ? List.of() : items);
         }

@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AdminAgentObservabilityService {
     private static final int MAX_RUN_ID_LENGTH = 64;
+    private static final int MAX_FILTER_LENGTH = 128;
 
     private final AdminAuthorizationService authorizationService;
     private final AdminAgentQueryRepository agentQueryRepository;
@@ -42,6 +43,9 @@ public class AdminAgentObservabilityService {
         AdminPrincipal principal,
         String runId,
         Long conversationId,
+        Long actorUserId,
+        String toolName,
+        String modelId,
         String status,
         Instant from,
         Instant to,
@@ -56,21 +60,34 @@ public class AdminAgentObservabilityService {
             requestedOwnerUserId,
             requestedStoreId
         );
-        requirePersistedStoreScope(scope);
         validateTimeRange(from, to);
+        String normalizedToolName = normalizeFilter(toolName, "toolName");
+        String normalizedModelId = normalizeFilter(modelId, "modelId");
         AdminScopeQuery queryScope = AdminScopeQuery.from(scope);
         Page<AgentRunAuditEntity> result = queryScope.storeIds().equals(java.util.Set.of(Long.MIN_VALUE))
-            ? agentQueryRepository.findRuns(
+            ? (hasRunFilters(actorUserId, normalizedToolName, normalizedModelId)
+                ? agentQueryRepository.findRunsFiltered(
+                    queryScope.allOwners(), queryScope.ownerUserIds(), normalizeRunId(runId), conversationId,
+                    actorUserId, normalizedToolName, normalizedModelId, normalizeStatus(status),
+                    from == null ? null : from.toEpochMilli(), to == null ? null : to.toEpochMilli(),
+                    PaginationUtils.pageable(page, size))
+                : agentQueryRepository.findRuns(
                 queryScope.allOwners(), queryScope.ownerUserIds(), normalizeRunId(runId), conversationId,
                 normalizeStatus(status), from == null ? null : from.toEpochMilli(),
-                to == null ? null : to.toEpochMilli(), PaginationUtils.pageable(page, size))
-            : agentQueryRepository.findRunsScoped(
+                to == null ? null : to.toEpochMilli(), PaginationUtils.pageable(page, size)))
+            : (hasRunFilters(actorUserId, normalizedToolName, normalizedModelId)
+                ? agentQueryRepository.findRunsScopedFiltered(
+                    queryScope.allOwners(), queryScope.ownerUserIds(), queryScope.allStores(), queryScope.storeIds(),
+                    normalizeRunId(runId), conversationId, actorUserId, normalizedToolName, normalizedModelId,
+                    normalizeStatus(status), from == null ? null : from.toEpochMilli(),
+                    to == null ? null : to.toEpochMilli(), PaginationUtils.pageable(page, size))
+                : agentQueryRepository.findRunsScoped(
                 queryScope.allOwners(), queryScope.ownerUserIds(), queryScope.allStores(), queryScope.storeIds(),
                 normalizeRunId(runId), conversationId, null, normalizeStatus(status),
                 from == null ? null : from.toEpochMilli(), to == null ? null : to.toEpochMilli(),
-                PaginationUtils.pageable(page, size));
+                PaginationUtils.pageable(page, size)));
         List<AdminAgentDtos.RunSummary> items = result.getContent().stream()
-            .map(this::toSummary)
+            .map(run -> toSummary(run, scope))
             .toList();
         return new AdminPageDtos.PageResponse<>(
             items,
@@ -80,7 +97,7 @@ public class AdminAgentObservabilityService {
             result.hasNext(),
             Instant.now(),
             AdminScopeDtos.Scope.from(scope),
-            "PARTIAL"
+            scopeCompleteness(scope)
         );
     }
 
@@ -97,20 +114,13 @@ public class AdminAgentObservabilityService {
             requestedOwnerUserId,
             requestedStoreId
         );
-        requirePersistedStoreScope(scope);
         AdminScopeQuery queryScope = AdminScopeQuery.from(scope);
         String normalizedRunId = normalizeRequiredRunId(runId);
         java.util.Optional<AgentRunAuditEntity> run = queryScope.storeIds().equals(java.util.Set.of(Long.MIN_VALUE))
             ? agentQueryRepository.findRun(normalizedRunId, queryScope.allOwners(), queryScope.ownerUserIds())
             : agentQueryRepository.findRunScoped(normalizedRunId, queryScope.allOwners(), queryScope.ownerUserIds(),
                 queryScope.allStores(), queryScope.storeIds());
-        return toSummary(run.orElseThrow(() -> new AccessDeniedException("administrator resource not visible")));
-    }
-
-    private void requirePersistedStoreScope(AdminDataScope scope) {
-        if (!scope.allOwners() && !scope.storeIds().isEmpty()) {
-            throw new IllegalStateException("Agent store scope is unavailable in persisted run audits");
-        }
+        return toSummary(run.orElseThrow(() -> new AccessDeniedException("administrator resource not visible")), scope);
     }
 
     private void validateTimeRange(Instant from, Instant to) {
@@ -143,10 +153,41 @@ public class AdminAgentObservabilityService {
 
     private String normalizeStatus(String status) {
         String normalized = status == null ? null : status.trim();
-        return normalized == null || normalized.isEmpty() ? null : normalized;
+        if (normalized == null || normalized.isEmpty()) {
+            return null;
+        }
+        if ("RUNNING".equalsIgnoreCase(normalized)) {
+            return "running";
+        }
+        try {
+            return AgentTerminalStatus.valueOf(normalized.toUpperCase(Locale.ROOT)).auditStatus();
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("terminalStatus is invalid");
+        }
     }
 
-    private AdminAgentDtos.RunSummary toSummary(AgentRunAuditEntity run) {
+    private boolean hasRunFilters(Long actorUserId, String toolName, String modelId) {
+        return actorUserId != null || toolName != null || modelId != null;
+    }
+
+    private String normalizeFilter(String value, String field) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        if (normalized.length() > MAX_FILTER_LENGTH || normalized.indexOf('%') >= 0
+            || normalized.indexOf('_') >= 0 || normalized.indexOf('"') >= 0
+            || normalized.indexOf('\\') >= 0 || normalized.indexOf('\'') >= 0
+            || normalized.chars().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException(field + " is invalid");
+        }
+        return normalized;
+    }
+
+    private AdminAgentDtos.RunSummary toSummary(AgentRunAuditEntity run, AdminDataScope scope) {
         Instant startedAt = instant(run.getStartedAt());
         Instant completedAt = instant(run.getCompletedAt());
         Long durationMs = startedAt == null || completedAt == null
@@ -171,8 +212,12 @@ public class AdminAgentObservabilityService {
             null,
             AdminAgentDtos.TokenSource.UNAVAILABLE,
             true,
-            "PARTIAL"
+            scopeCompleteness(scope)
         );
+    }
+
+    private String scopeCompleteness(AdminDataScope scope) {
+        return scope.allOwners() ? "COMPLETE" : "PARTIAL";
     }
 
     private String terminalStatus(String status) {

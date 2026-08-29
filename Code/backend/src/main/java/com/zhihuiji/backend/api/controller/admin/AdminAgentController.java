@@ -6,9 +6,12 @@ import com.zhihuiji.backend.api.dto.admin.AdminAgentDtos;
 import com.zhihuiji.backend.api.dto.admin.AdminPageDtos;
 import com.zhihuiji.backend.application.service.admin.AdminAgentObservabilityService;
 import com.zhihuiji.backend.application.service.admin.AdminAgentDetailService;
+import com.zhihuiji.backend.application.service.admin.AdminAgentEventStreamService;
+import com.zhihuiji.backend.application.service.admin.AdminAuditService;
 import com.zhihuiji.backend.infrastructure.security.admin.AdminPrincipalResolver;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.springframework.http.MediaType;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,18 +30,43 @@ public class AdminAgentController {
     private final AdminAgentDetailService detailService;
     private final AdminPrincipalResolver principalResolver;
     private final ObjectMapper objectMapper;
+    private final AdminAuditService auditService;
+    private final AdminAgentEventStreamService eventStreamService;
 
     @Autowired
     public AdminAgentController(
         AdminAgentObservabilityService observabilityService,
         AdminAgentDetailService detailService,
         AdminPrincipalResolver principalResolver,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        AdminAuditService auditService,
+        AdminAgentEventStreamService eventStreamService
     ) {
         this.observabilityService = observabilityService;
         this.detailService = detailService;
         this.principalResolver = principalResolver;
         this.objectMapper = objectMapper;
+        this.auditService = auditService;
+        this.eventStreamService = eventStreamService;
+    }
+
+    public AdminAgentController(
+        AdminAgentObservabilityService observabilityService,
+        AdminAgentDetailService detailService,
+        AdminPrincipalResolver principalResolver,
+        ObjectMapper objectMapper,
+        AdminAuditService auditService
+    ) {
+        this(observabilityService, detailService, principalResolver, objectMapper, auditService, null);
+    }
+
+    public AdminAgentController(
+        AdminAgentObservabilityService observabilityService,
+        AdminAgentDetailService detailService,
+        AdminPrincipalResolver principalResolver,
+        ObjectMapper objectMapper
+    ) {
+        this(observabilityService, detailService, principalResolver, objectMapper, null, null);
     }
 
     /** Compatibility constructor for the existing read-controller slice tests. */
@@ -46,13 +74,16 @@ public class AdminAgentController {
         AdminAgentObservabilityService observabilityService,
         AdminPrincipalResolver principalResolver
     ) {
-        this(observabilityService, null, principalResolver, new ObjectMapper());
+        this(observabilityService, null, principalResolver, new ObjectMapper(), null);
     }
 
     @GetMapping("/runs")
     public ApiResponse<AdminPageDtos.PageResponse<AdminAgentDtos.RunSummary>> runs(
         @RequestParam(value = "runId", required = false) String runId,
         @RequestParam(value = "conversationId", required = false) Long conversationId,
+        @RequestParam(value = "actorUserId", required = false) Long actorUserId,
+        @RequestParam(value = "toolName", required = false) String toolName,
+        @RequestParam(value = "modelId", required = false) String modelId,
         @RequestParam(value = "terminalStatus", required = false) String terminalStatus,
         @RequestParam(value = "from", required = false) Instant from,
         @RequestParam(value = "to", required = false) Instant to,
@@ -61,12 +92,11 @@ public class AdminAgentController {
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "size", required = false) Integer size
     ) {
-        return ApiResponse.success(
-            observabilityService.listRuns(
-                principalResolver.requireCurrent(), runId, conversationId, terminalStatus,
-                from, to, ownerUserId, storeId, page, size
-            )
-        );
+        var principal = principalResolver.requireCurrent();
+        var response = observabilityService.listRuns(principal, runId, conversationId, actorUserId, toolName, modelId,
+            terminalStatus, from, to, ownerUserId, storeId, page, size);
+        recordRead(principal, "admin.agent.runs.read", "AGENT_RUN", runId, ownerUserId, storeId);
+        return ApiResponse.success(response);
     }
 
     @GetMapping("/runs/{runId}")
@@ -75,11 +105,10 @@ public class AdminAgentController {
         @RequestParam(value = "ownerUserId", required = false) Long ownerUserId,
         @RequestParam(value = "storeId", required = false) Long storeId
     ) {
-        return ApiResponse.success(
-            observabilityService.getRun(
-                principalResolver.requireCurrent(), runId, ownerUserId, storeId
-            )
-        );
+        var principal = principalResolver.requireCurrent();
+        var response = observabilityService.getRun(principal, runId, ownerUserId, storeId);
+        recordRead(principal, "admin.agent.run.read", "AGENT_RUN", runId, ownerUserId, storeId);
+        return ApiResponse.success(response);
     }
 
     @GetMapping("/conversations/{conversationId}/messages")
@@ -91,8 +120,10 @@ public class AdminAgentController {
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "size", required = false) Integer size
     ) {
-        return ApiResponse.success(detailService.messages(principalResolver.requireCurrent(), conversationId,
-            includeContent, page, size, ownerUserId, storeId));
+        var principal = principalResolver.requireCurrent();
+        var response = detailService.messages(principal, conversationId, includeContent, page, size, ownerUserId, storeId);
+        recordRead(principal, "admin.agent.messages.read", "CONVERSATION", conversationId, ownerUserId, storeId);
+        return ApiResponse.success(response);
     }
 
     @GetMapping("/runs/{runId}/events")
@@ -103,8 +134,10 @@ public class AdminAgentController {
         @RequestParam(value = "ownerUserId", required = false) Long ownerUserId,
         @RequestParam(value = "storeId", required = false) Long storeId
     ) {
-        return ApiResponse.success(detailService.events(principalResolver.requireCurrent(), runId, afterSequence,
-            includeContent, ownerUserId, storeId));
+        var principal = principalResolver.requireCurrent();
+        var response = detailService.events(principal, runId, afterSequence, includeContent, ownerUserId, storeId);
+        recordRead(principal, "admin.agent.events.read", "AGENT_RUN", runId, ownerUserId, storeId);
+        return ApiResponse.success(response);
     }
 
     @GetMapping(value = "/runs/{runId}/events/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -117,14 +150,24 @@ public class AdminAgentController {
         @RequestParam(value = "storeId", required = false) Long storeId
     ) {
         Integer replayAfter = afterSequence != null ? afterSequence : parseSequence(lastEventId);
-        AdminAgentDtos.EventPage page = detailService.events(principalResolver.requireCurrent(), runId,
+        var principal = principalResolver.requireCurrent();
+        AdminAgentDtos.EventPage page = detailService.events(principal, runId,
             replayAfter, includeContent, ownerUserId, storeId);
+        recordRead(principal, "admin.agent.events.stream", "AGENT_RUN", runId, ownerUserId, storeId);
+        if (eventStreamService != null) {
+            return eventStreamService.open(principal, runId, replayAfter, includeContent, ownerUserId, storeId, page);
+        }
         SseEmitter emitter = new SseEmitter(30_000L);
         try {
+            emitter.send(SseEmitter.event().name("stream_integrity")
+                .data(objectMapper.writeValueAsString(Map.of(
+                    "event_integrity", page.eventIntegrity(),
+                    "after_sequence", replayAfter == null ? 0 : replayAfter
+                ))));
             for (AdminAgentDtos.Event event : page.items()) {
                 emitter.send(SseEmitter.event().id(Long.toString(event.sequence()))
                     .name(event.eventType()).data(objectMapper.writeValueAsString(event)));
-                if (isTerminal(event.eventType())) {
+                if (AdminAgentEventStreamService.isTerminalEvent(event.eventType())) {
                     emitter.complete();
                     return emitter;
                 }
@@ -140,13 +183,17 @@ public class AdminAgentController {
     public ApiResponse<AdminAgentDtos.UsagePage> usage(
         @RequestParam(value = "from", required = false) Instant from,
         @RequestParam(value = "to", required = false) Instant to,
+        @RequestParam(value = "modelId", required = false) String modelId,
+        @RequestParam(value = "granularity", required = false) String granularity,
         @RequestParam(value = "ownerUserId", required = false) Long ownerUserId,
         @RequestParam(value = "storeId", required = false) Long storeId,
         @RequestParam(value = "page", required = false) Integer page,
         @RequestParam(value = "size", required = false) Integer size
     ) {
-        return ApiResponse.success(detailService.usage(principalResolver.requireCurrent(), from, to,
-            ownerUserId, storeId, page, size));
+        var principal = principalResolver.requireCurrent();
+        var response = detailService.usage(principal, from, to, modelId, granularity, ownerUserId, storeId, page, size);
+        recordRead(principal, "admin.agent.usage.read", "AGENT_USAGE", null, ownerUserId, storeId);
+        return ApiResponse.success(response);
     }
 
     @GetMapping("/runs/{runId}/context")
@@ -155,7 +202,10 @@ public class AdminAgentController {
         @RequestParam(value = "ownerUserId", required = false) Long ownerUserId,
         @RequestParam(value = "storeId", required = false) Long storeId
     ) {
-        return ApiResponse.success(detailService.context(principalResolver.requireCurrent(), runId, ownerUserId, storeId));
+        var principal = principalResolver.requireCurrent();
+        var response = detailService.context(principal, runId, ownerUserId, storeId);
+        recordRead(principal, "admin.agent.context.read", "AGENT_RUN", runId, ownerUserId, storeId);
+        return ApiResponse.success(response);
     }
 
     @GetMapping("/runs/{runId}/drafts")
@@ -164,7 +214,15 @@ public class AdminAgentController {
         @RequestParam(value = "ownerUserId", required = false) Long ownerUserId,
         @RequestParam(value = "storeId", required = false) Long storeId
     ) {
-        return ApiResponse.success(detailService.drafts(principalResolver.requireCurrent(), runId, ownerUserId, storeId));
+        var principal = principalResolver.requireCurrent();
+        var response = detailService.drafts(principal, runId, ownerUserId, storeId);
+        recordRead(principal, "admin.agent.drafts.read", "AGENT_RUN", runId, ownerUserId, storeId);
+        return ApiResponse.success(response);
+    }
+
+    private void recordRead(com.zhihuiji.backend.infrastructure.security.admin.AdminPrincipal principal,
+                            String action, String resourceType, String resourceId, Long ownerUserId, Long storeId) {
+        if (auditService != null) auditService.recordRead(principal, action, resourceType, resourceId, ownerUserId, storeId, "read");
     }
 
     private Integer parseSequence(String value) {
@@ -173,12 +231,4 @@ public class AdminAgentController {
         catch (NumberFormatException ignored) { return null; }
     }
 
-    private boolean isTerminal(String eventType) {
-        if (eventType == null) return false;
-        String value = eventType.toLowerCase(java.util.Locale.ROOT);
-        return value.equals("run_completed") || value.equals("run_failed")
-            || value.equals("run_cancelled") || value.equals("run_exhausted")
-            || value.endsWith(".completed") || value.endsWith(".failed")
-            || value.endsWith(".cancelled") || value.endsWith(".exhausted");
-    }
 }

@@ -1,6 +1,7 @@
 package com.zhihuiji.backend.application.service.v2.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.zhihuiji.backend.api.common.BusinessException;
 import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
 import com.zhihuiji.backend.api.dto.v2.finance.V2FinanceDtos;
@@ -73,7 +74,48 @@ public class AgentDraftConfirmService {
     private final V2InventoryService v2InventoryService;
     private final V2AccountTransferService v2AccountTransferService;
     private final AgentImageService agentImageService;
+    private final AgentDraftConfirmationStateService confirmationStateService;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    public AgentDraftConfirmService(
+        AgentDraftRepository agentDraftRepository,
+        CurrentOwnerService currentOwnerService,
+        ObjectMapper objectMapper,
+        V2SaleOrderService v2SaleOrderService,
+        V2PurchaseOrderService v2PurchaseOrderService,
+        V2PurchaseReceiptService v2PurchaseReceiptService,
+        V2SalesReturnService v2SalesReturnService,
+        V2PurchaseReturnService v2PurchaseReturnService,
+        V2PayOrderService v2PayOrderService,
+        V2CustomerService v2CustomerService,
+        V2SupplierService v2SupplierService,
+        V2ProductService v2ProductService,
+        FinanceRecordService financeRecordService,
+        V2InventoryService v2InventoryService,
+        V2AccountTransferService v2AccountTransferService,
+        AgentImageService agentImageService,
+        AgentDraftConfirmationStateService confirmationStateService
+    ) {
+        this.agentDraftRepository = agentDraftRepository;
+        this.currentOwnerService = currentOwnerService;
+        this.objectMapper = objectMapper;
+        this.v2SaleOrderService = v2SaleOrderService;
+        this.v2PurchaseOrderService = v2PurchaseOrderService;
+        this.v2PurchaseReceiptService = v2PurchaseReceiptService;
+        this.v2SalesReturnService = v2SalesReturnService;
+        this.v2PurchaseReturnService = v2PurchaseReturnService;
+        this.v2PayOrderService = v2PayOrderService;
+        this.v2CustomerService = v2CustomerService;
+        this.v2SupplierService = v2SupplierService;
+        this.v2ProductService = v2ProductService;
+        this.financeRecordService = financeRecordService;
+        this.v2InventoryService = v2InventoryService;
+        this.v2AccountTransferService = v2AccountTransferService;
+        this.agentImageService = agentImageService;
+        this.confirmationStateService = confirmationStateService;
+    }
+
+    /** Compatibility constructor for isolated tests and legacy callers. */
     public AgentDraftConfirmService(
         AgentDraftRepository agentDraftRepository,
         CurrentOwnerService currentOwnerService,
@@ -92,22 +134,10 @@ public class AgentDraftConfirmService {
         V2AccountTransferService v2AccountTransferService,
         AgentImageService agentImageService
     ) {
-        this.agentDraftRepository = agentDraftRepository;
-        this.currentOwnerService = currentOwnerService;
-        this.objectMapper = objectMapper;
-        this.v2SaleOrderService = v2SaleOrderService;
-        this.v2PurchaseOrderService = v2PurchaseOrderService;
-        this.v2PurchaseReceiptService = v2PurchaseReceiptService;
-        this.v2SalesReturnService = v2SalesReturnService;
-        this.v2PurchaseReturnService = v2PurchaseReturnService;
-        this.v2PayOrderService = v2PayOrderService;
-        this.v2CustomerService = v2CustomerService;
-        this.v2SupplierService = v2SupplierService;
-        this.v2ProductService = v2ProductService;
-        this.financeRecordService = financeRecordService;
-        this.v2InventoryService = v2InventoryService;
-        this.v2AccountTransferService = v2AccountTransferService;
-        this.agentImageService = agentImageService;
+        this(agentDraftRepository, currentOwnerService, objectMapper, v2SaleOrderService, v2PurchaseOrderService,
+            v2PurchaseReceiptService, v2SalesReturnService, v2PurchaseReturnService, v2PayOrderService,
+            v2CustomerService, v2SupplierService, v2ProductService, financeRecordService, v2InventoryService,
+            v2AccountTransferService, agentImageService, null);
     }
 
     /**
@@ -154,20 +184,29 @@ public class AgentDraftConfirmService {
         ) != 1) {
             throw new BusinessException("草稿已被其他请求确认或状态已变化");
         }
-        V2AgentDtos.AgentImageGenerateResponse imageResult;
+        Object created;
         try {
-            imageResult = dispatchCreate(entity);
+            created = dispatchCreate(entity);
         } catch (BusinessException ex) {
+            recordFailure(entity, ownerUserId, ex.getMessage());
             throw ex;
         } catch (Exception ex) {
             Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-            throw new BusinessException("草稿确认失败（" + entity.getDraftType() + "）：" + cause.getMessage());
+            String message = "草稿确认失败（" + entity.getDraftType() + "）：" + cause.getMessage();
+            recordFailure(entity, ownerUserId, message);
+            throw new BusinessException(message);
         }
+        V2AgentDtos.AgentImageGenerateResponse imageResult = created instanceof V2AgentDtos.AgentImageGenerateResponse response
+            ? response : null;
         if (imageResult != null) {
             entity.setContentJson(AgentDraftImageResultCodec.withImageResult(
                 objectMapper, entity.getContentJson(), imageResult
             ));
         }
+        entity.setConfirmedBy(ownerUserId);
+        entity.setConfirmedAt(System.currentTimeMillis());
+        entity.setBusinessReference(businessReference(entity.getDraftType(), created));
+        entity.setFailureReason(null);
         entity.setStatus(STATUS_CONFIRMED);
         entity.setUpdatedAt(System.currentTimeMillis());
         return toDraftResponse(agentDraftRepository.save(entity));
@@ -207,44 +246,66 @@ public class AgentDraftConfirmService {
      * @param entity 草稿实体
      * @throws Exception 反序列化或业务创建异常
      */
-    private V2AgentDtos.AgentImageGenerateResponse dispatchCreate(AgentDraftEntity entity) throws Exception {
+    private Object dispatchCreate(AgentDraftEntity entity) throws Exception {
         String contentJson = entity.getContentJson();
         String draftType = entity.getDraftType();
-        switch (draftType) {
-            case "create_sale_order" ->
-                v2SaleOrderService.create(objectMapper.readValue(contentJson, V2SaleOrderDtos.CreateRequest.class));
-            case "create_purchase_order" ->
-                v2PurchaseOrderService.create(objectMapper.readValue(contentJson, V2PurchaseOrderDtos.CreateRequest.class));
-            case "create_purchase_receipt" ->
-                v2PurchaseReceiptService.create(objectMapper.readValue(contentJson, V2PurchaseReceiptDtos.CreateRequest.class));
-            case "create_sales_return" ->
-                v2SalesReturnService.create(objectMapper.readValue(contentJson, V2SalesReturnDtos.CreateRequest.class));
-            case "create_purchase_return" ->
-                v2PurchaseReturnService.create(objectMapper.readValue(contentJson, V2PurchaseReturnDtos.CreateRequest.class));
-            case "create_pay_order" ->
-                v2PayOrderService.createWithRequiredIdempotencyKey(
-                    objectMapper.readValue(contentJson, V2PayOrderDtos.CreateRequest.class));
-            case "create_customer" ->
-                v2CustomerService.create(objectMapper.readValue(contentJson, V2PartnerDtos.CustomerWriteRequest.class));
-            case "create_supplier" ->
-                v2SupplierService.create(objectMapper.readValue(contentJson, V2PartnerDtos.SupplierWriteRequest.class));
-            case "create_product" ->
-                v2ProductService.create(objectMapper.readValue(contentJson, V2ProductDtos.ProductWriteRequest.class));
-            case "create_finance_record" ->
-                financeRecordService.create(objectMapper.readValue(contentJson, FinanceRecordService.CreateCommand.class));
-            case "create_inventory_adjustment", "inventory_adjustment" ->
-                v2InventoryService.createLedgerEntry(objectMapper.readValue(contentJson, V2InventoryDtos.LedgerEntryCreateRequest.class));
-            case "create_account_transfer" ->
-                v2AccountTransferService.create(objectMapper.readValue(contentJson, V2FinanceDtos.AccountTransferCreateRequest.class));
-            case "media_upload" -> {
-                // 媒体上传草稿仅用于承载上传意图与参数，确认后由前端继续执行真实上传。
-            }
-            case "image_generate" -> {
-                return agentImageService.generate(AgentDraftImageResultCodec.readRequest(objectMapper, contentJson));
-            }
+        return switch (draftType) {
+            case "create_sale_order" -> v2SaleOrderService.create(objectMapper.readValue(contentJson, V2SaleOrderDtos.CreateRequest.class));
+            case "create_purchase_order" -> v2PurchaseOrderService.create(objectMapper.readValue(contentJson, V2PurchaseOrderDtos.CreateRequest.class));
+            case "create_purchase_receipt" -> v2PurchaseReceiptService.create(objectMapper.readValue(contentJson, V2PurchaseReceiptDtos.CreateRequest.class));
+            case "create_sales_return" -> v2SalesReturnService.create(objectMapper.readValue(contentJson, V2SalesReturnDtos.CreateRequest.class));
+            case "create_purchase_return" -> v2PurchaseReturnService.create(objectMapper.readValue(contentJson, V2PurchaseReturnDtos.CreateRequest.class));
+            case "create_pay_order" -> v2PayOrderService.createWithRequiredIdempotencyKey(
+                objectMapper.readValue(contentJson, V2PayOrderDtos.CreateRequest.class));
+            case "create_customer" -> v2CustomerService.create(objectMapper.readValue(contentJson, V2PartnerDtos.CustomerWriteRequest.class));
+            case "create_supplier" -> v2SupplierService.create(objectMapper.readValue(contentJson, V2PartnerDtos.SupplierWriteRequest.class));
+            case "create_product" -> v2ProductService.create(objectMapper.readValue(contentJson, V2ProductDtos.ProductWriteRequest.class));
+            case "create_finance_record" -> financeRecordService.create(objectMapper.readValue(contentJson, FinanceRecordService.CreateCommand.class));
+            case "create_inventory_adjustment", "inventory_adjustment" -> v2InventoryService.createLedgerEntry(
+                objectMapper.readValue(contentJson, V2InventoryDtos.LedgerEntryCreateRequest.class));
+            case "create_account_transfer" -> v2AccountTransferService.create(
+                objectMapper.readValue(contentJson, V2FinanceDtos.AccountTransferCreateRequest.class));
+            case "media_upload" -> null;
+            case "image_generate" -> agentImageService.generate(AgentDraftImageResultCodec.readRequest(objectMapper, contentJson));
             default -> throw new BusinessException("不支持的草稿类型：" + draftType);
+        };
+    }
+
+    private void recordFailure(AgentDraftEntity entity, Long ownerUserId, String reason) {
+        String safeReason = safeFailure(reason);
+        entity.setStatus(STATUS_ACTIVE);
+        entity.setFailureReason(safeReason);
+        entity.setUpdatedAt(System.currentTimeMillis());
+        if (confirmationStateService != null) {
+            try {
+                confirmationStateService.recordFailure(entity.getId(), ownerUserId, safeReason);
+            } catch (RuntimeException ignored) {
+                // Preserve the original confirmation failure when the evidence sink is unavailable.
+            }
         }
-        return null;
+    }
+
+    private String businessReference(String draftType, Object created) {
+        if (created == null) return null;
+        try {
+            JsonNode id = objectMapper.valueToTree(created).path("id");
+            if (id.isMissingNode() || id.isNull()) return null;
+            String value = id.isTextual() ? id.asText() : id.toString();
+            if (value.isBlank()) return null;
+            return draftType + ":" + (value.length() <= 120 ? value : value.substring(0, 120));
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private String safeFailure(String reason) {
+        if (reason == null || reason.isBlank()) return "草稿确认失败";
+        String normalized = reason.replaceAll("[\\r\\n\\t]+", " ").trim();
+        normalized = normalized.replaceAll(
+            "(?i)(api[_-]?key|token|secret|password|authorization|bearer)(\\s*[:=]\\s*)[^\\s,;]+",
+            "$1$2***"
+        );
+        return normalized.length() <= 512 ? normalized : normalized.substring(0, 512);
     }
 
     private V2AgentDtos.AgentDraftResponse toDraftResponse(AgentDraftEntity entity) {

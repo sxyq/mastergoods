@@ -52,4 +52,29 @@ public interface AdminAuditEventRepository extends JpaRepository<AdminAuditEvent
         @Param("toAt") Long toAt,
         Pageable pageable
     );
+
+    @Query(value = """
+        select e from AdminAuditEventEntity e
+         where e.eventId = :eventId
+           and (:allOwners = true
+             or e.ownerUserId in :ownerUserIds
+             or (e.ownerUserId is null and e.adminUserId = :requestingAdminUserId))
+           and (:allStores = true or e.storeId in :storeIds or (e.storeId is null and e.adminUserId = :requestingAdminUserId))
+        """, countQuery = """
+        select count(e.id) from AdminAuditEventEntity e
+         where e.eventId = :eventId
+           and (:allOwners = true
+             or e.ownerUserId in :ownerUserIds
+             or (e.ownerUserId is null and e.adminUserId = :requestingAdminUserId))
+           and (:allStores = true or e.storeId in :storeIds or (e.storeId is null and e.adminUserId = :requestingAdminUserId))
+        """)
+    Page<AdminAuditEventEntity> findVisibleByEventId(
+        @Param("eventId") String eventId,
+        @Param("requestingAdminUserId") Long requestingAdminUserId,
+        @Param("allOwners") boolean allOwners,
+        @Param("ownerUserIds") Collection<Long> ownerUserIds,
+        @Param("allStores") boolean allStores,
+        @Param("storeIds") Collection<Long> storeIds,
+        Pageable pageable
+    );
 }
