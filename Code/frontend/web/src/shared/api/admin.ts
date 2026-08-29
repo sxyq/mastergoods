@@ -100,11 +100,31 @@ export interface AdminContextResponse {
   runId: string
   conversationId: string | null
   contextWindowTokens: number | null
+  contextWindowSource?: 'CONFIGURED_OVERRIDE' | 'KNOWN_MODEL' | 'CONSERVATIVE_FALLBACK' | string | null
   estimatedInputTokens: number | null
   estimatedOutputTokens: number | null
-  checkpoints: Array<Record<string, unknown>>
+  checkpoints: AdminContextCheckpoint[]
   contentRedacted: boolean
   scopeCompleteness?: string
+}
+
+export interface AdminContextCheckpoint {
+  checkpointId?: string
+  conversationId?: string | null
+  sourceBoundaryMessageId?: string | null
+  sourceMessageCount?: number | null
+  summaryVersion?: number | null
+  contextPolicyVersion?: number | null
+  toolSchemaVersion?: number | null
+  revision?: number | null
+  quality?: string | null
+  status?: string | null
+  modelName?: string | null
+  estimatedInputTokens?: number | null
+  estimatedOutputTokens?: number | null
+  createdAt?: string | null
+  updatedAt?: string | null
+  contentRedacted?: boolean
 }
 
 export interface AdminDraft {
@@ -116,18 +136,40 @@ export interface AdminDraft {
   createdAt: string
   updatedAt: string
   contentRedacted: boolean
+  confirmedBy?: string | null
+  confirmedAt?: string | null
+  businessReference?: string | null
+  failureReason?: string | null
 }
 
 export interface AdminUsage {
-  runId: string
+  runId: string | null
   modelId: string | null
+  bucketStart?: string | null
+  bucketEnd?: string | null
+  requestCount?: number | null
   inputTokens: number | null
   outputTokens: number | null
   totalTokens: number | null
   durationMs: number | null
   timeToFirstTokenMs: number | null
+  averageDurationMs?: number | null
+  p95DurationMs?: number | null
+  averageTimeToFirstTokenMs?: number | null
+  p95TimeToFirstTokenMs?: number | null
   tokenSource: string
   estimated: boolean
+  scopeCompleteness?: string
+}
+
+export interface AdminUsagePage {
+  items: AdminUsage[]
+  total: number
+  generatedAt?: string
+  from?: string | null
+  to?: string | null
+  granularity?: string | null
+  scope?: AdminScopePayload
   scopeCompleteness?: string
 }
 
@@ -292,7 +334,7 @@ export function updateAdminStoreMember(token: string, storeId: string, userId: s
   return requestAdmin<AdminMemberSummary>(token, `${adminApiPaths.stores}/${encodeURIComponent(storeId)}/members/${encodeURIComponent(userId)}`, { method: 'PATCH', body: adminJson(payload) })
 }
 
-export function fetchAdminRuns(token: string, params: { runId?: string; conversationId?: string; terminalStatus?: string; from?: string; to?: string; ownerUserId?: string; storeId?: string; page?: number; size?: number } = {}) {
+export function fetchAdminRuns(token: string, params: { runId?: string; conversationId?: string; actorUserId?: string; toolName?: string; modelId?: string; terminalStatus?: string; from?: string; to?: string; ownerUserId?: string; storeId?: string; page?: number; size?: number } = {}) {
   return requestAdmin<AdminPage<AdminRunSummary>>(token, `${adminApiPaths.agentRuns}${query(params)}`)
 }
 
@@ -314,12 +356,28 @@ export async function streamAdminEvents(
   params: { afterSequence?: number; includeContent?: boolean; ownerUserId?: string; storeId?: string } = {},
   onEvent: (event: AdminEvent) => void,
   signal?: AbortSignal,
+  onIntegrity?: (integrity: boolean) => void,
 ) {
   const response = await requestAdminStream(token, `/v2/admin/agent/runs/${encodeURIComponent(runId)}/events/stream${query(params)}`, signal)
   if (!response.body) return
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  const handleFrame = (frame: string) => {
+    const eventName = frame.split(/\r?\n/).find((line) => line.startsWith('event:'))?.slice(6).trim()
+    const data = frame.split(/\r?\n/).filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trim()).join('\n')
+    if (!data) return
+    try {
+      const parsed = camelize(JSON.parse(data)) as AdminEvent & { eventIntegrity?: boolean }
+      if (eventName === 'stream_integrity' && typeof parsed.eventIntegrity === 'boolean') {
+        onIntegrity?.(parsed.eventIntegrity)
+        return
+      }
+      if (parsed && typeof parsed === 'object' && typeof parsed.sequence === 'number') onEvent(parsed)
+    } catch {
+      // A malformed SSE frame is ignored; the persisted list remains the source of truth.
+    }
+  }
   try {
     while (true) {
       const chunk = await reader.read()
@@ -327,24 +385,18 @@ export async function streamAdminEvents(
       buffer += decoder.decode(chunk.value, { stream: true })
       const frames = buffer.split(/\r?\n\r?\n/)
       buffer = frames.pop() ?? ''
-      for (const frame of frames) {
-        const data = frame.split(/\r?\n/).filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trim()).join('\n')
-        if (!data) continue
-        try {
-          const parsed = camelize(JSON.parse(data)) as AdminEvent
-          if (parsed && typeof parsed === 'object' && typeof parsed.sequence === 'number') onEvent(parsed)
-        } catch {
-          // A malformed SSE frame is ignored; the persisted list remains the source of truth.
-        }
-      }
+      for (const frame of frames) handleFrame(frame)
     }
+    // Flush a trailing UTF-8 sequence and parse a final frame without a blank-line terminator.
+    buffer += decoder.decode()
+    for (const frame of buffer.split(/\r?\n\r?\n/)) handleFrame(frame)
   } finally {
     reader.releaseLock()
   }
 }
 
-export function fetchAdminUsage(token: string, params: { from?: string; to?: string; ownerUserId?: string; storeId?: string; page?: number; size?: number } = {}) {
-  return requestAdmin<{ items: AdminUsage[]; total: number; generatedAt?: string }>(token, adminApiPaths.agentUsage + query(params))
+export function fetchAdminUsage(token: string, params: { from?: string; to?: string; modelId?: string; granularity?: string; ownerUserId?: string; storeId?: string; page?: number; size?: number } = {}) {
+  return requestAdmin<AdminUsagePage>(token, adminApiPaths.agentUsage + query(params))
 }
 
 export function fetchAdminContext(token: string, runId: string, params: { ownerUserId?: string; storeId?: string } = {}) {
@@ -373,7 +425,7 @@ export function updateAdminConfig(token: string, payload: {
   return requestAdmin<AdminConfigPayload>(token, adminApiPaths.agentConfig, { method: 'PATCH', body: adminJson(payload) })
 }
 
-export function fetchAdminAuditEvents(token: string, params: { from?: string; to?: string; action?: string; resourceType?: string; result?: string; page?: number; size?: number } = {}) {
+export function fetchAdminAuditEvents(token: string, params: { eventId?: string; from?: string; to?: string; action?: string; resourceType?: string; result?: string; ownerUserId?: string; storeId?: string; page?: number; size?: number } = {}) {
   return requestAdmin<AdminPage<AdminAuditEvent>>(token, `${adminApiPaths.auditEvents}${query(params)}`)
 }
 

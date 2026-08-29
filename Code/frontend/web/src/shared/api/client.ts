@@ -2286,12 +2286,20 @@ export async function requestAdmin<T>(token: string, path: string, init: Request
 }
 
 /** Opens an authenticated administrator event stream; callers own its reader and abort signal. */
-export async function requestAdminStream(token: string, path: string, signal?: AbortSignal): Promise<Response> {
+export async function requestAdminStream(token: string, path: string, signal?: AbortSignal, hasRetriedAuth = false): Promise<Response> {
+  const requestHeaders = authHeaders(token)
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'GET',
-    headers: buildHeaders(authHeaders(token)),
+    headers: buildHeaders(requestHeaders),
     signal,
   })
+  if (response.status === 401 && !hasRetriedAuth) {
+    const refreshedToken = await tryRefreshAccessToken()
+    if (refreshedToken) return requestAdminStream(refreshedToken, path, signal, true)
+    emitApiAuthEvent(401)
+  } else if (response.status === 403) {
+    emitApiAuthEvent(403)
+  }
   if (!response.ok) {
     throw new ApiError(`event stream failed: ${response.status}`, response.status)
   }
