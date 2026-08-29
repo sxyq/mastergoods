@@ -4,11 +4,12 @@
 
 | 编号 | 发现 | 影响 | 优先级 | 状态 | 解除条件 |
 |---|---|---|---|---|---|
-| `ISSUE-ADM-13` | `AdminAgentController` 有多个构造器但没有明确注入构造器，Spring 上下文尝试调用不存在的无参构造器 | 应用上下文无法启动，管理员接口和部分全仓测试不可用 | 高 | 阻塞 | 为 Controller 提供明确的 Spring 注入构造器后，重新运行 `contextLoads`、Controller 测试和全仓测试 |
+| `ISSUE-ADM-13` | `AdminAgentController` 曾有多个构造器但没有明确注入构造器 | 应用上下文无法启动，管理员接口和部分全仓测试不可用 | 高 | 已解除（源码与定向测试） | 已提供 `@Autowired` 六参数构造器；管理员定向测试通过。完整回归仍需单独处理 H2 文件测试环境问题 |
 | `ISSUE-ADM-14` | `AdminAgentDetailService` 对带 store 的管理员范围直接报错，因为持久化运行审计没有 `store_id` | 审计观察员无法完成门店范围读取；无法证明跨 store 隔离 | 高 | 阻塞 | 运行记录可靠保存 store，查询链按 owner/store 过滤，并通过跨范围数据库测试 |
 | `ISSUE-ADM-15` | 管理员身份缺失由 `AdminPrincipalResolver` 抛出 `AccessDeniedException`，统一异常处理当前映射为 HTTP 403 | `TEST-ADM-I01` 要求的未认证 401 与已认证但无权限 403 尚未区分 | 高 | 未完成 | 认证入口统一返回 401，角色/范围不足返回 403，并补 MockMvc 认证边界测试 |
-| `ISSUE-ADM-16` | 全仓回归中的 `V2BillDomainControllerTest.purchaseReceiptListReturnsSnakeCaseFields` 仍失败 | 阻止全仓绿色交付；是否由并行改动造成需单独定位 | 中 | 未完成 | 单独复现并修复或确认基线原因，再记录独立提交与回归结果 |
-| `ISSUE-ADM-17` | 阶段 3 只有 Web 页面骨架，没有配置、管理员审计、系统健康、导出和保留策略正式 API | 高风险写操作没有版本、幂等、审计和敏感字段边界 | 高 | 阻塞 | 接入正式接口、数据库存储、权限校验、二次确认、幂等/并发测试和审计失败策略 |
+| `ISSUE-ADM-16` | `V2BillDomainControllerTest.purchaseReceiptListReturnsSnakeCaseFields` 的测试 stub 使用旧两参数服务签名 | 采购收货 Controller 契约测试返回空列表，字段断言无法执行 | 中 | 已解除 | 测试已匹配 `list(keyword, status, Pageable)`；该测试类 5 项通过 |
+| `ISSUE-ADM-19` | 全仓回归曾因 `AdminControllerTest` 复用 local 文件 H2 触发 `RandomAccessStore.shrinkStoreIfPossible` | 共享文件写入会让全仓测试出现非业务断言失败 | 中 | 已解除（测试隔离） | 测试类保留 `local` Bean，同时覆盖到独立内存 H2；703 项全仓回归通过 |
+| `ISSUE-ADM-17` | 配置、管理员审计、系统健康、导出和保留策略已有正式接口，但真实写入链路仍未验收 | 高风险操作的版本冲突、幂等、二次确认、审计失败和文件清理缺少目标环境证据 | 高 | 环境待验收 | 在隔离环境执行真实 HTTP、数据库写入、并发/幂等、审计失败和导出清理测试 |
 | `ISSUE-ADM-18` | 没有目标 PostgreSQL、真实数据集、SSE 网络恢复和浏览器可访问性证据 | 无法判断查询计划、性能、断线恢复和最终 UI 交付 | 中 | 阻塞 | 建立脱敏测试环境并完成性能、浏览器、断线和恢复报告 |
 
 ## 既有问题状态映射
@@ -18,13 +19,13 @@
 | `ISSUE-ADM-01` | 管理员账号、数据库角色解析骨架存在；统一 HTTP 登录/会话实测仍未完成 |
 | `ISSUE-ADM-02` | 数据库授权 grant 解析存在；真实授权数据和空范围 API 测试仍未完成 |
 | `ISSUE-ADM-03` | 仍阻塞；本轮测试明确验证缺失字段不能被猜测 |
-| `ISSUE-ADM-04` | 仍未完成；没有管理员审计写入和查询对象 |
+| `ISSUE-ADM-04` | 管理员审计写入和查询对象已有源码与单元证据；真实失败链和查询自身审计仍待验收 |
 | `ISSUE-ADM-05` | 服务投影层已有内容拒绝、敏感词替换和长度限制单元证据；日志、导出和真实响应扫描未完成 |
 | `ISSUE-ADM-06` | Vue 管理页面和真实只读 API 已开始接入；完整登录、数据库和目标环境联调未完成 |
 | `ISSUE-ADM-07` | `Pageable` 上限有单元证据；数据库执行计划和大数据量测试未完成 |
 | `ISSUE-ADM-08` | SSE Controller 补读和序列完整性有单元证据；真实断线/重连/去重链路未完成 |
-| `ISSUE-ADM-09` | 仍未完成；暂无正式配置接口 |
-| `ISSUE-ADM-10` | 仍未完成；暂无导出任务与生命周期接口 |
+| `ISSUE-ADM-09` | 配置读写与版本字段已有正式接口和单元证据；真实刷新、冲突和权限环境仍待验收 |
+| `ISSUE-ADM-10` | 导出任务、范围快照、下载和保留策略已有正式接口与迁移；真实文件清理和下载审计仍待验收 |
 | `ISSUE-ADM-12` | 仍阻塞；目标环境与 PostgreSQL 计划未验证 |
 
 ## 审查结论

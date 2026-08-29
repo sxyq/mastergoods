@@ -50,13 +50,15 @@ docs/
 | 管理员后台 | 管理员后台如何规划、实现和验收？ | `管理员后台/01_业务需求` 至 `管理员后台/07_问题审计` |
 | 90 历史归档 | 哪些只代表过去？ | 154 历史资料、旧报告、旧测试证据、旧文档 |
 
-## 当前运行边界（2026-08-18 基线）
+## 当前运行边界（2026-08-30）
 
 - 当前验证与生产目标：`8.220.206.9`（8220），公共 API 入口 `https://zhj-api.sxyq27.online/`
+- 管理员 Web 已发布到 124 的 `https://sxyq27.online/zhj/`；后端 Flyway 当前为 V40
 - 当前 Provider：模型 `gpt-5.6-luna`，Base URL `https://oneapi.sxyq27.online/v1`，Wire API `chat_completions`
 - `154.217.241.207` 已完全退役，全部内容标记为 `historical-only`
 - 多模态、生图、图片输入和图片结果展示当前为 `Deferred`
 - 权威基线：`testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md`
+- 管理员发布证据：`testing/admin/20260830-production-deployment.md`
 - 权威测试执行入口：`testing/README.md`
 - 已知问题与解除条件：`testing/已知问题与解除条件.md`
 

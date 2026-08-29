@@ -10,7 +10,7 @@
 | 依据源码 | `application.yml`、`application-prod.yml`（agent.llm.*）、`infrastructure/config/AgentLlmProperties.java`、`AgentImageProperties.java`、`HttpClientConfig.java` |
 | 依据测试 | 8220 Provider 直连探针 |
 | 依据证据 | `testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md` |
-| 最后核对 | 2026-08-20 |
+| 最后核对 | 2026-08-30 |
 
 ## 一、运行配置
 
@@ -46,7 +46,7 @@
 ## 三、切换与回滚
 
 - 配置修改通过环境变量覆盖（容器启动注入），不修改应用代码。
-- 回滚：`sxyq27-zhj-api:rollback-20260818` 镜像保留。
+- 回滚：`sxyq27-zhj-api:rollback-20260830T052508-admin-c2d9040c-dirty` 镜像保留；本次发布未修改 Provider 密钥和路由。
 
 ## 对应实现
 
