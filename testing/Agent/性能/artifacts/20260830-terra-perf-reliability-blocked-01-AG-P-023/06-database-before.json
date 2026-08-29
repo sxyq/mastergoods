@@ -1,0 +1,6 @@
+{
+  "database_observation": "not_connected",
+  "business_rows": null,
+  "draft_rows": null,
+  "reason": "Blocked: no Android emulator/device attached; UI tree, screenshot, gfxinfo, Perfetto and meminfo cannot be collected."
+}

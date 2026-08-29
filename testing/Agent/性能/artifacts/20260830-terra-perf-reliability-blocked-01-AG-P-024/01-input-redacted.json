@@ -1,0 +1,7 @@
+{
+  "test_id": "AG-P-024",
+  "input_status": "not_sent",
+  "prompt": "REDACTED_TEST_INPUT_NOT_SENT",
+  "credentials": "not_collected",
+  "reason": "Blocked: no iOS device/Xcode runtime is in scope for this performance-only evidence wave."
+}

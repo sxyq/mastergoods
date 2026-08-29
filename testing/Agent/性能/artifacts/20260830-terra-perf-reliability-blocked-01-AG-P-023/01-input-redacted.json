@@ -1,0 +1,7 @@
+{
+  "test_id": "AG-P-023",
+  "input_status": "not_sent",
+  "prompt": "REDACTED_TEST_INPUT_NOT_SENT",
+  "credentials": "not_collected",
+  "reason": "Blocked: no Android emulator/device attached; UI tree, screenshot, gfxinfo, Perfetto and meminfo cannot be collected."
+}

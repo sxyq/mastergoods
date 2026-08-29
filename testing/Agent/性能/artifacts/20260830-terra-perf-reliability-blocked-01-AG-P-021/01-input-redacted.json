@@ -1,0 +1,7 @@
+{
+  "test_id": "AG-P-021",
+  "input_status": "not_sent",
+  "prompt": "REDACTED_TEST_INPUT_NOT_SENT",
+  "credentials": "not_collected",
+  "reason": "Blocked: PostgreSQL/approved database target is unavailable; SQL observation remains preparation only."
+}

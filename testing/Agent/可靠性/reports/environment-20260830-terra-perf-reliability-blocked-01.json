@@ -1,0 +1,64 @@
+{
+  "captured_at_utc": "2026-08-29T19:48:42.240268+00:00",
+  "workspace_head": "5185c21d26f46e8a9e1bab3860c4cb4108446a34",
+  "workspace_status": "dirty_existing_user_changes_preserved",
+  "host": {
+    "os": "macOS-26.5.2-arm64-arm-64bit",
+    "python": "3.9.6"
+  },
+  "adb": {
+    "path": "/Users/sunyiyang/Library/Android/sdk/platform-tools/adb",
+    "exists": true,
+    "version": "Android Debug Bridge version 1.0.41\nVersion 37.0.0-14910828\nInstalled as /Users/sunyiyang/Library/Android/sdk/platform-tools/adb\nRunning on Darwin 25.5.0 (arm64)",
+    "devices_limited": "List of devices attached",
+    "device_count": 0
+  },
+  "android_app_source_baseline": {
+    "package": "com.zhihuiji.app",
+    "version_name": "1.0.0",
+    "version_code": 1,
+    "build_variant": "debug intended; APK not present in workspace",
+    "debug_profileable": "debug manifest declares profileable shell; device verification unavailable"
+  },
+  "backend": {
+    "configured_local_base_url": "http://127.0.0.1:18080",
+    "configured_port": 18080,
+    "local_port_listening": false,
+    "health_probe": {
+      "url": "http://127.0.0.1:18080/actuator/health",
+      "reachable": false,
+      "http_status": null
+    },
+    "service_version": "unavailable; Spring service is not listening",
+    "python_webdav_8080": {
+      "port_listening": true,
+      "health_probe": {
+        "url": "http://127.0.0.1:8080/actuator/health",
+        "reachable": true,
+        "http_status": 401
+      },
+      "excluded_as_backend": true
+    }
+  },
+  "database": {
+    "postgres_port_listening": false,
+    "psql_path_present": false,
+    "production_explain_status": "Blocked: no PostgreSQL service or approved target"
+  },
+  "provider": "not exercised; no credential or provider request was made",
+  "sample_policy": {
+    "sample_count": 0,
+    "concurrency": 0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "p99_ms": null,
+    "ttfb_ms": null,
+    "first_sse_event_ms": null,
+    "first_tool_ms": null,
+    "first_answer_ms": null,
+    "completion_ms": null,
+    "five_xx": 0,
+    "sse_loss": 0,
+    "sse_duplicate": 0
+  }
+}

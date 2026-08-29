@@ -1,0 +1,8 @@
+{
+  "sample_count": 0,
+  "concurrency": 0,
+  "tools": [],
+  "tool_duration_ms": null,
+  "provider_duration_ms": null,
+  "reason": "Blocked: PostgreSQL/approved database target is unavailable; SQL observation remains preparation only."
+}

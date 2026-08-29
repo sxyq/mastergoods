@@ -1,0 +1,23 @@
+{
+  "wave_id": "20260830-terra-perf-reliability-blocked-01",
+  "performance_cases": 27,
+  "reliability_cases": 13,
+  "performance_blocked": 27,
+  "reliability_blocked": 13,
+  "samples": {
+    "count": 0,
+    "concurrency": 0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "p99_ms": null,
+    "ttfb_ms": null,
+    "first_sse_event_ms": null,
+    "first_tool_ms": null,
+    "first_answer_ms": null,
+    "completion_ms": null,
+    "five_xx": 0,
+    "sse_loss": 0,
+    "sse_duplicate": 0
+  },
+  "status": "Blocked"
+}

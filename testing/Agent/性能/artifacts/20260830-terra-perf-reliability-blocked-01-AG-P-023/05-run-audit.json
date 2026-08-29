@@ -1,0 +1,8 @@
+{
+  "audit_available": false,
+  "terminal_status": null,
+  "event_count": null,
+  "audit_lossy": null,
+  "active_run_cleanup": "not_applicable",
+  "reason": "Blocked: no Android emulator/device attached; UI tree, screenshot, gfxinfo, Perfetto and meminfo cannot be collected."
+}

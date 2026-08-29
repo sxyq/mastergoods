@@ -1,0 +1,6 @@
+{
+  "database_observation": "not_connected",
+  "business_rows": null,
+  "draft_rows": null,
+  "reason": "Blocked: no iOS device/Xcode runtime is in scope for this performance-only evidence wave."
+}

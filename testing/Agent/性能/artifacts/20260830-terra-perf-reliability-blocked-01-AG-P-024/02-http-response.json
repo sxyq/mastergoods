@@ -1,0 +1,7 @@
+{
+  "request_status": "not_sent",
+  "http_status": null,
+  "five_xx": 0,
+  "response_body": "not_collected",
+  "reason": "Blocked: no iOS device/Xcode runtime is in scope for this performance-only evidence wave."
+}

@@ -1,0 +1,8 @@
+{
+  "sample_count": 0,
+  "concurrency": 0,
+  "tools": [],
+  "tool_duration_ms": null,
+  "provider_duration_ms": null,
+  "reason": "Blocked: no iOS device/Xcode runtime is in scope for this performance-only evidence wave."
+}

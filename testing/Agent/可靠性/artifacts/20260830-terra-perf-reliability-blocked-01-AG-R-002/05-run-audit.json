@@ -1,0 +1,8 @@
+{
+  "audit_available": false,
+  "terminal_status": null,
+  "event_count": null,
+  "audit_lossy": null,
+  "active_run_cleanup": "not_applicable",
+  "reason": "Blocked: local Spring backend at 127.0.0.1:18080 is unavailable; 127.0.0.1:8080 was identified as Python WebDAV and excluded."
+}

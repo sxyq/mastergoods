@@ -1,0 +1,7 @@
+{
+  "database_observation": "not_connected",
+  "business_rows": null,
+  "draft_rows": null,
+  "cleanup": "not_run",
+  "reason": "Blocked: PostgreSQL/approved database target is unavailable; SQL observation remains preparation only."
+}
