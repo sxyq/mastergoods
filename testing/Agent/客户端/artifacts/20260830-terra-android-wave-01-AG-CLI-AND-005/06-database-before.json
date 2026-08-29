@@ -1,0 +1,1 @@
+设备在 sys.boot_completed 前退出/未进入 App；未启动 Agent；无工具调用、audit、数据库查询或写入。

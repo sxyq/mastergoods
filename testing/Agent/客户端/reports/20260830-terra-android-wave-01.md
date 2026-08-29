@@ -31,4 +31,5 @@ The prior 20260829 report remains historical evidence only. Its login result was
 
 - Per-flow evidence: `testing/Agent/客户端/artifacts/20260830-terra-android-wave-01-AG-CLI-AND-001/` through `...-010/`
 - Tool ledger: `testing/Agent/客户端/reports/20260830-terra-android-wave-01-tool-status.csv`
+- Each per-flow directory now includes `04-tool-trace.jsonl`, `05-run-audit.json`, `06-database-before.json`, and `07-database-after.json` as not-reached placeholders. They explicitly record that the device exited before `sys.boot_completed`, the App/Agent was not entered or started, and no tool call, audit, database query, or write occurred; they contain no fabricated success data.
 - No raw emulator log was retained because the launcher output could contain device key material; only the redacted environment summaries were retained.
