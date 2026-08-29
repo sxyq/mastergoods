@@ -49,7 +49,7 @@ agent:
     enabled: ${AGENT_LLM_ENABLED:false}
     base-url: ${AGENT_LLM_BASE_URL:https://oneapi.sxyq27.online/v1}
     api-key: ${AGENT_LLM_API_KEY:}
-    model: ${AGENT_LLM_MODEL:gpt-5.6-luna}
+    model: ${AGENT_LLM_MODEL:glm-5.3-flash}
     wire-api: ${AGENT_LLM_WIRE_API:chat_completions}
     requires-openai-auth: ${AGENT_LLM_REQUIRES_OPENAI_AUTH:true}
     anthropic-version: ${AGENT_LLM_ANTHROPIC_VERSION:2023-06-01}
@@ -57,3 +57,4 @@ agent:
     temperature: ${AGENT_LLM_TEMPERATURE:0.2}
     enable-thinking: ${AGENT_LLM_ENABLE_THINKING:true}
     thinking-budget: ${AGENT_LLM_THINKING_BUDGET:2048}
+    allowed-models: ${AGENT_LLM_ALLOWED_MODELS:}
