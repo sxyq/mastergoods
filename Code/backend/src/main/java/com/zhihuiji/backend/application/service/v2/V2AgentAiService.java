@@ -358,7 +358,7 @@ public class V2AgentAiService {
                 conversation.getId(),
                 message,
                 buildToolCatalogForCurrentRequest(),
-                buildScopeDescriptionWithMemory(ownerUserId, conversation.getId(), message)
+                buildScopeDescriptionWithMemory(ownerUserId, actorStoreId, message)
             );
             CompactionResult compaction = contextCompactionService.compactIfNeeded(contextPackage);
             // 压缩发生后，当前请求必须只使用新检查点边界之后的原始消息，
@@ -695,6 +695,7 @@ public class V2AgentAiService {
         RunAuditService.ActiveAgentRun activeRun = existingRun == null
             ? runAuditService.getActiveRun(runId)
             : existingRun;
+        Long contextStoreId = activeRun == null ? directStoreId : activeRun.storeId();
         runAuditService.ensureRunAuditStarted(
             ownerUserId, conversation.getId(), runId, System.currentTimeMillis(),
             activeRun == null ? null : activeRun.actorUserId(),
@@ -773,7 +774,7 @@ public class V2AgentAiService {
                     conversation.getId(),
                     message,
                     buildToolCatalogForCurrentRequest(),
-                    buildScopeDescriptionWithMemory(ownerUserId, conversation.getId(), message)
+                    buildScopeDescriptionWithMemory(ownerUserId, contextStoreId, message)
                 );
                 CompactionResult compaction = contextCompactionService.compactIfNeeded(contextPackage);
                 // 流式路径同样只使用压缩后边界之后的原始消息，避免压缩结果不生效。
@@ -1211,15 +1212,40 @@ public class V2AgentAiService {
      *
      * <p>每次请求重新从认证上下文构建；不含手机号、地址、凭据或完整认证载荷。
      */
-    private String buildScopeDescription(Long ownerUserId) {
-        Long storeId = currentStoreIdOrNull();
+    private String buildScopeDescription(Long ownerUserId, Long storeId) {
         StringBuilder sb = new StringBuilder();
         sb.append("当前 owner_user_id：").append(ownerUserId == null ? "unknown" : ownerUserId).append('\n');
         if (storeId != null) {
             sb.append("当前 store_id：").append(storeId).append('\n');
         }
+        Set<String> permissions = currentCallerPermissions();
+        sb.append("当前调用者已验证 Agent 工具权限：")
+            .append(permissions.isEmpty() ? "无" : String.join(", ", permissions))
+            .append('\n');
         sb.append("数据作用域：仅当前账号和当前门店；不允许跨账号查询。\n");
         return sb.toString();
+    }
+
+    /** 逐项通过当前认证主体验证工具声明的权限；模型输入不参与权限计算。 */
+    private Set<String> currentCallerPermissions() {
+        Set<String> permissions = new LinkedHashSet<>();
+        List<AgentTool> tools = toolRegistry.listTools();
+        if (tools == null) {
+            return permissions;
+        }
+        for (AgentTool tool : tools) {
+            if (tool == null || !StringUtils.hasText(tool.requiredPermission())) {
+                continue;
+            }
+            String permission = tool.requiredPermission().trim();
+            try {
+                currentOwnerService.requirePermissions(permission);
+                permissions.add(permission);
+            } catch (org.springframework.security.access.AccessDeniedException | IllegalStateException ignored) {
+                // A denied or unavailable permission is omitted from model context.
+            }
+        }
+        return permissions;
     }
 
     /**
@@ -1228,15 +1254,15 @@ public class V2AgentAiService {
      * <p>召回失败只影响记忆块，不阻塞主回答（AgentMemoryService 内部已保证 owner 隔离）。
      */
     private String buildScopeDescriptionWithMemory(
-        Long ownerUserId, Long conversationId, String message
+        Long ownerUserId, Long storeId, String message
     ) {
-        String scope = buildScopeDescription(ownerUserId);
+        String scope = buildScopeDescription(ownerUserId, storeId);
         if (agentMemoryService == null) {
             return scope;
         }
         try {
             List<AgentMemoryService.RecalledMemory> memories = agentMemoryService.recallMemories(
-                ownerUserId, currentStoreIdOrNull(), message, 3
+                ownerUserId, storeId, message, 3
             );
             if (memories == null || memories.isEmpty()) {
                 return scope;

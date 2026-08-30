@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -189,6 +190,7 @@ class V2AgentAiServiceTest {
     private ToolRegistry toolRegistry;
     private ToolPlanner toolPlanner;
     private AnswerSynthesizer answerSynthesizer;
+    private ContextCompactionService contextCompactionService;
 
     @BeforeEach
     void setUp() {
@@ -249,15 +251,16 @@ class V2AgentAiServiceTest {
             agentContextCheckpointRepository,
             windowResolver,
             tokenEstimator,
-            llmProperties
+            llmProperties,
+            agentDraftRepository
         );
-        ContextCompactionService contextCompactionService = new ContextCompactionService(
+        contextCompactionService = spy(new ContextCompactionService(
             agentContextCheckpointRepository,
             longCatAnthropicClient,
             llmProperties,
             objectMapper,
             tokenEstimator
-        );
+        ));
         service = new V2AgentAiService(
             currentOwnerService,
             agentConversationRepository,
@@ -282,6 +285,8 @@ class V2AgentAiServiceTest {
             contextCompactionService
         );
         when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
+        when(agentDraftRepository.findAllByOwnerUserIdAndConversationIdOrderByUpdatedAtDescIdDesc(anyLong(), anyLong()))
+            .thenReturn(List.of());
         when(longCatAnthropicClient.isConfigured()).thenReturn(false);
         when(longCatAnthropicClient.configurationStatus()).thenReturn("disabled");
         when(longCatAnthropicClient.streamingUnavailableStatus()).thenReturn("disabled");
@@ -3736,6 +3741,99 @@ class V2AgentAiServiceTest {
         assertTrue(compacted.contains("\"reason\":\"context_budget_threshold\""), compacted);
         // 压缩使用确定性摘要，不携带凭据类原文。
         assertFalse(compacted.contains("sk-"), compacted);
+    }
+
+    @Test
+    void nonStreamingContextUsesAuthenticatedScopeAndPendingState() {
+        Long conversationId = 403L;
+        stubProtectedContext(conversationId);
+        when(currentOwnerService.requireCurrentUserId()).thenReturn(9L);
+        when(currentOwnerService.findCurrentStoreId()).thenReturn(Optional.of(44L));
+        doThrow(new AccessDeniedException("denied"))
+            .when(currentOwnerService).requirePermissions("agent:write");
+
+        service.chat(new V2AgentDtos.AgentChatRequest(conversationId, "查询商品", false));
+
+        ContextBuilder.ContextPackage context = capturedContextPackage();
+        assertEquals(1L, context.ownerUserId());
+        assertTrue(context.scopeDescription().contains("当前 store_id：44"));
+        assertTrue(context.scopeDescription().contains("agent:view"));
+        assertFalse(context.scopeDescription().contains("agent:write"));
+        assertEquals(1, context.pendingToolCalls().size());
+        assertEquals("pending-call", context.pendingToolCalls().get(0).callId());
+        assertEquals("running", context.pendingToolCalls().get(0).status());
+        assertEquals(1, context.pendingDrafts().size());
+        assertEquals(77L, context.pendingDrafts().get(0).draftId());
+        assertEquals("active", context.pendingDrafts().get(0).status());
+        verify(agentMessageRepository).findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(1L, conversationId);
+        verify(agentDraftRepository).findAllByOwnerUserIdAndConversationIdOrderByUpdatedAtDescIdDesc(1L, conversationId);
+        verify(agentMessageRepository, never())
+            .findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(2L, conversationId);
+    }
+
+    @Test
+    void streamingContextUsesCapturedStoreAndSameProtectedState() throws Exception {
+        Long conversationId = 404L;
+        stubProtectedContext(conversationId);
+        when(currentOwnerService.requireCurrentUserId()).thenReturn(9L);
+        when(currentOwnerService.findCurrentStoreId()).thenReturn(Optional.of(44L));
+        doThrow(new AccessDeniedException("denied"))
+            .when(currentOwnerService).requirePermissions("agent:write");
+
+        service.runChatStream(
+            1L,
+            conversation(conversationId),
+            "查询商品",
+            List.of(),
+            "run-context-protected-stream",
+            new CapturingEmitter()
+        );
+
+        ContextBuilder.ContextPackage context = capturedContextPackage();
+        assertEquals(1L, context.ownerUserId());
+        assertTrue(context.scopeDescription().contains("当前 store_id：44"));
+        assertTrue(context.scopeDescription().contains("agent:view"));
+        assertFalse(context.scopeDescription().contains("agent:write"));
+        assertEquals(List.of("pending-call"), context.pendingToolCalls().stream()
+            .map(ContextBuilder.PendingToolCall::callId)
+            .toList());
+        assertEquals(List.of(77L), context.pendingDrafts().stream()
+            .map(ContextBuilder.PendingDraft::draftId)
+            .toList());
+        verify(agentMessageRepository).findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(1L, conversationId);
+        verify(agentDraftRepository).findAllByOwnerUserIdAndConversationIdOrderByUpdatedAtDescIdDesc(1L, conversationId);
+        verify(agentMessageRepository, never())
+            .findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(2L, conversationId);
+    }
+
+    private void stubProtectedContext(Long conversationId) {
+        AgentMessageEntity pendingTool = message(31L, conversationId, "assistant", "等待工具", 31L);
+        pendingTool.setStructuredDataJson(
+            "{\"tool_calls\":[{\"tool_call_id\":\"pending-call\","
+                + "\"tool_name\":\"product_catalog_lookup\",\"status\":\"running\","
+                + "\"arguments\":\"{\\\"opaque\\\":\\\"model-arguments\\\"}\"}]}"
+        );
+        when(agentMessageRepository.findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(1L, conversationId))
+            .thenReturn(List.of(pendingTool));
+
+        AgentDraftEntity draft = new AgentDraftEntity();
+        setId(draft, 77L);
+        draft.setOwnerUserId(1L);
+        draft.setConversationId(conversationId);
+        draft.setDraftType("create_product");
+        draft.setTitle("待确认商品");
+        draft.setContentJson("{}");
+        draft.setStatus("active");
+        draft.setCreatedAt(30L);
+        draft.setUpdatedAt(32L);
+        when(agentDraftRepository.findAllByOwnerUserIdAndConversationIdOrderByUpdatedAtDescIdDesc(1L, conversationId))
+            .thenReturn(List.of(draft));
+    }
+
+    private ContextBuilder.ContextPackage capturedContextPackage() {
+        ArgumentCaptor<ContextBuilder.ContextPackage> captor = ArgumentCaptor.forClass(ContextBuilder.ContextPackage.class);
+        verify(contextCompactionService).compactIfNeeded(captor.capture());
+        return captor.getAllValues().get(captor.getAllValues().size() - 1);
     }
 
     private static boolean hasBlock(V2AgentDtos.AgentChatResponse response, String blockType) {

@@ -15,9 +15,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.zhihuiji.backend.application.service.v2.agent.context.ContextBuilder.ContextBudget;
 import com.zhihuiji.backend.application.service.v2.agent.context.ContextBuilder.ContextPackage;
+import com.zhihuiji.backend.application.service.v2.agent.context.ContextBuilder.PendingDraft;
+import com.zhihuiji.backend.application.service.v2.agent.context.ContextBuilder.PendingToolCall;
 import com.zhihuiji.backend.application.service.v2.agent.context.ContextCompactionService.CompactionResult;
 import com.zhihuiji.backend.domain.entity.AgentContextCheckpointEntity;
 import com.zhihuiji.backend.domain.entity.AgentMessageEntity;
@@ -190,6 +193,57 @@ class ContextCompactionServiceTest {
         assertTrue(result.occurred());
         assertEquals(ContextCompactionService.QUALITY_SEMANTIC, result.quality());
         assertTrue(result.summaryPreview().contains("张三商贸欠款"));
+    }
+
+    @Test
+    void semanticSummaryRetainsServerProtectedRuntimeState() throws Exception {
+        when(llmClient.isConfigured()).thenReturn(true);
+        ObjectNode valid = objectMapper.createObjectNode();
+        valid.put("summary_version", 1);
+        valid.put("conversation_goal", "查询欠款");
+        valid.putArray("confirmed_facts");
+        valid.putArray("decisions");
+        valid.putArray("pending_actions");
+        valid.putArray("entity_references");
+        valid.putArray("tool_evidence");
+        valid.putArray("open_questions");
+        valid.put("source_boundary_message_id", 6L);
+        valid.put("source_message_count", 6);
+        when(llmClient.createJsonMessage(anyString(), anyString()))
+            .thenReturn(Optional.of(valid.toString()));
+        when(checkpointRepository.save(any(AgentContextCheckpointEntity.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(checkpointRepository.findActiveByOwnerAndConversation(anyLong(), anyLong()))
+            .thenReturn(Optional.empty());
+
+        ContextPackage base = packageWithBudget(true, twoCompletedRounds());
+        ContextPackage context = new ContextPackage(
+            base.ownerUserId(),
+            base.conversationId(),
+            base.checkpoint(),
+            base.boundaryMessageId(),
+            base.messagesAfterBoundary(),
+            base.formattedHistory(),
+            base.checkpointSummary(),
+            base.currentUserMessage(),
+            "当前 owner_user_id：1\n当前 store_id：44\n当前调用者已验证 Agent 工具权限：agent:view",
+            base.toolCatalog(),
+            base.budget(),
+            List.of(new PendingToolCall("call-pending", "create_product", "awaiting_confirmation")),
+            List.of(new PendingDraft(77L, "create_product", "待确认商品", "active", 1234L))
+        );
+
+        CompactionResult result = service.compactIfNeeded(context);
+
+        JsonNode summary = objectMapper.readTree(result.summaryPreview());
+        assertEquals(1L, summary.path("owner_user_id").asLong());
+        assertEquals(201L, summary.path("conversation_id").asLong());
+        assertEquals("当前问题", summary.path("current_question").asText());
+        assertEquals("agent:view", summary.path("permissions").get(0).asText());
+        assertEquals("call-pending", summary.path("pending_tools").get(0).path("call_id").asText());
+        assertEquals("awaiting_confirmation", summary.path("pending_tools").get(0).path("status").asText());
+        assertEquals(77L, summary.path("pending_drafts").get(0).path("draft_id").asLong());
+        assertEquals("active", summary.path("pending_drafts").get(0).path("status").asText());
     }
 
     @Test
