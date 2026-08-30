@@ -28,6 +28,13 @@ class AdminPrincipalResolverTest {
     }
 
     @Test
+    void missingAuthenticationIsClassifiedAsAuthenticationRequired() {
+        SecurityContextHolder.clearContext();
+
+        assertThrows(AdminAuthenticationRequiredException.class, resolver::requireCurrent);
+    }
+
+    @Test
     void resolverReturnsOnlyTrustedAdminPrincipalFromSecurityContext() {
         AdminPrincipal principal = AdminPrincipal.forRole(
             9L,

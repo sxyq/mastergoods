@@ -17,7 +17,8 @@ public class AdminAuditEventEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @Column(name = "event_id", nullable = false, unique = true, length = 128) private String eventId;
-    @Column(name = "admin_user_id", nullable = false) private Long adminUserId;
+    // Null identifies an anonymous request; authenticated non-admin attempts retain the user ID.
+    @Column(name = "admin_user_id") private Long adminUserId;
     @Column(name = "role_code", nullable = false, length = 32) private String roleCode;
     @Column(nullable = false, length = 64) private String action;
     @Column(name = "resource_type", length = 64) private String resourceType;

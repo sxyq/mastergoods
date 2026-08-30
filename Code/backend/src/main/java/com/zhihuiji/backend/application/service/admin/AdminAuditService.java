@@ -31,6 +31,9 @@ public class AdminAuditService {
     private static final int MAX_REASON_LENGTH = 512;
     private static final int MAX_SUMMARY_LENGTH = 1000;
     private static final int MAX_FILTER_LENGTH = 64;
+    private static final String SECURITY_DENIAL_ACTION = "admin.access.denied";
+    private static final String ANONYMOUS_ROLE = "ANONYMOUS";
+    private static final String NON_ADMIN_ROLE = "NON_ADMIN";
 
     private final AdminAuditEventRepository repository;
     private final AdminAuthorizationService authorizationService;
@@ -94,6 +97,47 @@ public class AdminAuditService {
     public AdminAuditEventEntity recordRead(AdminPrincipal principal, String action, String resourceType, String resourceId,
                                             Long ownerUserId, Long storeId, String summary) {
         return record(principal, action, resourceType, resourceId, ownerUserId, storeId, "SUCCESS", null, summary, null, null);
+    }
+
+    /** Records an administrator-endpoint denial when no valid admin principal exists. */
+    @Transactional
+    public AdminAuditEventEntity recordSecurityDenial(
+        HttpServletRequest request,
+        Long actorUserId,
+        String roleCode,
+        String reason
+    ) {
+        Long normalizedActorUserId = actorUserId != null && actorUserId > 0 ? actorUserId : null;
+        if (normalizedActorUserId == null) {
+            // Anonymous events are intentionally stored but excluded from user-facing
+            // scope queries: they have no accountable administrator or business scope.
+            return repository.save(securityDenial(request, null, ANONYMOUS_ROLE, reason));
+        }
+        return repository.save(securityDenial(request, normalizedActorUserId, normalizedRole(roleCode), reason));
+    }
+
+    private AdminAuditEventEntity securityDenial(
+        HttpServletRequest request,
+        Long actorUserId,
+        String roleCode,
+        String reason
+    ) {
+        AdminAuditEventEntity entity = new AdminAuditEventEntity();
+        entity.setEventId(UUID.randomUUID().toString());
+        entity.setAdminUserId(actorUserId);
+        entity.setRoleCode(roleCode);
+        entity.setAction(SECURITY_DENIAL_ACTION);
+        entity.setResourceType("ADMIN_ENDPOINT");
+        entity.setResourceId(bounded(request == null ? null : request.getRequestURI(), 128));
+        entity.setResult("DENIED");
+        entity.setReason(bounded(reason, MAX_REASON_LENGTH));
+        entity.setSummary(bounded(request == null ? null : request.getMethod(), MAX_SUMMARY_LENGTH));
+        entity.setOccurredAt(System.currentTimeMillis());
+        RequestMetadata metadata = securityRequestMetadata(request);
+        entity.setSourceIp(metadata.sourceIp());
+        entity.setUserAgentSummary(metadata.userAgent());
+        entity.setRequestId(metadata.requestId());
+        return entity;
     }
 
     public String payloadHash(String payload) {
@@ -221,6 +265,27 @@ public class AdminAuditService {
             normalizeOptional(request.getHeader("User-Agent"), 256),
             normalizeOptional(requestId, 128)
         );
+    }
+
+    private RequestMetadata securityRequestMetadata(HttpServletRequest request) {
+        if (request == null) return new RequestMetadata(null, null, null);
+        return new RequestMetadata(
+            bounded(request.getRemoteAddr(), 64),
+            bounded(request.getHeader("User-Agent"), 256),
+            bounded(request.getHeader("X-Request-ID"), 128)
+        );
+    }
+
+    private String normalizedRole(String roleCode) {
+        String normalized = bounded(roleCode, 32);
+        return normalized == null ? NON_ADMIN_ROLE : normalized;
+    }
+
+    private String bounded(String value, int maxLength) {
+        if (value == null) return null;
+        String normalized = value.trim();
+        if (normalized.isEmpty()) return null;
+        return normalized.length() <= maxLength ? normalized : normalized.substring(0, maxLength);
     }
 
     private String normalizeRequired(String value, String message, int maxLength) {

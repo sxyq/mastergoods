@@ -134,6 +134,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -143,6 +144,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 class V2AgentAiServiceTest {
     @Mock private CurrentOwnerService currentOwnerService;
@@ -333,6 +336,11 @@ class V2AgentAiServiceTest {
                 .filter(event -> runId.equals(event.getRunId()))
                 .count();
         });
+    }
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -1183,6 +1191,36 @@ class V2AgentAiServiceTest {
         assertEquals(2, runMessages.size(), runMessages.toString());
         assertTrue(runMessages.stream().anyMatch(message -> "assistant".equals(message.getRole())));
         verify(currentOwnerService, times(1)).requireCurrentOwnerUserId();
+    }
+
+    @Test
+    void directStreamInvocationPersistsAuthenticatedActorAndStoreOnAudit() throws Exception {
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(9L, null, List.of())
+        );
+        when(currentOwnerService.requireCurrentUserId()).thenReturn(9L);
+        when(currentOwnerService.findCurrentStoreId()).thenReturn(Optional.of(4L));
+
+        service.runChatStream(1L, conversation(115L), "客户应收情况", List.of(), "run-direct-auth", new CapturingEmitter());
+
+        AgentRunAuditEntity audit = runAudits.get("run-direct-auth");
+        assertNotNull(audit);
+        assertEquals(9L, audit.getActorUserId());
+        assertEquals(4L, audit.getStoreId());
+    }
+
+    @Test
+    void directStreamInvocationLeavesUnknownActorAndStoreUnsetWithoutAuthentication() throws Exception {
+        SecurityContextHolder.clearContext();
+        doThrow(new IllegalStateException("authenticated owner is required"))
+            .when(currentOwnerService).requireCurrentUserId();
+
+        service.runChatStream(1L, conversation(116L), "客户应收情况", List.of(), "run-direct-unauthenticated", new CapturingEmitter());
+
+        AgentRunAuditEntity audit = runAudits.get("run-direct-unauthenticated");
+        assertNotNull(audit);
+        assertNull(audit.getActorUserId());
+        assertNull(audit.getStoreId());
     }
 
     private static boolean isReportLikeQuestion(String question) {

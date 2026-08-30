@@ -6,6 +6,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import com.zhihuiji.backend.infrastructure.security.admin.AdminAuthenticationRequiredException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -151,13 +154,59 @@ public class GlobalExceptionHandler {
     private void recordAdminDenial(String reason, String summary) {
         if (adminAuditService == null || adminPrincipalResolver == null) return;
         if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)
-            || !attributes.getRequest().getRequestURI().startsWith("/v2/admin")) return;
+            || !isAdminPath(attributes.getRequest().getRequestURI())) return;
+        var request = attributes.getRequest();
+        AdminPrincipal principal;
         try {
-            AdminPrincipal principal = adminPrincipalResolver.requireCurrent();
+            principal = adminPrincipalResolver.requireCurrent();
+        } catch (AdminAuthenticationRequiredException | AccessDeniedException ignored) {
+            Long actorUserId = authenticatedUserId();
+            try {
+                adminAuditService.recordSecurityDenial(
+                    request,
+                    actorUserId,
+                    actorUserId == null ? "ANONYMOUS" : "NON_ADMIN",
+                    reason
+                );
+            } catch (RuntimeException auditFailure) {
+                log.warn("Unable to persist administrator security denial audit");
+            }
+            return;
+        } catch (RuntimeException ignored) {
+            log.warn("Unable to resolve administrator for denial audit");
+            return;
+        }
+        try {
             adminAuditService.record(principal, "admin.access.denied", "ADMIN", null, null, null,
                 "DENIED", reason, summary, null, null);
         } catch (RuntimeException ignored) {
             log.warn("Unable to persist administrator denial audit");
         }
+    }
+
+    private Long authenticatedUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+            || authentication instanceof AnonymousAuthenticationToken) {
+            return null;
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof Number number && number.longValue() > 0) {
+            return number.longValue();
+        }
+        if (principal instanceof String text) {
+            try {
+                long value = Long.parseLong(text);
+                return value > 0 ? value : null;
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private boolean isAdminPath(String path) {
+        return path != null && (path.equals("/v1/admin") || path.startsWith("/v1/admin/")
+            || path.equals("/v2/admin") || path.startsWith("/v2/admin/"));
     }
 }

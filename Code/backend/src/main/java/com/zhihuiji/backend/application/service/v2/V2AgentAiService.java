@@ -674,8 +674,23 @@ public class V2AgentAiService {
         SseEmitter emitter
     ) throws IOException {
         RunAuditService.ActiveAgentRun existingRun = runAuditService.getActiveRun(runId);
+        Long directActorUserId = null;
+        Long directStoreId = null;
+        if (existingRun == null) {
+            try {
+                directActorUserId = currentOwnerService.requireCurrentUserId();
+                if (directActorUserId != null) {
+                    Optional<Long> currentStoreId = currentOwnerService.findCurrentStoreId();
+                    directStoreId = currentStoreId == null ? null : currentStoreId.orElse(null);
+                }
+            } catch (IllegalStateException ignored) {
+                // Direct or legacy invocations may not carry an authenticated context.
+            }
+        }
         boolean registeredForDirectRun = runAuditService.registerRunIfAbsent(
-            new RunAuditService.ActiveAgentRun(ownerUserId, runId, conversation.getId(), emitter)
+            new RunAuditService.ActiveAgentRun(
+                ownerUserId, runId, conversation.getId(), emitter, directActorUserId, directStoreId
+            )
         );
         RunAuditService.ActiveAgentRun activeRun = existingRun == null
             ? runAuditService.getActiveRun(runId)
