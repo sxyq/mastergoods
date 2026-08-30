@@ -1,0 +1,97 @@
+{
+  "captured_at_utc": "2026-08-30T04:45:11.105154+00:00",
+  "wave_id": "20260830-luna-perf-reliability-blocked-01",
+  "requested_executor": "gpt-5.6-luna / max",
+  "source_commit": "c4ae9b86dc8582e48613b43d6318c8ef3e02204e",
+  "branch": "codex/publish-local-updates",
+  "worktree_dirty": true,
+  "host": {
+    "os": "macOS-26.5.2-arm64-arm-64bit",
+    "python": "3.9.6",
+    "java_first_line": []
+  },
+  "service": {
+    "local_agent_base_url": "http://127.0.0.1:18080",
+    "local_agent_port_listening": false,
+    "local_health_anonymous_status": null,
+    "port_8080_listening": true,
+    "port_8080_health_anonymous_status": 401,
+    "port_8080_excluded": true,
+    "remote_root": "https://zhj-api.sxyq27.online/",
+    "remote_root_anonymous_status": 403,
+    "remote_approved_for_load": false
+  },
+  "authorization_session": {
+    "approved_session_supplied": false,
+    "authentication_values_inspected": false,
+    "account_store_labels_available": false
+  },
+  "database": {
+    "postgres_port_listening": false,
+    "psql_present": false,
+    "pg_isready_present": false,
+    "approved_postgres_target": false,
+    "h2_used_as_substitute": false,
+    "production_query_plan_executed": false
+  },
+  "provider": {
+    "request_sent": false,
+    "approved_isolated_target": false,
+    "real_provider_load_executed": false
+  },
+  "android": {
+    "adb_present": true,
+    "device_count": 1,
+    "emulator_count": 1,
+    "physical_count": 0,
+    "selected_device_label": "emulator-redacted-01",
+    "boot_completed": true,
+    "api_level": "34",
+    "android_release": "14",
+    "model": "sdk_gphone64_arm64",
+    "physical_size": "720x1280",
+    "package": "com.zhihuiji.app",
+    "package_installed": true,
+    "version_name": "1.0.0",
+    "version_code": "1",
+    "debuggable": true,
+    "main_activity_resolved": true,
+    "app_process_running": true,
+    "ui_inspected": false,
+    "focused_agent_flow_run_count": 0,
+    "perfetto_count": 0,
+    "gfxinfo_count": 0,
+    "meminfo_count": 0,
+    "simpleperf_count": 0
+  },
+  "sample_policy": {
+    "sample_count": 0,
+    "valid_request_count": 0,
+    "executed_concurrency_levels": [],
+    "requested_concurrency_levels": [
+      1,
+      5,
+      10,
+      20
+    ],
+    "p50_ms": null,
+    "p95_ms": null,
+    "p99_ms": null,
+    "ttfb_ms": null,
+    "first_sse_ms": null,
+    "first_tool_ms": null,
+    "first_answer_ms": null,
+    "completion_ms": null,
+    "tool_duration_ms": null,
+    "error_rate": null,
+    "five_xx_count": 0,
+    "sse_loss_count": 0,
+    "sse_duplicate_count": 0,
+    "sse_loss_rate": null,
+    "sse_duplicate_rate": null,
+    "jvm_samples": 0,
+    "thread_samples": 0,
+    "connection_pool_samples": 0,
+    "database_query_samples": 0
+  }
+}

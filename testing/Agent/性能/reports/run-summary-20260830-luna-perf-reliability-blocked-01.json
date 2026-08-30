@@ -1,0 +1,70 @@
+{
+  "wave_id": "20260830-luna-perf-reliability-blocked-01",
+  "source_commit": "c4ae9b86dc8582e48613b43d6318c8ef3e02204e",
+  "requested_executor": "gpt-5.6-luna / max",
+  "performance": {
+    "total": 27,
+    "Passed": 0,
+    "Failed": 0,
+    "Blocked": 27,
+    "Deferred": 0
+  },
+  "reliability": {
+    "total": 13,
+    "Passed": 0,
+    "Failed": 0,
+    "Blocked": 13,
+    "Deferred": 0
+  },
+  "related_security_load": {
+    "total": 16,
+    "Passed": 0,
+    "Failed": 0,
+    "Blocked": 16,
+    "Deferred": 0
+  },
+  "deferred_external_scopes": {
+    "real_provider": true,
+    "production_postgresql_query_plan": true,
+    "real_cross_owner_store": true
+  },
+  "samples": {
+    "sample_count": 0,
+    "valid_request_count": 0,
+    "executed_concurrency_levels": [],
+    "requested_concurrency_levels": [
+      1,
+      5,
+      10,
+      20
+    ],
+    "p50_ms": null,
+    "p95_ms": null,
+    "p99_ms": null,
+    "ttfb_ms": null,
+    "first_sse_ms": null,
+    "first_tool_ms": null,
+    "first_answer_ms": null,
+    "completion_ms": null,
+    "tool_duration_ms": null,
+    "error_rate": null,
+    "five_xx_count": 0,
+    "sse_loss_count": 0,
+    "sse_duplicate_count": 0,
+    "sse_loss_rate": null,
+    "sse_duplicate_rate": null,
+    "jvm_samples": 0,
+    "thread_samples": 0,
+    "connection_pool_samples": 0,
+    "database_query_samples": 0
+  },
+  "android": {
+    "device_label": "emulator-redacted-01",
+    "api_level": "34",
+    "package": "com.zhihuiji.app",
+    "version_name": "1.0.0",
+    "version_code": "1",
+    "focused_flow_run_count": 0
+  },
+  "overall_result": "Blocked"
+}

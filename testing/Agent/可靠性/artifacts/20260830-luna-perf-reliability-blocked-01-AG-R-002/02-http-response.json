@@ -1,0 +1,10 @@
+{
+  "test_id": "AG-R-002",
+  "sample_count": 0,
+  "request_sent": false,
+  "http_status": null,
+  "response_body_collected": false,
+  "error_rate": null,
+  "five_xx_count": 0,
+  "blocker": "本地 Agent 服务、获批会话和隔离 Provider Mock 均未就绪。"
+}

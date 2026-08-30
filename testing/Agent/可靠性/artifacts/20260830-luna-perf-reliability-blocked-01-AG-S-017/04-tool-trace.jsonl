@@ -1,0 +1,1 @@
+{"test_id": "AG-S-017", "sample_count": 0, "tool_calls": 0, "tool_duration_ms": null, "loop_rounds": null, "compaction_ms": null, "blocker": "本地 Agent 服务未监听，且没有获批测试会话；有效请求无法发送。"}

@@ -1,0 +1,6 @@
+test_id=AG-S-006
+wave_id=20260830-luna-perf-reliability-blocked-01
+sample_count=0
+request_sent=false
+raw_sse_collected=false
+blocker=没有获批的双 owner/store 会话和隔离数据，跨域负载未启动。

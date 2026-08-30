@@ -1,0 +1,1 @@
+{"test_id": "AG-P-021", "sample_count": 0, "tool_calls": 0, "tool_duration_ms": null, "loop_rounds": null, "compaction_ms": null, "blocker": "没有 PostgreSQL 服务或获批目标；未使用 H2 替代。"}

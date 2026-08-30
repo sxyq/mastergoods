@@ -1,0 +1,10 @@
+{
+  "test_id": "AG-P-023",
+  "sample_count": 0,
+  "request_sent": false,
+  "http_status": null,
+  "response_body_collected": false,
+  "error_rate": null,
+  "five_xx_count": 0,
+  "blocker": "模拟器和 App 已就绪；匹配的 Agent 服务与获批 App 会话缺失，聚焦流程无法开始。"
+}

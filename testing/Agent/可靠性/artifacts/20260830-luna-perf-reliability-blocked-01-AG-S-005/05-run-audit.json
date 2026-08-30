@@ -1,0 +1,12 @@
+{
+  "test_id": "AG-S-005",
+  "sample_count": 0,
+  "run_created": false,
+  "audit_available": false,
+  "terminal_status": null,
+  "event_loss_count": 0,
+  "duplicate_event_count": 0,
+  "event_loss_rate": null,
+  "duplicate_event_rate": null,
+  "blocker": "没有获批的双 owner/store 会话和隔离数据，跨域负载未启动。"
+}

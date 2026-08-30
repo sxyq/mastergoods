@@ -1,0 +1,9 @@
+{
+  "test_id": "AG-R-005",
+  "sample_count": 0,
+  "database_connected": false,
+  "query_count": null,
+  "business_rows": null,
+  "draft_rows": null,
+  "writes_performed": false
+}

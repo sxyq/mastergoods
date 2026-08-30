@@ -1,0 +1,12 @@
+{
+  "test_id": "AG-P-024",
+  "sample_count": 0,
+  "run_created": false,
+  "audit_available": false,
+  "terminal_status": null,
+  "event_loss_count": 0,
+  "duplicate_event_count": 0,
+  "event_loss_rate": null,
+  "duplicate_event_rate": null,
+  "blocker": "本批没有可用 iOS 设备、Xcode 运行条件和获批 App 会话。"
+}

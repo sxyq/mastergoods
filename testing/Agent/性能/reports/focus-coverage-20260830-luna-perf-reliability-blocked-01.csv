@@ -1,0 +1,12 @@
+requirement,mapped_cases,result,sample_count,retry_condition
+单用户冷/热基线,AG-P-001,Blocked,0,服务和授权会话就绪后分别执行冷、热样本。
+并发 1/5/10/20,AG-P-012,Blocked,0,隔离服务、授权会话和资源指标接口就绪后重试。
+TTFB 与 SSE/工具/回答时延,AG-P-001/002/006/007,Blocked,0,有效流式请求可发送后重试。
+SSE 丢失/重复与 Loop,AG-P-007/008; AG-R-007/008,Blocked,0,可控 SSE 断点和审计接口就绪后重试。
+上下文压缩与长会话,AG-P-009/010/011/022; AG-R-009,Blocked,0,长会话数据与可控压缩 Provider 就绪后重试。
+取消/重连/重试,AG-P-016/017/019; AG-R-001/002/004/005/006/008/012,Blocked,0,故障注入和资源观测就绪后重试。
+草稿竞争与重复付款/写入,AG-P-014/015; AG-R-010; AG-S-015/016/017/026,Blocked,0,可清理写入数据和获批会话就绪后重试。
+Provider 慢响应与 Soak,AG-P-019/022; AG-R-001/002/003/012/013,Blocked,0,隔离 Provider Mock 和长时运行窗口就绪后重试。
+JVM/线程/连接池/查询数,AG-P-001/002/012/021/022,Blocked,0,匹配服务、PostgreSQL 和指标接口就绪后重试。
+跨 owner/store 串扰,AG-S-004/005/006/007/008/021/024,Blocked,0,获批双身份与隔离数据就绪后重试。
+Android Agent 聚焦流程,AG-P-023,Blocked,0,匹配服务和获批 App 会话就绪后执行单一流程。

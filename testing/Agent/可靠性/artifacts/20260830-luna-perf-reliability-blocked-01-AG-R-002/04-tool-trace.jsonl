@@ -1,0 +1,1 @@
+{"test_id": "AG-R-002", "sample_count": 0, "tool_calls": 0, "tool_duration_ms": null, "loop_rounds": null, "compaction_ms": null, "blocker": "本地 Agent 服务、获批会话和隔离 Provider Mock 均未就绪。"}

@@ -1,0 +1,12 @@
+{
+  "test_id": "AG-P-021",
+  "sample_count": 0,
+  "run_created": false,
+  "audit_available": false,
+  "terminal_status": null,
+  "event_loss_count": 0,
+  "duplicate_event_count": 0,
+  "event_loss_rate": null,
+  "duplicate_event_rate": null,
+  "blocker": "没有 PostgreSQL 服务或获批目标；未使用 H2 替代。"
+}

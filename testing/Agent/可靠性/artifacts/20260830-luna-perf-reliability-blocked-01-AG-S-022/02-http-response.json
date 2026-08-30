@@ -1,0 +1,10 @@
+{
+  "test_id": "AG-S-022",
+  "sample_count": 0,
+  "request_sent": false,
+  "http_status": null,
+  "response_body_collected": false,
+  "error_rate": null,
+  "five_xx_count": 0,
+  "blocker": "本地 Agent 服务未监听，且没有获批测试会话；有效请求无法发送。"
+}

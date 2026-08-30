@@ -1,0 +1,6 @@
+test_id=AG-S-023
+wave_id=20260830-luna-perf-reliability-blocked-01
+sample_count=0
+request_sent=false
+raw_sse_collected=false
+blocker=本地 Agent 服务未监听，且没有获批测试会话；有效请求无法发送。

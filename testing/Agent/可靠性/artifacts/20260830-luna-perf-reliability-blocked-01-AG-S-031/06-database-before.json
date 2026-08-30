@@ -1,0 +1,9 @@
+{
+  "test_id": "AG-S-031",
+  "sample_count": 0,
+  "database_connected": false,
+  "postgresql_target_approved": false,
+  "query_count": null,
+  "business_rows": null,
+  "draft_rows": null
+}

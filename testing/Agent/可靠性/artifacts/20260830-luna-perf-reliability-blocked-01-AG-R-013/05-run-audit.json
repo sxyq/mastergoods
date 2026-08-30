@@ -1,0 +1,12 @@
+{
+  "test_id": "AG-R-013",
+  "sample_count": 0,
+  "run_created": false,
+  "audit_available": false,
+  "terminal_status": null,
+  "event_loss_count": 0,
+  "duplicate_event_count": 0,
+  "event_loss_rate": null,
+  "duplicate_event_rate": null,
+  "blocker": "本地 Agent 服务、获批会话和隔离 Provider Mock 均未就绪。"
+}

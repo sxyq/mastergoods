@@ -1,0 +1,10 @@
+{
+  "test_id": "AG-S-008",
+  "sample_count": 0,
+  "request_sent": false,
+  "http_status": null,
+  "response_body_collected": false,
+  "error_rate": null,
+  "five_xx_count": 0,
+  "blocker": "没有获批的双 owner/store 会话和隔离数据，跨域负载未启动。"
+}

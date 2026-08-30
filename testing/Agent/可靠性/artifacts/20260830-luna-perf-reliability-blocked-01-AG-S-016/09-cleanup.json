@@ -1,0 +1,7 @@
+{
+  "test_id": "AG-S-016",
+  "cleanup_status": "not_needed",
+  "test_data_created": false,
+  "database_write_performed": false,
+  "device_state_changed": false
+}

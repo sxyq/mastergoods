@@ -1,0 +1,1 @@
+{"test_id": "AG-S-024", "sample_count": 0, "tool_calls": 0, "tool_duration_ms": null, "loop_rounds": null, "compaction_ms": null, "blocker": "没有获批的双 owner/store 会话和隔离数据，跨域负载未启动。"}

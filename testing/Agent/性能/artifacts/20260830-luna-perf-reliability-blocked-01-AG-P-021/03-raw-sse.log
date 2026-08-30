@@ -1,0 +1,6 @@
+test_id=AG-P-021
+wave_id=20260830-luna-perf-reliability-blocked-01
+sample_count=0
+request_sent=false
+raw_sse_collected=false
+blocker=没有 PostgreSQL 服务或获批目标；未使用 H2 替代。
