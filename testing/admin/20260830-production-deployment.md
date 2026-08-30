@@ -2,7 +2,7 @@
 
 ## 发布范围
 
-> 记录状态：下述内容描述已上线的 V40 版本。V41 匿名管理员拒绝审计修复已完成本地构建与测试，尚未提交、推送或部署；发布后需补充镜像、Flyway 版本和线上验证结果。
+> 记录状态：V40 已于 2026-08-30 首次发布；V41 匿名管理员拒绝审计修复已在同日完成提交、推送和上线，见本页末尾的增量发布记录。
 
 本次发布包含正式工程 `Code/backend/`、`Code/frontend/web/` 和 V33-V40 Flyway 迁移。`Temp/grok-style-admin-preview/` 未参与发布。
 
@@ -51,3 +51,16 @@
 - 8220 远端：`/opt/sxyq27/master-goods/releases/20260830T052508-admin-c2d9040c-dirty/release-meta.txt`
 - 124 远端：`/opt/sxyq27/releases/20260830T052508-admin-c2d9040c-dirty/frontend-meta.txt`
 - 本地构建产物：`tmp/build/gradle-output/backend/libs/zhihuiji-backend-0.1.0.jar`、`tmp/build/web/dist/`
+
+## V41 增量发布
+
+| 项目 | 结果 |
+|---|---|
+| Git 提交 | `ebe31391 fix(admin): audit denied admin access`，已推送 `origin/codex/publish-local-updates` |
+| 后端镜像 | `sxyq27-zhj-api:20260830T173200-admin-v41-ebe31391` |
+| 数据库 | Flyway V41 成功；发布前 custom dump 位于 8220 的 `/opt/sxyq27/master-goods/releases/20260830T173200-admin-v41-ebe31391/zhj-before-v41.dump` |
+| API 验证 | `https://zhj-api.sxyq27.online/v2/admin/session` 未认证返回 JSON `401`，包含 `Cache-Control: no-store` |
+| 审计验证 | 匿名拒绝写入 `admin_audit_events`，约束仅允许 `ANONYMOUS`、`admin.access.denied`、`DENIED` 三项同时成立时省略 `admin_user_id` |
+| Web 验证 | `https://sxyq27.online/zhj/` 与 `/zhj/admin/overview` 返回 200；本轮未改动 Web 静态资源 |
+
+发布后容器保持 `running` 且重启次数为 0。线上仍无管理员账号，因此真实管理员登录、角色范围、跨 owner/store、导出和 SSE 交互没有执行。
