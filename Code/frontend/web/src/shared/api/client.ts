@@ -2274,38 +2274,6 @@ export async function fetchAgentRunAudit(token: string, runId: string) {
   })
 }
 
-/** Shared authenticated request boundary for feature-specific API clients. */
-export async function requestAdmin<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
-  return request<T>(path, {
-    ...init,
-    headers: {
-      ...headersToRecord(init.headers),
-      ...authHeaders(token),
-    },
-  })
-}
-
-/** Opens an authenticated administrator event stream; callers own its reader and abort signal. */
-export async function requestAdminStream(token: string, path: string, signal?: AbortSignal, hasRetriedAuth = false): Promise<Response> {
-  const requestHeaders = authHeaders(token)
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'GET',
-    headers: buildHeaders(requestHeaders),
-    signal,
-  })
-  if (response.status === 401 && !hasRetriedAuth) {
-    const refreshedToken = await tryRefreshAccessToken()
-    if (refreshedToken) return requestAdminStream(refreshedToken, path, signal, true)
-    emitApiAuthEvent(401)
-  } else if (response.status === 403) {
-    emitApiAuthEvent(403)
-  }
-  if (!response.ok) {
-    throw new ApiError(`event stream failed: ${response.status}`, response.status)
-  }
-  return response
-}
-
 async function request<T>(path: string, init: RequestInit = {}, hasRetriedAuth = false): Promise<T> {
   const requestHeaders = headersToRecord(init.headers)
   const headers = buildHeaders(requestHeaders, init.body)
