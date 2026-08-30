@@ -1,0 +1,7 @@
+{
+  "request_count": 24,
+  "status_counts": {"403": 24},
+  "content_type": "application/json",
+  "body_fields_observed": ["timestamp", "status", "error", "path"],
+  "sensitive_response_fields": 0
+}

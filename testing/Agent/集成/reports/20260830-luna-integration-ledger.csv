@@ -1,0 +1,14 @@
+test_id,category,scenario,result,requests,tool_calls,provider_calls,db_delta,evidence,reason
+AG-I-001,I,non-streaming full chain,Blocked,0,0,0,none,testing/Agent/集成/artifacts/20260830-luna-agent-live-01-AG-I-001,authorized caller unavailable
+AG-I-002,I,streaming full chain,Blocked,0,0,0,none,,authorized caller and Provider unavailable
+AG-I-003,I,transaction rollback,Blocked,0,0,0,none,,failure fixture and authorized draft unavailable
+AG-I-004,I,Provider client,Blocked,0,0,0,none,,controlled Provider unavailable
+AG-I-005,I,checkpoint and memory,Blocked,0,0,0,none,,authenticated multi-turn fixture unavailable
+AG-I-006,I,memory persistence,Blocked,0,0,0,none,,authenticated conversation unavailable
+AG-I-007,I,media persistence,Blocked,0,0,0,none,,authorized asset and image Provider unavailable
+AG-I-008,I,draft confirmation,Blocked,0,0,0,none,,authorized data and confirmation channel unavailable
+AG-I-009,I,task/notification linkage,Blocked,0,0,0,none,,Agent run unavailable
+AG-I-010,I,web search integration,Blocked,0,0,0,none,,authorized run and Provider unavailable
+AG-I-011,I,real pagination,Blocked,0,0,0,none,,real PostgreSQL evidence unavailable
+AG-I-012,I,migration data integration,Blocked,0,0,0,none,,rebuild/target database evidence unavailable
+AG-I-013,I,image_generate confirmation loop,Blocked,0,0,0,none,,authorized draft and isolated Provider unavailable

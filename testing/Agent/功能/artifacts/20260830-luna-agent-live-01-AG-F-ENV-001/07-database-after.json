@@ -1,0 +1,13 @@
+{
+  "scope": "Agent tables only",
+  "agent_context_checkpoints": 0,
+  "agent_conversations": 0,
+  "agent_drafts": 0,
+  "agent_memories": 0,
+  "agent_messages": 0,
+  "agent_notifications": 0,
+  "agent_run_audit_events": 0,
+  "agent_run_audits": 0,
+  "agent_tasks": 0,
+  "delta": "none observed"
+}

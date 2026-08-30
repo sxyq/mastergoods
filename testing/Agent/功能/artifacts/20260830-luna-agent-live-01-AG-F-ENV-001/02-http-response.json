@@ -1,0 +1,12 @@
+{
+  "unique_requests": 24,
+  "status_counts": {"403": 24},
+  "content_type": "application/json",
+  "response_shape": {"status": 403, "error": "Forbidden", "path": "route-specific", "timestamp": "present"},
+  "routes": [
+    "GET /v2/agent/conversations", "GET /v2/agent/conversations/{id}", "POST /v2/agent/conversations", "PUT /v2/agent/conversations/{id}", "DELETE /v2/agent/conversations/{id}",
+    "GET /v2/agent/conversations/{conversationId}/messages", "GET /v2/agent/conversations/{conversationId}/run-traces", "POST /v2/agent/conversations/{conversationId}/messages",
+    "GET /v2/agent/drafts", "POST /v2/agent/drafts", "GET /v2/agent/drafts/pending", "POST /v2/agent/drafts/{id}/confirm", "POST /v2/agent/drafts/{id}/cancel", "PUT /v2/agent/drafts/{id}", "DELETE /v2/agent/drafts/{id}",
+    "GET /v2/agent/workbench", "GET /v2/agent/tasks", "GET /v2/agent/notifications", "POST /v2/agent/notifications/{id}/read", "POST /v2/agent/chat", "POST /v2/agent/images/generate", "POST /v2/agent/chat/stream", "POST /v2/agent/runs/{runId}/cancel", "GET /v2/agent/runs/{runId}/audit"
+  ]
+}

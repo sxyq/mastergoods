@@ -1,0 +1,8 @@
+{
+  "service": "stopped normally after probes",
+  "port_18080": "no listener after stop",
+  "created_conversation": 0,
+  "created_draft": 0,
+  "created_run": 0,
+  "cleanup": "no test data to delete"
+}

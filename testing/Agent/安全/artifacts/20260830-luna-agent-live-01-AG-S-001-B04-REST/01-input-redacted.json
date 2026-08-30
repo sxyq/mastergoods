@@ -1,0 +1,7 @@
+{
+  "caller": "anonymous",
+  "authorization": "omitted",
+  "cookie": "omitted",
+  "paths": "24 documented /v2/agent routes",
+  "bodies": "empty JSON for POST/PUT only"
+}

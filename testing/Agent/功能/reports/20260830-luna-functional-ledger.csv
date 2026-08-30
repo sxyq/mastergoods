@@ -1,0 +1,17 @@
+test_id,category,subject,result,live_requests,tool_calls,provider_calls,evidence,reason
+AG-F-ENV-001,F,local-18080-anonymous-route-matrix,Blocked,24,0,0,testing/Agent/功能/artifacts/20260830-luna-agent-live-01-AG-F-ENV-001,anonymous requests rejected before Agent execution
+AG-F-TOOL-RO-001..046,F,46 READ_ONLY tools,Deferred,0,0,0,,authorized session and controlled data unavailable
+AG-F-DRAFT-CO-001..015,F,15 CREATE_ONLY tools,Deferred,0,0,0,,authorized session, controlled data, and confirmation channel unavailable
+AG-F-LOOP-001..006,F,Loop terminal states,Deferred,0,0,0,,no authenticated Agent run
+AG-F-CTX-001..014,F,context compression,Deferred,0,0,0,,no authenticated multi-turn conversation
+AG-F-MULTIMODAL-001..005,F,multimodal and image_generate,Deferred,0,0,0,,no authorized asset or Provider
+AG-F-MEMORY-001..004,F,memory,Deferred,0,0,0,,no authenticated conversation or memory fixture
+AG-F-POSTER-001,F,poster dependency chain,Deferred,0,0,0,,no authenticated product fixture
+AG-F-SEARCH-001,F,web search,Deferred,0,0,0,,no authenticated run and Provider availability not established
+AG-F-RESULT-001..004,F,result blocks,Deferred,0,0,0,,no real tool facts
+AG-F-API-CONV-001..002,F,conversation lifecycle,Deferred,0,0,0,,no authorized session
+AG-F-API-DRAFT-001..002,F,draft lifecycle,Deferred,0,0,0,,no authorized session or draft
+AG-F-API-WB-001,F,workbench,Deferred,0,0,0,,no authorized session
+AG-F-API-TASK-001,F,tasks,Deferred,0,0,0,,no authorized session
+AG-F-API-NOTIF-001,F,notifications,Deferred,0,0,0,,no authorized session
+AG-F-API-AUDIT-001,F,audit readback,Deferred,0,0,0,,no run_id

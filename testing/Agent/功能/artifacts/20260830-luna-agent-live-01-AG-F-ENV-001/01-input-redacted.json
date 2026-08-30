@@ -1,0 +1,8 @@
+{
+  "request_class": "anonymous_route_boundary",
+  "authorization": "omitted",
+  "cookie": "omitted",
+  "credential_payload": "omitted",
+  "route_count": 24,
+  "request_body": "empty JSON only for POST/PUT probes"
+}
