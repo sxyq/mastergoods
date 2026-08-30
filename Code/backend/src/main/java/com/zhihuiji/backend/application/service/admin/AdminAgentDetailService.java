@@ -642,8 +642,10 @@ public class AdminAgentDetailService {
             Long p95TimeToFirstToken = percentile95(timeToFirstTokens);
             Long input = hasInputTokens ? inputTokens : null;
             Long output = hasOutputTokens ? outputTokens : null;
-            Long total = hasTotalTokens ? totalTokens
-                : (input != null && output != null ? Long.valueOf(saturatingAdd(input, output)) : null);
+            Long total = hasTotalTokens ? Long.valueOf(totalTokens)
+                : (input != null && output != null
+                    ? Long.valueOf(saturatingAdd(input.longValue(), output.longValue()))
+                    : null);
             AdminAgentDtos.TokenSource source = exactTokens && !estimatedTokens
                 ? AdminAgentDtos.TokenSource.EXACT
                 : (exactTokens || estimatedTokens ? AdminAgentDtos.TokenSource.ESTIMATED : AdminAgentDtos.TokenSource.UNAVAILABLE);
