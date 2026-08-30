@@ -35,14 +35,14 @@
 | Web 静态资源 | JS、CSS、`stitch_exports` 资源返回 200 |
 | API 未鉴权行为 | 根路径和管理员接口返回 403 |
 | CORS 预检 | `Origin: https://sxyq27.online` 返回 200，并允许 Authorization/Content-Type |
-| 管理员账号 | `admin_accounts=0`；未创建账号或授权范围 |
+| 管理员账号 | 发布时基线：`admin_accounts=0`；后续账号状态见本页“当前管理员账号” |
 
 ## 回滚边界与限制
 
 - 后端回滚镜像：`sxyq27-zhj-api:rollback-20260830T052508-admin-c2d9040c-dirty`；旧 Compose 和数据库备份位于同一发布目录。
 - 前端回滚目标：`/opt/sxyq27/releases/20260816T181800Z-direct-api/zhj`，记录在 `previous-frontend-target.txt`。
 - 数据库只做前进迁移，不执行结构回退；回滚应用时仍需确认 V40 数据结构与旧应用兼容性。
-- 当前有 2 个普通用户、0 个管理员账号、无业务夹具。需要由业务负责人指定现有用户及其角色/范围后，才能进行真实管理员登录和功能验收。
+- 初始发布基线为 2 个普通用户、0 个管理员账号、无业务夹具。后续真实账号与功能验证记录见本页增量章节。
 - V41 将 `admin_audit_events.admin_user_id` 放宽为可空，只允许 `ANONYMOUS`、`admin.access.denied`、`DENIED` 三个条件同时成立的匿名拒绝事件使用空值。上线后必须核对 Flyway V41 和匿名 `401` 审计写入；该类平台安全记录不在管理员业务审计列表或导出中展示。
 - 本记录证明部署和基础可达性，不代表角色隔离、跨范围查询、SSE 重连、性能、恢复和高风险操作验收已经完成。
 
@@ -63,4 +63,23 @@
 | 审计验证 | 匿名拒绝写入 `admin_audit_events`，约束仅允许 `ANONYMOUS`、`admin.access.denied`、`DENIED` 三项同时成立时省略 `admin_user_id` |
 | Web 验证 | `https://sxyq27.online/zhj/` 与 `/zhj/admin/overview` 返回 200；本轮未改动 Web 静态资源 |
 
-发布后容器保持 `running` 且重启次数为 0。线上仍无管理员账号，因此真实管理员登录、角色范围、跨 owner/store、导出和 SSE 交互没有执行。
+V41 发布后容器保持 `running` 且重启次数为 0。当时尚无管理员账号，因此该次发布未执行真实管理员登录、角色范围、跨 owner/store、导出和 SSE 交互。
+
+## 当前管理员账号
+
+按业务负责人要求，生产环境已创建一个启用的 `SUPER_ADMIN` 账号：登录标识为 `sxyqgoods2002`，用户 ID 为 `4`。已用真实登录与 `GET /v2/admin/session` 验证管理员身份和 14 项权限。密码不记录在仓库、发布台账或服务器文件中。
+
+## 店主端回退与独立管理员工程边界
+
+管理员页面此前错误嵌入店主端 `Code/frontend/web/`，与独立超级管理员后台的产品边界不符。已先用 Git 提交保留该实现，再将店主端恢复到管理员页面接入前的版本。
+
+| 项目 | 结果 |
+|---|---|
+| 分离前检查点 | `f1f3970e docs(admin): separate super admin web architecture`，已推送 `origin/codex/publish-local-updates` |
+| 店主端回退 | `fa14a61b revert(web): restore owner portal`，已推送 `origin/codex/publish-local-updates` |
+| 124 Web 发布目录 | `/opt/sxyq27/releases/20260830T193200-owner-web-rollback-fa14a61b/zhj` |
+| 当前店主端入口 | `https://sxyq27.online/zhj/`，返回 200，静态资源哈希与本地构建一致 |
+| 管理员前端代码 | `Code/frontend/admin-web/`，当前只有目录骨架和规划文档，尚未发布 |
+| 计划管理员入口 | `https://sxyq27.online/zhj-admin/`，待独立工程完成后配置 |
+
+回退构建命令：`VITE_PUBLIC_BASE=/zhj/ VITE_API_BASE_URL=https://zhj-api.sxyq27.online npm run build`，通过。部署后产物不包含 `/admin/overview` 或管理员权限字符串；Nginx 配置检查通过。`/zhj/admin/overview` 仍会因 SPA 回退规则返回入口 HTML，但已没有对应的客户端管理员路由。
