@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.zhihuiji.backend.infrastructure.config.AgentLlmProperties;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.core.env.MapPropertySource;
 
 /**
  * ContextWindowResolver 单元测试（plan 6.3）。
@@ -16,6 +18,8 @@ import org.junit.jupiter.api.Test;
  */
 class ContextWindowResolverTest {
 
+    private static final int DEFAULT_WINDOW = 272_000;
+
     private AgentLlmProperties properties(String model, String wireApi) {
         AgentLlmProperties props = new AgentLlmProperties();
         props.setModel(model);
@@ -24,10 +28,94 @@ class ContextWindowResolverTest {
     }
 
     @Test
+    void glmFlashUses272kDefaultWindow() {
+        ContextWindowResolver resolver = new ContextWindowResolver(
+            properties("glm-5.3-flash", "chat_completions"), DEFAULT_WINDOW, Map.of()
+        );
+
+        ContextWindowResolver.Resolution resolution = resolver.resolveForCurrentWithSource();
+
+        assertEquals(DEFAULT_WINDOW, resolution.tokens());
+        assertEquals(ContextWindowResolver.Source.KNOWN_MODEL, resolution.source());
+        assertFalse(resolver.isConservativeFallback(resolution));
+    }
+
+    @Test
+    void validEnvironmentValueOverridesDefaultParser() {
+        assertEquals(131_072, ContextWindowResolver.configuredMaximumFromEnvironment(" 131072 "));
+        assertEquals(DEFAULT_WINDOW, ContextWindowResolver.configuredMaximumFromEnvironment(null));
+    }
+
+    @Test
+    void springConstructorUsesValidConfiguredMaximum() {
+        ContextWindowResolver resolver = new ContextWindowResolver(
+            properties("glm-5.3-flash", "chat_completions"), "131072"
+        );
+
+        assertEquals(131_072, resolver.configuredMaximum());
+        assertEquals(131_072, resolver.resolveForCurrent());
+    }
+
+    @Test
+    void springPropertyTakesPrecedenceOverEnvironmentProperty() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.getEnvironment().getPropertySources().addFirst(new MapPropertySource(
+                "test-window-properties",
+                Map.of(
+                    "agent.context.maximum-window", "131072",
+                    "AGENT_CONTEXT_MAXIMUM_WINDOW", "65536"
+                )
+            ));
+            context.registerBean(AgentLlmProperties.class);
+            context.registerBean(ContextWindowResolver.class);
+            context.refresh();
+
+            assertEquals(131_072, context.getBean(ContextWindowResolver.class).configuredMaximum());
+        }
+    }
+
+    @Test
+    void invalidEnvironmentAndSpringValuesUseDefault() {
+        assertEquals(DEFAULT_WINDOW, ContextWindowResolver.configuredMaximumFromEnvironment(""));
+        assertEquals(DEFAULT_WINDOW, ContextWindowResolver.configuredMaximumFromEnvironment("not-a-number"));
+        assertEquals(DEFAULT_WINDOW, ContextWindowResolver.configuredMaximumFromEnvironment("0"));
+        assertEquals(DEFAULT_WINDOW, ContextWindowResolver.configuredMaximumFromEnvironment("-1"));
+        assertEquals(DEFAULT_WINDOW, ContextWindowResolver.parseConfiguredMaximum("2147483648"));
+
+        ContextWindowResolver resolver = new ContextWindowResolver(
+            properties("glm-5.3-flash", "chat_completions"), "not-a-number"
+        );
+        assertEquals(DEFAULT_WINDOW, resolver.configuredMaximum());
+
+        assertEquals(
+            DEFAULT_WINDOW,
+            new ContextWindowResolver(properties("glm-5.3-flash", "chat_completions"), 0).configuredMaximum()
+        );
+    }
+
+    @Test
+    void configuredSpringMaximumCapsKnownModelWithoutDegradingSource() {
+        ContextWindowResolver resolver = new ContextWindowResolver(
+            properties("glm-5.3-flash", "chat_completions"), 131_072, Map.of()
+        );
+
+        ContextWindowResolver.Resolution resolution = resolver.resolveForCurrentWithSource();
+
+        assertEquals(131_072, resolution.tokens());
+        assertEquals(ContextWindowResolver.Source.KNOWN_MODEL, resolution.source());
+        assertFalse(resolver.isConservativeFallback(resolution));
+    }
+
+    @Test
     void unknownModelFallsBackToConservativeWindow() {
-        ContextWindowResolver resolver = new ContextWindowResolver(properties("future-model", "anthropic"));
-        int resolved = resolver.resolve("provider-x", "future-model", "anthropic");
-        assertEquals(ContextWindowResolver.CONSERVATIVE_FALLBACK_WINDOW, resolved);
+        ContextWindowResolver resolver = new ContextWindowResolver(
+            properties("future-model", "anthropic"), DEFAULT_WINDOW, Map.of()
+        );
+        ContextWindowResolver.Resolution resolved = resolver.resolveWithSource(
+            "provider-x", "future-model", "anthropic"
+        );
+        assertEquals(ContextWindowResolver.CONSERVATIVE_FALLBACK_WINDOW, resolved.tokens());
+        assertEquals(ContextWindowResolver.Source.CONSERVATIVE_FALLBACK, resolved.source());
         assertTrue(resolver.isConservativeFallback(resolved));
     }
 
@@ -63,12 +151,31 @@ class ContextWindowResolverTest {
     }
 
     @Test
+    void explicitSmallOverrideIsNotConservativeFallback() {
+        ContextWindowResolver resolver = new ContextWindowResolver(
+            properties("model-small", "chat_completions"), DEFAULT_WINDOW,
+            Map.of("default:model-small:chat_completions", 8_192)
+        );
+
+        ContextWindowResolver.Resolution resolution = resolver.resolveWithSource(
+            null, "model-small", "chat_completions"
+        );
+
+        assertEquals(8_192, resolution.tokens());
+        assertEquals(ContextWindowResolver.Source.CONFIGURED_OVERRIDE, resolution.source());
+        assertFalse(resolver.isConservativeFallback(resolution));
+    }
+
+    @Test
     void configuredMaximumIsFloorClampedToMinimum() {
         ContextWindowResolver resolver = new ContextWindowResolver(
-            properties("model-c", "responses"), 128, Map.of("default:model-c:default", 2000)
+            properties("model-c", "responses"), 128, Map.of("default:model-c:responses", 2000)
         );
         // configuredMaximum 至少 1024；override 2000 被截断到 1024。
-        assertEquals(1024, resolver.resolve(null, "model-c", null));
+        ContextWindowResolver.Resolution resolution = resolver.resolveWithSource(null, "model-c", null);
+        assertEquals(1024, resolution.tokens());
+        assertEquals(ContextWindowResolver.Source.CONFIGURED_OVERRIDE, resolution.source());
+        assertFalse(resolver.isConservativeFallback(resolution));
     }
 
     @Test
@@ -84,10 +191,13 @@ class ContextWindowResolverTest {
     @Test
     void conservativeFallbackRaisedForUnknownWireApi() {
         ContextWindowResolver resolver = new ContextWindowResolver(
-            properties("model-d", "unknown-wire-api")
+            properties("model-d", "unknown-wire-api"), DEFAULT_WINDOW, Map.of()
         );
-        int resolved = resolver.resolve(null, "model-d", "unknown-wire-api");
-        assertEquals(ContextWindowResolver.CONSERVATIVE_FALLBACK_WINDOW, resolved);
+        ContextWindowResolver.Resolution resolved = resolver.resolveWithSource(
+            null, "model-d", "unknown-wire-api"
+        );
+        assertEquals(ContextWindowResolver.CONSERVATIVE_FALLBACK_WINDOW, resolved.tokens());
+        assertEquals(ContextWindowResolver.Source.CONSERVATIVE_FALLBACK, resolved.source());
         assertTrue(resolver.isConservativeFallback(resolved));
     }
 }

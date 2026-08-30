@@ -11,6 +11,9 @@ spring:
     enabled: false
 
 agent:
+  # Priority: an explicit higher-precedence Spring property, then the environment variable, then 272000.
+  context:
+    maximum-window: ${AGENT_CONTEXT_MAXIMUM_WINDOW:272000}
   llm:
     enabled: ${AGENT_LLM_ENABLED:true}
     base-url: ${AGENT_LLM_BASE_URL:https://oneapi.sxyq27.online/v1}

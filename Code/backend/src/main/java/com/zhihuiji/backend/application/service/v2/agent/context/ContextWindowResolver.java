@@ -3,6 +3,7 @@ package com.zhihuiji.backend.application.service.v2.agent.context;
 import com.zhihuiji.backend.infrastructure.config.AgentLlmProperties;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -13,7 +14,7 @@ import org.springframework.util.StringUtils;
  * 或 wire API 的窗口无法确认时，使用配置中的较小安全上限，并提高安全余量；在
  * 确认真实窗口前不得按最大可能窗口发送完整历史。
  *
- * <p>窗口大小可按 {@code agent.context.window-overrides.<provider>:<model>}=<tokens>
+ * <p>窗口大小可按 {@code agent.context.window-overrides.<provider>:<model>:<wire-api>}=<tokens>
  * 形式在配置文件中覆盖。配置必须可按模型覆盖，不能把某个模型的窗口写成全局固定值。
  */
 @Component
@@ -32,19 +33,25 @@ public class ContextWindowResolver {
      */
     public static final int CONSERVATIVE_FALLBACK_WINDOW = 8192;
 
+    /** 配置窗口允许的最小值；更小的程序化配置会被抬到这个边界。 */
+    public static final int MINIMUM_CONFIGURED_WINDOW = 1024;
+
     /**
      * 配置中已知的较保守上限。即使配置文件声明了更大的窗口，也通过
      * {@code agent.context.maximum-window} 限制全局最大值。
      */
-    public static final int CONFIGURED_MAXIMUM_DEFAULT = 32_768;
+    public static final int CONFIGURED_MAXIMUM_DEFAULT = 272_000;
+
+    /** 环境变量：Agent 的有效上下文上限。 */
+    public static final String MAXIMUM_WINDOW_ENV = "AGENT_CONTEXT_MAXIMUM_WINDOW";
 
     /**
      * 按模型已知的窗口大小。生产部署应通过配置覆盖，这里只保留少量稳定的
      * 公开值，避免在 Provider 升级时静默使用过时窗口。
      */
     private static final Map<String, Integer> KNOWN_MODEL_WINDOWS = Map.of(
-        // 显式留空：真实窗口由配置或 Provider 文档提供。这里不写死任何值，
-        // 防止 Provider 升级后仍按旧窗口发送历史导致超限。
+        // 生产默认模型的有效窗口由 Agent 上限配置约束，并可通过环境变量收紧。
+        "glm-5.3-flash", CONFIGURED_MAXIMUM_DEFAULT
     );
 
     private final AgentLlmProperties properties;
@@ -52,16 +59,32 @@ public class ContextWindowResolver {
     private final Map<String, Integer> overrides;
 
     /**
-     * 生产构造器：从配置读取模型与窗口；窗口覆盖与全局上限使用默认值。
+     * 从 Spring 配置读取窗口上限。Spring 中优先级更高的
+     * {@code agent.context.maximum-window} 属性先于环境变量和内置默认值生效。
      */
     @Autowired
+    public ContextWindowResolver(
+        AgentLlmProperties properties,
+        @Value("${agent.context.maximum-window:${AGENT_CONTEXT_MAXIMUM_WINDOW:272000}}") String configuredMaximum
+    ) {
+        this(properties, parseConfiguredMaximum(configuredMaximum), Map.of());
+    }
+
+    /** 兼容隔离测试和旧调用方；直接构造时读取同名环境变量。 */
     public ContextWindowResolver(AgentLlmProperties properties) {
-        this(properties, CONFIGURED_MAXIMUM_DEFAULT, Map.of());
+        this(properties, configuredMaximumFromEnvironment(), Map.of());
+    }
+
+    /** 兼容直接指定全局窗口上限的调用方。 */
+    public ContextWindowResolver(AgentLlmProperties properties, int configuredMaximum) {
+        this(properties, configuredMaximum, Map.of());
     }
 
     public ContextWindowResolver(AgentLlmProperties properties, int configuredMaximum, Map<String, Integer> overrides) {
         this.properties = properties;
-        this.configuredMaximum = Math.max(1024, configuredMaximum);
+        this.configuredMaximum = configuredMaximum > 0
+            ? Math.max(MINIMUM_CONFIGURED_WINDOW, configuredMaximum)
+            : CONFIGURED_MAXIMUM_DEFAULT;
         this.overrides = overrides == null ? Map.of() : Map.copyOf(overrides);
     }
 
@@ -83,15 +106,19 @@ public class ContextWindowResolver {
      * a configured value from the conservative fallback used for unknown models.
      */
     public Resolution resolveWithSource(String provider, String model, String wireApi) {
-        String key = buildOverrideKey(provider, model, wireApi);
+        String modelText = textOrNull(model);
+        if (modelText == null && properties != null) {
+            modelText = textOrNull(properties.getModel());
+        }
+        String key = buildOverrideKey(provider, modelText, wireApi);
         if (key != null) {
             Integer overridden = overrides.get(key);
             if (overridden != null && overridden > 0) {
                 return new Resolution(Math.min(overridden, configuredMaximum), Source.CONFIGURED_OVERRIDE);
             }
         }
-        if (StringUtils.hasText(model)) {
-            Integer known = KNOWN_MODEL_WINDOWS.get(model);
+        if (modelText != null) {
+            Integer known = KNOWN_MODEL_WINDOWS.get(modelText);
             if (known != null && known > 0) {
                 return new Resolution(Math.min(known, configuredMaximum), Source.KNOWN_MODEL);
             }
@@ -125,18 +152,57 @@ public class ContextWindowResolver {
         return resolvedWindow <= CONSERVATIVE_FALLBACK_WINDOW;
     }
 
+    /** 使用解析来源判断是否真的走了保守回退，避免显式配置 8192 被误判。 */
+    public boolean isConservativeFallback(Resolution resolution) {
+        return resolution != null && resolution.source() == Source.CONSERVATIVE_FALLBACK;
+    }
+
+    public int configuredMaximum() {
+        return configuredMaximum;
+    }
+
+    static int configuredMaximumFromEnvironment() {
+        return configuredMaximumFromEnvironment(System.getenv(MAXIMUM_WINDOW_ENV));
+    }
+
+    static int configuredMaximumFromEnvironment(String rawValue) {
+        return parseConfiguredMaximum(rawValue);
+    }
+
+    static int parseConfiguredMaximum(String rawValue) {
+        if (!StringUtils.hasText(rawValue)) {
+            return CONFIGURED_MAXIMUM_DEFAULT;
+        }
+        try {
+            int parsed = Integer.parseInt(rawValue.trim());
+            return parsed > 0 ? parsed : CONFIGURED_MAXIMUM_DEFAULT;
+        } catch (NumberFormatException ignored) {
+            return CONFIGURED_MAXIMUM_DEFAULT;
+        }
+    }
+
+    private String textOrNull(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
     private String buildOverrideKey(String provider, String model, String wireApi) {
-        String providerText = StringUtils.hasText(provider)
-            ? provider
-            : (properties == null ? null : properties.getProvider());
-        String modelText = StringUtils.hasText(model) ? model : (properties == null ? null : properties.getModel());
-        if (!StringUtils.hasText(modelText)) {
+        String providerText = textOrNull(provider);
+        if (providerText == null && properties != null) {
+            providerText = textOrNull(properties.getProvider());
+        }
+        String modelText = textOrNull(model);
+        if (modelText == null && properties != null) {
+            modelText = textOrNull(properties.getModel());
+        }
+        if (modelText == null) {
             return null;
         }
-        String wireApiText = StringUtils.hasText(wireApi) ? wireApi
-            : (properties == null ? "" : properties.getWireApi());
-        return (StringUtils.hasText(providerText) ? providerText : "default")
+        String wireApiText = textOrNull(wireApi);
+        if (wireApiText == null && properties != null) {
+            wireApiText = textOrNull(properties.getWireApi());
+        }
+        return (providerText == null ? "default" : providerText)
             + ":" + modelText
-            + ":" + (StringUtils.hasText(wireApiText) ? wireApiText : "default");
+            + ":" + (wireApiText == null ? "default" : wireApiText);
     }
 }
