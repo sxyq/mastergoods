@@ -12,6 +12,8 @@ import com.zhihuiji.backend.infrastructure.repository.AgentContextCheckpointRepo
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -59,9 +61,11 @@ public class ContextCompactionService {
     public static final int DETERMINISTIC_SUMMARY_MAX_LEN = 1_500;
     /** 语义摘要最大长度。 */
     public static final int SEMANTIC_SUMMARY_MAX_LEN = 2_500;
-    /** 压缩至少包含的已完成轮次（不能只压缩半个 user/assistant 对）。 */
+    /** 旧版本兼容常量；压缩触发与边界选择不依赖固定轮次数量。 */
+    @Deprecated
     public static final int MIN_COMPACTED_TURNS = 1;
-    /** 历史中至少完成的轮次（满足才考虑压缩）。 */
+    /** 旧版本兼容常量；预算不足时允许从单个完整历史段开始压缩。 */
+    @Deprecated
     public static final int MIN_COMPLETED_TURNS_FOR_COMPACTION = 2;
     /** 检查点保存时 revision 提升重试上限（失效后同一边界重建 + 并发竞争兜底）。 */
     public static final int MAX_CHECKPOINT_REVISION_ATTEMPTS = 3;
@@ -83,7 +87,19 @@ public class ContextCompactionService {
      * 摘要；确定性摘要在写入前统一脱敏，语义摘要由提示词约束 + 结构校验兜底。
      */
     private static final java.util.regex.Pattern SENSITIVE_SUMMARY_PATTERN = java.util.regex.Pattern.compile(
-        "(?i)(sk-[a-z0-9_-]{6,}|(?:api[_-]?key|password|secret|token)[=:\\s]+[a-z0-9_-]{6,}|1[3-9]\\d{9})"
+        "(?i)(?:sk-[a-z0-9_-]{6,}|eyJ[a-z0-9_-]{10,}\\.[a-z0-9_-]{10,}\\.[a-z0-9_-]{10,}|"
+            + "\\bBearer\\s+[a-z0-9._~+/=-]{6,}|1[3-9]\\d{9}|"
+            + "(?:api[_-]?key|password|secret|token|cookie|authorization|access[_-]?token|refresh[_-]?token)"
+            + "\\s*[\\\"']?\\s*[:=]\\s*[\\\"']?[^,;\\s}\\\"']{4,}|"
+            + "(?:address|地址)\\s*[:=]\\s*[^,;\\n]+)"
+    );
+    private static final Set<String> SENSITIVE_FIELD_NAMES = Set.of(
+        "token", "access_token", "refresh_token", "password", "secret", "api_key", "apikey",
+        "cookie", "authorization", "bearer", "credential", "credentials", "auth", "raw_arguments",
+        "arguments", "params", "parameters", "input", "content_json", "payload"
+    );
+    private static final Set<String> OPTIONAL_SUMMARY_ARRAYS = Set.of(
+        "confirmed_facts", "decisions", "pending_actions", "entity_references", "tool_evidence", "open_questions"
     );
 
     private final AgentContextCheckpointRepository checkpointRepository;
@@ -135,27 +151,22 @@ public class ContextCompactionService {
         // 已完成历史轮次，生成边界更新的新检查点；只有预算足够时才由
         // ContextBuilder 直接复用原始消息，避免每轮固定压缩。
 
-        List<AgentMessageEntity> messages = contextPackage.messagesAfterBoundary();
-        if (!hasEnoughCompletedTurns(messages)) {
-            // 历史不足以压缩时退化为不压缩；预算不足由调用方决定是否降级到
-            // EXHAUSTED 终态。
-            return CompactionResult.noCompaction(null);
-        }
-
-        // 一次至少压缩一个完整轮次（MIN_COMPACTED_TURNS=1）。
-        int compactableIndex = findCompactableBoundary(messages);
+        List<AgentMessageEntity> messages = contextPackage.messagesAfterBoundary() == null
+            ? List.of()
+            : contextPackage.messagesAfterBoundary();
+        int compactableIndex = findCompactableBoundary(contextPackage);
         if (compactableIndex < 0) {
             return CompactionResult.noCompaction(null);
         }
-        List<AgentMessageEntity> compactableMessages = messages.subList(0, compactableIndex + 1);
+        List<AgentMessageEntity> compactableMessages = List.copyOf(messages.subList(0, compactableIndex + 1));
         Long boundaryMessageId = compactableMessages.get(compactableMessages.size() - 1).getId();
         int compactedCount = compactableMessages.size();
 
         // 一级：先生成确定性摘要，确保 Provider 不可用时仍能构建请求。
-        String deterministic = deterministicSummary(compactableMessages);
+        String deterministic = deterministicSummary(contextPackage, compactableMessages);
         // 二级：尝试隔离的语义压缩请求；失败、超时或输出无效时使用确定性摘要。
         SemanticCompactionOutcome semantic = runSemanticCompaction(
-            compactableMessages, contextPackage.checkpointSummary(), boundaryMessageId
+            contextPackage, compactableMessages, boundaryMessageId
         );
         String summaryBody = semantic.body() != null ? semantic.body() : deterministic;
         String quality = semantic.body() != null ? QUALITY_SEMANTIC : QUALITY_DETERMINISTIC;
@@ -206,77 +217,93 @@ public class ContextCompactionService {
      * 手机号、地址、凭据、完整认证载荷和无关客户资料不得进入摘要。
      */
     String deterministicSummary(List<AgentMessageEntity> messages) {
+        return deterministicSummary(null, messages);
+    }
+
+    private String deterministicSummary(
+        ContextBuilder.ContextPackage contextPackage,
+        List<AgentMessageEntity> messages
+    ) {
         if (messages == null || messages.isEmpty()) {
+            return "";
+        }
+        List<AgentMessageEntity> safeMessages = messages.stream()
+            .filter(java.util.Objects::nonNull)
+            .toList();
+        if (safeMessages.isEmpty()) {
             return "";
         }
         ObjectNode root = objectMapper.createObjectNode();
         root.put("summary_version", 1);
-        // 用户问题短标题：取最近一条 user 消息的前 60 字。
-        String userTitle = messages.stream()
+        // 用户问题短标题只用于导航；完整当前问题由 protected state 单独保留。
+        String userTitle = safeMessages.stream()
             .filter(m -> "user".equalsIgnoreCase(m.getRole()))
             .reduce((first, second) -> second)
             .map(AgentMessageEntity::getContent)
-            .map(text -> text == null ? "" : text.substring(0, Math.min(60, text.length())))
-            .map(this::sanitizeSummaryText)
+            .map(text -> safeMessageText(text, 60))
             .orElse("");
         root.put("conversation_goal", userTitle);
-        ArrayNode facts = root.putArray("confirmed_facts");
+        root.putArray("confirmed_facts");
         ArrayNode decisions = root.putArray("decisions");
         ArrayNode pendingActions = root.putArray("pending_actions");
+        root.putArray("entity_references");
         ArrayNode toolEvidence = root.putArray("tool_evidence");
         ArrayNode openQuestions = root.putArray("open_questions");
 
         Set<String> seenTools = new LinkedHashSet<>();
-        for (AgentMessageEntity message : messages) {
-            if (message == null) {
-                continue;
-            }
+        for (AgentMessageEntity message : safeMessages) {
             String role = message.getRole();
             String content = message.getContent();
             String structured = message.getStructuredDataJson();
             if ("user".equalsIgnoreCase(role) && StringUtils.hasText(content)) {
-                String trimmed = content.length() > 100 ? content.substring(0, 100) : content;
-                appendBounded(openQuestions, sanitizeSummaryText(trimmed), 200);
+                appendBounded(openQuestions, safeMessageText(content, 100), 200);
             } else if ("assistant".equalsIgnoreCase(role)) {
                 if (StringUtils.hasText(content)) {
-                    appendBounded(decisions, sanitizeSummaryText(content), 200);
+                    appendBounded(decisions, safeMessageText(content, 200), 200);
                 }
             } else if ("tool".equalsIgnoreCase(role) || "function".equalsIgnoreCase(role)) {
-                if (StringUtils.hasText(structured)) {
-                    String toolName = extractToolNameFromStructured(structured);
-                    if (toolName != null && seenTools.add(toolName)) {
-                        ObjectNode toolNode = toolEvidence.addObject();
-                        toolNode.put("tool_name", toolName);
-                        toolNode.put("status", "completed");
-                    }
+                String toolName = extractToolNameFromStructured(structured);
+                if (toolName != null && seenTools.add(toolName)) {
+                    ObjectNode toolNode = toolEvidence.addObject();
+                    toolNode.put("tool_name", toolName);
+                    toolNode.put("status", extractToolStatus(structured, "completed"));
                 }
             }
         }
-        long lastMessageAt = messages.stream()
+        long lastMessageAt = safeMessages.stream()
             .map(AgentMessageEntity::getCreatedAt)
             .filter(java.util.Objects::nonNull)
             .mapToLong(Long::longValue)
             .max()
             .orElse(0L);
         root.put("last_message_at", lastMessageAt);
-        root.put("source_boundary_message_id",
-            messages.get(messages.size() - 1).getId());
-        root.put("source_message_count", messages.size());
+        root.put("source_boundary_message_id", safeMessages.get(safeMessages.size() - 1).getId());
+        root.put("source_message_count", safeMessages.size());
+        if (contextPackage != null) {
+            appendProtectedState(root, contextPackage);
+        }
+        return renderDeterministicSummary(root);
+    }
+
+    /** 压缩可选事实数组，保护字段始终完整保留，极端情况下也不截断 JSON。 */
+    private String renderDeterministicSummary(ObjectNode root) {
         String json = renderJson(root);
-        if (json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > DETERMINISTIC_SUMMARY_MAX_LEN) {
-            ObjectNode bounded = objectMapper.createObjectNode();
-            bounded.put("summary_version", 1);
-            bounded.put("conversation_goal", root.path("conversation_goal").asText(""));
-            bounded.putArray("confirmed_facts");
-            bounded.putArray("decisions");
-            bounded.putArray("pending_actions");
-            bounded.putArray("entity_references");
-            bounded.putArray("tool_evidence");
-            bounded.putArray("open_questions");
-            bounded.put("last_message_at", lastMessageAt);
-            bounded.put("source_boundary_message_id", messages.get(messages.size() - 1).getId());
-            bounded.put("source_message_count", messages.size());
-            json = renderJson(bounded);
+        while (utf8Length(json) > DETERMINISTIC_SUMMARY_MAX_LEN) {
+            ArrayNode largest = null;
+            for (String field : OPTIONAL_SUMMARY_ARRAYS) {
+                JsonNode node = root.get(field);
+                if (node instanceof ArrayNode array && (largest == null || array.size() > largest.size())) {
+                    largest = array;
+                }
+            }
+            if (largest == null || largest.isEmpty()) {
+                // current_question/scope/pending state are protected fields. A hard
+                // size cap may protect resources, but it cannot replace them with a
+                // substring or become the normal compaction termination condition.
+                return json;
+            }
+            largest.remove(largest.size() - 1);
+            json = renderJson(root);
         }
         return json;
     }
@@ -289,8 +316,8 @@ public class ContextCompactionService {
      * 压缩请求本身不再次触发上下文压缩。
      */
     private SemanticCompactionOutcome runSemanticCompaction(
+        ContextBuilder.ContextPackage contextPackage,
         List<AgentMessageEntity> compactableMessages,
-        String existingCheckpoint,
         Long boundaryMessageId
     ) {
         if (!llmClient.isConfigured()) {
@@ -300,20 +327,38 @@ public class ContextCompactionService {
             + "输出必须包含字段：summary_version、conversation_goal、confirmed_facts[]、"
             + "decisions[]、pending_actions[]、entity_references[]、tool_evidence[]、"
             + "open_questions[]、source_boundary_message_id、source_message_count。\n"
-            + "禁止包含手机号、地址、凭据、完整认证载荷或无关客户资料；实体显示名脱敏。\n"
+            + "服务端会附加并校验 current_question、owner_user_id、conversation_id、"
+            + "scope_description、permissions、pending_tools、pending_drafts。\n"
+            + "禁止包含手机号、地址、凭据、完整认证载荷、原始工具参数或无关客户资料；实体显示名脱敏。\n"
             + "不要调用任何工具；不要进入工具循环；不要再次触发上下文压缩。\n";
         ObjectNode requestPayload = objectMapper.createObjectNode();
         requestPayload.put("source_boundary_message_id", boundaryMessageId);
         requestPayload.put("source_message_count", compactableMessages.size());
-        if (StringUtils.hasText(existingCheckpoint)) {
-            requestPayload.put("existing_checkpoint", existingCheckpoint);
+        appendProtectedState(requestPayload, contextPackage);
+        if (StringUtils.hasText(contextPackage.checkpointSummary())) {
+            requestPayload.put(
+                "existing_checkpoint",
+                sanitizeOpaqueText(contextPackage.checkpointSummary(), DETERMINISTIC_SUMMARY_MAX_LEN)
+            );
         }
         ArrayNode rounds = requestPayload.putArray("rounds");
         for (AgentMessageEntity message : compactableMessages) {
+            if (message == null) {
+                continue;
+            }
             ObjectNode round = rounds.addObject();
-            round.put("role", message.getRole() == null ? "" : message.getRole());
-            String content = message.getContent() == null ? "" : message.getContent();
-            round.put("content", content.length() > 400 ? content.substring(0, 400) : content);
+            String role = message.getRole() == null ? "" : message.getRole().toLowerCase(Locale.ROOT);
+            round.put("role", role);
+            if ("tool".equals(role) || "function".equals(role)) {
+                String toolName = extractToolNameFromStructured(message.getStructuredDataJson());
+                if (StringUtils.hasText(toolName)) {
+                    round.put("tool_name", toolName);
+                }
+                round.put("status", extractToolStatus(message.getStructuredDataJson(), "completed"));
+                round.put("summary", safeMessageText(message.getContent(), 400));
+            } else {
+                round.put("content", safeMessageText(message.getContent(), 400));
+            }
         }
         String userPrompt;
         try {
@@ -327,12 +372,19 @@ public class ContextCompactionService {
                 return SemanticCompactionOutcome.failed("empty_response");
             }
             String body = response.get();
-            if (!isValidSemanticSummary(body, boundaryMessageId, compactableMessages.size())) {
+            String normalized = normalizeSemanticSummary(
+                body, contextPackage, boundaryMessageId, compactableMessages.size()
+            );
+            if (normalized == null) {
                 return SemanticCompactionOutcome.failed("validation_failed");
             }
-            return SemanticCompactionOutcome.ok(body);
+            return SemanticCompactionOutcome.ok(normalized);
         } catch (Exception ex) {
-            log.warn("Semantic compaction failed (boundary={}): {}", boundaryMessageId, ex.getMessage());
+            log.warn(
+                "Semantic compaction failed (boundary={}): {}",
+                boundaryMessageId,
+                sanitizeLogMessage(ex.getMessage())
+            );
             return SemanticCompactionOutcome.failed("provider_error");
         }
     }
@@ -345,54 +397,68 @@ public class ContextCompactionService {
      * 输出缺字段、格式错误、超限或 Provider 失败时使用确定性摘要；无效语义摘要
      * 不覆盖旧检查点。
      */
-    private boolean isValidSemanticSummary(String body, Long expectedBoundary, int expectedCount) {
+    private String normalizeSemanticSummary(
+        String body,
+        ContextBuilder.ContextPackage contextPackage,
+        Long expectedBoundary,
+        int expectedCount
+    ) {
         if (!StringUtils.hasText(body)) {
-            return false;
+            return null;
         }
         try {
             JsonNode parsed = objectMapper.readTree(body);
             if (!parsed.isObject()) {
-                return false;
+                return null;
             }
             if (body.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > SEMANTIC_SUMMARY_MAX_LEN
                 || treeDepth(parsed, 0) > 6
                 || treeNodeCount(parsed) > 160
-                || containsSensitiveText(parsed)) {
-                return false;
+                || containsSensitiveText(parsed)
+                || containsSensitiveFieldName(parsed)) {
+                return null;
             }
             if (!parsed.path("summary_version").isIntegralNumber()
                 || parsed.path("summary_version").asInt() != 1
                 || !parsed.path("conversation_goal").isTextual()
                 || parsed.path("conversation_goal").asText().length() > 200) {
-                return false;
+                return null;
             }
             for (String field : List.of(
                 "confirmed_facts", "decisions", "pending_actions", "entity_references",
                 "tool_evidence", "open_questions")) {
                 JsonNode array = parsed.get(field);
                 if (array == null || !array.isArray() || array.size() > 24) {
-                    return false;
+                    return null;
                 }
             }
             JsonNode boundary = parsed.path("source_boundary_message_id");
-            if (!boundary.isIntegralNumber() || boundary.asLong() != expectedBoundary.longValue()) {
-                return false;
+            if (expectedBoundary == null || !boundary.isIntegralNumber()
+                || boundary.asLong() != expectedBoundary.longValue()) {
+                return null;
             }
             JsonNode count = parsed.path("source_message_count");
             if (!count.isIntegralNumber() || count.asInt() != expectedCount || count.asInt() < 1) {
-                return false;
+                return null;
             }
             // 字段数量与深度限制。
             int fieldCount = 0;
             for (JsonNode ignored : parsed) {
                 fieldCount++;
                 if (fieldCount > 32) {
-                    return false;
+                    return null;
                 }
             }
-            return true;
+            if (!protectedFieldsMatchOrAbsent(parsed, contextPackage)) {
+                return null;
+            }
+            ObjectNode normalized = (ObjectNode) parsed;
+            appendProtectedState(normalized, contextPackage);
+            String normalizedBody = renderJson(normalized);
+            return normalizedBody.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+                <= SEMANTIC_SUMMARY_MAX_LEN ? normalizedBody : null;
         } catch (Exception ex) {
-            return false;
+            return null;
         }
     }
 
@@ -507,45 +573,382 @@ public class ContextCompactionService {
         return null;
     }
 
-    private boolean hasEnoughCompletedTurns(List<AgentMessageEntity> messages) {
-        if (messages == null || messages.size() < MIN_COMPLETED_TURNS_FOR_COMPACTION * 2) {
-            return false;
-        }
-        // 至少 MIN_COMPLETED_TURNS_FOR_COMPACTION 个 user + assistant 对。
-        long userCount = messages.stream()
-            .filter(m -> "user".equalsIgnoreCase(m.getRole()))
-            .count();
-        long assistantCount = messages.stream()
-            .filter(m -> "assistant".equalsIgnoreCase(m.getRole()))
-            .count();
-        return userCount >= MIN_COMPLETED_TURNS_FOR_COMPACTION
-            && assistantCount >= MIN_COMPLETED_TURNS_FOR_COMPACTION;
-    }
-
     /**
-     * 找到第一个可压缩的边界消息 ID 的索引（保留最近完整轮次）。
+     * 按预算选择最小的可压缩前缀；若当前固定区块本身已超预算，则压缩所有
+     * 可安全闭合的历史前缀，把完整当前问题和未配对工具状态留在边界之后。
      *
-     * <p>压缩按"完整用户轮次"选择最早的历史段：可压缩 = 已完成的
-     * user -> assistant -> tool evidence 轮次；保留 = 当前 user 问题、
-     * 未完成工具调用、待确认草稿、最近完整轮次、安全拦截/取消/失败/关键决定。
+     * <p>边界由消息 token 贡献和结构化 tool call 配对状态共同决定，不以消息数或
+     * 固定轮次作为终止条件。
      */
-    private int findCompactableBoundary(List<AgentMessageEntity> messages) {
+    private int findCompactableBoundary(ContextBuilder.ContextPackage contextPackage) {
+        List<AgentMessageEntity> messages = contextPackage.messagesAfterBoundary();
         if (messages == null || messages.isEmpty()) {
             return -1;
         }
-        // 保留最近 1 个完整 user/assistant 对，压缩更早的部分。
-        // 从后往前找最后一个 user 消息位置（即当前轮 user），其之前均为可压缩。
-        int lastUserIndex = -1;
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            if ("user".equalsIgnoreCase(messages.get(i).getRole())) {
-                lastUserIndex = i;
-                break;
-            }
-        }
-        if (lastUserIndex <= 0) {
+        int currentQuestionIndex = findCurrentQuestionIndex(messages, contextPackage.currentUserMessage());
+        if (currentQuestionIndex <= 0) {
             return -1;
         }
-        return lastUserIndex - 1;
+        int selected = -1;
+        int targetBudget = contextPackage.budget() == null
+            ? 0
+            : (contextPackage.budget().compactionThresholdTokens() > 0
+                ? contextPackage.budget().compactionThresholdTokens()
+                : contextPackage.budget().inputBudget());
+        for (int index = 0; index < currentQuestionIndex; index++) {
+            if (!isCompleteBoundary(messages, index)) {
+                continue;
+            }
+            selected = index;
+            List<AgentMessageEntity> prefix = messages.subList(0, index + 1);
+            String candidateSummary = deterministicSummary(contextPackage, prefix);
+            int estimatedAfter = estimateAfterCompaction(contextPackage, index, candidateSummary);
+            if (targetBudget > 0 && estimatedAfter <= targetBudget) {
+                return index;
+            }
+        }
+        return selected;
+    }
+
+    private int findCurrentQuestionIndex(List<AgentMessageEntity> messages, String currentQuestion) {
+        int lastUserIndex = -1;
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            AgentMessageEntity message = messages.get(i);
+            if (message == null || !"user".equalsIgnoreCase(message.getRole())) {
+                continue;
+            }
+            if (lastUserIndex < 0) {
+                lastUserIndex = i;
+            }
+            if (currentQuestion != null && currentQuestion.equals(message.getContent())) {
+                return i;
+            }
+        }
+        return lastUserIndex;
+    }
+
+    private boolean isCompleteBoundary(List<AgentMessageEntity> messages, int boundaryIndex) {
+        AgentMessageEntity boundary = messages.get(boundaryIndex);
+        if (boundary == null || "user".equalsIgnoreCase(boundary.getRole())
+            || pendingToolKeys(messages, boundaryIndex).size() > 0
+            || boundaryIndex + 1 < messages.size()
+                && messages.get(boundaryIndex + 1) != null
+                && ("tool".equalsIgnoreCase(messages.get(boundaryIndex + 1).getRole())
+                    || "function".equalsIgnoreCase(messages.get(boundaryIndex + 1).getRole()))) {
+            return false;
+        }
+        boolean hasUser = false;
+        boolean hasAssistantAfterUser = false;
+        for (int i = 0; i <= boundaryIndex; i++) {
+            AgentMessageEntity message = messages.get(i);
+            if (message == null) {
+                continue;
+            }
+            if ("user".equalsIgnoreCase(message.getRole())) {
+                hasUser = true;
+                hasAssistantAfterUser = false;
+            } else if (hasUser && "assistant".equalsIgnoreCase(message.getRole())) {
+                hasAssistantAfterUser = true;
+            }
+        }
+        return hasAssistantAfterUser;
+    }
+
+    private int estimateAfterCompaction(
+        ContextBuilder.ContextPackage contextPackage,
+        int boundaryIndex,
+        String summary
+    ) {
+        ContextBuilder.ContextBudget budget = contextPackage.budget();
+        if (budget == null) {
+            return Integer.MAX_VALUE;
+        }
+        List<AgentMessageEntity> messages = contextPackage.messagesAfterBoundary();
+        List<AgentMessageEntity> remaining = messages.subList(boundaryIndex + 1, messages.size());
+        int remainingHistory = tokenEstimator.estimateHistoryText(
+            ContextBuilder.formatHistoryForBudget(remaining)
+        );
+        int fixedTokens = Math.max(0, budget.estimatedInputTokens()
+            - budget.checkpointTokens() - budget.historyTokens());
+        return saturatingTokenSum(fixedTokens, tokenEstimator.estimate(summary), remainingHistory);
+    }
+
+    /** 返回 boundary 之前仍未收到结果的 tool call；原始参数永远不被读取到摘要路径。 */
+    private Set<String> pendingToolKeys(List<AgentMessageEntity> messages, int endIndex) {
+        Map<String, String> pending = new java.util.LinkedHashMap<>();
+        for (int i = 0; i <= endIndex && i < messages.size(); i++) {
+            AgentMessageEntity message = messages.get(i);
+            if (message == null || !StringUtils.hasText(message.getStructuredDataJson())) {
+                continue;
+            }
+            try {
+                JsonNode root = objectMapper.readTree(message.getStructuredDataJson());
+                if (root == null || !root.isObject()) {
+                    continue;
+                }
+                JsonNode calls = root.get("tool_calls");
+                if (calls != null && calls.isArray()) {
+                    for (JsonNode call : calls) {
+                        updatePendingTool(call, message.getRole(), pending);
+                    }
+                } else {
+                    updatePendingTool(root, message.getRole(), pending);
+                }
+            } catch (Exception ignored) {
+                // Malformed structured data is not propagated into the model prompt.
+            }
+        }
+        return new java.util.LinkedHashSet<>(pending.keySet());
+    }
+
+    private void updatePendingTool(JsonNode call, String role, Map<String, String> pending) {
+        if (call == null || !call.isObject()) {
+            return;
+        }
+        JsonNode function = call.get("function");
+        JsonNode source = function != null && function.isObject() ? function : call;
+        String toolName = safeIdentifier(firstText(source, "tool_name", "name"), 96);
+        if (!StringUtils.hasText(toolName)) {
+            return;
+        }
+        String callId = safeIdentifier(firstText(call, "tool_call_id", "call_id", "id"), 96);
+        String key = toolKey(callId, toolName);
+        String status = firstText(call, "status", "state");
+        boolean resultMessage = "tool".equalsIgnoreCase(role) || "function".equalsIgnoreCase(role);
+        boolean completed = isCompletedStatus(status)
+            || resultMessage && !isPendingStatus(status);
+        if (completed) {
+            pending.remove(key);
+        } else {
+            pending.put(key, toolName);
+        }
+    }
+
+    private boolean isCompletedStatus(String status) {
+        return StringUtils.hasText(status) && Set.of(
+            "completed", "complete", "success", "succeeded", "failed", "cancelled", "canceled"
+        ).contains(status.toLowerCase(Locale.ROOT));
+    }
+
+    private boolean isPendingStatus(String status) {
+        return StringUtils.hasText(status) && Set.of(
+            "pending", "queued", "running", "in_progress", "awaiting_confirmation", "missing_output"
+        ).contains(status.toLowerCase(Locale.ROOT));
+    }
+
+    private String toolKey(String callId, String toolName) {
+        return (StringUtils.hasText(callId) ? callId : "name") + "|" + toolName;
+    }
+
+    /** 将服务端掌握的保护状态写入摘要，模型返回值不能覆盖这些字段。 */
+    private void appendProtectedState(
+        ObjectNode target,
+        ContextBuilder.ContextPackage contextPackage
+    ) {
+        putNullableLong(target, "owner_user_id", contextPackage.ownerUserId());
+        putNullableLong(target, "conversation_id", contextPackage.conversationId());
+        target.put("current_question", sanitizeSummaryText(nullToEmpty(contextPackage.currentUserMessage())));
+        target.put("scope_description", sanitizeSummaryText(nullToEmpty(contextPackage.scopeDescription())));
+        target.set("permissions", permissionNodes(contextPackage.scopeDescription()));
+        target.set("pending_tools", pendingToolNodes(contextPackage.pendingToolCalls()));
+        target.set("pending_drafts", pendingDraftNodes(contextPackage.pendingDrafts()));
+        if (StringUtils.hasText(contextPackage.checkpointSummary())) {
+            target.put(
+                "prior_context_summary",
+                sanitizeOpaqueText(contextPackage.checkpointSummary(), DETERMINISTIC_SUMMARY_MAX_LEN)
+            );
+        }
+    }
+
+    private boolean protectedFieldsMatchOrAbsent(
+        JsonNode parsed,
+        ContextBuilder.ContextPackage contextPackage
+    ) {
+        ObjectNode expected = objectMapper.createObjectNode();
+        appendProtectedState(expected, contextPackage);
+        for (String field : List.of(
+            "owner_user_id", "conversation_id", "current_question", "scope_description",
+            "permissions", "pending_tools", "pending_drafts", "prior_context_summary"
+        )) {
+            JsonNode actual = parsed.get(field);
+            if (actual != null && !actual.equals(expected.get(field))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private ArrayNode permissionNodes(String scopeDescription) {
+        ArrayNode permissions = objectMapper.createArrayNode();
+        if (!StringUtils.hasText(scopeDescription)) {
+            return permissions;
+        }
+        for (String line : scopeDescription.split("\\R")) {
+            String normalized = line == null ? "" : line.trim();
+            String lower = normalized.toLowerCase(Locale.ROOT);
+            if (StringUtils.hasText(normalized)
+                && (lower.contains("permission") || lower.contains("role")
+                    || normalized.contains("权限") || normalized.contains("角色"))) {
+                appendBounded(permissions, safeMessageText(normalized, 160), 160);
+            }
+        }
+        return permissions;
+    }
+
+    private ArrayNode pendingToolNodes(List<ContextBuilder.PendingToolCall> pendingTools) {
+        ArrayNode nodes = objectMapper.createArrayNode();
+        if (pendingTools == null) {
+            return nodes;
+        }
+        for (ContextBuilder.PendingToolCall call : pendingTools) {
+            if (call == null || !StringUtils.hasText(call.toolName())) {
+                continue;
+            }
+            ObjectNode node = nodes.addObject();
+            node.put("call_id", safeIdentifier(call.callId(), 96));
+            node.put("tool_name", safeIdentifier(call.toolName(), 96));
+            node.put("status", safeIdentifier(call.status(), 32));
+        }
+        return nodes;
+    }
+
+    private ArrayNode pendingDraftNodes(List<ContextBuilder.PendingDraft> pendingDrafts) {
+        ArrayNode nodes = objectMapper.createArrayNode();
+        if (pendingDrafts == null) {
+            return nodes;
+        }
+        for (ContextBuilder.PendingDraft draft : pendingDrafts) {
+            if (draft == null) {
+                continue;
+            }
+            ObjectNode node = nodes.addObject();
+            putNullableLong(node, "draft_id", draft.draftId());
+            node.put("draft_type", safeIdentifier(draft.draftType(), 64));
+            node.put("title", safeMessageText(draft.title(), 160));
+            node.put("status", safeIdentifier(draft.status(), 32));
+            putNullableLong(node, "updated_at", draft.updatedAt());
+        }
+        return nodes;
+    }
+
+    private void putNullableLong(ObjectNode target, String field, Long value) {
+        if (value == null) {
+            target.putNull(field);
+        } else {
+            target.put(field, value);
+        }
+    }
+
+    private String safeMessageText(String text, int maxLength) {
+        if (!StringUtils.hasText(text)) {
+            return "";
+        }
+        String safe = sanitizeSummaryText(text);
+        if (safe.startsWith("{") || safe.startsWith("[")) {
+            safe = sanitizeOpaqueText(text, maxLength);
+        }
+        return safe.length() > maxLength ? safe.substring(0, maxLength) : safe;
+    }
+
+    private String sanitizeOpaqueText(String text, int maxLength) {
+        if (!StringUtils.hasText(text)) {
+            return "";
+        }
+        String safe;
+        try {
+            JsonNode parsed = objectMapper.readTree(text);
+            safe = sanitizeJsonNode(parsed, 0).toString();
+        } catch (Exception ignored) {
+            safe = sanitizeSummaryText(text);
+        }
+        return safe.length() > maxLength ? safe.substring(0, maxLength) : safe;
+    }
+
+    private JsonNode sanitizeJsonNode(JsonNode node, int depth) {
+        if (node == null || node.isNull() || depth > 8) {
+            return objectMapper.getNodeFactory().textNode("[REDACTED]");
+        }
+        if (node.isTextual()) {
+            return objectMapper.getNodeFactory().textNode(sanitizeSummaryText(node.asText()));
+        }
+        if (node.isObject()) {
+            ObjectNode safe = objectMapper.createObjectNode();
+            node.fields().forEachRemaining(entry -> {
+                if (!isSensitiveFieldName(entry.getKey())) {
+                    safe.set(entry.getKey(), sanitizeJsonNode(entry.getValue(), depth + 1));
+                }
+            });
+            return safe;
+        }
+        if (node.isArray()) {
+            ArrayNode safe = objectMapper.createArrayNode();
+            for (JsonNode child : node) {
+                safe.add(sanitizeJsonNode(child, depth + 1));
+            }
+            return safe;
+        }
+        return node;
+    }
+
+    private boolean containsSensitiveFieldName(JsonNode node) {
+        if (node == null) {
+            return false;
+        }
+        if (node.isObject()) {
+            java.util.Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> entry = fields.next();
+                if (isSensitiveFieldName(entry.getKey()) || containsSensitiveFieldName(entry.getValue())) {
+                    return true;
+                }
+            }
+        }
+        for (JsonNode child : node) {
+            if (containsSensitiveFieldName(child)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isSensitiveFieldName(String fieldName) {
+        if (!StringUtils.hasText(fieldName)) {
+            return false;
+        }
+        String normalized = fieldName.toLowerCase(Locale.ROOT).replace('-', '_');
+        return SENSITIVE_FIELD_NAMES.contains(normalized)
+            || normalized.contains("token")
+            || normalized.contains("password")
+            || normalized.contains("secret")
+            || normalized.contains("cookie")
+            || normalized.contains("authorization")
+            || normalized.contains("credential")
+            || normalized.contains("raw_argument");
+    }
+
+    private int saturatingTokenSum(int... values) {
+        long total = 0;
+        for (int value : values) {
+            total += Math.max(0, value);
+            if (total >= Integer.MAX_VALUE) {
+                return Integer.MAX_VALUE;
+            }
+        }
+        return (int) total;
+    }
+
+    private int utf8Length(String text) {
+        return text == null ? 0 : text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+    }
+
+    private String sanitizeLogMessage(String message) {
+        String safe = sanitizeSummaryText(StringUtils.hasText(message) ? message : "unknown");
+        safe = safe.replace('\n', ' ').replace('\r', ' ').trim();
+        return safe.length() > 160 ? safe.substring(0, 160) : safe;
+    }
+
+    private String nullToEmpty(String value) {
+        return value == null ? "" : value;
     }
 
     private String renderJson(ObjectNode root) {
@@ -564,38 +967,58 @@ public class ContextCompactionService {
         array.add(bounded);
     }
 
-    /**
-     * 摘要文本脱敏：命中手机号/凭据模式时保留前后缀并替换中间为星号，
-     * 便于核对长度来源但不暴露原文。
-     */
+    /** 摘要文本脱敏；凭据、认证载荷和手机号不保留任何可复原片段。 */
     private String sanitizeSummaryText(String text) {
         if (!StringUtils.hasText(text)) {
             return text;
         }
-        return SENSITIVE_SUMMARY_PATTERN.matcher(text).replaceAll(match -> {
-            String token = match.group();
-            if (token.length() <= 6) {
-                return "******";
-            }
-            return token.substring(0, 2) + "****" + token.substring(token.length() - 2);
-        });
+        return SENSITIVE_SUMMARY_PATTERN.matcher(text).replaceAll("[REDACTED]");
     }
 
     private String extractToolNameFromStructured(String structured) {
         try {
             JsonNode node = objectMapper.readTree(structured);
             JsonNode nameNode = node.path("tool_name");
-            if (nameNode.isTextual() && StringUtils.hasText(nameNode.asText())) {
-                return nameNode.asText();
+            if (!nameNode.isTextual() || !StringUtils.hasText(nameNode.asText())) {
+                nameNode = node.path("name");
             }
-            JsonNode callNode = node.path("tool_call_id");
-            if (callNode.isTextual() && StringUtils.hasText(callNode.asText())) {
-                return callNode.asText();
-            }
-            return null;
+            return nameNode.isTextual() && StringUtils.hasText(nameNode.asText())
+                ? safeIdentifier(nameNode.asText(), 96)
+                : null;
         } catch (Exception ex) {
             return null;
         }
+    }
+
+    private String extractToolStatus(String structured, String fallback) {
+        if (!StringUtils.hasText(structured)) {
+            return fallback;
+        }
+        try {
+            JsonNode node = objectMapper.readTree(structured);
+            String status = firstText(node, "status", "state");
+            return StringUtils.hasText(status) ? safeIdentifier(status, 32) : fallback;
+        } catch (Exception ignored) {
+            return fallback;
+        }
+    }
+
+    private String firstText(JsonNode node, String... fields) {
+        for (String field : fields) {
+            JsonNode value = node == null ? null : node.get(field);
+            if (value != null && value.isTextual() && StringUtils.hasText(value.asText())) {
+                return value.asText();
+            }
+        }
+        return "";
+    }
+
+    private String safeIdentifier(String value, int maxLength) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        String safe = value.trim().replaceAll("[^a-zA-Z0-9_.:-]", "_");
+        return safe.length() > maxLength ? safe.substring(0, maxLength) : safe;
     }
 
     /** 二级压缩结果。 */
