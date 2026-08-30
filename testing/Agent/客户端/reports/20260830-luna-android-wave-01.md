@@ -17,6 +17,25 @@
 | AG-CLI-AND-001..010 | 0 | 0 | 1 | 9 |
 | Agent tools: 46 READ_ONLY + 15 CREATE_ONLY | 0 | 0 | 0 | 61 |
 
+## Coverage and evidence
+
+| item | count | definition |
+|---|---:|---|
+| client parent flows | 10 | `AG-CLI-AND-001..010` |
+| flow ledger records | 10/10 | one row per flow; all rows have an independent evidence path |
+| tool ledger records | 61/61 | 46 `READ_ONLY` + 15 `CREATE_ONLY`; each row keeps its stable `test_id` |
+| required flow evidence files | 110/110 (100%) | 10 directories x the required `00` through `10` files; unexecuted items use explicit placeholders |
+| flow execution coverage | 1/10 (10%) | README formula `Passed + Failed + Blocked`; the one covered record is the blocked login precondition |
+| actual Agent feature execution | 0/10 | no authenticated Agent run was started |
+| tool execution coverage | 0/61 (0%) | all tool rows remain `Deferred` |
+| record-level evidence completeness | 10/10 (100%) | required directory structure and corresponding conclusion paths are present; this does not imply feature success |
+
+The two CSV files use this exact 20-column header from `testing/Agent/README.md`:
+
+```text
+test_id,category_id,wave_id,environment,account_store_label,preconditions,input,operation,expected_tools,expected_order,loop_and_compaction,expected_response,expected_answer,actual,db_changes,boundaries,acceptance,evidence_path,cleanup_action,result
+```
+
 ## Real requests
 
 | request type | count | note |
@@ -51,4 +70,11 @@
 - run summary: `testing/Agent/客户端/reports/run-summary-20260830-luna-android-wave-01.json`
 - redacted app logcat: `testing/Agent/客户端/logs/20260830-luna-android-wave-01-app-redacted.log`
 
-The approved development fixture was not exposed through a safe input channel in this runtime. No credential, Cookie, Token, Authorization value, password, private key, API key, or complete authentication payload was read or retained. Historical 20260829 and Terra outcomes remain separate evidence.
+## Blocking conditions
+
+- `AG-CLI-AND-001` is `Blocked`: the approved development fixture was not exposed through a safe input channel, so login was not submitted and no owner/store session was established.
+- `AG-CLI-AND-002..010` are `Deferred`: they were planned but no authenticated Agent run existed for this batch.
+- All 61 tool rows are `Deferred`: no tool call, SSE stream, formal answer, result block, draft transition, database observation, cancellation, retry, history recovery, lifecycle run, or Provider request was reached.
+- The successful debug build, install, and App launch are recorded as environment facts only; they do not count as Agent feature success.
+
+No credential, Cookie, Token, Authorization value, password, private key, API key, or complete authentication payload was read or retained. Historical 20260829 and Terra outcomes remain separate evidence.
