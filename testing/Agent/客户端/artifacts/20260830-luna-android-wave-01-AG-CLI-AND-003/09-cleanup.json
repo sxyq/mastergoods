@@ -1,0 +1,9 @@
+{
+  "wave_id": "20260830-luna-android-wave-01",
+  "test_id": "AG-CLI-AND-003",
+  "business_data_created": false,
+  "provider_called": false,
+  "cleanup_actions": [],
+  "emulator_left_running": true,
+  "reason": "No business or Provider side effect was created."
+}

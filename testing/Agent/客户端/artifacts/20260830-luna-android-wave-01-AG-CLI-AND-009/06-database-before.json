@@ -1,0 +1,7 @@
+{
+  "wave_id": "20260830-luna-android-wave-01",
+  "test_id": "AG-CLI-AND-009",
+  "queried": false,
+  "snapshot": null,
+  "reason": "No authenticated flow or approved business-data observation was reached."
+}

@@ -1,0 +1,10 @@
+{
+  "wave_id": "20260830-luna-android-wave-01",
+  "test_id": "AG-CLI-AND-005",
+  "app_login_requests": 0,
+  "agent_requests": 0,
+  "provider_requests": 0,
+  "response": null,
+  "host_anonymous_service_probe": null,
+  "reason": "没有可恢复的本批 Agent run"
+}

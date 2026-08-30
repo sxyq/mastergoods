@@ -1,0 +1,47 @@
+{
+  "wave_id": "20260830-luna-android-wave-01",
+  "captured_at": "2026-08-30T12:43:26+08:00",
+  "requested_model": "gpt-5.6-luna / max",
+  "runtime_model_identifier_independently_verified": false,
+  "source_head": "c4ae9b86dc8582e48613b43d6318c8ef3e02204e",
+  "branch": "codex/publish-local-updates",
+  "preexisting_worktree_changes_preserved": true,
+  "preexisting_changed_or_untracked_path_count": 1831,
+  "device": {
+    "avd": "Zhihuiji_API34",
+    "serial": "emulator-5554",
+    "boot_completed": true,
+    "android": "14",
+    "api": 34,
+    "display": "720x1280",
+    "density": 320
+  },
+  "apk": {
+    "package": "com.zhihuiji.app",
+    "variant": "debug",
+    "version_name": "1.0.0",
+    "version_code": 1,
+    "target_sdk": 35,
+    "build_command": "./gradlew :app:assembleDebug --console=plain",
+    "build_result": "Passed; BUILD SUCCESSFUL; 648 tasks up-to-date",
+    "install_result": "Passed; adb install -r returned Success",
+    "activity": "com.zhihuiji.app/.MainActivity"
+  },
+  "service": {
+    "app_url": "https://zhj-api.sxyq27.online/",
+    "host_anonymous_probe_http_status": 403,
+    "reachable": true
+  },
+  "authentication": {
+    "login_submitted": false,
+    "owner_session_established": false,
+    "store_session_established": false,
+    "reason": "已批准开发 fixture 未通过安全输入通道提供；未从日志、数据库、进程、网络或历史命令读取认证信息"
+  },
+  "real_request_counts": {
+    "host_anonymous_probe": 1,
+    "app_login": 0,
+    "agent": 0,
+    "provider": 0
+  }
+}

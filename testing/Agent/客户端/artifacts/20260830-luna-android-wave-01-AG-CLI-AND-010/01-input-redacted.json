@@ -1,0 +1,8 @@
+{
+  "wave_id": "20260830-luna-android-wave-01",
+  "test_id": "AG-CLI-AND-010",
+  "input_sent": false,
+  "input": null,
+  "redaction": "No credential or Agent prompt was read, printed, saved, or submitted.",
+  "reason": "认证、Agent run 与 Provider 前置未建立"
+}

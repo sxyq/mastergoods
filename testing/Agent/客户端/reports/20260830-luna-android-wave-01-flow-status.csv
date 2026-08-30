@@ -1,0 +1,11 @@
+test_id,flow,result,app_login_requests,agent_requests,tool_calls,reason,evidence_path
+AG-CLI-AND-001,登录与会话列表,Blocked,0,0,0,已批准开发 fixture 未通过安全输入通道提供；未从日志、数据库、进程、网络或历史命令读取认证信息,testing/Agent/客户端/artifacts/20260830-luna-android-wave-01-AG-CLI-AND-001/10-conclusion.md
+AG-CLI-AND-002,单只读工具流式,Deferred,0,0,0,认证及 owner/store 会话未建立,testing/Agent/客户端/artifacts/20260830-luna-android-wave-01-AG-CLI-AND-002/10-conclusion.md
+AG-CLI-AND-003,多工具、Loop 与图表,Deferred,0,0,0,认证及 Agent run 前置未建立,testing/Agent/客户端/artifacts/20260830-luna-android-wave-01-AG-CLI-AND-003/10-conclusion.md
+AG-CLI-AND-004,草稿确认与拒绝,Deferred,0,0,0,认证及 Agent run 前置未建立,testing/Agent/客户端/artifacts/20260830-luna-android-wave-01-AG-CLI-AND-004/10-conclusion.md
+AG-CLI-AND-005,历史恢复,Deferred,0,0,0,没有可恢复的本批 Agent run,testing/Agent/客户端/artifacts/20260830-luna-android-wave-01-AG-CLI-AND-005/10-conclusion.md
+AG-CLI-AND-006,取消、断线与重连,Deferred,0,0,0,没有可取消或重连的本批 Agent run,testing/Agent/客户端/artifacts/20260830-luna-android-wave-01-AG-CLI-AND-006/10-conclusion.md
+AG-CLI-AND-007,上下文压缩,Deferred,0,0,0,没有达到上下文压缩条件的本批 Agent run,testing/Agent/客户端/artifacts/20260830-luna-android-wave-01-AG-CLI-AND-007/10-conclusion.md
+AG-CLI-AND-008,错误与重试,Deferred,0,0,0,未建立认证会话，未进入 Agent 错误矩阵,testing/Agent/客户端/artifacts/20260830-luna-android-wave-01-AG-CLI-AND-008/10-conclusion.md
+AG-CLI-AND-009,前后台切换,Deferred,0,0,0,没有运行中的本批 Agent run,testing/Agent/客户端/artifacts/20260830-luna-android-wave-01-AG-CLI-AND-009/10-conclusion.md
+AG-CLI-AND-010,生图草稿确认,Deferred,0,0,0,认证、Agent run 与 Provider 前置未建立,testing/Agent/客户端/artifacts/20260830-luna-android-wave-01-AG-CLI-AND-010/10-conclusion.md

@@ -1,0 +1,10 @@
+{
+  "wave_id": "20260830-luna-android-wave-01",
+  "test_id": "AG-CLI-AND-004",
+  "app_login_requests": 0,
+  "agent_requests": 0,
+  "provider_requests": 0,
+  "response": null,
+  "host_anonymous_service_probe": null,
+  "reason": "认证及 Agent run 前置未建立"
+}

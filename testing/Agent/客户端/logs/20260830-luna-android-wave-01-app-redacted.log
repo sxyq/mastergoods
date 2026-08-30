@@ -1,0 +1,49 @@
+--------- beginning of main
+08-30 12:29:27.701  5222  5222 I om.zhihuiji.app: Late-enabling -Xcheck:jni
+08-30 12:29:27.721  5222  5222 I om.zhihuiji.app: Using CollectorTypeCC GC.
+08-30 12:29:27.797  5222  5222 D CompatibilityChangeReporter: Compat change id reported: 171979766; UID 10194; state: ENABLED
+08-30 12:29:27.798  5222  5222 D CompatibilityChangeReporter: Compat change id reported: 242716250; UID 10194; state: ENABLED
+08-30 12:29:27.809  5222  5222 W ziparchive: Unable to open '/data/app/~~[REDACTED_LONG_VALUE]': No such file or directory
+08-30 12:29:27.809  5222  5222 W ziparchive: Unable to open '/data/app/~~[REDACTED_LONG_VALUE]': No such file or directory
+08-30 12:29:28.260  5222  5222 D nativeloader: Configuring clns-6 for other apk /data/app/~~[REDACTED_LONG_VALUE] target_sdk_version=35, uses_libraries=, library_path=/data/app/~~[REDACTED_LONG_VALUE]:/data/app/~~[REDACTED_LONG_VALUE]!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.zhihuiji.app
+08-30 12:29:28.271  5222  5222 V GraphicsEnvironment: Currently set values for:
+08-30 12:29:28.271  5222  5222 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+08-30 12:29:28.271  5222  5222 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+08-30 12:29:28.271  5222  5222 V GraphicsEnvironment: ANGLE GameManagerService for com.zhihuiji.app: false
+08-30 12:29:28.272  5222  5222 V GraphicsEnvironment: com.zhihuiji.app is not listed in per-application setting
+08-30 12:29:28.272  5222  5222 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+08-30 12:29:28.276  5222  5222 D WM-WrkMgrInitializer: Initializing WorkManager with default configuration.
+08-30 12:29:28.288  5222  5222 D WM-PackageManagerHelper: Skipping component enablement for [REDACTED_LONG_VALUE]
+08-30 12:29:28.288  5222  5222 D WM-Schedulers: Created SystemJobScheduler and enabled SystemJobService
+08-30 12:29:28.298  5222  5240 D WM-ForceStopRunnable: The default process name was not specified.
+08-30 12:29:28.299  5222  5240 D WM-ForceStopRunnable: Performing cleanup operations.
+08-30 12:29:28.320  5222  5240 D WM-SystemJobScheduler: Reconciling jobs
+08-30 12:29:28.322  5222  5240 D CompatibilityChangeReporter: Compat change id reported: 160794467; UID 10194; state: ENABLED
+08-30 12:29:28.323  5222  5240 D WM-ForceStopRunnable: Found unfinished work, scheduling it.
+08-30 12:29:28.326  5222  5240 D CompatibilityChangeReporter: Compat change id reported: 194532703; UID 10194; state: ENABLED
+08-30 12:29:28.326  5222  5240 D CompatibilityChangeReporter: Compat change id reported: 253665015; UID 10194; state: ENABLED
+08-30 12:29:28.326  5222  5240 D WM-SystemJobScheduler: Scheduling work ID 76a74143-00fb-4303-970c-a42bc55ea5d7Job ID 1
+08-30 12:29:28.334  5222  5243 D libEGL  : loaded /vendor/lib64/egl/libEGL_emulation.so
+08-30 12:29:28.335  5222  5243 D libEGL  : loaded /vendor/lib64/egl/libGLESv1_CM_emulation.so
+08-30 12:29:28.337  5222  5243 D libEGL  : loaded /vendor/lib64/egl/libGLESv2_emulation.so
+08-30 12:29:28.347  5222  5222 D CompatibilityChangeReporter: Compat change id reported: 237531167; UID 10194; state: DISABLED
+08-30 12:29:28.350  5222  5222 W OpenGLRenderer: Unknown dataspace 0
+08-30 12:29:28.352  5222  5240 D WM-PackageManagerHelper: Skipping component enablement for [REDACTED_LONG_VALUE]
+08-30 12:29:28.455  5222  5241 W OpenGLRenderer: Failed to choose config with EGL_SWAP_BEHAVIOR_PRESERVED, retrying without...
+08-30 12:29:28.456  5222  5241 W OpenGLRenderer: Failed to initialize 101010-2 format, error = EGL_SUCCESS
+08-30 12:29:28.476  5222  5241 I Gralloc4: mapper 4.x is not supported
+08-30 12:29:28.485  5222  5241 E OpenGLRenderer: Unable to match the desired swap behavior.
+08-30 12:29:28.611  5222  5222 W om.zhihuiji.app: Method boolean [REDACTED_LONG_VALUE](boolean, kotlin.jvm.functions.Function1) failed lock verification and will run slower.
+08-30 12:29:28.611  5222  5222 W om.zhihuiji.app: Common causes for lock verification issues are non-optimized dex code
+08-30 12:29:28.611  5222  5222 W om.zhihuiji.app: and incorrect proguard optimizations.
+08-30 12:29:28.611  5222  5222 W om.zhihuiji.app: Method boolean [REDACTED_LONG_VALUE]$default([REDACTED_LONG_VALUE], boolean, kotlin.jvm.functions.Function1, int, java.lang.Object) failed lock verification and will run slower.
+08-30 12:29:28.611  5222  5222 W om.zhihuiji.app: Method java.lang.Object [REDACTED_LONG_VALUE](kotlin.jvm.functions.Function1) failed lock verification and will run slower.
+08-30 12:29:28.611  5222  5222 W om.zhihuiji.app: Method void [REDACTED_LONG_VALUE](boolean, kotlin.jvm.functions.Function1) failed lock verification and will run slower.
+08-30 12:29:28.615  5222  5222 W om.zhihuiji.app: Method void [REDACTED_LONG_VALUE]$default([REDACTED_LONG_VALUE], boolean, kotlin.jvm.functions.Function1, int, java.lang.Object) failed lock verification and will run slower.
+08-30 12:29:28.782  5222  5222 D CompatibilityChangeReporter: Compat change id reported: 289878283; UID 10194; state: ENABLED
+08-30 12:29:29.320  5222  5260 I OpenGLRenderer: Davey! duration=790ms; Flags=0, FrameTimelineVsyncId=19542, IntendedVsync=194442196729, Vsync=194442196729, InputEventId=0, HandleInputStart=194447179675, AnimationStart=194447180633, PerformTraversalsStart=194763942883, DrawStart=194830008633, FrameDeadline=194458863395, FrameInterval=194447171466, FrameStartTime=16666666, SyncQueued=194836915383, SyncStart=194836964133, IssueDrawCommandsStart=194836989425, SwapBuffers=194916770675, FrameCompleted=195232479842, DequeueBufferDuration=708, QueueBufferDuration=45792, GpuCompleted=195232479842, SwapBuffersCompleted=194921182550, DisplayPresentTime=35192962023424, CommandSubmissionCompleted=194916770675,
+08-30 12:29:30.947  5222  5241 D EGL_emulation: app_time_stats: avg=483.59ms min=16.39ms max=1473.70ms count=5
+08-30 12:29:33.862  5222  5281 D ProfileInstaller: Installing profile for com.zhihuiji.app
+08-30 12:30:42.580  5222  5241 D EGL_emulation: app_time_stats: avg=71632.71ms min=71632.71ms max=71632.71ms count=1
+08-30 12:30:42.852  5222  5222 D CompatibilityChangeReporter: Compat change id reported: 171228096; UID 10194; state: ENABLED
+08-30 12:31:57.352  5222  5241 D EGL_emulation: app_time_stats: avg=2398.79ms min=1.82ms max=73900.38ms count=31
