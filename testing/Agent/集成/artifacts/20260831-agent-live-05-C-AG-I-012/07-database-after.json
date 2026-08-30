@@ -1,0 +1,6 @@
+{
+  "actual_agent_send": false,
+  "database_changed": false,
+  "after_probe": "not_run",
+  "reason": "No cleanup or database write was authorized in the paused deployment phase."
+}

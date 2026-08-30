@@ -1,0 +1,11 @@
+{
+  "test_id": "AG-I-012",
+  "wave_id": "20260831-agent-live-05-C-W0",
+  "actual_agent_send": false,
+  "input_kind": "read_only_environment_probe",
+  "prompt": null,
+  "credentials": "not_used",
+  "authorization": "not_used",
+  "cleanup_owner": null,
+  "cleanup_scope": "none"
+}

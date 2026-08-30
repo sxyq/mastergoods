@@ -1,0 +1,24 @@
+{
+  "actual_agent_send": false,
+  "database": "zhj",
+  "connection": "read_only_local_socket",
+  "migration": {
+    "latest_version": "41",
+    "description": "admin anonymous denial audit",
+    "success": true
+  },
+  "selected_table_counts": {
+    "agent_tasks": 0,
+    "agent_notifications": 0,
+    "agent_conversations": 0,
+    "agent_messages": 0,
+    "agent_drafts": 0,
+    "agent_run_audits": 0,
+    "agent_run_audit_events": 0,
+    "agent_context_checkpoints": 0,
+    "agent_memories": 0,
+    "media_assets": 0,
+    "media_bindings": 0
+  },
+  "scope_note": "Counts are whole-table infrastructure counts from a read-only probe; no row data, credentials, or authentication payloads were selected."
+}

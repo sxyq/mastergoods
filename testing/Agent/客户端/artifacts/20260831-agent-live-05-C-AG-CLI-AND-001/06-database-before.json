@@ -1,0 +1,5 @@
+{
+  "actual_agent_send": false,
+  "database_probe": false,
+  "reason": "Client preparation did not access PostgreSQL. Integration database counts are recorded separately."
+}
