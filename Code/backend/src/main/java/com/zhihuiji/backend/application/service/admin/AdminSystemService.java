@@ -76,12 +76,11 @@ public class AdminSystemService {
         this(authorizationService, llmProperties, llmClient, null, null, null, null, null, new ObjectMapper(), null);
     }
 
-    @Transactional(readOnly = true)
     public AdminConfigDtos.ConfigResponse config(AdminPrincipal principal) {
         return config(principal, null, null);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public AdminConfigDtos.ConfigResponse config(AdminPrincipal principal, Long requestedOwnerUserId, Long requestedStoreId) {
         if (requestedOwnerUserId == null && requestedStoreId == null) {
             authorizationService.requirePermission(principal, AdminPermission.AGENT_CONFIG_READ);
