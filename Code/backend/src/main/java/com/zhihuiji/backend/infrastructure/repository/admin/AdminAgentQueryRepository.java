@@ -17,7 +17,7 @@ public interface AdminAgentQueryRepository extends Repository<AgentRunAuditEntit
          where (:allOwners = true or a.ownerUserId in :ownerUserIds)
            and (:runId is null or a.runId = :runId)
            and (:conversationId is null or a.conversationId = :conversationId)
-           and (:status is null or lower(a.status) = lower(:status))
+           and (:status is null or lower(a.status) = :status)
            and (:fromAt is null or a.startedAt >= :fromAt)
            and (:toAt is null or a.startedAt < :toAt)
          order by a.startedAt desc, a.id desc
@@ -28,7 +28,7 @@ public interface AdminAgentQueryRepository extends Repository<AgentRunAuditEntit
          where (:allOwners = true or a.ownerUserId in :ownerUserIds)
            and (:runId is null or a.runId = :runId)
            and (:conversationId is null or a.conversationId = :conversationId)
-           and (:status is null or lower(a.status) = lower(:status))
+           and (:status is null or lower(a.status) = :status)
            and (:fromAt is null or a.startedAt >= :fromAt)
            and (:toAt is null or a.startedAt < :toAt)
         """)
@@ -51,20 +51,20 @@ public interface AdminAgentQueryRepository extends Repository<AgentRunAuditEntit
            and (:runId is null or a.runId = :runId)
            and (:conversationId is null or a.conversationId = :conversationId)
            and (:actorUserId is null or a.actorUserId = :actorUserId)
-           and (:toolName is null or exists (
+           and (:toolNameSnakePattern is null or exists (
                select e.id from AgentRunAuditEventEntity e
                 where e.runId = a.runId
-                  and (lower(e.payloadJson) like lower(concat('%', '"tool_name":"', :toolName, '"%'))
-                    or lower(e.payloadJson) like lower(concat('%', '"toolName":"', :toolName, '"%')))
+                  and (lower(e.payloadJson) like :toolNameSnakePattern
+                    or lower(e.payloadJson) like :toolNameCamelPattern)
            ))
-           and (:modelId is null or exists (
+           and (:modelIdSnakePattern is null or exists (
                select e.id from AgentRunAuditEventEntity e
                 where e.runId = a.runId
-                  and (lower(e.payloadJson) like lower(concat('%', '"model_id":"', :modelId, '"%'))
-                    or lower(e.payloadJson) like lower(concat('%', '"modelId":"', :modelId, '"%'))
-                    or lower(e.payloadJson) like lower(concat('%', '"model":"', :modelId, '"%')))
+                  and (lower(e.payloadJson) like :modelIdSnakePattern
+                    or lower(e.payloadJson) like :modelIdCamelPattern
+                    or lower(e.payloadJson) like :modelPattern)
            ))
-           and (:status is null or lower(a.status) = lower(:status))
+           and (:status is null or lower(a.status) = :status)
            and (:fromAt is null or a.startedAt >= :fromAt)
            and (:toAt is null or a.startedAt < :toAt)
          order by a.startedAt desc, a.id desc
@@ -75,14 +75,14 @@ public interface AdminAgentQueryRepository extends Repository<AgentRunAuditEntit
            and (:runId is null or a.runId = :runId)
            and (:conversationId is null or a.conversationId = :conversationId)
            and (:actorUserId is null or a.actorUserId = :actorUserId)
-           and (:toolName is null or exists (select e.id from AgentRunAuditEventEntity e where e.runId = a.runId
-             and (lower(e.payloadJson) like lower(concat('%', '"tool_name":"', :toolName, '"%'))
-               or lower(e.payloadJson) like lower(concat('%', '"toolName":"', :toolName, '"%')))))
-           and (:modelId is null or exists (select e.id from AgentRunAuditEventEntity e where e.runId = a.runId
-             and (lower(e.payloadJson) like lower(concat('%', '"model_id":"', :modelId, '"%'))
-               or lower(e.payloadJson) like lower(concat('%', '"modelId":"', :modelId, '"%'))
-               or lower(e.payloadJson) like lower(concat('%', '"model":"', :modelId, '"%')))))
-           and (:status is null or lower(a.status) = lower(:status))
+           and (:toolNameSnakePattern is null or exists (select e.id from AgentRunAuditEventEntity e where e.runId = a.runId
+             and (lower(e.payloadJson) like :toolNameSnakePattern
+               or lower(e.payloadJson) like :toolNameCamelPattern)))
+           and (:modelIdSnakePattern is null or exists (select e.id from AgentRunAuditEventEntity e where e.runId = a.runId
+             and (lower(e.payloadJson) like :modelIdSnakePattern
+               or lower(e.payloadJson) like :modelIdCamelPattern
+               or lower(e.payloadJson) like :modelPattern)))
+           and (:status is null or lower(a.status) = :status)
            and (:fromAt is null or a.startedAt >= :fromAt)
            and (:toAt is null or a.startedAt < :toAt)
         """)
@@ -92,8 +92,11 @@ public interface AdminAgentQueryRepository extends Repository<AgentRunAuditEntit
         @Param("runId") String runId,
         @Param("conversationId") Long conversationId,
         @Param("actorUserId") Long actorUserId,
-        @Param("toolName") String toolName,
-        @Param("modelId") String modelId,
+        @Param("toolNameSnakePattern") String toolNameSnakePattern,
+        @Param("toolNameCamelPattern") String toolNameCamelPattern,
+        @Param("modelIdSnakePattern") String modelIdSnakePattern,
+        @Param("modelIdCamelPattern") String modelIdCamelPattern,
+        @Param("modelPattern") String modelPattern,
         @Param("status") String status,
         @Param("fromAt") Long fromAt,
         @Param("toAt") Long toAt,
@@ -119,7 +122,7 @@ public interface AdminAgentQueryRepository extends Repository<AgentRunAuditEntit
            and (:runId is null or a.runId = :runId)
            and (:conversationId is null or a.conversationId = :conversationId)
            and (:actorUserId is null or a.actorUserId = :actorUserId)
-           and (:status is null or lower(a.status) = lower(:status))
+           and (:status is null or lower(a.status) = :status)
            and (:fromAt is null or a.startedAt >= :fromAt)
            and (:toAt is null or a.startedAt < :toAt)
          order by a.startedAt desc, a.id desc
@@ -130,7 +133,7 @@ public interface AdminAgentQueryRepository extends Repository<AgentRunAuditEntit
            and (:runId is null or a.runId = :runId)
            and (:conversationId is null or a.conversationId = :conversationId)
            and (:actorUserId is null or a.actorUserId = :actorUserId)
-           and (:status is null or lower(a.status) = lower(:status))
+           and (:status is null or lower(a.status) = :status)
            and (:fromAt is null or a.startedAt >= :fromAt)
            and (:toAt is null or a.startedAt < :toAt)
         """)
@@ -156,14 +159,14 @@ public interface AdminAgentQueryRepository extends Repository<AgentRunAuditEntit
            and (:runId is null or a.runId = :runId)
            and (:conversationId is null or a.conversationId = :conversationId)
            and (:actorUserId is null or a.actorUserId = :actorUserId)
-           and (:toolName is null or exists (select e.id from AgentRunAuditEventEntity e where e.runId = a.runId
-             and (lower(e.payloadJson) like lower(concat('%', '"tool_name":"', :toolName, '"%'))
-               or lower(e.payloadJson) like lower(concat('%', '"toolName":"', :toolName, '"%')))))
-           and (:modelId is null or exists (select e.id from AgentRunAuditEventEntity e where e.runId = a.runId
-             and (lower(e.payloadJson) like lower(concat('%', '"model_id":"', :modelId, '"%'))
-               or lower(e.payloadJson) like lower(concat('%', '"modelId":"', :modelId, '"%'))
-               or lower(e.payloadJson) like lower(concat('%', '"model":"', :modelId, '"%')))))
-           and (:status is null or lower(a.status) = lower(:status))
+           and (:toolNameSnakePattern is null or exists (select e.id from AgentRunAuditEventEntity e where e.runId = a.runId
+             and (lower(e.payloadJson) like :toolNameSnakePattern
+               or lower(e.payloadJson) like :toolNameCamelPattern)))
+           and (:modelIdSnakePattern is null or exists (select e.id from AgentRunAuditEventEntity e where e.runId = a.runId
+             and (lower(e.payloadJson) like :modelIdSnakePattern
+               or lower(e.payloadJson) like :modelIdCamelPattern
+               or lower(e.payloadJson) like :modelPattern)))
+           and (:status is null or lower(a.status) = :status)
            and (:fromAt is null or a.startedAt >= :fromAt)
            and (:toAt is null or a.startedAt < :toAt)
          order by a.startedAt desc, a.id desc
@@ -174,14 +177,14 @@ public interface AdminAgentQueryRepository extends Repository<AgentRunAuditEntit
            and (:runId is null or a.runId = :runId)
            and (:conversationId is null or a.conversationId = :conversationId)
            and (:actorUserId is null or a.actorUserId = :actorUserId)
-           and (:toolName is null or exists (select e.id from AgentRunAuditEventEntity e where e.runId = a.runId
-             and (lower(e.payloadJson) like lower(concat('%', '"tool_name":"', :toolName, '"%'))
-               or lower(e.payloadJson) like lower(concat('%', '"toolName":"', :toolName, '"%')))))
-           and (:modelId is null or exists (select e.id from AgentRunAuditEventEntity e where e.runId = a.runId
-             and (lower(e.payloadJson) like lower(concat('%', '"model_id":"', :modelId, '"%'))
-               or lower(e.payloadJson) like lower(concat('%', '"modelId":"', :modelId, '"%'))
-               or lower(e.payloadJson) like lower(concat('%', '"model":"', :modelId, '"%')))))
-           and (:status is null or lower(a.status) = lower(:status))
+           and (:toolNameSnakePattern is null or exists (select e.id from AgentRunAuditEventEntity e where e.runId = a.runId
+             and (lower(e.payloadJson) like :toolNameSnakePattern
+               or lower(e.payloadJson) like :toolNameCamelPattern)))
+           and (:modelIdSnakePattern is null or exists (select e.id from AgentRunAuditEventEntity e where e.runId = a.runId
+             and (lower(e.payloadJson) like :modelIdSnakePattern
+               or lower(e.payloadJson) like :modelIdCamelPattern
+               or lower(e.payloadJson) like :modelPattern)))
+           and (:status is null or lower(a.status) = :status)
            and (:fromAt is null or a.startedAt >= :fromAt)
            and (:toAt is null or a.startedAt < :toAt)
         """)
@@ -193,8 +196,11 @@ public interface AdminAgentQueryRepository extends Repository<AgentRunAuditEntit
         @Param("runId") String runId,
         @Param("conversationId") Long conversationId,
         @Param("actorUserId") Long actorUserId,
-        @Param("toolName") String toolName,
-        @Param("modelId") String modelId,
+        @Param("toolNameSnakePattern") String toolNameSnakePattern,
+        @Param("toolNameCamelPattern") String toolNameCamelPattern,
+        @Param("modelIdSnakePattern") String modelIdSnakePattern,
+        @Param("modelIdCamelPattern") String modelIdCamelPattern,
+        @Param("modelPattern") String modelPattern,
         @Param("status") String status,
         @Param("fromAt") Long fromAt,
         @Param("toAt") Long toAt,

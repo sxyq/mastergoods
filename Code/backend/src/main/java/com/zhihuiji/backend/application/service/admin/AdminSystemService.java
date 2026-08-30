@@ -90,7 +90,7 @@ public class AdminSystemService {
         }
         if (configRepository != null) {
             AdminAgentConfigEntity persisted = configRepository
-                .findByScopeOwnerUserIdAndScopeStoreId(requestedOwnerUserId, requestedStoreId).orElse(null);
+                .findFirstByScopeOwnerUserIdAndScopeStoreId(requestedOwnerUserId, requestedStoreId).orElse(null);
             if (persisted != null) {
                 if (auditService != null) auditService.recordRead(principal, "admin.agent.config.read", "CONFIG",
                     persisted.getId() == null ? null : persisted.getId().toString(), requestedOwnerUserId, requestedStoreId, "config");

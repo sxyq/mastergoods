@@ -21,9 +21,9 @@ public interface AdminAuditEventRepository extends JpaRepository<AdminAuditEvent
              or e.ownerUserId in :ownerUserIds
              or (e.ownerUserId is null and e.adminUserId = :requestingAdminUserId))
            and (:allStores = true or e.storeId in :storeIds or (e.storeId is null and e.adminUserId = :requestingAdminUserId))
-           and (:action is null or lower(e.action) = lower(:action))
-           and (:resourceType is null or lower(e.resourceType) = lower(:resourceType))
-           and (:result is null or lower(e.result) = lower(:result))
+           and (:action is null or lower(e.action) = :action)
+           and (:resourceType is null or lower(e.resourceType) = :resourceType)
+           and (:result is null or lower(e.result) = :result)
            and (:fromAt is null or e.occurredAt >= :fromAt)
            and (:toAt is null or e.occurredAt < :toAt)
          order by e.occurredAt desc, e.id desc
@@ -33,9 +33,9 @@ public interface AdminAuditEventRepository extends JpaRepository<AdminAuditEvent
              or e.ownerUserId in :ownerUserIds
              or (e.ownerUserId is null and e.adminUserId = :requestingAdminUserId))
            and (:allStores = true or e.storeId in :storeIds or (e.storeId is null and e.adminUserId = :requestingAdminUserId))
-           and (:action is null or lower(e.action) = lower(:action))
-           and (:resourceType is null or lower(e.resourceType) = lower(:resourceType))
-           and (:result is null or lower(e.result) = lower(:result))
+           and (:action is null or lower(e.action) = :action)
+           and (:resourceType is null or lower(e.resourceType) = :resourceType)
+           and (:result is null or lower(e.result) = :result)
            and (:fromAt is null or e.occurredAt >= :fromAt)
            and (:toAt is null or e.occurredAt < :toAt)
         """)

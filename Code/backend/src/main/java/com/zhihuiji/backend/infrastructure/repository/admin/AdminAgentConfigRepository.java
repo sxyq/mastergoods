@@ -8,6 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AdminAgentConfigRepository extends JpaRepository<AdminAgentConfigEntity, Long> {
     Optional<AdminAgentConfigEntity> findFirstByOrderByIdAsc();
+
+    Optional<AdminAgentConfigEntity> findFirstByScopeOwnerUserIdAndScopeStoreId(Long ownerUserId, Long storeId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<AdminAgentConfigEntity> findByScopeOwnerUserIdAndScopeStoreId(Long ownerUserId, Long storeId);
     Optional<AdminAgentConfigEntity> findByIdempotencyKey(String idempotencyKey);

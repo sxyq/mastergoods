@@ -63,27 +63,32 @@ public class AdminAgentObservabilityService {
         validateTimeRange(from, to);
         String normalizedToolName = normalizeFilter(toolName, "toolName");
         String normalizedModelId = normalizeFilter(modelId, "modelId");
+        PayloadFilterPatterns toolNamePatterns = PayloadFilterPatterns.forToolName(normalizedToolName);
+        PayloadFilterPatterns modelIdPatterns = PayloadFilterPatterns.forModelId(normalizedModelId);
+        String normalizedStatus = normalizeStatus(status);
         AdminScopeQuery queryScope = AdminScopeQuery.from(scope);
         Page<AgentRunAuditEntity> result = queryScope.storeIds().equals(java.util.Set.of(Long.MIN_VALUE))
             ? (hasRunFilters(actorUserId, normalizedToolName, normalizedModelId)
                 ? agentQueryRepository.findRunsFiltered(
                     queryScope.allOwners(), queryScope.ownerUserIds(), normalizeRunId(runId), conversationId,
-                    actorUserId, normalizedToolName, normalizedModelId, normalizeStatus(status),
+                    actorUserId, toolNamePatterns.snake(), toolNamePatterns.camel(), modelIdPatterns.snake(),
+                    modelIdPatterns.camel(), modelIdPatterns.generic(), normalizedStatus,
                     from == null ? null : from.toEpochMilli(), to == null ? null : to.toEpochMilli(),
                     PaginationUtils.pageable(page, size))
                 : agentQueryRepository.findRuns(
                 queryScope.allOwners(), queryScope.ownerUserIds(), normalizeRunId(runId), conversationId,
-                normalizeStatus(status), from == null ? null : from.toEpochMilli(),
+                normalizedStatus, from == null ? null : from.toEpochMilli(),
                 to == null ? null : to.toEpochMilli(), PaginationUtils.pageable(page, size)))
             : (hasRunFilters(actorUserId, normalizedToolName, normalizedModelId)
                 ? agentQueryRepository.findRunsScopedFiltered(
                     queryScope.allOwners(), queryScope.ownerUserIds(), queryScope.allStores(), queryScope.storeIds(),
-                    normalizeRunId(runId), conversationId, actorUserId, normalizedToolName, normalizedModelId,
-                    normalizeStatus(status), from == null ? null : from.toEpochMilli(),
+                    normalizeRunId(runId), conversationId, actorUserId, toolNamePatterns.snake(), toolNamePatterns.camel(),
+                    modelIdPatterns.snake(), modelIdPatterns.camel(), modelIdPatterns.generic(), normalizedStatus,
+                    from == null ? null : from.toEpochMilli(),
                     to == null ? null : to.toEpochMilli(), PaginationUtils.pageable(page, size))
                 : agentQueryRepository.findRunsScoped(
                 queryScope.allOwners(), queryScope.ownerUserIds(), queryScope.allStores(), queryScope.storeIds(),
-                normalizeRunId(runId), conversationId, null, normalizeStatus(status),
+                normalizeRunId(runId), conversationId, null, normalizedStatus,
                 from == null ? null : from.toEpochMilli(), to == null ? null : to.toEpochMilli(),
                 PaginationUtils.pageable(page, size)));
         List<AdminAgentDtos.RunSummary> items = result.getContent().stream()
@@ -141,6 +146,21 @@ public class AdminAgentObservabilityService {
             throw new IllegalArgumentException("runId is too long");
         }
         return normalized;
+    }
+
+    private record PayloadFilterPatterns(String snake, String camel, String generic) {
+        private static PayloadFilterPatterns forToolName(String value) {
+            return value == null ? new PayloadFilterPatterns(null, null, null)
+                : new PayloadFilterPatterns("%\"tool_name\":\"" + value.toLowerCase(Locale.ROOT) + "\"%",
+                    "%\"toolname\":\"" + value.toLowerCase(Locale.ROOT) + "\"%", null);
+        }
+
+        private static PayloadFilterPatterns forModelId(String value) {
+            return value == null ? new PayloadFilterPatterns(null, null, null)
+                : new PayloadFilterPatterns("%\"model_id\":\"" + value.toLowerCase(Locale.ROOT) + "\"%",
+                    "%\"modelid\":\"" + value.toLowerCase(Locale.ROOT) + "\"%",
+                    "%\"model\":\"" + value.toLowerCase(Locale.ROOT) + "\"%");
+        }
     }
 
     private String normalizeRequiredRunId(String runId) {

@@ -17,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.Locale;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -182,11 +183,14 @@ public class AdminAuditService {
         }
         AdminScopeQuery query = AdminScopeQuery.from(scope);
         String normalizedEventId = normalizeOptional(eventId, 128);
+        String normalizedAction = normalizeQueryFilter(action, MAX_FILTER_LENGTH);
+        String normalizedResourceType = normalizeQueryFilter(resourceType, MAX_FILTER_LENGTH);
+        String normalizedResult = normalizeQueryFilter(result, 32);
         Page<AdminAuditEventEntity> resultPage = normalizedEventId == null
             ? repository.findVisible(
                 principal.userId(), query.allOwners(), query.ownerUserIds(), query.allStores(), query.storeIds(),
-                normalizeOptional(action, MAX_FILTER_LENGTH), normalizeOptional(resourceType, MAX_FILTER_LENGTH),
-                normalizeOptional(result, 32), from == null ? null : from.toEpochMilli(), to == null ? null : to.toEpochMilli(),
+                normalizedAction, normalizedResourceType, normalizedResult,
+                from == null ? null : from.toEpochMilli(), to == null ? null : to.toEpochMilli(),
                 PaginationUtils.pageable(page, size))
             : repository.findVisibleByEventId(
                 normalizedEventId, principal.userId(), query.allOwners(), query.ownerUserIds(), query.allStores(), query.storeIds(),
@@ -300,6 +304,11 @@ public class AdminAuditService {
         if (normalized.isEmpty()) return null;
         if (normalized.length() > maxLength) throw new IllegalArgumentException("audit field is too long");
         return normalized;
+    }
+
+    private String normalizeQueryFilter(String value, int maxLength) {
+        String normalized = normalizeOptional(value, maxLength);
+        return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
     }
 
     private String id(Long value) { return value == null ? null : value.toString(); }
