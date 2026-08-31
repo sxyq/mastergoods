@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Activity, Bot, ChevronRight, CircleAlert, Clock3, FileText, Filter, MessageSquareText, RefreshCw, Search, X } from 'lucide-vue-next'
 import { adminSession } from '@/app/stores/admin-session'
-import { getAdminMessages, getAdminRunContext, getAdminRunDrafts, getAdminRunEvents, getAdminRuns, getAdminUsage, streamAdminRunEvents, type AdminContext, type AdminDraft, type AdminMessage, type AdminRun, type AdminRunEvent, type AdminUsage } from '@/shared/api/admin'
+import { getAdminMessages, getAdminRun, getAdminRunContext, getAdminRunDrafts, getAdminRunEvents, getAdminRuns, getAdminUsage, streamAdminRunEvents, type AdminContext, type AdminDraft, type AdminMessage, type AdminRun, type AdminRunEvent, type AdminUsage } from '@/shared/api/admin'
 import { formatDateTime, formatDuration, formatNumber } from '@/shared/utils/format'
 import AdminPageHeader from '@/shared/components/AdminPageHeader.vue'
 import StatePanel from '@/shared/components/StatePanel.vue'
@@ -24,6 +24,10 @@ const events = ref<AdminRunEvent[]>([])
 const eventIntegrity = ref(true)
 const detailLoading = ref(false)
 const detailError = ref('')
+const runDetailError = ref('')
+const contextError = ref('')
+const draftsError = ref('')
+const messagesError = ref('')
 const messages = ref<AdminMessage[]>([])
 const context = ref<AdminContext | null>(null)
 const drafts = ref<AdminDraft[]>([])
@@ -32,6 +36,7 @@ const streamError = ref('')
 let closeStream: (() => void) | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let streamGeneration = 0
+let detailGeneration = 0
 const maxReconnectAttempts = 4
 let reconnectAttempts = 0
 
@@ -56,6 +61,8 @@ const formalAnswers = computed(() => messages.value.filter((message) => message.
 
 function normalizeToken(value: string | null | undefined): string { return (value || '').trim().toLowerCase().replace(/[.-]/g, '_') }
 function display(value: string | number | null | undefined): string { return value === null || value === undefined || value === '' ? '未提供' : String(value) }
+function requestError(reason: unknown, fallback: string): string { return reason instanceof Error && reason.message ? reason.message : fallback }
+function isCurrentDetail(generation: number, selectedRunId: string): boolean { return generation === detailGeneration && selectedRun.value?.run_id === selectedRunId }
 
 async function load(): Promise<void> {
   loading.value = true; error.value = ''
@@ -73,23 +80,43 @@ async function load(): Promise<void> {
 
 async function openRun(run: AdminRun): Promise<void> {
   closeEventStream()
+  const generation = ++detailGeneration
   selectedRun.value = run; detailLoading.value = true; detailError.value = ''; streamError.value = ''; events.value = []; messages.value = []; context.value = null; drafts.value = []
+  runDetailError.value = ''; contextError.value = ''; draftsError.value = ''; messagesError.value = ''; eventIntegrity.value = true
+
+  try {
+    const detailedRun = await getAdminRun(run.run_id)
+    if (!isCurrentDetail(generation, run.run_id)) return
+    if (detailedRun.run_id === run.run_id) selectedRun.value = detailedRun
+    else runDetailError.value = '详情响应与当前选择的运行不一致，已保留列表摘要。'
+  } catch (reason) {
+    if (!isCurrentDetail(generation, run.run_id)) return
+    runDetailError.value = requestError(reason, '无法读取运行详情，已保留列表摘要。')
+  }
+
+  if (!isCurrentDetail(generation, run.run_id)) return
+  const detailRun = selectedRun.value ?? run
   const [eventResult, contextResult, draftResult, messageResult] = await Promise.allSettled([
     getAdminRunEvents(run.run_id),
     getAdminRunContext(run.run_id),
     getAdminRunDrafts(run.run_id),
-    run.conversation_id ? getAdminMessages(run.conversation_id, { includeContent: false, page: 0, size: 30 }) : Promise.resolve(null),
+    detailRun.conversation_id ? getAdminMessages(detailRun.conversation_id, { includeContent: false, page: 0, size: 30 }) : Promise.resolve(null),
   ])
+  if (!isCurrentDetail(generation, run.run_id)) return
   if (eventResult.status === 'fulfilled') { events.value = eventResult.value.items; eventIntegrity.value = eventResult.value.event_integrity }
-  else detailError.value = eventResult.reason instanceof Error ? eventResult.reason.message : '无法读取运行事件。'
+  else detailError.value = requestError(eventResult.reason, '无法读取运行事件。')
   if (contextResult.status === 'fulfilled') context.value = contextResult.value
+  else contextError.value = requestError(contextResult.reason, '无法读取上下文检查点。')
   if (draftResult.status === 'fulfilled') drafts.value = draftResult.value
+  else draftsError.value = requestError(draftResult.reason, '无法读取关联草稿。')
   if (messageResult.status === 'fulfilled' && messageResult.value) messages.value = messageResult.value.items
+  else if (messageResult.status === 'rejected') messagesError.value = requestError(messageResult.reason, '无法读取会话消息。')
   detailLoading.value = false
-  if (normalizeToken(run.terminal_status) === 'running') { reconnectAttempts = 0; startEventStream() }
+  if (normalizeToken(detailRun.terminal_status) === 'running') { reconnectAttempts = 0; startEventStream() }
 }
 function applyFilters(): void { page.value = 0; void load() }
-function clearRun(): void { closeEventStream(); selectedRun.value = null; events.value = []; messages.value = []; context.value = null; drafts.value = [] }
+function retrySelectedRun(): void { if (selectedRun.value) void openRun(selectedRun.value) }
+function clearRun(): void { closeEventStream(); detailGeneration += 1; selectedRun.value = null; detailLoading.value = false; detailError.value = ''; runDetailError.value = ''; contextError.value = ''; draftsError.value = ''; messagesError.value = ''; events.value = []; messages.value = []; context.value = null; drafts.value = [] }
 function statusLabel(value: string | null): string { const labels: Record<string, string> = { completed: '已完成', confirmation_pending: '待确认', running: '进行中', failed: '失败', blocked: '已阻塞', cancelled: '已取消', exhausted: '已耗尽' }; const normalized = normalizeToken(value); return normalized ? (labels[normalized] ?? value ?? '未知') : '未知' }
 function statusClass(value: string | null): string { const normalized = normalizeToken(value); if (normalized === 'completed') return 'success'; if (['failed', 'blocked', 'cancelled', 'exhausted'].includes(normalized)) return 'danger'; if (['running', 'confirmation_pending'].includes(normalized)) return 'attention'; return 'muted' }
 function eventLabel(event: AdminRunEvent): string { return event.tool_name ? `${event.event_type} · ${event.tool_name}` : event.event_type }
@@ -101,39 +128,50 @@ function startEventStream(): void {
   const selectedRunId = selectedRun.value.run_id
   const afterSequence = eventItems.value.at(-1)?.sequence ?? null
   const generation = streamGeneration
+  const detailGenerationAtStart = detailGeneration
   const stop = streamAdminRunEvents(selectedRunId, afterSequence, {
     onEvent(event) {
-      if (selectedRun.value?.run_id !== selectedRunId) return
+      if (!isCurrentDetail(detailGenerationAtStart, selectedRunId) || generation !== streamGeneration || event.run_id !== selectedRunId) return
       if (!event.event_id || events.value.some((item) => item.event_id === event.event_id || item.sequence === event.sequence)) return
       events.value = [...events.value, event]
       if (eventIsTerminal(event)) closeEventStream()
     },
     onError(reason) {
-      if (selectedRun.value?.run_id !== selectedRunId || generation !== streamGeneration) return
+      if (!isCurrentDetail(detailGenerationAtStart, selectedRunId) || generation !== streamGeneration) return
       closeStream = null; streaming.value = false; streamError.value = reason.message
-      scheduleReconnect(selectedRunId)
+      scheduleReconnect(selectedRunId, generation, detailGenerationAtStart)
     },
     onComplete() {
-      if (selectedRun.value?.run_id !== selectedRunId || generation !== streamGeneration) return
+      if (!isCurrentDetail(detailGenerationAtStart, selectedRunId) || generation !== streamGeneration) return
       closeStream = null; streaming.value = false
-      if (!eventItems.value.some(eventIsTerminal)) scheduleReconnect(selectedRunId)
+      if (!eventItems.value.some(eventIsTerminal)) scheduleReconnect(selectedRunId, generation, detailGenerationAtStart)
     },
   })
   closeStream = () => { stop(); if (closeStream) closeStream = null }
 }
-function scheduleReconnect(runId: string): void {
-  if (reconnectAttempts >= maxReconnectAttempts || selectedRun.value?.run_id !== runId) return
+function scheduleReconnect(runId: string, generation = streamGeneration, detailGenerationAtSchedule = detailGeneration): void {
+  if (reconnectAttempts >= maxReconnectAttempts || !isCurrentDetail(detailGenerationAtSchedule, runId) || generation !== streamGeneration) return
   const delay = 500 * (2 ** reconnectAttempts); reconnectAttempts += 1
-  reconnectTimer = setTimeout(() => { reconnectTimer = null; if (selectedRun.value?.run_id === runId) startEventStream() }, delay)
+  reconnectTimer = setTimeout(() => { reconnectTimer = null; if (isCurrentDetail(detailGenerationAtSchedule, runId) && generation === streamGeneration) startEventStream() }, delay)
 }
 function closeEventStream(): void { streamGeneration += 1; if (reconnectTimer) clearTimeout(reconnectTimer); reconnectTimer = null; closeStream?.(); closeStream = null; streaming.value = false }
 async function reloadMessages(): Promise<void> {
-  if (!selectedRun.value?.conversation_id) return
-  try { messages.value = (await getAdminMessages(selectedRun.value.conversation_id, { includeContent: adminSession.session?.content_access ?? false, page: 0, size: 30 })).items } catch (reason) { streamError.value = reason instanceof Error ? reason.message : '无法读取会话消息。' }
+  const run = selectedRun.value
+  if (!run?.conversation_id) return
+  const generation = detailGeneration
+  const selectedRunId = run.run_id
+  try {
+    const result = await getAdminMessages(run.conversation_id, { includeContent: adminSession.session?.content_access ?? false, page: 0, size: 30 })
+    if (!isCurrentDetail(generation, selectedRunId)) return
+    messages.value = result.items
+    messagesError.value = ''
+  } catch (reason) {
+    if (isCurrentDetail(generation, selectedRunId)) messagesError.value = requestError(reason, '无法读取会话消息。')
+  }
 }
 watch(rangeDays, () => { page.value = 0; void load() })
 onMounted(load)
-onBeforeUnmount(closeEventStream)
+onBeforeUnmount(() => { detailGeneration += 1; closeEventStream() })
 </script>
 
 <template>
@@ -145,19 +183,20 @@ onBeforeUnmount(closeEventStream)
       <aside v-if="selectedRun" class="run-drawer" aria-labelledby="drawer-title">
         <header><div><p>RUN DETAIL</p><h2 id="drawer-title">运行详情</h2></div><button type="button" aria-label="关闭运行详情" @click="clearRun"><X /></button></header>
         <span class="run-id">run_id · {{ selectedRun.run_id }}</span>
+        <p v-if="runDetailError" class="detail-request-error" role="alert">{{ runDetailError }} <button type="button" @click="retrySelectedRun">重试详情</button></p>
         <dl><div><dt>conversation_id</dt><dd class="mono">{{ display(selectedRun.conversation_id) }}</dd></div><div><dt>用户 / Owner / 门店</dt><dd>用户 {{ display(selectedRun.actor_user_id) }} / Owner {{ display(selectedRun.owner_user_id) }} / 门店 {{ display(selectedRun.store_id) }}</dd></div><div><dt>模型</dt><dd>{{ display(selectedRun.model_id) }}</dd></div><div><dt>终态</dt><dd><span class="status" :class="`status--${statusClass(selectedRun.terminal_status)}`"><i />{{ statusLabel(selectedRun.terminal_status) }}</span></dd></div><div><dt>Token</dt><dd>输入 {{ formatNumber(selectedRun.input_tokens) }} · 输出 {{ formatNumber(selectedRun.output_tokens) }} · 总量 {{ formatNumber(selectedRun.total_tokens) }} <small>来源 {{ display(selectedRun.token_source) }}</small></dd></div><div><dt>时间</dt><dd>首字延迟 {{ formatDuration(selectedRun.time_to_first_token_ms) }} · 总耗时 {{ formatDuration(selectedRun.duration_ms) }}</dd></div><div><dt>轮次 / 工具调用</dt><dd>{{ display(selectedRun.iteration_count) }} / {{ display(selectedRun.tool_call_count) }}</dd></div></dl>
         <section class="event-section" aria-labelledby="event-title">
           <header><div><h3 id="event-title">工具事件</h3><span v-if="!eventIntegrity" class="integrity"><CircleAlert aria-hidden="true" />事件序列不完整</span><span v-else-if="streaming" class="integrity integrity--live"><Activity aria-hidden="true" />实时更新中</span></div><button type="button" class="refresh-events" :disabled="detailLoading" @click="openRun(selectedRun)"><RefreshCw aria-hidden="true" />刷新</button></header>
           <p v-if="streamError" class="stream-error">{{ streamError }}<template v-if="reconnectAttempts < maxReconnectAttempts"> · 将自动重连（{{ reconnectAttempts }}/{{ maxReconnectAttempts }}）</template><template v-else> · 自动重连已停止</template></p>
-          <StatePanel v-if="detailError" state="error" :detail="detailError" @retry="openRun(selectedRun)" />
+          <StatePanel v-if="detailError" state="error" :detail="detailError" @retry="retrySelectedRun" />
           <div v-else-if="detailLoading" class="event-loading">正在读取持久化事件。</div>
           <div v-else>
             <div class="event-summary"><span>计划 {{ plannedTools.length }} 条</span><span>实际工具 {{ toolEvents.length }} 条</span><span>call_id 配对 {{ toolPairs.filter((pair) => pair.started && pair.finished).length }}/{{ toolPairs.length }}</span></div>
             <ol class="event-list"><li v-for="event in normalizedEvents" :key="event.event_id"><span class="sequence">{{ event.sequence }}</span><div><strong>{{ eventLabel(event) }}</strong><small>{{ formatDateTime(event.occurred_at) }} · {{ display(event.status) }} · 脱敏 {{ display(event.redaction_state) }}<template v-if="event.call_id"> · call_id {{ event.call_id }}</template><template v-if="event.duration_ms !== null"> · 工具耗时 {{ formatDuration(event.duration_ms) }}</template></small><p v-if="event.argument_summary">参数：{{ event.argument_summary }}</p><p v-if="event.result_summary">结果：{{ event.result_summary }}</p></div></li><li v-if="!eventItems.length" class="empty-event">暂无持久化工具事件。</li></ol>
           </div>
         </section>
-        <section class="evidence-section"><header><h3><FileText aria-hidden="true" />上下文与草稿</h3></header><p v-if="context">窗口 {{ formatNumber(context.context_window_tokens) }}（{{ display(context.context_window_source) }}）· 估算输入 {{ formatNumber(context.estimated_input_tokens) }} · 输出 {{ formatNumber(context.estimated_output_tokens) }} · 检查点 {{ context.checkpoints.length }}</p><p v-else>暂无上下文检查点。</p><ul v-if="context?.checkpoints.length"><li v-for="checkpoint in context.checkpoints" :key="checkpoint.checkpoint_id"><strong>检查点 {{ checkpoint.checkpoint_id }}</strong><small>状态 {{ display(checkpoint.status) }} · 质量 {{ display(checkpoint.quality) }} · revision {{ display(checkpoint.revision) }} · {{ formatDateTime(checkpoint.updated_at || checkpoint.created_at) }}</small><p>消息 {{ display(checkpoint.source_message_count) }} · 输入 {{ formatNumber(checkpoint.estimated_input_tokens) }} · 输出 {{ formatNumber(checkpoint.estimated_output_tokens) }}</p></li></ul><ul v-if="drafts.length"><li v-for="draft in drafts" :key="draft.draft_id"><strong>{{ draft.title || draft.draft_type }}</strong><small>状态 {{ display(draft.status) }} · {{ formatDateTime(draft.updated_at) }}</small></li></ul><p v-else>暂无关联草稿。</p></section>
-        <section class="evidence-section"><header><h3><MessageSquareText aria-hidden="true" />正式回答与会话</h3><button v-if="selectedRun.conversation_id" type="button" @click="reloadMessages">{{ adminSession.session?.content_access ? '读取已授权正文' : '刷新摘要' }}</button></header><p v-if="formalAnswers.length" class="formal-answer">{{ formalAnswers.map((message) => message.content).filter(Boolean).join('\n') }}</p><p v-else>暂无正式回答正文（当前权限或后端未提供）。</p><ul v-if="messages.length"><li v-for="message in messages" :key="message.message_id"><strong>{{ message.role }} · {{ message.message_type || 'message' }}</strong><small>{{ formatDateTime(message.occurred_at) }} · {{ message.redaction_state || 'REDACTED' }}</small><p v-if="message.content">{{ message.content }}</p></li></ul><p v-else>暂无会话消息摘要。</p></section>
+        <section class="evidence-section"><header><h3><FileText aria-hidden="true" />上下文与草稿</h3></header><p v-if="contextError" class="detail-request-error" role="alert">{{ contextError }} <button type="button" @click="retrySelectedRun">重试上下文</button></p><p v-else-if="context">窗口 {{ formatNumber(context.context_window_tokens) }}（{{ display(context.context_window_source) }}）· 估算输入 {{ formatNumber(context.estimated_input_tokens) }} · 输出 {{ formatNumber(context.estimated_output_tokens) }} · 检查点 {{ context.checkpoints.length }}</p><p v-else-if="detailLoading" class="event-loading">正在读取上下文检查点。</p><p v-else>暂无上下文检查点。</p><ul v-if="!contextError && context?.checkpoints.length"><li v-for="checkpoint in context.checkpoints" :key="checkpoint.checkpoint_id"><strong>检查点 {{ checkpoint.checkpoint_id }}</strong><small>状态 {{ display(checkpoint.status) }} · 质量 {{ display(checkpoint.quality) }} · revision {{ display(checkpoint.revision) }} · {{ formatDateTime(checkpoint.updated_at || checkpoint.created_at) }}</small><p>消息 {{ display(checkpoint.source_message_count) }} · 输入 {{ formatNumber(checkpoint.estimated_input_tokens) }} · 输出 {{ formatNumber(checkpoint.estimated_output_tokens) }}</p></li></ul><p v-if="draftsError" class="detail-request-error" role="alert">{{ draftsError }} <button type="button" @click="retrySelectedRun">重试草稿</button></p><ul v-else-if="drafts.length"><li v-for="draft in drafts" :key="draft.draft_id"><strong>{{ draft.title || draft.draft_type }}</strong><small>状态 {{ display(draft.status) }} · {{ formatDateTime(draft.updated_at) }}</small></li></ul><p v-else-if="!detailLoading">暂无关联草稿。</p></section>
+        <section class="evidence-section"><header><h3><MessageSquareText aria-hidden="true" />正式回答与会话</h3><button v-if="selectedRun.conversation_id" type="button" @click="reloadMessages">{{ adminSession.session?.content_access ? '读取已授权正文' : '刷新摘要' }}</button></header><p v-if="messagesError" class="detail-request-error" role="alert">{{ messagesError }} <button type="button" @click="reloadMessages">重试消息</button></p><p v-if="formalAnswers.length" class="formal-answer">{{ formalAnswers.map((message) => message.content).filter(Boolean).join('\n') }}</p><p v-else>暂无正式回答正文（当前权限或后端未提供）。</p><ul v-if="messages.length"><li v-for="message in messages" :key="message.message_id"><strong>{{ message.role }} · {{ message.message_type || 'message' }}</strong><small>{{ formatDateTime(message.occurred_at) }} · {{ message.redaction_state || 'REDACTED' }}</small><p v-if="message.content">{{ message.content }}</p></li></ul><p v-else-if="!messagesError">暂无会话消息摘要。</p></section>
       </aside>
     </div>
   </section>
@@ -183,4 +222,6 @@ onBeforeUnmount(closeEventStream)
 .event-summary span { border: 1px solid var(--admin-border); border-radius: 999px; padding: 4px 6px; }
 .formal-answer { white-space: pre-wrap; color: var(--admin-foreground) !important; }
 tbody tr:focus-visible { outline: 2px solid var(--admin-focus); outline-offset: -2px; }
+.detail-request-error { margin: 9px 0 0; color: var(--admin-danger); font-size: 9px; line-height: 1.45; }
+.detail-request-error button { margin-left: 4px; border: 0; background: transparent; color: inherit; cursor: pointer; font-size: inherit; text-decoration: underline; }
 </style>
