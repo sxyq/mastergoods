@@ -35,6 +35,11 @@ docs/android-117-test-artifacts/
 # Local review outputs and generated test evidence remain on disk but are not
 # part of the source tree tracked by Git.
 testing/.artifacts/
+# Agent raw run evidence stays local; formal reports and ledgers remain tracked.
+testing/Agent/*/artifacts/**
+!testing/Agent/*/artifacts/.gitkeep
+testing/Agent/*/logs/**
+!testing/Agent/*/logs/.gitkeep
 审查/
 
 # Codex workspace metadata is local state, not project source.
