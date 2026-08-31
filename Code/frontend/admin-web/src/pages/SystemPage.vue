@@ -151,7 +151,7 @@ onMounted(load)
             <label>工具结果<input v-model.number="toolResultDays" type="number" min="1" step="1" :disabled="!canManageRetention || saving" /><small>天</small></label>
             <label>统计数据<input v-model.number="metricsDays" type="number" min="1" step="1" :disabled="!canManageRetention || saving" /><small>天</small></label>
           </div>
-          <label class="content-mode">内容策略<select v-model="contentMode" :disabled="!canManageRetention || saving"><option value="REDACTED">REDACTED</option><option value="METADATA_ONLY">METADATA_ONLY</option><option value="FULL_ALLOWED">FULL_ALLOWED</option></select></label>
+          <label class="content-mode">内容策略<select v-model="contentMode" :disabled="!canManageRetention || saving"><option value="REDACTED">REDACTED</option><option value="METADATA_ONLY">METADATA_ONLY</option></select></label>
           <p v-if="saveError" class="save-error" role="alert">{{ saveError }}</p>
           <p class="policy-note"><Settings2 aria-hidden="true" />变更由服务端验证版本、权限和确认信息后才会生效。</p>
         </template>

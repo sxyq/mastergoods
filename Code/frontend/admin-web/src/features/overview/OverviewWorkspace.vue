@@ -6,6 +6,7 @@ import OverviewResourceSummary from './OverviewResourceSummary.vue'
 import OverviewTrendChart from './OverviewTrendChart.vue'
 import { getAdminAuditEvents, getAdminOverview, getAdminRuns, type AdminAuditEvent, type AdminOverview, type AdminOverviewMetric, type AdminRun } from '@/shared/api/admin'
 import { formatDateTime, formatDuration, formatNumber, formatPercent } from '@/shared/utils/format'
+import StatePanel from '@/shared/components/StatePanel.vue'
 
 const rangeDays = ref(30)
 const loading = ref(true)
@@ -14,8 +15,13 @@ const overview = ref<AdminOverview | null>(null)
 const runs = ref<AdminRun[]>([])
 const auditEvents = ref<AdminAuditEvent[]>([])
 const loadError = ref('')
-const supplementalError = ref(false)
+const runsLoading = ref(true)
+const auditLoading = ref(true)
+const runsError = ref('')
+const auditError = ref('')
 let requestSequence = 0
+let runsRequestSequence = 0
+let auditRequestSequence = 0
 
 const range = computed(() => {
   const to = new Date()
@@ -25,6 +31,7 @@ const range = computed(() => {
 
 const metrics = computed(() => new Map(overview.value?.metrics.map((metric) => [metric.key, metric]) ?? []))
 const selectedRangeText = computed(() => overview.value ? `${formatDateTime(overview.value.from)} 至 ${formatDateTime(overview.value.to)}` : `近 ${rangeDays.value} 天`)
+const supplementalError = computed(() => Boolean(runsError.value || auditError.value))
 
 function metric(key: string): AdminOverviewMetric | undefined {
   return metrics.value.get(key)
@@ -40,7 +47,11 @@ const cards = computed(() => [
 
 async function loadPage(): Promise<void> {
   const sequence = ++requestSequence
+  const runsSequence = ++runsRequestSequence
+  const auditSequence = ++auditRequestSequence
   const query = { from: range.value.from, to: range.value.to }
+  runsLoading.value = true; auditLoading.value = true
+  runsError.value = ''; auditError.value = ''
   const [overviewResult, runsResult, auditResult] = await Promise.allSettled([
     getAdminOverview(query),
     getAdminRuns({ ...query, page: 0, size: 5 }),
@@ -56,9 +67,42 @@ async function loadPage(): Promise<void> {
     loadError.value = overviewResult.reason instanceof Error ? overviewResult.reason.message : '无法读取平台总览。'
   }
 
-  supplementalError.value = runsResult.status === 'rejected' || auditResult.status === 'rejected'
-  if (runsResult.status === 'fulfilled') runs.value = runsResult.value.items
-  if (auditResult.status === 'fulfilled') auditEvents.value = auditResult.value.items
+  if (runsSequence === runsRequestSequence) {
+    if (runsResult.status === 'fulfilled') runs.value = runsResult.value.items
+    else runsError.value = runsResult.reason instanceof Error ? runsResult.reason.message : '无法读取最近运行记录。'
+    runsLoading.value = false
+  }
+  if (auditSequence === auditRequestSequence) {
+    if (auditResult.status === 'fulfilled') auditEvents.value = auditResult.value.items
+    else auditError.value = auditResult.reason instanceof Error ? auditResult.reason.message : '无法读取最近操作审计。'
+    auditLoading.value = false
+  }
+}
+
+async function retryRuns(): Promise<void> {
+  const sequence = ++runsRequestSequence
+  runsLoading.value = true; runsError.value = ''
+  try {
+    const result = await getAdminRuns({ ...range.value, page: 0, size: 5 })
+    if (sequence === runsRequestSequence) runs.value = result.items
+  } catch (reason) {
+    if (sequence === runsRequestSequence) runsError.value = reason instanceof Error ? reason.message : '无法读取最近运行记录。'
+  } finally {
+    if (sequence === runsRequestSequence) runsLoading.value = false
+  }
+}
+
+async function retryAudit(): Promise<void> {
+  const sequence = ++auditRequestSequence
+  auditLoading.value = true; auditError.value = ''
+  try {
+    const result = await getAdminAuditEvents({ ...range.value, page: 0, size: 5 })
+    if (sequence === auditRequestSequence) auditEvents.value = result.items
+  } catch (reason) {
+    if (sequence === auditRequestSequence) auditError.value = reason instanceof Error ? reason.message : '无法读取最近操作审计。'
+  } finally {
+    if (sequence === auditRequestSequence) auditLoading.value = false
+  }
 }
 
 async function refresh(): Promise<void> {
@@ -153,7 +197,7 @@ onMounted(async () => {
       </div>
 
       <div class="lower-grid">
-        <section class="data-panel" aria-labelledby="recent-runs-title">
+        <section class="data-panel" aria-labelledby="recent-runs-title" :aria-busy="runsLoading || undefined">
           <header class="panel-header">
             <div>
               <h2 id="recent-runs-title">最近运行</h2>
@@ -161,42 +205,38 @@ onMounted(async () => {
             </div>
             <RouterLink class="text-link" to="/agent/runs">查看全部</RouterLink>
           </header>
-          <div class="table-scroll">
+          <StatePanel v-if="runsLoading" state="loading" title="正在读取最近运行" detail="正在请求授权范围内的最近运行记录。" />
+          <StatePanel v-else-if="runsError" state="error" :detail="runsError" @retry="retryRuns" />
+          <div v-else class="table-scroll">
             <table>
               <thead><tr><th scope="col">运行</th><th scope="col">模型与范围</th><th scope="col" class="numeric">Token / 耗时</th><th scope="col">状态</th></tr></thead>
               <tbody>
-                <template v-if="loading">
-                  <tr v-for="index in 4" :key="`run-skeleton-${index}`" class="table-skeleton" aria-hidden="true">
-                    <td><i /><small /></td><td><i /><small /></td><td><i /><small /></td><td><span /></td>
-                  </tr>
-                </template>
-                <tr v-for="run in loading ? [] : runs" :key="run.run_id">
+                <tr v-for="run in runs" :key="run.run_id">
                   <td><strong class="mono">{{ run.run_id }}</strong><small>{{ formatDateTime(run.started_at) }}</small></td>
                   <td><strong>{{ run.model_id || '未记录模型' }}</strong><small>Owner {{ run.owner_user_id || '—' }} / 门店 {{ run.store_id || '—' }}</small></td>
                   <td class="numeric"><strong>{{ formatNumber(run.total_tokens) }}</strong><small>{{ formatDuration(run.duration_ms) }}</small></td>
                   <td><span class="status" :class="statusClass(run.terminal_status)"><i />{{ statusLabel(run.terminal_status) }}</span></td>
                 </tr>
-                <tr v-if="!loading && !runs.length"><td colspan="4" class="empty-cell">所选时间范围内暂无运行记录。</td></tr>
+                <tr v-if="!runs.length"><td colspan="4" class="empty-cell">所选时间范围内暂无运行记录。</td></tr>
               </tbody>
             </table>
           </div>
         </section>
 
-        <section class="data-panel audit-panel" aria-labelledby="recent-audit-title">
+        <section class="data-panel audit-panel" aria-labelledby="recent-audit-title" :aria-busy="auditLoading || undefined">
           <header class="panel-header">
             <div><h2 id="recent-audit-title">最近操作审计</h2><p>所有查看与受控动作均由服务端记录。</p></div>
             <RouterLink class="text-link" to="/audit">查看全部</RouterLink>
           </header>
-          <ul class="audit-list">
-            <li v-for="index in loading ? 4 : 0" :key="`audit-skeleton-${index}`" class="audit-skeleton" aria-hidden="true">
-              <i /><div><strong /><small /></div><span />
-            </li>
-            <li v-for="event in loading ? [] : auditEvents" :key="event.event_id">
+          <StatePanel v-if="auditLoading" state="loading" title="正在读取最近审计" detail="正在请求授权范围内的最近操作记录。" />
+          <StatePanel v-else-if="auditError" state="error" :detail="auditError" @retry="retryAudit" />
+          <ul v-else class="audit-list">
+            <li v-for="event in auditEvents" :key="event.event_id">
               <Activity aria-hidden="true" />
               <div><strong>{{ event.action }}</strong><small>{{ event.resource_type || '系统资源' }} · {{ formatDateTime(event.occurred_at) }}</small></div>
               <span class="audit-result" :class="event.result === 'SUCCESS' ? 'audit-result--success' : 'audit-result--warning'">{{ event.result }}</span>
             </li>
-            <li v-if="!loading && !auditEvents.length" class="empty-audit">所选时间范围内暂无操作审计。</li>
+            <li v-if="!auditEvents.length" class="empty-audit">所选时间范围内暂无操作审计。</li>
           </ul>
         </section>
       </div>

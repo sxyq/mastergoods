@@ -3,8 +3,10 @@ import { computed, ref } from 'vue'
 import { BarChart3 } from 'lucide-vue-next'
 import type { AdminUsage } from '@/shared/api/admin'
 import { formatDuration, formatNumber, formatShortDate } from '@/shared/utils/format'
+import StatePanel from '@/shared/components/StatePanel.vue'
 
-const props = defineProps<{ items: AdminUsage[]; modelId: string; loading?: boolean }>()
+const props = defineProps<{ items: AdminUsage[]; modelId: string; loading?: boolean; error?: string }>()
+const emit = defineEmits<{ retry: [] }>()
 
 type MetricField =
   | 'request_count'
@@ -162,7 +164,9 @@ function formatChartValue(value: number | null): string {
       <BarChart3 aria-hidden="true" />
     </header>
 
-    <template v-if="!loading && !hasMixedModels && sorted.length">
+    <StatePanel v-if="loading" state="loading" title="正在读取使用量" detail="正在请求当前时间范围内的 Token 和延迟统计。" />
+    <StatePanel v-else-if="error" state="error" title="使用量暂不可用" :detail="error" @retry="emit('retry')" />
+    <template v-else-if="!hasMixedModels && sorted.length">
       <div class="summary-row">
         <div class="summary"><strong>{{ formatNumber(summary.totalTokens) }}</strong><span>总 Token</span></div>
         <div class="source-summary" aria-label="Token 数据口径">
@@ -235,6 +239,7 @@ function formatChartValue(value: number | null): string {
 
 <style scoped>
 .usage-panel { min-height: 304px; border: 1px solid var(--admin-border); border-radius: 8px; background: #fff; padding: 18px; }
+.usage-panel > :deep(.state-panel) { min-height: 220px; margin-top: 18px; }
 .usage-panel header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .usage-panel h2 { margin: 0; font-size: 14px; font-weight: 500; }
 .usage-panel p { margin: 5px 0 0; color: var(--admin-muted); font-size: 11px; }

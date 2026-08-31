@@ -112,7 +112,8 @@ function editMember(member: AdminMember): void {
 function statusCode(value: string): number { return value === 'ACTIVE' || value === '1' ? 1 : 0 }
 function mutationMessage(reason: unknown, fallback: string): string {
   if (!(reason instanceof Error)) return fallback
-  const status = 'status' in reason ? Number((reason as { status?: number }).status) : 0
+  const rawStatus = 'status' in reason ? (reason as { status?: unknown }).status : undefined
+  const status = typeof rawStatus === 'number' ? rawStatus : 0
   if (status === 401) return '会话已过期，请重新登录。'
   if (status === 403) return '当前角色没有执行此操作的权限。'
   if (status === 409) return '数据已被其他操作更新，请刷新后重试。'

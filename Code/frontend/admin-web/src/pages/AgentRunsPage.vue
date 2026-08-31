@@ -18,7 +18,9 @@ const runs = ref<AdminRun[]>([])
 const total = ref(0)
 const usage = ref<AdminUsage[]>([])
 const loading = ref(true)
+const usageLoading = ref(true)
 const error = ref('')
+const usageError = ref('')
 const selectedRun = ref<AdminRun | null>(null)
 const events = ref<AdminRunEvent[]>([])
 const eventIntegrity = ref(true)
@@ -39,6 +41,7 @@ let streamGeneration = 0
 let detailGeneration = 0
 const maxReconnectAttempts = 4
 let reconnectAttempts = 0
+let usageRequestSequence = 0
 
 const queryRange = computed(() => { const to = new Date(); const from = new Date(to.getTime() - rangeDays.value * 86_400_000); return { from, to } })
 const hasNext = computed(() => (page.value + 1) * pageSize < total.value)
@@ -65,7 +68,9 @@ function requestError(reason: unknown, fallback: string): string { return reason
 function isCurrentDetail(generation: number, selectedRunId: string): boolean { return generation === detailGeneration && selectedRun.value?.run_id === selectedRunId }
 
 async function load(): Promise<void> {
+  const usageSequence = ++usageRequestSequence
   loading.value = true; error.value = ''
+  usageLoading.value = true; usageError.value = ''
   const common = { from: queryRange.value.from, to: queryRange.value.to, modelId: modelId.value.trim() || undefined }
   const [runResult, usageResult] = await Promise.allSettled([
     getAdminRuns({ ...common, runId: runId.value.trim() || undefined, terminalStatus: terminalStatus.value || undefined, page: page.value, size: pageSize }),
@@ -73,9 +78,25 @@ async function load(): Promise<void> {
   ])
   if (runResult.status === 'fulfilled') { runs.value = runResult.value.items; total.value = runResult.value.total }
   else { runs.value = []; total.value = 0; error.value = runResult.reason instanceof Error ? runResult.reason.message : '无法读取运行记录。' }
-  if (usageResult.status === 'fulfilled') usage.value = usageResult.value.items
-  else usage.value = []
+  if (usageSequence === usageRequestSequence) {
+    if (usageResult.status === 'fulfilled') usage.value = usageResult.value.items
+    else { usage.value = []; usageError.value = requestError(usageResult.reason, '无法读取 Token 使用量。') }
+    usageLoading.value = false
+  }
   loading.value = false
+}
+
+async function retryUsage(): Promise<void> {
+  const sequence = ++usageRequestSequence
+  usageLoading.value = true; usageError.value = ''
+  try {
+    const result = await getAdminUsage({ from: queryRange.value.from, to: queryRange.value.to, modelId: modelId.value.trim() || undefined, granularity: 'day', page: 0, size: 90 })
+    if (sequence === usageRequestSequence) usage.value = result.items
+  } catch (reason) {
+    if (sequence === usageRequestSequence) { usage.value = []; usageError.value = requestError(reason, '无法读取 Token 使用量。') }
+  } finally {
+    if (sequence === usageRequestSequence) usageLoading.value = false
+  }
 }
 
 async function openRun(run: AdminRun): Promise<void> {
@@ -178,7 +199,7 @@ onBeforeUnmount(() => { detailGeneration += 1; closeEventStream() })
   <section>
     <AdminPageHeader eyebrow="AGENT / OBSERVABILITY" title="Agent 运行" description="按运行、模型、状态和时间范围核验 Agent 执行事实。"><template #actions><label class="range"><Clock3 aria-hidden="true" /><select v-model.number="rangeDays" aria-label="时间范围"><option :value="7">近 7 天</option><option :value="30">近 30 天</option><option :value="90">近 90 天</option></select></label><button class="outline-button" type="button" :disabled="loading" @click="load"><RefreshCw :class="{ spinning: loading }" aria-hidden="true" />刷新</button></template></AdminPageHeader>
     <div class="agent-grid"><section class="runs-area"><div class="filter-panel"><label><Search aria-hidden="true" /><input v-model="runId" placeholder="运行 ID" @keyup.enter="applyFilters" /></label><label><Bot aria-hidden="true" /><input v-model="modelId" placeholder="模型 ID" @keyup.enter="applyFilters" /></label><label><Filter aria-hidden="true" /><select v-model="terminalStatus"><option value="">全部终态</option><option value="completed">已完成</option><option value="running">进行中</option><option value="failed">失败</option><option value="confirmation_pending">待确认</option></select></label><button class="outline-button" type="button" @click="applyFilters">应用筛选</button></div>
-      <UsageChart :items="usage" :model-id="modelId" :loading="loading" />
+      <UsageChart :items="usage" :model-id="modelId" :loading="usageLoading" :error="usageError" @retry="retryUsage" />
       <section class="table-panel" aria-labelledby="runs-title"><header><div><h2 id="runs-title">运行记录</h2><p>{{ formatNumber(total) }} 条记录</p></div></header><StatePanel v-if="loading" state="loading" title="正在读取运行记录" /><StatePanel v-else-if="error" state="error" :detail="error" @retry="load" /><div v-else class="table-scroll"><table><thead><tr><th>运行</th><th>模型与范围</th><th class="numeric">Token / 耗时</th><th>状态</th><th aria-label="详情" /></tr></thead><tbody><tr v-for="run in runs" :key="run.run_id" :class="{ selected: selectedRun?.run_id === run.run_id }" tabindex="0" @click="openRun(run)" @keydown.enter="openRun(run)" @keydown.space.prevent="openRun(run)"><td><strong class="mono">{{ run.run_id }}</strong><small>{{ formatDateTime(run.started_at) }}</small></td><td><strong>{{ run.model_id || '未记录模型' }}</strong><small>Owner {{ run.owner_user_id || '—' }} / 门店 {{ run.store_id || '—' }}</small></td><td class="numeric"><strong>{{ formatNumber(run.total_tokens) }}</strong><small>{{ formatDuration(run.duration_ms) }}</small></td><td><span class="status" :class="`status--${statusClass(run.terminal_status)}`"><i />{{ statusLabel(run.terminal_status) }}</span></td><td><ChevronRight aria-hidden="true" /></td></tr><tr v-if="!runs.length"><td colspan="5" class="empty">暂无匹配运行记录。</td></tr></tbody></table></div><footer><span>第 {{ page + 1 }} 页</span><div><button type="button" :disabled="page <= 0" @click="page--; load()">上一页</button><button type="button" :disabled="!hasNext" @click="page++; load()">下一页</button></div></footer></section></section>
       <aside v-if="selectedRun" class="run-drawer" aria-labelledby="drawer-title">
         <header><div><p>RUN DETAIL</p><h2 id="drawer-title">运行详情</h2></div><button type="button" aria-label="关闭运行详情" @click="clearRun"><X /></button></header>

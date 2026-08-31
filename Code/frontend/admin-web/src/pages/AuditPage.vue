@@ -23,6 +23,8 @@ const exportOpen = ref(false)
 const exportBusy = ref(false)
 const exportMessage = ref('')
 const jobs = ref<AdminExportJob[]>([])
+const jobsLoading = ref(false)
+const jobsError = ref('')
 const canExport = computed(() => hasAdminPermission('admin.export'))
 const hasNext = computed(() => (page.value + 1) * pageSize < total.value)
 const actionCounts = computed(() => {
@@ -55,6 +57,7 @@ const range = computed(() => { const to = new Date(); const from = new Date(to.g
 
 async function load(): Promise<void> {
   loading.value = true; error.value = ''
+  jobsLoading.value = canExport.value; jobsError.value = ''
   const request = getAdminAuditEvents({ eventId: eventId.value.trim() || undefined, action: action.value.trim() || undefined, result: result.value || undefined, from: range.value.from, to: range.value.to, page: page.value, size: pageSize })
   const [eventResult, jobResult] = await Promise.allSettled([request, canExport.value ? getAdminExportJobs({ page: 0, size: 5 }) : Promise.resolve(null)])
   if (eventResult.status === 'fulfilled') {
@@ -64,7 +67,19 @@ async function load(): Promise<void> {
   }
   else error.value = eventResult.reason instanceof Error ? eventResult.reason.message : '无法读取审计事件。'
   if (jobResult.status === 'fulfilled' && jobResult.value) jobs.value = jobResult.value.items
+  else if (jobResult.status === 'rejected') jobsError.value = jobResult.reason instanceof Error ? jobResult.reason.message : '无法读取导出任务。'
+  jobsLoading.value = false
   loading.value = false
+}
+
+async function retryExportJobs(): Promise<void> {
+  if (!canExport.value) return
+  jobsLoading.value = true; jobsError.value = ''
+  try {
+    jobs.value = (await getAdminExportJobs({ page: 0, size: 5 })).items
+  } catch (reason) {
+    jobsError.value = reason instanceof Error ? reason.message : '无法读取导出任务。'
+  } finally { jobsLoading.value = false }
 }
 
 function applyFilters(): void { page.value = 0; void load() }
@@ -222,14 +237,17 @@ onMounted(load)
           </dl>
         </template>
         <div v-else class="detail-empty" aria-live="polite"><ShieldCheck aria-hidden="true" /><span id="audit-detail-title">选择审计事件以查看摘要。</span></div>
-        <section v-if="canExport && jobs.length" class="export-jobs" aria-labelledby="export-jobs-title">
+        <section v-if="canExport" class="export-jobs" aria-labelledby="export-jobs-title">
           <h3 id="export-jobs-title">最近导出</h3>
-          <ul>
+          <StatePanel v-if="jobsLoading" state="loading" title="正在读取导出任务" detail="正在请求最近创建的异步导出任务。" />
+          <StatePanel v-else-if="jobsError" state="error" :detail="jobsError" @retry="retryExportJobs" />
+          <ul v-else-if="jobs.length">
             <li v-for="job in jobs" :key="job.export_id">
               <div><strong>{{ job.status }}</strong><small>{{ formatDateTime(job.created_at) }}</small></div>
               <button v-if="job.download_url" type="button" aria-label="下载导出文件" @click="download(job)"><Download aria-hidden="true" /></button>
             </li>
           </ul>
+          <p v-else class="jobs-empty">暂无导出任务。</p>
         </section>
       </aside>
     </div>
