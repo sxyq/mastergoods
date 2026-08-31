@@ -1,0 +1,12 @@
+{
+  "agent_request_sent": false,
+  "agent_http_response": null,
+  "anonymous_boundary_probe": {
+    "method": "GET",
+    "path": "/",
+    "status": 401,
+    "response_headers_saved": false,
+    "response_body_saved": false
+  },
+  "note": "No authenticated Agent HTTP request was sent in this deployment-stage artifact."
+}
