@@ -165,6 +165,8 @@ class AgentSseClient(
                     }
                     if (!terminalEventSeen) flushBufferedEvent()
                 }
+                // A clean EOF ends this stream; reconnect only when transport I/O fails.
+                if (!terminalEventSeen) return@flow
                 _retryState.value = RetryState()
             } catch (e: IOException) {
                 currentCoroutineContext().ensureActive()
