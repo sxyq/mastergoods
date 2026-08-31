@@ -208,7 +208,7 @@ watch(stores, (items) => {
     <div class="workspace-grid">
       <section class="table-panel" aria-labelledby="organization-list-title">
         <header class="table-header"><div><h2 id="organization-list-title">{{ tab === 'users' ? '用户列表' : '门店列表' }}</h2><p>{{ formatNumber(activeTotal) }} 条记录</p></div><div class="tabs"><button type="button" :class="{ active: tab === 'users' }" @click="switchTab('users')">用户</button><button type="button" :class="{ active: tab === 'stores' }" @click="switchTab('stores')">门店</button></div></header>
-        <div v-if="tab === 'users'" class="toolbar"><label><Search aria-hidden="true" /><input v-model="query" placeholder="搜索昵称或已脱敏手机号" @keyup.enter="search" /></label><button class="outline-button" type="button" @click="search"><Filter aria-hidden="true" />筛选</button></div>
+        <div v-if="tab === 'users'" class="toolbar"><label><Search aria-hidden="true" /><input v-model="query" aria-label="搜索昵称或已脱敏手机号" placeholder="搜索昵称或已脱敏手机号" @keyup.enter="search" /></label><button class="outline-button" type="button" @click="search"><Filter aria-hidden="true" />筛选</button></div>
         <StatePanel v-if="loading" state="loading" title="正在读取组织数据" />
         <StatePanel v-else-if="activeError" state="error" :detail="activeError" @retry="load" />
         <div v-else class="table-scroll">

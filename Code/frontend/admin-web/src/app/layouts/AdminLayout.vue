@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Activity, Bot, ChevronDown, Eye, LayoutDashboard, LogOut, Menu, Server, Settings2, ShieldCheck, UsersRound, X } from 'lucide-vue-next'
 import { adminSession, hasAdminPermission, logoutAdmin } from '@/app/stores/admin-session'
@@ -16,6 +16,8 @@ const route = useRoute()
 const mobileOpen = ref(false)
 const agentOpen = ref(true)
 const systemOpen = ref(true)
+const isMobileViewport = ref(false)
+let mobileMediaQuery: MediaQueryList | null = null
 
 const navigation: NavigationItem[] = [
   { label: '平台总览', to: '/overview', permission: 'admin.dashboard.read', icon: LayoutDashboard },
@@ -38,9 +40,15 @@ const visibleAgentNavigation = computed(() => visible(agentNavigation))
 const visibleSystemNavigation = computed(() => visible(systemNavigation))
 const displayRole = computed(() => adminSession.session?.role === 'SUPER_ADMIN' ? '超级管理员' : '审计观察员')
 const currentPath = computed(() => route.path)
+const sidebarInert = computed(() => isMobileViewport.value && !mobileOpen.value)
 
 function closeMobile(): void {
+  if (document.activeElement instanceof HTMLElement && document.activeElement.closest('.sidebar')) document.activeElement.blur()
   mobileOpen.value = false
+}
+
+function syncMobileViewport(event?: MediaQueryListEvent): void {
+  isMobileViewport.value = event?.matches ?? mobileMediaQuery?.matches ?? false
 }
 
 async function signOut(): Promise<void> {
@@ -48,12 +56,20 @@ async function signOut(): Promise<void> {
   closeMobile()
   await router.replace('/login')
 }
+
+onMounted(() => {
+  mobileMediaQuery = window.matchMedia('(max-width: 760px)')
+  syncMobileViewport()
+  mobileMediaQuery.addEventListener?.('change', syncMobileViewport)
+})
+
+onBeforeUnmount(() => mobileMediaQuery?.removeEventListener?.('change', syncMobileViewport))
 </script>
 
 <template>
   <div class="admin-app-shell">
     <button v-if="mobileOpen" class="sidebar-scrim" type="button" aria-label="关闭导航" @click="closeMobile" />
-    <aside class="sidebar" :class="{ 'sidebar--open': mobileOpen }" aria-label="管理员导航">
+    <aside class="sidebar" :class="{ 'sidebar--open': mobileOpen }" aria-label="管理员导航" :aria-hidden="sidebarInert ? 'true' : undefined" :inert="sidebarInert">
       <div class="brand-row">
         <RouterLink class="brand" to="/overview" @click="closeMobile">
           <strong>MASTER GOODS</strong>
@@ -164,7 +180,7 @@ async function signOut(): Promise<void> {
 
 @media (max-width: 1180px) { .page-container { padding-inline: 24px; } }
 @media (max-width: 760px) {
-  .sidebar { left: -288px; width: 288px; transition: transform .18s ease-out; transform: translateX(0); }.sidebar--open { transform: translateX(288px); }.sidebar-close { display: inline-grid; }
+  .sidebar { left: -288px; width: 288px; visibility: hidden; transition: transform .18s ease-out, visibility .18s ease-out; transform: translateX(0); }.sidebar--open { visibility: visible; transform: translateX(288px); }.sidebar-close { display: inline-grid; }
   .sidebar-scrim { position: fixed; inset: 0; z-index: 20; display: block; width: 100%; border: 0; background: rgba(20, 20, 18, .24); }
   .shell-main { padding-left: 0; }.mobile-header { position: sticky; top: 0; z-index: 10; display: flex; height: 48px; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--admin-border); background: rgba(253, 253, 252, .97); padding: 0 14px; }
   .mobile-spacer { width: 30px; }
