@@ -1,6 +1,6 @@
 # Agent 端测试资料总览
 
-更新时间：2026-08-31
+更新时间：2026-09-01
 
 本目录是 Agent（后端 `/v2/agent`、Android/iOS APP、Web 协议对照）的**唯一**测试资料组织点。以测试类别为单位拆分规划文档、执行台账、脚本、日志、报告和原始证据，取代旧的单份《Agent 综合功能与性能测试方案》（已删除）与历史分类占位目录（observability 等已并入对应类别，本目录不再出现）。
 
@@ -166,3 +166,16 @@ test_id,category_id,wave_id,environment,account_store_label,preconditions,input,
 4. 旧的《Agent 综合功能与性能测试方案》已删除，其编号体系（`AG-F-*`、`AG-S-*`、`AG-P-*`、`AG-C-*`、`AG-U-*`、`AG-CTX-*`）由各类别文档按原编号续用，避免追溯断裂。
 5. 根目录 `testing/已知问题与解除条件.md` 如仍保留旧目录文字，只作为历史记录处理，不作为本目录入口；当前台账并入各 `TEST_PLAN.md` 的用例行，不再存在独立的 Agent CSV 台账。本轮不修改根目录历史文档。
 6. Git 检查只纳入本文档体系、对应类别脚本与脱敏文本证据；凭据、APK、JAR、`dist`、`node_modules`、Gradle 缓存和运行数据库文件不得提交。
+
+## 九、阶段二 Wave 0 当前结果
+
+| 项目 | 当前事实 | 状态 |
+|---|---|---|
+| 8220 运行环境 | 直连 `8.220.206.9` 成功；API 镜像为 `sxyq27-zhj-api:20260901T014000-agent-owner-bill-c012290b`，JAR 摘要为 `d9ac0b508fd55082905fd30608cf6221ff4e97e279496a08ce87a448ad318d77`，Flyway 为 V42，API/PostgreSQL/Redis/Nginx 运行正常 | `Passed` |
+| Android 登录 | `emulator-5554` 上的 `com.zhihuiji.app` 已通过真实 UI 请求公网 `/v1/auth/login`；服务端返回 HTTP 422，未建立可验证 session | `Blocked` |
+| 账号前置 | 四个指定账号后缀 `8111`、`8112`、`8113`、`8114` 均不存在；未重置密码、未创建账号、未准备业务夹具 | `Blocked` |
+| Agent Wave 1-4 | 因没有可验证登录会话，SSE、工具、草稿、审计、取消、重连和性能链路未执行 | `Blocked` |
+| 模型 | 运行时实际模型为 `gpt-5.6-luna`，目标模型为 `glm-5.3-flash`；目标模型和 Provider 实际上下文窗口未验证 | `Blocked` |
+| iOS | 本轮不修改、不构建、不部署、不执行 iOS 测试 | `Deferred` |
+
+本轮脱敏证据位于 `testing/Agent/客户端/artifacts/20260901-agent-phase2-wave0-AG-CLI-AND-P2-LOGIN-001/`。HTTP 422 仅证明请求已到达服务端并收到响应，不能作为客户端、Agent 或目标模型通过依据。
