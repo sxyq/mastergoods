@@ -14,7 +14,7 @@ public class PurchaseReturnEntity {
     @Column(name = "owner_user_id", nullable = false)
     private Long ownerUserId;
 
-    @Column(name = "return_no", nullable = false, unique = true, length = 64)
+    @Column(name = "return_no", nullable = false, length = 64)
     private String returnNo;
 
     @Column(name = "purchase_order_id")

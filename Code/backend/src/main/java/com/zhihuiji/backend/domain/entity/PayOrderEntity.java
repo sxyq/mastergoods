@@ -21,7 +21,7 @@ public class PayOrderEntity {
     @Column(name = "owner_user_id", nullable = false)
     private Long ownerUserId;
 
-    @Column(name = "order_no", nullable = false, unique = true, length = 64)
+    @Column(name = "order_no", nullable = false, length = 64)
     private String orderNo;
 
     @Column(name = "idempotency_key", length = 128)

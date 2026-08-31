@@ -14,7 +14,7 @@ public class PurchaseReceiptEntity {
     @Column(name = "owner_user_id", nullable = false)
     private Long ownerUserId;
 
-    @Column(name = "receipt_no", nullable = false, unique = true, length = 64)
+    @Column(name = "receipt_no", nullable = false, length = 64)
     private String receiptNo;
 
     @Column(name = "purchase_order_id")
