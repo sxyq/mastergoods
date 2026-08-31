@@ -1,0 +1,24 @@
+{
+  "test_id": "AG-CLI-AND-P2-LOGIN-001",
+  "status": "Passed",
+  "observed_at": "2026-09-01T03:37:14+08:00",
+  "source": "8220 PostgreSQL read-only count query after local App cleanup",
+  "counts": {
+    "users": 3,
+    "stores": 2,
+    "store_memberships": 2,
+    "sessions": 6,
+    "agent_conversations": 0,
+    "agent_messages": 0,
+    "agent_drafts": 0,
+    "agent_run_audits": 0,
+    "agent_memories": 0,
+    "agent_tasks": 0,
+    "agent_notifications": 0,
+    "media_assets": 0
+  },
+  "delta": "无变化",
+  "business_write": false,
+  "account_creation": false,
+  "credential_reset": false
+}

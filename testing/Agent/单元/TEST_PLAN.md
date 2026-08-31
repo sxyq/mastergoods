@@ -64,3 +64,11 @@ Android 每个组件行必须分别记录序列化、网络错误、状态合并
 - 运行：`./Code/backend/gradlew -p Code/backend test` 与 Android 相关模块单测；iOS 侧仅在有本机 Xcode 工具时运行 `xcodebuild`。
 - 门槛：目标模块测试全部 `Passed` 或明确登记 `Blocked`（依赖环境）；失败项按 `AG-U-*` 编号单独登记，不得并入相邻通过项。
 - 证据：JUnit XML/HTML 报告 → `单元/reports/`；失败堆栈与日志 → `单元/logs/`；脚本 → `../脚本/单元/`。每个测试类或参数化分支要带 `test_id` 与 `wave_id`，不得只提交一份全量汇总。
+
+## 阶段二 Wave 0 实测边界
+
+- 当前唯一真实客户端用例 `AG-CLI-AND-P2-LOGIN-001` 已到达 8220 公网 API，返回 HTTP 422；指定账号后缀 `8111`、`8112`、`8113`、`8114` 均不存在。
+- 本类单元测试和组件测试真实证据未产生；没有重置密码、创建账号、创建夹具或业务写入，Wave 1-4 未进入。
+- 本轮状态：`Blocked`。本类原计划用例保持 `Deferred`，HTTP 422 不记为 `Passed`。
+- 实际模型为 `gpt-5.6-luna`，与目标 `glm-5.3-flash` 不一致；iOS：`Deferred`。
+- 证据目录：`testing/Agent/客户端/artifacts/20260901-agent-phase2-wave0-AG-CLI-AND-P2-LOGIN-001/`。

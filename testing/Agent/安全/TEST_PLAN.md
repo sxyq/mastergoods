@@ -55,3 +55,11 @@
 每条安全记录必须保存脱敏的请求摘要、响应状态和错误码、实际工具调用数、业务 Service 是否进入、数据库 before/after、audit/run-trace 对齐结果和清理结果。攻击输入只针对隔离测试数据和测试服务；不得把破坏性输入发送到生产服务，也不得为了验证越权而读取或保存其他用户的完整数据。
 
 安全结论只允许四种状态：`Passed`、`Failed`、`Blocked`、`Deferred`。静态代码检查只能作为辅助证据，不能替代真实调用者、HTTP、数据库和日志证据。
+
+## 阶段二 Wave 0 实测边界
+
+- 当前唯一真实客户端用例 `AG-CLI-AND-P2-LOGIN-001` 已到达 8220 公网 API，返回 HTTP 422；指定账号后缀 `8111`、`8112`、`8113`、`8114` 均不存在。
+- 本类认证、授权和攻击场景真实证据未产生；没有重置密码、创建账号、创建夹具或业务写入，Wave 1-4 未进入。
+- 本轮状态：`Blocked`。本类原计划用例保持 `Deferred`，HTTP 422 不记为 `Passed`。
+- 实际模型为 `gpt-5.6-luna`，与目标 `glm-5.3-flash` 不一致；iOS：`Deferred`。
+- 证据目录：`testing/Agent/客户端/artifacts/20260901-agent-phase2-wave0-AG-CLI-AND-P2-LOGIN-001/`。

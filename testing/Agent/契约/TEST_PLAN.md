@@ -119,3 +119,11 @@
 | `AG-C-SSE-009` | `/chat/stream` 选择 `image_generate`，并分别拒绝、确认和 Provider 失败 | `tool_started/completed` 只覆盖草稿阶段；`draft_created` 与 `CONFIRMATION_PENDING` 对齐；确认结果和错误不伪装成工具阶段成功 | `契约/artifacts/<日期>-<波次>-AG-C-SSE-009/03-raw-sse.log`、`04-tool-trace.jsonl`、`05-run-audit.json`、`10-conclusion.md` | `Deferred` |
 
 `image_url` 的 URL 或 `data:image/...;base64,...` 只在授权响应中核对格式；完整 `b64_json`、key、认证头和完整提示词不得写入契约日志或审计摘要。缺少 Provider 时 `AG-C-SCHEMA-008` 的真实结果记 `Blocked` 或 `Deferred`，不能以 DTO 静态存在标记通过。
+
+## 阶段二 Wave 0 实测边界
+
+- 当前唯一真实客户端用例 `AG-CLI-AND-P2-LOGIN-001` 已到达 8220 公网 API，返回 HTTP 422；指定账号后缀 `8111`、`8112`、`8113`、`8114` 均不存在。
+- 本类 Agent REST/SSE、Schema、事件和客户端解析证据未产生；没有重置密码、创建账号、创建夹具或业务写入，Wave 1-4 未进入。
+- 本轮状态：`Blocked`。本类原计划用例保持 `Deferred`，HTTP 422 不记为 `Passed`。
+- 实际模型为 `gpt-5.6-luna`，与目标 `glm-5.3-flash` 不一致；iOS：`Deferred`。
+- 证据目录：`testing/Agent/客户端/artifacts/20260901-agent-phase2-wave0-AG-CLI-AND-P2-LOGIN-001/`。

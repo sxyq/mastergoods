@@ -78,3 +78,11 @@
 - 脚本：`../脚本/性能/`；并发工具与探针不提交凭据。
 
 `AG-P-027` 每条记录必须包含输入、并发级别、Provider Mock 响应类型、P50/P95/P99（样本足够时）、资源聚合值、草稿/正式表 before-after、audit、清理证据和 `Passed/Failed/Blocked/Deferred` 状态。真实 Provider 仅在获批的隔离环境执行。
+
+## 阶段二 Wave 0 实测边界
+
+- 当前唯一真实客户端用例 `AG-CLI-AND-P2-LOGIN-001` 已到达 8220 公网 API，返回 HTTP 422；指定账号后缀 `8111`、`8112`、`8113`、`8114` 均不存在。
+- 本类性能样本、并发、延迟和资源证据未产生；没有重置密码、创建账号、创建夹具或业务写入，Wave 1-4 未进入。
+- 本轮状态：`Blocked`。本类原计划用例保持 `Deferred`，HTTP 422 不记为 `Passed`。
+- 实际模型为 `gpt-5.6-luna`，与目标 `glm-5.3-flash` 不一致；iOS：`Deferred`。
+- 证据目录：`testing/Agent/客户端/artifacts/20260901-agent-phase2-wave0-AG-CLI-AND-P2-LOGIN-001/`。
