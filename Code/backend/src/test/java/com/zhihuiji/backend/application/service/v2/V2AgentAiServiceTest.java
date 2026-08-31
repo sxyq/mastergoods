@@ -3673,21 +3673,20 @@ class V2AgentAiServiceTest {
                 return entity;
             });
         // 历史 7 条消息：两个完整轮次 + 当前 user 消息（id=7）。
-        List<AgentMessageEntity> descending = List.of(
-            message(7L, 401L, "user", "当前问题", 7L),
-            message(6L, 401L, "tool", null, 6L),
-            message(5L, 401L, "assistant", "第二轮回答", 5L),
-            message(4L, 401L, "user", "第二轮问题", 4L),
-            message(3L, 401L, "tool", null, 3L),
+        List<AgentMessageEntity> history = List.of(
+            message(1L, 401L, "user", "第一轮问题", 1L),
             message(2L, 401L, "assistant", "第一轮回答", 2L),
-            message(1L, 401L, "user", "第一轮问题", 1L)
+            message(3L, 401L, "tool", null, 3L),
+            message(4L, 401L, "user", "第二轮问题", 4L),
+            message(5L, 401L, "assistant", "第二轮回答", 5L),
+            message(6L, 401L, "tool", null, 6L),
+            message(7L, 401L, "user", "当前问题", 7L)
         );
-        for (AgentMessageEntity toolMessage : List.of(descending.get(1), descending.get(4))) {
+        for (AgentMessageEntity toolMessage : List.of(history.get(2), history.get(5))) {
             toolMessage.setStructuredDataJson("{\"tool_name\":\"product_catalog_lookup\",\"tool_call_id\":\"call-x\"}");
         }
-        when(agentMessageRepository.findAllByOwnerUserIdAndConversationIdOrderByCreatedAtDescIdDesc(
-            1L, 401L, PageRequest.of(0, 24)))
-            .thenReturn(descending);
+        when(agentMessageRepository.findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(1L, 401L))
+            .thenReturn(history);
 
         // 超长当前问题强制压缩预算超限。
         String longQuestion = "请帮我仔细查询并核对这家门店的历史经营数据".repeat(2000);
@@ -3699,9 +3698,9 @@ class V2AgentAiServiceTest {
         verify(answerSynthesizer).buildFinalAnswer(
             anyString(), any(), historyCaptor.capture(), anyString()
         );
-        List<AgentMessageEntity> history = historyCaptor.getValue();
-        assertEquals(1, history.size(), "压缩后历史只保留边界之后的原始消息");
-        assertEquals(7L, history.get(0).getId());
+        List<AgentMessageEntity> retainedHistory = historyCaptor.getValue();
+        assertEquals(1, retainedHistory.size(), "压缩后历史只保留边界之后的原始消息");
+        assertEquals(7L, retainedHistory.get(0).getId());
     }
 
     @Test
@@ -3713,21 +3712,20 @@ class V2AgentAiServiceTest {
                 setId(entity, 888L);
                 return entity;
             });
-        List<AgentMessageEntity> descending = List.of(
-            message(7L, 402L, "user", "当前问题", 7L),
-            message(6L, 402L, "tool", null, 6L),
-            message(5L, 402L, "assistant", "第二轮回答", 5L),
-            message(4L, 402L, "user", "第二轮问题", 4L),
-            message(3L, 402L, "tool", null, 3L),
+        List<AgentMessageEntity> history = List.of(
+            message(1L, 402L, "user", "第一轮问题", 1L),
             message(2L, 402L, "assistant", "第一轮回答", 2L),
-            message(1L, 402L, "user", "第一轮问题", 1L)
+            message(3L, 402L, "tool", null, 3L),
+            message(4L, 402L, "user", "第二轮问题", 4L),
+            message(5L, 402L, "assistant", "第二轮回答", 5L),
+            message(6L, 402L, "tool", null, 6L),
+            message(7L, 402L, "user", "当前问题", 7L)
         );
-        for (AgentMessageEntity toolMessage : List.of(descending.get(1), descending.get(4))) {
+        for (AgentMessageEntity toolMessage : List.of(history.get(2), history.get(5))) {
             toolMessage.setStructuredDataJson("{\"tool_name\":\"product_catalog_lookup\",\"tool_call_id\":\"call-y\"}");
         }
-        when(agentMessageRepository.findAllByOwnerUserIdAndConversationIdOrderByCreatedAtDescIdDesc(
-            1L, 402L, PageRequest.of(0, 24)))
-            .thenReturn(descending);
+        when(agentMessageRepository.findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(1L, 402L))
+            .thenReturn(history);
 
         String longQuestion = "请帮我统计所有客户这个季度的应收与付款计划".repeat(2000);
         CapturingEmitter emitter = new CapturingEmitter();
@@ -3747,6 +3745,8 @@ class V2AgentAiServiceTest {
     void nonStreamingContextUsesAuthenticatedScopeAndPendingState() {
         Long conversationId = 403L;
         stubProtectedContext(conversationId);
+        when(agentConversationRepository.findByIdAndOwnerUserId(conversationId, 1L))
+            .thenReturn(Optional.of(conversation(conversationId)));
         when(currentOwnerService.requireCurrentUserId()).thenReturn(9L);
         when(currentOwnerService.findCurrentStoreId()).thenReturn(Optional.of(44L));
         doThrow(new AccessDeniedException("denied"))
