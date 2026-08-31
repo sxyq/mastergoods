@@ -9,6 +9,7 @@ const props = defineProps<{
   toolCalls: number | null
   totalRuns: number | null
   averageLatency: number | null
+  loading?: boolean
 }>()
 
 const ringStyle = computed(() => {
@@ -26,16 +27,23 @@ const callsPerRun = computed(() => {
 </script>
 
 <template>
-  <section class="resource-panel" aria-labelledby="resource-title">
+  <section class="resource-panel" aria-labelledby="resource-title" :aria-busy="loading || undefined">
     <header class="panel-heading">
       <div>
-        <h2 id="resource-title">运行状态</h2>
-        <p>终态成功率与当前调用负载</p>
+        <h2 id="resource-title">运行资源</h2>
+        <p>终态完成率与当前调用负载</p>
       </div>
       <Gauge aria-hidden="true" />
     </header>
 
-    <div class="resource-body">
+    <div v-if="loading" class="resource-body resource-body--loading" role="status" aria-label="正在加载运行资源">
+      <div class="ring-skeleton" aria-hidden="true" />
+      <div class="resource-list-skeleton" aria-hidden="true">
+        <div v-for="index in 4" :key="index"><i /><span /></div>
+      </div>
+    </div>
+
+    <div v-else class="resource-body">
       <div class="success-ring" :class="{ 'success-ring--unavailable': successRate === null }" :style="ringStyle" :aria-label="successRateDescription">
         <div>
           <strong>{{ successRateLabel }}</strong>
@@ -74,7 +82,7 @@ const callsPerRun = computed(() => {
   min-height: 352px;
   border: 1px solid var(--admin-border, #e7e7e4);
   border-radius: 8px;
-  background: var(--admin-card, #fcfcfb);
+  background: #fafaf8;
   padding: 18px;
 }
 
@@ -105,7 +113,7 @@ const callsPerRun = computed(() => {
 
 .success-ring--unavailable { background: #dce7ee; }
 
-.success-ring::before { width: 119px; height: 119px; border-radius: 50%; background: var(--admin-card, #fcfcfb); content: ''; grid-area: 1 / 1; }
+.success-ring::before { width: 119px; height: 119px; border-radius: 50%; background: #fafaf8; content: ''; grid-area: 1 / 1; }
 .success-ring > div { z-index: 1; display: grid; place-items: center; grid-area: 1 / 1; }
 .success-ring strong { font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .success-ring span { margin-top: 4px; color: var(--admin-muted, #71716d); font-size: 10px; }
@@ -118,9 +126,21 @@ const callsPerRun = computed(() => {
 .resource-list dd { grid-column: 2; grid-row: 1 / span 2; align-self: center; margin: 0; font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .resource-list small { color: var(--admin-muted, #71716d); font-size: 10px; }
 
+.ring-skeleton { width: 156px; height: 156px; margin: 0 auto; border: 18px solid #dfe8e2; border-radius: 50%; animation: skeleton-pulse 1.4s ease-in-out infinite; }
+.resource-list-skeleton { display: grid; align-self: stretch; grid-template-rows: repeat(4, 1fr); }
+.resource-list-skeleton > div { display: grid; grid-template-columns: 1fr 42px; align-content: center; gap: 7px 12px; border-bottom: 1px solid var(--admin-border, #e7e7e4); }
+.resource-list-skeleton > div:last-child { border-bottom: 0; }
+.resource-list-skeleton i, .resource-list-skeleton span { display: block; height: 9px; border-radius: 3px; background: #e9e9e6; animation: skeleton-pulse 1.4s ease-in-out infinite; }
+.resource-list-skeleton i { width: 72%; }
+.resource-list-skeleton span { width: 42px; grid-column: 2; grid-row: 1; }
+
+@keyframes skeleton-pulse { 50% { opacity: .52; } }
+
 @media (max-width: 480px) {
   .resource-body { grid-template-columns: 1fr; gap: 18px; }
   .success-ring { width: 132px; height: 132px; }
   .success-ring::before { width: 101px; height: 101px; }
 }
+
+@media (prefers-reduced-motion: reduce) { .ring-skeleton, .resource-list-skeleton i, .resource-list-skeleton span { animation: none; } }
 </style>

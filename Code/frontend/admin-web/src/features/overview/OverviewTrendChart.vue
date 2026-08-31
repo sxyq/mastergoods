@@ -38,6 +38,7 @@ const chart = computed(() => {
       height: barHeight,
       label: formatShortDate(point.at),
       showLabel: index === 0 || index === props.points.length - 1 || index === Math.floor(props.points.length / 2),
+      active: index >= props.points.length - 4,
     }
   })
   return { width, height, left, top, bottom, availableWidth, availableHeight, maxValue, grid, bars }
@@ -57,7 +58,15 @@ const rangeLabel = computed(() => props.from && props.to ? `${formatShortDate(pr
       <BarChart3 aria-hidden="true" />
     </header>
 
-    <template v-if="!loading && points.length">
+    <div v-if="loading" class="trend-loading" role="status" aria-label="正在加载 Agent 运行趋势">
+      <span class="summary-skeleton" aria-hidden="true" />
+      <div class="chart-skeleton" aria-hidden="true">
+        <i v-for="height in [36, 48, 42, 61, 54, 68, 58, 76, 65, 83, 72, 91]" :key="height" :style="{ height: `${height}%` }" />
+      </div>
+      <div class="legend-skeleton" aria-hidden="true"><i /><i /></div>
+    </div>
+
+    <template v-else-if="points.length">
       <div class="trend-summary">
         <strong>{{ formatNumber(total) }}</strong>
         <span>次运行</span>
@@ -74,10 +83,14 @@ const rangeLabel = computed(() => props.from && props.to ? `${formatShortDate(pr
           <text :x="chart.left - 9" :y="line.y + 4" class="trend-axis" text-anchor="end">{{ line.value }}</text>
         </g>
         <g v-for="bar in chart.bars" :key="bar.at">
-          <rect :x="bar.x" :y="bar.y" :width="bar.width" :height="bar.height" rx="2" class="trend-bar" />
+          <rect :x="bar.x" :y="bar.y" :width="bar.width" :height="bar.height" rx="2" class="trend-bar" :class="{ 'trend-bar--active': bar.active }" />
           <text v-if="bar.showLabel" :x="bar.x + bar.width / 2" :y="chart.height - 8" class="trend-axis" text-anchor="middle">{{ bar.label }}</text>
         </g>
       </svg>
+      <div class="chart-legend" aria-hidden="true">
+        <span><i class="legend-dot legend-dot--blue" />调用次数</span>
+        <span class="chart-period">{{ rangeLabel }}</span>
+      </div>
       <table class="visually-hidden">
         <caption>Agent 运行趋势数据</caption>
         <thead><tr><th scope="col">日期</th><th scope="col">运行次数</th></tr></thead>
@@ -86,12 +99,9 @@ const rangeLabel = computed(() => props.from && props.to ? `${formatShortDate(pr
     </template>
 
     <div v-else class="chart-empty">
-      <span v-if="loading" class="loading-mark" aria-label="正在加载" />
-      <template v-else>
-        <BarChart3 aria-hidden="true" />
-        <strong>暂无运行趋势</strong>
-        <span>所选时间范围内还没有可展示的运行记录。</span>
-      </template>
+      <BarChart3 aria-hidden="true" />
+      <strong>暂无运行趋势</strong>
+      <span>所选时间范围内还没有可展示的运行记录。</span>
     </div>
   </section>
 </template>
@@ -101,7 +111,7 @@ const rangeLabel = computed(() => props.from && props.to ? `${formatShortDate(pr
   min-height: 352px;
   border: 1px solid var(--admin-border, #e7e7e4);
   border-radius: 8px;
-  background: var(--admin-card, #fcfcfb);
+  background: #fafaf8;
   padding: 18px;
 }
 
@@ -169,12 +179,27 @@ const rangeLabel = computed(() => props.from && props.to ? `${formatShortDate(pr
 }
 
 .trend-bar {
-  fill: #87b7d8;
+  fill: #c6dced;
 }
 
 .trend-bar:hover {
   fill: #5f9bc6;
 }
+
+.trend-bar--active { fill: #70add4; }
+
+.chart-legend { display: flex; align-items: center; gap: 14px; margin-top: -2px; color: var(--admin-muted, #71716d); font-size: 10px; }
+.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend-dot { width: 7px; height: 7px; border-radius: 50%; }
+.legend-dot--blue { background: #4a8cc9; }
+.chart-period { margin-left: auto; }
+
+.trend-loading { min-height: 276px; padding-top: 23px; }
+.summary-skeleton { display: block; width: 108px; height: 23px; border-radius: 4px; background: #e9e9e6; animation: skeleton-pulse 1.4s ease-in-out infinite; }
+.chart-skeleton { display: flex; height: 192px; align-items: flex-end; gap: 10px; margin: 15px 0 0 40px; border-bottom: 1px solid var(--admin-border, #e7e7e4); padding: 18px 8px 0; background: repeating-linear-gradient(to bottom, transparent 0, transparent 47px, #e7e7e4 48px); }
+.chart-skeleton i { min-width: 5px; flex: 1; border-radius: 3px 3px 1px 1px; background: #d6e3ec; animation: skeleton-pulse 1.4s ease-in-out infinite; }
+.legend-skeleton { display: flex; gap: 12px; margin-top: 12px; }
+.legend-skeleton i { width: 72px; height: 9px; border-radius: 3px; background: #e9e9e6; }
 
 .chart-empty {
   display: grid;
@@ -195,15 +220,6 @@ const rangeLabel = computed(() => props.from && props.to ? `${formatShortDate(pr
 .chart-empty strong { color: var(--admin-foreground, #1d1d1b); font-size: 12px; font-weight: 500; }
 .chart-empty span { font-size: 11px; }
 
-.loading-mark {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--admin-border, #e7e7e4);
-  border-top-color: var(--admin-foreground, #1d1d1b);
-  border-radius: 50%;
-  animation: spin .8s linear infinite;
-}
-
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -214,7 +230,7 @@ const rangeLabel = computed(() => props.from && props.to ? `${formatShortDate(pr
   clip-path: inset(50%);
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes skeleton-pulse { 50% { opacity: .52; } }
 
-@media (prefers-reduced-motion: reduce) { .loading-mark { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .summary-skeleton, .chart-skeleton i { animation: none; } }
 </style>

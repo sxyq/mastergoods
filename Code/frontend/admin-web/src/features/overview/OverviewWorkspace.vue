@@ -97,9 +97,8 @@ onMounted(async () => {
   <section class="overview-workspace">
     <header class="page-header">
       <div>
-        <p class="eyebrow">PLATFORM / OVERVIEW</p>
+        <p class="eyebrow">管理后台&nbsp;&nbsp;/&nbsp;&nbsp;平台总览</p>
         <h1>平台总览</h1>
-        <p class="page-description">查看授权范围内的组织规模、Agent 运行和管理员活动。</p>
       </div>
       <div class="page-actions">
         <label class="range-control">
@@ -125,6 +124,11 @@ onMounted(async () => {
     </div>
 
     <template v-else>
+      <div class="data-notice">
+        <i aria-hidden="true" />
+        <strong>LIVE DATA</strong>
+        <span>展示管理员授权范围内的实时平台数据</span>
+      </div>
       <p v-if="overview?.scope_completeness === 'PARTIAL'" class="scope-notice">
         当前数据仅覆盖你被授权的 owner 或门店范围。
       </p>
@@ -133,7 +137,7 @@ onMounted(async () => {
       </p>
 
       <div class="metric-grid" :aria-busy="loading || undefined">
-        <OverviewMetricCard v-for="item in cards" :key="item.key" :label="item.label" :value="item.value" :detail="item.detail" :icon="item.icon" :unavailable="item.unavailable" />
+        <OverviewMetricCard v-for="item in cards" :key="item.key" :label="item.label" :value="item.value" :detail="item.detail" :icon="item.icon" :unavailable="item.unavailable" :loading="loading" />
       </div>
 
       <div class="dashboard-grid">
@@ -144,6 +148,7 @@ onMounted(async () => {
           :tool-calls="metric('agent_tool_calls')?.value ?? null"
           :total-runs="metric('agent_runs')?.value ?? null"
           :average-latency="metric('agent_average_latency')?.value ?? null"
+          :loading="loading"
         />
       </div>
 
@@ -160,7 +165,12 @@ onMounted(async () => {
             <table>
               <thead><tr><th scope="col">运行</th><th scope="col">模型与范围</th><th scope="col" class="numeric">Token / 耗时</th><th scope="col">状态</th></tr></thead>
               <tbody>
-                <tr v-for="run in runs" :key="run.run_id">
+                <template v-if="loading">
+                  <tr v-for="index in 4" :key="`run-skeleton-${index}`" class="table-skeleton" aria-hidden="true">
+                    <td><i /><small /></td><td><i /><small /></td><td><i /><small /></td><td><span /></td>
+                  </tr>
+                </template>
+                <tr v-for="run in loading ? [] : runs" :key="run.run_id">
                   <td><strong class="mono">{{ run.run_id }}</strong><small>{{ formatDateTime(run.started_at) }}</small></td>
                   <td><strong>{{ run.model_id || '未记录模型' }}</strong><small>Owner {{ run.owner_user_id || '—' }} / 门店 {{ run.store_id || '—' }}</small></td>
                   <td class="numeric"><strong>{{ formatNumber(run.total_tokens) }}</strong><small>{{ formatDuration(run.duration_ms) }}</small></td>
@@ -178,7 +188,10 @@ onMounted(async () => {
             <RouterLink class="text-link" to="/audit">查看全部</RouterLink>
           </header>
           <ul class="audit-list">
-            <li v-for="event in auditEvents" :key="event.event_id">
+            <li v-for="index in loading ? 4 : 0" :key="`audit-skeleton-${index}`" class="audit-skeleton" aria-hidden="true">
+              <i /><div><strong /><small /></div><span />
+            </li>
+            <li v-for="event in loading ? [] : auditEvents" :key="event.event_id">
               <Activity aria-hidden="true" />
               <div><strong>{{ event.action }}</strong><small>{{ event.resource_type || '系统资源' }} · {{ formatDateTime(event.occurred_at) }}</small></div>
               <span class="audit-result" :class="event.result === 'SUCCESS' ? 'audit-result--success' : 'audit-result--warning'">{{ event.result }}</span>
@@ -198,10 +211,9 @@ onMounted(async () => {
 
 <style scoped>
 .overview-workspace { width: 100%; }
-.page-header { display: flex; min-height: 72px; align-items: flex-start; justify-content: space-between; gap: 24px; }
-.eyebrow { margin: 0; color: var(--admin-muted, #71716d); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; letter-spacing: .08em; }
-h1 { margin: 9px 0 0; font-size: 24px; font-weight: 500; line-height: 1.15; }
-.page-description { margin: 8px 0 0; color: var(--admin-muted, #71716d); font-size: 12px; }
+.page-header { display: flex; min-height: 52px; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.eyebrow { margin: 0; color: #a0a0a0; font-size: 11px; letter-spacing: 0; }
+h1 { margin: 11px 0 0; font-size: 22px; font-weight: 500; letter-spacing: -.025em; line-height: 1.15; }
 .page-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
 .range-control { display: inline-flex; height: 32px; align-items: center; gap: 7px; border: 1px solid var(--admin-border, #e7e7e4); border-radius: 999px; background: var(--admin-card, #fcfcfb); padding: 0 10px; color: var(--admin-muted, #71716d); }
 .range-control :deep(svg), .button :deep(svg) { width: 14px; height: 14px; stroke-width: 1.8; }
@@ -212,7 +224,11 @@ h1 { margin: 9px 0 0; font-size: 24px; font-weight: 500; line-height: 1.15; }
 .button--outline:hover:not(:disabled) { background: var(--admin-secondary, #f2f2ef); }
 .spinning { animation: spin .8s linear infinite; }
 
-.scope-notice { margin: 18px 0 0; border-bottom: 1px solid var(--admin-border, #e7e7e4); padding: 0 0 10px; color: var(--admin-muted, #71716d); font-size: 11px; }
+.data-notice { display: flex; min-height: 32px; align-items: center; gap: 8px; margin-top: 32px; border-bottom: 1px solid var(--admin-border, #e7e7e4); color: var(--admin-muted, #71716d); font-size: 10px; }
+.data-notice i { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: #43a56b; }
+.data-notice strong { color: var(--admin-foreground, #1d1d1b); font-size: 10px; font-weight: 500; letter-spacing: .1em; }
+.data-notice span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scope-notice { margin: 10px 0 0; border-bottom: 1px solid var(--admin-border, #e7e7e4); padding: 0 0 10px; color: var(--admin-muted, #71716d); font-size: 11px; }
 .scope-notice--warning { color: #9a691f; }
 .error-banner { display: flex; align-items: center; gap: 12px; margin-top: 22px; border: 1px solid #e6c2bd; border-radius: 8px; background: #fff9f7; padding: 12px; color: #843e35; font-size: 12px; }
 .error-banner span { flex: 1; }
@@ -221,7 +237,7 @@ h1 { margin: 9px 0 0; font-size: 24px; font-weight: 500; line-height: 1.15; }
 .dashboard-grid, .lower-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(330px, 2fr); gap: 8px; margin-top: 8px; }
 .lower-grid { align-items: stretch; }
 
-.data-panel { min-width: 0; border: 1px solid var(--admin-border, #e7e7e4); border-radius: 8px; background: var(--admin-card, #fcfcfb); padding: 18px; }
+.data-panel { min-width: 0; border: 1px solid var(--admin-border, #e7e7e4); border-radius: 8px; background: #fafaf8; padding: 18px; }
 .panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .panel-header h2 { margin: 0; font-size: 14px; font-weight: 500; }
 .panel-header p { margin: 5px 0 0; color: var(--admin-muted, #71716d); font-size: 11px; }
@@ -234,6 +250,11 @@ th:nth-child(1) { width: 30%; } th:nth-child(2) { width: 33%; } th:nth-child(3) 
 td { height: 58px; border-bottom: 1px solid var(--admin-border, #e7e7e4); padding: 7px 8px 7px 0; font-size: 11px; vertical-align: middle; }
 td strong { display: block; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 td small { display: block; overflow: hidden; margin-top: 5px; color: var(--admin-muted, #71716d); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.table-skeleton i, .table-skeleton small, .table-skeleton span { display: block; border-radius: 3px; background: #e9e9e6; animation: skeleton-pulse 1.4s ease-in-out infinite; }
+.table-skeleton i { width: 72%; height: 10px; }
+.table-skeleton small { width: 56%; height: 8px; margin-top: 7px; }
+.table-skeleton td:nth-child(3) i, .table-skeleton td:nth-child(3) small { margin-left: auto; }
+.table-skeleton span { width: 54px; height: 19px; }
 .mono { color: #65659d; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
 .numeric { padding-right: 10px; text-align: right; font-variant-numeric: tabular-nums; }
 .status { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 4px 7px; font-size: 10px; white-space: nowrap; }
@@ -255,11 +276,18 @@ td small { display: block; overflow: hidden; margin-top: 5px; color: var(--admin
 .audit-result { flex: 0 0 auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; }
 .audit-result--success { color: #318254; } .audit-result--warning { color: #9a691f; }
 .audit-list .empty-audit { justify-content: center; height: 120px; color: var(--admin-muted, #71716d); font-size: 11px; }
+.audit-skeleton > i, .audit-skeleton strong, .audit-skeleton small, .audit-skeleton > span { display: block; border-radius: 3px; background: #e9e9e6; animation: skeleton-pulse 1.4s ease-in-out infinite; }
+.audit-list .audit-skeleton > i { width: 16px; height: 16px; flex: 0 0 16px; }
+.audit-skeleton strong { width: 68%; height: 9px; }
+.audit-skeleton small { width: 48%; height: 8px; margin-top: 7px; }
+.audit-skeleton > span { width: 42px; height: 9px; }
 .page-footer { display: flex; justify-content: space-between; gap: 16px; margin-top: 20px; color: var(--admin-muted, #71716d); font-size: 10px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; clip-path: inset(50%); }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes skeleton-pulse { 50% { opacity: .52; } }
 @media (max-width: 1180px) { .metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .dashboard-grid, .lower-grid { grid-template-columns: 1fr; } }
-@media (max-width: 760px) { .page-header { flex-direction: column; gap: 18px; } .page-actions { width: 100%; } .range-control { flex: 1; } .range-control select { width: 100%; } .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .error-banner { align-items: flex-start; flex-direction: column; } .page-footer { align-items: flex-start; flex-direction: column; gap: 6px; } }
-@media (prefers-reduced-motion: reduce) { .spinning { animation: none; } }
+@media (max-width: 760px) { .page-header { align-items: flex-start; flex-direction: column; gap: 16px; } .page-actions { width: 100%; } .range-control { flex: 1; } .range-control select { width: 100%; } .data-notice { margin-top: 25px; } .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .error-banner { align-items: flex-start; flex-direction: column; } .page-footer { align-items: flex-start; flex-direction: column; gap: 6px; } }
+@media (max-width: 480px) { .metric-grid { gap: 6px; } .dashboard-grid, .lower-grid { gap: 6px; margin-top: 6px; } .data-panel { padding: 14px 12px; } .panel-header h2 { font-size: 13px; } }
+@media (prefers-reduced-motion: reduce) { .spinning, .table-skeleton i, .table-skeleton small, .table-skeleton span, .audit-skeleton > i, .audit-skeleton strong, .audit-skeleton small, .audit-skeleton > span { animation: none; } }
 </style>
