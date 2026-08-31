@@ -10,13 +10,13 @@
 | 依据源码 | `Code/backend/src/main/java/com/zhihuiji/backend/infrastructure/ai/LongCatAnthropicClient.java`、`infrastructure/config/AgentLlmProperties.java`、`AgentImageProperties.java`、`HttpClientConfig.java` |
 | 依据测试 | `V2AgentAiServiceTest.java`、`AnswerSynthesizerTest.java`、`testing/.artifacts/2026-07-19-agent-llm-live-recheck/` |
 | 依据证据 | `testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md`（Provider 直连结果） |
-| 最后核对 | 2026-08-20 |
+| 最后核对 | 2026-09-01 |
 
 ## 一、Provider 配置（8220 当前基线）
 
 | 配置项 | 当前值 |
 |---|---|
-| 模型 | `gpt-5.6-luna` |
+| 模型 | `glm-5.3-flash` |
 | Base URL | `<LLM_PROVIDER_BASE_URL>`（运行时占位符） |
 | Wire API | `chat_completions` |
 | OpenAI 认证 | 已启用（`requires-openai-auth: true`） |

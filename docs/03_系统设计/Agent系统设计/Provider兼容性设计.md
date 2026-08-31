@@ -10,14 +10,14 @@
 | 依据源码 | `infrastructure/ai/LongCatAnthropicClient.java`、`infrastructure/config/AgentLlmProperties.java`、`application/service/v2/agent/component/AnswerSynthesizer.java` |
 | 依据测试 | `V2AgentAiServiceTest.java`、`AnswerSynthesizerTest.java`、`ToolPlannerTest.java` |
 | 依据证据 | `testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md`、`testing/.artifacts/2026-07-19-agent-llm-live-recheck/` |
-| 最后核对 | 2026-08-28 |
+| 最后核对 | 2026-09-01 |
 
 ## 一、Provider 配置兼容面
 
 | 配置 | 值（8220） | 说明 |
 |---|---|---|
 | AGENT_LLM_ENABLED | true（运行时） | 默认 false（application.yml），由运行时环境变量覆盖 |
-| AGENT_LLM_MODEL | gpt-5.6-luna | 模型 |
+| AGENT_LLM_MODEL | glm-5.3-flash | 模型 |
 | AGENT_LLM_BASE_URL | `<LLM_PROVIDER_BASE_URL>` | Base URL 仅由运行时配置提供 |
 | AGENT_LLM_WIRE_API | chat_completions | Wire API（历史 154 曾用 responses） |
 | AGENT_LLM_REQUIRES_OPENAI_AUTH | true | OpenAI 认证头 |
