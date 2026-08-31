@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, Eye, EyeOff, KeyRound, ShieldCheck } from 'lucide-vue-next'
-import { loginAsAdmin } from '@/app/stores/admin-session'
+import { adminSession, loginAsAdmin } from '@/app/stores/admin-session'
 
 const router = useRouter()
 const route = useRoute()
@@ -11,6 +11,8 @@ const password = ref('')
 const showPassword = ref(false)
 const submitting = ref(false)
 const error = ref('')
+const forbiddenMessage = '当前账号没有访问管理员后台的权限。'
+const displayedError = computed(() => adminSession.status === 'forbidden' ? forbiddenMessage : error.value || adminSession.error)
 const redirect = computed(() => typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/') ? route.query.redirect : '/overview')
 
 async function submit(): Promise<void> {
@@ -26,7 +28,12 @@ async function submit(): Promise<void> {
     await router.replace(redirect.value)
   } catch (reason) {
     password.value = ''
-    error.value = reason instanceof Error ? reason.message : '登录失败，请稍后重试。'
+    if (adminSession.status === 'forbidden') {
+      error.value = forbiddenMessage
+      await router.replace({ name: 'forbidden' }).catch(() => undefined)
+    } else {
+      error.value = reason instanceof Error ? reason.message : '登录失败，请稍后重试。'
+    }
   } finally {
     submitting.value = false
   }
@@ -41,7 +48,7 @@ async function submit(): Promise<void> {
       <form @submit.prevent="submit">
         <label>账号<input v-model="account" name="account" autocomplete="username" placeholder="管理员账号" :disabled="submitting" /></label>
         <label>密码<span class="password-field"><input v-model="password" name="password" :type="showPassword ? 'text' : 'password'" autocomplete="current-password" placeholder="管理员密码" :disabled="submitting" /><button type="button" :aria-label="showPassword ? '隐藏密码' : '显示密码'" :disabled="submitting" @click="showPassword = !showPassword"><EyeOff v-if="showPassword" /><Eye v-else /></button></span></label>
-        <p v-if="error" class="form-error" role="alert">{{ error }}</p>
+        <p v-if="displayedError" class="form-error" role="alert">{{ displayedError }}</p>
         <button class="submit-button" type="submit" :disabled="submitting"><KeyRound aria-hidden="true" />{{ submitting ? '正在验证' : '登录后台' }}<ArrowRight aria-hidden="true" /></button>
       </form>
     </section>

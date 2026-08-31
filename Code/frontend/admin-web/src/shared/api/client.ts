@@ -24,11 +24,18 @@ export class AdminApiError extends Error {
   }
 }
 
+type AdminSessionFailureHandler = (error: AdminApiError) => void
+
 // 管理员认证信息只保留在当前页面内存，不能写入浏览器存储。
 let accessToken = ''
 let refreshToken = ''
 let authGeneration = 0
 let refreshInFlight: Promise<number> | null = null
+let sessionFailureHandler: AdminSessionFailureHandler | null = null
+
+export function setAdminSessionFailureHandler(handler: AdminSessionFailureHandler | null): void {
+  sessionFailureHandler = handler
+}
 
 export function getAccessToken(): string {
   return accessToken
@@ -48,6 +55,11 @@ export function clearAccessToken(): void {
 
 export function isAdminApiError(error: unknown, status?: number): error is AdminApiError {
   return error instanceof AdminApiError && (status === undefined || error.status === status)
+}
+
+function invalidateAdminSession(error: AdminApiError): void {
+  clearAccessToken()
+  sessionFailureHandler?.(error)
 }
 
 export async function apiRequest<T>(
@@ -147,9 +159,20 @@ async function requestWithSessionRefresh(
   }
 
   const first = await request()
-  if (first.status !== 401 || !refreshToken || path === '/v2/auth/refresh' || new Headers(init.headers).has('Authorization')) return first
+  const hasExplicitAuthorization = new Headers(init.headers).has('Authorization')
+  if (first.status !== 401) return first
+  if (!refreshToken || path === '/v2/auth/refresh' || hasExplicitAuthorization) {
+    if (accessToken && !hasExplicitAuthorization) {
+      invalidateAdminSession(new AdminApiError('管理员会话已失效，请重新登录。', 401, 401))
+    }
+    return first
+  }
   await refreshAdminSession()
-  return request()
+  const retried = await request()
+  if (retried.status === 401) {
+    invalidateAdminSession(new AdminApiError('管理员会话已失效，请重新登录。', retried.status, retried.status))
+  }
+  return retried
 }
 
 async function refreshAdminSession(): Promise<number> {
@@ -167,12 +190,16 @@ async function refreshAdminSession(): Promise<number> {
         credentials: 'same-origin',
       })
     } catch {
-      throw new AdminApiError('无法续期管理员会话，请检查网络后重试。', 0, 0)
+      return failRefresh(new AdminApiError('无法续期管理员会话，请检查网络后重试。', 0, 0))
     }
-    const payload = await parsePayload<AuthRefreshResponse>(response)
+    let payload: ApiEnvelope<AuthRefreshResponse>
+    try {
+      payload = await parsePayload<AuthRefreshResponse>(response)
+    } catch (error) {
+      return failRefresh(error)
+    }
     if (!response.ok || payload.code !== 0 || !payload.data?.token || !payload.data?.refresh_token) {
-      clearAccessToken()
-      throw new AdminApiError(payload.message || '管理员会话已失效，请重新登录。', response.status, payload.code)
+      return failRefresh(new AdminApiError(payload.message || '管理员会话已失效，请重新登录。', response.status, payload.code))
     }
     if (authGeneration !== generation || refreshToken !== tokenForRefresh) {
       throw new AdminApiError('管理员会话已改变，请重新发起操作。', 401, 401)
@@ -181,6 +208,14 @@ async function refreshAdminSession(): Promise<number> {
     return authGeneration
   })().finally(() => { refreshInFlight = null })
   return refreshInFlight
+}
+
+function failRefresh(reason: unknown): never {
+  const error = reason instanceof AdminApiError
+    ? reason
+    : new AdminApiError('无法续期管理员会话，请检查网络后重试。', 0, 0)
+  invalidateAdminSession(error)
+  throw error
 }
 
 function dispatchEventFrame<T>(
