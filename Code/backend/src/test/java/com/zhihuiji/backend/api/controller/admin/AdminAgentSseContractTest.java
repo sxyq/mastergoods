@@ -82,6 +82,32 @@ class AdminAgentSseContractTest {
     }
 
     @Test
+    void completedToolAndAnswerEventsDoNotCloseStreamBeforeRunCompletes() throws Exception {
+        when(detailService.events(any(), eq("run-1"), eq(null), eq(false), eq(null), eq(null)))
+            .thenReturn(new AdminAgentDtos.EventPage(List.of(
+                event(1, "tool.completed"),
+                event(2, "answer.completed"),
+                event(3, "run.completed")
+            ), 3, true));
+
+        MvcResult initial = mockMvc.perform(get("/v2/admin/agent/runs/run-1/events/stream"))
+            .andExpect(request().asyncStarted())
+            .andReturn();
+        MvcResult result = mockMvc.perform(asyncDispatch(initial))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith("text/event-stream"))
+            .andReturn();
+
+        String body = result.getResponse().getContentAsString();
+        org.junit.jupiter.api.Assertions.assertTrue(body.contains("id:1"));
+        org.junit.jupiter.api.Assertions.assertTrue(body.contains("event:tool.completed"));
+        org.junit.jupiter.api.Assertions.assertTrue(body.contains("id:2"));
+        org.junit.jupiter.api.Assertions.assertTrue(body.contains("event:answer.completed"));
+        org.junit.jupiter.api.Assertions.assertTrue(body.contains("id:3"));
+        org.junit.jupiter.api.Assertions.assertTrue(body.contains("event:run.completed"));
+    }
+
+    @Test
     void explicitAfterSequenceTakesPrecedenceOverLastEventId() throws Exception {
         when(detailService.events(any(), eq("run-1"), eq(12), eq(false), eq(null), eq(null)))
             .thenReturn(new AdminAgentDtos.EventPage(List.of(event(13, "run_failed")), 1, true));

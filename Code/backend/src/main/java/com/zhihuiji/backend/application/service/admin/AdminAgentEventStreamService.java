@@ -194,14 +194,11 @@ public class AdminAgentEventStreamService {
     public static boolean isTerminalEvent(String eventType) {
         if (eventType == null) return false;
         String value = eventType.toLowerCase(Locale.ROOT);
-        return value.equals("run_completed") || value.equals("run_failed")
-            || value.equals("run_blocked") || value.equals("run_cancelled")
-            || value.equals("run_exhausted") || value.endsWith(".completed")
-            || value.endsWith(".failed") || value.endsWith(".blocked")
-            || value.endsWith(".cancelled") || value.endsWith(".exhausted")
-            || value.endsWith("_completed") || value.endsWith("_failed")
-            || value.endsWith("_blocked") || value.endsWith("_cancelled")
-            || value.endsWith("_exhausted");
+        return switch (value) {
+            case "run.completed", "run.failed", "run.blocked", "run.cancelled", "run.exhausted",
+                 "run_completed", "run_failed", "run_blocked", "run_cancelled", "run_exhausted" -> true;
+            default -> false;
+        };
     }
 
     private static ThreadFactory namedThreadFactory(String prefix) {
