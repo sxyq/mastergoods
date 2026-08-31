@@ -54,7 +54,7 @@ docs/
 ## 当前运行边界（2026-08-31）
 
 - 当前验证与生产目标：`8.220.206.9`（8220），公共 API 入口 `https://zhj-api.sxyq27.online/`
-- 管理员 Web 已发布到 124 的 `https://sxyq27.online/zhj/`；后端 Flyway 当前为 V40
+- 独立管理员 Web 已发布到 124 的 `https://sxyq27.online/zhj-admin/`，当前构建提交为 `550e19f6`；店主端继续使用 `https://sxyq27.online/zhj/`；后端 Flyway 当前为 V41
 - 当前 Provider 默认：模型 `glm-5.3-flash`，Base URL `https://oneapi.sxyq27.online/v1`，Wire API `chat_completions`
 - Agent 上下文配置上限：`272000` tokens；Provider 实际窗口以 Agent Wave 0 运行核对为准
 - `154.217.241.207` 已完全退役，全部内容标记为 `historical-only`
