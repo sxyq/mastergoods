@@ -79,8 +79,8 @@ V41 发布后容器保持 `running` 且重启次数为 0。当时尚无管理员
 | 店主端回退 | `fa14a61b revert(web): restore owner portal`，已推送 `origin/codex/publish-local-updates` |
 | 124 Web 发布目录 | `/opt/sxyq27/releases/20260830T193200-owner-web-rollback-fa14a61b/zhj` |
 | 当前店主端入口 | `https://sxyq27.online/zhj/`，返回 200，静态资源哈希与本地构建一致 |
-| 管理员前端代码 | `Code/frontend/admin-web/`，已发布到 `/opt/sxyq27/releases/20260831T190000-admin-web-1a69b431/zhj-admin` |
-| 当前管理员入口 | `https://sxyq27.online/zhj-admin/`，Nginx 路由和独立 SPA 资源已核对；真实管理员登录待执行 |
+| 管理员前端代码 | `Code/frontend/admin-web/`，已发布到 `/opt/sxyq27/releases/20260831T195800-admin-web-2e0f51f5/zhj-admin` |
+| 当前管理员入口 | `https://sxyq27.online/zhj-admin/`，Nginx 路由和独立 SPA 资源已核对；真实管理员登录仍待可用密码 |
 
 回退构建命令：`VITE_PUBLIC_BASE=/zhj/ VITE_API_BASE_URL=https://zhj-api.sxyq27.online npm run build`，通过。部署后产物不包含 `/admin/overview` 或管理员权限字符串；Nginx 配置检查通过。`/zhj/admin/overview` 仍会因 SPA 回退规则返回入口 HTML，但已没有对应的客户端管理员路由。
 
@@ -96,3 +96,18 @@ V41 发布后容器保持 `running` 且重启次数为 0。当时尚无管理员
 | 公网核对 | `/zhj-admin/`、SPA 路由和资源返回 HTTP 200；页面 API 基址为 `https://zhj-api.sxyq27.online` |
 | 未鉴权核对 | `/v2/admin/session` 返回 HTTP 401；未执行业务写入 |
 | 未完成核对 | 真实管理员登录、带权限页面数据和管理员 SSE 仍待账号验证 |
+
+## 独立管理员 Web 增量发布（2026-08-31 19:58）
+
+| 项目 | 结果 |
+|---|---|
+| 源码提交 | `163d726a`、`4de5dcd1`、`e2e1bdae`；文档提交 `81d370b0`、`35209ee7`、`2e0f51f5` |
+| 构建命令 | `VITE_API_BASE_URL=https://zhj-api.sxyq27.online npm run build`：Passed；`vue-tsc` 和 Vite 共转换 1634 个模块 |
+| 发布目录 | `/opt/sxyq27/releases/20260831T195800-admin-web-2e0f51f5/zhj-admin` |
+| 当前静态目标 | `/opt/sxyq27/staged/zhj-admin`，已原子切换 |
+| 发布内容 | 会话续期/forbidden 状态、运行详情局部重试与代次保护、Token/请求数/延迟 bucket 展示 |
+| 产物核对 | `index.html`、JS、CSS 的 SHA-256 与本地构建产物一致 |
+| Nginx 核对 | 124 直连 `nginx -t`：Passed；公网入口、`agent/runs` SPA 路由、JS、CSS：HTTP 200 |
+| 页面核对 | 登录页可见；自动填充内容已清空；控制台错误：0 |
+| API 未鉴权核对 | `GET https://zhj-api.sxyq27.online/v2/admin/session`：HTTP 401 |
+| 未完成核对 | 未提交真实登录凭据；带权限页面数据、管理员 SSE 和高风险操作仍未验证 |
