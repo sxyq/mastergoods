@@ -1,0 +1,5 @@
+{
+  "database_observed": false,
+  "reason": "Web upload was blocked before any database operation; no rows were created or changed by this case.",
+  "cleanup_performed": false
+}
