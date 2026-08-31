@@ -1,0 +1,9 @@
+command=./Code/backend/gradlew -p Code/backend bootJar --no-daemon --console=plain
+source=HEAD_636be234_dirty_worktree
+result=BUILD_SUCCESSFUL
+jar_sha256=06a77955eedb385cab31656bcc0c324de86bf3eede938725ada4e769616c8e9d
+deployment=direct_ssh_to_8.220.206.9
+image=sxyq27-zhj-api:20260831T112015-C-worktree-owner-agent
+container=running_restart_0
+flyway=41
+agent_request_sent=false

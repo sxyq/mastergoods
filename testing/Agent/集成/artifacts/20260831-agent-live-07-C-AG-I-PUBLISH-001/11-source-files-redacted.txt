@@ -1,0 +1,17 @@
+Source scope used for this release preparation:
+
+- Included application roots for local inspection/build: `Code/backend`, `Code/frontend/web`, `Code/frontend/android`, `Code/frontend/ios`.
+- Backend dirty files included by the current-worktree build:
+  - `Code/backend/src/main/java/com/zhihuiji/backend/application/service/DemoDataService.java`
+- Android dirty files reserved for the client build:
+  - `Code/frontend/android/README.md`
+  - `Code/frontend/android/app/src/main/AndroidManifest.xml`
+  - `Code/frontend/android/app/src/main/res/values/strings.xml`
+  - `Code/frontend/android/feature/agent/src/main/java/com/zhihuiji/feature/agent/conversation/AgentChatScreen.kt`
+  - `Code/frontend/android/feature/auth/src/main/java/com/zhihuiji/feature/auth/LoginScreen.kt`
+  - `Code/frontend/android/feature/auth/src/main/java/com/zhihuiji/feature/auth/RegisterScreen.kt`
+  - `Code/frontend/android/feature/dashboard/src/main/java/com/zhihuiji/feature/dashboard/DashboardScreen.kt`
+  - `Code/frontend/android/feature/products/src/main/java/com/zhihuiji/feature/products/StockAdjustScreen.kt`
+  - `Code/frontend/android/feature/settings/src/main/java/com/zhihuiji/feature/settings/SettingsScreen.kt`
+- No Web application source file was dirty in the current worktree.
+- Excluded from all server transfer: `Code/frontend/admin-web`, `testing`, `docs`, data backup/export directories, dependency caches, APK/JAR/dist artifacts, and credentials.
