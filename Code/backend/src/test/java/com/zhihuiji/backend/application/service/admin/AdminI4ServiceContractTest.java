@@ -201,6 +201,23 @@ class AdminI4ServiceContractTest {
     }
 
     @Test
+    void configReadFallsBackToRuntimeWhenRequestedScopeIsNotConfigured() {
+        AgentLlmProperties properties = new AgentLlmProperties();
+        properties.setModel("runtime-model");
+        properties.setEnabled(true);
+        when(authorizationService.authorize(principal, AdminPermission.AGENT_CONFIG_READ, 101L, 501L))
+            .thenReturn(scope);
+        when(configRepository.findByScopeOwnerUserIdAndScopeStoreId(101L, 501L)).thenReturn(Optional.empty());
+
+        AdminConfigDtos.ConfigResponse response = systemService(properties).config(principal, 101L, 501L);
+
+        assertEquals("runtime-model", response.modelId());
+        assertEquals(true, response.agentEnabled());
+        assertEquals(0L, response.version());
+        verify(configRepository).findByScopeOwnerUserIdAndScopeStoreId(101L, 501L);
+    }
+
+    @Test
     void retentionUpdateRequiresConfirmationAndIncrementsVersion() {
         AdminRetentionService service = new AdminRetentionService(authorizationService, retentionRepository, auditService);
         AdminRetentionDtos.UpdateRequest unconfirmed = retentionRequest(0L, "retention-1", false);
