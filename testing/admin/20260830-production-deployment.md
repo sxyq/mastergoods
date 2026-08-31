@@ -79,7 +79,7 @@ V41 发布后容器保持 `running` 且重启次数为 0。当时尚无管理员
 | 店主端回退 | `fa14a61b revert(web): restore owner portal`，已推送 `origin/codex/publish-local-updates` |
 | 124 Web 发布目录 | `/opt/sxyq27/releases/20260830T193200-owner-web-rollback-fa14a61b/zhj` |
 | 当前店主端入口 | `https://sxyq27.online/zhj/`，返回 200，静态资源哈希与本地构建一致 |
-| 管理员前端代码 | `Code/frontend/admin-web/`，已发布到 `/opt/sxyq27/releases/20260831T195800-admin-web-2e0f51f5/zhj-admin` |
+| 管理员前端代码 | `Code/frontend/admin-web/`，当前已发布到 `/opt/sxyq27/releases/20260831T220100-admin-web-550e19f6/zhj-admin` |
 | 当前管理员入口 | `https://sxyq27.online/zhj-admin/`，Nginx 路由和独立 SPA 资源已核对；真实管理员登录仍待可用密码 |
 
 回退构建命令：`VITE_PUBLIC_BASE=/zhj/ VITE_API_BASE_URL=https://zhj-api.sxyq27.online npm run build`，通过。部署后产物不包含 `/admin/overview` 或管理员权限字符串；Nginx 配置检查通过。`/zhj/admin/overview` 仍会因 SPA 回退规则返回入口 HTML，但已没有对应的客户端管理员路由。
@@ -111,3 +111,19 @@ V41 发布后容器保持 `running` 且重启次数为 0。当时尚无管理员
 | 页面核对 | 登录页可见；自动填充内容已清空；控制台错误：0 |
 | API 未鉴权核对 | `GET https://zhj-api.sxyq27.online/v2/admin/session`：HTTP 401 |
 | 未完成核对 | 未提交真实登录凭据；带权限页面数据、管理员 SSE 和高风险操作仍未验证 |
+
+## 2026-08-31 最新运行核对
+
+本节记录 2026-08-31 对当前运行对象的增量核对，前文的 2026-08-30 发布记录保留为历史发布快照。
+
+| 项目 | 结果 |
+|---|---|
+| 8220 后端 | `sxyq27-zhj-api:20260831T112015-C-worktree-owner-agent` 正在运行；目标 PostgreSQL Flyway V41；运行模型为 `glm-5.3-flash` |
+| 8220 JAR | 当前容器 `/app/app.jar` SHA-256 为 `06a77955eedb385cab31656bcc0c324de86bf3eede938725ada4e769616c8e9d` |
+| 管理员 Web | 源码提交 `550e19f6`；发布目录 `/opt/sxyq27/releases/20260831T220100-admin-web-550e19f6/zhj-admin`；静态目标已切换 |
+| 管理员入口 | `https://sxyq27.online/zhj-admin/`、SPA 路由和 JS/CSS 资源返回 HTTP 200；124 `nginx -t` 与 reload：`Passed` |
+| 未鉴权接口 | `GET /v2/admin/session` 返回 HTTP 401；未产生业务写入 |
+| Android 阶段二 | APK 已安装至 `emulator-5554` 并请求公网 API；真实登录返回 HTTP 422，未建立 session，Agent/SSE 全链路为 `Blocked` |
+| 证据 | `testing/Agent/客户端/artifacts/20260831-real-android-wave0-AG-CLI-AND-LOGIN/`；密码、Token、Cookie 和完整请求未写入证据 |
+
+管理员 Web 最新构建的带权限页面、跨范围 HTTP、PostgreSQL 查询计划和 Android Agent 全链路尚未完成；解除 Android 阻塞需要经确认的测试账号密码，不能猜测或从数据库读取密码哈希。iOS 本轮为 `Deferred`。
