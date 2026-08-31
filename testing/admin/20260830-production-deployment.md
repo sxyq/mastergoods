@@ -2,7 +2,7 @@
 
 ## 发布范围
 
-> 记录状态：V40 已于 2026-08-30 首次发布；V41 匿名管理员拒绝审计修复已在同日完成提交、推送和上线，见本页末尾的增量发布记录。
+> 记录状态：V40/V41 发布章节保留为历史快照；当前运行快照见文末的 2026-09-01 V42 增量发布记录。
 
 本次发布包含正式工程 `Code/backend/`、`Code/frontend/web/` 和 V33-V40 Flyway 迁移。`Temp/grok-style-admin-preview/` 未参与发布。
 
@@ -127,3 +127,19 @@ V41 发布后容器保持 `running` 且重启次数为 0。当时尚无管理员
 | 证据 | `testing/Agent/客户端/artifacts/20260831-real-android-wave0-AG-CLI-AND-LOGIN/`；密码、Token、Cookie 和完整请求未写入证据 |
 
 管理员 Web 最新构建的带权限页面、跨范围 HTTP、PostgreSQL 查询计划和 Android Agent 全链路尚未完成；解除 Android 阻塞需要经确认的测试账号密码，不能猜测或从数据库读取密码哈希。iOS 本轮为 `Deferred`。
+
+## 2026-09-01 V42 与管理员 Web 最新发布
+
+| 项目 | 结果 |
+|---|---|
+| 8220 后端镜像 | `sxyq27-zhj-api:20260901T014000-agent-owner-bill-c012290b` 正在运行；模型为 `glm-5.3-flash` |
+| 8220 JAR | `/app/app.jar` SHA-256 为 `d9ac0b508fd55082905fd30608cf6221ff4e97e279496a08ce87a448ad318d77` |
+| 数据库 | Flyway V42；V42 owner 范围单据编号迁移已在 PostgreSQL 核对 |
+| 主 Compose | `/opt/sxyq27/master-goods/compose.yml` 已同步到当前镜像；容器重启次数保持 0 |
+| 管理员 Web | 源码提交 `c012290b`；发布目录 `/opt/sxyq27/releases/20260901T023500-admin-web-c012290b-api-base/zhj-admin`；静态目标已切换 |
+| Web 构建 | `Code/frontend/admin-web` 执行 `npm run build`：`Passed`，1634 个模块 |
+| 公网核对 | `https://sxyq27.online/zhj-admin/`、SPA 路由和 JS/CSS 资源：HTTP 200；未鉴权 `GET /v2/admin/session`：HTTP 401 |
+| Android 阶段二 | 最新 APK SHA-256 为 `d1a09af6d6848377a1f95429008c51c20c172f04945fcc0ae549d8ab58ed31c8`；`emulator-5554` 已安装，但真实登录 HTTP 422，Agent/SSE 全链路为 `Blocked` |
+| iOS | `Deferred`，本轮未修改、构建或部署 |
+
+证据位置：8220 发布元数据 `/opt/sxyq27/master-goods/releases/20260901T014000-agent-owner-bill-c012290b/release-meta.txt`；Android 脱敏证据 `testing/Agent/客户端/artifacts/20260831-real-android-wave0-AG-CLI-AND-LOGIN/`。本节未记录凭据、Token、Cookie、密码哈希或完整认证载荷。

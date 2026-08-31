@@ -10,14 +10,14 @@
 | 依据源码 | `application.yml`、`application-prod.yml`（agent.llm.*）、`infrastructure/config/AgentLlmProperties.java`、`AgentImageProperties.java`、`HttpClientConfig.java` |
 | 依据测试 | 8220 Provider 直连探针 |
 | 依据证据 | `testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md` |
-| 最后核对 | 2026-08-30 |
+| 最后核对 | 2026-09-01 |
 
 ## 一、运行配置
 
 | 配置 | 值（8220） | env |
 |---|---|---|
 | AGENT_LLM_ENABLED | true（运行时） | `AGENT_LLM_ENABLED`（默认 false） |
-| 模型 | gpt-5.6-luna | `AGENT_LLM_MODEL` |
+| 模型 | glm-5.3-flash | `AGENT_LLM_MODEL` |
 | Base URL | `<LLM_PROVIDER_BASE_URL>` | `AGENT_LLM_BASE_URL` |
 | Wire API | chat_completions | `AGENT_LLM_WIRE_API` |
 | OpenAI 认证 | 已启用 | `AGENT_LLM_REQUIRES_OPENAI_AUTH=true` |
