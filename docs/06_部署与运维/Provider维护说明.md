@@ -5,24 +5,25 @@
 | 字段 | 内容 |
 |---|---|
 | 文档类型 | 运维 |
-| 当前状态 | 已完成 |
+| 当前状态 | 配置已同步，真实 Agent 链路待验证 |
 | 适用端 | 后端 |
 | 依据源码 | `application-prod.yml`（agent.llm.*）、`infrastructure/config/AgentLlmProperties.java` |
-| 依据测试 | 8220 Provider 直连探针 |
-| 依据证据 | `testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md` |
-| 最后核对 | 2026-08-20 |
+| 依据测试 | [Agent 开发与真实测试执行步骤](../../testing/Agent/执行步骤临时文档.md)；真实 Provider 探针待重跑 |
+| 依据证据 | `testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md`（模型变更前的历史参考） |
+| 最后核对 | 2026-08-31 |
 
 ## 一、Provider 配置
 
 | 配置 | 值 | env |
 |---|---|---|
-| 模型 | gpt-5.6-luna | AGENT_LLM_MODEL |
+| 模型 | glm-5.3-flash | AGENT_LLM_MODEL |
 | Base URL | https://oneapi.sxyq27.online/v1 | AGENT_LLM_BASE_URL |
 | Wire API | chat_completions | AGENT_LLM_WIRE_API |
 | 认证 | OpenAI auth | AGENT_LLM_REQUIRES_OPENAI_AUTH |
 | Key | 仅运行时 Secret | AGENT_LLM_API_KEY |
 | max-tokens / temperature | 4096 / 0.2 | AGENT_LLM_MAX_TOKENS / AGENT_LLM_TEMPERATURE |
 | thinking | true / 2048 | AGENT_LLM_ENABLE_THINKING / AGENT_LLM_THINKING_BUDGET |
+| 上下文配置上限 | 272000 tokens | AGENT_CONTEXT_MAXIMUM_WINDOW |
 
 ## 二、维护动作
 
@@ -51,12 +52,12 @@
 
 ## 对应测试
 
-- 探针：`testing/.artifacts/2026-07-19-agent-llm-live-recheck/gpt-5.6-luna-provider-probe.md`
+- 探针：按 [Agent 执行步骤临时文档](../../testing/Agent/执行步骤临时文档.md) 的 Wave 0 重新生成；旧探针仅作为历史参考
 - 基线：8220 基线（Provider 直连 200）
 
 ## 当前限制
 
-- 未完成内容：原生 function_call_output 续轮验证
-- Blocked 内容：无
-- Deferred 内容：生图 Provider
+- 未完成内容：`glm-5.3-flash` 真实 function call、续轮、SSE 和错误分支验证
+- Blocked 内容：未具备隔离 Provider 或认证会话时的真实 Agent 调用
+- Deferred 内容：生图 Provider、生产性能和客户端全链路结果
 - historical-only 内容：154 Provider 配置

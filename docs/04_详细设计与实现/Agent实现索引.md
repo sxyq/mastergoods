@@ -5,12 +5,12 @@
 | 字段 | 内容 |
 |---|---|
 | 文档类型 | 实现说明 |
-| 当前状态 | 后端（上下文压缩/工具选择/分页/记忆/搜索）已完成并验证；Web/Android 已完成并验证；iOS 实现完成、xcodebuild 因无完整 Xcode 标记 Blocked |
+| 当前状态 | 后端、Web、Android、iOS 的 Agent 代码入口已建立；部分能力有历史自动化证据，当前自动化与真实服务器/App 结果需按执行文档重新核对；iOS xcodebuild 因无完整 Xcode 标记 Blocked |
 | 适用端 | Agent |
 | 依据源码 | 后端 `application/service/v2/agent/`、Android `feature/agent/`、iOS `Features/Agent/`、Web `pages/agent/` |
 | 依据测试 | `testing/Agent/` |
-| 依据证据 | `testing/.artifacts/2026-08-23-agent-revive-main-impl/`（01-07） |
-| 最后核对 | 2026-08-24 |
+| 依据证据 | `testing/Agent/` 分类计划、阶段报告与 `testing/.artifacts/`；历史证据按版本区分 |
+| 最后核对 | 2026-08-31 |
 
 ## 一、Agent 各端实现索引
 
@@ -84,6 +84,6 @@
 
 ## 当前限制
 
-- Blocked 内容：iOS xcodebuild/test（本机仅 Command Line Tools 无完整 Xcode）；PostgreSQL EXPLAIN（无环境，仅 H2 验证语义）；SQLite 执行 V32 迁移（IDENTITY 语法不兼容）；真实 Provider 语义压缩/在线搜索（未配置 Provider）；生产 Agent 链路；Android 真机
-- Deferred 内容：多模态；真实跨会话记忆端到端；真实并发幂等
+- Blocked 内容：iOS xcodebuild/test（本机仅 Command Line Tools 无完整 Xcode）；PostgreSQL EXPLAIN（无环境，仅 H2 验证语义）；SQLite 执行 V32 迁移（IDENTITY 语法不兼容）；缺少对应隔离 Provider 时的语义压缩/在线搜索；未满足认证和版本条件的真实 Agent 链路
+- Deferred 内容：服务器 Agent 全量工具实测、Android/iOS App 全链路、真实跨会话记忆、真实并发幂等、多模态结果展示
 - historical-only 内容：154 环境 Agent 证据

@@ -13,10 +13,11 @@
 7. [系统需求总览](./02_业务系统需求/系统需求总览.md)
 8. [系统总体架构](./03_系统设计/系统总体架构.md)
 9. [Agent总体架构](./03_系统设计/Agent系统设计/Agent总体架构.md)
-10. [测试体系总览](./05_测试与验收/测试体系总览.md)
-11. [当前环境总览](./06_部署与运维/当前环境总览.md)
-12. [当前已知问题](./07_问题审计/当前已知问题.md)
-13. [管理员后台文档入口](./管理员后台/01_业务需求/管理员后台业务目标与范围.md)
+10. [Agent 开发与真实测试执行步骤](../testing/Agent/执行步骤临时文档.md)
+11. [测试体系总览](./05_测试与验收/测试体系总览.md)
+12. [当前环境总览](./06_部署与运维/当前环境总览.md)
+13. [当前已知问题](./07_问题审计/当前已知问题.md)
+14. [管理员后台文档入口](./管理员后台/01_业务需求/管理员后台业务目标与范围.md)
 
 ## 目录结构
 
@@ -50,13 +51,14 @@ docs/
 | 管理员后台 | 管理员后台如何规划、实现和验收？ | `管理员后台/01_业务需求` 至 `管理员后台/07_问题审计` |
 | 90 历史归档 | 哪些只代表过去？ | 154 历史资料、旧报告、旧测试证据、旧文档 |
 
-## 当前运行边界（2026-08-30）
+## 当前运行边界（2026-08-31）
 
 - 当前验证与生产目标：`8.220.206.9`（8220），公共 API 入口 `https://zhj-api.sxyq27.online/`
 - 管理员 Web 已发布到 124 的 `https://sxyq27.online/zhj/`；后端 Flyway 当前为 V40
-- 当前 Provider：模型 `gpt-5.6-luna`，Base URL `https://oneapi.sxyq27.online/v1`，Wire API `chat_completions`
+- 当前 Provider 默认：模型 `glm-5.3-flash`，Base URL `https://oneapi.sxyq27.online/v1`，Wire API `chat_completions`
+- Agent 上下文配置上限：`272000` tokens；Provider 实际窗口以 Agent Wave 0 运行核对为准
 - `154.217.241.207` 已完全退役，全部内容标记为 `historical-only`
-- 多模态、生图、图片输入和图片结果展示当前为 `Deferred`
+- 多模态、生图、图片输入和图片结果展示的真实 Provider/App 结果当前为 `Deferred`
 - 权威基线：`testing/.artifacts/2026-08-18-8220-current-baseline/current-8220-baseline.md`
 - 管理员发布证据：`testing/admin/20260830-production-deployment.md`
 - 权威测试执行入口：`testing/README.md`

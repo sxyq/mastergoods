@@ -1,6 +1,6 @@
 # Agent 端测试资料总览
 
-更新时间：2026-08-28
+更新时间：2026-08-31
 
 本目录是 Agent（后端 `/v2/agent`、Android/iOS APP、Web 协议对照）的**唯一**测试资料组织点。以测试类别为单位拆分规划文档、执行台账、脚本、日志、报告和原始证据，取代旧的单份《Agent 综合功能与性能测试方案》（已删除）与历史分类占位目录（observability 等已并入对应类别，本目录不再出现）。
 
@@ -9,6 +9,7 @@
 ```text
 testing/Agent/
 ├── README.md                  # 本文件：总览、分类说明、状态口径、证据规范、执行顺序、维护规则
+├── 执行步骤临时文档.md         # 开发先行、部署核对、真实测试批次与收尾步骤
 ├── 代码事实基线.md             # 从当前源码核准的功能与工具基线（工具清单/调用链/SSE/终态/预算/表/路由/配置）
 ├── 映射台账.md                 # 功能域与工具到测试类别的映射、编号规则、断言链
 ├── 功能/TEST_PLAN.md          # 功能测试
@@ -42,6 +43,8 @@ testing/Agent/
 | 脚本 | `脚本/` | 各类别执行脚本、数据准备、清理与探针 | 脚本本身纳入 Git 检查，凭据/密钥不得入脚本 |
 
 旧文档中的“可观测性与审计 `O`”类别不再单列：run-trace/audit 对齐作为每条用例的固定观察项（见下文“最小字段”），敏感信息扫描归入 `S`，SSE/audit 字段契约归入 `C`。
+
+开发、自动化验证、服务器部署和真实 App 测试的先后关系，以[执行步骤临时文档](执行步骤临时文档.md)为准。该文档是本轮执行编排入口；本文件和各分类 `TEST_PLAN.md` 继续作为状态、字段和证据规范。
 
 ## 三、状态口径
 
@@ -100,8 +103,10 @@ AG-F-DRAFT-CO-001-B01 ... AG-F-DRAFT-CO-001-B11
 | `expected_tools` | 预期调用工具（含允许的依赖工具） | 是 |
 | `expected_order` | 预期工具调用顺序 | 是 |
 | `loop_and_compaction` | 预计 Loop 轮数/终止点、是否会触发上下文压缩、检查点行为 | 是 |
+| `model_input_summary` | 脱敏后的模型可见输入摘要、模型名和 wire API | 执行后是 |
 | `expected_response` | 预期 SSE 事件序列或 REST 响应 | 是 |
 | `expected_answer` | 正式回答内容要求（非空、可追溯、不得编造） | 是 |
+| `model_output_summary` | 脱敏后的模型输出摘要、工具选择或正式回答摘要 | 执行后是 |
 | `actual` | 实际状态码、工具调用、事件、回答和数据变化 | 执行后是 |
 | `db_changes` | 数据库、草稿、审计与业务表变化（before/after） | 是 |
 | `boundaries` | 边界条件（空数据、非法参数、权限、跨域、重复、并发、分页） | 是 |
@@ -115,7 +120,7 @@ AG-F-DRAFT-CO-001-B01 ... AG-F-DRAFT-CO-001-B11
 各类别的执行台账放在对应的 `reports/` 目录，建议文件名为 `live_execution_ledger.csv`。一行只表示一个独立派生用例，不把多个账号、端点、工具或状态合并到一行。CSV 表头固定为：
 
 ```text
-test_id,category_id,wave_id,environment,account_store_label,preconditions,input,operation,expected_tools,expected_order,loop_and_compaction,expected_response,expected_answer,actual,db_changes,boundaries,acceptance,evidence_path,cleanup_action,result
+test_id,category_id,wave_id,environment,account_store_label,preconditions,input,operation,expected_tools,expected_order,loop_and_compaction,model_input_summary,expected_response,expected_answer,model_output_summary,actual,db_changes,boundaries,acceptance,evidence_path,cleanup_action,result
 ```
 
 父卡只保留规划说明；当父卡还没有派生执行记录时，不能填入 `Passed`。每个类别报告应同时给出：父卡数量、派生应执行数量、Passed、Failed、Blocked、Deferred、证据完整率和未覆盖项。
@@ -142,16 +147,16 @@ test_id,category_id,wave_id,environment,account_store_label,preconditions,input,
 
 ## 七、执行顺序
 
-1. 建立环境记录：工作树版本、服务版本、APP 版本、Provider 配置、数据库、账号与设备。
-2. 执行 `单元/`（现有测试 + 新增组件测试）与 `契约/`（静态契约核对，不依赖真机）。
-3. 前置验证认证、会话、owner/store、清理权限；前置不满足记 `Blocked`。
-4. 按 `功能/` 执行 46 个只读工具（非流式 + 流式）与 15 个创建工具（草稿/拒绝/确认/重复确认），其中 `image_generate` 的 Provider 调用只发生在确认后。
-5. 执行多工具链、Loop 六种终态、SSE 取消/断线/重连、上下文压缩 14 个场景。
-6. 执行多模态图片、长期记忆、海报、Web 搜索与新建任务/通知/工作台功能。
-7. 按 `安全/` 执行越权/注入/幂等/敏感信息专项（真实账号与真实服务）。
-8. 按 `性能/` 先做单用户基线，再并发、长会话、取消、Soak。
-9. 按 `客户端/` 在真实设备上执行 Android/iOS 联调；Web 只做协议对照。
-10. 汇总：回写各档用例的 `result`；未满足证据要求的项目不得填 `Passed`。
+1. 先按[执行步骤临时文档](执行步骤临时文档.md)完成 D0-D7：开发、自动化测试、构建、提交和版本核对。
+2. 开发验收未完成时不得进入真实业务测试；失败项单独登记为 `Failed`，缺环境项登记为 `Blocked` 或 `Deferred`。
+3. 服务器部署后重新核对 8220 服务、Provider、数据库、App 版本和公网地址，不能用本地服务代替目标服务。
+4. 前置验证认证、会话、owner/store、清理权限；前置不满足记 `Blocked`。
+5. 按 `功能/` 执行 46 个只读工具（非流式 + 流式）与 15 个创建工具（草稿/拒绝/确认/重复确认），其中 `image_generate` 的 Provider 调用只发生在确认后。
+6. 执行多工具链、Loop 六种终态、SSE 取消/断线/重连、上下文压缩 14 个场景。
+7. 执行 `契约/`、`集成/`、`数据/`、`安全/` 和 `可靠性/` 分类中的对应真实场景，再执行多模态图片、长期记忆、海报、Web 搜索与任务/通知/工作台功能。
+8. 按 `客户端/` 在真实 Android/iOS App 中执行输入、点击和展示核对；Web 只做协议对照。
+9. 按 `性能/` 先做单用户基线，再做并发、长会话、取消、Soak，并单独记录有效样本。
+10. 汇总：回写各类台账的 `result`；未满足证据要求的项目不得填 `Passed`。
 
 ## 八、维护规则
 
