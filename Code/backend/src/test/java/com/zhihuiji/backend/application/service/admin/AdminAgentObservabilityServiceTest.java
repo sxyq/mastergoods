@@ -112,7 +112,9 @@ class AdminAgentObservabilityServiceTest {
         run.setStartedAt(1000L);
         when(agentQueryRepository.findRunsFiltered(
             eq(false), eq(Set.of(101L)), eq(null), eq(null), eq(9007199254740993L),
-            eq("inventory"), eq("model-a"), eq(null), eq(null), eq(null), any()
+            eq("%\"tool_name\":\"inventory\"%"), eq("%\"toolname\":\"inventory\"%"),
+            eq("%\"model_id\":\"model-a\"%"), eq("%\"modelid\":\"model-a\"%"),
+            eq("%\"model\":\"model-a\"%"), eq(null), eq(null), eq(null), any()
         )).thenReturn(new PageImpl<>(List.of(run), PageRequest.of(0, 50), 1));
 
         var response = service.listRuns(
@@ -124,7 +126,9 @@ class AdminAgentObservabilityServiceTest {
         assertEquals("9007199254740993", response.items().get(0).actorUserId());
         verify(agentQueryRepository).findRunsFiltered(
             eq(false), eq(Set.of(101L)), eq(null), eq(null), eq(9007199254740993L),
-            eq("inventory"), eq("model-a"), eq(null), eq(null), eq(null), any()
+            eq("%\"tool_name\":\"inventory\"%"), eq("%\"toolname\":\"inventory\"%"),
+            eq("%\"model_id\":\"model-a\"%"), eq("%\"modelid\":\"model-a\"%"),
+            eq("%\"model\":\"model-a\"%"), eq(null), eq(null), eq(null), any()
         );
     }
 
