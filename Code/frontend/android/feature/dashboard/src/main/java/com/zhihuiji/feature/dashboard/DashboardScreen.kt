@@ -240,7 +240,7 @@ private fun DashboardTopBar(
 ) {
     GlassTopBar(
         modifier = modifier,
-        title = "智慧记",
+        title = "店掌柜",
         actions = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),

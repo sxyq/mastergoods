@@ -110,8 +110,7 @@ private fun RegisterContent(
                 AuthHeroOverview(
                     canEditBaseUrl = false,
                     onOpenServerEditor = {},
-                    title = "创建智慧记账号",
-                    subtitle = "注册后直接进入和首页统一的玻璃经营工作台",
+                    title = "创建店掌柜账号",
                 )
 
                 LiquidGlassCard(
@@ -178,10 +177,6 @@ private fun RegisterContent(
                         )
 
                         Spacer(modifier = Modifier.height(18.dp))
-
-                        AuthStatusStrip()
-
-                        Spacer(modifier = Modifier.height(20.dp))
 
                         if (isLoading) {
                             CircularProgressIndicator(

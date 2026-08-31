@@ -234,7 +234,7 @@ private fun StockAdjustTopBar(
                 )
             }
             Text(
-                text = "智慧记",
+                text = "店掌柜",
                 color = TextPrimary,
                 fontSize = 18.sp,
                 lineHeight = 26.sp,

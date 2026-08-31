@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,12 +37,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.zhihuiji.core.designsystem.BackgroundGradientEnd
@@ -52,15 +48,11 @@ import com.zhihuiji.core.designsystem.BackgroundGradientStart
 import com.zhihuiji.core.designsystem.GlassScaffold
 import com.zhihuiji.core.designsystem.GlassSurfaceHigh
 import com.zhihuiji.core.designsystem.GlassSurfaceLow
-import com.zhihuiji.core.designsystem.GlassSurfaceMedium
 import com.zhihuiji.core.designsystem.GlassTextField
 import com.zhihuiji.core.designsystem.LiquidGlassCard
 import com.zhihuiji.core.designsystem.PrimaryButton
-import com.zhihuiji.core.designsystem.SuccessGreen
 import com.zhihuiji.core.designsystem.TextPrimary
 import com.zhihuiji.core.designsystem.TextSecondary
-import com.zhihuiji.core.designsystem.TextTertiary
-import com.zhihuiji.core.designsystem.WarningOrange
 import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 
 internal val AuthBackgroundBrush = Brush.verticalGradient(
@@ -68,7 +60,6 @@ internal val AuthBackgroundBrush = Brush.verticalGradient(
 )
 internal val AuthCardShape = RoundedCornerShape(28.dp)
 private val AuthFieldShape = RoundedCornerShape(14.dp)
-private val AuthHeroCardShape = RoundedCornerShape(18.dp)
 
 @Composable
 fun LoginScreen(
@@ -155,8 +146,7 @@ private fun LoginContent(
                 AuthHeroOverview(
                     canEditBaseUrl = canEditBaseUrl,
                     onOpenServerEditor = onOpenServerEditor,
-                    title = "智慧记工作台",
-                    subtitle = "登录后直接进入和首页同风格的数据玻璃工作区",
+                    title = "店掌柜",
                 )
 
                 LiquidGlassCard(
@@ -170,23 +160,6 @@ private fun LoginContent(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(
-                            text = "登录账号",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = TextPrimary
-                        )
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Text(
-                            text = "销售概览、库存提醒、AI 助手都会从这里开始",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary,
-                            textAlign = TextAlign.Center,
-                        )
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
                         AuthOutlinedField(
                             value = phone,
                             onValueChange = { phone = it },
@@ -211,10 +184,6 @@ private fun LoginContent(
                         )
 
                         Spacer(modifier = Modifier.height(18.dp))
-
-                        AuthStatusStrip()
-
-                        Spacer(modifier = Modifier.height(20.dp))
 
                         if (isLoading) {
                             CircularProgressIndicator(
@@ -269,7 +238,6 @@ internal fun AuthHeroOverview(
     canEditBaseUrl: Boolean,
     onOpenServerEditor: () -> Unit,
     title: String,
-    subtitle: String,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -290,148 +258,18 @@ internal fun AuthHeroOverview(
         ) {
             Icon(
                 imageVector = Icons.Default.Store,
-                contentDescription = if (canEditBaseUrl) "服务器入口" else null,
+                contentDescription = "店掌柜图标",
                 tint = ZhihuijiPrimary,
                 modifier = Modifier.size(36.dp)
             )
         }
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineLarge,
-                color = TextPrimary,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary,
-                textAlign = TextAlign.Center,
-            )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            AuthInsightCard(
-                modifier = Modifier.weight(1f),
-                title = "销售概览",
-                caption = "首页即看经营趋势",
-                accent = ZhihuijiPrimary,
-            )
-            AuthInsightCard(
-                modifier = Modifier.weight(1f),
-                title = "库存提醒",
-                caption = "低库存与待处理直达",
-                accent = WarningOrange,
-            )
-            AuthInsightCard(
-                modifier = Modifier.weight(1f),
-                title = "AI 助手",
-                caption = "随时问图和问数据",
-                accent = SuccessGreen,
-            )
-        }
-    }
-}
-
-@Composable
-private fun AuthInsightCard(
-    title: String,
-    caption: String,
-    accent: Color,
-    modifier: Modifier = Modifier,
-) {
-    LiquidGlassCard(
-        modifier = modifier,
-        blurRadius = 18.dp,
-        shape = AuthHeroCardShape,
-        surfaceColor = GlassSurfaceMedium,
-        contentPadding = 14.dp,
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(
-                modifier = Modifier
-                    .size(width = 24.dp, height = 5.dp)
-                    .background(accent, RoundedCornerShape(999.dp))
-            )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                color = TextPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = caption,
-                style = MaterialTheme.typography.bodySmall,
-                color = TextTertiary,
-                minLines = 2,
-            )
-        }
-    }
-}
-
-@Composable
-internal fun AuthStatusStrip() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        AuthMiniStatusCard(
-            modifier = Modifier.weight(1f),
-            label = "风格",
-            value = "首页统一",
-            accent = ZhihuijiPrimary,
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineLarge,
+            color = TextPrimary,
+            textAlign = TextAlign.Center,
         )
-        AuthMiniStatusCard(
-            modifier = Modifier.weight(1f),
-            label = "同步",
-            value = "真实数据",
-            accent = SuccessGreen,
-        )
-    }
-}
-
-@Composable
-private fun AuthMiniStatusCard(
-    label: String,
-    value: String,
-    accent: Color,
-    modifier: Modifier = Modifier,
-) {
-    LiquidGlassCard(
-        modifier = modifier,
-        blurRadius = 12.dp,
-        shape = RoundedCornerShape(16.dp),
-        surfaceColor = GlassSurfaceLow,
-        contentPadding = 14.dp,
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(accent, CircleShape)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = TextSecondary,
-                )
-            }
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleMedium,
-                color = TextPrimary,
-            )
-        }
     }
 }
 

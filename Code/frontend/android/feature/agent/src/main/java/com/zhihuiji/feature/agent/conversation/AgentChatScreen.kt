@@ -747,7 +747,7 @@ private fun AssistantMessageHeader(
         ) {
             Icon(
                 imageVector = Icons.Default.SmartToy,
-                contentDescription = "智慧记助手",
+                contentDescription = "店掌柜助手",
                 tint = ZhihuijiPrimary,
                 modifier = Modifier.size(22.dp),
             )
@@ -758,7 +758,7 @@ private fun AssistantMessageHeader(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(
-                    text = "智慧记助手",
+                    text = "店掌柜助手",
                     style = MaterialTheme.typography.titleSmall,
                     color = TextPrimary,
                     fontWeight = FontWeight.SemiBold,

@@ -231,7 +231,7 @@ private fun SettingsTopBar(
             }
 
             Text(
-                text = "智慧记",
+                text = "店掌柜",
                 modifier = Modifier.align(Alignment.Center),
                 fontSize = 18.sp,
                 lineHeight = 26.sp,
