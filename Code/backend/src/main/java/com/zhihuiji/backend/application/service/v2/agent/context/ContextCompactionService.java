@@ -786,13 +786,31 @@ public class ContextCompactionService {
         for (String line : scopeDescription.split("\\R")) {
             String normalized = line == null ? "" : line.trim();
             String lower = normalized.toLowerCase(Locale.ROOT);
-            if (StringUtils.hasText(normalized)
-                && (lower.contains("permission") || lower.contains("role")
-                    || normalized.contains("权限") || normalized.contains("角色"))) {
-                appendBounded(permissions, safeMessageText(normalized, 160), 160);
+            String values = permissionValues(normalized, lower);
+            if (!StringUtils.hasText(values) || "无".equals(values)) {
+                continue;
+            }
+            for (String value : values.split("[,，\\s]+")) {
+                String permission = safeIdentifier(value, 96);
+                if (StringUtils.hasText(permission)) {
+                    permissions.add(permission);
+                }
             }
         }
         return permissions;
+    }
+
+    private String permissionValues(String line, String lower) {
+        if (!StringUtils.hasText(line)) {
+            return "";
+        }
+        for (String marker : List.of("权限：", "权限:", "permissions=", "permission=")) {
+            int index = marker.startsWith("权限") ? line.indexOf(marker) : lower.indexOf(marker);
+            if (index >= 0) {
+                return line.substring(index + marker.length()).trim();
+            }
+        }
+        return "";
     }
 
     private ArrayNode pendingToolNodes(List<ContextBuilder.PendingToolCall> pendingTools) {

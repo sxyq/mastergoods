@@ -154,16 +154,16 @@ class ContextCompactionServiceTest {
 
         assertTrue(result.occurred());
         assertEquals(ContextCompactionService.QUALITY_DETERMINISTIC, result.quality());
-        // 压缩了前 6 条（第一、二轮），边界为第 6 条消息。
-        assertEquals(6L, result.boundaryMessageId());
-        assertEquals(6, result.compactedCount());
+        // 按 token 预算选择能回到阈值内的最小完整前缀。
+        assertEquals(3L, result.boundaryMessageId());
+        assertEquals(3, result.compactedCount());
         assertNotNull(result.summaryPreview());
         assertTrue(result.summaryPreview().contains("summary_version"));
         ArgumentCaptor<AgentContextCheckpointEntity> captor = ArgumentCaptor.forClass(AgentContextCheckpointEntity.class);
         verify(checkpointRepository).save(captor.capture());
         assertEquals(1L, captor.getValue().getOwnerUserId());
         assertEquals(201L, captor.getValue().getConversationId());
-        assertEquals(6L, captor.getValue().getSourceBoundaryMessageId());
+        assertEquals(3L, captor.getValue().getSourceBoundaryMessageId());
         assertEquals("active", captor.getValue().getStatus());
     }
 
@@ -179,8 +179,8 @@ class ContextCompactionServiceTest {
         valid.putArray("entity_references");
         valid.putArray("tool_evidence");
         valid.putArray("open_questions");
-        valid.put("source_boundary_message_id", 6L);
-        valid.put("source_message_count", 6);
+        valid.put("source_boundary_message_id", 3L);
+        valid.put("source_message_count", 3);
         when(llmClient.createJsonMessage(anyString(), anyString()))
             .thenReturn(Optional.of(valid.toString()));
         when(checkpointRepository.save(any(AgentContextCheckpointEntity.class)))
@@ -207,8 +207,8 @@ class ContextCompactionServiceTest {
         valid.putArray("entity_references");
         valid.putArray("tool_evidence");
         valid.putArray("open_questions");
-        valid.put("source_boundary_message_id", 6L);
-        valid.put("source_message_count", 6);
+        valid.put("source_boundary_message_id", 3L);
+        valid.put("source_message_count", 3);
         when(llmClient.createJsonMessage(anyString(), anyString()))
             .thenReturn(Optional.of(valid.toString()));
         when(checkpointRepository.save(any(AgentContextCheckpointEntity.class)))
@@ -349,9 +349,10 @@ class ContextCompactionServiceTest {
 
         CompactionResult result = service.compactIfNeeded(packageWithBudget(true, twoCompletedRounds()));
 
-        // 边界 6 是倒数第二条 tool 消息；当前用户问题（id=7）与最新轮次保留。
-        assertEquals(6L, result.boundaryMessageId());
-        assertTrue(result.summaryPreview().contains("第二轮问题"));
+        // 第一轮压缩后已回到预算内，最新完整轮次和当前问题继续保留原文。
+        assertEquals(3L, result.boundaryMessageId());
+        assertTrue(result.summaryPreview().contains("第一轮问题"));
+        assertFalse(result.summaryPreview().contains("第二轮问题"));
     }
 
     @Test

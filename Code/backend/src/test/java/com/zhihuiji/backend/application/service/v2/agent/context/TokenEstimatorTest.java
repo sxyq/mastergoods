@@ -92,14 +92,12 @@ class TokenEstimatorTest {
     }
 
     @Test
-    void longTextIsCappedDuringEstimation() {
-        // 超过估算字符上限时仍返回有限值，不因超长文本拖慢估算。
+    void longTextUsesItsFullLengthDuringEstimation() {
         StringBuilder builder = new StringBuilder();
         for (int i = 0; i < 100_000; i++) {
             builder.append('a');
         }
         int estimate = estimator.estimate(builder.toString());
-        assertTrue(estimate > 0 && estimate < 100_000,
-            "超长文本估算应被截断到字符上限范围内");
+        assertEquals((int) Math.ceil(100_000 / TokenEstimator.CHARS_PER_TOKEN_FALLBACK), estimate);
     }
 }

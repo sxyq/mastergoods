@@ -27,11 +27,6 @@ public class TokenEstimator {
     public static final int PER_MESSAGE_OVERHEAD = 4;
 
     /**
-     * 极端长字符串切分阈值，避免单次估算占用过多 CPU。
-     */
-    private static final int ESTIMATION_CHAR_CAP = 64_000;
-
-    /**
      * 估算一段文本的 token 数。
      *
      * <p>估算失败时使用更保守的字符/字节估算，并返回非零正值，确保预算计算不
@@ -42,9 +37,8 @@ public class TokenEstimator {
             return 0;
         }
         int length = text.length();
-        int boundedLength = Math.min(length, ESTIMATION_CHAR_CAP);
         // 中文字符占 1 token 以上，英文约 0.25 token；chars/3 是偏保守的混合估算。
-        int estimate = (int) Math.ceil(boundedLength / CHARS_PER_TOKEN_FALLBACK);
+        int estimate = (int) Math.ceil(length / CHARS_PER_TOKEN_FALLBACK);
         if (estimate <= 0) {
             // 估算降级：至少返回 1，确保非空文本计入预算。
             return 1;

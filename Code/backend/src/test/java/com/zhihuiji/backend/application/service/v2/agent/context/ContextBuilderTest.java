@@ -217,7 +217,7 @@ class ContextBuilderTest {
             .thenReturn(Optional.empty());
         List<AgentMessageEntity> history = new java.util.ArrayList<>();
         for (int i = 1; i <= 40; i++) {
-            history.add(message(i, 201L, i % 2 == 1 ? "user" : "assistant", "历史内容 ".repeat(80) + i));
+            history.add(message(i, 201L, i % 2 == 1 ? "user" : "assistant", "历史内容 ".repeat(2_000) + i));
         }
         when(agentMessageRepository.findAllByOwnerUserIdAndConversationIdOrderByCreatedAtAscIdAsc(1L, 201L))
             .thenReturn(history);
