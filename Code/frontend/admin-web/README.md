@@ -6,35 +6,37 @@
 
 ## 当前阶段
 
-当前仅建立目录骨架，不包含页面、路由、接口客户端、样式或构建配置。正式实现开始前，选择 Vue 3 + TypeScript + Vite，并以 `Temp/grok-style-admin-preview/` 的 `grok2api` 白底简约风格为视觉基线。
+独立工程已使用 Vue 3、TypeScript 与 Vite 实现。它以 `Temp/grok-style-admin-preview/` 的 `grok2api` 白底简约风格为视觉基线，并使用 Lucide 线性图标、近白背景、细灰边框和紧凑数据面板。
 
-## 规划结构
+当前页面包括登录、平台总览、用户与门店成员、Agent 运行、Agent 配置、操作审计、系统状态与受控拒绝页。登录和续期使用统一认证的 `/v2/auth/login`、`/v2/auth/refresh`、`/v2/auth/logout`，业务查询使用 `/v2/admin/*`。access token 与 refresh token 仅保留在当前页面内存；浏览器整页刷新后需要重新登录。运行详情的 SSE 通过带 `Authorization` 头的 `fetch` 消费，不把凭据放入 URL。
+
+## 当前结构
 
 ```text
 admin-web/
-├── public/                         # 独立静态资源
 ├── src/
 │   ├── app/
 │   │   ├── layouts/                # 管理员应用壳层
 │   │   ├── router/                 # 独立管理员路由
 │   │   └── stores/                 # 管理员会话和范围状态
-│   ├── entities/admin/             # 管理员领域类型和展示模型
 │   ├── features/
-│   │   ├── auth/                   # 登录和会话恢复
 │   │   ├── overview/               # 平台总览
-│   │   ├── organization/           # 用户、门店、成员关系
-│   │   ├── agent-observability/    # 运行、事件、用量和上下文
-│   │   ├── audit/                  # 管理员审计和导出
-│   │   └── system/                 # 配置、健康和保留策略
+│   │   └── agent-observability/    # 运行、事件、用量和上下文
 │   ├── pages/                      # 路由页面组合
 │   └── shared/
 │       ├── api/                    # `/v2/admin/*` 客户端
 │       ├── components/             # 无业务耦合的通用组件
-│       ├── config/                 # 公开运行配置
 │       └── utils/                  # 格式化、ID 与时间工具
-└── tests/
-    ├── unit/                       # 组件和状态测试
-    └── e2e/                        # 浏览器验收场景
+├── vite.config.ts                  # 生产基址 `/zhj-admin/`
+└── package.json
 ```
 
-计划公网入口为 `https://sxyq27.online/zhj-admin/`，在独立构建和 Nginx 路由完成前不发布。
+静态构建使用：
+
+```bash
+npm run build
+```
+
+门店 Owner 在当前接口中用于范围校验和归属展示，页面以只读形式显示。现有 `PATCH /v2/admin/stores/{storeId}` 只更新名称和状态；owner 转移需要后端提供专用事务接口、审计和验收后再增加前端操作。
+
+当前不启动前后端服务。计划公网入口为 `https://sxyq27.online/zhj-admin/`，在独立构建、真实浏览器验收与 Nginx 路由完成前不发布。
