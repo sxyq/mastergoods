@@ -6,7 +6,17 @@ import java.io.IOException
 
 class NetworkException(val code: Int, message: String) : Exception(message)
 
-enum class HttpErrorKind { UNAUTHORIZED, FORBIDDEN, NOT_FOUND, CONFLICT, VALIDATION, SERVER, NETWORK, UNKNOWN }
+enum class HttpErrorKind {
+    UNAUTHORIZED,
+    FORBIDDEN,
+    NOT_FOUND,
+    CONFLICT,
+    VALIDATION,
+    TOO_MANY_REQUESTS,
+    SERVER,
+    NETWORK,
+    UNKNOWN,
+}
 
 val NetworkException.kind: HttpErrorKind
     get() = when (code) {
@@ -15,6 +25,7 @@ val NetworkException.kind: HttpErrorKind
         404 -> HttpErrorKind.NOT_FOUND
         409 -> HttpErrorKind.CONFLICT
         422 -> HttpErrorKind.VALIDATION
+        429 -> HttpErrorKind.TOO_MANY_REQUESTS
         in 500..599 -> HttpErrorKind.SERVER
         -1 -> HttpErrorKind.NETWORK
         else -> HttpErrorKind.UNKNOWN
@@ -56,6 +67,7 @@ internal fun httpErrorMessage(code: Int, fallback: String): String = when (code)
     404 -> "远程服务地址不正确或接口不存在，请检查服务器配置"
     409 -> "请求与当前数据冲突，请刷新后重试"
     422 -> "请求参数未通过校验，请检查输入内容"
+    429 -> "请求过于频繁，请稍后重试"
     in 500..599 -> "服务器暂时不可用，请稍后重试"
     else -> fallback.ifBlank { "请求失败：$code" }
 }

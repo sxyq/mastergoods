@@ -88,4 +88,14 @@ class SafeApiCallBehaviorTest {
         assertEquals("请求与当前数据冲突，请刷新后重试", httpErrorMessage(409, ""))
         assertEquals("请求参数未通过校验，请检查输入内容", httpErrorMessage(422, ""))
     }
+
+    @Test
+    fun networkException_exposesAuthRateLimitAndServerKindsAndMessages() {
+        assertEquals(HttpErrorKind.UNAUTHORIZED, NetworkException(401, "未授权").kind)
+        assertEquals(HttpErrorKind.TOO_MANY_REQUESTS, NetworkException(429, "限流").kind)
+        assertEquals(HttpErrorKind.SERVER, NetworkException(500, "服务端错误").kind)
+        assertEquals("登录已失效，请重新登录", httpErrorMessage(401, ""))
+        assertEquals("请求过于频繁，请稍后重试", httpErrorMessage(429, ""))
+        assertEquals("服务器暂时不可用，请稍后重试", httpErrorMessage(500, ""))
+    }
 }
