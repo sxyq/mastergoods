@@ -20,6 +20,8 @@ const storePage = ref(0)
 const pageSize = 20
 const loading = ref(true)
 const error = ref('')
+const userError = ref('')
+const storeError = ref('')
 const selectedUser = ref<AdminUser | null>(null)
 const selectedStore = ref<AdminStore | null>(null)
 const members = ref<AdminMember[]>([])
@@ -41,6 +43,7 @@ const pendingAction = ref<'user' | 'store' | 'member' | null>(null)
 const activeTotal = computed(() => tab.value === 'users' ? userTotal.value : storeTotal.value)
 const activePage = computed(() => tab.value === 'users' ? userPage.value : storePage.value)
 const selected = computed<AdminUser | AdminStore | null>(() => tab.value === 'users' ? selectedUser.value : selectedStore.value)
+const activeError = computed(() => tab.value === 'users' ? userError.value : storeError.value)
 const maxSize = computed(() => Math.max(userTotal.value, storeTotal.value, 1))
 const selectedUserTargetStatus = computed(() => selectedUser.value ? targetStatus(selectedUser.value) : 1)
 const confirmationTitle = computed(() => selectedUserTargetStatus.value === 0 ? '确认停用该用户？' : '确认恢复该用户？')
@@ -51,12 +54,15 @@ const actionLabel = computed(() => pendingAction.value === 'store' || pendingAct
 async function load(): Promise<void> {
   loading.value = true
   error.value = ''
+  userError.value = ''; storeError.value = ''
   const [usersResult, storesResult] = await Promise.allSettled([
     getAdminUsers({ query: query.value.trim() || undefined, page: userPage.value, size: pageSize }),
     getAdminStores({ page: storePage.value, size: pageSize }),
   ])
   if (usersResult.status === 'fulfilled') { users.value = usersResult.value.items; userTotal.value = usersResult.value.total }
+  else { users.value = []; userTotal.value = 0; userError.value = usersResult.reason instanceof Error ? usersResult.reason.message : '无法读取用户信息。' }
   if (storesResult.status === 'fulfilled') { stores.value = storesResult.value.items; storeTotal.value = storesResult.value.total }
+  else { stores.value = []; storeTotal.value = 0; storeError.value = storesResult.reason instanceof Error ? storesResult.reason.message : '无法读取门店信息。' }
   if (usersResult.status === 'rejected' && storesResult.status === 'rejected') error.value = '无法读取用户与门店信息。'
   loading.value = false
 }
@@ -202,10 +208,11 @@ watch(stores, (items) => {
       <section class="table-panel" aria-labelledby="organization-list-title">
         <header class="table-header"><div><h2 id="organization-list-title">{{ tab === 'users' ? '用户列表' : '门店列表' }}</h2><p>{{ formatNumber(activeTotal) }} 条记录</p></div><div class="tabs"><button type="button" :class="{ active: tab === 'users' }" @click="switchTab('users')">用户</button><button type="button" :class="{ active: tab === 'stores' }" @click="switchTab('stores')">门店</button></div></header>
         <div v-if="tab === 'users'" class="toolbar"><label><Search aria-hidden="true" /><input v-model="query" placeholder="搜索昵称或已脱敏手机号" @keyup.enter="search" /></label><button class="outline-button" type="button" @click="search"><Filter aria-hidden="true" />筛选</button></div>
-        <StatePanel v-if="error" state="error" :detail="error" @retry="load" />
+        <StatePanel v-if="loading" state="loading" title="正在读取组织数据" />
+        <StatePanel v-else-if="activeError" state="error" :detail="activeError" @retry="load" />
         <div v-else class="table-scroll">
-          <table v-if="tab === 'users'"><thead><tr><th>用户</th><th>状态</th><th>更新时间</th></tr></thead><tbody><tr v-for="user in users" :key="user.user_id" :class="{ selected: selectedUser?.user_id === user.user_id }" @click="select(user)"><td><strong>{{ user.nickname || '未设置昵称' }}</strong><small class="mono">{{ user.user_id }} · {{ user.phone_masked || '—' }}</small></td><td><span class="status" :class="user.status === '1' || user.status === 'ACTIVE' ? 'status--success' : 'status--muted'">{{ statusLabel(user.status) }}</span></td><td>{{ formatDateTime(user.updated_at) }}</td></tr><tr v-if="!loading && !users.length"><td colspan="3" class="empty">暂无匹配用户。</td></tr></tbody></table>
-          <table v-else><thead><tr><th>门店</th><th>成员</th><th>状态</th></tr></thead><tbody><tr v-for="store in stores" :key="store.store_id" :class="{ selected: selectedStore?.store_id === store.store_id }" @click="select(store)"><td><strong>{{ store.name || '未命名门店' }}</strong><small class="mono">{{ store.store_id }} · Owner {{ store.owner_user_id }}</small></td><td>{{ formatNumber(store.member_count) }}</td><td><span class="status">{{ statusLabel(store.status) }}</span></td></tr><tr v-if="!loading && !stores.length"><td colspan="3" class="empty">暂无门店记录。</td></tr></tbody></table>
+          <table v-if="tab === 'users'"><thead><tr><th scope="col">用户</th><th scope="col">状态</th><th scope="col">更新时间</th></tr></thead><tbody><tr v-for="user in users" :key="user.user_id" :class="{ selected: selectedUser?.user_id === user.user_id }" tabindex="0" :aria-selected="selectedUser?.user_id === user.user_id" @click="select(user)" @keydown.enter.prevent="select(user)" @keydown.space.prevent="select(user)"><td><strong>{{ user.nickname || '未设置昵称' }}</strong><small class="mono">{{ user.user_id }} · {{ user.phone_masked || '—' }}</small></td><td><span class="status" :class="user.status === '1' || user.status === 'ACTIVE' ? 'status--success' : 'status--muted'">{{ statusLabel(user.status) }}</span></td><td>{{ formatDateTime(user.updated_at) }}</td></tr><tr v-if="!users.length"><td colspan="3" class="empty">暂无匹配用户。</td></tr></tbody></table>
+          <table v-else><thead><tr><th scope="col">门店</th><th scope="col">成员</th><th scope="col">状态</th></tr></thead><tbody><tr v-for="store in stores" :key="store.store_id" :class="{ selected: selectedStore?.store_id === store.store_id }" tabindex="0" :aria-selected="selectedStore?.store_id === store.store_id" @click="select(store)" @keydown.enter.prevent="select(store)" @keydown.space.prevent="select(store)"><td><strong>{{ store.name || '未命名门店' }}</strong><small class="mono">{{ store.store_id }} · Owner {{ store.owner_user_id }}</small></td><td>{{ formatNumber(store.member_count) }}</td><td><span class="status">{{ statusLabel(store.status) }}</span></td></tr><tr v-if="!stores.length"><td colspan="3" class="empty">暂无门店记录。</td></tr></tbody></table>
         </div>
         <footer class="pagination"><span>第 {{ activePage + 1 }} 页</span><div><button type="button" :disabled="activePage <= 0" @click="previousPage">上一页</button><button type="button" :disabled="(activePage + 1) * pageSize >= activeTotal" @click="nextPage">下一页</button></div></footer>
       </section>

@@ -3,7 +3,7 @@ import { ShieldAlert } from 'lucide-vue-next'
 </script>
 
 <template>
-  <main class="forbidden-page"><section><span class="icon-wrap"><ShieldAlert aria-hidden="true" /></span><p>ACCESS RESTRICTED</p><h1>当前账号没有访问此页面的权限</h1><span class="detail">权限由管理员角色和服务端授权范围共同决定。</span><RouterLink to="/overview">返回平台总览</RouterLink></section></main>
+  <main class="forbidden-page"><section><span class="icon-wrap"><ShieldAlert aria-hidden="true" /></span><p>ACCESS RESTRICTED</p><h1>当前账号没有访问此页面的权限</h1><span class="detail">权限由管理员角色和服务端授权范围共同决定。</span><RouterLink to="/login">返回管理员登录</RouterLink></section></main>
 </template>
 
 <style scoped>

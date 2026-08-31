@@ -39,14 +39,14 @@ export const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
-  if (adminSession.status === 'forbidden') {
-    return to.name === 'forbidden' ? true : { name: 'forbidden' }
-  }
   if (to.name === 'login') {
     const session = await loadAdminSession()
     const sessionStatus: string = adminSession.status
     if (sessionStatus === 'forbidden') return { name: 'forbidden' }
     return session ? { name: 'overview' } : true
+  }
+  if (adminSession.status === 'forbidden') {
+    return to.name === 'forbidden' ? true : { name: 'forbidden' }
   }
   const session = await loadAdminSession()
   if (!session) {
