@@ -39,4 +39,4 @@ npm run build
 
 门店 Owner 在当前接口中用于范围校验和归属展示，页面以只读形式显示。现有 `PATCH /v2/admin/stores/{storeId}` 只更新名称和状态；owner 转移需要后端提供专用事务接口、审计和验收后再增加前端操作。
 
-当前不启动前后端服务。计划公网入口为 `https://sxyq27.online/zhj-admin/`，在独立构建、真实浏览器验收与 Nginx 路由完成前不发布。
+本工程不在本地启动前后端服务。公网入口为 `https://sxyq27.online/zhj-admin/`，静态构建和 Nginx 路由已在 124 节点发布；真实管理员登录、接口数据和高风险操作仍按测试计划执行。
