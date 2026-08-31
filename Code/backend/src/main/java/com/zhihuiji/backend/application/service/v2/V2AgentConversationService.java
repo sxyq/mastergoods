@@ -256,6 +256,10 @@ public class V2AgentConversationService {
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         AgentDraftEntity entity = agentDraftRepository.findByIdAndOwnerUserId(id, ownerUserId)
             .orElseThrow(() -> new IllegalArgumentException("agent draft 不存在"));
+        if (entity.getStatus() == null || VALID_DRAFT_STATUSES.stream()
+            .noneMatch(status -> status.equalsIgnoreCase(entity.getStatus().trim()))) {
+            throw new IllegalArgumentException("草稿状态不可编辑：" + entity.getStatus());
+        }
         if (request.conversationId() != null) {
             ensureConversationOwned(request.conversationId(), ownerUserId);
         }

@@ -169,6 +169,36 @@ class ToolRegistryTest {
     }
 
     @Test
+    void stringEnumIsEnforcedByRegistryAndToolExecutor() throws Exception {
+        ObjectNode schema = objectMapper.createObjectNode();
+        schema.put("type", "object");
+        ObjectNode statusSchema = schema.putObject("properties").putObject("status");
+        statusSchema.put("type", "string");
+        statusSchema.putArray("enum").add("active");
+        schema.putArray("required").add("status");
+        schema.put("additionalProperties", false);
+        TestTool tool = new TestTool(
+            "status_lookup", "状态查询", "校验状态枚举", AgentTool.ToolType.READ_ONLY, schema
+        );
+        ToolRegistry registry = new ToolRegistry(List.of(tool));
+        JsonNode invalidParams = objectMapper.readTree("{\"status\":\"unsupported\"}");
+        int executionsBefore = TestTool.executionCount;
+
+        ToolResult registryResult = registry.executeTool(
+            tool.name(), new ToolContext(1L, 1L, null, "run", null, objectMapper), invalidParams
+        ).orElseThrow();
+        ToolExecutor.GateDecision executorResult = new ToolExecutor(
+            registry, org.mockito.Mockito.mock(com.zhihuiji.backend.application.service.CurrentOwnerService.class)
+        ).checkArguments(tool.name(), invalidParams);
+
+        assertFalse(registryResult.success());
+        assertFalse(executorResult.allowed());
+        assertEquals(ToolExecutor.TOOL_ARGUMENTS_INVALID, executorResult.reasonCode());
+        assertEquals(ToolArgumentsValidator.CODE_ENUM, executorResult.violations().get(0).code());
+        assertEquals(executionsBefore, TestTool.executionCount);
+    }
+
+    @Test
     void maximumAndMaxItemsRejectOversizedArguments() throws Exception {
         ObjectNode schema = objectMapper.createObjectNode();
         schema.put("type", "object");

@@ -342,7 +342,12 @@ public class V2AgentAiService {
                 ),
                 auditId,
                 traceId,
-                SseStreamEmitter.observabilityFor(runId, auditId, traceId)
+                SseStreamEmitter.observabilityFor(runId, auditId, traceId),
+                AgentTerminalStatus.BLOCKED.name(),
+                "SAFETY_BLOCKED",
+                "安全检查拦截：未执行业务查询工具",
+                List.of(),
+                List.of()
             );
         }
 

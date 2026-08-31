@@ -225,6 +225,20 @@ public class ToolRegistry {
             return false;
         }
 
+        JsonNode enumValues = schema.get("enum");
+        if (enumValues != null && enumValues.isArray()) {
+            boolean matches = false;
+            for (JsonNode enumValue : enumValues) {
+                if (enumValue.equals(value)) {
+                    matches = true;
+                    break;
+                }
+            }
+            if (!matches) {
+                return false;
+            }
+        }
+
         String type = schema.path("type").asText("");
         if ("object".equals(type)) {
             return value.isObject() && hasRequiredValues(schema, value);
@@ -264,20 +278,6 @@ public class ToolRegistry {
         }
         if ("number".equals(type) && (!value.isNumber() || !Double.isFinite(value.asDouble()))) {
             return false;
-        }
-
-        JsonNode enumValues = schema.get("enum");
-        if (enumValues != null && enumValues.isArray()) {
-            boolean matches = false;
-            for (JsonNode enumValue : enumValues) {
-                if (enumValue.equals(value)) {
-                    matches = true;
-                    break;
-                }
-            }
-            if (!matches) {
-                return false;
-            }
         }
 
         JsonNode minimum = schema.get("minimum");

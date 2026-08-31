@@ -359,6 +359,8 @@ class V2AgentAiServiceTest {
         assertNull(response.answer());
         assertEquals(false, response.safetyPassed());
         assertEquals("blocked", response.mode());
+        assertEquals(AgentTerminalStatus.BLOCKED.name(), response.terminalStatus());
+        assertEquals("SAFETY_BLOCKED", response.errorCode());
         assertMessagesForRun(response.runId(), "blocked");
         AgentMessageEntity blockedMessage = agentMessages.stream()
             .filter(message -> "assistant".equals(message.getRole()))

@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -459,7 +460,7 @@ class V2AgentConversationServiceTest {
     void listDraftsRestoresImageResultAfterUpdateChangesStateAndLeavesPendingImageDraftWithoutResult() {
         AgentDraftEntity draft = draft(15L, null);
         draft.setDraftType("image_generate");
-        draft.setStatus("confirmed");
+        draft.setStatus("active");
         String contentJson = "{\"prompt\":\"生成商品主图\",\"reference_asset_ids\":[],"
             + "\"image_result\":{\"image_url\":\"data:image/png;base64,ZmFrZQ==\","
             + "\"revised_prompt\":\"优化后的提示词\"}}";
@@ -493,6 +494,29 @@ class V2AgentConversationServiceTest {
         var malformedPending = service.listDrafts(null);
 
         assertNull(malformedPending.get(0).imageResult());
+    }
+
+    @Test
+    void updateDraftRejectsConfirmedDraftWithoutChangingContent() {
+        AgentDraftEntity draft = draft(16L, null);
+        draft.setStatus("confirmed");
+        String originalContent = draft.getContentJson();
+        when(agentDraftRepository.findByIdAndOwnerUserId(16L, 1L)).thenReturn(Optional.of(draft));
+
+        IllegalArgumentException error = assertThrows(
+            IllegalArgumentException.class,
+            () -> service.updateDraft(
+                16L,
+                new V2AgentDtos.AgentDraftUpdateRequest(
+                    null, "operation", "尝试修改已确认草稿", "{\"changed\":true}", "active"
+                )
+            )
+        );
+
+        assertTrue(error.getMessage().contains("草稿状态不可编辑"));
+        assertEquals("confirmed", draft.getStatus());
+        assertEquals(originalContent, draft.getContentJson());
+        verify(agentDraftRepository, never()).save(any(AgentDraftEntity.class));
     }
 
     @Test

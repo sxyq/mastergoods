@@ -193,6 +193,19 @@ public final class ToolArgumentsValidator {
                 // 未声明类型时不做类型检查，仅继续校验数值与枚举约束。
             }
         }
+        JsonNode enumValues = schema.get("enum");
+        if (enumValues != null && enumValues.isArray()) {
+            boolean matches = false;
+            for (JsonNode enumValue : enumValues) {
+                if (enumValue.equals(value)) {
+                    matches = true;
+                    break;
+                }
+            }
+            if (!matches) {
+                violations.add(new Violation(path, "enum", CODE_ENUM, path + " 不在允许的枚举值内"));
+            }
+        }
         if (!value.isNumber()) {
             return;
         }
@@ -216,19 +229,6 @@ public final class ToolArgumentsValidator {
         if (exclusiveMaximum != null && exclusiveMaximum.isNumber() && numeric >= exclusiveMaximum.asDouble()) {
             violations.add(new Violation(path, "exclusiveMaximum=" + exclusiveMaximum.asDouble(),
                 CODE_EXCLUSIVE_MAXIMUM, path + " 必须小于 " + exclusiveMaximum.asDouble()));
-        }
-        JsonNode enumValues = schema.get("enum");
-        if (enumValues != null && enumValues.isArray()) {
-            boolean matches = false;
-            for (JsonNode enumValue : enumValues) {
-                if (enumValue.equals(value)) {
-                    matches = true;
-                    break;
-                }
-            }
-            if (!matches) {
-                violations.add(new Violation(path, "enum", CODE_ENUM, path + " 不在允许的枚举值内"));
-            }
         }
     }
 
