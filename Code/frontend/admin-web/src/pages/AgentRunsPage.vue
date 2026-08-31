@@ -30,10 +30,32 @@ const drafts = ref<AdminDraft[]>([])
 const streaming = ref(false)
 const streamError = ref('')
 let closeStream: (() => void) | null = null
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let streamGeneration = 0
+const maxReconnectAttempts = 4
+let reconnectAttempts = 0
 
 const queryRange = computed(() => { const to = new Date(); const from = new Date(to.getTime() - rangeDays.value * 86_400_000); return { from, to } })
 const hasNext = computed(() => (page.value + 1) * pageSize < total.value)
 const eventItems = computed(() => [...events.value].sort((a, b) => a.sequence - b.sequence))
+const normalizedEvents = computed(() => eventItems.value.map((event) => ({ ...event, normalizedType: normalizeToken(event.event_type) })))
+const plannedTools = computed(() => normalizedEvents.value.filter((event) => event.normalizedType === 'plan' || event.normalizedType === 'plan_delta'))
+const toolEvents = computed(() => normalizedEvents.value.filter((event) => event.normalizedType.startsWith('tool_')))
+const toolPairs = computed(() => {
+  const pairs = new Map<string, { callId: string; started: AdminRunEvent | null; finished: AdminRunEvent | null }>()
+  for (const event of toolEvents.value) {
+    const callId = event.call_id || `sequence-${event.sequence}`
+    const pair = pairs.get(callId) ?? { callId, started: null, finished: null }
+    if (event.normalizedType === 'tool_started') pair.started = event
+    if (['tool_completed', 'tool_failed', 'tool_skipped'].includes(event.normalizedType)) pair.finished = event
+    pairs.set(callId, pair)
+  }
+  return [...pairs.values()]
+})
+const formalAnswers = computed(() => messages.value.filter((message) => message.role.toLowerCase() === 'assistant' && ['answer', 'final', 'formal_answer', 'message'].includes(normalizeToken(message.message_type || 'message'))))
+
+function normalizeToken(value: string | null | undefined): string { return (value || '').trim().toLowerCase().replace(/[.-]/g, '_') }
+function display(value: string | number | null | undefined): string { return value === null || value === undefined || value === '' ? '未提供' : String(value) }
 
 async function load(): Promise<void> {
   loading.value = true; error.value = ''
@@ -64,19 +86,21 @@ async function openRun(run: AdminRun): Promise<void> {
   if (draftResult.status === 'fulfilled') drafts.value = draftResult.value
   if (messageResult.status === 'fulfilled' && messageResult.value) messages.value = messageResult.value.items
   detailLoading.value = false
-  if (run.terminal_status === 'running') startEventStream()
+  if (normalizeToken(run.terminal_status) === 'running') { reconnectAttempts = 0; startEventStream() }
 }
 function applyFilters(): void { page.value = 0; void load() }
 function clearRun(): void { closeEventStream(); selectedRun.value = null; events.value = []; messages.value = []; context.value = null; drafts.value = [] }
-function statusLabel(value: string | null): string { const labels: Record<string, string> = { completed: '已完成', confirmation_pending: '待确认', running: '进行中', failed: '失败', blocked: '已阻塞', cancelled: '已取消', exhausted: '已耗尽' }; return value ? labels[value] ?? value : '未知' }
-function statusClass(value: string | null): string { if (value === 'completed') return 'success'; if (value === 'failed' || value === 'blocked' || value === 'cancelled') return 'danger'; if (value === 'running' || value === 'confirmation_pending') return 'attention'; return 'muted' }
+function statusLabel(value: string | null): string { const labels: Record<string, string> = { completed: '已完成', confirmation_pending: '待确认', running: '进行中', failed: '失败', blocked: '已阻塞', cancelled: '已取消', exhausted: '已耗尽' }; const normalized = normalizeToken(value); return normalized ? (labels[normalized] ?? value ?? '未知') : '未知' }
+function statusClass(value: string | null): string { const normalized = normalizeToken(value); if (normalized === 'completed') return 'success'; if (['failed', 'blocked', 'cancelled', 'exhausted'].includes(normalized)) return 'danger'; if (['running', 'confirmation_pending'].includes(normalized)) return 'attention'; return 'muted' }
 function eventLabel(event: AdminRunEvent): string { return event.tool_name ? `${event.event_type} · ${event.tool_name}` : event.event_type }
-function eventIsTerminal(event: AdminRunEvent): boolean { return ['run_completed', 'run_failed', 'run_cancelled', 'run_blocked', 'run_exhausted'].includes(event.event_type) }
+function eventIsTerminal(event: AdminRunEvent): boolean { return ['run_completed', 'run_failed', 'run_cancelled', 'run_blocked', 'run_exhausted'].includes(normalizeToken(event.event_type)) }
 function startEventStream(): void {
   if (!selectedRun.value || streaming.value) return
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
   streamError.value = ''; streaming.value = true
   const selectedRunId = selectedRun.value.run_id
   const afterSequence = eventItems.value.at(-1)?.sequence ?? null
+  const generation = streamGeneration
   const stop = streamAdminRunEvents(selectedRunId, afterSequence, {
     onEvent(event) {
       if (selectedRun.value?.run_id !== selectedRunId) return
@@ -84,12 +108,25 @@ function startEventStream(): void {
       events.value = [...events.value, event]
       if (eventIsTerminal(event)) closeEventStream()
     },
-    onError(reason) { if (selectedRun.value?.run_id === selectedRunId) { streaming.value = false; streamError.value = reason.message } },
-    onComplete() { if (selectedRun.value?.run_id === selectedRunId) streaming.value = false },
+    onError(reason) {
+      if (selectedRun.value?.run_id !== selectedRunId || generation !== streamGeneration) return
+      closeStream = null; streaming.value = false; streamError.value = reason.message
+      scheduleReconnect(selectedRunId)
+    },
+    onComplete() {
+      if (selectedRun.value?.run_id !== selectedRunId || generation !== streamGeneration) return
+      closeStream = null; streaming.value = false
+      if (!eventItems.value.some(eventIsTerminal)) scheduleReconnect(selectedRunId)
+    },
   })
   closeStream = () => { stop(); if (closeStream) closeStream = null }
 }
-function closeEventStream(): void { closeStream?.(); closeStream = null; streaming.value = false }
+function scheduleReconnect(runId: string): void {
+  if (reconnectAttempts >= maxReconnectAttempts || selectedRun.value?.run_id !== runId) return
+  const delay = 500 * (2 ** reconnectAttempts); reconnectAttempts += 1
+  reconnectTimer = setTimeout(() => { reconnectTimer = null; if (selectedRun.value?.run_id === runId) startEventStream() }, delay)
+}
+function closeEventStream(): void { streamGeneration += 1; if (reconnectTimer) clearTimeout(reconnectTimer); reconnectTimer = null; closeStream?.(); closeStream = null; streaming.value = false }
 async function reloadMessages(): Promise<void> {
   if (!selectedRun.value?.conversation_id) return
   try { messages.value = (await getAdminMessages(selectedRun.value.conversation_id, { includeContent: adminSession.session?.content_access ?? false, page: 0, size: 30 })).items } catch (reason) { streamError.value = reason instanceof Error ? reason.message : '无法读取会话消息。' }
@@ -104,20 +141,23 @@ onBeforeUnmount(closeEventStream)
     <AdminPageHeader eyebrow="AGENT / OBSERVABILITY" title="Agent 运行" description="按运行、模型、状态和时间范围核验 Agent 执行事实。"><template #actions><label class="range"><Clock3 aria-hidden="true" /><select v-model.number="rangeDays" aria-label="时间范围"><option :value="7">近 7 天</option><option :value="30">近 30 天</option><option :value="90">近 90 天</option></select></label><button class="outline-button" type="button" :disabled="loading" @click="load"><RefreshCw :class="{ spinning: loading }" aria-hidden="true" />刷新</button></template></AdminPageHeader>
     <div class="agent-grid"><section class="runs-area"><div class="filter-panel"><label><Search aria-hidden="true" /><input v-model="runId" placeholder="运行 ID" @keyup.enter="applyFilters" /></label><label><Bot aria-hidden="true" /><input v-model="modelId" placeholder="模型 ID" @keyup.enter="applyFilters" /></label><label><Filter aria-hidden="true" /><select v-model="terminalStatus"><option value="">全部终态</option><option value="completed">已完成</option><option value="running">进行中</option><option value="failed">失败</option><option value="confirmation_pending">待确认</option></select></label><button class="outline-button" type="button" @click="applyFilters">应用筛选</button></div>
       <UsageChart :items="usage" :model-id="modelId" :loading="loading" />
-      <section class="table-panel" aria-labelledby="runs-title"><header><div><h2 id="runs-title">运行记录</h2><p>{{ formatNumber(total) }} 条记录</p></div></header><StatePanel v-if="error" state="error" :detail="error" @retry="load" /><div v-else class="table-scroll"><table><thead><tr><th>运行</th><th>模型与范围</th><th class="numeric">Token / 耗时</th><th>状态</th><th aria-label="详情" /></tr></thead><tbody><tr v-for="run in runs" :key="run.run_id" :class="{ selected: selectedRun?.run_id === run.run_id }" @click="openRun(run)"><td><strong class="mono">{{ run.run_id }}</strong><small>{{ formatDateTime(run.started_at) }}</small></td><td><strong>{{ run.model_id || '未记录模型' }}</strong><small>Owner {{ run.owner_user_id || '—' }} / 门店 {{ run.store_id || '—' }}</small></td><td class="numeric"><strong>{{ formatNumber(run.total_tokens) }}</strong><small>{{ formatDuration(run.duration_ms) }}</small></td><td><span class="status" :class="`status--${statusClass(run.terminal_status)}`"><i />{{ statusLabel(run.terminal_status) }}</span></td><td><ChevronRight aria-hidden="true" /></td></tr><tr v-if="!loading && !runs.length"><td colspan="5" class="empty">暂无匹配运行记录。</td></tr></tbody></table></div><footer><span>第 {{ page + 1 }} 页</span><div><button type="button" :disabled="page <= 0" @click="page--; load()">上一页</button><button type="button" :disabled="!hasNext" @click="page++; load()">下一页</button></div></footer></section></section>
+      <section class="table-panel" aria-labelledby="runs-title"><header><div><h2 id="runs-title">运行记录</h2><p>{{ formatNumber(total) }} 条记录</p></div></header><StatePanel v-if="error" state="error" :detail="error" @retry="load" /><div v-else class="table-scroll"><table><thead><tr><th>运行</th><th>模型与范围</th><th class="numeric">Token / 耗时</th><th>状态</th><th aria-label="详情" /></tr></thead><tbody><tr v-for="run in runs" :key="run.run_id" :class="{ selected: selectedRun?.run_id === run.run_id }" tabindex="0" @click="openRun(run)" @keydown.enter="openRun(run)" @keydown.space.prevent="openRun(run)"><td><strong class="mono">{{ run.run_id }}</strong><small>{{ formatDateTime(run.started_at) }}</small></td><td><strong>{{ run.model_id || '未记录模型' }}</strong><small>Owner {{ run.owner_user_id || '—' }} / 门店 {{ run.store_id || '—' }}</small></td><td class="numeric"><strong>{{ formatNumber(run.total_tokens) }}</strong><small>{{ formatDuration(run.duration_ms) }}</small></td><td><span class="status" :class="`status--${statusClass(run.terminal_status)}`"><i />{{ statusLabel(run.terminal_status) }}</span></td><td><ChevronRight aria-hidden="true" /></td></tr><tr v-if="!loading && !runs.length"><td colspan="5" class="empty">暂无匹配运行记录。</td></tr></tbody></table></div><footer><span>第 {{ page + 1 }} 页</span><div><button type="button" :disabled="page <= 0" @click="page--; load()">上一页</button><button type="button" :disabled="!hasNext" @click="page++; load()">下一页</button></div></footer></section></section>
       <aside v-if="selectedRun" class="run-drawer" aria-labelledby="drawer-title">
         <header><div><p>RUN DETAIL</p><h2 id="drawer-title">运行详情</h2></div><button type="button" aria-label="关闭运行详情" @click="clearRun"><X /></button></header>
-        <span class="run-id">{{ selectedRun.run_id }}</span>
-        <dl><div><dt>模型</dt><dd>{{ selectedRun.model_id || '—' }}</dd></div><div><dt>范围</dt><dd>Owner {{ selectedRun.owner_user_id || '—' }} / 门店 {{ selectedRun.store_id || '—' }}</dd></div><div><dt>Token</dt><dd>{{ formatNumber(selectedRun.total_tokens) }} <small>{{ selectedRun.token_source }}</small></dd></div><div><dt>耗时</dt><dd>{{ formatDuration(selectedRun.duration_ms) }}</dd></div></dl>
+        <span class="run-id">run_id · {{ selectedRun.run_id }}</span>
+        <dl><div><dt>conversation_id</dt><dd class="mono">{{ display(selectedRun.conversation_id) }}</dd></div><div><dt>用户 / Owner / 门店</dt><dd>用户 {{ display(selectedRun.actor_user_id) }} / Owner {{ display(selectedRun.owner_user_id) }} / 门店 {{ display(selectedRun.store_id) }}</dd></div><div><dt>模型</dt><dd>{{ display(selectedRun.model_id) }}</dd></div><div><dt>终态</dt><dd><span class="status" :class="`status--${statusClass(selectedRun.terminal_status)}`"><i />{{ statusLabel(selectedRun.terminal_status) }}</span></dd></div><div><dt>Token</dt><dd>输入 {{ formatNumber(selectedRun.input_tokens) }} · 输出 {{ formatNumber(selectedRun.output_tokens) }} · 总量 {{ formatNumber(selectedRun.total_tokens) }} <small>来源 {{ display(selectedRun.token_source) }}</small></dd></div><div><dt>时间</dt><dd>首字延迟 {{ formatDuration(selectedRun.time_to_first_token_ms) }} · 总耗时 {{ formatDuration(selectedRun.duration_ms) }}</dd></div><div><dt>轮次 / 工具调用</dt><dd>{{ display(selectedRun.iteration_count) }} / {{ display(selectedRun.tool_call_count) }}</dd></div></dl>
         <section class="event-section" aria-labelledby="event-title">
           <header><div><h3 id="event-title">工具事件</h3><span v-if="!eventIntegrity" class="integrity"><CircleAlert aria-hidden="true" />事件序列不完整</span><span v-else-if="streaming" class="integrity integrity--live"><Activity aria-hidden="true" />实时更新中</span></div><button type="button" class="refresh-events" :disabled="detailLoading" @click="openRun(selectedRun)"><RefreshCw aria-hidden="true" />刷新</button></header>
-          <p v-if="streamError" class="stream-error">{{ streamError }}</p>
+          <p v-if="streamError" class="stream-error">{{ streamError }}<template v-if="reconnectAttempts < maxReconnectAttempts"> · 将自动重连（{{ reconnectAttempts }}/{{ maxReconnectAttempts }}）</template><template v-else> · 自动重连已停止</template></p>
           <StatePanel v-if="detailError" state="error" :detail="detailError" @retry="openRun(selectedRun)" />
           <div v-else-if="detailLoading" class="event-loading">正在读取持久化事件。</div>
-          <ol v-else class="event-list"><li v-for="event in eventItems" :key="event.event_id"><span class="sequence">{{ event.sequence }}</span><div><strong>{{ eventLabel(event) }}</strong><small>{{ formatDateTime(event.occurred_at) }} · {{ event.status || '—' }}<template v-if="event.duration_ms !== null"> · {{ formatDuration(event.duration_ms) }}</template></small><p v-if="event.argument_summary || event.result_summary">{{ event.result_summary || event.argument_summary }}</p></div></li><li v-if="!eventItems.length" class="empty-event">暂无持久化工具事件。</li></ol>
+          <div v-else>
+            <div class="event-summary"><span>计划 {{ plannedTools.length }} 条</span><span>实际工具 {{ toolEvents.length }} 条</span><span>call_id 配对 {{ toolPairs.filter((pair) => pair.started && pair.finished).length }}/{{ toolPairs.length }}</span></div>
+            <ol class="event-list"><li v-for="event in normalizedEvents" :key="event.event_id"><span class="sequence">{{ event.sequence }}</span><div><strong>{{ eventLabel(event) }}</strong><small>{{ formatDateTime(event.occurred_at) }} · {{ display(event.status) }} · 脱敏 {{ display(event.redaction_state) }}<template v-if="event.call_id"> · call_id {{ event.call_id }}</template><template v-if="event.duration_ms !== null"> · 工具耗时 {{ formatDuration(event.duration_ms) }}</template></small><p v-if="event.argument_summary">参数：{{ event.argument_summary }}</p><p v-if="event.result_summary">结果：{{ event.result_summary }}</p></div></li><li v-if="!eventItems.length" class="empty-event">暂无持久化工具事件。</li></ol>
+          </div>
         </section>
-        <section class="evidence-section"><header><h3><FileText aria-hidden="true" />上下文与草稿</h3></header><p v-if="context">窗口 {{ formatNumber(context.context_window_tokens) }} · 估算输入 {{ formatNumber(context.estimated_input_tokens) }} · 检查点 {{ context.checkpoints.length }}</p><p v-else>暂无上下文检查点。</p><ul v-if="drafts.length"><li v-for="draft in drafts" :key="draft.draft_id"><strong>{{ draft.title || draft.draft_type }}</strong><small>{{ draft.status }} · {{ formatDateTime(draft.updated_at) }}</small></li></ul><p v-else>暂无关联草稿。</p></section>
-        <section class="evidence-section"><header><h3><MessageSquareText aria-hidden="true" />会话消息</h3><button v-if="selectedRun.conversation_id" type="button" @click="reloadMessages">{{ adminSession.session?.content_access ? '读取已授权正文' : '刷新摘要' }}</button></header><ul v-if="messages.length"><li v-for="message in messages" :key="message.message_id"><strong>{{ message.role }} · {{ message.message_type || 'message' }}</strong><small>{{ formatDateTime(message.occurred_at) }} · {{ message.redaction_state || 'REDACTED' }}</small><p v-if="message.content">{{ message.content }}</p></li></ul><p v-else>暂无会话消息摘要。</p></section>
+        <section class="evidence-section"><header><h3><FileText aria-hidden="true" />上下文与草稿</h3></header><p v-if="context">窗口 {{ formatNumber(context.context_window_tokens) }}（{{ display(context.context_window_source) }}）· 估算输入 {{ formatNumber(context.estimated_input_tokens) }} · 输出 {{ formatNumber(context.estimated_output_tokens) }} · 检查点 {{ context.checkpoints.length }}</p><p v-else>暂无上下文检查点。</p><ul v-if="context?.checkpoints.length"><li v-for="checkpoint in context.checkpoints" :key="checkpoint.checkpoint_id"><strong>检查点 {{ checkpoint.checkpoint_id }}</strong><small>状态 {{ display(checkpoint.status) }} · 质量 {{ display(checkpoint.quality) }} · revision {{ display(checkpoint.revision) }} · {{ formatDateTime(checkpoint.updated_at || checkpoint.created_at) }}</small><p>消息 {{ display(checkpoint.source_message_count) }} · 输入 {{ formatNumber(checkpoint.estimated_input_tokens) }} · 输出 {{ formatNumber(checkpoint.estimated_output_tokens) }}</p></li></ul><ul v-if="drafts.length"><li v-for="draft in drafts" :key="draft.draft_id"><strong>{{ draft.title || draft.draft_type }}</strong><small>状态 {{ display(draft.status) }} · {{ formatDateTime(draft.updated_at) }}</small></li></ul><p v-else>暂无关联草稿。</p></section>
+        <section class="evidence-section"><header><h3><MessageSquareText aria-hidden="true" />正式回答与会话</h3><button v-if="selectedRun.conversation_id" type="button" @click="reloadMessages">{{ adminSession.session?.content_access ? '读取已授权正文' : '刷新摘要' }}</button></header><p v-if="formalAnswers.length" class="formal-answer">{{ formalAnswers.map((message) => message.content).filter(Boolean).join('\n') }}</p><p v-else>暂无正式回答正文（当前权限或后端未提供）。</p><ul v-if="messages.length"><li v-for="message in messages" :key="message.message_id"><strong>{{ message.role }} · {{ message.message_type || 'message' }}</strong><small>{{ formatDateTime(message.occurred_at) }} · {{ message.redaction_state || 'REDACTED' }}</small><p v-if="message.content">{{ message.content }}</p></li></ul><p v-else>暂无会话消息摘要。</p></section>
       </aside>
     </div>
   </section>
@@ -139,4 +179,8 @@ onBeforeUnmount(closeEventStream)
 .evidence-section li strong { font-size: 10px; font-weight: 500; }
 .evidence-section li small { margin-top: 4px; color: var(--admin-muted); font-size: 9px; }
 .evidence-section li p { margin: 7px 0 0; color: var(--admin-muted); font-size: 10px; line-height: 1.45; overflow-wrap: anywhere; }
+.event-summary { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; color: var(--admin-muted); font-size: 9px; }
+.event-summary span { border: 1px solid var(--admin-border); border-radius: 999px; padding: 4px 6px; }
+.formal-answer { white-space: pre-wrap; color: var(--admin-foreground) !important; }
+tbody tr:focus-visible { outline: 2px solid var(--admin-focus); outline-offset: -2px; }
 </style>

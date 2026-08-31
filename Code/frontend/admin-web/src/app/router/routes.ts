@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
-import { hasAdminPermission, loadAdminSession } from '@/app/stores/admin-session'
+import { adminSession, hasAdminPermission, loadAdminSession } from '@/app/stores/admin-session'
 import AdminLayout from '@/app/layouts/AdminLayout.vue'
 import AgentConfigPage from '@/pages/AgentConfigPage.vue'
 import AgentRunsPage from '@/pages/AgentRunsPage.vue'
@@ -39,9 +39,19 @@ export const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
-  if (to.name === 'login') return true
+  if (adminSession.status === 'forbidden') {
+    return to.name === 'forbidden' ? true : { name: 'forbidden' }
+  }
+  if (to.name === 'login') {
+    const session = await loadAdminSession()
+    const sessionStatus: string = adminSession.status
+    if (sessionStatus === 'forbidden') return { name: 'forbidden' }
+    return session ? { name: 'overview' } : true
+  }
   const session = await loadAdminSession()
   if (!session) {
+    const sessionStatus: string = adminSession.status
+    if (sessionStatus === 'forbidden') return { name: 'forbidden' }
     return { name: 'login', query: { redirect: to.fullPath } }
   }
   if (to.meta.permission && !hasAdminPermission(to.meta.permission)) {
