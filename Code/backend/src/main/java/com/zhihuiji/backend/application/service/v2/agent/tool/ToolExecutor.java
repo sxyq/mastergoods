@@ -9,6 +9,7 @@ import java.util.Optional;
 import java.util.Set;
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 /**
@@ -291,6 +292,7 @@ public class ToolExecutor {
      * @param objectMapper JSON mapper
      * @return 执行结果（含执行门结论）
      */
+    @Transactional
     public ExecutionOutcome execute(
         AgentRunState runState,
         String toolName,
