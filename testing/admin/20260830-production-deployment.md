@@ -136,10 +136,10 @@ V41 发布后容器保持 `running` 且重启次数为 0。当时尚无管理员
 | 8220 JAR | `/app/app.jar` SHA-256 为 `d9ac0b508fd55082905fd30608cf6221ff4e97e279496a08ce87a448ad318d77` |
 | 数据库 | Flyway V42；V42 owner 范围单据编号迁移已在 PostgreSQL 核对 |
 | 主 Compose | `/opt/sxyq27/master-goods/compose.yml` 已同步到当前镜像；容器重启次数保持 0 |
-| 管理员 Web | 源码提交 `c012290b`；发布目录 `/opt/sxyq27/releases/20260901T023500-admin-web-c012290b-api-base/zhj-admin`；静态目标已切换 |
+| 管理员 Web | 源码提交 `76b2a13a`；发布目录 `/opt/sxyq27/releases/20260901T073700-admin-web-76b2a13a/zhj-admin`；静态目标已切换 |
 | Web 构建 | `Code/frontend/admin-web` 执行 `npm run build`：`Passed`，1634 个模块 |
 | 公网核对 | `https://sxyq27.online/zhj-admin/`、SPA 路由和 JS/CSS 资源：HTTP 200；未鉴权 `GET /v2/admin/session`：HTTP 401 |
 | Android 阶段二 | 最新 APK SHA-256 为 `d1a09af6d6848377a1f95429008c51c20c172f04945fcc0ae549d8ab58ed31c8`；`emulator-5554` 已安装，但真实登录 HTTP 422，Agent/SSE 全链路为 `Blocked` |
 | iOS | `Deferred`，本轮未修改、构建或部署 |
 
-证据位置：8220 发布元数据 `/opt/sxyq27/master-goods/releases/20260901T014000-agent-owner-bill-c012290b/release-meta.txt`；Android 脱敏证据 `testing/Agent/客户端/artifacts/20260831-real-android-wave0-AG-CLI-AND-LOGIN/`。本节未记录凭据、Token、Cookie、密码哈希或完整认证载荷。
+证据位置：8220 发布元数据 `/opt/sxyq27/master-goods/releases/20260901T014000-agent-owner-bill-c012290b/release-meta.txt`；管理员 Web 发布元数据 `/opt/sxyq27/releases/20260901T073700-admin-web-76b2a13a/zhj-admin/frontend-meta.txt`；Android 脱敏证据 `testing/Agent/客户端/artifacts/20260831-real-android-wave0-AG-CLI-AND-LOGIN/`。本节未记录凭据、Token、Cookie、密码哈希或完整认证载荷。

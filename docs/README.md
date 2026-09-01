@@ -51,10 +51,10 @@ docs/
 | 管理员后台 | 管理员后台如何规划、实现和验收？ | `管理员后台/01_业务需求` 至 `管理员后台/07_问题审计` |
 | 90 历史归档 | 哪些只代表过去？ | 154 历史资料、旧报告、旧测试证据、旧文档 |
 
-## 当前运行边界（2026-08-31）
+## 当前运行边界（2026-09-01）
 
 - 当前验证与生产目标：`8.220.206.9`（8220），公共 API 入口 `https://zhj-api.sxyq27.online/`
-- 独立管理员 Web 已发布到 124 的 `https://sxyq27.online/zhj-admin/`，当前构建提交为 `c012290b`；店主端继续使用 `https://sxyq27.online/zhj/`；8220 后端当前镜像为 `sxyq27-zhj-api:20260901T014000-agent-owner-bill-c012290b`，Flyway 当前为 V42
+- 独立管理员 Web 已发布到 124 的 `https://sxyq27.online/zhj-admin/`，当前构建提交为 `76b2a13a`；店主端继续使用 `https://sxyq27.online/zhj/`；8220 后端当前镜像为 `sxyq27-zhj-api:20260901T014000-agent-owner-bill-c012290b`，Flyway 当前为 V42
 - 当前 Provider 默认：模型 `glm-5.3-flash`，Base URL `https://oneapi.sxyq27.online/v1`，Wire API `chat_completions`
 - Agent 上下文配置上限：`272000` tokens；Provider 实际窗口以 Agent Wave 0 运行核对为准
 - `154.217.241.207` 已完全退役，全部内容标记为 `historical-only`
