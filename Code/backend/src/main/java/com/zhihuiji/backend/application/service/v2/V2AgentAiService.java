@@ -524,9 +524,9 @@ public class V2AgentAiService {
             ownerUserId, runId, conversation.getId(), emitter, actorUserId, actorStoreId
         );
         runAuditService.registerRun(activeRun);
-        emitter.onCompletion(() -> runAuditService.removeRun(runId));
-        emitter.onTimeout(() -> runAuditService.removeRun(runId));
-        emitter.onError(ignored -> runAuditService.removeRun(runId));
+        // Android stops its local SSE collector before its cancel request finishes.
+        // Keep this run addressable until the worker exits so that the request can
+        // still interrupt the provider and persist the cancelled terminal state.
         SecurityContext capturedSecurityContext = SecurityContextHolder.createEmptyContext();
         capturedSecurityContext.setAuthentication(SecurityContextHolder.getContext().getAuthentication());
         CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
