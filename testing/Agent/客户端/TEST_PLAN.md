@@ -1,6 +1,6 @@
 # Agent 客户端联调测试规划（客户端）
 
-更新日期：2026-08-28。Android 与 iOS 使用相同的服务端断言，客户端分别记录各自版本、设备标签与展示状态；Web 仅作协议与展示对照。登录必须走 APP 正常登录流程，测试人员不手工提取/复制 Cookie、Session Token、Authorization 或完整认证载荷。每个平台使用独立 `test_id`，不能用 Android 结果代表 iOS，也不能用 Web 协议解析代表真实设备展示。
+更新日期：2026-09-01。Android 与 iOS 使用相同的服务端断言，客户端分别记录各自版本、设备标签与展示状态；Web 仅作协议与展示对照。登录必须走 APP 正常登录流程，测试人员不手工提取/复制 Cookie、Session Token、Authorization 或完整认证载荷。每个平台使用独立 `test_id`，不能用 Android 结果代表 iOS，也不能用 Web 协议解析代表真实设备展示。
 
 ## 一、执行前提
 
@@ -66,3 +66,14 @@ Wave 0 的账号核查显示，四个指定账号后缀 `8111`、`8112`、`8113`
 本轮运行模型实际为 `gpt-5.6-luna`，目标模型为 `glm-5.3-flash`，两者不一致，记录为环境差异。该差异不能作为目标模型已验证的依据。
 
 脱敏证据目录：`testing/Agent/客户端/artifacts/20260901-agent-phase2-wave0-AG-CLI-AND-P2-LOGIN-001/`。
+
+## 2026-09-01 Wave 0 增量复核
+
+| 用例 | 平台与范围 | 实际事实 | 状态 |
+|---|---|---|---|
+| `AG-CLI-AND-P2-ENV-002` | Android 环境与 APK | `Zhihuiji_API34` 已启动为 `emulator-5554`；`com.zhihuiji.app` 1.0.0 已安装；默认 API 为 `https://zhj-api.sxyq27.online/`；登录页 UI 树、截图和空崩溃缓冲已保存 | `Passed` |
+| `AG-CLI-AND-P2-SERVER-002` | 8220 服务前置 | 直连 root SSH、API/PostgreSQL/Redis/Nginx、Flyway V42 和公网匿名拒绝均已核对；主机 `aegis.service` 为 failed，未执行修复 | `Passed` |
+| `AG-CLI-AND-P2-PROVIDER-002` | Provider 目标配置 | 运行模型为 `gpt-5.6-luna`，目标模型为 `glm-5.3-flash`，两者未对齐 | `Blocked` |
+| `AG-CLI-AND-P2-LOGIN-002` | Android 正常登录 | 本轮停留在登录前页面，没有已确认的测试账号和密码，未提交登录请求 | `Blocked` |
+
+本次增量证据目录：`testing/Agent/客户端/artifacts/20260901-phase2-wave0-AG-CLI-AND-PRELOGIN-001/`。在账号和 Provider 前置满足前，不进入 Wave 1-4；不创建账号、不重置密码、不从服务器读取认证材料。
