@@ -58,6 +58,8 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
           AND (:categoryId IS NULL OR p.categoryId = :categoryId)
           AND (:unitId IS NULL OR p.unitId = :unitId)
           AND (
+              :keyword IS NULL OR :keyword = ''
+              OR
               LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
               OR LOWER(p.code) LIKE LOWER(CONCAT('%', :keyword, '%'))
           )
@@ -77,7 +79,8 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
           AND (:status IS NULL OR p.status = :status)
           AND (:categoryId IS NULL OR p.categoryId = :categoryId)
           AND (:unitId IS NULL OR p.unitId = :unitId)
-          AND (LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          AND (:keyword IS NULL OR :keyword = ''
+               OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
                OR LOWER(p.code) LIKE LOWER(CONCAT('%', :keyword, '%')))
         ORDER BY p.updatedAt DESC, p.id DESC
         """)

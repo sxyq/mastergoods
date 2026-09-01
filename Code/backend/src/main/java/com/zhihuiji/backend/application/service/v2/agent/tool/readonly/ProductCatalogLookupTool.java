@@ -70,12 +70,14 @@ public class ProductCatalogLookupTool extends ToolSupport {
         );
         ToolAudit audit = startAudit(ctx, name(), input);
 
-        PageRequest pageRequest = PageRequest.of(0, DEFAULT_TOOL_LIMIT);
-        List<ProductEntity> products = StringUtils.hasText(keyword)
-            ? productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(
-                ownerUserId, keyword, status, categoryId, unitId, pageRequest)
-            : productRepository.findAllByOwnerUserIdAndFiltersOrderByUpdatedAtDesc(
-                ownerUserId, status, categoryId, unitId, pageRequest);
+        List<ProductEntity> products = productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(
+            ownerUserId,
+            keyword,
+            status,
+            categoryId,
+            unitId,
+            PageRequest.of(0, DEFAULT_TOOL_LIMIT)
+        );
         List<ProductEntity> topProducts = limit(products, 5);
         long totalProductCount = safeLong(productRepository.countByOwnerUserId(ownerUserId));
         double totalStock = safeDouble(productRepository.sumStockByOwnerUserId(ownerUserId));

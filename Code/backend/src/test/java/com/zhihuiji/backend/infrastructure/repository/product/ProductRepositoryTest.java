@@ -24,6 +24,18 @@ class ProductRepositoryTest {
         assertEquals(2L, productRepository.countLowStockByOwnerUserId(1L));
     }
 
+    @Test
+    void optionalKeywordReturnsOwnerRowsWhenKeywordIsMissingOrEmpty() {
+        productRepository.save(product(1L, "P-1", 5.0, 10.0));
+        productRepository.save(product(1L, "P-2", 12.0, 10.0));
+        productRepository.save(product(2L, "P-3", 3.0, 3.0));
+
+        assertEquals(2, productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(
+            1L, null, null, null, null, org.springframework.data.domain.PageRequest.of(0, 10)).size());
+        assertEquals(2, productRepository.findByOwnerUserIdAndKeywordAndFiltersOrderByUpdatedAtDesc(
+            1L, "", null, null, null, org.springframework.data.domain.PageRequest.of(0, 10)).size());
+    }
+
     private static ProductEntity product(Long ownerUserId, String code, Double stock, Double safeStock) {
         ProductEntity entity = new ProductEntity();
         entity.setOwnerUserId(ownerUserId);
