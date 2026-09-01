@@ -137,3 +137,15 @@ Wave 0 的账号核查显示，四个指定账号后缀 `8111`、`8112`、`8113`
 本轮通过 App 会话入口打开历史列表，但新会话卡片没有立即出现在加载结果中，因此没有猜测 conversation ID，也没有执行服务端删除。随后 `pm clear com.zhihuiji.app` 返回 `Success`，重启后登录页可见，crash buffer 为 0 行。客户端证据目录为 `客户端/artifacts/20260902-agent-phase2-wave11-AG-CLI-AND-P2-REALCLICK-001/`，报告为 `客户端/reports/20260902-agent-phase2-wave11-android-real-click.md`。
 
 本轮只证明真实 Android 点击流和 App 端展示，不证明本轮数据库没有写入，也不提供本轮 server audit 完整性结论；服务端证据缺失保持 `Blocked`。已有 Wave 2 的三条只读用例仍以其独立 `00–10` 证据目录和服务器计数为准。
+
+## 2026-09-02 Wave 12 Android 创建草稿拒绝真实点击
+
+本轮继续使用 `emulator-5554` 上的 `com.zhihuiji.app` 1.0.0，通过 8220 公网 API 执行 `AG-CLI-AND-004` 的 `create_product` 草稿拒绝分支。发送和拒绝都依据紧接着采集的 UI tree bounds 点击；输入内容在 App `EditText` 中确认后才发送。
+
+| 用例 | 实际事实 | 数据与清理 | 状态 |
+|---|---|---|---|
+| `AG-CLI-AND-P2-DRAFT-REJECT-001-RERUN-001` | 输入“新增一个商品编码为 EVALONLY20260902 名称为阶段二真实点击商品，先生成草稿，不要直接保存”；点击发送后 App 收到 HTTP 200 `text/event-stream`，出现“操作确认”弹窗；点击“拒绝”后 `POST /v2/agent/drafts/9/cancel` 返回 HTTP 200。会话详情提示无法解析 `draft_card` 字段并保留旧的 active 文案，草稿列表单独回读为“已取消（未执行）” | App 删除取消草稿返回 HTTP 200；会话 `161` 首次删除超时，重试返回 HTTP 200 且列表移除；`pm clear com.zhihuiji.app` 成功并回到登录页；当前 PostgreSQL before/after 未采集 | `Failed` |
+
+证据报告：`客户端/reports/20260902-agent-phase2-wave12-android-draft-reject.md`；证据目录：`客户端/artifacts/20260902-agent-phase2-wave12-AG-CLI-AND-P2-DRAFT-REJECT-RERUN-001/`。本轮真实点击、草稿取消和清理均有 App UI tree/截图/脱敏 logcat；run audit、raw SSE 和数据库 before/after 因 SSH 公钥探针失败记为 `Blocked`，未把 HTTP 200 扩展为数据库通过结论。
+
+本轮发现的客户端问题是：`draft_card` 在会话详情无法解析，拒绝后详情状态没有刷新；独立草稿列表能显示取消状态。运行时仍为 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 未加载，模型前置保持 `Blocked`。本轮未执行确认写入、重复确认、并发确认、生图、iOS 或性能用例。

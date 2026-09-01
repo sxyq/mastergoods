@@ -233,3 +233,11 @@ test_id,category_id,wave_id,environment,account_store_label,preconditions,input,
 新增一条聚焦客户端操作的复核记录：`AG-CLI-AND-P2-REALCLICK-001`。测试从已登录 App 的会话列表开始，依据 UI tree 点击“新建对话”、在 App 输入框输入提示词并点击“发送”。App 先展示处理中，随后展示 `store_info_lookup`、当前门店、正常状态和 1 名成员；App 进程日志记录公网 `/v2/agent/chat/stream` 返回 HTTP 200 `text/event-stream`。客户端点击流记为 `Passed`。
 
 证据报告为 `testing/Agent/客户端/reports/20260902-agent-phase2-wave11-android-real-click.md`，标准目录为 `testing/Agent/客户端/artifacts/20260902-agent-phase2-wave11-AG-CLI-AND-P2-REALCLICK-001/`。历史列表未即时显示新卡片，因此没有猜测 conversation ID 或服务端删除结果；`pm clear com.zhihuiji.app` 返回 `Success`，重启后登录页可见，crash buffer 为 0 行。本轮服务端 run audit、原始 SSE 和数据库 before/after 未采集，保持 `Blocked`，不替代 Wave 2 的服务端闭环证据。
+
+## 十四、2026-09-02 Wave 12 Android 创建草稿拒绝
+
+`AG-CLI-AND-P2-DRAFT-REJECT-001-RERUN-001` 已在 Android App 中完成真实输入、发送、草稿确认弹窗和拒绝点击。App 真实调用 8220 `/v2/agent/chat/stream` 返回 HTTP 200 `text/event-stream`；随后显示 `create_product` 草稿，标题为“新建商品：阶段二真实点击商品”。拒绝动作调用 `/v2/agent/drafts/9/cancel` 并返回 HTTP 200，草稿列表显示“已取消（未执行）”。
+
+客户端结果为 `Failed`：会话详情无法解析 `draft_card` 字段，拒绝后仍显示旧的 active 状态；独立草稿列表状态正确。服务端 run audit、原始 SSE 与 PostgreSQL before/after 因 SSH 公钥探针失败记为 `Blocked`，没有将这些缺口写成通过结论。证据报告和目录分别为 `testing/Agent/客户端/reports/20260902-agent-phase2-wave12-android-draft-reject.md` 与 `testing/Agent/客户端/artifacts/20260902-agent-phase2-wave12-AG-CLI-AND-P2-DRAFT-REJECT-RERUN-001/`。
+
+清理已完成：取消草稿删除 HTTP 200；会话 `161` 删除首次超时，重试 HTTP 200 后从 App 列表消失；`pm clear com.zhihuiji.app` 返回 `Success`，重启回到登录页，crash buffer 为 0 行。运行模型仍为 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 仍为 `Blocked`；确认写入、重复/并发确认、生图、iOS 和性能未执行。
