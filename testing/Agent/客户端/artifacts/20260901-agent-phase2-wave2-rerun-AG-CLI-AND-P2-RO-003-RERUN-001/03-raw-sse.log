@@ -1,0 +1,12 @@
+# Redacted server audit projection of the App SSE stream; payload bodies omitted.
+run_id=721a6483-067f-400a-953c-769f047daf69
+seq=1 event=run_started
+seq=2 event=plan_delta
+seq=3 event=tool_started tool=store_info_lookup
+seq=4 event=tool_completed tool=store_info_lookup
+seq=5 event=answer_delta
+seq=6 event=answer_delta
+seq=7 event=answer_delta
+seq=8 event=answer_delta
+seq=9 event=answer_completed
+seq=10 event=run_completed

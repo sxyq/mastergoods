@@ -167,7 +167,7 @@ test_id,category_id,wave_id,environment,account_store_label,preconditions,input,
 5. 根目录 `testing/已知问题与解除条件.md` 如仍保留旧目录文字，只作为历史记录处理，不作为本目录入口；当前台账并入各 `TEST_PLAN.md` 的用例行，不再存在独立的 Agent CSV 台账。本轮不修改根目录历史文档。
 6. Git 检查只纳入本文档体系、对应类别脚本与脱敏文本证据；凭据、APK、JAR、`dist`、`node_modules`、Gradle 缓存和运行数据库文件不得提交。
 
-## 九、阶段二 Wave 0 当前结果
+## 九、阶段二 Wave 0 历史基线（2026-09-01，后续已更新）
 
 | 项目 | 当前事实 | 状态 |
 |---|---|---|
@@ -181,3 +181,36 @@ test_id,category_id,wave_id,environment,account_store_label,preconditions,input,
 本轮脱敏证据位于 `testing/Agent/客户端/artifacts/20260901-agent-phase2-wave0-AG-CLI-AND-P2-LOGIN-001/`。HTTP 422 仅证明请求已到达服务端并收到响应，不能作为客户端、Agent 或目标模型通过依据。
 
 2026-09-01 10:20–10:25 补充执行 `AG-W0-ANON-ROUTE-002`：24 条 Agent 路由和 22 条管理员 GET 路由均返回 `401 application/json;charset=UTF-8`，根入口与 `/healthz` 也返回 `401`；8220 PostgreSQL 认证探针前后计数无变化。该报告只覆盖匿名拒绝边界，不改变登录、Provider、Wave 1–4 或各父场景的 `Blocked`/`Deferred` 状态，详见 `安全/reports/20260901-phase2-wave0-anonymous-route-matrix.md`。
+
+## 十、阶段二 Wave 1 Android 首轮真实实测（2026-09-01）
+
+本节为最新状态快照，更新并覆盖“账号不存在、无法登录”的前置判断；第九节保留为历史 Wave 0 记录。
+
+| 用例 | 实际执行 | 状态 |
+|---|---|---|
+| `AG-CLI-AND-P2-LOGIN-003` | 使用 8220 现有启用账号之一，通过 Android UI 登录公网 API；进入真实首页、Agent 工作台和对话页；会话抽屉可打开；App 无崩溃 | `Passed` |
+| `AG-CLI-AND-P2-RO-001` | 输入“查看当前商品列表”；SSE 和原生工具选择已发生，`product_catalog_lookup` 在服务端查询阶段失败；App 展示失败态和可重试入口 | `Failed` |
+| `AG-CLI-AND-P2-RO-002` | 输入近 30 天现金流查询；`cashflow_summary_lookup` 在服务端查询阶段失败；App 展示失败态和无数据说明 | `Failed` |
+| `AG-CLI-AND-P2-RO-003` | 输入当前门店查询；`store_info_lookup` 在服务端查询阶段失败；App 展示失败态和可重试入口 | `Failed` |
+
+三条只读用例均真实到达 8220，并形成 SSE、工具选择、audit 和 Android 失败展示。三个 run 的共同错误为：`InvalidDataAccessApiUsageException: Query requires transaction be in progress, but no transaction is known to be in progress`。该问题已在商品、现金流和门店三个不同查询工具中复现，属于服务端工具执行事务边界问题；本轮未修改生产代码。
+
+本轮可确认的 Agent 观测计数为：`agent_conversations=2`、`agent_messages=6`、`agent_run_audits=3`、`agent_run_audit_events=23`、`agent_drafts=0`、`agent_tasks=0`；正式业务表未观察到本轮写入。Android 会话抽屉在清理前显示无历史会话，之后执行 `pm clear com.zhihuiji.app` 成功并回到登录页。由于本轮结束时 SSH 公钥会话无法复用，服务器端删除会话后的 PostgreSQL 最终计数未再次读取，保留为未确认项。
+
+证据报告：`testing/Agent/客户端/reports/20260901-agent-phase2-wave1-android-readonly.md`。设备截图和 UI 摘要位于 `testing/Agent/客户端/artifacts/20260901-agent-phase2-wave1-AG-CLI-AND-LOGIN-003/`；run 标识和脱敏数据库摘要见报告。报告不保存明文密码、密码哈希、Token、Cookie、Authorization 或完整认证载荷。
+
+当前阶段二结论：登录前置已满足，Android 登录为 `Passed`；首轮三个只读 Agent 用例为 `Failed`；创建类工具、取消/断线/恢复、压缩、生图、性能和管理员带权限页面仍为 `Blocked` 或 `Deferred`，不能以本轮结果代替；iOS 为 `Deferred`。下一步应先修复并部署查询事务边界，再从 Android 重跑这三个只读用例；本轮未获授权切换 8220 运行模型，因此实际模型仍为 `gpt-5.6-luna`，目标模型 `glm-5.3-flash` 未验证。
+
+## 十一、阶段二 Wave 2 Android 只读重测（2026-09-01）
+
+三条首轮失败用例已在修复后的 8220 镜像上完成独立 Android 重测。每条均执行了真实 App 输入、UI 树定位发送按钮、点击发送、等待结果页、服务器审计序列核对、数据库前后计数核对和 App 会话删除；原首轮记录保持不变。
+
+| 用例 | 结果 | 关键事实 |
+|---|---|---|
+| `AG-CLI-AND-P2-RO-001-RERUN-001` | `Passed` | `product_catalog_lookup` 完成；App 显示商品列表；`products=693` 无变化 |
+| `AG-CLI-AND-P2-RO-002-RERUN-001` | `Passed` | `cashflow_summary_lookup` 完成；App 显示零流水事实；`finance_records=2661` 无变化 |
+| `AG-CLI-AND-P2-RO-003-RERUN-001` | `Passed` | `store_info_lookup` 完成；App 显示当前门店事实；`stores=2`、`store_memberships=2` 无变化 |
+
+三条请求均为 HTTP 200 `text/event-stream`，run 终态为 `completed`，事件序号连续，`tool_count=1`，没有 Android crash。重测报告为 `客户端/reports/20260901-agent-phase2-wave2-android-readonly-rerun.md`，每条用例的标准 `00–10` 证据目录位于 `客户端/artifacts/20260901-agent-phase2-wave2-rerun-AG-CLI-AND-P2-RO-00*-RERUN-001/`。清理后 `agent_conversations=4`、`agent_messages=14`；审计记录保留，正式业务表无新增。
+
+本轮只验证了当前运行时 `gpt-5.6-luna/chat_completions`。目标 `glm-5.3-flash`、创建类工具、取消/断线/恢复、上下文压缩、生图、性能和 iOS 仍保持 `Blocked` 或 `Deferred`。

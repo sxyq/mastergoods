@@ -1,0 +1,20 @@
+{
+  "app_action": "deleted this run's conversation from the App conversation list",
+  "local_action": "pm clear com.zhihuiji.app; app restarted to login screen",
+  "server_final_recount_confirmed": true,
+  "final_counts": {
+    "agent_conversations": 4,
+    "agent_messages": 14,
+    "agent_run_audits": 10,
+    "agent_run_audit_events": 133,
+    "agent_drafts": 0,
+    "agent_tasks": 0,
+    "products": 693,
+    "finance_records": 2661,
+    "stores": 2,
+    "store_memberships": 2
+  },
+  "business_write_count": 0,
+  "unexpected_business_tables": [],
+  "result": "Passed"
+}

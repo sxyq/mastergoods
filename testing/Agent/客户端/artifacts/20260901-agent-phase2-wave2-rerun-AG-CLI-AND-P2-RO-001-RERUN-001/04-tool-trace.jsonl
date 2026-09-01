@@ -1,0 +1,2 @@
+{"seq":3,"event":"tool_started","tool_name":"product_catalog_lookup","tool_call_id":"call_o7E5X08SpJkCgEFfq674xL1z"}
+{"seq":4,"event":"tool_completed","tool_name":"product_catalog_lookup","tool_call_id":"call_o7E5X08SpJkCgEFfq674xL1z","status":"completed","tool_count":1}

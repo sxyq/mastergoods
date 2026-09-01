@@ -1,0 +1,17 @@
+{
+  "wave_id": "20260901-agent-phase2-wave2-rerun",
+  "scope": "current owner and store labels redacted",
+  "database": "PostgreSQL 15 / Flyway V42",
+  "counts": {
+    "agent_conversations": 5,
+    "agent_messages": 16,
+    "agent_run_audits": 8,
+    "agent_run_audit_events": 111,
+    "agent_drafts": 0,
+    "agent_tasks": 0,
+    "products": 693,
+    "finance_records": 2661,
+    "stores": 2,
+    "store_memberships": 2
+  }
+}

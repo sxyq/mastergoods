@@ -1,0 +1,18 @@
+{
+  "run_id": "afd437b2-f06f-454b-a6c8-b30d2d3a5ee0",
+  "counts": {
+    "agent_conversations": 6,
+    "agent_messages": 18,
+    "agent_run_audits": 9,
+    "agent_run_audit_events": 123,
+    "agent_drafts": 0,
+    "agent_tasks": 0,
+    "products": 693,
+    "finance_records": 2661,
+    "stores": 2,
+    "store_memberships": 2
+  },
+  "expected_agent_delta": {"agent_conversations": 1, "agent_messages": 2, "agent_run_audits": 1, "agent_run_audit_events": 12},
+  "business_write_count": 0,
+  "unexpected_business_tables": []
+}

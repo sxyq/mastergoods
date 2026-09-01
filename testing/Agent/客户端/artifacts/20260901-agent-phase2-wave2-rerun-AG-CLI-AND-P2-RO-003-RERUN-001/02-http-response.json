@@ -1,0 +1,8 @@
+{
+  "request_path": "/v2/agent/chat/stream",
+  "http_status": 200,
+  "content_type": "text/event-stream",
+  "app_observed_response_time_ms": 1380,
+  "stream_completed": true,
+  "authentication_material": "omitted"
+}

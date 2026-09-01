@@ -1,0 +1,2 @@
+{"seq":3,"event":"tool_started","tool_name":"store_info_lookup","tool_call_id":"call_jERUVt8v9NbDP0XAjOkAQcD6"}
+{"seq":4,"event":"tool_completed","tool_name":"store_info_lookup","tool_call_id":"call_jERUVt8v9NbDP0XAjOkAQcD6","status":"completed","tool_count":1}

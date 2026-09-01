@@ -1,0 +1,8 @@
+{
+  "test_id": "AG-CLI-AND-P2-RO-003-RERUN-001",
+  "retest_of": "AG-CLI-AND-P2-RO-003",
+  "input": "Show the current store information",
+  "operation": "Android UI input followed by the visible send action",
+  "expected_tool": "store_info_lookup",
+  "scope": "current owner and store determined by server session"
+}

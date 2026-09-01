@@ -1,0 +1,14 @@
+{
+  "run_id": "afd437b2-f06f-454b-a6c8-b30d2d3a5ee0",
+  "conversation_id": "141",
+  "status": "completed",
+  "mode": "tool_query_llm_native",
+  "llm_status": "native_continuation_completed",
+  "plan_source": "native_tool_use",
+  "tool_count": 1,
+  "event_count": 12,
+  "emitted_event_count": 12,
+  "error_code": null,
+  "duration_ms": 1001,
+  "lossy": false
+}
