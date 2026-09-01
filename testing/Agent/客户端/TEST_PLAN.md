@@ -1,6 +1,6 @@
 # Agent 客户端联调测试规划（客户端）
 
-更新日期：2026-09-01。Android 与 iOS 使用相同的服务端断言，客户端分别记录各自版本、设备标签与展示状态；Web 仅作协议与展示对照。登录必须走 APP 正常登录流程，测试人员不手工提取/复制 Cookie、Session Token、Authorization 或完整认证载荷。每个平台使用独立 `test_id`，不能用 Android 结果代表 iOS，也不能用 Web 协议解析代表真实设备展示。
+更新日期：2026-09-02。Android 与 iOS 使用相同的服务端断言，客户端分别记录各自版本、设备标签与展示状态；Web 仅作协议与展示对照。登录必须走 APP 正常登录流程，测试人员不手工提取/复制 Cookie、Session Token、Authorization 或完整认证载荷。每个平台使用独立 `test_id`，不能用 Android 结果代表 iOS，也不能用 Web 协议解析代表真实设备展示。
 
 ## 一、执行前提
 
@@ -110,3 +110,30 @@ Wave 0 的账号核查显示，四个指定账号后缀 `8111`、`8112`、`8113`
 重测证据报告：`客户端/reports/20260901-agent-phase2-wave2-android-readonly-rerun.md`。每条用例均有独立标准 `00–10` 证据目录，包含脱敏输入、HTTP 摘要、事件序列、工具轨迹、run audit、数据库前后计数、UI 摘要、截图、脱敏 logcat、crash buffer、清理和结论。最终服务器计数为 `agent_conversations=4`、`agent_messages=14`、`agent_run_audits=10`、`agent_run_audit_events=133`、`agent_drafts=0`、`agent_tasks=0`；正式业务表无新增。
 
 本轮使用的实际运行模型仍为 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 保持 `Blocked`。创建类工具、取消/断线、重连、上下文压缩、生图、性能和 iOS 没有执行，不能由只读重测代替。
+
+## 2026-09-02 Wave 3/4 Android 真实点击
+
+本轮使用 `emulator-5554` 上的 `com.zhihuiji.app` 1.0.0，直接连接 8220 公网 API。所有操作均先从 UI tree 取得 bounds，再执行模拟器点击；不使用脚本请求代替 App 展示。
+
+| 用例 | 实际事实 | 数据与清理 | 状态 |
+|---|---|---|---|
+| `AG-CLI-AND-P2-BGFG-001` | App 输入并点击发送；请求未完成时按 Home 置后台；从最近任务点击 App 卡片恢复；恢复后显示完整销售/采购、库存和现金流回答，无重复块；服务端 run `12de88ba-faed-4ed6-bb6b-8a41d595b0ab` 为 `completed`，2 个工具、17 个连续事件、`audit_lossy=false` | 删除当前测试会话 `149` 使用 App 会话列表；`agent_conversations=6→4`、`agent_messages=20→10`；审计 18/258 保留；正式表 `products=693`、`finance_records=2661`、`stores=2`、`store_memberships=2` 不变；`pm clear` 后回到登录页 | `Passed` |
+| `AG-CLI-AND-P2-HISTORY-001` | 从 Agent 首页历史列表点击既有会话 `138`；App 加载 2 条消息、`思考过程`、`执行过程 · 1 个步骤`、商品证据和完成回答；服务端 GET 消息与 run trace 均为 HTTP 200，run `03b74144-8b8d-4b74-a5cd-07e35c3acfb0` 为 `completed`，1 个工具、7 个连续事件 | 选择历史会话未发送新消息；`agent_conversations=5`、`agent_messages=14`、`agent_run_audits=18`、`agent_run_audit_events=258` 前后不变；选中的会话未删除 | `Passed` |
+
+证据报告：`客户端/reports/20260902-agent-phase2-wave3-android-background-foreground-history.md`。后台/前台证据目录为 `客户端/artifacts/20260902-agent-phase2-wave3-AG-CLI-AND-009-001/`，历史恢复证据目录为 `客户端/artifacts/20260902-agent-phase2-wave4-AG-CLI-AND-005-001/`。后台用例的 raw SSE 正文未从 Android 进程取得，已在证据中标明；服务端审计事件序列、App 端点日志、UI tree、截图和 crash buffer 已保存。
+
+识别当前会话 `149` 前，曾点击并删除会话列表首项，服务端计数由 `6/20` 变为 `5/14`；之后通过 Agent 首页明确定位 `149` 并完成目标清理。该额外删除动作与当前后台/前台用例分开记录，审计记录保留，未影响正式业务表。
+
+本轮运行时仍为 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 为 `Blocked`。创建类草稿、取消/断线/重连、压缩、生图、性能和 iOS 仍未执行。
+
+## 2026-09-02 Wave 11 Android 真实点击复核
+
+本节是一次聚焦客户端操作的独立复核，不替换 Wave 2 已完成的服务端观测结果。操作从已登录 App 的会话列表开始，所有点击坐标均由紧接着的 UI tree 得出。
+
+| 用例 | 实际事实 | 证据与边界 | 状态 |
+|---|---|---|---|
+| `AG-CLI-AND-P2-REALCLICK-001` | 新建对话；在 App `EditText` 输入 `Show the current store information`；点击 `发送` 一次；先看到处理中，再看到 `store_info_lookup`、当前门店、正常状态和 1 名成员 | App 进程日志记录公网 `/v2/agent/chat/stream` 返回 HTTP 200 `text/event-stream`；UI tree 和截图已保存；服务端 run audit、SSE 原文和数据库前后计数未采集 | `Passed` |
+
+本轮通过 App 会话入口打开历史列表，但新会话卡片没有立即出现在加载结果中，因此没有猜测 conversation ID，也没有执行服务端删除。随后 `pm clear com.zhihuiji.app` 返回 `Success`，重启后登录页可见，crash buffer 为 0 行。客户端证据目录为 `客户端/artifacts/20260902-agent-phase2-wave11-AG-CLI-AND-P2-REALCLICK-001/`，报告为 `客户端/reports/20260902-agent-phase2-wave11-android-real-click.md`。
+
+本轮只证明真实 Android 点击流和 App 端展示，不证明本轮数据库没有写入，也不提供本轮 server audit 完整性结论；服务端证据缺失保持 `Blocked`。已有 Wave 2 的三条只读用例仍以其独立 `00–10` 证据目录和服务器计数为准。

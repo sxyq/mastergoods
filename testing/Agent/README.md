@@ -214,3 +214,22 @@ test_id,category_id,wave_id,environment,account_store_label,preconditions,input,
 三条请求均为 HTTP 200 `text/event-stream`，run 终态为 `completed`，事件序号连续，`tool_count=1`，没有 Android crash。重测报告为 `客户端/reports/20260901-agent-phase2-wave2-android-readonly-rerun.md`，每条用例的标准 `00–10` 证据目录位于 `客户端/artifacts/20260901-agent-phase2-wave2-rerun-AG-CLI-AND-P2-RO-00*-RERUN-001/`。清理后 `agent_conversations=4`、`agent_messages=14`；审计记录保留，正式业务表无新增。
 
 本轮只验证了当前运行时 `gpt-5.6-luna/chat_completions`。目标 `glm-5.3-flash`、创建类工具、取消/断线/恢复、上下文压缩、生图、性能和 iOS 仍保持 `Blocked` 或 `Deferred`。
+
+## 十二、2026-09-02 Android 真实点击补充
+
+本轮继续按客户端计划在 `emulator-5554` 中执行真实 UI 点击，新增两条结果：
+
+| 用例 | 结果 | 证据 |
+|---|---|---|
+| `AG-CLI-AND-P2-BGFG-001` | `Passed`：发送后请求仍在进行时按 Home 置后台，从最近任务点击 App 卡片恢复；结果完整且无重复；当前测试会话 `149` 已从 App 会话列表删除 | `testing/Agent/客户端/artifacts/20260902-agent-phase2-wave3-AG-CLI-AND-009-001/` |
+| `AG-CLI-AND-P2-HISTORY-001` | `Passed`：从 Agent 首页点击既有会话 `138`，消息、执行步骤、回答与服务器 run trace 一致；没有新消息或数据变化 | `testing/Agent/客户端/artifacts/20260902-agent-phase2-wave4-AG-CLI-AND-005-001/` |
+
+报告为 `testing/Agent/客户端/reports/20260902-agent-phase2-wave3-android-background-foreground-history.md`。本轮最终服务器计数为 `agent_conversations=4`、`agent_messages=10`、`agent_run_audits=18`、`agent_run_audit_events=258`、`agent_drafts=0`、`agent_tasks=0`；正式业务计数为 `products=693`、`finance_records=2661`、`stores=2`、`store_memberships=2`。`pm clear com.zhihuiji.app` 返回 `Success`，重启后为登录页，crash buffer 无匹配行。后台用例 raw SSE 正文未捕获，已按证据限制记录，不能用它声称完整 wire-level SSE 覆盖。
+
+当前仍保持：运行时 `gpt-5.6-luna/chat_completions` 与目标 `glm-5.3-flash` 不一致，记为 `Blocked`；创建类工具、取消/断线、重连、压缩、生图、性能和 iOS 未完成。
+
+## 十三、2026-09-02 Android 真实点击复核
+
+新增一条聚焦客户端操作的复核记录：`AG-CLI-AND-P2-REALCLICK-001`。测试从已登录 App 的会话列表开始，依据 UI tree 点击“新建对话”、在 App 输入框输入提示词并点击“发送”。App 先展示处理中，随后展示 `store_info_lookup`、当前门店、正常状态和 1 名成员；App 进程日志记录公网 `/v2/agent/chat/stream` 返回 HTTP 200 `text/event-stream`。客户端点击流记为 `Passed`。
+
+证据报告为 `testing/Agent/客户端/reports/20260902-agent-phase2-wave11-android-real-click.md`，标准目录为 `testing/Agent/客户端/artifacts/20260902-agent-phase2-wave11-AG-CLI-AND-P2-REALCLICK-001/`。历史列表未即时显示新卡片，因此没有猜测 conversation ID 或服务端删除结果；`pm clear com.zhihuiji.app` 返回 `Success`，重启后登录页可见，crash buffer 为 0 行。本轮服务端 run audit、原始 SSE 和数据库 before/after 未采集，保持 `Blocked`，不替代 Wave 2 的服务端闭环证据。
