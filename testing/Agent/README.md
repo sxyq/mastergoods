@@ -179,3 +179,5 @@ test_id,category_id,wave_id,environment,account_store_label,preconditions,input,
 | iOS | 本轮不修改、不构建、不部署、不执行 iOS 测试 | `Deferred` |
 
 本轮脱敏证据位于 `testing/Agent/客户端/artifacts/20260901-agent-phase2-wave0-AG-CLI-AND-P2-LOGIN-001/`。HTTP 422 仅证明请求已到达服务端并收到响应，不能作为客户端、Agent 或目标模型通过依据。
+
+2026-09-01 10:20–10:25 补充执行 `AG-W0-ANON-ROUTE-002`：24 条 Agent 路由和 22 条管理员 GET 路由均返回 `401 application/json;charset=UTF-8`，根入口与 `/healthz` 也返回 `401`；8220 PostgreSQL 认证探针前后计数无变化。该报告只覆盖匿名拒绝边界，不改变登录、Provider、Wave 1–4 或各父场景的 `Blocked`/`Deferred` 状态，详见 `安全/reports/20260901-phase2-wave0-anonymous-route-matrix.md`。

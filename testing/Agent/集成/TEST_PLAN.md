@@ -48,4 +48,4 @@
 | Provider 模型 | 运行模型实际为 `gpt-5.6-luna`，目标模型为 `glm-5.3-flash`，属于环境差异；本轮没有目标模型的集成验证结论。 | `Blocked` |
 | iOS | 本轮不执行 iOS 实测。 | `Deferred` |
 
-由于没有可验证的登录会话，本轮没有产生 Agent SSE、工具链、事务、audit 或数据库前后状态的全链路证据。脱敏证据目录：`testing/Agent/客户端/artifacts/20260901-agent-phase2-wave0-AG-CLI-AND-P2-LOGIN-001/`。
+匿名认证矩阵 `AG-W0-ANON-ROUTE-002` 已完成认证层拒绝检查并确认数据库计数无变化，但它不属于 Agent 集成全链路；由于没有可验证的登录会话，本轮仍没有产生 Agent SSE、工具链、事务、audit 或业务前后状态的全链路证据。报告位于 `testing/Agent/安全/reports/20260901-phase2-wave0-anonymous-route-matrix.md`，脱敏登录证据目录为 `testing/Agent/客户端/artifacts/20260901-agent-phase2-wave0-AG-CLI-AND-P2-LOGIN-001/`。

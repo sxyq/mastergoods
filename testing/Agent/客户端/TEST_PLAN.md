@@ -77,3 +77,5 @@ Wave 0 的账号核查显示，四个指定账号后缀 `8111`、`8112`、`8113`
 | `AG-CLI-AND-P2-LOGIN-002` | Android 正常登录 | 本轮停留在登录前页面，没有已确认的测试账号和密码，未提交登录请求 | `Blocked` |
 
 本次增量证据目录：`testing/Agent/客户端/artifacts/20260901-phase2-wave0-AG-CLI-AND-PRELOGIN-001/`。在账号和 Provider 前置满足前，不进入 Wave 1-4；不创建账号、不重置密码、不从服务器读取认证材料。
+
+证据边界：该目录是登录前的设备与 UI 采集，不包含登录后的 HTTP、SSE、工具、audit 或数据库业务证据。原始 `03-login-ui.xml` 尾部混入 `/dev/tty` 命令状态文本，不能作为 XML 解析输入；登录页结构以 `04-login-ui-summary.txt` 和 `05-login-screen.png` 为准。当前 UI XML 已重新采集并通过 `xmllint`，未写入版本库。

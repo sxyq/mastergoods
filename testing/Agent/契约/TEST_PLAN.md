@@ -123,7 +123,10 @@
 ## 阶段二 Wave 0 实测边界
 
 - 当前唯一真实客户端用例 `AG-CLI-AND-P2-LOGIN-001` 已到达 8220 公网 API，返回 HTTP 422；指定账号后缀 `8111`、`8112`、`8113`、`8114` 均不存在。
-- 本类 Agent REST/SSE、Schema、事件和客户端解析证据未产生；没有重置密码、创建账号、创建夹具或业务写入，Wave 1-4 未进入。
-- 本轮状态：`Blocked`。本类原计划用例保持 `Deferred`，HTTP 422 不记为 `Passed`。
+- 本批新增 `AG-W0-ANON-ROUTE-002` 匿名 REST 边界记录：24 条 Agent 路由和 22 条管理员 GET 路由均返回 `401 application/json;charset=UTF-8`，根入口与 `/healthz` 同样受保护；数据库前后计数无变化。
+- 该记录只覆盖未认证分支，不替代各 REST 父用例的成功、空数据、参数、权限、跨范围、重复和证据闭环分支；本类其余 Agent REST/SSE、Schema、事件和客户端解析仍未执行。
+- 本轮已执行的匿名拒绝记录为 `Passed`；其余原计划用例继续按前置条件记 `Blocked` 或 `Deferred`，HTTP 422 不记为 `Passed`。
 - 实际模型为 `gpt-5.6-luna`，与目标 `glm-5.3-flash` 不一致；iOS：`Deferred`。
 - 证据目录：`testing/Agent/客户端/artifacts/20260901-agent-phase2-wave0-AG-CLI-AND-P2-LOGIN-001/`。
+
+匿名认证矩阵报告：`testing/Agent/安全/reports/20260901-phase2-wave0-anonymous-route-matrix.md`。
