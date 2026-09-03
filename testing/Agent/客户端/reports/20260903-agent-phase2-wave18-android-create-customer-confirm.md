@@ -148,3 +148,74 @@ HTTP FAILED: java.net.ConnectException: Failed to connect to zhj-api.sxyq27.onli
 - `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-002/07-crash-buffer.txt`
 - `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-002/08-public-entry-probe.txt`
 - `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-002/09-server-entry-probe.txt`
+
+## 2026-09-03 23:44–23:50：模拟器再次启动，公网入口复核仍阻塞
+
+本轮根据用户要求重新启动误关闭的模拟器，并继续从阶段二 Wave 18 的入口前置开始核对：
+
+- `Zhihuiji_API34` 以前台方式启动，未使用 `-wipe-data`；`emulator-5554` 在线，`sys.boot_completed=1`。
+- 新 APK `com.zhihuiji.app` 1.0.0 重新安装返回 `Success`，SHA-256 为 `384d98cdbd08081328e88604a757fc1ba95599379a4143500567abd79ae3c78c`；清空 App 本地状态后启动 Activity 成功。
+- UI tree 和截图显示空白登录页，账号、密码和登录控件存在；crash buffer 为 0 行。本轮按计划没有在公网入口失败时输入凭据或点击登录。
+- `zhj-api.sxyq27.online` 当前 DNS 为 `198.18.0.92`；HTTPS 根路径和 `/healthz` 均在 TLS 阶段失败，HTTP `/healthz` 为默认 404。直接核对 8220 显示 Nginx、Docker、API 容器和 PostgreSQL 正常，但监听只有 `80` 和本机 `18080`，没有 `443`；124 的 `/zhj-api/` 返回 `410`。
+
+因此 `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-UI-FIX-RERUN-003` 为 `Blocked`。本轮没有建立 session、run、conversation、draft、消息、审计或业务数据，也没有修改 Android 源码、线上 Nginx、容器、数据库或账号配置。模拟器保持运行，公网 HTTPS 恢复并通过匿名入口复核后，从当前登录页继续真实点击测试。
+
+本轮证据位于：
+
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-003/00-environment.txt`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-003/01-apk-install.txt`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-003/02-activity-start.txt`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-003/04-login-ui.xml`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-003/06-login-screen.png`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-003/07-crash-buffer.txt`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-003/08-public-entry-probe.txt`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-003/09-server-entry-probe.txt`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-003/10-conclusion.md`
+
+## 2026-09-04 00:06–00:08：阶段二入口再次复核，仍未达到登录前置
+
+本轮继续从当前 AVD 登录页复核 Wave 18：
+
+- `emulator-5554` 仍为 `device`，`sys.boot_completed=1`；修复 APK 已安装，Activity 可解析，crash buffer 为 0 行。
+- 公网 DNS 将 `zhj-api.sxyq27.online` 解析为 `198.18.0.92`；域名 HTTPS 和强制直连 8220 的 HTTPS 均在 TLS 阶段失败，返回 HTTP `000`/`SSL_ERROR_SYSCALL`。8220 HTTP `/healthz` 是默认 404，124 的 `/zhj-api/` 返回 410。
+- 8220 远端 SSH 核对显示 Nginx、Docker、`sxyq27-zhj-api`、PostgreSQL 和 Redis 正常，但只监听 `80` 与本机 `18080`，没有公网 `443`。
+
+因此 `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-UI-FIX-RERUN-004` 仍为 `Blocked`。本轮没有输入凭据、点击登录或调用 Agent，也没有产生 session、run、conversation、draft、消息、审计或业务数据；没有修改源码、线上配置、数据库或账号。公网 HTTPS 443 恢复并通过匿名入口核对后，继续从当前登录页进行真实点击测试。
+
+本轮证据位于：
+
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-004/00-environment.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-004/01-apk-install.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-004/02-activity-start.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-004/04-login-ui.xml`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-004/06-login-screen.png`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-004/07-crash-buffer.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-004/08-public-entry-probe.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-004/09-server-entry-probe.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-004/10-conclusion.md`
+
+## 2026-09-04 00:20–00:30：当前源码回归与 APK 重建安装，公网联调仍阻塞
+
+本轮在继续等待公网入口恢复期间，补做当前源码和安装包的一致性核验：
+
+- 强制执行 `./gradlew :feature:agent:testDebugUnitTest --rerun-tasks --console=plain`，结果 `BUILD SUCCESSFUL`，115 个任务实际执行。
+- 强制执行 `./gradlew :app:assembleDebug --rerun-tasks --console=plain`，结果 `BUILD SUCCESSFUL`，648 个任务实际执行。
+- 新构建 APK 已安装到 `emulator-5554`，`adb install -r` 和 `pm clear` 均返回 `Success`；宿主构建包与从模拟器读取的已安装 APK SHA-256 均为 `f7b92adb686c54be0450038fb854375a256f8f48f34ef61e6b07c7f19c902495`。
+- Activity 启动成功，UI tree 仍为干净登录页，`crash buffer=0`。
+- 公网探针仍为 HTTPS `000`/`SSL_ERROR_SYSCALL`；8220 的 API、PostgreSQL、Redis 正常，但没有 `443` 监听；124 的 `/zhj-api/` 返回 `410`。
+
+因此 `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-UI-FIX-RERUN-005` 的代码级检查为通过，端到端 App 流程仍为 `Blocked`。本轮没有输入凭据、点击登录或调用 Agent，没有产生业务数据，也没有修改 Android 源码、线上配置、数据库或账号。公网 HTTPS 443 恢复并通过匿名入口核对后，继续从当前登录页执行真实点击测试。
+
+本轮证据位于：
+
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/00-environment.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/01-apk-install.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/02-activity-start.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/04-login-ui.xml`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/06-login-screen.png`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/07-crash-buffer.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/08-public-entry-probe.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/09-server-entry-probe.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/10-conclusion.md`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/11-agent-unit-test.log`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/12-assemble-debug.log`

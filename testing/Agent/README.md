@@ -269,3 +269,9 @@ test_id,category_id,wave_id,environment,account_store_label,preconditions,input,
 Wave 17 最终计数为 `agent_conversations=10`、`agent_messages=25`、`agent_drafts=0`、`agent_run_audits=47`、`agent_run_audit_events=545`、`products=693`、`finance_records=2661`。服务前置证据显示 API、PostgreSQL、Redis 和 Nginx 正常，Android 清理后回到登录页且 crash buffer 为 0 行。详细证据目录为 `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave17-AG-CLI-AND-P2-DRAFT-CONFIRM-001/`，其中 `528-server-before-confirm-evidence.txt`、`539-server-after-confirm-failure-evidence.txt`、`547-reference-category-unit-check.txt`、`572-db-after-cleanup-conversations.txt` 和 `582-db-final-recount.txt` 是本轮关键摘要。
 
 运行时实际模型仍为 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 未验证，记为 `Blocked`。本轮未修改源码、数据库、线上服务、账号、密码或证据文件；在前置条件满足前不继续确认成功、重复确认和并发确认测试。
+
+## 十七、2026-09-04 阶段二 Wave 18 修复回归与 APK 一致性
+
+在公网入口恢复前，对当前 Android Agent 修复做了可重复的代码级检查：`./gradlew :feature:agent:testDebugUnitTest --rerun-tasks --console=plain` 实际执行 115 个任务并通过；`./gradlew :app:assembleDebug --rerun-tasks --console=plain` 实际执行 648 个任务并通过。新 APK 安装到 `emulator-5554`，宿主构建包和设备安装包 SHA-256 均为 `f7b92adb686c54be0450038fb854375a256f8f48f34ef61e6b07c7f19c902495`，UI tree 显示干净登录页，crash buffer 为 0 行。
+
+本轮真实运行前置仍为 `Blocked`：`zhj-api.sxyq27.online` 和强制直连 8220 的 HTTPS 均在 TLS 阶段失败，8220 API、PostgreSQL、Redis 虽正常运行，但没有公网 `443` 监听；124 的 `/zhj-api/` 为 `410`。本轮没有输入账号、点击登录或调用 Agent，也没有产生数据库变化。详细记录见 `testing/Agent/客户端/reports/20260903-agent-phase2-wave18-android-create-customer-confirm.md` 的 2026-09-04 记录和 `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/`。

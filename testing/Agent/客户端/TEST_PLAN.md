@@ -178,3 +178,15 @@ Wave 0 的账号核查显示，四个指定账号后缀 `8111`、`8112`、`8113`
 本轮 8220 服务前置核查显示 API、PostgreSQL、Redis 和 Nginx 正常，PostgreSQL 为 `healthy`；Android 最终通过 `pm clear com.zhihuiji.app` 回到登录页，crash buffer 为 0 行。关键证据包括 `40-server-preflight.txt`、`41-nginx-test.txt`、`524-after-send-app-logcat-redacted.txt`、`538-after-confirm-app-logcat-redacted.txt`、`525-confirm-before.xml`、`532-after-confirm-1s.xml`、`544-after-confirm-failure-reject.xml`、`572-db-after-cleanup-conversations.txt` 和 `582-db-final-recount.txt`。
 
 运行时仍为 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 未验证，记为 `Blocked`。在分类/单位数据或确认契约满足前，不继续确认成功、重复确认和并发确认测试；本轮未修改源码、数据库、线上服务、账号、密码或证据文件。
+
+## 2026-09-04 Wave 18 修复回归与公网入口复核
+
+本节记录当前源码和新安装包的一致性检查，不替代真实服务器 App 联调结果。
+
+| 用例 | 实际事实 | 状态 |
+|---|---|---|
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-UI-FIX-RERUN-005` | 强制执行 `:feature:agent:testDebugUnitTest`，115 个任务执行并 `BUILD SUCCESSFUL`；强制执行 `:app:assembleDebug`，648 个任务执行并 `BUILD SUCCESSFUL`；APK 安装到 `emulator-5554`，宿主包与设备安装包 SHA-256 均为 `f7b92adb686c54be0450038fb854375a256f8f48f34ef61e6b07c7f19c902495`；App 登录页和 crash buffer 0 行已核对 | `Blocked` |
+
+公网前置仍未通过：`zhj-api.sxyq27.online` HTTPS 和强制直连 8220 均为 HTTP `000`/`SSL_ERROR_SYSCALL`；8220 API、PostgreSQL、Redis 运行正常，但 8220 没有 `443` 监听；124 的 `/zhj-api/` 返回 `410`。本轮未输入凭据、未点击登录、未发送 Agent 请求，未产生 session、run、conversation、draft、消息、审计或业务写入。
+
+证据报告：`testing/Agent/客户端/reports/20260903-agent-phase2-wave18-android-create-customer-confirm.md`。本轮证据目录：`testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/`。代码级检查通过不能替代公网 Android 真实点击；入口恢复后仍需从登录页执行 `create_customer` 草稿确认、服务端 before/after、重复确认和并发确认。
