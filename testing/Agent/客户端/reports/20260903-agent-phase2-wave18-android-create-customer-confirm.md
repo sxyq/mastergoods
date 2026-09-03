@@ -125,3 +125,26 @@ HTTP FAILED: java.net.ConnectException: Failed to connect to zhj-api.sxyq27.onli
 - 确认成功后的重复确认、并发确认、图片生成、取消/断线、上下文压缩、性能和 iOS 本轮未执行。
 - 未修改 8220 Nginx、容器、数据库或账号配置；本轮只安装 Android APK、执行 App 点击、读取服务状态并清理模拟器。
 - `ui_pick.py` 在本机 Python 运行时因 `str | None` 语法不兼容未执行；实际坐标均由同一份 UI tree 的 bounds 计算，点击已执行并保留坐标证据。
+
+## 2026-09-03 19:35–19:44：模拟器恢复与入口复核
+
+本轮根据用户要求重新启动误关闭的模拟器，并从阶段二前置步骤继续核对：
+
+- 同一 AVD `Zhihuiji_API34` 已以前台 qemu 会话重新启动，未使用 `-wipe-data`；`emulator-5554` 回到 `device`，`sys.boot_completed=1`，启动 Activity 可解析。
+- 使用 UI/ADB 验收规范重新安装新 APK，`adb install -r` 返回 `Success`；包为 `com.zhihuiji.app` 1.0.0，APK SHA-256 仍为 `384d98cdbd08081328e88604a757fc1ba95599379a4143500567abd79ae3c78c`。
+- 真实启动 App 后，UI tree 显示空白登录页，账号、密码和登录控件均存在；本轮没有在公网入口不可用时输入凭据或点击登录。
+- `zhj-api.sxyq27.online` DNS 仍解析到 `8.220.206.9`；HTTPS 根路径和 `/healthz` 均为 HTTP `000`、443 连接拒绝；HTTP `/healthz` 为默认 Nginx 页面 HTTP `404`。
+- 8220 直连只读核对显示 Nginx、Docker、`sxyq27-zhj-api` 和 PostgreSQL 正常，PostgreSQL health 为 `healthy`；远端监听仍只有 80 和本机 18080，没有 443。
+
+因此 `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-UI-FIX-RERUN-002` 继续为 `Blocked`。本轮没有创建 session、run、conversation、draft、消息、审计或业务数据，也没有修改线上 Nginx、容器、数据库、账号配置或 Android 源码。模拟器保持运行，入口恢复后从当前 AVD 登录页重新执行 Wave 18。
+
+本轮证据位于：
+
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-002/00-environment.txt`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-002/01-apk-install.txt`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-002/02-activity-start.txt`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-002/04-login-ui.xml`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-002/06-login-screen.png`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-002/07-crash-buffer.txt`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-002/08-public-entry-probe.txt`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-002/09-server-entry-probe.txt`
