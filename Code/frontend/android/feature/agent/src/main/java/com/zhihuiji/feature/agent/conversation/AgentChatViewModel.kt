@@ -16,13 +16,17 @@ import com.zhihuiji.core.model.v2.agent.AgentMessageDto
 import com.zhihuiji.core.model.v2.agent.AgentRunTraceDto
 import com.zhihuiji.core.model.v2.agent.AgentRunTraceReducer
 import com.zhihuiji.core.model.v2.agent.AgentStreamEvent
+import com.zhihuiji.core.model.v2.agent.AnswerTraceStatus
 import com.zhihuiji.core.model.v2.agent.ChatMessage
 import com.zhihuiji.core.model.v2.agent.ChatMessagePart
 import com.zhihuiji.core.model.v2.agent.MessageRole
 import com.zhihuiji.core.model.v2.agent.PlanStep
 import com.zhihuiji.core.model.v2.agent.ResultBlockDto
+import com.zhihuiji.core.model.v2.agent.RunTerminalStatus
 import com.zhihuiji.core.model.v2.agent.RunTrace
+import com.zhihuiji.core.model.v2.agent.RunTraceItem
 import com.zhihuiji.core.model.v2.agent.SafetyResult
+import com.zhihuiji.core.model.v2.agent.TerminalTrace
 import com.zhihuiji.core.model.v2.agent.AgentAuditRecord
 import com.zhihuiji.core.model.v2.agent.DraftAuditInfo
 import com.zhihuiji.core.model.v2.agent.ErrorAuditInfo
@@ -60,6 +64,8 @@ private const val SERVER_CANCEL_CONFIRMED_MESSAGE = "服务端已确认取消生
 private const val TOOL_ENDED_WITHOUT_COMPLETION_MESSAGE = "运行已结束，未收到工具完成事件"
 private const val TOOL_CANCELLED_WITH_RUN_MESSAGE = "生成已取消，工具查询已停止"
 private const val TOOL_INTERRUPTED_BY_ERROR_MESSAGE = "连接中断，工具状态未确认"
+private const val DRAFT_CANCELLED_MESSAGE = "草稿已取消，未执行任何业务写入"
+private const val DRAFT_CONFIRMED_MESSAGE = "草稿已确认，业务数据已写入"
 internal const val AnswerDeltaFlushDelayMs = 24L
 
 /**
@@ -1279,13 +1285,29 @@ class AgentChatViewModel @Inject constructor(
             )
                 .onSuccess { updated ->
                     currentAuditBuilder?.draftInfo = currentAuditBuilder?.draftInfo?.copy(userConfirmed = true)
+                    val confirmedStatus = updated.status.ifBlank { "confirmed" }
+                    val confirmedAt = System.currentTimeMillis()
                     _uiState.update { state ->
+                        val updatedMessages = state.messages.map { message ->
+                            if (message.hasDraft(draftId)) {
+                                message.copy(
+                                    runTrace = message.runTrace?.withConfirmedDraft(
+                                        draftId = draftId,
+                                        status = confirmedStatus,
+                                        timestamp = confirmedAt,
+                                    )
+                                )
+                            } else {
+                                message
+                            }
+                        }
                         state.copy(
+                            messages = updatedMessages,
                             showDraftConfirm = state.showDraftConfirm?.copy(
                                 confirmPhase = DraftConfirmPhase.CONFIRMED,
-                                status = updated.status,
+                                status = confirmedStatus,
                             ),
-                            error = "草稿已确认执行",
+                            error = DRAFT_CONFIRMED_MESSAGE,
                         )
                     }
                 }
@@ -1327,13 +1349,27 @@ class AgentChatViewModel @Inject constructor(
             repository.cancelDraft(draftId)
                 .onSuccess { updated ->
                     currentAuditBuilder?.draftInfo = currentAuditBuilder?.draftInfo?.copy(userConfirmed = false)
+                    val cancelledStatus = updated.status.ifBlank { "cancelled" }
                     _uiState.update { state ->
+                        val updatedMessages = state.messages.map { message ->
+                            if (message.hasDraft(draftId)) {
+                                message.copy(
+                                    runTrace = message.runTrace?.withCancelledDraft(
+                                        draftId = draftId,
+                                        status = cancelledStatus,
+                                    )
+                                )
+                            } else {
+                                message
+                            }
+                        }
                         state.copy(
+                            messages = updatedMessages,
                             showDraftConfirm = state.showDraftConfirm?.copy(
                                 confirmPhase = DraftConfirmPhase.REJECTED,
-                                status = updated.status,
+                                status = cancelledStatus,
                             ),
-                            error = "草稿已取消",
+                            error = DRAFT_CANCELLED_MESSAGE,
                         )
                     }
                 }
@@ -1366,6 +1402,74 @@ internal fun shouldSkipConfirm(phase: DraftConfirmPhase): Boolean =
  */
 internal fun shouldSkipCancel(phase: DraftConfirmPhase): Boolean =
     phase == DraftConfirmPhase.CONFIRMING || phase == DraftConfirmPhase.REJECTED
+
+private fun ChatMessage.hasDraft(draftId: Long): Boolean =
+    runTrace?.let { trace ->
+        trace.draft?.draftId == draftId || trace.timeline.any { item ->
+            item is RunTraceItem.Draft && item.draft.draftId == draftId
+        }
+    } == true
+
+internal fun RunTrace.withConfirmedDraft(
+    draftId: Long,
+    status: String,
+    timestamp: Long,
+): RunTrace {
+    val hasMatchingDraft = draft?.draftId == draftId || timeline.any { item ->
+        item is RunTraceItem.Draft && item.draft.draftId == draftId
+    }
+    if (!hasMatchingDraft) return this
+
+    val confirmedStatus = status.trim().ifBlank { "confirmed" }
+    val updatedDraft = draft
+        ?.takeIf { it.draftId == draftId }
+        ?.copy(status = confirmedStatus, timestamp = timestamp)
+    val updatedTimeline = timeline.map { item ->
+        if (item is RunTraceItem.Draft && item.draft.draftId == draftId) {
+            item.copy(
+                draft = item.draft.copy(status = confirmedStatus, timestamp = timestamp),
+                timestamp = timestamp,
+            )
+        } else {
+            item
+        }
+    }
+    val terminal = TerminalTrace(
+        status = RunTerminalStatus.COMPLETED,
+        message = DRAFT_CONFIRMED_MESSAGE,
+        timestamp = timestamp,
+    )
+    return copy(
+        draft = updatedDraft ?: draft,
+        answerStatus = AnswerTraceStatus.COMPLETED,
+        terminal = terminal,
+        timeline = updatedTimeline
+            .filterNot { it is RunTraceItem.Terminal }
+            .plus(RunTraceItem.Terminal(terminal)),
+    )
+}
+
+private fun RunTrace.withCancelledDraft(draftId: Long, status: String): RunTrace {
+    val cancelled = AgentRunTraceReducer.cancelled(this, DRAFT_CANCELLED_MESSAGE)
+    val timestamp = cancelled.terminal?.timestamp ?: System.currentTimeMillis()
+    val updatedDraft = cancelled.draft
+        ?.takeIf { it.draftId == draftId }
+        ?.copy(status = status, timestamp = timestamp)
+    val updatedTimeline = cancelled.timeline.map { item ->
+        if (item is RunTraceItem.Draft && item.draft.draftId == draftId) {
+            item.copy(
+                draft = item.draft.copy(status = status, timestamp = timestamp),
+                timestamp = timestamp,
+            )
+        } else {
+            item
+        }
+    }
+    return cancelled.copy(
+        draft = updatedDraft ?: cancelled.draft,
+        timeline = updatedTimeline,
+    )
+}
 
 private fun AgentStreamEvent.runIdOrNull(): String? = when (this) {
     is AgentStreamEvent.RunStarted -> runId

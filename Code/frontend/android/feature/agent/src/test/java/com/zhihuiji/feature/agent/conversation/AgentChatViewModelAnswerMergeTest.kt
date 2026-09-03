@@ -2,10 +2,15 @@ package com.zhihuiji.feature.agent
 
 import com.zhihuiji.core.model.v2.agent.ChatMessage
 import com.zhihuiji.core.model.v2.agent.ChatMessagePart
+import com.zhihuiji.core.model.v2.agent.AnswerTraceStatus
+import com.zhihuiji.core.model.v2.agent.DraftTrace
 import com.zhihuiji.core.model.v2.agent.MessageRole
 import com.zhihuiji.core.model.v2.agent.ResultBlockDto
+import com.zhihuiji.core.model.v2.agent.RunTerminalStatus
 import com.zhihuiji.core.model.v2.agent.RunTrace
+import com.zhihuiji.core.model.v2.agent.RunTraceItem
 import com.zhihuiji.core.model.v2.agent.SafetyResult
+import com.zhihuiji.core.model.v2.agent.TerminalTrace
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -506,6 +511,66 @@ class AgentChatViewModelAnswerMergeTest {
             completed.parts,
         )
         assertFalse(completed.isStreaming)
+    }
+
+    @Test
+    fun confirmedDraftUpdatesMatchingTraceAndReplacesPendingTerminalState() {
+        val draft = DraftTrace(
+            draftId = 42L,
+            draftType = "create_customer",
+            title = "新建客户：客户A",
+            status = "active",
+            timestamp = 100L,
+        )
+        val pendingTerminal = TerminalTrace(
+            status = RunTerminalStatus.CONFIRMATION_PENDING,
+            message = "等待确认",
+            timestamp = 200L,
+        )
+        val unrelatedDraft = draft.copy(
+            draftId = 99L,
+            title = "新建客户：客户B",
+        )
+        val trace = RunTrace(
+            runId = "run-confirm-1",
+            answerStatus = AnswerTraceStatus.CONFIRMATION_PENDING,
+            draft = draft,
+            terminal = pendingTerminal,
+            timeline = listOf(
+                RunTraceItem.Draft(draft = draft, timestamp = 100L),
+                RunTraceItem.Draft(draft = unrelatedDraft, timestamp = 150L),
+                RunTraceItem.Terminal(terminal = pendingTerminal),
+            ),
+        )
+
+        val confirmed = trace.withConfirmedDraft(
+            draftId = 42L,
+            status = "confirmed",
+            timestamp = 300L,
+        )
+
+        assertEquals("confirmed", confirmed.draft?.status)
+        assertEquals(
+            "confirmed",
+            confirmed.timeline
+                .filterIsInstance<RunTraceItem.Draft>()
+                .single { it.draft.draftId == 42L }
+                .draft.status,
+        )
+        assertEquals(
+            "active",
+            confirmed.timeline
+                .filterIsInstance<RunTraceItem.Draft>()
+                .single { it.draft.draftId == 99L }
+                .draft.status,
+        )
+        assertEquals(AnswerTraceStatus.COMPLETED, confirmed.answerStatus)
+        assertEquals(RunTerminalStatus.COMPLETED, confirmed.terminal?.status)
+        assertEquals("草稿已确认，业务数据已写入", confirmed.terminal?.message)
+        assertEquals(
+            RunTerminalStatus.COMPLETED,
+            confirmed.timeline.filterIsInstance<RunTraceItem.Terminal>().single().terminal.status,
+        )
     }
 
     private fun chatMessage(

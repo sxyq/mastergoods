@@ -55,6 +55,7 @@ import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 import com.zhihuiji.core.model.v2.agent.BarChartBlockData
 import com.zhihuiji.core.model.v2.agent.DonutChartBlockData
 import com.zhihuiji.core.model.v2.agent.DraftCardBlockData
+import com.zhihuiji.core.model.v2.agent.DraftCardField
 import com.zhihuiji.core.model.v2.agent.EvidenceCardBlockData
 import com.zhihuiji.core.model.v2.agent.KpiGridBlockData
 import com.zhihuiji.core.model.v2.agent.LineChartBlockData
@@ -1462,17 +1463,15 @@ private fun DraftCardBlock(data: DraftCardBlockData, modifier: Modifier = Modifi
                 )
             }
             Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = data.summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "这是 AI 草稿，尚未执行业务写入。",
-                style = MaterialTheme.typography.labelSmall,
-                color = WarningOrange,
-            )
+            data.summary?.takeIf { it.isNotBlank() }?.let { summary ->
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                )
+            } ?: data.fields.forEach { field ->
+                DraftCardFieldRow(field)
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -1506,6 +1505,32 @@ private fun DraftCardBlock(data: DraftCardBlockData, modifier: Modifier = Modifi
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DraftCardFieldRow(field: DraftCardField) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(
+            text = field.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = TextTertiary,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = field.value.jsonPrimitiveOrNull()?.contentOrNull
+                ?: field.value.compactJsonText()
+                ?: "-",
+            style = MaterialTheme.typography.bodySmall,
+            color = TextSecondary,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.End,
+        )
     }
 }
 

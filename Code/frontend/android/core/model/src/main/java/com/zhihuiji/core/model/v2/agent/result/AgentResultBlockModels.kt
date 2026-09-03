@@ -154,9 +154,17 @@ data class DraftCardBlockData(
     @SerialName("draft_id") val draftId: Long,
     @SerialName("draft_type") val draftType: String,
     val title: String,
-    val summary: String,
+    val summary: String? = null,
+    val fields: List<DraftCardField> = emptyList(),
     @SerialName("item_count") val itemCount: Int? = null,
     @SerialName("total_amount") val totalAmount: String? = null,
     @SerialName("partner_name") val partnerName: String? = null,
     val warnings: List<String>? = null,
+)
+
+@Serializable
+@Immutable
+data class DraftCardField(
+    val label: String,
+    val value: JsonElement,
 )

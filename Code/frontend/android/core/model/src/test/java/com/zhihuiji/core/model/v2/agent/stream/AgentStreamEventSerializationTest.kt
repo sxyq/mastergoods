@@ -1,10 +1,13 @@
 package com.zhihuiji.core.model.v2.agent
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -289,6 +292,81 @@ class AgentStreamEventSerializationTest {
             "## 销售结论\n- 今日销售额 1280 元",
             blockEvent.block.data!!.jsonObject["markdown"]!!.jsonPrimitive.content
         )
+    }
+
+    @Test
+    fun decodesDraftCardResultBlockWithFieldsWithoutSummary() {
+        val event = json.decodeFromString(
+            AgentStreamEvent.serializer(),
+            """
+            {
+              "event_type": "result_block",
+              "run_id": "run-draft-1",
+              "block": {
+                "block_type": "draft_card",
+                "title": "草稿待确认",
+                "data": {
+                  "draft_id": 9001,
+                  "draft_type": "create_customer",
+                  "title": "新建客户：客户A",
+                  "fields": [
+                    {"label": "客户名称", "value": "客户A"},
+                    {"label": "手机号", "value": "13800000000"}
+                  ]
+                }
+              },
+              "timestamp": 1003
+            }
+            """.trimIndent()
+        )
+
+        assertTrue(event is AgentStreamEvent.ResultBlockEvent)
+        val block = (event as AgentStreamEvent.ResultBlockEvent).block
+        val draft = json.decodeFromJsonElement<DraftCardBlockData>(block.data!!)
+
+        assertEquals("draft_card", block.blockType)
+        assertEquals(9001L, draft.draftId)
+        assertEquals("create_customer", draft.draftType)
+        assertEquals("新建客户：客户A", draft.title)
+        assertNull(draft.summary)
+        assertEquals(2, draft.fields.size)
+        assertEquals("客户名称", draft.fields[0].label)
+        assertEquals("客户A", draft.fields[0].value.jsonPrimitive.content)
+    }
+
+    @Test
+    fun decodesDraftCardResultBlockWithSummary() {
+        val event = json.decodeFromString(
+            AgentStreamEvent.serializer(),
+            """
+            {
+              "event_type": "result_block",
+              "run_id": "run-draft-summary-1",
+              "block": {
+                "block_type": "draft_card",
+                "title": "草稿待确认",
+                "data": {
+                  "draft_id": 9002,
+                  "draft_type": "create_customer",
+                  "title": "新建客户：客户B",
+                  "fields": [{"label": "客户名称", "value": "客户B"}],
+                  "summary": "将创建 1 位客户"
+                }
+              },
+              "timestamp": 1004
+            }
+            """.trimIndent()
+        )
+
+        assertTrue(event is AgentStreamEvent.ResultBlockEvent)
+        val draft = json.decodeFromJsonElement<DraftCardBlockData>(
+            (event as AgentStreamEvent.ResultBlockEvent).block.data!!
+        )
+
+        assertEquals(9002L, draft.draftId)
+        assertEquals("将创建 1 位客户", draft.summary)
+        assertEquals("客户名称", draft.fields.single().label)
+        assertEquals("客户B", draft.fields.single().value.jsonPrimitive.content)
     }
 
     @Test
