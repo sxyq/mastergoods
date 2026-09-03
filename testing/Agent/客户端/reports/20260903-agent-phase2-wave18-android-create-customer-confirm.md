@@ -219,3 +219,19 @@ HTTP FAILED: java.net.ConnectException: Failed to connect to zhj-api.sxyq27.onli
 - `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/10-conclusion.md`
 - `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/11-agent-unit-test.log`
 - `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/12-assemble-debug.log`
+## 2026-09-04 00:48：8220 公网入口根因定位
+
+本轮继续对 Wave 18 的公网前置做只读定位：
+
+- 8220 的 API 容器、PostgreSQL、Redis、Docker 和 Nginx 均正常；API 绑定 `127.0.0.1:18080`，本机 `/`、`/healthz` 和 Agent 路由均返回认证保护或方法响应。
+- `/etc/nginx/sites-available/zhj-api.sxyq27.online.conf` 文件存在，但 `/etc/nginx/sites-enabled/` 只有 `default` 链接；该文件只声明 HTTP `80`，没有 `443 ssl` 配置。
+- 证书目录中未找到 `zhj-api` 对应证书；Nginx `-t` 语法检查通过。公网域名和强制直连 8220 的 HTTPS 仍为 `HTTP 000`/`SSL_ERROR_SYSCALL`，124 的旧 `/zhj-api/` 入口为 `410`。
+
+因此 `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-ENTRY-DIAG-006` 为 `Blocked`。启用 8220 的 zhj-api 站点、配置匹配证书并 reload Nginx 属于线上变更，本轮未执行；没有输入账号、点击登录或产生数据库变化。入口恢复后继续从当前 APK 登录页真实点击 Wave 18。
+
+本轮证据位于：
+
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-006/00-environment.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-006/08-public-entry-probe.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-006/09-server-entry-probe.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-006/10-conclusion.md`

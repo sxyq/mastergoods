@@ -190,3 +190,4 @@ Wave 0 的账号核查显示，四个指定账号后缀 `8111`、`8112`、`8113`
 公网前置仍未通过：`zhj-api.sxyq27.online` HTTPS 和强制直连 8220 均为 HTTP `000`/`SSL_ERROR_SYSCALL`；8220 API、PostgreSQL、Redis 运行正常，但 8220 没有 `443` 监听；124 的 `/zhj-api/` 返回 `410`。本轮未输入凭据、未点击登录、未发送 Agent 请求，未产生 session、run、conversation、draft、消息、审计或业务写入。
 
 证据报告：`testing/Agent/客户端/reports/20260903-agent-phase2-wave18-android-create-customer-confirm.md`。本轮证据目录：`testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/`。代码级检查通过不能替代公网 Android 真实点击；入口恢复后仍需从登录页执行 `create_customer` 草稿确认、服务端 before/after、重复确认和并发确认。
+补充入口诊断（2026-09-04）：`testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-006/` 确认 8220 的 `zhj-api.sxyq27.online.conf` 位于 `sites-available` 但未启用，且只有 HTTP 80 配置；未找到匹配的 `zhj-api` 证书。API 容器本机可达，公网 TLS 仍失败。启用站点、配置证书和 reload Nginx 需单独授权；在入口恢复前不执行 Android 登录或 Agent 请求。

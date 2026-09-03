@@ -275,3 +275,8 @@ Wave 17 最终计数为 `agent_conversations=10`、`agent_messages=25`、`agent_
 在公网入口恢复前，对当前 Android Agent 修复做了可重复的代码级检查：`./gradlew :feature:agent:testDebugUnitTest --rerun-tasks --console=plain` 实际执行 115 个任务并通过；`./gradlew :app:assembleDebug --rerun-tasks --console=plain` 实际执行 648 个任务并通过。新 APK 安装到 `emulator-5554`，宿主构建包和设备安装包 SHA-256 均为 `f7b92adb686c54be0450038fb854375a256f8f48f34ef61e6b07c7f19c902495`，UI tree 显示干净登录页，crash buffer 为 0 行。
 
 本轮真实运行前置仍为 `Blocked`：`zhj-api.sxyq27.online` 和强制直连 8220 的 HTTPS 均在 TLS 阶段失败，8220 API、PostgreSQL、Redis 虽正常运行，但没有公网 `443` 监听；124 的 `/zhj-api/` 为 `410`。本轮没有输入账号、点击登录或调用 Agent，也没有产生数据库变化。详细记录见 `testing/Agent/客户端/reports/20260903-agent-phase2-wave18-android-create-customer-confirm.md` 的 2026-09-04 记录和 `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/`。
+## 十八、2026-09-04 Wave 18 公网入口根因定位
+
+只读核对确认 8220 的 `sxyq27-zhj-api`、PostgreSQL、Redis、Docker 和 Nginx 均在运行，API 绑定本机 `127.0.0.1:18080`。`/etc/nginx/sites-available/zhj-api.sxyq27.online.conf` 存在，但 `sites-enabled` 只有 `default`；该配置只有 HTTP 80，没有 443 TLS，证书目录也没有匹配的 `zhj-api` 证书。公网 HTTPS 仍返回 `HTTP 000`/`SSL_ERROR_SYSCALL`，124 的 `/zhj-api/` 为 `410`。
+
+启用站点、配置证书和 reload Nginx 属于线上变更，本轮未执行。Android 模拟器和当前 APK 前置正常，登录、Agent、草稿确认仍保持 `Blocked`。证据见 `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-006/`。
