@@ -1,6 +1,6 @@
 # Agent 客户端联调测试规划（客户端）
 
-更新日期：2026-09-02。Android 与 iOS 使用相同的服务端断言，客户端分别记录各自版本、设备标签与展示状态；Web 仅作协议与展示对照。登录必须走 APP 正常登录流程，测试人员不手工提取/复制 Cookie、Session Token、Authorization 或完整认证载荷。每个平台使用独立 `test_id`，不能用 Android 结果代表 iOS，也不能用 Web 协议解析代表真实设备展示。
+更新日期：2026-09-03。Android 与 iOS 使用相同的服务端断言，客户端分别记录各自版本、设备标签与展示状态；Web 仅作协议与展示对照。登录必须走 APP 正常登录流程，测试人员不手工提取/复制 Cookie、Session Token、Authorization 或完整认证载荷。每个平台使用独立 `test_id`，不能用 Android 结果代表 iOS，也不能用 Web 协议解析代表真实设备展示。
 
 ## 一、执行前提
 
@@ -149,3 +149,32 @@ Wave 0 的账号核查显示，四个指定账号后缀 `8111`、`8112`、`8113`
 证据报告：`客户端/reports/20260902-agent-phase2-wave12-android-draft-reject.md`；证据目录：`客户端/artifacts/20260902-agent-phase2-wave12-AG-CLI-AND-P2-DRAFT-REJECT-RERUN-001/`。本轮真实点击、草稿取消和清理均有 App UI tree/截图/脱敏 logcat；run audit、raw SSE 和数据库 before/after 因 SSH 公钥探针失败记为 `Blocked`，未把 HTTP 200 扩展为数据库通过结论。
 
 本轮发现的客户端问题是：`draft_card` 在会话详情无法解析，拒绝后详情状态没有刷新；独立草稿列表能显示取消状态。运行时仍为 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 未加载，模型前置保持 `Blocked`。本轮未执行确认写入、重复确认、并发确认、生图、iOS 或性能用例。
+
+## 2026-09-03 Wave 14 Android 创建草稿拒绝复测
+
+本轮继续使用 `emulator-5554` 上的 `com.zhihuiji.app` 1.0.0，通过 8220 公网 API 执行 `AG-CLI-AND-004` 的 `create_product` 草稿拒绝分支。发送和拒绝均依据最新 UI tree 的可点击父节点 bounds 真实点击；输入文本在 App `EditText` 中逐段输入并完成精确校验。
+
+| 用例 | 实际事实 | 数据与清理 | 状态 |
+|---|---|---|---|
+| `AG-CLI-AND-P2-DRAFT-REJECT-001-RERUN-002` | 最终提示词为“新增一个商品 商品编码是 EVALONLY20260903D 名称是阶段2 中文点击商品先生成草稿不要直接保存”；App 真实点击发送后收到 HTTP 200 `text/event-stream`，出现“操作确认”；服务端 run `5f72e106-5fce-4318-a112-058bf044b982` 选择并完成 `create_product`，生成 draft `12`；点击“拒绝”后 App 详情显示 `cancelled` 和“草稿已取消，未执行任何业务写入” | 发送前 `11/27/40/482/0/693/2661`；拒绝后 `12/29/41/499/1/693/2661`；App 删除草稿和两条测试会话后 `10/25/41/499/0/693/2661`；正式商品数无变化；`pm clear` 后登录页可见，crash buffer 0 行 | `Passed` |
+| 同一 Wave 首次无分隔输入尝试 | run `45ef8240-b523-4891-995a-fd879adc777b` 选择了 `create_product`，但 `code` 为空并返回 `TOOL_ARGUMENTS_INVALID`；未生成草稿 | 未产生草稿或正式业务写入；保留失败审计，随后由 App 删除会话 | `Failed` |
+
+本轮最终 run 的审计事件为 `run_started → plan_delta → tool_started → tool_completed → draft_created → result_block/answer_delta → answer_completed → run_completed`，共 17 个连续事件，`audit_lossy=false`。App 端详情已经正确解析草稿字段并刷新为取消状态，上一轮发现的 `draft_card` 解析问题在本次复测中未再出现。
+
+8220 实时核查：Nginx、Docker、API、PostgreSQL、Redis 和转发服务均 active/running，PostgreSQL healthy，failed systemd units 为 0；公网 API 匿名入口返回 401，属于认证保护。运行时仍是 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 继续为 `Blocked`；确认写入、重复/并发确认、生图、性能和 iOS 未执行。
+
+证据报告：`客户端/reports/20260903-agent-phase2-wave14-android-draft-reject-rerun-002.md`；证据目录：`客户端/artifacts/20260903-agent-phase2-wave14-AG-CLI-AND-P2-DRAFT-REJECT-RERUN-002/`。
+
+## 2026-09-03 Wave 17 Android 创建草稿确认实测
+
+本轮使用 `emulator-5554` 上的 `com.zhihuiji.app` 1.0.0，连接 8220 公网 API。先按 UI tree 定位并真实点击发送按钮，输入为“新增 一个 商品 商品编码 是 9172603842 名称是 阶段确认商品 先 生成 草稿 不要 直接 保存”。App 日志记录 `POST https://zhj-api.sxyq27.online/v2/agent/chat/stream` 返回 HTTP 200 `text/event-stream`；服务端 run `f3cc466a-cef1-4d26-84af-49d4dd0d47fe`、conversation `175` 生成 draft `14`。
+
+| 用例 | 实际事实 | 数据、清理与证据 | 状态 |
+|---|---|---|---|
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-001` | 草稿弹窗真实出现“操作确认”“新建商品：阶段确认商品”“草稿状态：待确认”；草稿字段为 `code=9172603842`、`name=阶段确认商品`。依据 UI tree 点击“允许一次”后，App 真实调用 `POST /v2/agent/drafts/14/confirm`，返回 HTTP `422`，界面显示“请求参数未通过校验，请检查输入内容”；没有确认成功或正式商品写入 | 确认点击前 `agent_conversations=12`、`agent_messages=29`、`agent_drafts=1`、`agent_run_audits=46`、`agent_run_audit_events=532`、`products=693`、`finance_records=2661`。随后依据 UI tree 点击“拒绝”，draft `14` 变为 `cancelled`，App 显示“草稿已取消，未执行任何业务写入”；Wave 17 会话 `173/174/175` 和测试草稿已由 App 清理，最终 `agent_conversations=10`、`agent_messages=25`、`agent_drafts=0`、`agent_run_audits=47`、`agent_run_audit_events=545`、`products=693`、`finance_records=2661`，目标商品编码记录、目标草稿和目标会话均为 0。证据：`客户端/artifacts/20260903-agent-phase2-wave17-AG-CLI-AND-P2-DRAFT-CONFIRM-001/` | `Failed` |
+| 数据库分类/单位前置 | `category_count=0`、`unit_count=0`、`products_with_category_id=0`、`products_with_unit_id=0`；商品的分类/单位显示文本存在历史值，但对应 ID 全部为空。当前确认写入缺少可用的分类 ID 和单位 ID，因此确认请求无法取得 HTTP 2xx 业务成功结果 | `547-reference-category-unit-check.txt`、`539-server-after-confirm-failure-evidence.txt`、`546-db-after-failed-confirm-and-reference-data.txt` | `Blocked` |
+| 确认成功、重复确认、并发确认 | 本轮在确认接口返回 `422` 且分类/单位参考数据为空后停止这些分支；未取得正式写入、重复确认或并发竞争的真实结果 | 解除条件：补齐当前 owner 可用的分类和单位记录并用其 ID 重新生成草稿，或调整并部署确认契约后重新执行；不得用本轮 `422` 或 Wave 14 的拒绝结果代替确认成功证据 | `Blocked` |
+
+本轮 8220 服务前置核查显示 API、PostgreSQL、Redis 和 Nginx 正常，PostgreSQL 为 `healthy`；Android 最终通过 `pm clear com.zhihuiji.app` 回到登录页，crash buffer 为 0 行。关键证据包括 `40-server-preflight.txt`、`41-nginx-test.txt`、`524-after-send-app-logcat-redacted.txt`、`538-after-confirm-app-logcat-redacted.txt`、`525-confirm-before.xml`、`532-after-confirm-1s.xml`、`544-after-confirm-failure-reject.xml`、`572-db-after-cleanup-conversations.txt` 和 `582-db-final-recount.txt`。
+
+运行时仍为 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 未验证，记为 `Blocked`。在分类/单位数据或确认契约满足前，不继续确认成功、重复确认和并发确认测试；本轮未修改源码、数据库、线上服务、账号、密码或证据文件。

@@ -1,6 +1,6 @@
 # Agent 端测试资料总览
 
-更新时间：2026-09-01
+更新时间：2026-09-03
 
 本目录是 Agent（后端 `/v2/agent`、Android/iOS APP、Web 协议对照）的**唯一**测试资料组织点。以测试类别为单位拆分规划文档、执行台账、脚本、日志、报告和原始证据，取代旧的单份《Agent 综合功能与性能测试方案》（已删除）与历史分类占位目录（observability 等已并入对应类别，本目录不再出现）。
 
@@ -241,3 +241,31 @@ test_id,category_id,wave_id,environment,account_store_label,preconditions,input,
 客户端结果为 `Failed`：会话详情无法解析 `draft_card` 字段，拒绝后仍显示旧的 active 状态；独立草稿列表状态正确。服务端 run audit、原始 SSE 与 PostgreSQL before/after 因 SSH 公钥探针失败记为 `Blocked`，没有将这些缺口写成通过结论。证据报告和目录分别为 `testing/Agent/客户端/reports/20260902-agent-phase2-wave12-android-draft-reject.md` 与 `testing/Agent/客户端/artifacts/20260902-agent-phase2-wave12-AG-CLI-AND-P2-DRAFT-REJECT-RERUN-001/`。
 
 清理已完成：取消草稿删除 HTTP 200；会话 `161` 删除首次超时，重试 HTTP 200 后从 App 列表消失；`pm clear com.zhihuiji.app` 返回 `Success`，重启回到登录页，crash buffer 为 0 行。运行模型仍为 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 仍为 `Blocked`；确认写入、重复/并发确认、生图、iOS 和性能未执行。
+
+## 十五、2026-09-03 Wave 14 Android 创建草稿拒绝复测
+
+本轮重新按客户端计划在 `emulator-5554` 的 `com.zhihuiji.app` 1.0.0 中完成创建商品草稿拒绝分支。最终提示词为“新增一个商品 商品编码是 EVALONLY20260903D 名称是阶段2 中文点击商品先生成草稿不要直接保存”；App 通过 `/v2/agent/chat/stream` 收到 HTTP 200 `text/event-stream`，显示覆盖式“操作确认”，再依据 UI tree 点击“拒绝”。
+
+| 用例 | 结果 | 关键事实 |
+|---|---|---|
+| `AG-CLI-AND-P2-DRAFT-REJECT-001-RERUN-002` | `Passed` | run `5f72e106-5fce-4318-a112-058bf044b982`、conversation `169`、draft `12`；`create_product` 参数包含编码和名称；17 个审计事件连续；App 会话详情和草稿列表均显示 `cancelled`；正式商品数 `693` 无变化 |
+| 同一 Wave 首次无分隔输入尝试 | `Failed` | run `45ef8240-b523-4891-995a-fd879adc777b` 选择 `create_product` 但工具参数 `code` 为空，返回 `TOOL_ARGUMENTS_INVALID`，未生成草稿 |
+
+数据库计数为：发送前 `agent_conversations=11`、`agent_messages=27`、`agent_run_audits=40`、`agent_run_audit_events=482`、`agent_drafts=0`、`products=693`、`finance_records=2661`；拒绝后清理前为 `12/29/41/499/1/693/2661`；App 删除草稿和两条测试会话后为 `10/25/41/499/0/693/2661`。`pm clear com.zhihuiji.app` 返回 `Success`，重启最终显示登录页，crash buffer 为 0 行。
+
+报告为 `testing/Agent/客户端/reports/20260903-agent-phase2-wave14-android-draft-reject-rerun-002.md`，证据目录为 `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave14-AG-CLI-AND-P2-DRAFT-REJECT-RERUN-002/`。本轮未执行确认写入、重复/并发确认、生图、性能或 iOS；运行时仍为 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 继续为 `Blocked`。
+
+## 十六、2026-09-03 阶段二 Wave 17 Android 创建草稿确认
+
+本轮在 `emulator-5554` 的 `com.zhihuiji.app` 1.0.0 中，按 UI tree 定位并真实点击发送和确认按钮，连接 8220 公网 API。提示词包含商品编码 `9172603842` 和名称“阶段确认商品”，App 真实调用 `/v2/agent/chat/stream` 返回 HTTP 200 `text/event-stream`，服务端 run `f3cc466a-cef1-4d26-84af-49d4dd0d47fe`、conversation `175` 生成 draft `14`，草稿字段中的编码和名称正确。
+
+| 用例 | 结果 | 关键事实 |
+|---|---|---|
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-001` | `Failed` | 真实点击“允许一次”后，App 调用 `/v2/agent/drafts/14/confirm` 返回 HTTP `422`，界面显示参数校验失败；没有把确认写入或正式商品创建写成通过 |
+| Wave 17 拒绝与清理 | `Passed` | 真实点击“拒绝”后 draft `14` 为 `cancelled`，App 显示未执行任何业务写入；Wave 17 会话 `173/174/175` 和测试草稿经 App 清理，最终目标编码、目标草稿和目标会话均为 0，`products=693` 保持不变 |
+| 分类/单位数据前置 | `Blocked` | PostgreSQL 核对为 `category_count=0`、`unit_count=0`、`products_with_category_id=0`、`products_with_unit_id=0`；商品历史显示文本存在，但没有可供确认请求使用的分类/单位 ID |
+| 确认成功、重复确认、并发确认 | `Blocked` | 需先补齐当前 owner 可用的分类和单位记录并重新生成草稿，或调整并部署确认契约；条件满足后再逐项执行真实 Android 流程 |
+
+Wave 17 最终计数为 `agent_conversations=10`、`agent_messages=25`、`agent_drafts=0`、`agent_run_audits=47`、`agent_run_audit_events=545`、`products=693`、`finance_records=2661`。服务前置证据显示 API、PostgreSQL、Redis 和 Nginx 正常，Android 清理后回到登录页且 crash buffer 为 0 行。详细证据目录为 `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave17-AG-CLI-AND-P2-DRAFT-CONFIRM-001/`，其中 `528-server-before-confirm-evidence.txt`、`539-server-after-confirm-failure-evidence.txt`、`547-reference-category-unit-check.txt`、`572-db-after-cleanup-conversations.txt` 和 `582-db-final-recount.txt` 是本轮关键摘要。
+
+运行时实际模型仍为 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 未验证，记为 `Blocked`。本轮未修改源码、数据库、线上服务、账号、密码或证据文件；在前置条件满足前不继续确认成功、重复确认和并发确认测试。
