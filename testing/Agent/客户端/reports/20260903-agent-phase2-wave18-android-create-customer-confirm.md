@@ -1,14 +1,19 @@
-# 2026-09-03 Android Wave 18：create_customer 草稿确认与修复复测
+# 2026-09-03 - 09-04 Android Wave 18：create_customer 草稿确认、幂等竞争与修复复测
 
 ## 结论
 
-本 Wave 包含一次完整的客户创建草稿确认和一次修复后的登录复测。首轮真实输入、SSE、覆盖式确认和服务端正式写入均完成，但确认后对话卡片仍显示旧的 `active / 运行待确认 / 尚未执行业务写入` 状态，客户端整体结果为 `Failed`。新 APK 已构建、安装并完成真实登录点击；复测因 `zhj-api.sxyq27.online:443` 当前拒绝连接，未能重新进入 Agent，修复后的卡片状态保持 `Blocked`，没有把它写成通过。2026-09-03 14:33 的入口复核仍确认 443 无监听，本轮没有重复登录或进入 Agent。
+本 Wave 先完成了首轮 `create_customer` 确认和客户端修复，再在公网入口恢复后执行了 `007` 真实复测。首轮客户 `87` 的服务端写入成功，但客户端卡片仍保留旧状态，整体为 `Failed`；`007` 中首次确认、重复确认和并发确认的服务端业务结果均有真实证据，正式写入各只发生一次，清理也已完成。`007` 的客户端卡片同时出现 `状态：confirmed` 和旧文案“草稿已生成，等待用户确认后才会写入正式业务数据”，且 run audit 仍为 `confirmation_pending`，因此客户端/审计一致性仍为 `Failed`，不能把整个闭环写成 `Passed`。
 
 | 用例 | 范围 | 结果 |
 |---|---|---|
 | `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-001` | 真实生成 `create_customer` 草稿并点击“允许一次” | `Failed` |
 | `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-UI-FIX-RERUN-001` | 新 APK 登录并复测确认后卡片状态 | `Blocked` |
 | `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-CLEANUP-001` | 测试客户、草稿、会话和 App 本地状态清理 | `Passed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-REAL-RERUN-007` | 入口恢复后的真实首次确认闭环 | `Failed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-REPEAT-007` | 同一草稿重复确认 | `Passed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-CONCURRENT-007` | 同一草稿并发确认 | `Passed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-AUDIT-007` | 确认后的 run audit 终态对齐 | `Failed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-CLEANUP-007` | 测试客户、草稿、会话和 App 本地状态清理 | `Passed` |
 
 ## 环境与实时前置
 
@@ -16,7 +21,7 @@
 - App：`com.zhihuiji.app`，versionName `1.0.0`，启动 Activity 为 `com.zhihuiji.app/.MainActivity`。
 - 目标服务：8220，`8.220.206.9`；PostgreSQL V42；当前 API 镜像为 `sxyq27-zhj-api:20260902T024500-agent-cancel-9536df5b`。
 - 运行时模型：`gpt-5.6-luna/chat_completions`；目标 `glm-5.3-flash` 仍未成为实际运行模型，相关目标保持 `Blocked`。
-- 首轮执行时公网入口可返回认证响应；本次修复复测的实时检查在 2026-09-03 13:44–13:47 显示 8220 的 Nginx、Docker、API 容器和 PostgreSQL 均在运行，但 8220 没有 443 监听，`https://zhj-api.sxyq27.online/` 为 HTTP `000`/连接拒绝。容器本机 `127.0.0.1:18080` 仍返回认证保护响应，HTTP 80 返回默认 Nginx 页面；旧入口 `https://sxyq27.online/zhj-api/` 返回 410。
+- 首轮和修复阻塞复测期间公网入口曾不可用；`007` 于 2026-09-04 01:40–02:47 在入口恢复后完成真实 App 流程。最终公网 `/healthz` 返回 HTTP `200`，8220 API、PostgreSQL 和 Redis 运行状态与证据一致。
 
 证据：
 
@@ -24,6 +29,8 @@
 - `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-001/110-public-healthz-headers-redacted.txt`
 - `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-001/276-public-api-entry-probe.txt`
 - `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-001/277-8220-live-entry-state.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-007/128-public-healthz-final.txt`
+- `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-007/127-server-runtime-final.txt`
 
 ### 2026-09-03 14:20–14:33 入口恢复复核：Blocked
 
@@ -111,19 +118,23 @@ HTTP FAILED: java.net.ConnectException: Failed to connect to zhj-api.sxyq27.onli
 
 ## 数据和清理
 
-首轮确认前客户数为 `83`，确认后为 `84`；通过 App 删除测试客户后恢复为 `83`。最终数据库计数为：
+首轮 `001` 确认前客户数为 `83`，确认后为 `84`；通过 App 删除测试客户后恢复为 `83`。该计数只对应首轮客户 `87`，不覆盖后续 `007`。
 
-`users=3 | stores=2 | store_memberships=2 | products=693 | customers=83 | finance_records=2661 | agent_conversations=10 | agent_messages=25 | agent_drafts=0 | agent_run_audits=50 | agent_run_audit_events=573`
+`007` 首次确认前数据库计数为 `users=3 | stores=2 | store_memberships=2 | products=693 | customers=83 | finance_records=2661 | agent_conversations=10 | agent_messages=25 | agent_drafts=0 | agent_run_audits=50 | agent_run_audit_events=573`。首次确认后客户 `88` 写入，重复确认保持目标客户 1 条；并发确认后客户 `89` 写入，两个竞争确认请求均返回幂等成功结果且没有第二条同手机号客户。清理后数据库计数为：
 
-目标手机号、draft `15`、conversation `176` 和对应消息均为 `0`。修复复测的登录失败没有建立会话，数据库计数保持 `3|2|2|693|83|2661|10|25|0|50|573`。
+`users=3 | stores=2 | store_memberships=2 | products=693 | customers=83 | finance_records=2661 | agent_conversations=10 | agent_messages=25 | agent_drafts=0 | agent_run_audits=53 | agent_run_audit_events=604`
+
+首轮目标手机号、draft `15`、conversation `176` 和对应消息均为 `0`。`007` 的目标客户 `88/89`、draft `16/17/18`、conversation `177/178/179` 和对应消息清理后均为 `0`；`135-db-target-residuals-after-server-cleanup.txt` 为 `0|0|0|0`。App 删除客户只清理本地 Room/同步队列，没有观察到远端客户删除请求，因此随后对 8220 本机 API 精确删除客户 `88/89`，两个请求均为 HTTP `200`。
 
 测试结束时执行 `pm clear com.zhihuiji.app`，随后重启 Activity。最终 UI tree 回到空白登录页，crash buffer 为 `0` 行。新增证据文件中的账号和密码显示均已脱敏；重点复核旧 logcat 和认证响应头文件，命中内容只包含 `[REDACTED]` 占位符，未发现真实认证值。
 
 ## 未执行项与风险
 
-- 新 APK 修复后的 Agent 确认卡片复测等待公网 HTTPS 入口恢复；当前不能确认修复后的 UI 结果。
-- 确认成功后的重复确认、并发确认、图片生成、取消/断线、上下文压缩、性能和 iOS 本轮未执行。
-- 未修改 8220 Nginx、容器、数据库或账号配置；本轮只安装 Android APK、执行 App 点击、读取服务状态并清理模拟器。
+- `007` 的服务端首次确认、重复确认、并发确认和清理已完成；客户端卡片旧文案与确认状态并存，run audit 保持 `confirmation_pending`，客户端/审计一致性仍为 `Failed`。
+- `image_generate`、取消/断线、上下文压缩、性能和 iOS 本轮未执行；iOS 按计划为 `Deferred`。
+- App 客户删除路径没有调用远端删除接口，当前由测试侧精确调用 8220 本机 API 完成客户 `88/89` 清理；该客户端删除能力仍需单独修复和复测。
+- 运行时模型仍为 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 未成为实际运行模型，目标项保持 `Blocked`。
+- 本轮未修改 8220 Nginx、容器、数据库结构或账号配置；执行过测试对象的精确数据删除、Android APK 安装、App 点击和模拟器本地状态清理。
 - `ui_pick.py` 在本机 Python 运行时因 `str | None` 语法不兼容未执行；实际坐标均由同一份 UI tree 的 bounds 计算，点击已执行并保留坐标证据。
 
 ## 2026-09-03 19:35–19:44：模拟器恢复与入口复核
@@ -235,3 +246,57 @@ HTTP FAILED: java.net.ConnectException: Failed to connect to zhj-api.sxyq27.onli
 - `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-006/08-public-entry-probe.txt`
 - `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-006/09-server-entry-probe.txt`
 - `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-006/10-conclusion.md`
+
+## 2026-09-04 01:40–02:47：入口恢复后的真实复测（007）
+
+入口恢复后，继续使用 `emulator-5554` 上的 `com.zhihuiji.app` 1.0.0，从 App UI 真实输入、发送并点击覆盖式确认。发送和确认控件均根据同一时刻的 UI tree bounds 定位；“允许一次”中心坐标为 `(492,851)`。本轮没有用脚本请求替代 App 的首次发送或确认点击。
+
+### 首次确认：服务端业务 Passed，完整客户端闭环 Failed
+
+测试前数据库计数为：
+
+`users=3 | stores=2 | store_memberships=2 | products=693 | customers=83 | finance_records=2661 | agent_conversations=10 | agent_messages=25 | agent_drafts=0 | agent_run_audits=50 | agent_run_audit_events=573`
+
+App 真实输入客户创建提示并点击发送后，服务端生成 run `4b569aa2-40b6-4fb0-8b60-7f1f1d99524b`、conversation `177`、draft `16`，工具为 `create_customer`。发送前的 UI 处于处理中，确认覆盖层显示“操作确认”“新建客户：测试客户”“草稿状态：待确认”；点击“允许一次”后，App 的确认请求返回 HTTP `200`。服务端计数显示客户从 `83` 增加到 `84`，draft `16` 为 `confirmed`，业务引用为 `create_customer:88`。
+
+服务端业务确认满足一次写入条件，但确认后的 App 会话详情同时显示：
+
+- `状态：confirmed · 新建客户：测试客户`
+- 旧文案：`草稿已生成，等待用户确认后才会写入正式业务数据。`
+- 底部状态：`草稿已确认，业务数据已写入`
+
+同一张卡片的状态和说明互相矛盾，因此 `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-REAL-RERUN-007` 整体为 `Failed`；服务端单次写入子项为 `Passed`，客户端展示子项为 `Failed`。
+
+### 重复确认：Passed
+
+对已确认的 draft `16` 发起重复确认请求，结果为 `code=0`、状态 `confirmed`，目标客户记录仍为 1 条，没有重复创建客户。证据为 `23-repeat-confirm-result.txt`。该结果满足重复确认的幂等验收，`AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-REPEAT-007` 为 `Passed`。
+
+### 并发确认：Passed
+
+通过 App 生成并发测试草稿 `17`、`18`，随后对 draft `18` 执行 App 确认和竞争确认请求。App 请求和竞争请求均返回 HTTP `200`，竞争结果为 `0 / confirmed / 18`；服务端只新增客户 `89` 一条，draft `18` 为 `confirmed`、业务引用为 `create_customer:89`。draft `17` 保持 `active`，未被确认，随后作为测试对象删除。`AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-CONCURRENT-007` 在“最多一次正式写入、竞争请求幂等返回”口径下为 `Passed`。
+
+并发批次还记录到 conversation `178` 的独立 `STREAM_ERROR`，它属于并发草稿生成的旁支运行，不改变 draft `18` 确认只产生一条客户的结果；该旁支不扩展为整体成功。
+
+### 审计对齐：Failed
+
+确认前后，run `4b569aa2-40b6-4fb0-8b60-7f1f1d99524b` 对应的 `agent_run_audits.status` 仍为 `confirmation_pending`；并发确认后的相关 run audit 也保留 `confirmation_pending`。草稿实体已经保存 `confirmed`、确认人、确认时间和 `business_reference`，但确认接口没有同步写入 audit 的确认结果或确认事件。当前代码中 `AgentTerminalStatus.CONFIRMATION_PENDING` 是草稿生成阶段的合法运行终态，但 `AgentDraftConfirmService.confirmDraft()` 没有更新 `RunAuditService`，所以“确认后审计与业务结果完全对齐”记为 `Failed`，暂不擅自把 audit 状态改写成 `completed`。
+
+### 清理：Passed，但暴露 App 远端删除缺口
+
+App 端按 UI 操作删除 draft `16/17/18` 和 conversation `177/178/179`；草稿列表为空，会话列表移除目标项。客户页面的删除操作只清理本地 Room/同步队列，App logcat 没有出现远端客户删除请求。随后对 8220 本机 API 精确删除客户 `88/89`，两个请求均返回 HTTP `200`。
+
+清理后数据库计数为：
+
+`users=3 | stores=2 | store_memberships=2 | products=693 | customers=83 | finance_records=2661 | agent_conversations=10 | agent_messages=25 | agent_drafts=0 | agent_run_audits=53 | agent_run_audit_events=604`
+
+目标残留核对为 `0|0|0|0`；模拟器执行 `pm clear com.zhihuiji.app` 返回 `Success`，重启后回到空白登录页，crash buffer 为空。因此 `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-CLEANUP-007` 为 `Passed`，但 App 客户远端删除能力仍需单独修复。
+
+### 007 证据索引
+
+- 真实输入、发送和确认：`testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-007/02-before-send-ui.xml`、`06-send-tap-start.txt`、`08-after-send-2s-ui.xml`、`13-confirm-before-ui.xml`、`16-confirm-tap-start.txt`、`18-after-confirm-4s-ui.xml`
+- 服务端 before/after、draft 和 audit：`01-server-before-send.txt`、`12-server-before-confirm.txt`、`20-server-after-confirm.txt`、`47-server-concurrent-draft-current.txt`、`56-server-after-concurrent-confirm.txt`
+- 重复和并发确认：`23-repeat-confirm-result.txt`、`49-direct-concurrent-result.tsv`、`50-direct-concurrent-http-status.txt`、`55-concurrent-app-logcat-safe.txt`
+- 清理和最终状态：`125-db-final-counts.txt`、`126-db-target-residuals.txt`、`129-app-delete-logcat-safe.txt`、`133-server-customer-delete-status.txt`、`134-db-final-counts-after-server-cleanup.txt`、`135-db-target-residuals-after-server-cleanup.txt`、`138-pm-clear-result.txt`、`141-final-login-ui.xml`、`143-final-crash-buffer.txt`
+- 入口和运行时：`127-server-runtime-final.txt`、`128-public-healthz-final.txt`
+
+本轮实际运行模型仍为 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 未成为实际模型，目标项保持 `Blocked`。生图、取消/断线、上下文压缩、性能和 iOS 仍未执行。

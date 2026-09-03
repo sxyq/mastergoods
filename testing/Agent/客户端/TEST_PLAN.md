@@ -1,6 +1,6 @@
 # Agent 客户端联调测试规划（客户端）
 
-更新日期：2026-09-03。Android 与 iOS 使用相同的服务端断言，客户端分别记录各自版本、设备标签与展示状态；Web 仅作协议与展示对照。登录必须走 APP 正常登录流程，测试人员不手工提取/复制 Cookie、Session Token、Authorization 或完整认证载荷。每个平台使用独立 `test_id`，不能用 Android 结果代表 iOS，也不能用 Web 协议解析代表真实设备展示。
+更新日期：2026-09-04。Android 与 iOS 使用相同的服务端断言，客户端分别记录各自版本、设备标签与展示状态；Web 仅作协议与展示对照。登录必须走 APP 正常登录流程，测试人员不手工提取/复制 Cookie、Session Token、Authorization 或完整认证载荷。每个平台使用独立 `test_id`，不能用 Android 结果代表 iOS，也不能用 Web 协议解析代表真实设备展示。
 
 ## 一、执行前提
 
@@ -191,3 +191,19 @@ Wave 0 的账号核查显示，四个指定账号后缀 `8111`、`8112`、`8113`
 
 证据报告：`testing/Agent/客户端/reports/20260903-agent-phase2-wave18-android-create-customer-confirm.md`。本轮证据目录：`testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-005/`。代码级检查通过不能替代公网 Android 真实点击；入口恢复后仍需从登录页执行 `create_customer` 草稿确认、服务端 before/after、重复确认和并发确认。
 补充入口诊断（2026-09-04）：`testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-006/` 确认 8220 的 `zhj-api.sxyq27.online.conf` 位于 `sites-available` 但未启用，且只有 HTTP 80 配置；未找到匹配的 `zhj-api` 证书。API 容器本机可达，公网 TLS 仍失败。启用站点、配置证书和 reload Nginx 需单独授权；在入口恢复前不执行 Android 登录或 Agent 请求。
+
+## 2026-09-04 Wave 18 入口恢复后的真实确认复测
+
+本节追加入口恢复后的 `007` 执行结果；前面 Wave 18 的入口不可用记录仍保留为历史 `Blocked`，不能覆盖本节的真实 App 证据。
+
+| 用例 | 实际事实 | 数据与清理 | 状态 |
+|---|---|---|---|
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-REAL-RERUN-007` | `emulator-5554` 中按 UI tree 真实输入和点击发送、确认；`create_customer` 生成 draft `16`，确认请求 HTTP `200`，客户 `88` 写入，draft 为 `confirmed`。确认后卡片同时显示 `状态：confirmed`、旧的等待确认文案和“业务数据已写入”状态 | 客户 `83 -> 84`；业务引用 `create_customer:88`；确认后对应 audit 仍为 `confirmation_pending` | `Failed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-REPEAT-007` | 对 draft `16` 发起重复确认，返回 `code=0`、`confirmed`；没有重复创建客户 | 目标客户记录保持 1 条 | `Passed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-CONCURRENT-007` | 对 draft `18` 执行 App 确认和竞争确认；两个请求均 HTTP `200`/幂等返回；只写入客户 `89` 一条，draft `18` 为 `confirmed`；draft `17` 未确认 | conversation `178` 的旁支运行另有 `STREAM_ERROR`，不扩展为整体成功；draft `17` 后续清理 | `Passed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-AUDIT-007` | 草稿确认成功后 run audit 仍为 `confirmation_pending`，确认服务没有同步审计确认结果或确认事件 | 需明确确认后的审计终态/关联字段；当前不把 audit 改写为 `completed` | `Failed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-CLEANUP-007` | App 删除 draft `16/17/18` 和 conversation `177/178/179`；客户页面删除只清理本地 Room/同步队列，未观察到远端客户删除请求；随后 8220 本机 API 精确删除客户 `88/89`，均 HTTP `200` | 清理后 `customers=83`、`agent_drafts=0`；目标残留 `0|0|0|0`；`pm clear` 成功，最终登录页可见，crash buffer 为空 | `Passed` |
+
+007 的最终 PostgreSQL 计数为 `users=3`、`stores=2`、`store_memberships=2`、`products=693`、`customers=83`、`finance_records=2661`、`agent_conversations=10`、`agent_messages=25`、`agent_drafts=0`、`agent_run_audits=53`、`agent_run_audit_events=604`。本节新增证据目录为 `客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-007/`，详见对应 Wave 18 报告和客户端 live ledger。
+
+当前运行模型仍是 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 为 `Blocked`。本轮没有执行生图、取消/断线、上下文压缩、性能或 iOS；iOS 为 `Deferred`。App 客户远端删除缺口需单独修复和复测。

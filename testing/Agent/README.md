@@ -1,6 +1,6 @@
 # Agent 端测试资料总览
 
-更新时间：2026-09-03
+更新时间：2026-09-04
 
 本目录是 Agent（后端 `/v2/agent`、Android/iOS APP、Web 协议对照）的**唯一**测试资料组织点。以测试类别为单位拆分规划文档、执行台账、脚本、日志、报告和原始证据，取代旧的单份《Agent 综合功能与性能测试方案》（已删除）与历史分类占位目录（observability 等已并入对应类别，本目录不再出现）。
 
@@ -280,3 +280,19 @@ Wave 17 最终计数为 `agent_conversations=10`、`agent_messages=25`、`agent_
 只读核对确认 8220 的 `sxyq27-zhj-api`、PostgreSQL、Redis、Docker 和 Nginx 均在运行，API 绑定本机 `127.0.0.1:18080`。`/etc/nginx/sites-available/zhj-api.sxyq27.online.conf` 存在，但 `sites-enabled` 只有 `default`；该配置只有 HTTP 80，没有 443 TLS，证书目录也没有匹配的 `zhj-api` 证书。公网 HTTPS 仍返回 `HTTP 000`/`SSL_ERROR_SYSCALL`，124 的 `/zhj-api/` 为 `410`。
 
 启用站点、配置证书和 reload Nginx 属于线上变更，本轮未执行。Android 模拟器和当前 APK 前置正常，登录、Agent、草稿确认仍保持 `Blocked`。证据见 `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-006/`。
+
+## 十九、2026-09-04 Wave 18 入口恢复后的 Android 真实确认复测
+
+公网入口恢复后，`emulator-5554` 上的 `com.zhihuiji.app` 1.0.0 按 UI tree 真实输入并点击发送、覆盖式“允许一次”，完成 `create_customer` 首次确认、重复确认和并发确认。该批次使用证据目录 `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-007/`，不会覆盖前面入口不可用的 `Blocked` 历史记录。
+
+| 用例 | 实际事实 | 状态 |
+|---|---|---|
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-REAL-RERUN-007` | 首次确认请求 HTTP `200`；draft `16` 从 `active` 变为 `confirmed`；客户 `88` 写入，业务引用为 `create_customer:88`。但 App 卡片同时显示 `状态：confirmed`、旧的“等待用户确认后才会写入”文案和“业务数据已写入”底部状态 | `Failed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-REPEAT-007` | draft `16` 重复确认返回 `code=0`、`confirmed`；目标客户记录仍为 1 条 | `Passed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-CONCURRENT-007` | 对 draft `18` 的 App 确认和竞争确认均返回 HTTP `200`/幂等结果；只新增客户 `89` 一条，draft `18` 为 `confirmed`；draft `17` 未确认并已清理 | `Passed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-AUDIT-007` | 确认后相关 `agent_run_audits.status` 仍为 `confirmation_pending`，确认服务未同步写入确认结果或确认事件；草稿和业务表已成功变化 | `Failed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-CLEANUP-007` | draft `16/17/18`、conversation `177/178/179` 和客户 `88/89` 均已清理；App 客户删除路径只清理本地 Room/同步队列，之后用 8220 本机 API 精确删除客户，两个请求均 HTTP `200` | `Passed` |
+
+`007` 清理后 PostgreSQL 计数为 `users=3`、`stores=2`、`store_memberships=2`、`products=693`、`customers=83`、`finance_records=2661`、`agent_conversations=10`、`agent_messages=25`、`agent_drafts=0`、`agent_run_audits=53`、`agent_run_audit_events=604`；目标残留为 `0|0|0|0`。`pm clear com.zhihuiji.app` 返回 `Success`，重启后回到登录页，crash buffer 为空。
+
+本批次验证的是当前运行时 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 仍为 `Blocked`。`confirmation_pending` 作为草稿生成阶段终态符合当前代码语义；确认接口没有回写 audit 的确认结果是实现缺口，是否需要改变 audit 终态需单独确定。生图、取消/断线、上下文压缩、性能和 iOS 仍未执行，iOS 为 `Deferred`。
