@@ -2,7 +2,7 @@
 
 ## 结论
 
-本 Wave 包含一次完整的客户创建草稿确认和一次修复后的登录复测。首轮真实输入、SSE、覆盖式确认和服务端正式写入均完成，但确认后对话卡片仍显示旧的 `active / 运行待确认 / 尚未执行业务写入` 状态，客户端整体结果为 `Failed`。新 APK 已构建、安装并完成真实登录点击；复测因 `zhj-api.sxyq27.online:443` 当前拒绝连接，未能重新进入 Agent，修复后的卡片状态保持 `Blocked`，没有把它写成通过。
+本 Wave 包含一次完整的客户创建草稿确认和一次修复后的登录复测。首轮真实输入、SSE、覆盖式确认和服务端正式写入均完成，但确认后对话卡片仍显示旧的 `active / 运行待确认 / 尚未执行业务写入` 状态，客户端整体结果为 `Failed`。新 APK 已构建、安装并完成真实登录点击；复测因 `zhj-api.sxyq27.online:443` 当前拒绝连接，未能重新进入 Agent，修复后的卡片状态保持 `Blocked`，没有把它写成通过。2026-09-03 14:33 的入口复核仍确认 443 无监听，本轮没有重复登录或进入 Agent。
 
 | 用例 | 范围 | 结果 |
 |---|---|---|
@@ -24,6 +24,27 @@
 - `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-001/110-public-healthz-headers-redacted.txt`
 - `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-001/276-public-api-entry-probe.txt`
 - `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-001/277-8220-live-entry-state.txt`
+
+### 2026-09-03 14:20–14:33 入口恢复复核：Blocked
+
+本次只执行阶段二第 0 步前置检查，没有重新输入账号、点击登录、发送 Agent 请求或操作草稿确认：
+
+- DNS `zhj-api.sxyq27.online` 仍解析到 `8.220.206.9`。
+- 本机 HTTPS 探针仍为 HTTP `000`，连接 `8.220.206.9:443` 被拒绝；HTTP 80 返回默认 Nginx HTML 页面。
+- 8220 远端 `nginx`、`docker`、`sxyq27-zhj-api` 和 PostgreSQL 均正常，PostgreSQL health 为 `healthy`；Nginx `sites-enabled` 仍只有 `default`，域名配置文件只声明 80，监听列表没有 443；容器本机 `127.0.0.1:18080` 的认证入口返回 HTTP `405 application/json`。
+- `emulator-5554` 在线，新 APK `com.zhihuiji.app` 1.0.0 已安装，当前 UI tree 和截图为干净登录页，crash buffer 为 0 行。
+
+因此本次入口恢复复核为 `Blocked`，没有新增会话、草稿、消息、审计或业务数据变化，也没有对线上 Nginx、容器、数据库和账号配置做修改。解除条件仍是恢复并验证 `https://zhj-api.sxyq27.online/` 的公网 HTTPS 443 反向代理。
+
+新增证据：
+
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-001/286-public-api-entry-recheck-20260903T1432.txt`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-001/287-8220-nginx-entry-recheck-20260903T1432.txt`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-001/288-android-precondition-recheck-20260903T1432.txt`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-001/289-login-page-ui-20260903T1432.xml`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-001/290-login-page-ui-summary-20260903T1432.txt`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-001/291-login-page-20260903T1432.png`
+- `testing/Agent/客户端/artifacts/20260903-agent-phase2-wave18-android-create-customer-confirm-001/292-crash-buffer-20260903T1432.txt`
 
 ## 首轮完整确认：Failed
 
