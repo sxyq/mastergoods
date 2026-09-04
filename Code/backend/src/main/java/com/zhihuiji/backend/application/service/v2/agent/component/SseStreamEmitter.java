@@ -471,6 +471,18 @@ public class SseStreamEmitter {
         }
         payload.putIfAbsent("timestamp", System.currentTimeMillis());
         String payloadJson = objectMapper.writeValueAsString(payload);
+        if (cancellationEvent) {
+            try {
+                if (emitter != null) {
+                    emitter.send(SseEmitter.event().data(payloadJson));
+                }
+            } finally {
+                if (runId instanceof String runIdText) {
+                    runAuditService.queueRunAuditEvent(runIdText, payload, payloadJson);
+                }
+            }
+            return;
+        }
         if (emitter != null) {
             emitter.send(SseEmitter.event().data(payloadJson));
         }
