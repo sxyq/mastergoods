@@ -54,7 +54,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import java.util.UUID
 import javax.inject.Inject
@@ -64,6 +67,7 @@ private const val SERVER_CANCEL_CONFIRMED_MESSAGE = "服务端已确认取消生
 private const val TOOL_ENDED_WITHOUT_COMPLETION_MESSAGE = "运行已结束，未收到工具完成事件"
 private const val TOOL_CANCELLED_WITH_RUN_MESSAGE = "生成已取消，工具查询已停止"
 private const val TOOL_INTERRUPTED_BY_ERROR_MESSAGE = "连接中断，工具状态未确认"
+private const val DRAFT_PENDING_MESSAGE = "草稿已生成，等待用户确认后才会写入正式业务数据。"
 private const val DRAFT_CANCELLED_MESSAGE = "草稿已取消，未执行任何业务写入"
 private const val DRAFT_CONFIRMED_MESSAGE = "草稿已确认，业务数据已写入"
 internal const val AnswerDeltaFlushDelayMs = 24L
@@ -1297,6 +1301,7 @@ class AgentChatViewModel @Inject constructor(
                                         timestamp = confirmedAt,
                                     )
                                 )
+                                    .withDraftCardStatus(draftId, confirmedStatus)
                             } else {
                                 message
                             }
@@ -1359,6 +1364,7 @@ class AgentChatViewModel @Inject constructor(
                                         status = cancelledStatus,
                                     )
                                 )
+                                    .withDraftCardStatus(draftId, cancelledStatus)
                             } else {
                                 message
                             }
@@ -1403,6 +1409,90 @@ internal fun shouldSkipConfirm(phase: DraftConfirmPhase): Boolean =
 internal fun shouldSkipCancel(phase: DraftConfirmPhase): Boolean =
     phase == DraftConfirmPhase.CONFIRMING || phase == DraftConfirmPhase.REJECTED
 
+internal fun draftCardStatusMessage(status: String?): String? = when (status?.trim()?.lowercase()) {
+    "confirmed" -> DRAFT_CONFIRMED_MESSAGE
+    "cancelled", "rejected" -> DRAFT_CANCELLED_MESSAGE
+    else -> null
+}
+
+internal fun ChatMessage.withDraftCardStatus(draftId: Long, status: String): ChatMessage {
+    val statusMessage = draftCardStatusMessage(status) ?: return this
+    val updateVisibleDraftText = draftIds().size <= 1
+    val updatedContent = if (updateVisibleDraftText) {
+        content.replace(DRAFT_PENDING_MESSAGE, statusMessage)
+    } else {
+        content
+    }
+    val updatedBlocks = blocks.map { it.withDraftCardStatus(draftId, statusMessage) }
+    val updatedParts = parts.map { part ->
+        when (part) {
+            is ChatMessagePart.Text -> if (updateVisibleDraftText) {
+                part.copy(markdown = part.markdown.replace(DRAFT_PENDING_MESSAGE, statusMessage))
+            } else {
+                part
+            }
+            is ChatMessagePart.ResultBlock -> ChatMessagePart.ResultBlock(
+                part.block.withDraftCardStatus(draftId, statusMessage),
+            )
+            is ChatMessagePart.PendingResultBlock -> ChatMessagePart.PendingResultBlock(
+                part.block.withDraftCardStatus(draftId, statusMessage),
+            )
+        }
+    }
+    return if (updatedContent == content && updatedBlocks == blocks && updatedParts == parts) {
+        this
+    } else {
+        copy(content = updatedContent, blocks = updatedBlocks, parts = updatedParts)
+    }
+}
+
+private fun ResultBlockDto.draftCardIdOrNull(): Long? {
+    if (blockType != "draft_card") return null
+    val dataObject = data as? JsonObject ?: return null
+    return dataObject["draft_id"]
+        ?.let { runCatching { it.jsonPrimitive.longOrNull }.getOrNull() }
+}
+
+private fun ResultBlockDto.withDraftCardStatus(
+    draftId: Long,
+    statusMessage: String,
+): ResultBlockDto {
+    if (draftCardIdOrNull() != draftId) return this
+    val dataObject = data as? JsonObject ?: return this
+
+    return copy(
+        data = buildJsonObject {
+            dataObject.forEach { (key, value) -> put(key, value) }
+            put("summary", statusMessage)
+        },
+    )
+}
+
+private fun ChatMessage.draftIds(): Set<Long> {
+    val ids = mutableSetOf<Long>()
+    blocks.forEach { block ->
+        block.draftCardIdOrNull()?.let { ids.add(it) }
+    }
+    parts.forEach { part ->
+        when (part) {
+            is ChatMessagePart.Text -> Unit
+            is ChatMessagePart.ResultBlock -> part.block.draftCardIdOrNull()?.let { ids.add(it) }
+            is ChatMessagePart.PendingResultBlock -> part.block.draftCardIdOrNull()?.let { ids.add(it) }
+        }
+    }
+    runTrace?.let { trace ->
+        trace.draft?.draftId?.let { ids.add(it) }
+        trace.timeline.forEach { item ->
+            when (item) {
+                is RunTraceItem.Draft -> ids.add(item.draft.draftId)
+                is RunTraceItem.ResultBlock -> item.block.draftCardIdOrNull()?.let { ids.add(it) }
+                else -> Unit
+            }
+        }
+    }
+    return ids
+}
+
 private fun ChatMessage.hasDraft(draftId: Long): Boolean =
     runTrace?.let { trace ->
         trace.draft?.draftId == draftId || trace.timeline.any { item ->
@@ -1425,13 +1515,19 @@ internal fun RunTrace.withConfirmedDraft(
         ?.takeIf { it.draftId == draftId }
         ?.copy(status = confirmedStatus, timestamp = timestamp)
     val updatedTimeline = timeline.map { item ->
-        if (item is RunTraceItem.Draft && item.draft.draftId == draftId) {
-            item.copy(
-                draft = item.draft.copy(status = confirmedStatus, timestamp = timestamp),
-                timestamp = timestamp,
+        when (item) {
+            is RunTraceItem.Draft -> if (item.draft.draftId == draftId) {
+                item.copy(
+                    draft = item.draft.copy(status = confirmedStatus, timestamp = timestamp),
+                    timestamp = timestamp,
+                )
+            } else {
+                item
+            }
+            is RunTraceItem.ResultBlock -> item.copy(
+                block = item.block.withDraftCardStatus(draftId, DRAFT_CONFIRMED_MESSAGE),
             )
-        } else {
-            item
+            else -> item
         }
     }
     val terminal = TerminalTrace(
@@ -1456,13 +1552,19 @@ private fun RunTrace.withCancelledDraft(draftId: Long, status: String): RunTrace
         ?.takeIf { it.draftId == draftId }
         ?.copy(status = status, timestamp = timestamp)
     val updatedTimeline = cancelled.timeline.map { item ->
-        if (item is RunTraceItem.Draft && item.draft.draftId == draftId) {
-            item.copy(
-                draft = item.draft.copy(status = status, timestamp = timestamp),
-                timestamp = timestamp,
+        when (item) {
+            is RunTraceItem.Draft -> if (item.draft.draftId == draftId) {
+                item.copy(
+                    draft = item.draft.copy(status = status, timestamp = timestamp),
+                    timestamp = timestamp,
+                )
+            } else {
+                item
+            }
+            is RunTraceItem.ResultBlock -> item.copy(
+                block = item.block.withDraftCardStatus(draftId, DRAFT_CANCELLED_MESSAGE),
             )
-        } else {
-            item
+            else -> item
         }
     }
     return cancelled.copy(

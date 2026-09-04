@@ -3,6 +3,7 @@ package com.zhihuiji.feature.agent
 import com.zhihuiji.core.model.v2.agent.ChatMessage
 import com.zhihuiji.core.model.v2.agent.ChatMessagePart
 import com.zhihuiji.core.model.v2.agent.AnswerTraceStatus
+import com.zhihuiji.core.model.v2.agent.DraftCardBlockData
 import com.zhihuiji.core.model.v2.agent.DraftTrace
 import com.zhihuiji.core.model.v2.agent.MessageRole
 import com.zhihuiji.core.model.v2.agent.ResultBlockDto
@@ -11,10 +12,13 @@ import com.zhihuiji.core.model.v2.agent.RunTrace
 import com.zhihuiji.core.model.v2.agent.RunTraceItem
 import com.zhihuiji.core.model.v2.agent.SafetyResult
 import com.zhihuiji.core.model.v2.agent.TerminalTrace
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 class AgentChatViewModelAnswerMergeTest {
 
@@ -572,6 +576,203 @@ class AgentChatViewModelAnswerMergeTest {
             confirmed.timeline.filterIsInstance<RunTraceItem.Terminal>().single().terminal.status,
         )
     }
+
+    @Test
+    fun confirmedDraftUpdatesMatchingResultCardInMessageAndTrace() {
+        val pendingSummary = "草稿已生成，等待用户确认后才会写入正式业务数据。"
+        val draftCard = draftCardBlock(
+            draftId = 42L,
+            summary = pendingSummary,
+        )
+        val draft = DraftTrace(
+            draftId = 42L,
+            draftType = "create_customer",
+            title = "新建客户：客户A",
+            status = "active",
+            timestamp = 100L,
+        )
+        val message = chatMessage(id = "assistant", content = pendingSummary).copy(
+            blocks = listOf(draftCard),
+            parts = listOf(ChatMessagePart.Text(pendingSummary), ChatMessagePart.ResultBlock(draftCard)),
+            runTrace = RunTrace(
+                runId = "run-confirm-card",
+                draft = draft,
+                timeline = listOf(
+                    RunTraceItem.ResultBlock(
+                        block = draftCard,
+                        id = "result:draft-card",
+                        timestamp = 100L,
+                    ),
+                    RunTraceItem.Draft(draft = draft, timestamp = 100L),
+                ),
+            ),
+        )
+
+        val updated = message.copy(
+            runTrace = message.runTrace!!.withConfirmedDraft(
+                draftId = 42L,
+                status = "confirmed",
+                timestamp = 300L,
+            ),
+        ).withDraftCardStatus(42L, "confirmed")
+
+        assertEquals(
+            "草稿已确认，业务数据已写入",
+            updated.blocks.single().parseData<DraftCardBlockData>()?.summary,
+        )
+        assertEquals("草稿已确认，业务数据已写入", updated.content)
+        assertEquals(
+            "草稿已确认，业务数据已写入",
+            (updated.parts.first() as ChatMessagePart.Text).markdown,
+        )
+        assertEquals(
+            "草稿已确认，业务数据已写入",
+            (updated.parts[1] as ChatMessagePart.ResultBlock)
+                .block.parseData<DraftCardBlockData>()?.summary,
+        )
+        assertEquals(
+            "草稿已确认，业务数据已写入",
+            updated.runTrace!!.timeline
+                .filterIsInstance<RunTraceItem.ResultBlock>()
+                .single()
+            .block.parseData<DraftCardBlockData>()?.summary,
+        )
+    }
+
+    @Test
+    fun multiDraftStatusUpdatesOnlyMatchingCardAndPreservesVisibleText() {
+        val pendingSummary = "草稿已生成，等待用户确认后才会写入正式业务数据。"
+        val unrelatedSummary = "另一个草稿已生成，等待用户确认后才会写入正式业务数据。"
+        val matchingCard = draftCardBlock(draftId = 42L, summary = pendingSummary)
+        val unrelatedCard = draftCardBlock(draftId = 99L, summary = unrelatedSummary)
+        val matchingDraft = DraftTrace(
+            draftId = 42L,
+            draftType = "create_customer",
+            title = "新建客户：客户A",
+            status = "active",
+            timestamp = 100L,
+        )
+        val unrelatedDraft = matchingDraft.copy(
+            draftId = 99L,
+            title = "新建客户：客户B",
+        )
+        val messageContent = "前置说明：$pendingSummary\n$unrelatedSummary"
+        val message = chatMessage(id = "assistant", content = messageContent).copy(
+            blocks = listOf(matchingCard, unrelatedCard),
+            parts = listOf(
+                ChatMessagePart.Text("前置说明：$pendingSummary"),
+                ChatMessagePart.Text(unrelatedSummary),
+                ChatMessagePart.ResultBlock(matchingCard),
+                ChatMessagePart.ResultBlock(unrelatedCard),
+            ),
+            runTrace = RunTrace(
+                runId = "run-confirm-multiple-cards",
+                draft = matchingDraft,
+                timeline = listOf(
+                    RunTraceItem.ResultBlock(
+                        block = matchingCard,
+                        id = "result:draft-card:42",
+                        timestamp = 100L,
+                    ),
+                    RunTraceItem.ResultBlock(
+                        block = unrelatedCard,
+                        id = "result:draft-card:99",
+                        timestamp = 100L,
+                    ),
+                    RunTraceItem.Draft(draft = matchingDraft, timestamp = 100L),
+                    RunTraceItem.Draft(draft = unrelatedDraft, timestamp = 100L),
+                ),
+            ),
+        )
+
+        val updated = message.copy(
+            runTrace = message.runTrace!!.withConfirmedDraft(
+                draftId = 42L,
+                status = "confirmed",
+                timestamp = 300L,
+            ),
+        ).withDraftCardStatus(42L, "confirmed")
+
+        assertEquals(messageContent, updated.content)
+        assertEquals(
+            "前置说明：$pendingSummary",
+            (updated.parts[0] as ChatMessagePart.Text).markdown,
+        )
+        assertEquals(
+            unrelatedSummary,
+            (updated.parts[1] as ChatMessagePart.Text).markdown,
+        )
+        assertEquals(
+            "草稿已确认，业务数据已写入",
+            updated.blocks[0].parseData<DraftCardBlockData>()?.summary,
+        )
+        assertEquals(
+            unrelatedSummary,
+            updated.blocks[1].parseData<DraftCardBlockData>()?.summary,
+        )
+        assertEquals(
+            "草稿已确认，业务数据已写入",
+            (updated.parts[2] as ChatMessagePart.ResultBlock)
+                .block.parseData<DraftCardBlockData>()?.summary,
+        )
+        assertEquals(
+            unrelatedSummary,
+            (updated.parts[3] as ChatMessagePart.ResultBlock)
+                .block.parseData<DraftCardBlockData>()?.summary,
+        )
+        val traceBlocks = updated.runTrace!!.timeline.filterIsInstance<RunTraceItem.ResultBlock>()
+        assertEquals(
+            "草稿已确认，业务数据已写入",
+            traceBlocks.single { it.block.parseData<DraftCardBlockData>()?.draftId == 42L }
+                .block.parseData<DraftCardBlockData>()?.summary,
+        )
+        assertEquals(
+            unrelatedSummary,
+            traceBlocks.single { it.block.parseData<DraftCardBlockData>()?.draftId == 99L }
+                .block.parseData<DraftCardBlockData>()?.summary,
+        )
+    }
+
+    @Test
+    fun cancelledDraftCardExplainsNoWriteAndActiveCardKeepsPendingSummary() {
+        val pendingSummary = "草稿已生成，等待用户确认后才会写入正式业务数据。"
+        val draftCard = draftCardBlock(draftId = 42L, summary = pendingSummary)
+        val message = chatMessage(id = "assistant", content = "").copy(
+            blocks = listOf(draftCard),
+            parts = listOf(ChatMessagePart.Text(pendingSummary), ChatMessagePart.ResultBlock(draftCard)),
+        )
+
+        val cancelled = message.withDraftCardStatus(42L, "cancelled")
+        val active = message.withDraftCardStatus(42L, "active")
+
+        assertEquals(
+            "草稿已取消，未执行任何业务写入",
+            cancelled.blocks.single().parseData<DraftCardBlockData>()?.summary,
+        )
+        assertEquals("草稿已取消，未执行任何业务写入", (cancelled.parts.first() as ChatMessagePart.Text).markdown)
+        assertEquals(
+            pendingSummary,
+            active.parts.first().let { (it as ChatMessagePart.Text).markdown },
+        )
+        assertEquals(
+            pendingSummary,
+            active.parts[1].let { (it as ChatMessagePart.ResultBlock).block }
+                .parseData<DraftCardBlockData>()?.summary,
+        )
+        assertEquals("草稿已确认，业务数据已写入", draftCardStatusMessage("CONFIRMED"))
+        assertNull(draftCardStatusMessage("active"))
+    }
+
+    private fun draftCardBlock(draftId: Long, summary: String): ResultBlockDto = ResultBlockDto(
+        blockType = "draft_card",
+        title = "草稿待确认",
+        data = buildJsonObject {
+            put("draft_id", draftId)
+            put("draft_type", "create_customer")
+            put("title", "新建客户：客户A")
+            put("summary", summary)
+        },
+    )
 
     private fun chatMessage(
         id: String,

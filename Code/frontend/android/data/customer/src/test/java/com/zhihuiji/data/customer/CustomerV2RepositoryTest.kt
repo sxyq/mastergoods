@@ -34,9 +34,10 @@ class CustomerV2RepositoryTest {
     }
 
     @Test
-    fun deleteCustomerMutatesLocalProjectionAndDoesNotCallRemoteApi() = runBlocking {
+    fun deleteCustomerMutatesLocalProjectionAndEnqueuesRemoteDelete() = runBlocking {
         var invokedMethod: String? = null
         var deletedId: Long? = null
+        var queuedMutation: List<Any?>? = null
         val api = fakeApi { methodName, args ->
             invokedMethod = methodName
             ApiResponse<Unit>(code = 0, message = "ok", data = null)
@@ -64,12 +65,15 @@ class CustomerV2RepositoryTest {
                 ),
                 onDelete = { deletedId = it },
             ),
-            fakeSyncRepository(),
+            fakeSyncRepository { entityType, entityId, operation, payload, baseVersion ->
+                queuedMutation = listOf(entityType, entityId, operation, payload, baseVersion)
+            },
         )
         val result = repository.deleteCustomer(12L)
 
         assertTrue(result.isSuccess)
         assertNull(invokedMethod)
+        assertEquals(listOf("customer", "12", "delete", null, 3L), queuedMutation)
         assertEquals(12L, deletedId)
     }
 
@@ -129,7 +133,15 @@ class CustomerV2RepositoryTest {
         }
     } as CustomerDao
 
-    private fun fakeSyncRepository(): LocalSyncRepository = object : LocalSyncRepository {
+    private fun fakeSyncRepository(
+        onEnqueue: (
+            entityType: String,
+            entityId: String,
+            operation: String,
+            payload: String?,
+            baseVersion: Long?,
+        ) -> Unit = { _, _, _, _, _ -> },
+    ): LocalSyncRepository = object : LocalSyncRepository {
         override fun <T> encodePayload(serializer: KSerializer<T>, value: T): String = "{}"
 
         override fun nextLocalEntityId(): Long = -1L
@@ -141,7 +153,11 @@ class CustomerV2RepositoryTest {
             payload: String?,
             baseVersion: Long?,
             mutation: suspend () -> T,
-        ): Result<T> = runCatching { mutation() }
+        ): Result<T> = runCatching {
+            val result = mutation()
+            onEnqueue(entityType, entityId, operation, payload, baseVersion)
+            result
+        }
 
         override suspend fun hasUnresolvedLocalChange(entityType: String, entityId: String): Boolean = false
 

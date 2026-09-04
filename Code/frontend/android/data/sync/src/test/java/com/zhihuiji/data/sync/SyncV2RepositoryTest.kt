@@ -25,8 +25,9 @@ import com.zhihuiji.core.model.v2.sync.SyncPullV2Response
 import com.zhihuiji.core.model.v2.sync.SyncUploadV2Request
 import com.zhihuiji.core.model.v2.sync.SyncUploadV2Response
 import com.zhihuiji.core.network.ZhihuijiV2Api
-import java.lang.reflect.Proxy
 import java.io.File
+import java.io.IOException
+import java.lang.reflect.Proxy
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -262,6 +263,130 @@ class SyncV2RepositoryTest {
         assertEquals("op-conflict", pending.single().operationId)
         assertEquals(SyncOutboxEntity.STATE_BLOCKED, pending.single().state)
         assertEquals("server version advanced", pending.single().lastError)
+    }
+
+    @Test
+    fun syncPendingAndPullUploadsCustomerDeleteAndSettlesIt() = runBlocking {
+        val pending = mutableListOf(
+            SyncOutboxEntity(
+                operationId = "op-customer-delete",
+                clientId = "client-a",
+                entityType = "customer",
+                entityId = "88",
+                operation = "delete",
+                payload = null,
+                baseVersion = 3L,
+                createdAt = 4L,
+            ),
+        )
+        var uploadedRequest: SyncUploadV2Request? = null
+        val api = fakeApi { methodName, args ->
+            when (methodName) {
+                "uploadSyncChangesV2" -> {
+                    uploadedRequest = args?.get(0) as SyncUploadV2Request
+                    ApiResponse(
+                        code = 0,
+                        message = "ok",
+                        data = SyncUploadV2Response(
+                            acceptedOperationIds = listOf("op-customer-delete"),
+                            operationResults = listOf(
+                                SyncOperationResultV2Dto(
+                                    operationId = "op-customer-delete",
+                                    status = "applied",
+                                ),
+                            ),
+                        ),
+                    )
+                }
+                "syncCursorV2" -> ApiResponse(
+                    code = 0,
+                    message = "ok",
+                    data = SyncCursorV2Dto(clientId = "client-a", lastCursor = ""),
+                )
+                "pullSyncChangesV2" -> ApiResponse(
+                    code = 0,
+                    message = "ok",
+                    data = SyncPullV2Response(nextCursor = ""),
+                )
+                else -> error("Unexpected API method: $methodName")
+            }
+        }
+
+        val result = repository(
+            api = api,
+            outboxDao = recordingOutboxDao(pending),
+        ).syncPendingAndPull(clientId = "client-a")
+
+        assertTrue(result.isSuccess)
+        val uploadedChange = uploadedRequest?.changes?.singleOrNull()
+            ?: error("customer delete was not uploaded")
+        assertEquals("customer", uploadedChange.entityType)
+        assertEquals("88", uploadedChange.entityId)
+        assertEquals("delete", uploadedChange.operation)
+        assertEquals(null, uploadedChange.payload)
+        assertEquals(3L, uploadedChange.baseVersion)
+        assertTrue(pending.isEmpty())
+    }
+
+    @Test
+    fun failedCustomerDeleteRemainsPendingForTheNextSyncAttempt() = runBlocking {
+        val pending = mutableListOf(
+            SyncOutboxEntity(
+                operationId = "op-customer-delete-retry",
+                clientId = "client-a",
+                entityType = "customer",
+                entityId = "89",
+                operation = "delete",
+                payload = null,
+                baseVersion = 2L,
+                createdAt = 5L,
+            ),
+        )
+        var uploadAttempts = 0
+        val api = fakeApi { methodName, args ->
+            when (methodName) {
+                "uploadSyncChangesV2" -> {
+                    uploadAttempts++
+                    if (uploadAttempts == 1) throw IOException("offline")
+                    ApiResponse(
+                        code = 0,
+                        message = "ok",
+                        data = SyncUploadV2Response(
+                            acceptedOperationIds = listOf("op-customer-delete-retry"),
+                        ),
+                    )
+                }
+                "syncCursorV2" -> ApiResponse(
+                    code = 0,
+                    message = "ok",
+                    data = SyncCursorV2Dto(clientId = "client-a", lastCursor = ""),
+                )
+                "pullSyncChangesV2" -> ApiResponse(
+                    code = 0,
+                    message = "ok",
+                    data = SyncPullV2Response(nextCursor = ""),
+                )
+                else -> error("Unexpected API method: $methodName")
+            }
+        }
+        val repository = repository(
+            api = api,
+            outboxDao = recordingOutboxDao(pending),
+        )
+
+        val firstAttempt = repository.syncPendingAndPull(clientId = "client-a")
+
+        assertTrue(firstAttempt.isFailure)
+        assertEquals(1, uploadAttempts)
+        assertEquals(1, pending.size)
+        assertEquals(SyncOutboxEntity.STATE_PENDING, pending.single().state)
+        assertEquals(0, pending.single().attempts)
+
+        val secondAttempt = repository.syncPendingAndPull(clientId = "client-a")
+
+        assertTrue(secondAttempt.isSuccess)
+        assertEquals(2, uploadAttempts)
+        assertTrue(pending.isEmpty())
     }
 
     @Test
