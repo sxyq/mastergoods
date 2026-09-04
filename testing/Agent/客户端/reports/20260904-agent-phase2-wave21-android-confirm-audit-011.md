@@ -21,7 +21,7 @@
 - App 中的最终输入为：`新建客户名称测试客户手机[REDACTED_TEST_PHONE]先生成草稿不要直接保存`。
 - 实际运行模型为 `gpt-5.6-luna/chat_completions`，目标模型 `glm-5.3-flash` 未成为本次运行模型，目标模型状态为 `Blocked`。
 
-环境和版本证据：`69-app-version-device.txt`、`70-server-health-final.txt`。输入和 UI 证据：`09-final-input-ui.xml`、`09-final-input.png`、`14-after-send-10s-ui.xml`、`19-after-confirm-ui.xml`。
+环境和版本证据：`69-app-version-device.txt`、`70-server-health-final.txt`。输入和 UI 证据：`09-final-input-ui.xml`、`05-after-login.png`、`13-after-send.png`、`14-after-send-10s.png`、`14-after-send-10s-ui.xml`、`19-after-confirm.png`、`19-after-confirm-ui.xml`。
 
 ## 真实点击与 Agent 调用
 
