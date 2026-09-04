@@ -53,7 +53,7 @@
 - `sync_operation_log` 的目标删除操作状态为 `applied`；
 - API 容器仍为当前修复镜像，健康检查为 `ok`。
 
-证据：`42-local-after-real-delete.txt`、`41-server-after-real-delete.txt`。服务端查询为只读核对，没有执行补偿删除或数据库写入。
+证据：`42-local-after-real-delete.txt`、`41-server-after-real-delete.txt`。服务端查询阶段为只读核对；本轮没有执行额外的补偿删除或直接数据库写入，目标删除由 App 同步请求按用例完成。
 
 ## 清理与最终状态
 
@@ -74,4 +74,4 @@
 
 - 本轮验证的是当前 Android 客户删除同步分支；没有执行 Agent 模型调用、SSE、生图、取消/断线、上下文压缩、性能或 iOS 流程。
 - 运行时目标模型 `glm-5.3-flash` 仍未成为实际模型，相关状态继续记为 `Blocked`；这不影响本轮同步删除用例的判定。
-- 本轮未修改产品源码；线上只做健康检查、容器和 PostgreSQL 只读核对，模拟器执行了测试数据清理。
+- 本轮未修改产品源码；线上未执行运维变更，容器和 PostgreSQL 核对为只读，客户创建/删除由 App 测试同步流程完成并已清理。
