@@ -207,3 +207,28 @@ Wave 0 的账号核查显示，四个指定账号后缀 `8111`、`8112`、`8113`
 007 的最终 PostgreSQL 计数为 `users=3`、`stores=2`、`store_memberships=2`、`products=693`、`customers=83`、`finance_records=2661`、`agent_conversations=10`、`agent_messages=25`、`agent_drafts=0`、`agent_run_audits=53`、`agent_run_audit_events=604`。本节新增证据目录为 `客户端/artifacts/20260904-agent-phase2-wave18-android-create-customer-confirm-007/`，详见对应 Wave 18 报告和客户端 live ledger。
 
 当前运行模型仍是 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 为 `Blocked`。本轮没有执行生图、取消/断线、上下文压缩、性能或 iOS；iOS 为 `Deferred`。App 客户远端删除缺口需单独修复和复测。
+
+## 2026-09-04 Wave 19 Android `create_customer` 确认与审计核查
+
+本节追加 Wave 19 的独立真实 Android 证据，不删除或改写 Wave 18 历史记录。证据目录为 `客户端/artifacts/20260904-agent-phase2-wave19-android-confirm-audit-009/`，正式报告为 `客户端/reports/20260904-agent-phase2-wave19-android-confirm-audit-009.md`。
+
+| 用例 | 实际事实 | 数据与清理 | 状态 |
+|---|---|---|---|
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-REAL-RERUN-009` | App 中按 UI tree 真实输入“新建客户名称测试客户手机[REDACTED_TEST_PHONE]先生成草稿不要直接保存”；依据 `[586,502][682,598]` 真实点击发送。App 记录 `POST /v2/agent/chat/stream` HTTP `200`、`text/event-stream`；生成 run `539a6a1a-a6bd-44c9-a9cb-ec7fd54fef45`、conversation `182`、draft `21`。确认弹窗出现后，依据 `[392,803][592,899]` 真实点击“允许一次”，确认接口 HTTP `200`；确认后 UI 显示 `confirmed` 和“业务数据已写入” | 确认前客户数 `83`、draft `21` 为 `active`；确认后客户 `92` 仅一条、draft `21` 为 `confirmed`，业务引用为 `create_customer:92`；未观察到重复客户 | `Passed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-AUDIT-009` | 服务端生成阶段事件按 `run_started → plan_delta → tool_started → tool_completed → draft_created → answer_delta/result_block → answer_completed → run_completed` 保存；`run_completed` 的原始终态为 `CONFIRMATION_PENDING`。确认后同一 run 追加 `draft_confirmed` 事件，事件序号为 `14`；audit 状态仍为 `confirmation_pending`，与原始生成终态相符 | 发送前至确认后 audit 数为 `58→59`；audit event 全局数为 `651→664→665`；draft、客户和业务引用一致 | `Passed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-CLEANUP-009` | 真实点击“清空对话”、打开会话列表并删除目标会话；会话删除 HTTP `200`。随后精确删除客户 `92`，HTTP `200`；`pm clear com.zhihuiji.app` 返回 `Success`，重启后回到登录页，crash buffer 为空 | 清理后 `agent_drafts=0`、`agent_conversations=10`、`agent_messages=25`、`customers=83`；目标 draft、conversation、messages、customer 和手机号记录均为 `0`；审计记录保留为 `agent_run_audits=59`、`agent_run_audit_events=665` | `Passed` |
+
+本 Wave 的确认接口、draft `21`、客户 `92`、审计 `draft_confirmed` 事件和清理结果均有脱敏证据。`confirmation_pending` 表示原始草稿生成 run 的终态，后续确认由独立 `draft_confirmed` 事件记录；本轮不把该字段单独判为失败。
+
+## 2026-09-04 Wave 21 Android `create_customer` 确认、审计与清理
+
+本节追加 Wave 21 的独立真实 Android 证据，不删除或改写 Wave 18、Wave 19 历史记录。证据目录为 `客户端/artifacts/20260904-agent-phase2-wave21-android-confirm-audit-011/`，正式报告为 `客户端/reports/20260904-agent-phase2-wave21-android-confirm-audit-011.md`。
+
+| 用例 | 实际事实 | 数据与清理 | 状态 |
+|---|---|---|---|
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-REAL-RERUN-011` | App 中使用真实 Gboard 输入客户创建提示；依据 UI tree 真实点击发送中心 `(634,1100)` 和“允许一次”中心 `(492,851)`。`POST /v2/agent/chat/stream` 返回 HTTP `200`、`text/event-stream`；`POST /v2/agent/drafts/23/confirm` 返回 HTTP `200`；run `d990139c-8828-41c9-8f08-b5d57bee2176`、conversation `184`、draft `23` | draft `23` 为 `confirmed`，业务引用为 `create_customer:94`；客户 `94` 只有一条记录；确认后 App 显示“业务数据已写入” | `Passed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-AUDIT-011` | 生成事件序号连续为 `1–15`，`run_completed` 的原始终态为 `confirmation_pending`；确认后同一 run 追加 `draft_confirmed`，`audit_lossy=false` | 确认后 audit 为 `61` 条、事件为 `695` 条；原始 run 状态保持不变，确认动作有独立事件记录 | `Passed` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-CLEANUP-011` | 真实点击清空对话、打开会话列表并删除目标会话；进入客户详情后真实点击删除；精确服务端清理残留客户；`pm clear` 后重启 Activity | 清理后 `agent_drafts=0`、`agent_conversations=10`、`agent_messages=25`、`customers=84`；目标 draft、conversation、messages、客户、手机号、日志和 tombstone 均为 `0`；登录页可见，crash buffer 为 `0` 行 | `Passed` |
+| `AG-CLI-AND-P2-CUSTOMER-DELETE-SYNC-011` | App 客户删除调用 `/v2/sync/upload` 返回 HTTP `200`，cursor/pull 返回 HTTP `200`，Worker 为 `SUCCESS`；本地 outbox 进入 `blocked` | 错误为 `sync version conflict: expected 0, current 1`；服务端复核没有 tombstone，客户行仍存在；测试侧再用精确 API 清理，故客户端同步分支为 `Failed` | `Failed` |
+
+Wave 21 的确认前计数为 `customers=84`、`agent_conversations=10`、`agent_messages=25`、`agent_drafts=0`、`agent_run_audits=60`、`agent_run_audit_events=680`；确认后客户变为 `85`，清理后回到 `84`。实际运行模型为 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 为 `Blocked`。截图留在本地证据目录，未加入 Git；同步删除缺口需在后续修复并重新执行。

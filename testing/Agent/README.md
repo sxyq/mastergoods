@@ -296,3 +296,28 @@ Wave 17 最终计数为 `agent_conversations=10`、`agent_messages=25`、`agent_
 `007` 清理后 PostgreSQL 计数为 `users=3`、`stores=2`、`store_memberships=2`、`products=693`、`customers=83`、`finance_records=2661`、`agent_conversations=10`、`agent_messages=25`、`agent_drafts=0`、`agent_run_audits=53`、`agent_run_audit_events=604`；目标残留为 `0|0|0|0`。`pm clear com.zhihuiji.app` 返回 `Success`，重启后回到登录页，crash buffer 为空。
 
 本批次验证的是当前运行时 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 仍为 `Blocked`。`confirmation_pending` 作为草稿生成阶段终态符合当前代码语义；确认接口没有回写 audit 的确认结果是实现缺口，是否需要改变 audit 终态需单独确定。生图、取消/断线、上下文压缩、性能和 iOS 仍未执行，iOS 为 `Deferred`。
+
+## 二十、2026-09-04 阶段二 Wave 19 Android `create_customer` 确认与审计修正
+
+Wave 18 的失败记录继续保留为历史事实。后端修正 `confirmed_by` 身份并通过相关测试后，Wave 19 重新按 Android 真实 UI 流程核对客户草稿确认和清理。
+
+| 用例 | 结果 | 关键事实 |
+|---|---|---|
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-REAL-RERUN-009` | `Passed` | Android 使用真实 Gboard 输入并点击“允许一次”；SSE 请求 HTTP `200`，确认请求 HTTP `200`；run `539a6a1a-a6bd-44c9-a9cb-ec7fd54fef45`、conversation `182`、draft `21`，draft 状态为 `confirmed`；客户 `92` 仅有一条记录 |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-AUDIT-009` | `Passed` | 确认后的 audit 新增 `draft_confirmed`，`confirmed_by` 身份使用已修正的后端逻辑 |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-CLEANUP-009` | `Passed` | 测试对象清理完成，清理后 `agent_drafts=0` |
+
+Wave 19 是 Wave 21 之前的独立报告记录，报告为 `testing/Agent/客户端/reports/20260904-agent-phase2-wave19-android-confirm-audit-009.md`。Wave 18 中关于客户端旧文案、audit 终态和客户清理观测的原始记录不删除、不改写。
+
+## 二十一、2026-09-04 阶段二 Wave 21 Android `create_customer` 确认、审计与清理
+
+Wave 21 在 `emulator-5554` 的 `com.zhihuiji.app` 1.0.0 中重新执行真实 Gboard 输入、UI tree 定位、发送点击、覆盖式确认点击和清理操作。正式报告为 `testing/Agent/客户端/reports/20260904-agent-phase2-wave21-android-confirm-audit-011.md`，证据目录为 `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave21-android-confirm-audit-011/`。
+
+| 用例 | 结果 | 关键事实 |
+|---|---|---|
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-REAL-RERUN-011` | `Passed` | 真实点击发送 `(634,1100)` 和“允许一次” `(492,851)`；`POST /v2/agent/chat/stream` 与 `/v2/agent/drafts/23/confirm` 均按预期返回；draft `23` 确认，客户 `94` 只写入一条 |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-AUDIT-011` | `Passed` | run `d990139c-8828-41c9-8f08-b5d57bee2176` 的 audit 事件序号连续 `1–15`，确认后追加 `draft_confirmed`，`audit_lossy=false` |
+| `AG-CLI-AND-P2-DRAFT-CONFIRM-CUSTOMER-CLEANUP-011` | `Passed` | 会话、草稿和目标客户均已精确清理；最终 `agent_drafts=0`，目标客户/手机号/日志/tombstone 均为 `0`；App 重置后回登录页，crash buffer 为 `0` 行 |
+| `AG-CLI-AND-P2-CUSTOMER-DELETE-SYNC-011` | `Failed` | App 删除客户后上传同步返回 HTTP `200`、Worker 为 `SUCCESS`，但本地 outbox 为 `blocked`，原因是 `expected 0, current 1`；远端无 tombstone 且客户仍存在，需服务端精确删除完成环境清理 |
+
+本轮确认后的服务端计数为 `users=3`、`stores=2`、`store_memberships=2`、`products=693`、`customers=85`、`finance_records=2661`、`agent_conversations=11`、`agent_messages=27`、`agent_drafts=1`、`agent_run_audits=61`、`agent_run_audit_events=695`；清理后回到 `customers=84`、`agent_conversations=10`、`agent_messages=25`、`agent_drafts=0`。实际运行模型为 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 仍为 `Blocked`。Wave 21 详情、验证边界和同步删除缺口见正式报告。
