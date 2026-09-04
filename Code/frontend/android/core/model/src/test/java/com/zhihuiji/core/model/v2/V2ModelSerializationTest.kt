@@ -1,5 +1,7 @@
 package com.zhihuiji.core.model.v2
 
+import com.zhihuiji.core.model.v2.partner.CustomerV2Dto
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertTrue
@@ -21,6 +23,22 @@ class V2ModelSerializationTest {
         )
         val encoded = json.encodeToString(request)
         assertTrue(encoded.contains("\"idempotency_key\":\"pay-key-1\""))
+    }
+
+    @Test
+    fun customerV2Dto_serializesSyncVersionAsSnakeCase() {
+        val encoded = json.encodeToString(CustomerV2Dto(id = 1L, syncVersion = 7L))
+
+        assertTrue(encoded.contains("\"sync_version\":7"))
+    }
+
+    @Test
+    fun customerV2Dto_decodesOldResponseWithoutSyncVersion() {
+        val decoded = json.decodeFromString<CustomerV2Dto>(
+            """{"id":1,"name":"Alice","phone":"13800000000"}""",
+        )
+
+        assertTrue(decoded.syncVersion == null)
     }
 
     // --- Finance ---

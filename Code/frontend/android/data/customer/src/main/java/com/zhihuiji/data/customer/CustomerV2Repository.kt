@@ -156,7 +156,7 @@ private fun CustomerV2Dto.toEntity(previous: CustomerEntity? = null) = CustomerE
     balance = balance,
     status = status,
     syncStatus = previous?.syncStatus,
-    syncVersion = previous?.syncVersion,
+    syncVersion = syncVersion ?: previous?.syncVersion,
     createdAt = createdAt,
     updatedAt = updatedAt,
 )
@@ -195,6 +195,7 @@ private fun CustomerEntity.toV2Dto() = CustomerV2Dto(
     notes = notes,
     balance = balance,
     status = status,
+    syncVersion = syncVersion,
     createdAt = createdAt ?: 0L,
     updatedAt = updatedAt ?: 0L,
 )

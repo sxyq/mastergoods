@@ -57,6 +57,7 @@ data class CustomerV2Dto(
     val notes: String? = null,
     val balance: Double = 0.0,
     val status: Int = 1,
+    @SerialName("sync_version") val syncVersion: Long? = null,
     @SerialName("created_at") val createdAt: Long = 0L,
     @SerialName("updated_at") val updatedAt: Long = 0L,
 )
