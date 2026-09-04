@@ -54,6 +54,7 @@ class V2CustomerServiceTest {
         assertEquals(1, responses.size());
         assertEquals("客户A", responses.get(0).name());
         assertEquals("核心客户", responses.get(0).groupName());
+        assertEquals(4L, responses.get(0).syncVersion());
         verify(customerRepository).search(1L, "abc", 1, 3L);
         ArgumentCaptor<Collection<Long>> groupIdsCaptor = ArgumentCaptor.forClass(Collection.class);
         verify(partnerGroupService).getOwnedEntityMap(eq(PartnerTypes.CUSTOMER), groupIdsCaptor.capture());
@@ -70,6 +71,7 @@ class V2CustomerServiceTest {
         entity.setGroupId(groupId);
         entity.setBalance(0.0);
         entity.setStatus(status);
+        entity.setSyncVersion(4L);
         entity.setCreatedAt(1L);
         entity.setUpdatedAt(2L);
         return entity;

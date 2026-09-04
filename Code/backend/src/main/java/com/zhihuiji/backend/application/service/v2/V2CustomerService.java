@@ -162,7 +162,8 @@ public class V2CustomerService {
             entity.getBalance(),
             entity.getStatus(),
             entity.getCreatedAt(),
-            entity.getUpdatedAt()
+            entity.getUpdatedAt(),
+            entity.getSyncVersion()
         );
     }
 

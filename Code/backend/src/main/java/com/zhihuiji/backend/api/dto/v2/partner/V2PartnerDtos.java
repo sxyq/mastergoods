@@ -63,7 +63,8 @@ public final class V2PartnerDtos {
         Double balance,
         Integer status,
         Long createdAt,
-        Long updatedAt
+        Long updatedAt,
+        Long syncVersion
     ) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)

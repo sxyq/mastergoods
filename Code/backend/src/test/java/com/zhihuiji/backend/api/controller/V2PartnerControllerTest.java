@@ -56,14 +56,15 @@ class V2PartnerControllerTest {
     @Test
     void customerListReturnsGroupAndPrimaryContactSummary() throws Exception {
         when(v2CustomerService.list(org.mockito.ArgumentMatchers.eq(null), org.mockito.ArgumentMatchers.eq(null), org.mockito.ArgumentMatchers.eq(null), any(Pageable.class))).thenReturn(List.of(
-            new V2PartnerDtos.CustomerResponse(1L, "李老板", "13800000000", 3, 7L, "批发客户", "张三", "13900000000", "重庆", "备注", 120.0, 1, 1L, 2L)
+            new V2PartnerDtos.CustomerResponse(1L, "李老板", "13800000000", 3, 7L, "批发客户", "张三", "13900000000", "重庆", "备注", 120.0, 1, 1L, 2L, 3L)
         ));
 
         mockMvc.perform(get("/v2/customers"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data[0].group_name").value("批发客户"))
             .andExpect(jsonPath("$.data[0].primary_contact_name").value("张三"))
-            .andExpect(jsonPath("$.data[0].primary_contact_phone").value("13900000000"));
+            .andExpect(jsonPath("$.data[0].primary_contact_phone").value("13900000000"))
+            .andExpect(jsonPath("$.data[0].sync_version").value(3));
     }
 
     @Test
