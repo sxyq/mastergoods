@@ -232,3 +232,13 @@ Wave 0 的账号核查显示，四个指定账号后缀 `8111`、`8112`、`8113`
 | `AG-CLI-AND-P2-CUSTOMER-DELETE-SYNC-011` | App 客户删除调用 `/v2/sync/upload` 返回 HTTP `200`，cursor/pull 返回 HTTP `200`，Worker 为 `SUCCESS`；本地 outbox 进入 `blocked` | 错误为 `sync version conflict: expected 0, current 1`；服务端复核没有 tombstone，客户行仍存在；测试侧再用精确 API 清理，故客户端同步分支为 `Failed` | `Failed` |
 
 Wave 21 的确认前计数为 `customers=84`、`agent_conversations=10`、`agent_messages=25`、`agent_drafts=0`、`agent_run_audits=60`、`agent_run_audit_events=680`；确认后客户变为 `85`，清理后回到 `84`。实际运行模型为 `gpt-5.6-luna/chat_completions`，目标 `glm-5.3-flash` 为 `Blocked`。截图留在本地证据目录，未加入 Git；同步删除缺口需在后续修复并重新执行。
+
+## 2026-09-04 Wave 22 Android 客户删除同步复测
+
+本节追加 Wave 22 的独立真实 Android 证据，不删除或改写 Wave 21 的失败记录。证据目录为 `客户端/artifacts/20260904-agent-phase2-wave22-customer-delete-sync-012/`，正式报告为 `客户端/reports/20260904-agent-phase2-wave22-customer-delete-sync-012.md`。
+
+| 用例 | 实际事实 | 数据与清理 | 状态 |
+|---|---|---|---|
+| `AG-CLI-AND-P2-CUSTOMER-DELETE-SYNC-012` | 在 `emulator-5554` 的 `com.zhihuiji.app` 1.0.0 中，依据详情页 UI tree 的删除控件 bounds `[592,152][688,248]` 计算中心 `(640,200)` 并真实点击；App 发起 `/v2/sync/upload`、cursor、pull、ack，均 HTTP `200`，Worker 为 `SUCCESS` | 服务端目标客户 `95` 消失，`sync_tombstones` 出现 `customer/95`，change log 为 `delete`，operation log 为 `applied`；本地目标客户和 outbox/冲突均无残留，`sync_remote_records` 保留删除标记；`pm clear` 返回 `Success`，登录页可见，crash buffer 为 `0` 行 | `Passed` |
+
+Wave 22 使用后端修复镜像 `sxyq27-zhj-api:20260904T1316-customer-sync-version-48532083` 和 Flyway `43`。第一次临时负数客户 ID 的详情请求 HTTP `422` 未计入正式结果，随后重新选择服务端 ID `95` 完成删除验证。目标模型 `glm-5.3-flash` 继续为 `Blocked`，本轮未执行 Agent 模型调用。
