@@ -331,3 +331,9 @@ Wave 22 是 Wave 21 删除同步修复后的独立重测，正式报告为 `test
 | `AG-CLI-AND-P2-CUSTOMER-DELETE-SYNC-012` | `Passed` | 在 `emulator-5554` 的 Android App 客户详情页依据 UI tree bounds `[592,152][688,248]` 真实点击删除中心 `(640,200)`；`/v2/sync/upload`、cursor、pull、ack 均 HTTP `200`，Worker 为 `SUCCESS`；本地目标客户、outbox 和冲突均无残留，服务端客户 `95` 消失并生成 tombstone，change log 为 `delete`，operation log 为 `applied` |
 
 Wave 22 使用 API 修复镜像 `sxyq27-zhj-api:20260904T1316-customer-sync-version-48532083`，Flyway `43`，公网健康检查为 `ok`。第一次误选本地临时负数 ID 的详情请求 HTTP `422` 被明确排除，服务端 ID `95` 的第二次真实点击才作为正式结果。测试结束后 `pm clear com.zhihuiji.app` 返回 `Success`，App 回到登录页，crash buffer 为 `0` 行。Wave 21 的历史 `Failed` 记录保持不变；目标模型 `glm-5.3-flash` 仍为 `Blocked`。
+
+## 二十三、2026-09-04 阶段二 Wave 23 Android 取消与停止接收真实点击
+
+Wave 23 完成了 Android 取消分支的真实发送和停止点击。App 在 `emulator-5554` 中依据 UI tree 真实点击发送 `(634,550)`，随后依据实时 UI tree 真实点击“停止接收” `(634,1140)`；即时和等待后的 UI 均显示“已取消”“运行取消”。App 日志记录 `/v2/agent/chat/stream` HTTP `200` 和 `/v2/agent/runs/<run_id>/cancel` HTTP `200`。
+
+客户端停止展示记为 `Passed`。完整取消用例记为 `Blocked`：停止后的 UI 没有显示“服务端已确认取消生成”，OkHttp 日志没有 SSE 事件正文，目标 `8.220.206.9` root SSH 公钥认证失败，run audit、`run_cancelled` 事件、停止后 `answer_delta` 和最终 PostgreSQL 计数未核验。App 清空对话、删除会话和 `pm clear` 均已执行；App 删除会话返回 HTTP `200`，但服务端残留未做最终数据库核对，因此清理子项保持 `Blocked`。正式报告和证据目录分别为 `testing/Agent/客户端/reports/20260904-agent-phase2-wave23-android-cancel-rerun-013.md` 与 `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave23-AG-CLI-AND-P2-CANCEL-RERUN-013/`。

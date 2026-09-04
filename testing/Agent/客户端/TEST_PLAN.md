@@ -242,3 +242,17 @@ Wave 21 的确认前计数为 `customers=84`、`agent_conversations=10`、`agent
 | `AG-CLI-AND-P2-CUSTOMER-DELETE-SYNC-012` | 在 `emulator-5554` 的 `com.zhihuiji.app` 1.0.0 中，依据详情页 UI tree 的删除控件 bounds `[592,152][688,248]` 计算中心 `(640,200)` 并真实点击；App 发起 `/v2/sync/upload`、cursor、pull、ack，均 HTTP `200`，Worker 为 `SUCCESS` | 服务端目标客户 `95` 消失，`sync_tombstones` 出现 `customer/95`，change log 为 `delete`，operation log 为 `applied`；本地目标客户和 outbox/冲突均无残留，`sync_remote_records` 保留删除标记；`pm clear` 返回 `Success`，登录页可见，crash buffer 为 `0` 行 | `Passed` |
 
 Wave 22 使用后端修复镜像 `sxyq27-zhj-api:20260904T1316-customer-sync-version-48532083` 和 Flyway `43`。第一次临时负数客户 ID 的详情请求 HTTP `422` 未计入正式结果，随后重新选择服务端 ID `95` 完成删除验证。目标模型 `glm-5.3-flash` 继续为 `Blocked`，本轮未执行 Agent 模型调用。
+
+## 2026-09-04 Wave 23 Android 取消与停止接收真实点击复测
+
+本节追加 `AG-CLI-AND-P2-CANCEL-RERUN-013` 的独立真实 Android 证据，不删除或改写之前的取消失败尝试。证据目录为 `客户端/artifacts/20260904-agent-phase2-wave23-AG-CLI-AND-P2-CANCEL-RERUN-013/`，正式报告为 `客户端/reports/20260904-agent-phase2-wave23-android-cancel-rerun-013.md`。
+
+| 用例 | 实际事实 | 数据与清理 | 状态 |
+|---|---|---|---|
+| `AG-CLI-AND-P2-CANCEL-UI-013` | App 中完整提示词已可见；依据 UI tree 真实点击发送 `(634,550)`；实时 tree 出现“停止接收”，依据 `[610,1116][658,1164]` 计算并真实点击 `(634,1140)`；即时和等待后的 UI 均显示“已取消”“运行取消” | App 未显示回答正文；客户端日志记录 `/v2/agent/chat/stream` HTTP `200` `text/event-stream` 和取消请求 HTTP `200` | `Passed` |
+| `AG-CLI-AND-P2-CANCEL-RERUN-013` | App 日志记录 `POST /v2/agent/runs/ac3933f8-cb55-40c8-b1b7-af2b58c6d5e7/cancel` HTTP `200`；完整服务端响应体、run audit、事件序列和停止后 SSE 增量未取得 | 发送前基线为 `products=693`、`customers=84`、`finance_records=2661`、`agent_conversations=9`、`agent_messages=23`、`agent_drafts=0`、`agent_run_audits=56`、`agent_run_audit_events=659`；目标主机 root SSH 公钥认证失败，最终数据库计数未确认 | `Blocked` |
+| `AG-CLI-AND-P2-CANCEL-CLEANUP-013` | 真实点击清空对话 `(640,184)`，再点击本轮会话“删除会话” `(628,361)`；App 删除 `/v2/agent/conversations/186` 返回 HTTP `200`；`pm clear` 返回 `Success`，登录页可见，crash buffer 为 `0` 行 | App 列表中目标会话消失；服务端会话/消息残留没有 PostgreSQL 最终核对 | `Blocked` |
+
+本轮只确认了客户端停止分支。停止后的 UI 保留“正在请求服务端取消”，没有出现“服务端已确认取消生成”；HTTP `200` 不单独证明响应体中的 `cancelled=true`。OkHttp 日志没有 SSE 事件正文，无法证明停止后没有 `answer_delta`。匿名 `GET /v2/agent/runs/<run_id>/audit` 返回 `401`，服务端匿名保护正常，但不提供本 run 的审计结果。
+
+解除条件是恢复目标 `8.220.206.9` 的已授权 root SSH 登录，读取本 run 的 audit 和事件表，核对 `run_cancelled`、事件数量、消息行和正式业务表 before/after；同时保留脱敏事件摘要后再决定是否将完整取消用例改为 `Passed`。目标模型 `glm-5.3-flash` 继续为 `Blocked`，iOS 继续为 `Deferred`。
