@@ -118,6 +118,7 @@ public class CreateSalesReturnTool extends ToolSupport {
         AgentDraftEntity draft = new AgentDraftEntity();
         draft.setOwnerUserId(ownerUserId);
         draft.setConversationId(ctx.conversationId());
+        draft.setRunId(ctx.runId());
         draft.setDraftType("create_sales_return");
         draft.setTitle("新建销售退货单");
         draft.setContentJson(contentJson);

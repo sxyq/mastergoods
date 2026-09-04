@@ -29,6 +29,7 @@ import com.zhihuiji.backend.application.service.v2.V2PurchaseReturnService;
 import com.zhihuiji.backend.application.service.v2.V2SaleOrderService;
 import com.zhihuiji.backend.application.service.v2.V2SalesReturnService;
 import com.zhihuiji.backend.application.service.v2.V2SupplierService;
+import com.zhihuiji.backend.application.service.v2.agent.component.RunAuditService;
 import com.zhihuiji.backend.domain.entity.AgentDraftEntity;
 import com.zhihuiji.backend.infrastructure.repository.AgentDraftRepository;
 import java.lang.reflect.Field;
@@ -57,6 +58,7 @@ class AgentDraftConfirmServiceTest {
     @Mock private V2AccountTransferService v2AccountTransferService;
     @Mock private AgentImageService agentImageService;
     @Mock private AgentDraftConfirmationStateService confirmationStateService;
+    @Mock private RunAuditService runAuditService;
 
     private AgentDraftConfirmService service;
 
@@ -80,9 +82,11 @@ class AgentDraftConfirmServiceTest {
             v2InventoryService,
             v2AccountTransferService,
             agentImageService,
-            confirmationStateService
+            confirmationStateService,
+            runAuditService
         );
         when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
+        when(currentOwnerService.requireCurrentUserId()).thenReturn(2L);
         when(agentDraftRepository.updateStatusIfCurrent(
             anyLong(), anyLong(), anyString(), anyString(), anyLong()
         )).thenReturn(1);
@@ -131,11 +135,32 @@ class AgentDraftConfirmServiceTest {
         var response = service.confirmDraft(19L);
 
         assertEquals("confirmed", draft.getStatus());
-        assertEquals(1L, draft.getConfirmedBy());
+        assertEquals(2L, draft.getConfirmedBy());
         assertNotNull(draft.getConfirmedAt());
         assertEquals("create_sale_order:7001", draft.getBusinessReference());
         assertEquals(null, draft.getFailureReason());
         assertEquals("confirmed", response.status());
+    }
+
+    @Test
+    void confirmationRecordsLinkedRunAction() {
+        AgentDraftEntity draft = activeDraft(20L, "media_upload", "{}");
+        draft.setRunId("run-confirm-20");
+        when(agentDraftRepository.findByIdAndOwnerUserId(20L, 1L)).thenReturn(Optional.of(draft));
+
+        service.confirmDraft(20L);
+
+        verify(runAuditService).recordDraftAction(
+            eq(1L),
+            eq("run-confirm-20"),
+            eq(20L),
+            eq("media_upload"),
+            eq("confirmed"),
+            eq(2L),
+            eq(null),
+            eq(null),
+            anyLong()
+        );
     }
 
     @Test

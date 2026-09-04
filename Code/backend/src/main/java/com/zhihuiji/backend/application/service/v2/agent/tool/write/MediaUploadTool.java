@@ -125,6 +125,7 @@ public class MediaUploadTool extends ToolSupport {
         AgentDraftEntity draft = new AgentDraftEntity();
         draft.setOwnerUserId(ownerUserId);
         draft.setConversationId(ctx.conversationId());
+        draft.setRunId(ctx.runId());
         draft.setDraftType("media_upload");
         draft.setTitle(title);
         draft.setContentJson(contentJson);

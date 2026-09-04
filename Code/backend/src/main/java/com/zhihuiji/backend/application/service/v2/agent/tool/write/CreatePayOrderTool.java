@@ -140,6 +140,7 @@ public class CreatePayOrderTool extends ToolSupport {
         AgentDraftEntity draft = new AgentDraftEntity();
         draft.setOwnerUserId(ownerUserId);
         draft.setConversationId(ctx.conversationId());
+        draft.setRunId(ctx.runId());
         draft.setDraftType("create_pay_order");
         draft.setTitle("新建付款单：" + supplierName);
         draft.setContentJson(contentJson);

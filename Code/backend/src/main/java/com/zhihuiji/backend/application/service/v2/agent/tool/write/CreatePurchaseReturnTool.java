@@ -125,6 +125,7 @@ public class CreatePurchaseReturnTool extends ToolSupport {
         AgentDraftEntity draft = new AgentDraftEntity();
         draft.setOwnerUserId(ownerUserId);
         draft.setConversationId(ctx.conversationId());
+        draft.setRunId(ctx.runId());
         draft.setDraftType("create_purchase_return");
         draft.setTitle("新建采购退货单");
         draft.setContentJson(contentJson);

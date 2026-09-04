@@ -122,6 +122,7 @@ public class CreateProductTool extends ToolSupport {
         AgentDraftEntity entity = new AgentDraftEntity();
         entity.setOwnerUserId(ownerUserId);
         entity.setConversationId(ctx.conversationId());
+        entity.setRunId(ctx.runId());
         entity.setDraftType("create_product");
         entity.setTitle(title);
         entity.setContentJson(contentJson);

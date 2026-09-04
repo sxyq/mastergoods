@@ -117,6 +117,7 @@ public class CreateAccountTransferTool extends ToolSupport {
         AgentDraftEntity entity = new AgentDraftEntity();
         entity.setOwnerUserId(ownerUserId);
         entity.setConversationId(ctx.conversationId());
+        entity.setRunId(ctx.runId());
         entity.setDraftType("create_account_transfer");
         entity.setTitle(title);
         entity.setContentJson(contentJson);

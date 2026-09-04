@@ -28,6 +28,7 @@ import com.zhihuiji.backend.application.service.v2.V2SaleOrderService;
 import com.zhihuiji.backend.application.service.v2.V2SalesReturnService;
 import com.zhihuiji.backend.application.service.v2.V2SupplierService;
 import com.zhihuiji.backend.application.service.v2.AgentImageService;
+import com.zhihuiji.backend.application.service.v2.agent.component.RunAuditService;
 import com.zhihuiji.backend.domain.entity.AgentDraftEntity;
 import com.zhihuiji.backend.infrastructure.repository.AgentDraftRepository;
 import java.util.List;
@@ -75,6 +76,7 @@ public class AgentDraftConfirmService {
     private final V2AccountTransferService v2AccountTransferService;
     private final AgentImageService agentImageService;
     private final AgentDraftConfirmationStateService confirmationStateService;
+    private final RunAuditService runAuditService;
 
     @org.springframework.beans.factory.annotation.Autowired
     public AgentDraftConfirmService(
@@ -94,7 +96,8 @@ public class AgentDraftConfirmService {
         V2InventoryService v2InventoryService,
         V2AccountTransferService v2AccountTransferService,
         AgentImageService agentImageService,
-        AgentDraftConfirmationStateService confirmationStateService
+        AgentDraftConfirmationStateService confirmationStateService,
+        RunAuditService runAuditService
     ) {
         this.agentDraftRepository = agentDraftRepository;
         this.currentOwnerService = currentOwnerService;
@@ -113,6 +116,33 @@ public class AgentDraftConfirmService {
         this.v2AccountTransferService = v2AccountTransferService;
         this.agentImageService = agentImageService;
         this.confirmationStateService = confirmationStateService;
+        this.runAuditService = runAuditService;
+    }
+
+    /** Compatibility constructor for isolated tests and legacy callers. */
+    public AgentDraftConfirmService(
+        AgentDraftRepository agentDraftRepository,
+        CurrentOwnerService currentOwnerService,
+        ObjectMapper objectMapper,
+        V2SaleOrderService v2SaleOrderService,
+        V2PurchaseOrderService v2PurchaseOrderService,
+        V2PurchaseReceiptService v2PurchaseReceiptService,
+        V2SalesReturnService v2SalesReturnService,
+        V2PurchaseReturnService v2PurchaseReturnService,
+        V2PayOrderService v2PayOrderService,
+        V2CustomerService v2CustomerService,
+        V2SupplierService v2SupplierService,
+        V2ProductService v2ProductService,
+        FinanceRecordService financeRecordService,
+        V2InventoryService v2InventoryService,
+        V2AccountTransferService v2AccountTransferService,
+        AgentImageService agentImageService,
+        AgentDraftConfirmationStateService confirmationStateService
+    ) {
+        this(agentDraftRepository, currentOwnerService, objectMapper, v2SaleOrderService, v2PurchaseOrderService,
+            v2PurchaseReceiptService, v2SalesReturnService, v2PurchaseReturnService, v2PayOrderService,
+            v2CustomerService, v2SupplierService, v2ProductService, financeRecordService, v2InventoryService,
+            v2AccountTransferService, agentImageService, confirmationStateService, null);
     }
 
     /** Compatibility constructor for isolated tests and legacy callers. */
@@ -137,7 +167,7 @@ public class AgentDraftConfirmService {
         this(agentDraftRepository, currentOwnerService, objectMapper, v2SaleOrderService, v2PurchaseOrderService,
             v2PurchaseReceiptService, v2SalesReturnService, v2PurchaseReturnService, v2PayOrderService,
             v2CustomerService, v2SupplierService, v2ProductService, financeRecordService, v2InventoryService,
-            v2AccountTransferService, agentImageService, null);
+            v2AccountTransferService, agentImageService, null, null);
     }
 
     /**
@@ -166,10 +196,12 @@ public class AgentDraftConfirmService {
      */
     @Transactional
     public V2AgentDtos.AgentDraftResponse confirmDraft(Long draftId) {
+        Long actorUserId = currentOwnerService.requireCurrentUserId();
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         AgentDraftEntity entity = agentDraftRepository.findByIdAndOwnerUserId(draftId, ownerUserId)
             .orElseThrow(() -> new BusinessException("草稿不存在"));
         if (STATUS_CONFIRMED.equalsIgnoreCase(entity.getStatus())) {
+            recordDraftAction(entity, ownerUserId, actorUserId, "confirmed", entity.getBusinessReference(), null);
             return toDraftResponse(entity);
         }
         if (!STATUS_ACTIVE.equalsIgnoreCase(entity.getStatus())) {
@@ -188,12 +220,12 @@ public class AgentDraftConfirmService {
         try {
             created = dispatchCreate(entity);
         } catch (BusinessException ex) {
-            recordFailure(entity, ownerUserId, ex.getMessage());
+            recordFailure(entity, ownerUserId, actorUserId, ex.getMessage());
             throw ex;
         } catch (Exception ex) {
             Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
             String message = "草稿确认失败（" + entity.getDraftType() + "）：" + cause.getMessage();
-            recordFailure(entity, ownerUserId, message);
+            recordFailure(entity, ownerUserId, actorUserId, message);
             throw new BusinessException(message);
         }
         V2AgentDtos.AgentImageGenerateResponse imageResult = created instanceof V2AgentDtos.AgentImageGenerateResponse response
@@ -203,13 +235,15 @@ public class AgentDraftConfirmService {
                 objectMapper, entity.getContentJson(), imageResult
             ));
         }
-        entity.setConfirmedBy(ownerUserId);
+        entity.setConfirmedBy(actorUserId);
         entity.setConfirmedAt(System.currentTimeMillis());
         entity.setBusinessReference(businessReference(entity.getDraftType(), created));
         entity.setFailureReason(null);
         entity.setStatus(STATUS_CONFIRMED);
         entity.setUpdatedAt(System.currentTimeMillis());
-        return toDraftResponse(agentDraftRepository.save(entity));
+        AgentDraftEntity saved = agentDraftRepository.save(entity);
+        recordDraftAction(saved, ownerUserId, actorUserId, "confirmed", saved.getBusinessReference(), null);
+        return toDraftResponse(saved);
     }
 
     /**
@@ -220,6 +254,7 @@ public class AgentDraftConfirmService {
      */
     @Transactional
     public V2AgentDtos.AgentDraftResponse cancelDraft(Long draftId) {
+        Long actorUserId = currentOwnerService.requireCurrentUserId();
         Long ownerUserId = currentOwnerService.requireCurrentOwnerUserId();
         AgentDraftEntity entity = agentDraftRepository.findByIdAndOwnerUserId(draftId, ownerUserId)
             .orElseThrow(() -> new BusinessException("草稿不存在"));
@@ -237,7 +272,9 @@ public class AgentDraftConfirmService {
         }
         entity.setStatus(STATUS_CANCELLED);
         entity.setUpdatedAt(System.currentTimeMillis());
-        return toDraftResponse(agentDraftRepository.save(entity));
+        AgentDraftEntity saved = agentDraftRepository.save(entity);
+        recordDraftAction(saved, ownerUserId, actorUserId, "cancelled", null, null);
+        return toDraftResponse(saved);
     }
 
     /**
@@ -271,7 +308,7 @@ public class AgentDraftConfirmService {
         };
     }
 
-    private void recordFailure(AgentDraftEntity entity, Long ownerUserId, String reason) {
+    private void recordFailure(AgentDraftEntity entity, Long ownerUserId, Long actorUserId, String reason) {
         String safeReason = safeFailure(reason);
         entity.setStatus(STATUS_ACTIVE);
         entity.setFailureReason(safeReason);
@@ -282,6 +319,35 @@ public class AgentDraftConfirmService {
             } catch (RuntimeException ignored) {
                 // Preserve the original confirmation failure when the evidence sink is unavailable.
             }
+        }
+        recordDraftAction(entity, ownerUserId, actorUserId, "confirmation_failed", null, safeReason);
+    }
+
+    private void recordDraftAction(
+        AgentDraftEntity entity,
+        Long ownerUserId,
+        Long actorUserId,
+        String action,
+        String businessReference,
+        String reason
+    ) {
+        if (runAuditService == null) {
+            return;
+        }
+        try {
+            runAuditService.recordDraftAction(
+                ownerUserId,
+                entity.getRunId(),
+                entity.getId(),
+                entity.getDraftType(),
+                action,
+                actorUserId,
+                businessReference,
+                reason,
+                System.currentTimeMillis()
+            );
+        } catch (RuntimeException ignored) {
+            // Keep the business result when the independent audit sink is unavailable.
         }
     }
 

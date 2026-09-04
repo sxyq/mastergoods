@@ -122,6 +122,7 @@ public class CreatePurchaseReceiptTool extends ToolSupport {
         AgentDraftEntity draft = new AgentDraftEntity();
         draft.setOwnerUserId(ownerUserId);
         draft.setConversationId(ctx.conversationId());
+        draft.setRunId(ctx.runId());
         draft.setDraftType("create_purchase_receipt");
         draft.setTitle("新建采购入库单");
         draft.setContentJson(contentJson);

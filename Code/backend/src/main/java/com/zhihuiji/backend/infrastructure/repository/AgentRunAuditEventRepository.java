@@ -2,11 +2,16 @@ package com.zhihuiji.backend.infrastructure.repository;
 
 import com.zhihuiji.backend.domain.entity.AgentRunAuditEventEntity;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface AgentRunAuditEventRepository extends JpaRepository<AgentRunAuditEventEntity, Long> {
+    Optional<AgentRunAuditEventEntity> findByEventId(String eventId);
+
+    Optional<AgentRunAuditEventEntity> findTopByRunIdOrderBySeqDescIdDesc(String runId);
+
     @Query("""
         SELECT e
         FROM AgentRunAuditEventEntity e

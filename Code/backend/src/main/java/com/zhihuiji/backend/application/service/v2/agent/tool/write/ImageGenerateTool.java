@@ -118,6 +118,7 @@ public class ImageGenerateTool extends ToolSupport {
         AgentDraftEntity draft = new AgentDraftEntity();
         draft.setOwnerUserId(ctx.ownerUserId());
         draft.setConversationId(ctx.conversationId());
+        draft.setRunId(ctx.runId());
         draft.setDraftType(name());
         draft.setTitle(title);
         draft.setContentJson(contentJson);

@@ -21,6 +21,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -228,6 +230,63 @@ public class RunAuditService {
         }
     }
 
+    /**
+     * Appends a post-run draft action without changing the original run's
+     * terminal status. Draft generation remains confirmation_pending while
+     * confirmation or cancellation is recorded as a linked lifecycle event.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordDraftAction(
+        Long ownerUserId,
+        String runId,
+        Long draftId,
+        String draftType,
+        String action,
+        Long actorUserId,
+        String businessReference,
+        String reason,
+        long occurredAt
+    ) {
+        if (!StringUtils.hasText(runId) || draftId == null || !StringUtils.hasText(action)) {
+            return;
+        }
+        AgentRunAuditEntity audit = agentRunAuditRepository.findByRunIdAndOwnerUserId(runId, ownerUserId)
+            .orElse(null);
+        if (audit == null) {
+            return;
+        }
+        String eventId = runId + ":draft-action:" + draftId + ":" + action;
+        if (agentRunAuditEventRepository.findByEventId(eventId).isEmpty()) {
+            int nextSeq = agentRunAuditEventRepository.findTopByRunIdOrderBySeqDescIdDesc(runId)
+                .map(event -> (event.getSeq() == null ? 0 : event.getSeq()) + 1)
+                .orElse(1);
+            Map<String, Object> payload = mapOf(
+                "run_id", runId,
+                "conversation_id", audit.getConversationId(),
+                "draft_id", draftId,
+                "draft_type", draftType,
+                "action", action,
+                "actor_user_id", actorUserId,
+                "business_reference", businessReference,
+                "reason", truncate(reason, 512),
+                "occurred_at", occurredAt
+            );
+            AgentRunAuditEventEntity event = new AgentRunAuditEventEntity();
+            event.setRunId(runId);
+            event.setEventId(eventId);
+            event.setSeq(nextSeq);
+            event.setEventType("draft_" + action);
+            event.setPayloadJson(writeJson(payload));
+            event.setCreatedAt(occurredAt);
+            agentRunAuditEventRepository.save(event);
+            audit.setEventCount(Math.toIntExact(
+                agentRunAuditEventRepository.countByRunIdAndOwnerUserId(runId, ownerUserId)
+            ));
+        }
+        audit.setUpdatedAt(occurredAt);
+        agentRunAuditRepository.save(audit);
+    }
+
     private void persistRunAuditEvent(String runId, Map<String, Object> payload, String payloadJson) {
         Object eventId = payload.get("event_id");
         Object seq = payload.get("seq");
@@ -302,6 +361,14 @@ public class RunAuditService {
 
     private JsonNode toJsonNode(Object value) {
         return objectMapper.valueToTree(value);
+    }
+
+    private String writeJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException ex) {
+            return "{}";
+        }
     }
 
     // ===== ID 与 trace 辅助（纯函数，供 SseStreamEmitter 与主类复用） =====

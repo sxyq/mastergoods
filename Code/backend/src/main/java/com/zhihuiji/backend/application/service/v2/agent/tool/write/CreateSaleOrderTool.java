@@ -134,6 +134,7 @@ public class CreateSaleOrderTool extends ToolSupport {
         AgentDraftEntity draft = new AgentDraftEntity();
         draft.setOwnerUserId(ownerUserId);
         draft.setConversationId(ctx.conversationId());
+        draft.setRunId(ctx.runId());
         draft.setDraftType("create_sale_order");
         draft.setTitle("新建销售单：" + customerName);
         draft.setContentJson(contentJson);

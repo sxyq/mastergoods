@@ -22,6 +22,9 @@ public class AgentDraftEntity {
     @Column(name = "conversation_id")
     private Long conversationId;
 
+    @Column(name = "run_id", length = 64)
+    private String runId;
+
     @Column(name = "draft_type", nullable = false, length = 32)
     private String draftType;
 
@@ -58,6 +61,8 @@ public class AgentDraftEntity {
     public void setOwnerUserId(Long ownerUserId) { this.ownerUserId = ownerUserId; }
     public Long getConversationId() { return conversationId; }
     public void setConversationId(Long conversationId) { this.conversationId = conversationId; }
+    public String getRunId() { return runId; }
+    public void setRunId(String runId) { this.runId = runId; }
     public String getDraftType() { return draftType; }
     public void setDraftType(String draftType) { this.draftType = draftType; }
     public String getTitle() { return title; }

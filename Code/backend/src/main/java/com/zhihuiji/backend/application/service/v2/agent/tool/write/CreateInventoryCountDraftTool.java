@@ -139,6 +139,7 @@ public class CreateInventoryCountDraftTool extends ToolSupport {
         AgentDraftEntity draft = new AgentDraftEntity();
         draft.setOwnerUserId(ownerUserId);
         draft.setConversationId(ctx.conversationId());
+        draft.setRunId(ctx.runId());
         draft.setDraftType("create_inventory_adjustment");
         draft.setTitle(title);
         draft.setContentJson(contentJson);

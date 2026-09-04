@@ -69,6 +69,7 @@ class AgentDraftConfirmServiceRoutingTest {
             inventoryService, accountTransferService, imageService
         );
         when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(1L);
+        when(currentOwnerService.requireCurrentUserId()).thenReturn(1L);
         when(agentDraftRepository.updateStatusIfCurrent(
             anyLong(), anyLong(), anyString(), anyString(), anyLong()
         )).thenReturn(1);

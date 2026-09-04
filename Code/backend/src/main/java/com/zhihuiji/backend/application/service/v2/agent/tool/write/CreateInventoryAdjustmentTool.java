@@ -108,6 +108,7 @@ public class CreateInventoryAdjustmentTool extends ToolSupport {
         AgentDraftEntity entity = new AgentDraftEntity();
         entity.setOwnerUserId(ownerUserId);
         entity.setConversationId(ctx.conversationId());
+        entity.setRunId(ctx.runId());
         entity.setDraftType("create_inventory_adjustment");
         entity.setTitle(title);
         entity.setContentJson(contentJson);
