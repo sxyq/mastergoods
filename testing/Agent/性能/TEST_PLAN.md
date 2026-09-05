@@ -72,6 +72,21 @@
 - 30 轮只读长会话此前在第 16 轮被写入频率限制误拦截；只读长会话必须带否定语义回归（见 安全/TEST_PLAN.md AG-S-027）。
 - SSE 取消时序此前出现“取消后 audit 落 failed/STREAM_ERROR”；取消时延用例必须核对 audit 终态为 cancelled。
 
+## 2026-09-06 Android 客户端性能优化复核
+
+- 生成过程使用纯文本绘制，完成后仍使用现有 Markdown 解析；流式贴底滚动由每 80 个字符调整为每 160 个字符。
+- Android 主 Activity 选择当前分辨率下最接近 60Hz 的显示模式，并只在 Android 11 及以上设置 `preferredRefreshRate`；Android 10 仍走兼容路径。
+- 当前 Debug APK 和 Android 定向单元测试已完成，构建结果为 `Passed`。
+- 物理设备当前未被 ADB 发现，`AG-P-023` 的真实点击、`gfxinfo`、`framestats`、`meminfo` 和三轮测量为 `Blocked`；因此暂不对 Android 10 老设备稳定 60 FPS 作结论。
+- 设备恢复后使用同一输入、同一 APK 和同一滚动流程，保存 UI tree、截图、脱敏 logcat、帧数据和内存数据；有效样本不足时只报告样本数量。
+
+## 2026-09-06 02:18 物理设备前置复核
+
+- 使用本机绝对路径 ADB 启动服务后，`adb devices -l` 为空，`adb get-state` 返回 `no devices/emulators found`，mDNS 与 macOS USB 枚举均未发现目标设备。
+- Android 定向单元测试和 `:app:assembleDebug` 返回 `BUILD SUCCESSFUL`；当前 APK 为 `tmp/build/gradle-output/android/app/outputs/apk/debug/app-debug.apk`。
+- 未启动模拟器、未安装 APK、未执行 UI tree/截图/logcat/`gfxinfo`/`framestats`/`meminfo`；`AG-P-023` 以及三轮 60 FPS 测量继续为 `Blocked`。
+- 证据：`性能/artifacts/20260906-wave42-physical-device-preflight-024/01-adb-preflight.txt`、`02-build-summary.txt`。
+
 ## 六、证据存放
 
 - `性能/artifacts/<日期>-<波次>-<用例>/`：样本明细、百分位、资源与错误统计（README 第六节文件序列）。

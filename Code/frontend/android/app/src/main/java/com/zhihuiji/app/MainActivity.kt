@@ -14,6 +14,7 @@ import com.zhihuiji.app.security.SignatureIntegrityChecker
 import com.zhihuiji.core.designsystem.ZhihuijiTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlin.comparisons.compareBy
+import kotlin.math.abs
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -34,7 +35,7 @@ class MainActivity : ComponentActivity() {
                 return
             }
         }
-        preferHighRefreshRateDisplayMode()
+        preferStableRefreshRateDisplayMode()
         enableEdgeToEdge()
         setContent {
             ZhihuijiTheme {
@@ -43,17 +44,24 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun preferHighRefreshRateDisplayMode() {
+    private fun preferStableRefreshRateDisplayMode() {
         @Suppress("DEPRECATION")
         val currentDisplay = windowManager.defaultDisplay
-        val resolvedPreferredMode = currentDisplay.supportedModes
-            .filter { it.refreshRate >= 90f }
-            .maxWithOrNull(compareBy({ it.refreshRate }, { it.physicalWidth * it.physicalHeight }))
+        val currentMode = currentDisplay.mode
+        val sameResolutionModes = currentDisplay.supportedModes.filter { mode ->
+            mode.physicalWidth == currentMode.physicalWidth &&
+                mode.physicalHeight == currentMode.physicalHeight
+        }
+        val candidateModes = sameResolutionModes.ifEmpty { currentDisplay.supportedModes.toList() }
+        val resolvedPreferredMode = candidateModes
+            .minWithOrNull(compareBy({ abs(it.refreshRate - 60f) }, { it.refreshRate }))
             ?: return
 
         window.attributes = window.attributes.apply {
             preferredDisplayModeId = resolvedPreferredMode.modeId
-            preferredRefreshRate = resolvedPreferredMode.refreshRate
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                preferredRefreshRate = resolvedPreferredMode.refreshRate
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
                 setFrameRateBoostOnTouchEnabled(true)
                 setFrameRatePowerSavingsBalanced(false)

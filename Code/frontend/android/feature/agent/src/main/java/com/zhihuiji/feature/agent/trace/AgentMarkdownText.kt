@@ -80,7 +80,17 @@ fun AgentMarkdownText(
     modifier: Modifier = Modifier,
     contentColor: Color = TextPrimary,
     renderIdentity: Any? = markdown,
+    isStreaming: Boolean = false,
 ) {
+    if (isStreaming) {
+        Text(
+            text = markdown,
+            style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
+            color = contentColor,
+            modifier = modifier,
+        )
+        return
+    }
     val blocks = remember(renderIdentity, markdown) { parseMarkdown(markdown) }
     SelectionContainer {
         Column(

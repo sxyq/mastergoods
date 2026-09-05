@@ -84,6 +84,7 @@ fun ResultBlockRenderer(
     block: ResultBlockDto,
     modifier: Modifier = Modifier,
     renderIdentity: Any = block.renderCacheIdentity(),
+    isStreaming: Boolean = false,
 ) {
     when (block.blockType) {
         "text", "markdown" -> block.renderParsedTextBlock(
@@ -95,6 +96,7 @@ fun ResultBlockRenderer(
                 title = block.title,
                 modifier = modifier,
                 renderIdentity = renderIdentity,
+                isStreaming = isStreaming,
             )
         }
 
@@ -194,6 +196,7 @@ private fun TextResultBlock(
     title: String?,
     modifier: Modifier = Modifier,
     renderIdentity: Any,
+    isStreaming: Boolean,
 ) {
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
@@ -213,6 +216,7 @@ private fun TextResultBlock(
                 markdown = markdown,
                 contentColor = TextPrimary,
                 renderIdentity = renderIdentity,
+                isStreaming = isStreaming,
             )
         }
     }

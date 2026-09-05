@@ -1201,6 +1201,7 @@ private fun AssistantAnswerBody(
                     AssistantTextPart(
                         markdown = part.markdown,
                         renderIdentity = part.renderIdentity(messageId, index),
+                        isStreaming = isStreaming,
                     )
                 }
 
@@ -1208,6 +1209,7 @@ private fun AssistantAnswerBody(
                     AssistantResultBlockPart(
                         block = part.block,
                         renderIdentity = part.renderIdentity(messageId, index),
+                        isStreaming = isStreaming,
                     )
                 }
 
@@ -1720,7 +1722,7 @@ private fun RetryBanner(
 }
 
 private fun ChatMessage.streamingAutoFollowBucket(): Int =
-    (content.length / 80) + parts.size
+    (content.length / 160) + parts.size
 
 private fun LazyListState.shouldAutoFollowStreamingContent(messageCount: Int): Boolean =
     shouldAutoFollowStream(
@@ -1811,6 +1813,7 @@ private fun ChatMessagePart.renderIdentity(messageId: String, index: Int): Strin
 private fun AssistantTextPart(
     markdown: String,
     renderIdentity: Any,
+    isStreaming: Boolean,
     modifier: Modifier = Modifier,
 ) {
     if (markdown.isBlank()) return
@@ -1818,6 +1821,7 @@ private fun AssistantTextPart(
         markdown = markdown,
         contentColor = TextPrimary,
         renderIdentity = renderIdentity,
+        isStreaming = isStreaming,
         modifier = modifier,
     )
 }
@@ -1826,11 +1830,13 @@ private fun AssistantTextPart(
 private fun AssistantResultBlockPart(
     block: ResultBlockDto,
     renderIdentity: Any,
+    isStreaming: Boolean,
     modifier: Modifier = Modifier,
 ) {
     ResultBlockRenderer(
         block = block,
         renderIdentity = renderIdentity,
+        isStreaming = isStreaming,
         modifier = modifier,
     )
 }
