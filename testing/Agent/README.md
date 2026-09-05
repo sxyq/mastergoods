@@ -337,3 +337,10 @@ Wave 22 使用 API 修复镜像 `sxyq27-zhj-api:20260904T1316-customer-sync-vers
 Wave 23 完成了 Android 取消分支的真实发送和停止点击。App 在 `emulator-5554` 中依据 UI tree 真实点击发送 `(634,550)`，随后依据实时 UI tree 真实点击“停止接收” `(634,1140)`；即时和等待后的 UI 均显示“已取消”“运行取消”。App 日志记录 `/v2/agent/chat/stream` HTTP `200` 和 `/v2/agent/runs/<run_id>/cancel` HTTP `200`。
 
 客户端停止展示记为 `Passed`。完整取消用例记为 `Blocked`：停止后的 UI 没有显示“服务端已确认取消生成”，OkHttp 日志没有 SSE 事件正文，目标 `8.220.206.9` root SSH 公钥认证失败，run audit、`run_cancelled` 事件、停止后 `answer_delta` 和最终 PostgreSQL 计数未核验。App 清空对话、删除会话和 `pm clear` 均已执行；App 删除会话返回 HTTP `200`，但服务端残留未做最终数据库核对，因此清理子项保持 `Blocked`。正式报告和证据目录分别为 `testing/Agent/客户端/reports/20260904-agent-phase2-wave23-android-cancel-rerun-013.md` 与 `testing/Agent/客户端/artifacts/20260904-agent-phase2-wave23-AG-CLI-AND-P2-CANCEL-RERUN-013/`。
+## 二十四、2026-09-05 阶段二 Wave 24 物理 Android 与 DeepSeek 运行时
+
+本轮确认物理设备 `d715a3a4` 曾通过 USB ADB 连接；没有启动模拟器。侧边栏切换后的服务端运行时为 `deepseek-v4-flash-0731`、`chat_completions`、`https://oneapi.sxyq27.online/v1`。旧 Wave 记录中的 `gpt-5.6-luna` 保持历史事实，不改写为 GLM 或 DeepSeek；API Key 未进入报告、日志或证据。
+
+003 已在旧 APK 上完成一次真实 UI 输入和发送点击，但 App 实际请求旧的 `https://sxyq27.online/zhj-api/` 路径并收到 HTTP `410`，因此没有形成多工具或图表证据，完整用例记为 `Blocked`。当前源码 Debug APK 构建成功，但物理设备在安装前断开，004 商品确认、006 取消/断线/重连、007 上下文压缩、008 错误/重试和 010 生图均未执行，按设备缺失记为 `Blocked`。
+
+详细报告为 `testing/Agent/客户端/reports/20260905-agent-phase2-wave24-android-multitool-chart-014.md`，证据目录为 `testing/Agent/客户端/artifacts/20260905-agent-phase2-wave24-AG-CLI-AND-P2-MULTITOOL-CHART-014/`；物理设备阻塞证据为 `testing/Agent/客户端/artifacts/20260905-agent-phase2-wave24-physical-device-blocked-015/`。本轮没有修改产品源码、API Key、账号密码、线上服务或数据库。

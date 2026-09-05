@@ -256,3 +256,19 @@ Wave 22 使用后端修复镜像 `sxyq27-zhj-api:20260904T1316-customer-sync-ver
 本轮只确认了客户端停止分支。停止后的 UI 保留“正在请求服务端取消”，没有出现“服务端已确认取消生成”；HTTP `200` 不单独证明响应体中的 `cancelled=true`。OkHttp 日志没有 SSE 事件正文，无法证明停止后没有 `answer_delta`。匿名 `GET /v2/agent/runs/<run_id>/audit` 返回 `401`，服务端匿名保护正常，但不提供本 run 的审计结果。
 
 解除条件是恢复目标 `8.220.206.9` 的已授权 root SSH 登录，读取本 run 的 audit 和事件表，核对 `run_cancelled`、事件数量、消息行和正式业务表 before/after；同时保留脱敏事件摘要后再决定是否将完整取消用例改为 `Passed`。目标模型 `glm-5.3-flash` 继续为 `Blocked`，iOS 继续为 `Deferred`。
+## 2026-09-05 Wave 24 物理 Android 设备与 DeepSeek 运行时复测
+
+本节使用物理 Android 设备，不启动模拟器；旧的 `gpt-5.6-luna` 历史记录保持原状，不改写为 GLM 或 DeepSeek 结果。服务器运行时只记录非敏感配置：Base URL 为 `https://oneapi.sxyq27.online/v1`，模型为 `deepseek-v4-flash-0731`，Wire API 为 `chat_completions`。API Key 未写入任何报告、日志或证据。
+
+| 用例 | 实际事实 | 数据与清理 | 状态 |
+|---|---|---|---|
+| `AG-CLI-AND-P2-MULTITOOL-CHART-014` | 物理设备 `d715a3a4` 在线时按 UI tree 定位输入框和发送控件并真实点击；设备上的旧 APK 实际请求已退役地址 `https://sxyq27.online/zhj-api/v2/agent/chat/stream`，返回 HTTP `410`，未进入多工具、`result_visualization`、图表或正式回答 | 发送前服务端计数 `3|2|2|693|84|2661|11|27|0|63|705`；复核后仍为 `11|27|0|63|705`，未见本轮新 run；旧包认证头原始日志已删除，仅保留脱敏日志 | `Blocked` |
+| `AG-CLI-AND-P2-PRODUCT-CONFIRM-015` | 未执行 UI 输入、发送或确认；物理设备在新 APK 安装前断开 | 无本轮会话、草稿、消息、业务写入或清理动作 | `Blocked` |
+| `AG-CLI-AND-P2-CANCEL-RECONNECT-015` | 未执行 Android 取消、断线或重连点击；设备缺失 | 无本轮会话、run 或数据库变化 | `Blocked` |
+| `AG-CLI-AND-P2-CONTEXT-COMPACT-015` | 未执行 Android 上下文压缩输入或展示核对；设备缺失 | 无本轮会话、run 或数据库变化 | `Blocked` |
+| `AG-CLI-AND-P2-ERROR-RETRY-015` | 未执行 Android 错误状态和重试点击；设备缺失 | 无本轮会话、run 或数据库变化 | `Blocked` |
+| `AG-CLI-AND-P2-IMAGE-DRAFT-015` | 未执行 Android 生图草稿输入、确认或拒绝；设备缺失 | 无本轮 Provider 调用、草稿、会话或业务写入 | `Blocked` |
+
+本轮新 APK 构建命令 `Code/frontend/android/gradlew :app:assembleDebug --no-daemon --console=plain` 返回 `BUILD SUCCESSFUL`，实际产物为 `tmp/build/gradle-output/android/app/outputs/apk/debug/app-debug.apk`，SHA-256 为 `fbbfae46dc978a75d8b357cda9aff244455cd7e9f6f9a68244adf25f338b0639`。安装前物理设备从 ADB 消失，未安装新包；没有启动模拟器，也没有用接口调用替代五条未执行 UI 用例。
+
+003 详细报告：`客户端/reports/20260905-agent-phase2-wave24-android-multitool-chart-014.md`；证据目录：`客户端/artifacts/20260905-agent-phase2-wave24-AG-CLI-AND-P2-MULTITOOL-CHART-014/`。物理设备阻塞证据：`客户端/artifacts/20260905-agent-phase2-wave24-physical-device-blocked-015/`。解除条件是重新连接物理设备、安装当前 APK，并从 UI tree 真实执行每条用例；不能用本轮旧 APK 的 HTTP 410 作为 DeepSeek Agent 结果。
