@@ -272,3 +272,5 @@ Wave 22 使用后端修复镜像 `sxyq27-zhj-api:20260904T1316-customer-sync-ver
 本轮新 APK 构建命令 `Code/frontend/android/gradlew :app:assembleDebug --no-daemon --console=plain` 返回 `BUILD SUCCESSFUL`，实际产物为 `tmp/build/gradle-output/android/app/outputs/apk/debug/app-debug.apk`，SHA-256 为 `fbbfae46dc978a75d8b357cda9aff244455cd7e9f6f9a68244adf25f338b0639`。安装前物理设备从 ADB 消失，未安装新包；没有启动模拟器，也没有用接口调用替代五条未执行 UI 用例。
 
 003 详细报告：`客户端/reports/20260905-agent-phase2-wave24-android-multitool-chart-014.md`；证据目录：`客户端/artifacts/20260905-agent-phase2-wave24-AG-CLI-AND-P2-MULTITOOL-CHART-014/`。物理设备阻塞证据：`客户端/artifacts/20260905-agent-phase2-wave24-physical-device-blocked-015/`。解除条件是重新连接物理设备、安装当前 APK，并从 UI tree 真实执行每条用例；不能用本轮旧 APK 的 HTTP 410 作为 DeepSeek Agent 结果。
+
+2026-09-05 10:52 再次启动 ADB 并核验：`adb devices -l` 为空，`adb get-state` 为 `no devices/emulators found`，macOS USB 枚举和 `adb mdns services` 均未发现 Android 设备。未安装当前 APK，未启动模拟器，未执行新的 UI 点击或接口替代测试；003、004、006、007、008、010 继续为 `Blocked`。证据：`客户端/artifacts/20260905-agent-phase2-wave24-physical-device-blocked-015/04-adb-recheck-105205.txt`。

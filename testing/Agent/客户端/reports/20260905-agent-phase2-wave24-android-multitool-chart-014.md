@@ -46,3 +46,9 @@
 ## 解除条件
 
 设备重新连接后，安装并核对当前 APK，再从 UI tree 真实输入“销售趋势和现金流，用图表展示”等多工具提示；采集同一 run 的脱敏 SSE/HTTP 摘要、工具顺序、`result_block`、审计和数据库 before/after，完成后再判定 `Passed`、`Failed` 或 `Blocked`。
+
+## 2026-09-05 10:52 设备复核
+
+重新启动 ADB 后执行 `adb devices -l`，结果仍为空；`adb get-state` 返回 `no devices/emulators found`，macOS USB 枚举没有 Android/ADB 匹配，`adb mdns services` 也没有无线设备。证据见 `客户端/artifacts/20260905-agent-phase2-wave24-physical-device-blocked-015/04-adb-recheck-105205.txt`。
+
+本次没有安装 APK、启动 App、执行 UI 点击或产生新的服务端 run；003、004、006、007、008、010 继续保持 `Blocked`。解除条件不变：物理设备出现非 `emulator-*` serial 后，先安装当前 APK并核对包版本和实际请求地址，再从 003 开始执行。
