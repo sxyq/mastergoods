@@ -52,3 +52,9 @@
 重新启动 ADB 后执行 `adb devices -l`，结果仍为空；`adb get-state` 返回 `no devices/emulators found`，macOS USB 枚举没有 Android/ADB 匹配，`adb mdns services` 也没有无线设备。证据见 `客户端/artifacts/20260905-agent-phase2-wave24-physical-device-blocked-015/04-adb-recheck-105205.txt`。
 
 本次没有安装 APK、启动 App、执行 UI 点击或产生新的服务端 run；003、004、006、007、008、010 继续保持 `Blocked`。解除条件不变：物理设备出现非 `emulator-*` serial 后，先安装当前 APK并核对包版本和实际请求地址，再从 003 开始执行。
+
+## 2026-09-05 11:08–11:18 设备与 APK 再核验
+
+11:08 和 11:18 的 ADB 复核均未发现设备，`adb get-state` 均为 `no devices/emulators found`，11:08 的 USB 枚举和两次 mDNS 检查也没有 Android 设备。11:12 重新执行 Android Debug APK 构建，结果为 `BUILD SUCCESSFUL`，SHA-256 仍为 `fbbfae46dc978a75d8b357cda9aff244455cd7e9f6f9a68244adf25f338b0639`。证据见 `客户端/artifacts/20260905-agent-phase2-wave24-physical-device-blocked-015/05-adb-recheck-110849.txt`、`06-build-and-adb-recheck-111253.txt` 和 `07-adb-recheck-111821.txt`。
+
+本轮没有安装 APK、启动 App、执行 UI 点击或产生新的服务端 run。003、004、006、007、008、010 继续保持 `Blocked`；设备上线后仍从 003 开始，先安装并核对当前 APK，再执行真实 UI 流程。
