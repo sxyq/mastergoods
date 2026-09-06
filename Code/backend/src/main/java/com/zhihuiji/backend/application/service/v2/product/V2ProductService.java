@@ -20,6 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class V2ProductService {
+    private static final String DEFAULT_CATEGORY_NAME = "未分类";
+    private static final String DEFAULT_UNIT_NAME = "件";
+
     private final ProductRepository productRepository;
     private final V2ProductCategoryService categoryService;
     private final V2ProductUnitService unitService;
@@ -121,17 +124,21 @@ public class V2ProductService {
         if (productRepository.findByOwnerUserIdAndCode(ownerUserId, code).isPresent()) {
             throw new IllegalArgumentException("商品编码已存在");
         }
-        ProductCategoryEntity category = categoryService.getOwnedEntity(request.categoryId());
-        ProductUnitEntity unit = unitService.getOwnedEntity(request.unitId());
+        ProductCategoryEntity category = request.categoryId() == null
+            ? null
+            : categoryService.getOwnedEntity(request.categoryId());
+        ProductUnitEntity unit = request.unitId() == null
+            ? null
+            : unitService.getOwnedEntity(request.unitId());
         long now = System.currentTimeMillis();
         ProductEntity entity = new ProductEntity();
         entity.setOwnerUserId(ownerUserId);
         entity.setCode(code);
         entity.setName(normalizeRequired(request.name(), "商品名称不能为空"));
-        entity.setCategoryId(category.getId());
-        entity.setCategory(category.getName());
-        entity.setUnitId(unit.getId());
-        entity.setUnit(unit.getName());
+        entity.setCategoryId(category == null ? null : category.getId());
+        entity.setCategory(category == null ? DEFAULT_CATEGORY_NAME : category.getName());
+        entity.setUnitId(unit == null ? null : unit.getId());
+        entity.setUnit(unit == null ? DEFAULT_UNIT_NAME : unit.getName());
         entity.setSalePrice(normalizeNonNegative(request.salePrice(), "商品售价不能为空"));
         entity.setPurchasePrice(normalizeNonNegative(request.purchasePrice(), "商品进价不能为空"));
         entity.setPriceLevelValuesJson(priceLevelService.encodeValueSnapshot(request.priceLevels()));

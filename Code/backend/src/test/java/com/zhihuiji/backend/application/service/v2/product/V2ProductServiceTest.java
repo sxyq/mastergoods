@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -177,6 +179,32 @@ class V2ProductServiceTest {
         );
 
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> service.create(request));
+    }
+
+    @Test
+    void createUsesSafeTextWhenAgentDraftOmitsCategoryAndUnit() {
+        V2ProductDtos.ProductWriteRequest request = new V2ProductDtos.ProductWriteRequest(
+            "AGENT-P-1", "Agent 商品", null, null, 12.5, 8.0, List.of(), List.of(), 1.0, 0.0, 1
+        );
+        when(productRepository.save(any(ProductEntity.class))).thenAnswer(invocation -> {
+            ProductEntity entity = invocation.getArgument(0);
+            entity.setId(301L);
+            return entity;
+        });
+        when(priceLevelService.encodeValueSnapshot(any())).thenReturn("[]");
+        when(priceLevelService.extractLevelIds("[]")).thenReturn(Set.of());
+        when(priceLevelService.getOwnedEntityMap(anyCollection())).thenReturn(Map.of());
+        when(priceLevelService.toValueResponses(eq("[]"), anyMap())).thenReturn(List.of());
+        when(supplierRelationService.listByProductIds(anyCollection())).thenReturn(Map.of());
+
+        V2ProductDtos.ProductResponse response = service.create(request);
+
+        assertEquals("未分类", response.categoryName());
+        assertEquals("件", response.unitName());
+        org.junit.jupiter.api.Assertions.assertNull(response.categoryId());
+        org.junit.jupiter.api.Assertions.assertNull(response.unitId());
+        verify(categoryService, never()).getOwnedEntity(anyLong());
+        verify(unitService, never()).getOwnedEntity(anyLong());
     }
 
     private static ProductEntity product(Long id, String code, Long categoryId, Long unitId, String priceLevelsJson) {
