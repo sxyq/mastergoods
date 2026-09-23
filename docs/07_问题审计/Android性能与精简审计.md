@@ -1607,7 +1607,7 @@ Agent 时间线调用链保持唯一：
 **未产生明确收益。** 候选有效样本 P95 全部高于基线最大值（28–32 vs 22–26），方向一致地略差，且均值差约 5.4ms 已接近/超过基线相内极差（4ms）。因此：
 
 1. **不得**把 `contentType` 写成性能提升；**不纳入**本轮优化成果。
-2. **不提交** `ProductListScreen.kt`。该项现标记为 **待主审决定是否还原**：A/B 无收益，不宜继续作为性能优化候选留在工作树；默认建议还原，未经主审确认不擅自删改。
+2. **不提交** `ProductListScreen.kt`。主审确认后已 **`git checkout HEAD` 还原**该未提交改动（2026-09-24）；`contentType` 不再留在工作树，也不作为性能优化候选。
 3. **限制**：候选 APK 体积 23,615,095 B，基线 24,201,024 B（相差约 586KB）。两轮之间做过一次 `--rerun-tasks` 全量重编，产物布局可能不同；该混杂因素未单独消掉，故即使候选偏慢，也**不能**单凭本表断定 contentType 本身有害，只能断定**无稳定收益**。
 4. 对照 §18.5 的 `product_fling` P95 20–27ms：本节基线 22–26ms 与之同量级，说明测量方法可用。
 
@@ -1620,7 +1620,7 @@ Agent 时间线调用链保持唯一：
 | `framestats-ctbase-product_onedir-d715a3a4-r1..5.txt`（先导） | `invalid_method`，保留文件不删 |
 | `perf-results-v2.json` | **当前 177 条**（§18 截止 162，§19 新增 15，批次 `2026-09-24-d715a3a4-contentType`） |
 | `perf-summary.json` | **当前 rows 168 / summary 46**（§18 截止 153 / 43，§19 新增 15 / 3：`product_fling-ctbase2-d715a3a4`、`product_fling-ctcand2-d715a3a4`、`batch_20260924_contentType_note`） |
-| 源码 | **无**净改动纳入本轮；`contentType` 仍为未提交既有工作 |
+| 源码 | **无**净改动纳入本轮；`contentType` 已按主审确认 `git checkout HEAD` **还原** |
 
 ### 19.5 本轮未做
 
