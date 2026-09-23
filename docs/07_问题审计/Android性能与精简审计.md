@@ -1470,7 +1470,8 @@ Agent 时间线调用链保持唯一：
 ### 18.2 证据复核结果（只读，逐项可复现）
 
 - **§17 修复的 Perfetto 可追溯性缺陷已复核确认成立**：`testing/android/perf/perfetto-before-product_fling-d715a3a4.pftrace`（23,955,710 字节，SHA-256 `f531f9e0…`）与 `perfetto-before-coldstart-d715a3a4.pftrace`（21,505,165 字节，SHA-256 `abfd8fcc…`）**确实存在**，且与录制原件哈希一致。用 `trace_processor_shell` v58.2 **从仓库内文件**复算 §16.3 全部数字，逐项一致：`traversal` 644.3ms/300、`animation` 383.0ms/46、`AndroidOwner:measureAndLayout` 272.6ms/24、`checkForSemanticsChanges` 200.8ms/16、`CircularRRectOp` 13,328/116.1ms、`CircleOp` 6,664/72.1ms、`FillRectOp` 15,016/153.5ms。**§15.8 与 §16 的 Perfetto 表述已由 §17 追注统一，本轮无新增不一致。**
-- 结构未变：`perf-results-v2.json` 原 95 条、`perf-summary.json` rows 86 的旧值保持；`parsed_*` 仍为 `null`/`unavailable`；本轮新样本写入**新批次**，不并入 09-22/09-23 旧批次。
+- 结构未变：`perf-results-v2.json` 原 95 条、`perf-summary.json` rows 86 的旧值保持；`parsed_*` 仍为 `null`/`unavailable`；本轮新样本写入**新批次**，不并入 09-22/09-23 旧批次。`summary_*` 一律来自 gfxinfo 汇总；`FrameInterval` 节律**不当作**渲染 P95；gfxinfo 与 framestats **不混算**。
+- 来源字段现状（如实说明，不伪造）：新批次 `gfx.source` 指向存在的 `framestats-*` 合并 dump（`summary_source` 同文件，`summary_*` 取自 gfxinfo 头）；`mem` 的 PSS/RSS 等数值可按命名映射到 `testing/android/perf/meminfo-*.txt`，但 **JSON 未逐条保存 `mem.source`**（2026-09-23/24 批次有内存数值的记录，`mem.source` 为空）。本轮**不补写**伪造的 `mem.source`；文件可按命名映射，但 JSON 未逐条保存 mem.source。旧 25 条 `source_integrity="overwritten_by_later_round"` 记录的 `gfx.source` 文件名仍在 JSON 中，但对应磁盘文件已被覆盖，**不得**当作可独立复算的完整样本。
 - 功耗口径未变：仍只有**整机**读数与 batterystats 对 **App UID 的系统估算**，**没有**单流程 App 独占功耗；AC powered=true 时不归因 App。
 
 ### 18.3 新增覆盖：上传与打印（首次在本设备采到）
@@ -1491,7 +1492,7 @@ Agent 时间线调用链保持唯一：
 
 - **候选改动**：把 `LiquidGlassSurface.staticLiquidGlass` 的 `.border(0.5.dp, GlassBorder, shape)` 合并进已有的 `glassHighlightOverlay` 缓存绘制层（保持"内容 → 高光 → 描边"顺序与 0.5dp 半宽内缩几何），意图是每个玻璃卡片少一个绘制修饰节点。
 - **改动依据**：§16.3 的 RenderThread `CircularRRectOp` 13,328 次（约每卡 6 个圆角 op）。
-- **同条件复测结果**：**无收益，且方向一致地略差** —— Dashboard P95 18.0→19.2ms、Agent 16.8→18.4ms、报表 19.4→20.0ms、商品 19.2→19.4ms；冷启动 TotalTime 均值 973.2→961.4ms（与绘制改动无关）。差异幅度均在运行间波动内，但**方向一致**，且该改动**没有**任何一项指标可证明其价值。
+- **同条件复测结果**：**未产生明确收益，差异方向不一致且处于运行波动范围内**（对比数据见 §18.5：Dashboard 19.4→21.2ms、商品 23.4→19.4ms、Agent 19.2→18.4ms、报表 19.8→20.0ms、冷启动 gfx P95 350→340ms；冷启动 TotalTime 差值与绘制改动无关，不作归因）。该改动**没有**任何一项指标可证明其价值。
 - **处置**：**已还原**（`git checkout` 回 HEAD），并重新构建安装还原后的产物，使设备与仓库一致。依据是"只在证据显示代码确实造成问题时才修改"；本改动从未证明 `border` 是问题，复测也未能证明它带来收益。
 - **因此**：§18.5 的"改动后"数据是**候选构建**的测量，保留作为"该改动无收益"的证据，**不代表**当前构建的性能。
 
@@ -1512,7 +1513,7 @@ Agent 时间线调用链保持唯一：
 
 基线冷启动 `am start -W` TotalTime：956 / 971 / 1024 / 935 / 1013 ms（均值 979.8ms）。
 
-**结论：尚无明确收益。** 方向**不一致**（2 项候选略低、1 项略高、其余持平），且各项的**相内极差本身就达 4–7ms**（如基线 `product_fling` 20–27ms、候选 `dashboard_scroll` 19–30ms），远大于均值差。因此：
+**结论：未产生明确收益，差异方向不一致且处于运行波动范围内。**（2 项候选略低、1 项略高、其余持平），且各项的**相内极差本身就达 4–7ms**（如基线 `product_fling` 20–27ms、候选 `dashboard_scroll` 19–30ms），远大于均值差。因此：
 - **不得**宣称候选构建带来提升；
 - **不得**把 `product_fling` 的 23.4→19.4ms 当作收益（候选构建**已还原且未被采纳**，该差值同样落在波动内）；
 - **不得**把冷启动 TotalTime 的任何差值归因于本轮改动（改动不触及启动路径）。
@@ -1551,7 +1552,7 @@ Agent 时间线调用链保持唯一：
 3. **上传/打印的成功均为业务/文件级判据**，**仍缺**原始 HTTP 报文、服务端字节逐字校验、chunked/-1 路径与**上传期间峰值内存**（上传前后 meminfo **不等于**峰值）。
 4. **Agent 成功流式**仍无有效样本；**打印 `onFinish`** 仍无系统回调日志可依，不推断清理时序（本轮观察到一次打印完成后 `cache/sale-receipts/` 为空，**仅**为单次时点观察，不构成回调或时序证据）。
 5. **功耗**：本轮全程 AC 充电，未做停充采样；单流程 App 独占功耗仍未测得。
-6. **Perfetto**：本轮未新增 trace；上传与打印**无 trace**，热点结论仍只覆盖商品 fling 与冷启动（§16.3）。
+6. **Perfetto**：本轮未新增 trace。仓库内 App 轨道 trace 只有 `perfetto-before-product_fling-d715a3a4.pftrace` 与 `perfetto-before-coldstart-d715a3a4.pftrace`（见 §18.2，哈希可复算）；历史 `master-goods-upload-r1.pftrace` **不含 App 切片**（§16.3(a)），不能用于 App 热点。热点结论**只覆盖商品 fling 与冷启动**；Dashboard、报表、Agent、上传、打印**均无 trace，也无改后对照 trace**。
 7. **`testing/android/` 整目录未被 Git 跟踪**，两个 JSON 亦未跟踪；本轮 JSON 就地更新但**未提交**（见汇报）。
 
 ### 18.9 本轮造成并已处置的数据可追溯性缺陷（必须留痕）
@@ -1561,7 +1562,67 @@ Agent 时间线调用链保持唯一：
 **处置**：
 1. 本轮"改动后"文件**全部改名**为 `*-cand1-*`（候选构建），语义准确且与历史文件不再冲突；`framestats-after-*` 已不存在。
 2. §16 批次那 25 条记录**数值保留**，并逐条加 `source_integrity="overwritten_by_later_round"` 与 `source_integrity_note`，明确标注**其数值已无法从磁盘独立复核**、以 `2026-09-24-d715a3a4-perfwave` 批次为准。
-3. 本轮数据写入**新批次** `2026-09-24-d715a3a4-perfwave`，文件名与前缀 `base1-` / `cand1-` / `before-`（仅上传·打印）/ `*_onedir` **互不冲突**；`perf-results-v2.json` 95→**162** 条、`perf-summary.json` rows 86→**153** 条、summary 键 40 个。
+3. 本轮数据写入**新批次** `2026-09-24-d715a3a4-perfwave`，文件名与前缀 `base1-` / `cand1-` / `before-`（仅上传·打印）/ `*_onedir` **互不冲突**；`perf-results-v2.json` 95→**162** 条、`perf-summary.json` rows 86→**153** 条、summary 键 **43** 个（41 个汇总组 + 2 个批次说明键）。
 4. 5 个核心流程的基线**重新采过**（`base1-`，见 §18.5），不再复用 §16 的 `before-*`，避免把 clip 改动与 border 合并混为一次比较。
 
 **遗留限制**：§16 批次 `after` 的 25 条数值虽被完整保留在 JSON 中，但**其原始来源文件已被覆盖**，这 25 条不满足"可回到原始文件"的验收要求；如需彻底修复，应由主审决定是删除这 25 条、还是接受其带标注的降级状态。**本轮不擅自删除既有数据。**
+
+---
+
+## 19. contentType 既有改动的单独 A/B（2026-09-24，设备 `d715a3a4`，报告口径统一之后）
+
+> 本节只评估工作树中**本轮开始前就存在**的 `ProductListScreen.kt` LazyColumn `contentType = { "product" }` 改动。
+> **不**重复 `LiquidGlassSurface.border` 合并；**不**把该改动算作本轮优化成果；**未**经确认不提交。
+> 批次标识 `2026-09-24-d715a3a4-contentType`。**仍不得**宣称性能专项完成或稳定 120Hz。
+
+### 19.1 方法与设备条件
+
+| 项 | 值 |
+|----|----|
+| 设备 | `d715a3a4` / `25010PN30C` / Android 16；override 1080×2400 / 420dpi |
+| 刷新率 | 峰值 120Hz（`peak_refresh_rate=120`） |
+| 供电 / 动画 / 无障碍 | AC powered=true / 100%；动画比例 1.0；SelectToSpeakService 仍启用（与 §16–§18 一致） |
+| 基线构建 | HEAD 的 `ProductListScreen.kt`（`items(products, key = { it.id })`，**无** contentType） |
+| 候选构建 | 同工作树 + `contentType = { "product" }`（仅此一处差异） |
+| 流程 | 档案 → 商品列表；回顶后 **3 次 320ms 单向滑动**；测窗前 `gfxinfo reset`；测窗内无 Perfetto |
+| 样本 | 各 5 次；文件前缀 `ctbase2-` / `ctcand2-`（**未**使用 `framestats-after-*`） |
+| 作废 | 先导批 `ctbase-*`（5 次）手势过猛（50ms fling×6）且商品列表仅 **15** 条，帧数 82–390 剧烈波动，`flow_validity=invalid_method`，**不进入**均值 |
+| 有效样本定义 | `flow_validity=valid_page_scroll`；`ctcand2-r1` 帧数 166、P95 61ms，标 `partial`，**不进入**均值 |
+
+`summary_*` 取自 gfxinfo 汇总；`parsed_*` 维持 `null`/`unavailable`；`FrameInterval` 不当作渲染 P95。`mem.source` **未**逐条写入 JSON（与 §18.2 相同口径，不伪造）。
+
+### 19.2 结果（有效样本）
+
+| 组 | n | 帧数（均值） | P50 均值 | P95 均值 | P95 范围 | P99 均值 | Janky% |
+|----|---|--------------|----------|----------|----------|----------|--------|
+| 基线（无 contentType） | 5 | 440 | 15.8 | **24.4 ms** | 22–26 | 32.6 | 0.00 |
+| 候选（contentType） | 4 | 406 | 16.5 | **29.8 ms** | 28–32 | 38.5 | 0.34 |
+
+逐次 P95：基线 26 / 25 / 26 / 23 / 22；候选 32 / 31 / 28 / 28（r1 partial 已排除）。
+
+### 19.3 结论
+
+**未产生明确收益。** 候选有效样本 P95 全部高于基线最大值（28–32 vs 22–26），方向一致地略差，且均值差约 5.4ms 已接近/超过基线相内极差（4ms）。因此：
+
+1. **不得**把 `contentType` 写成性能提升；**不纳入**本轮优化成果。
+2. **不提交** `ProductListScreen.kt`（保持为未提交既有改动，去留由主审决定）。
+3. **限制**：候选 APK 体积 23,615,095 B，基线 24,201,024 B（相差约 586KB）。两轮之间做过一次 `--rerun-tasks` 全量重编，产物布局可能不同；该混杂因素未单独消掉，故即使候选偏慢，也**不能**单凭本表断定 contentType 本身有害，只能断定**无稳定收益**。
+4. 对照 §18.5 的 `product_fling` P95 20–27ms：本节基线 22–26ms 与之同量级，说明测量方法可用。
+
+### 19.4 本节数据落位
+
+| 对象 | 状态 |
+|------|------|
+| `framestats-ctbase2-product_onedir-d715a3a4-r1..5.txt` + 配对 `meminfo-ctbase2-*` | 有效基线 |
+| `framestats-ctcand2-product_onedir-d715a3a4-r1..5.txt` + 配对 `meminfo-ctcand2-*` | r1 partial，r2–r5 有效 |
+| `framestats-ctbase-product_onedir-d715a3a4-r1..5.txt`（先导） | `invalid_method`，保留文件不删 |
+| `perf-results-v2.json` | 162 → **177** 条（+15，批次 `2026-09-24-d715a3a4-contentType`） |
+| `perf-summary.json` | rows 153 → **168**；summary 43 → **46**（+ `product_fling-ctbase2-d715a3a4`、`product_fling-ctcand2-d715a3a4`、`batch_20260924_contentType_note`） |
+| 源码 | **无**净改动纳入本轮；`contentType` 仍为未提交既有工作 |
+
+### 19.5 本轮未做
+
+1. 未做 Dashboard / 报表 / Agent / 冷启动 / 上传 / 打印的同条件复测（本节仅商品列表 A/B）。
+2. 未改 Agent 流式、Backend、打印、上传业务代码。
+3. 未再尝试 border / clip / 玻璃绘制合并。
+4. 未做停充功耗采样；未取得 Agent 成功流式样本；上传峰值内存与 HTTP 报文仍缺。
