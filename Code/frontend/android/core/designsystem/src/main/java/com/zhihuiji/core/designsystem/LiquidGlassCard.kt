@@ -9,7 +9,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -49,9 +48,10 @@ fun LiquidGlassCard(
         Modifier
     }
 
+    // LiquidGlassSurface 内部（staticLiquidGlass / dynamicLiquidGlass）已对背景、高光、
+    // 描边与内容统一做 clip(shape)；此处不再重复 clip，避免每个列表项多一层 saveLayer。
     LiquidGlassSurface(
         modifier = modifier
-            .clip(shape)
             .then(clickableModifier),
         blurRadius = blurRadius,
         shape = shape,

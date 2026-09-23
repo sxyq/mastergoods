@@ -46,6 +46,10 @@ import com.zhihuiji.core.designsystem.ZhihuijiPrimary
 
 private val stockStatusColor = mapOf("缺货" to DangerRed, "低库存" to WarningOrange)
 
+// 形状对象提升到文件级，避免每个商品项在每次重组时重复分配 RoundedCornerShape。
+private val productCardShape = RoundedCornerShape(12.dp)
+private val productThumbShape = RoundedCornerShape(10.dp)
+
 @Composable
 fun ProductListScreen(
     onNavigateToDetail: (Long) -> Unit = {},
@@ -139,7 +143,7 @@ private fun ProductListItem(
             .fillMaxWidth()
             .height(92.dp),
         onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
+        shape = productCardShape,
         surfaceColor = GlassSurfaceLow,
         contentPadding = 0.dp
     ) {
@@ -153,7 +157,7 @@ private fun ProductListItem(
             Box(
                 modifier = Modifier
                     .size(64.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(productThumbShape)
                     .background(GlassSurfaceHigh),
                 contentAlignment = Alignment.Center
             ) {
