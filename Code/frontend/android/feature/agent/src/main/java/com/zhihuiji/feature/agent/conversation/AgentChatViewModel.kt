@@ -8,6 +8,8 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.readOrNull
+import com.zhihuiji.core.common.resolveContentLength
 import com.zhihuiji.core.model.v2.agent.AgentChatRequest
 import com.zhihuiji.core.model.v2.agent.AgentDraftConfirmRequest
 import com.zhihuiji.core.model.v2.agent.AgentImageGenerateRequest
@@ -191,21 +193,32 @@ class AgentChatViewModel @Inject constructor(
     fun uploadImage(uri: Uri, context: Context) {
         viewModelScope.launch {
             _uiState.update { it.copy(isUploadingImage = true, error = null) }
+            // getType / displayName / 打开流探测 全部纳入 readOrNull：任一步真实失败固定「读取图片失败」，取消上抛。
             val resolver = context.contentResolver
-            val mimeType = resolver.getType(uri) ?: "image/jpeg"
-            val fileName = readDisplayName(resolver, uri)
-            val bytes = runCatching {
-                resolver.openInputStream(uri)?.use { it.readBytes() }
-            }.getOrNull()
-            if (bytes == null) {
+            val prepared = withContext(Dispatchers.IO) {
+                readOrNull {
+                    val resolvedMime = resolver.getType(uri) ?: "image/jpeg"
+                    val resolvedName = readDisplayName(resolver, uri)
+                    val contentLength = resolveContentLength(resolver, uri)
+                    resolver.openInputStream(uri)?.use { }
+                        ?: return@readOrNull null
+                    Triple(resolvedMime, resolvedName, contentLength)
+                }
+            }
+            if (prepared == null) {
                 _uiState.update { it.copy(isUploadingImage = false, error = "读取图片失败") }
                 return@launch
             }
+            val (mimeType, fileName, contentLength) = prepared
             mediaRepository.uploadAsset(
-                bytes = bytes,
                 fileName = fileName,
                 mimeType = mimeType,
+                contentLength = contentLength,
                 assetType = "agent_chat_image",
+                openStream = {
+                    resolver.openInputStream(uri)
+                        ?: throw com.zhihuiji.core.network.MediaSourceReadException()
+                },
             ).onSuccess { asset ->
                 _uiState.update { state ->
                     state.copy(

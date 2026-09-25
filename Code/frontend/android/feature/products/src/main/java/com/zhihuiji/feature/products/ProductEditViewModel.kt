@@ -6,6 +6,8 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.readOrFailure
+import com.zhihuiji.core.common.resolveContentLength
 import com.zhihuiji.core.model.v2.media.CreateMediaBindingRequest
 import com.zhihuiji.core.model.v2.partner.SupplierV2Dto
 import com.zhihuiji.core.model.v2.product.ProductCategoryV2Dto
@@ -18,6 +20,7 @@ import com.zhihuiji.data.agent.MediaV2Repository
 import com.zhihuiji.data.product.ProductV2Repository
 import com.zhihuiji.data.supplier.SupplierV2Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +28,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 data class ProductImageUi(
@@ -345,17 +349,25 @@ class ProductEditViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _uiState.update { it.copy(isUploading = true, error = null) }
-            val resolver = context.contentResolver
-            val mimeType = resolver.getType(uri) ?: "image/jpeg"
-            val fileName = readDisplayName(resolver, uri)
-            val bytes = runCatching {
-                resolver.openInputStream(uri)?.use { it.readBytes() }
-            }.getOrNull()
+            val prepared = withContext(Dispatchers.IO) {
+                readUploadImagePayload(context.contentResolver, uri)
+            }
+            val bytes = prepared.getOrNull()
             if (bytes == null) {
-                _uiState.update { it.copy(isUploading = false, error = "读取图片失败") }
+                _uiState.update {
+                    it.copy(
+                        isUploading = false,
+                        error = uploadReadFailureUiMessage(prepared.exceptionOrNull()),
+                    )
+                }
                 return@launch
             }
-            mediaRepository.uploadAsset(bytes, fileName, mimeType)
+            mediaRepository.uploadAsset(
+                fileName = bytes.fileName,
+                mimeType = bytes.mimeType,
+                contentLength = bytes.contentLength,
+                openStream = bytes.openStream,
+            )
                 .onSuccess { asset ->
                     val sortOrder = _uiState.value.images.size
                     mediaRepository.createBinding(
@@ -404,16 +416,52 @@ class ProductEditViewModel @Inject constructor(
                 _uiState.update { it.copy(isUploading = false, error = error.message) }
             }
     }
+}
 
-    private fun readDisplayName(resolver: ContentResolver, uri: Uri): String {
-        resolver.query(uri, null, null, null, null)?.use { cursor ->
-            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            if (nameIndex >= 0 && cursor.moveToFirst()) {
-                return cursor.getString(nameIndex).ifBlank { defaultFileName() }
-            }
+internal object UploadReadUiMessages {
+    const val READ_FAILURE: String = "读取图片失败"
+}
+
+/** 读取失败只返回固定 UI 文案，不把底层异常 message 展示给用户。 */
+internal fun uploadReadFailureUiMessage(error: Throwable?): String = UploadReadUiMessages.READ_FAILURE
+
+/**
+ * 上传载荷：不持有文件 ByteArray，openStream 由网络写入时打开。
+ */
+internal class UploadImagePayload(
+    val fileName: String,
+    val mimeType: String,
+    val contentLength: Long,
+    val openStream: () -> java.io.InputStream,
+)
+
+/**
+ * 只捕获真实文件读取失败；CancellationException 必须继续向上传播。
+ * 打开流失败固定「读取图片失败」；内容在上传时流式读取。
+ */
+internal fun readUploadImagePayload(
+    resolver: ContentResolver,
+    uri: Uri,
+    defaultFileName: () -> String = { "image_${System.currentTimeMillis()}" },
+): Result<UploadImagePayload> = readOrFailure {
+    val mimeType = resolver.getType(uri) ?: "image/jpeg"
+    val fileName = resolver.query(uri, null, null, null, null)?.use { cursor ->
+        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        if (nameIndex >= 0 && cursor.moveToFirst()) {
+            cursor.getString(nameIndex).ifBlank { defaultFileName() }
+        } else {
+            defaultFileName()
         }
-        return defaultFileName()
-    }
-
-    private fun defaultFileName(): String = "image_${System.currentTimeMillis()}"
+    } ?: defaultFileName()
+    val contentLength = resolveContentLength(resolver, uri)
+    resolver.openInputStream(uri)?.use { }
+        ?: throw java.io.IOException("读取图片失败")
+    UploadImagePayload(
+        fileName = fileName,
+        mimeType = mimeType,
+        contentLength = contentLength,
+        openStream = {
+            resolver.openInputStream(uri) ?: throw java.io.IOException("读取图片失败")
+        },
+    )
 }

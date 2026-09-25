@@ -7,6 +7,7 @@ import com.zhihuiji.core.model.v2.media.CreateMediaBindingRequest
 import com.zhihuiji.core.model.v2.media.MediaAssetDto
 import com.zhihuiji.core.model.v2.media.MediaBindingDto
 import com.zhihuiji.core.network.NetworkConfig
+import com.zhihuiji.core.network.StreamingRequestBody
 import com.zhihuiji.core.network.ZhihuijiV2Api
 import com.zhihuiji.core.network.safeApiCall
 import com.zhihuiji.core.network.safeApiUnitCall
@@ -31,16 +32,25 @@ class MediaV2Repository @Inject constructor(
     suspend fun createAsset(request: CreateMediaAssetRequest): Result<MediaAssetDto> =
         safeApiCall { api.createMediaAssetV2(request) }
 
+    /**
+     * 流式上传：openStream 在网络写入时打开，避免整文件 ByteArray。
+     * contentLength 未知时传 -1（chunked）。
+     */
     suspend fun uploadAsset(
-        bytes: ByteArray,
         fileName: String,
         mimeType: String,
+        contentLength: Long = -1L,
         assetType: String = "product_image",
+        openStream: () -> java.io.InputStream,
     ): Result<MediaAssetDto> {
         val filePart = MultipartBody.Part.createFormData(
             name = "file",
             filename = fileName,
-            body = bytes.toRequestBody(mimeType.toMediaTypeOrNull()),
+            body = StreamingRequestBody(
+                contentType = mimeType.toMediaTypeOrNull(),
+                contentLength = contentLength,
+                openStream = openStream,
+            ),
         )
         val assetTypePart = assetType.toRequestBody("text/plain".toMediaTypeOrNull())
         return safeApiCall { api.uploadMediaAssetV2(filePart, assetTypePart) }
