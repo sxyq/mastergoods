@@ -102,7 +102,9 @@ public class InventoryPanoramaLookupTool extends ToolSupport {
 
         List<ProductEntity> products = resolveProducts(ownerUserId, productId, keyword, queryLimit);
         List<ProductPanorama> panoramas = buildPanoramas(ownerUserId, products);
-        panoramas.sort(Comparator.comparingDouble(ProductPanorama::healthScore).reversed());
+        if (panoramas.size() > 1) {
+            panoramas.sort(Comparator.comparingDouble(ProductPanorama::healthScore).reversed());
+        }
         List<ProductPanorama> limited = limit(panoramas, queryLimit);
         ProductPanorama focus = limited.isEmpty() ? null : limited.get(0);
         int healthyCount = 0;
