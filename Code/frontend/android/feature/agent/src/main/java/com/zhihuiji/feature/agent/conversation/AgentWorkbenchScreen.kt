@@ -430,14 +430,7 @@ private fun DraftMetaTag(
     )
 }
 
-private fun draftTypeLabel(type: String): String = when (type.lowercase()) {
-    "sale_order" -> "销售单草稿"
-    "purchase_order" -> "采购单草稿"
-    "pay_order" -> "付款单草稿"
-    "finance_record" -> "资金流水草稿"
-    "product" -> "商品草稿"
-    else -> type.replace('_', ' ')
-}
+private fun draftTypeLabel(type: String): String = type.replace('_', ' ')
 
 @Composable
 private fun RiskAlertRow(

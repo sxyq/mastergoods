@@ -135,9 +135,9 @@ class AgentChatScreenToolStatusTest {
         )
 
         assertEquals("正在查询 2 个数据源", calls.assistantToolActivitySummary())
-        assertEquals("查询库存数据", calls.first().userFacingToolLabel())
+        assertEquals("查询数据", calls.first().userFacingToolLabel())
         assertEquals("命中 0 个商品", calls.first().userFacingToolOutcome())
-        assertEquals("整理图表数据", calls.last().userFacingToolLabel())
+        assertEquals("查询数据", calls.last().userFacingToolLabel())
         assertEquals("正在查询", calls.last().userFacingToolOutcome())
     }
 

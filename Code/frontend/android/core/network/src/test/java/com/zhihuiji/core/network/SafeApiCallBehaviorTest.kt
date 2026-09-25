@@ -57,7 +57,7 @@ class SafeApiCallBehaviorTest {
 
     @Test
     fun safeApiUnitCall_succeedsForDeleteApiResponse() = runBlocking {
-        // Simulates the exact pattern used by deleteAccount/deleteBillFundLink/deleteDraft/deleteAsset/deleteBinding
+        // Simulates the exact pattern used by deleteDraft/deleteAsset/deleteBinding
         val response: ApiResponse<Unit> = ApiResponse(code = 0, message = "", data = null)
         val result = safeApiUnitCall { response }
         assertTrue("safeApiUnitCall should succeed for ApiResponse<Unit> with null data", result.isSuccess)

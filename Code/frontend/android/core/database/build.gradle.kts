@@ -31,7 +31,8 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.core)
 
-    implementation(libs.room.runtime)
+    // ZhihuijiDatabase 的公共类型继承 RoomDatabase，消费方需要 Room 在编译 classpath 上。
+    api(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
 

@@ -1444,7 +1444,6 @@ private fun JsonElement.evidenceQueryWindowSummary(): String? {
         obj.intValue("window_days")?.let { "近 ${it} 天" },
         obj.intValue("limit")?.let { "上限 $it 条" },
         obj.intValue("rank_limit")?.let { "排行 $it 条" },
-        obj.intValue("low_stock_limit")?.let { "低库存 $it 条" },
         obj.booleanValue("is_truncated")?.takeIf { it }?.let { "已截断" },
     )
     return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ") ?: compactJsonText()

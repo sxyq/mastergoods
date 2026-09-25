@@ -1,16 +1,7 @@
 package com.zhihuiji.data.sync
 
-import com.zhihuiji.core.database.dao.CustomerDao
-import com.zhihuiji.core.database.dao.FinanceRecordDao
-import com.zhihuiji.core.database.dao.PayOrderDao
-import com.zhihuiji.core.database.dao.ProductDao
-import com.zhihuiji.core.database.dao.PurchaseOrderDao
-import com.zhihuiji.core.database.dao.SaleOrderDao
-import com.zhihuiji.core.database.dao.SupplierDao
 import com.zhihuiji.core.database.dao.SyncOutboxDao
 import com.zhihuiji.core.database.dao.SyncRemoteRecordDao
-import com.zhihuiji.core.database.entity.CustomerEntity
-import com.zhihuiji.core.database.entity.ProductEntity
 import com.zhihuiji.core.database.entity.SyncConflictEntity
 import com.zhihuiji.core.database.entity.SyncRemoteRecordEntity
 import com.zhihuiji.core.database.entity.SyncOutboxEntity
@@ -49,7 +40,7 @@ class SyncV2RepositoryTest {
         val repository = repository(api)
         val result = repository.health()
 
-        assertTrue(result.isSuccess)
+        assertTrue("failure: ${result.exceptionOrNull()}", result.isSuccess)
         assertEquals("syncHealthV2", invokedMethod)
         assertEquals("ok", result.getOrNull()?.status)
     }
@@ -67,7 +58,7 @@ class SyncV2RepositoryTest {
         val repository = repository(api)
         val result = repository.listImportJobs("running")
 
-        assertTrue(result.isSuccess)
+        assertTrue("failure: ${result.exceptionOrNull()}", result.isSuccess)
         assertEquals("importJobsV2", invokedMethod)
         assertEquals("running", capturedStatus)
     }
@@ -91,7 +82,7 @@ class SyncV2RepositoryTest {
                         data = SyncPullV2Response(
                             changes = listOf(
                                 SyncChangeV2Dto(
-                                    entityType = "customer",
+                                    entityType = "note",
                                     entityId = "1",
                                     operation = "delete",
                                 ),
@@ -117,7 +108,7 @@ class SyncV2RepositoryTest {
         val repository = repository(api)
         val result = repository.pullApplyAndAck(clientId = "client-a", limit = 50)
 
-        assertTrue(result.isSuccess)
+        assertTrue("failure: ${result.exceptionOrNull()}", result.isSuccess)
         assertEquals(1, pulledRequests.size)
         assertEquals(1, ackRequests.size)
         assertEquals("client-a", ackRequests.single().clientId)
@@ -163,7 +154,7 @@ class SyncV2RepositoryTest {
 
         val result = repository(api).pullApplyAndAck(clientId = "client-a")
 
-        assertTrue(result.isSuccess)
+        assertTrue("failure: ${result.exceptionOrNull()}", result.isSuccess)
         assertEquals(2, pullCount)
         assertEquals(listOf("cursor-1", "cursor-2"), acknowledgements)
         assertEquals("cursor-2", result.getOrNull())
@@ -175,7 +166,7 @@ class SyncV2RepositoryTest {
             SyncOutboxEntity(
                 operationId = "op-applied",
                 clientId = "client-a",
-                entityType = "customer",
+                entityType = "note",
                 entityId = "1",
                 operation = "create",
                 payload = "{}",
@@ -185,7 +176,7 @@ class SyncV2RepositoryTest {
             SyncOutboxEntity(
                 operationId = "op-duplicate",
                 clientId = "client-a",
-                entityType = "customer",
+                entityType = "note",
                 entityId = "2",
                 operation = "create",
                 payload = "{}",
@@ -195,10 +186,10 @@ class SyncV2RepositoryTest {
             SyncOutboxEntity(
                 operationId = "op-conflict",
                 clientId = "client-a",
-                entityType = "customer",
+                entityType = "note",
                 entityId = "3",
                 operation = "update",
-                payload = "{\"name\":\"本地\"}",
+                payload = "{\"title\":\"本地\"}",
                 baseVersion = 1L,
                 createdAt = 3L,
             ),
@@ -254,7 +245,7 @@ class SyncV2RepositoryTest {
             outboxDao = recordingOutboxDao(pending),
         ).syncPendingAndPull(clientId = "client-a")
 
-        assertTrue(result.isSuccess)
+        assertTrue("failure: ${result.exceptionOrNull()}", result.isSuccess)
         assertEquals(
             listOf("op-applied", "op-duplicate", "op-conflict"),
             uploadedRequest?.changes?.mapNotNull { it.operationId },
@@ -266,12 +257,12 @@ class SyncV2RepositoryTest {
     }
 
     @Test
-    fun syncPendingAndPullUploadsCustomerDeleteAndSettlesIt() = runBlocking {
+    fun syncPendingAndPullUploadsDeleteAndSettlesIt() = runBlocking {
         val pending = mutableListOf(
             SyncOutboxEntity(
-                operationId = "op-customer-delete",
+                operationId = "op-delete",
                 clientId = "client-a",
-                entityType = "customer",
+                entityType = "note",
                 entityId = "88",
                 operation = "delete",
                 payload = null,
@@ -288,10 +279,10 @@ class SyncV2RepositoryTest {
                         code = 0,
                         message = "ok",
                         data = SyncUploadV2Response(
-                            acceptedOperationIds = listOf("op-customer-delete"),
+                            acceptedOperationIds = listOf("op-delete"),
                             operationResults = listOf(
                                 SyncOperationResultV2Dto(
-                                    operationId = "op-customer-delete",
+                                    operationId = "op-delete",
                                     status = "applied",
                                 ),
                             ),
@@ -317,10 +308,10 @@ class SyncV2RepositoryTest {
             outboxDao = recordingOutboxDao(pending),
         ).syncPendingAndPull(clientId = "client-a")
 
-        assertTrue(result.isSuccess)
+        assertTrue("failure: ${result.exceptionOrNull()}", result.isSuccess)
         val uploadedChange = uploadedRequest?.changes?.singleOrNull()
-            ?: error("customer delete was not uploaded")
-        assertEquals("customer", uploadedChange.entityType)
+            ?: error("delete was not uploaded")
+        assertEquals("note", uploadedChange.entityType)
         assertEquals("88", uploadedChange.entityId)
         assertEquals("delete", uploadedChange.operation)
         assertEquals(null, uploadedChange.payload)
@@ -329,12 +320,12 @@ class SyncV2RepositoryTest {
     }
 
     @Test
-    fun failedCustomerDeleteRemainsPendingForTheNextSyncAttempt() = runBlocking {
+    fun failedDeleteRemainsPendingForTheNextSyncAttempt() = runBlocking {
         val pending = mutableListOf(
             SyncOutboxEntity(
-                operationId = "op-customer-delete-retry",
+                operationId = "op-delete-retry",
                 clientId = "client-a",
-                entityType = "customer",
+                entityType = "note",
                 entityId = "89",
                 operation = "delete",
                 payload = null,
@@ -352,7 +343,7 @@ class SyncV2RepositoryTest {
                         code = 0,
                         message = "ok",
                         data = SyncUploadV2Response(
-                            acceptedOperationIds = listOf("op-customer-delete-retry"),
+                            acceptedOperationIds = listOf("op-delete-retry"),
                         ),
                     )
                 }
@@ -384,7 +375,7 @@ class SyncV2RepositoryTest {
 
         val secondAttempt = repository.syncPendingAndPull(clientId = "client-a")
 
-        assertTrue(secondAttempt.isSuccess)
+        assertTrue("failure: ${secondAttempt.exceptionOrNull()}", secondAttempt.isSuccess)
         assertEquals(2, uploadAttempts)
         assertTrue(pending.isEmpty())
     }
@@ -420,72 +411,13 @@ class SyncV2RepositoryTest {
             ),
         )
 
-        assertTrue(result.isSuccess)
+        assertTrue("failure: ${result.exceptionOrNull()}", result.isSuccess)
         assertEquals(1, transactionCount)
         assertEquals(1, remoteRecords.size)
         assertEquals("agent_draft", remoteRecords.single().entityType)
         assertEquals("42", remoteRecords.single().entityId)
         assertFalse(remoteRecords.single().isDeleted)
         assertEquals("{\"title\":\"真实草稿\"}", remoteRecords.single().payload)
-    }
-
-    @Test
-    fun pulledServerProductReplacesSettledTemporaryProductWithTheSameCode() = runBlocking {
-        val deletedIds = mutableListOf<Long>()
-        val upserted = mutableListOf<ProductEntity>()
-        val temporary = ProductEntity(
-            id = -42L,
-            code = "OFFP-42",
-            name = "离线商品",
-            categoryId = null,
-            category = "",
-            unitId = null,
-            unit = "",
-            salePrice = 0.0,
-            purchasePrice = 0.0,
-            stock = 0.0,
-            safeStock = 0.0,
-            status = 1,
-            syncStatus = 1,
-            syncVersion = 0L,
-            createdAt = 1L,
-            updatedAt = 1L,
-        )
-        val productDao = Proxy.newProxyInstance(
-            ProductDao::class.java.classLoader,
-            arrayOf(ProductDao::class.java),
-        ) { _, method, args ->
-            when (method.name) {
-                "hashCode" -> 0
-                "toString" -> "ReconcilingProductDaoProxy"
-                "equals" -> false
-                "findTemporaryByCode" -> temporary.takeIf { it.code == args?.first() }
-                "deleteById" -> deletedIds += args?.first() as Long
-                "upsert" -> upserted += args?.first() as ProductEntity
-                else -> error("Unexpected product DAO call: ${method.name}")
-            }
-        } as ProductDao
-
-        val result = repository(
-            api = fakeApi { methodName, _ -> error("Unexpected API method: $methodName") },
-            productDao = productDao,
-            remoteRecordDao = recordingRemoteRecordDao(mutableListOf()),
-        ).applyPulledChanges(
-            SyncPullV2Response(
-                changes = listOf(
-                    SyncChangeV2Dto(
-                        entityType = "product",
-                        entityId = "5",
-                        operation = "create",
-                        payload = "{\"code\":\"OFFP-42\",\"name\":\"离线商品\"}",
-                    ),
-                ),
-            ),
-        )
-
-        assertTrue(result.isSuccess)
-        assertEquals(listOf(-42L), deletedIds)
-        assertEquals(listOf(5L), upserted.map(ProductEntity::id))
     }
 
     @Test
@@ -505,22 +437,22 @@ class SyncV2RepositoryTest {
 
         var localMutationApplied = false
         val result = repository.mutateAndEnqueue(
-            entityType = "customer",
+            entityType = "note",
             entityId = "-42",
             operation = "create",
-            payload = "{\"name\":\"离线客户\"}",
+            payload = "{\"title\":\"离线记录\"}",
             baseVersion = 0L,
         ) {
             localMutationApplied = true
             "local-result"
         }
 
-        assertTrue(result.isSuccess)
+        assertTrue("failure: ${result.exceptionOrNull()}", result.isSuccess)
         assertEquals("local-result", result.getOrNull())
         assertTrue(localMutationApplied)
         assertEquals(1, transactionCount)
         assertEquals(1, queued.size)
-        assertEquals("customer", queued.single().entityType)
+        assertEquals("note", queued.single().entityType)
         assertEquals("-42", queued.single().entityId)
         assertEquals("create", queued.single().operation)
         assertEquals(0L, queued.single().baseVersion)
@@ -532,10 +464,10 @@ class SyncV2RepositoryTest {
             SyncOutboxEntity(
                 operationId = "local-op-1",
                 clientId = "client-a",
-                entityType = "product",
+                entityType = "note",
                 entityId = "42",
                 operation = "update",
-                payload = "{\"name\":\"本地修改\"}",
+                payload = "{\"title\":\"本地修改\"}",
                 baseVersion = 1L,
                 createdAt = 1L,
             ),
@@ -551,17 +483,17 @@ class SyncV2RepositoryTest {
                 changes = listOf(
                     SyncChangeV2Dto(
                         operationId = "remote-op-1",
-                        entityType = "product",
+                        entityType = "note",
                         entityId = "42",
                         operation = "update",
-                        payload = "{\"name\":\"服务器修改\"}",
+                        payload = "{\"title\":\"服务器修改\"}",
                         baseVersion = 2L,
                     ),
                 ),
             ),
         )
 
-        assertTrue(result.isSuccess)
+        assertTrue("failure: ${result.exceptionOrNull()}", result.isSuccess)
         assertEquals(1, conflicts.size)
         assertEquals("local-op-1", conflicts.single().localOperationId)
         assertEquals("remote-op-1", conflicts.single().remoteOperationId)
@@ -574,10 +506,10 @@ class SyncV2RepositoryTest {
             SyncOutboxEntity(
                 operationId = "local-op-1",
                 clientId = "client-a",
-                entityType = "product",
+                entityType = "note",
                 entityId = "42",
                 operation = "update",
-                payload = "{\"name\":\"本地修改\"}",
+                payload = "{\"title\":\"本地修改\"}",
                 baseVersion = 1L,
                 createdAt = 1L,
                 state = SyncOutboxEntity.STATE_BLOCKED,
@@ -585,12 +517,12 @@ class SyncV2RepositoryTest {
         )
         val conflicts = mutableListOf(
             SyncConflictEntity(
-                entityType = "product",
+                entityType = "note",
                 entityId = "42",
                 localOperationId = "local-op-1",
-                localPayload = "{\"name\":\"本地修改\"}",
+                localPayload = "{\"title\":\"本地修改\"}",
                 remoteOperationId = "remote-op-1",
-                remotePayload = "{\"name\":\"服务器修改\"}",
+                remotePayload = "{\"title\":\"服务器修改\"}",
                 remoteVersion = 2L,
                 reason = "remote_change_while_local_pending",
                 createdAt = 2L,
@@ -601,26 +533,26 @@ class SyncV2RepositoryTest {
             api = fakeApi { methodName, _ -> error("Unexpected API method: $methodName") },
             outboxDao = recordingOutboxDao(pending),
             syncConflictDao = recordingConflictDao(conflicts),
-        ).resolveConflict("product", "42", keepLocal = true)
+        ).resolveConflict("note", "42", keepLocal = true)
 
-        assertTrue(result.isSuccess)
+        assertTrue("failure: ${result.exceptionOrNull()}", result.isSuccess)
         assertEquals(1, pending.size)
         assertEquals(SyncOutboxEntity.STATE_PENDING, pending.single().state)
         assertEquals(2L, pending.single().baseVersion)
-        assertEquals("{\"name\":\"本地修改\"}", pending.single().payload)
+        assertEquals("{\"title\":\"本地修改\"}", pending.single().payload)
         assertEquals(SyncConflictEntity.STATE_RESOLVED, conflicts.single().state)
     }
 
     @Test
-    fun acceptRemoteConflictAppliesSavedRemoteRecordWithoutRequeuingLocalOperation() = runBlocking {
+    fun acceptRemoteConflictSettlesOutboxAndMarksConflictResolvedWithoutRequeue() = runBlocking {
         val pending = mutableListOf(
             SyncOutboxEntity(
                 operationId = "local-op-1",
                 clientId = "client-a",
-                entityType = "customer",
+                entityType = "note",
                 entityId = "42",
                 operation = "update",
-                payload = "{\"name\":\"本地修改\"}",
+                payload = "{\"title\":\"本地修改\"}",
                 baseVersion = 1L,
                 createdAt = 1L,
                 state = SyncOutboxEntity.STATE_BLOCKED,
@@ -628,12 +560,12 @@ class SyncV2RepositoryTest {
         )
         val conflicts = mutableListOf(
             SyncConflictEntity(
-                entityType = "customer",
+                entityType = "note",
                 entityId = "42",
                 localOperationId = "local-op-1",
-                localPayload = "{\"name\":\"本地修改\"}",
+                localPayload = "{\"title\":\"本地修改\"}",
                 remoteOperationId = "remote-op-1",
-                remotePayload = "{\"name\":\"服务器修改\"}",
+                remotePayload = "{\"title\":\"服务器修改\"}",
                 remoteVersion = 2L,
                 reason = "remote_change_while_local_pending",
                 createdAt = 2L,
@@ -641,39 +573,32 @@ class SyncV2RepositoryTest {
         )
         val remoteRecords = mutableListOf(
             SyncRemoteRecordEntity(
-                entityType = "customer",
+                entityType = "note",
                 entityId = "42",
                 operationId = "remote-op-1",
                 operation = "update",
-                payload = "{\"id\":42,\"name\":\"服务器修改\"}",
+                payload = "{\"id\":42,\"title\":\"服务器修改\"}",
                 baseVersion = 2L,
                 updatedAt = 2L,
                 isDeleted = false,
                 receivedAt = 2L,
             ),
         )
-        val appliedCustomers = mutableListOf<CustomerEntity>()
 
         val result = repository(
             api = fakeApi { methodName, _ -> error("Unexpected API method: $methodName") },
             outboxDao = recordingOutboxDao(pending),
             remoteRecordDao = recordingRemoteRecordDao(remoteRecords),
             syncConflictDao = recordingConflictDao(conflicts),
-            customerDao = recordingCustomerDao(appliedCustomers),
-        ).resolveConflict("customer", "42", keepLocal = false)
+        ).resolveConflict("note", "42", keepLocal = false)
 
-        assertTrue(result.isSuccess)
+        assertTrue("failure: ${result.exceptionOrNull()}", result.isSuccess)
         assertTrue(pending.isEmpty())
         assertEquals(SyncConflictEntity.STATE_RESOLVED, conflicts.single().state)
-        assertEquals(1, appliedCustomers.size)
-        assertEquals(42L, appliedCustomers.single().id)
-        assertEquals("服务器修改", appliedCustomers.single().name)
     }
 
     private fun repository(
         api: ZhihuijiV2Api,
-        productDao: ProductDao = fakeDao(ProductDao::class.java),
-        customerDao: CustomerDao = fakeDao(CustomerDao::class.java),
         remoteRecordDao: SyncRemoteRecordDao = fakeDao(SyncRemoteRecordDao::class.java),
         outboxDao: SyncOutboxDao = fakeDao(SyncOutboxDao::class.java),
         syncConflictDao: com.zhihuiji.core.database.dao.SyncConflictDao =
@@ -682,13 +607,6 @@ class SyncV2RepositoryTest {
     ): SyncV2Repository {
         return SyncV2Repository(
             api = api,
-            productDao = productDao,
-            customerDao = customerDao,
-            supplierDao = fakeDao(SupplierDao::class.java),
-            saleOrderDao = fakeDao(SaleOrderDao::class.java),
-            purchaseOrderDao = fakeDao(PurchaseOrderDao::class.java),
-            payOrderDao = fakeDao(PayOrderDao::class.java),
-            financeRecordDao = fakeDao(FinanceRecordDao::class.java),
             syncOutboxDao = outboxDao,
             syncRemoteRecordDao = remoteRecordDao,
             syncConflictDao = syncConflictDao,
@@ -702,24 +620,6 @@ class SyncV2RepositoryTest {
 
     private val immediateTransactionRunner = object : SyncTransactionRunner {
         override suspend fun <T> run(block: suspend () -> T): T = block()
-    }
-
-    private fun recordingCustomerDao(records: MutableList<CustomerEntity>): CustomerDao {
-        return Proxy.newProxyInstance(
-            CustomerDao::class.java.classLoader,
-            arrayOf(CustomerDao::class.java),
-        ) { _, method, args ->
-            when (method.name) {
-                "hashCode" -> 0
-                "toString" -> "CustomerDaoProxy"
-                "equals" -> false
-                "upsert" -> {
-                    records += args?.first() as CustomerEntity
-                    Unit
-                }
-                else -> error("Unexpected customer DAO call: ${method.name}")
-            }
-        } as CustomerDao
     }
 
     private fun recordingRemoteRecordDao(records: MutableList<SyncRemoteRecordEntity>): SyncRemoteRecordDao {
@@ -855,15 +755,12 @@ class SyncV2RepositoryTest {
                 "deleteById",
                 "upsert",
                 "upsertAll",
-                "upsertItems",
-                "deleteItemsByOrderId",
-                "deleteItemById",
-                "deleteItemsByOrderIds",
                 "markResolved",
                 "delete",
                 "clear" -> Unit
                 "hasUnresolvedForEntity" -> false
                 "firstUnresolvedForEntity" -> null
+                "find" -> null
                 else -> error("Unexpected DAO call in SyncV2RepositoryTest: ${clazz.simpleName}.${method.name}")
             }
         } as T

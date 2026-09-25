@@ -10,25 +10,15 @@ class ZhihuijiApiContractTest {
     @Test
     fun apiContract_keepsCriticalRemoteEndpointPaths() {
         assertEquals("v1/auth/login", postPath("login"))
-        assertEquals("v1/products", getPath("products"))
-        assertEquals("v1/sale-orders", getPath("saleOrders"))
-        assertEquals("v1/purchase-orders", getPath("purchaseOrders"))
-        assertEquals("v1/pay-orders", getPath("payOrders"))
-        assertEquals("v2/finance-records", getPath("financeRecords"))
-        assertEquals("v2/reports/sales-summary", getPath("salesSummary"))
-        assertEquals("v2/reports/sales-trend", getPath("salesTrend"))
-        assertEquals("v2/reports/cashflow-summary", getPath("cashflowSummary"))
+        assertEquals("v1/auth/register", postPath("register"))
+        assertEquals("v1/auth/users/me", getPath("me"))
         assertEquals("v1/sync/health", getPath("syncHealth"))
         assertEquals("v2/agent/workbench", getPath("agentWorkbenchV2", ZhihuijiV2Api::class.java))
     }
 
     @Test
-    fun apiContract_hasMutationEndpointsForCoreBusinessFlows() {
-        assertEquals("v1/products", postPath("createProduct"))
-        assertEquals("v1/sale-orders", postPath("createSaleOrder"))
-        assertEquals("v1/purchase-orders", postPath("createPurchaseOrder"))
-        assertEquals("v1/pay-orders", postPath("createPayOrder"))
-        assertEquals("v2/finance-records", postPath("createFinanceRecord"))
+    fun apiContract_hasMutationEndpointsForCoreInfrastructureFlows() {
+        assertEquals("v2/sync/pull", postPath("pullSyncChangesV2", ZhihuijiV2Api::class.java))
         assertEquals("v2/agent/chat", postPath("agentChatV2", ZhihuijiV2Api::class.java))
     }
 

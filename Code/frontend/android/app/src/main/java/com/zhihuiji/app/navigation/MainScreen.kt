@@ -31,10 +31,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Analytics
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.Icon
 import androidx.compose.material3.CircularProgressIndicator
@@ -85,9 +82,6 @@ private data class BottomNavItem(
 
 private val bottomBarDestinations = listOf(
     BottomNavItem(TabRoutes.HOME, "首页", Icons.Filled.Home),
-    BottomNavItem(TabRoutes.DOCUMENTS, "单据", Icons.Filled.Description),
-    BottomNavItem(TabRoutes.ARCHIVES, "档案", Icons.Filled.Inventory),
-    BottomNavItem(TabRoutes.REPORTS, "报表", Icons.Filled.Analytics),
     BottomNavItem(TabRoutes.AGENT, "助手", Icons.Filled.SmartToy),
 )
 

@@ -108,27 +108,6 @@ object DatabaseModule {
     }
 
     @Provides
-    fun provideProductDao(db: ZhihuijiDatabase) = db.productDao()
-
-    @Provides
-    fun provideCustomerDao(db: ZhihuijiDatabase) = db.customerDao()
-
-    @Provides
-    fun provideSupplierDao(db: ZhihuijiDatabase) = db.supplierDao()
-
-    @Provides
-    fun provideSaleOrderDao(db: ZhihuijiDatabase) = db.saleOrderDao()
-
-    @Provides
-    fun providePurchaseOrderDao(db: ZhihuijiDatabase) = db.purchaseOrderDao()
-
-    @Provides
-    fun providePayOrderDao(db: ZhihuijiDatabase) = db.payOrderDao()
-
-    @Provides
-    fun provideFinanceRecordDao(db: ZhihuijiDatabase) = db.financeRecordDao()
-
-    @Provides
     fun provideAgentNotificationDao(db: ZhihuijiDatabase) = db.agentNotificationDao()
 
     @Provides
@@ -145,9 +124,6 @@ object DatabaseModule {
 
     @Provides
     fun providePendingAgentMessageDao(db: ZhihuijiDatabase) = db.pendingAgentMessageDao()
-
-    @Provides
-    fun provideDashboardSnapshotDao(db: ZhihuijiDatabase) = db.dashboardSnapshotDao()
 
     @Provides
     fun provideSyncConflictDao(db: ZhihuijiDatabase) = db.syncConflictDao()

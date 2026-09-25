@@ -151,7 +151,7 @@ class AgentV2RepositoryTest {
             invokedMethod = methodName
             invokedId = args?.get(0) as Long
             invokedArgs = args
-            ApiResponse(code = 0, message = "ok", data = AgentDraftDto(id = invokedId ?: 0L, draftType = "create_sale_order"))
+            ApiResponse(code = 0, message = "ok", data = AgentDraftDto(id = invokedId ?: 0L, draftType = "create_sample_draft"))
         }
 
         val repository = AgentV2Repository(api, fakeSseClient, json)
@@ -170,7 +170,7 @@ class AgentV2RepositoryTest {
         val api = fakeApi { methodName, args ->
             invokedMethod = methodName
             invokedId = args?.get(0) as Long
-            ApiResponse(code = 0, message = "ok", data = AgentDraftDto(id = invokedId ?: 0L, draftType = "create_sale_order"))
+            ApiResponse(code = 0, message = "ok", data = AgentDraftDto(id = invokedId ?: 0L, draftType = "create_sample_draft"))
         }
 
         val repository = AgentV2Repository(api, fakeSseClient, json)

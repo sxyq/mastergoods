@@ -241,34 +241,15 @@ private fun AgentDraftDto.toDraftItem(): DraftItem = DraftItem(
     id = id,
     conversationId = conversationId,
     draftType = draftType,
-    typeLabel = when (draftType) {
-        "sale" -> "销售"
-        "purchase" -> "采购"
-        "stock_adjust" -> "库存调整"
-        else -> draftType
-    },
+    typeLabel = draftType,
     title = title,
     businessNo = extractJsonValue(
         contentJson,
-        "orderNo",
-        "order_no",
-        "billNo",
-        "bill_no",
         "draftNo",
         "draft_no"
-    ) ?: "后端未返回业务号",
-    partyName = extractJsonValue(
-        contentJson,
-        "customerName",
-        "customer_name",
-        "supplierName",
-        "supplier_name",
-        "partnerName",
-        "partner_name",
-        "partyName",
-        "party_name"
-    ) ?: "后端未返回往来方",
-    amountText = extractAmountText(contentJson) ?: "后端未返回金额",
+    ) ?: "未返回编号",
+    partyName = "—",
+    amountText = extractAmountText(contentJson) ?: "未返回金额",
     status = status,
     statusLabel = when (status) {
         "active" -> "待确认（未执行）"
@@ -288,11 +269,7 @@ private fun extractAmountText(json: String): String? {
         json,
         "amount",
         "totalAmount",
-        "total_amount",
-        "payAmount",
-        "pay_amount",
-        "receivable",
-        "payable"
+        "total_amount"
     ) ?: return null
     val amount = rawAmount.toDoubleOrNull() ?: return rawAmount.takeIf { it.isNotBlank() }
     return "¥%.2f".format(amount)

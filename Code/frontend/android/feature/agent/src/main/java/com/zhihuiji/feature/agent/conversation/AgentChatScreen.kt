@@ -1648,8 +1648,6 @@ private fun JsonElement.safeQueryWindowSummary(): String? {
         obj.intValue("offset")?.let { "偏移 $it" },
         obj.stringValue("status")?.compactEvidenceText(20)?.let { "状态 $it" },
         obj.stringValue("order_status")?.compactEvidenceText(20)?.let { "订单 $it" },
-        obj.stringValue("payment_status")?.compactEvidenceText(20)?.let { "付款 $it" },
-        obj.stringValue("stock_status")?.compactEvidenceText(20)?.let { "库存 $it" },
     )
     return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
 }
@@ -2314,9 +2312,9 @@ private fun ImageGenerationDialog(
                         onValueChange = onPromptChange,
                         label = "生成描述",
                         placeholder = if (isImageToImage) {
-                            "例如：保留商品主体，改成白底电商海报"
+                            "例如：保留主体，改成白底海报"
                         } else {
-                            "例如：一张清爽的夏季促销商品海报"
+                            "例如：一张清爽的夏季促销海报"
                         },
                         singleLine = false,
                         minLines = 4,
@@ -2694,18 +2692,7 @@ private fun draftStatusLabelForChat(status: String): String = when (status.lower
     else -> status
 }
 
-private fun draftTypeLabelForChat(type: String): String = when (type.lowercase()) {
-    "sale_order" -> "创建销售单"
-    "purchase_order" -> "创建采购单"
-    "pay_order" -> "创建付款单"
-    "finance_record" -> "记录资金流水"
-    "product" -> "新增商品"
-    "customer" -> "新增客户"
-    "supplier" -> "新增供应商"
-    "sales_return" -> "创建销售退货单"
-    "purchase_return" -> "创建采购退货单"
-    else -> "执行这项操作"
-}
+private fun draftTypeLabelForChat(type: String): String = "执行这项操作"
 
 private val AgentAssistantAccent = Color(0xFF0EA5A4)
 

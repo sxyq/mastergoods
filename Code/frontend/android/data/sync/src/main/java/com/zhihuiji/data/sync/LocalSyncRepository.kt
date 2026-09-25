@@ -23,6 +23,4 @@ interface LocalSyncRepository {
     ): Result<T>
 
     suspend fun hasUnresolvedLocalChange(entityType: String, entityId: String): Boolean
-
-    suspend fun reconcileRemoteProduct(remoteId: Long, code: String)
 }

@@ -133,7 +133,7 @@ private fun RegisterContent(
                         Spacer(modifier = Modifier.height(6.dp))
 
                         Text(
-                            text = "后续销售、库存、客户与 AI 助手都会围绕这个账号同步",
+                            text = "后续业务数据与 AI 助手都会围绕这个账号同步",
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextSecondary,
                             textAlign = TextAlign.Center,
