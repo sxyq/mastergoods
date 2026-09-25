@@ -40,7 +40,8 @@
 | `application/service/v2/agent/memory` | AgentMemoryService — memory 基础设施 |
 | `application/service/v2/agent/search` | WebSearchProvider / Request / Result / UrlSafety / DisabledWebSearchProvider — 通用 |
 | V2 认证/媒体 | V2AuthController + 认证服务、V2MediaController + MediaService + MediaAsset/MediaBinding 实体与 repository、V2AgentController + AgentConversationService（会话 CRUD 部分） |
-| Sync 机制 | SyncService 同步机制、SyncChangeLog / SyncCursor / SyncOperationLog / SyncTombstone / SyncCursorId / SyncOperationLogId / SyncTombstoneId 实体 — 机制通用；同步载荷的实体定义跟随新领域重写 |
+| **认证（001B 修正一）** | **AuthService 归类 KEEP_BUT_SIMPLIFY，不删除。** `V2AuthController` 直接依赖 `AuthService`；连同 TokenService、TokenAuthenticationFilter、CurrentOwnerService、SessionAccessService、认证相关 User/Session 基础设施一并保留。001B 只保证认证骨架存在且可编译，不重写认证产品需求。旧邀请码/注册逻辑后续重新设计。 |
+| Sync（001B 修正三，**改判 REBUILD BUSINESS**） | 旧 `SyncService` 直接依赖 CustomerEntity / SupplierEntity / ProductEntity / SaleOrderEntity / PurchaseOrderEntity / PayOrderEntity 及其 Repository，**001B 已删除该实现**，不按 KEEP 原文件处理。**保留的同步基础设施**：SyncChangeLog、SyncCursor、SyncOperationLog、SyncTombstone 及 SyncCursorId / SyncOperationLogId / SyncTombstoneId 实体与 4 个 Repository（001B 未改动）；`V2SyncService` 收敛为通用协议面（health/cursor/ack/upload/pull + 墓碑/变更日志通用写入），实体类型分发清空，业务实体上传返回 `unsupported_entity_type` |
 | admin 域 | `api/controller/admin/*`（9 个）、`application/service/admin/*`（14 个）、Admin*Entity（6 个）、AdminAudit/Export/Retention 机制 — 平台管理层与业务领域弱耦合；其中 Export/Retention 的具体表引用需要跟随新模型调整 |
 | V2 import | ImportJobEntity / ImportJobRepository / V2ImportJobService / V2ImportJobWorkerService — 导入作业框架通用，字段映射重写 |
 | 基础实体 | UserEntity、SessionEntity、StoreEntity、StoreMembershipEntity、CreditTransactionEntity、UserCreditEntity、PosterGenerationEntity、AgentConversationEntity、AgentMessageEntity、AgentContextCheckpointEntity、AgentMemoryEntity、AgentDraftEntity、AgentTaskEntity、AgentNotificationEntity、AgentRunAuditEntity、AgentRunAuditEventEntity — 会话/店铺/积分/媒体/Agent 运行时框架实体 |
@@ -60,7 +61,28 @@
 ### AGENT_INFRASTRUCTURE vs AGENT_BUSINESS_TOOLS
 
 - **AGENT_INFRASTRUCTURE（评估复用，见 KEEP_BUT_SIMPLIFY）**：LLM client（LongCatAnthropicClient）、SSE（SseStreamEmitter）、run state（AgentRunState/AgentTerminalStatus/AgentIterationPolicy）、context（ContextBuilder/ContextCompactionService/ContextWindowResolver/TokenEstimator）、memory（AgentMemoryService）、Tool execution framework（ToolRegistry/ToolExecutor/ToolPlanner/ToolArgumentsValidator/ToolContext/ToolResult）、audit（RunAuditService）、search（WebSearchProvider 族）。
-- **AGENT_BUSINESS_TOOLS（原则上全部重写）**：`tool/readonly/` 46 个（SaleOrderLookupTool、PurchaseOrderLookupTool、PurchaseReceiptLookupTool、PayOrderLookupTool、FinanceRecordLookupTool、Inventory* 5 个、Customer/Supplier/Partner 族、Report/Sales/Cashflow 族、SmartRestockLookupTool、DataExportTool、GeneratePosterPromptTool、WebSearchTool 等）+ `tool/write/` 15 个（CreateAccountTransferTool、CreateCustomerTool、CreateFinanceRecordTool 等）。约 61 个 Tool 全部跟随新领域模型重写；Tool framework 接口签名保持，实现清空重建。
+- **AGENT_BUSINESS_TOOLS**：`tool/readonly/` 46 个 + `tool/write/` 15 个，共约 61 个。
+
+  > **001B 修正二：原「61 个全部跟随新领域重写」分类过粗，不再按 blanket 删除执行。** 拆分为三档：
+
+  **保留的通用能力（001B 实际保留 8 个）**
+
+  | Tool | 保留理由 |
+  |---|---|
+  | `WebSearchTool` | 通用 AI 能力 |
+  | `ResultVisualizationTool` | 通用 AI 能力 |
+  | `ImportJobLookupTool` | 导入作业框架查询 |
+  | `ImageGenerateTool` | 通用生成能力 |
+  | `MediaUploadTool` | 媒体基础设施 |
+  | `DataExportTool` | **能力壳重建**：移除 6 个业务 Repository 依赖，保留 schema/审计/结果块框架，字段清单与量预估留空待新领域接入 |
+  | `SyncStatusLookupTool` | 仅查询同步 infrastructure（`V2SyncService.health`） |
+  | `StoreInfoLookupTool` | 仅读 StoreEntity / StoreMembership（店铺为保留实体） |
+
+  **评估后删除**：`GeneratePosterPromptTool` —— 依赖 `ProductRepository` 且 `dependsOn() = product_catalog_lookup`，与已删商品域不可分离，判定属旧商品/营销领域，整体删除并在此记录。
+
+  **删除的旧业务 Tool（53 个）**：SaleOrder*、SalesReturn*、SalesOverview*、SalesTrend*、SalesFullChain*、PurchaseOrder*、PurchaseReceipt*、PurchaseReturn*、PurchaseTracking*、PayOrder*、Payment*、FinanceRecord*、Cashflow*、ReceivablePayable*、Inventory* 5、SmartRestock、Customer* 3、Supplier* 3、Partner* 2、Product* 4、Account* 3、AnomalyAlert、CrossAnalysis、CashChange、ReportQuery，以及 `tool/write/` 下全部 Create*（CreateSaleOrder / CreatePurchaseOrder / CreatePurchaseReceipt / CreatePurchaseReturn / CreateSalesReturn / CreatePayOrder / CreateFinanceRecord / CreateInventory* / CreateCustomer / CreateSupplier / CreateAccountTransfer 等）。
+
+  **Tool framework 全量保留**：AgentTool、ToolRegistry、ToolExecutor、ToolPlanner、ToolContext、ToolResult、ToolSupport、ToolArgumentsValidator、AgentEntityReferenceValidator。核心原则：**framework 留、通用 AI 能力留、旧业务领域 Tool 删**。
 
 ---
 
@@ -153,9 +175,9 @@
 
 ---
 
-## 7. DELETE PLAN（001B 执行，本轮不动）
+## 7. DELETE PLAN（001B 已执行，实际结果见 §10）
 
-预计删除目录树（删除前再以本清单核对一次边界）：
+预计删除目录树（001A 编制时的计划；001B 按本清单 + 主控三条修正执行，差异见 §10）：
 
 ```
 Code/backend/src/main/java/com/zhihuiji/backend/
@@ -218,3 +240,64 @@ data/database/                    # 本地 legacy 样本，永不进 Git
 1. `feature/agent`、`data/agent` 内渲染基建与业务载荷同模块 — 按文件级清单拆分；
 2. admin 域 Export/Retention 引用旧表 — 保留机制、改表引用；
 3. Sync/Import 机制与载荷同文件 — 保留机制、重写载荷。
+
+---
+
+## 10. 001B 实际删除结果（执行记录）
+
+执行分支：`rewrite/business-v3`；起点 HEAD `c19986aa`；`archive/pre-domain-rewrite` 与 tag `pre-domain-rewrite-2026-09-25` **未改动**（仍为 `19283a4d`）。
+迁移 **V1–V44 全部未动**（44 个文件，0 改动）；`data/database/**`、`docs/`、`testing/`、`deploy/` 未删。
+
+### 10.1 对本清单的三处修正（以主控提示为准，覆盖上文对应表述）
+
+| # | 修正 | 001B 实际处理 |
+|---|---|---|
+| 修正一 | AuthService 不直接删除 | `V2AuthController → AuthService` 依赖成立；AuthService、TokenService、TokenAuthenticationFilter、CurrentOwnerService、SessionAccessService、User/Session 基础设施全部保留，仅保证认证骨架可编译 |
+| 修正二 | 不删除全部 61 个 Agent Tool | 按三档拆分：**保留 8**（WebSearch / ResultVisualization / ImportJobLookup / ImageGenerate / MediaUpload / DataExport(能力壳) / SyncStatusLookup / StoreInfoLookup），**删除 53**（旧业务领域 Tool），`GeneratePosterPromptTool` 因依赖 `ProductRepository` 判定删除并记录 |
+| 修正三 | SyncService 非 KEEP 原文件 | 旧 v1 `SyncService`（576 行，直依赖 7 个业务实体）**已删除**；`V2SyncService` 2494 → 877 行收敛为通用协议面；Sync 四件套实体 + 4 个 Repository 原样保留 |
+
+### 10.2 三端删除量
+
+| 端 | 前 | 后 | 说明 |
+|---|---:|---:|---|
+| Backend main java | 421 | **196** | 删 v1 全部 11 个 controller、v2 业务 controller 26、业务 DTO 27、业务枚举 9、业务 Service 36、业务 Entity 31、业务 Repository 31、readonly Tool 40、write Tool 13 |
+| Backend test java | 143 | **55** | 删业务 controller/service/repository/tool/migration-SQL 测试 86 + `ToolPlannerTest`×2（55 个旧业务路由用例，清场后无通过用例，整体删除） |
+| Android kt | 345 | **190** | 删 15 个模块共 100 kt + core/model、core/database 业务实体与 EntityMappers 等 |
+| Android modules | 30 | **15** | settings.gradle.kts include 30 → 15 |
+| Web ts+vue | 51 | **18** | 删 34 个旧业务页面/实体，新增 1 个 rewrite shell |
+| Backend Agent Tool | 61 | **8** | readonly 46→6、write 15→2 |
+| Migration | 44 | **44** | 零改动 |
+
+### 10.3 保留骨架
+
+- **Backend**：`api/common` 6 个通用类 + admin conflict；`api/controller/{admin,v2}` 9+5；`application/service/{admin,store,v2,v2/agent}`；agent component/context/memory/search/tool framework；`domain/entity` 32 个基础设施实体（含 Sync 四件套）；`infrastructure/{security,config,ai,storage,repository}`；认证 AuthService + SecurityConfig。
+- **Android**：`app`（收敛为 rewrite shell，底栏「首页/助手」）、`backdrop`、`benchmark`、`core/{common,designsystem,network,datastore,model,database}`、`data/{auth,agent,sync}`、`feature/{auth,settings,agent}`；Room migration 7 个 + DatabaseModule 内联 3 个保留。
+- **Web**：`app/{layouts,router,stores}`、`entities/auth`、`shared/{api,ui,utils}`、`pages/{auth,Forbidden,RewriteShell}`。
+
+### 10.4 构建与测试验证
+
+| 端 | 命令 | 结果 |
+|---|---|---|
+| Backend | `./gradlew clean compileJava compileTestJava test` | **BUILD SUCCESSFUL**；55 suites / **359 tests / 0 failures / 0 errors** |
+| Android | `./gradlew :app:compileDebugKotlin` + 10 个保留模块单测 | **BUILD SUCCESSFUL**；**294 tests / 0 failures / 0 errors** |
+| Web | `npm run build`（`vue-tsc -b && vite build`） | **成功**，退出码 0 |
+
+### 10.5 旧业务源码残留搜索结果
+
+对 `Code/**` 全部 `.java/.kt/.ts/.vue/.kts` 扫描 `SaleOrder / PurchaseReceipt / SalesReturn / PurchaseReturn / PayOrder / FinanceRecord / AccountTransfer / BillFundLink / CashChange / InventoryLedger / InventoryAdjustment / SmartRestock / create_sale_order / create_purchase_order` 等符号（排除 migration 与生成物）：**0 命中**。
+
+仍存在但**不属旧业务源码**的项：
+1. `ToolPlanner.isAmbiguousWriteRequest` 用中文词「商品/客户/供应商」做写请求歧义判断 —— 通用自然语言启发式，不引用任何领域类；`AgentPromptCatalog.targetWriteTool` 只会返回保留的 `image_generate` / `media_upload_tool`，`targetReadTool` 已中和返回 null。
+2. `PosterGenerationEntity.product_id` 列 —— 该实体在保留清单内，migration 不可改。
+3. `ToolExecutorAdminConfigContractTest` / `AdminAgentRuntimeConfigServiceTest` / `LongCatAnthropicClientTest` / `ToolRegistryTest` / `ContextBuilderTest` / Android 序列化测试中的旧工具名字符串 —— 测试主体是 admin 配置、LLM client、registry、context、序列化机制，工具名仅为随行样本；001B 已把 `create_sale_order` / `create_purchase_order` 改为中性样本名。
+4. Android Room migration（`Migration9To10.kt` 含 `receivableCustomerCount` 列）与 Backend V1–V44 —— 迁移历史，按第 4 节规定不动。
+5. `LegacyBusinessTableCleaner` 内 19 个业务表名字符串 —— 注销/访问撤销清数据的既有安全能力，改用裸 SQL 延续，未恢复实体。
+
+### 10.6 待主控决策（001B 未处理）
+
+1. **Room 版本仍为 11、实体 27 → 8**：老设备打开旧库时遗留业务表成为 schema 外孤儿表（Room 不校验）。是否随新领域升版本并 DROP 旧表。
+2. **迁移链保留 vs 清除**：若确定重写后强制清库重导，可整体删除 Android 10 个迁移并重置版本 —— 涉及现网老设备策略。
+3. **Backend `static/admin-console` 已删除**：它只调用随清单删除的 `/v1/admin/*`，保留即死 UI；如需恢复要改接 `/v2/admin/*`。
+4. **三处「旧请求按失败处理」**：`AgentDraftConfirmService` 非 image_generate/media_upload 草稿抛"不支持的草稿类型"；ImportJob worker 对任何 sourceType 标记失败；`V2SyncService` 上传对任何实体类型返回 `unsupported_entity_type`。均为清场后的预期行为，已加占位注释。
+5. **Web `style.css`（3468 行）与 `public/stitch_exports/`** 仍含旧页面样式/静态导出，不影响构建，留待新 IA 时清理。
+
