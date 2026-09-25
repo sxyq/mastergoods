@@ -44,3 +44,11 @@ testing/Agent/*/logs/**
 
 # Codex workspace metadata is local state, not project source.
 .workbuddy/
+
+# Pre-rewrite archive (2026-09-25): raw android perf evidence stays local.
+# Formal perf reports live in docs/ and testing/Agent/*/reports/ (tracked);
+# only machine-generated measurement output is ignored here.
+testing/android/perf/*.txt
+testing/android/perf/*.pftrace
+testing/android/perf/perf-results.json
+testing/android/perf/device-meta.json
