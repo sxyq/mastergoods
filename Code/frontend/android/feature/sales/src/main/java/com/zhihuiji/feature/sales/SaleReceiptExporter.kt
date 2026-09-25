@@ -26,18 +26,16 @@ internal object SaleReceiptExporter {
     suspend fun printPdf(context: Context, order: SaleOrderV2Dto, pdf: ByteArray) {
         check(pdf.isNotEmpty()) { "小票 PDF 内容为空" }
         val fileName = "sale-receipt-${order.id}-${safeFileName(order.orderNo)}.pdf"
-        val pdfFile = withContext(Dispatchers.IO) {
-            val receiptDirectory = File(context.cacheDir, "sale-receipts").apply { mkdirs() }
-            receiptDirectory.listFiles()?.forEach { stale ->
+        val receiptDirectory = withContext(Dispatchers.IO) {
+            val directory = File(context.cacheDir, "sale-receipts").apply { mkdirs() }
+            directory.listFiles()?.forEach { stale ->
                 if (System.currentTimeMillis() - stale.lastModified() > STALE_RECEIPT_MAX_AGE_MS) {
                     stale.delete()
                 }
             }
-            val file = File(receiptDirectory, fileName)
-            FileOutputStream(file).use { output -> output.write(pdf) }
-            file
+            directory
         }
-        try {
+        writePdfForPrint(File(receiptDirectory, fileName), pdf) { pdfFile ->
             val printManager = context.getSystemService(PrintManager::class.java)
                 ?: error("系统打印服务不可用")
             printManager.print(
@@ -45,8 +43,28 @@ internal object SaleReceiptExporter {
                 SaleReceiptPdfPrintAdapter(pdfFile, fileName),
                 null,
             )
-        } catch (error: Exception) {
-            pdfFile.delete()
+        }
+    }
+
+    /**
+     * 写入 [target] 并交给 [submitPrint] 提交打印作业。
+     * 打印作业成功提交之前的写入失败、提交失败或协程取消，都会删除本次生成的文件；
+     * 提交成功后不再删除，缓存文件交由打印作业生命周期（SaleReceiptPdfPrintAdapter.onFinish）清理。
+     */
+    internal suspend fun writePdfForPrint(
+        target: File,
+        pdf: ByteArray,
+        submitPrint: suspend (File) -> Unit,
+    ) {
+        var writeStarted = false
+        try {
+            withContext(Dispatchers.IO) {
+                writeStarted = true
+                FileOutputStream(target).use { output -> output.write(pdf) }
+            }
+            submitPrint(target)
+        } catch (error: Throwable) {
+            if (writeStarted) target.delete()
             throw error
         }
     }
