@@ -1,9 +1,0 @@
-{
-  "performed": false,
-  "created_by_this_case": 0,
-  "deleted_by_this_case": 0,
-  "preserved": "all existing users, stores, owner=2 business fixtures and Agent/media tables",
-  "rollback_image": "sxyq27-zhj-api:20260831T094606-C-abd-owner-web-agent",
-  "database_backup_reference": "/opt/sxyq27/master-goods/releases/20260830T173200-admin-v41-ebe31391/zhj-before-v41.dump",
-  "backup_values_read": false
-}

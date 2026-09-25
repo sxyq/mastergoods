@@ -1,8 +1,0 @@
-﻿编号,重复组,实现A,实现B,相似类型,对比依据,结论,建议,可信度
-D-001,状态码→中文标签映射（三端+后端）,Code/frontend/android/core/common/src/main/java/com/zhihuiji/core/common/StatusLabels.kt,Code/frontend/web/src/shared/utils/business.ts（saleShippingStatus 等）；后端 V2SaleReceiptPdfService L257；iOS Core/Models/DisplayNames.swift,同一业务需求的多套实现（有意保留的平台适配层）,"AGENTS.md 明确三端各自维护标签表；键值一致（0=草稿,1=完成,2=取消,3=已确认）",合理：跨端无法共享代码，但需以契约测试防止漂移,保持；后端契约变更时三端联动,高
-D-002,金额格式化,Android MoneyFormatter.kt（ThreadLocal DecimalFormat）,Web business.ts formatCurrency（L76）；iOS 待确认,有意保留的适配层,两端口径一致（¥ 前缀 + 两位小数）,合理,iOS 实现时复用同一口径,高
-D-003,销售订单服务 v1/v2,application/service/SaleOrderService.java,application/service/v2/V2SaleOrderService.java,实际结构重复（含行为差异：v2 有确认流）,问题 P-010；两套 create/cancel 并存,过渡期双轨，需明确收口计划,见 P-010,高
-D-004,PDF 生成,SaleOrderService.buildSimplePdf（手写 PDF 字节流）,v2/V2SaleReceiptPdfService.java,同一业务需求的多套实现,问题 P-011,应合并,见 P-011,高
-D-005,构建缓存目录,"tmp/（44,466 文件）","Temp/（5,854 文件）",结构重复（目录职责重叠）,README 仅定义 tmp/ 为缓存目录,疑似历史遗留,确认 Temp/ 来源后归并（本次未移动任何文件）,中
-D-006,两个 Web 前端工程,Code/frontend/web（店主管理端）,Code/frontend/admin-web（zhihuiji-admin-web 管理员后台）,表面相似、实为不同业务角色,package.json 名称与用途不同；docs/管理员后台 文档,有意保留的两个工程,在 README 目录说明中写明两者边界,高
-D-007,函数名重复检测（单语言内）,Web formatCurrency：仅 business.ts 一处定义,-,已排除重复,grep -rEn 'function formatCurrency|const formatCurrency' 全库仅 1 处；状态标签函数未被页面重写,AGENTS.md 的『删除 7 个重复函数』结论仍然成立,-,高

@@ -1,7 +1,0 @@
-captured_at=2026-08-28T19:30:55Z
-backend_pid=unavailable
-unauthenticated_endpoint_statuses
-/actuator/health http=000 body_bytes=
-/actuator/info http=000 body_bytes=
-/v2/agent/conversations http=000 body_bytes=
-/v2/agent/drafts http=000 body_bytes=

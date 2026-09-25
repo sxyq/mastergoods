@@ -1,8 +1,0 @@
-{
-  "test_id": "AG-CLI-AND-P2-RO-002-RERUN-001",
-  "retest_of": "AG-CLI-AND-P2-RO-002",
-  "input": "Summarize cashflow for the last 30 days",
-  "operation": "Android UI input followed by the visible send action",
-  "expected_tool": "cashflow_summary_lookup",
-  "scope": "current owner and store determined by server session"
-}

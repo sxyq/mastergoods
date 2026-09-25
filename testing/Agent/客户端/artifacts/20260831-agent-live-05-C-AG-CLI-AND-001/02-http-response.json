@@ -1,5 +1,0 @@
-{
-  "actual_agent_send": false,
-  "app_http": null,
-  "note": "No app HTTP request was sent. Static source endpoint evidence is recorded in 00-environment.md."
-}

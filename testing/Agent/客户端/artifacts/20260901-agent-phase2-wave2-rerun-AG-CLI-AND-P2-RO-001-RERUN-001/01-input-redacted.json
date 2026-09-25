@@ -1,8 +1,0 @@
-{
-  "test_id": "AG-CLI-AND-P2-RO-001-RERUN-001",
-  "retest_of": "AG-CLI-AND-P2-RO-001",
-  "input": "Show the current product list",
-  "operation": "Android UI input followed by the visible send action",
-  "expected_tool": "product_catalog_lookup",
-  "scope": "current owner and store determined by server session"
-}

@@ -1,2 +1,0 @@
-{"seq":3,"event":"tool_started","tool_name":"cashflow_summary_lookup","tool_call_id":"call_7yE3GKR4Bj12aDruRzcrgNBW"}
-{"seq":4,"event":"tool_completed","tool_name":"cashflow_summary_lookup","tool_call_id":"call_7yE3GKR4Bj12aDruRzcrgNBW","status":"completed","tool_count":1}
