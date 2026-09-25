@@ -1,54 +1,25 @@
 .DS_Store
 
+# Local legacy database samples — never commit these.
+/data/database/
+
+# Build outputs and tool caches (any module, including reference/ui-android).
 **/build/
 **/.gradle/
 **/.kotlin/
-**/local.properties
-
-.codegraph/
-.gradle-local/
-tmp/
-.vscode/
-.ssh-check/
-.trae/
-bin/
-migration_output/
-migration_source_zhihuiji/
-/data/database/
-
+**/node_modules/
+**/dist/
 **/xcuserdata/
+**/local.properties
+.gradle-local/
+bin/
+tmp/
 
-# Ignore generated directories under Code and other project boundaries.
-**/.gradle
-**/.kotlin
-**/build
-**/node_modules
-**/dist
-**/xcuserdata
-.gradle-local
-bin
-
-android-test-screenshots/
-docs/android-117-test-artifacts/
-12_workspace/
-
-# Local review outputs and generated test evidence remain on disk but are not
-# part of the source tree tracked by Git.
-testing/.artifacts/
-# Agent raw run evidence stays local; formal reports and ledgers remain tracked.
-testing/Agent/*/artifacts/**
-!testing/Agent/*/artifacts/.gitkeep
-testing/Agent/*/logs/**
-!testing/Agent/*/logs/.gitkeep
-审查/
-
-# Codex workspace metadata is local state, not project source.
+# Editor / agent workspace state.
+.vscode/
+.trae/
+.codegraph/
 .workbuddy/
 
-# Pre-rewrite archive (2026-09-25): raw android perf evidence stays local.
-# Formal perf reports live in docs/ and testing/Agent/*/reports/ (tracked);
-# only machine-generated measurement output is ignored here.
-testing/android/perf/*.txt
-testing/android/perf/*.pftrace
-testing/android/perf/perf-results.json
-testing/android/perf/device-meta.json
+# Server credentials must never live in this repository.
+.ssh-check/
