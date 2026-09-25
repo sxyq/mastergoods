@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.feature.agent
 
 import com.zhihuiji.core.model.v2.agent.AnswerTraceStatus
@@ -169,5 +170,104 @@ class AgentChatTimelineKeyTest {
             draft = DraftTrace(draftId = 9L, draftType = "sale", title = "草稿", status = "pending", timestamp = 3L),
         )
         assertNotEquals(traceStructureKeyOf(message, base), traceStructureKeyOf(message, withDraft))
+    }
+
+    private fun resultBlockItem(block: ResultBlockDto, id: String, timestamp: Long) =
+        RunTraceItem.ResultBlock(block = block, id = id, timestamp = timestamp)
+
+    /** 模拟 Compose 的 remember(structureKey)：结构键不变就复用缓存骨架。 */
+    private fun skeletonFromCache(
+        message: ChatMessage,
+        trace: RunTrace,
+        cached: Pair<TraceStructureKey, List<RunTraceItem>>?,
+    ): Pair<TraceStructureKey, List<RunTraceItem>> {
+        val key = traceStructureKeyOf(message, trace)
+        if (cached != null && cached.first == key) return cached
+        return key to buildTraceSkeleton(message, trace)
+    }
+
+    @Test
+    fun traceResultBlockAppend_rebuildsSkeletonAndRefreshesTimeline() {
+        val blockA = ResultBlockDto(blockType = "table", title = "销售明细")
+        val blockB = ResultBlockDto(blockType = "kpi", title = "关键指标")
+        val message = baseMessage(isStreaming = true)
+        // message visibleParts 全程不变：结果块只由 trace 驱动。
+        val visibleParts = emptyList<ChatMessagePart>()
+
+        val traceV1 = RunTrace(
+            runId = "r1",
+            timeline = listOf(
+                RunTraceItem.Answer(id = "answer", status = AnswerTraceStatus.STREAMING, timestamp = 1_000L),
+                resultBlockItem(blockA, "result:1", 1_100L),
+            ),
+        )
+        val traceV2 = traceV1.copy(
+            timeline = traceV1.timeline + resultBlockItem(blockB, "result:2", 1_200L),
+        )
+
+        var cache = skeletonFromCache(message, traceV1, null)
+        val before = attachStreamingTimelineItems(cache.second, message, traceV1, visibleParts)
+        assertEquals(listOf(blockA), before.filterIsInstance<RunTraceItem.ResultBlock>().map { it.block })
+
+        cache = skeletonFromCache(message, traceV2, cache)
+        val after = attachStreamingTimelineItems(cache.second, message, traceV2, visibleParts)
+        val blocks = after.filterIsInstance<RunTraceItem.ResultBlock>()
+
+        assertEquals(listOf(blockA, blockB), blocks.map { it.block })
+        assertEquals(blocks.map { it.block }.distinct(), blocks.map { it.block })
+        // 结构键必须随 trace 结果块变化，否则骨架不会重建。
+        assertNotEquals(traceStructureKeyOf(message, traceV1), traceStructureKeyOf(message, traceV2))
+    }
+
+    @Test
+    fun traceResultBlockContentChange_replacesStaleBlockInTimeline() {
+        val blockV1 = ResultBlockDto(blockType = "table", title = "销售明细")
+        val blockV2 = ResultBlockDto(blockType = "table", title = "销售明细（已更新）")
+        val message = baseMessage(isStreaming = true)
+        val visibleParts = emptyList<ChatMessagePart>()
+
+        val traceV1 = RunTrace(
+            runId = "r1",
+            timeline = listOf(
+                RunTraceItem.Answer(id = "answer", status = AnswerTraceStatus.STREAMING, timestamp = 1_000L),
+                resultBlockItem(blockV1, "result:1", 1_100L),
+            ),
+        )
+        val traceV2 = traceV1.copy(
+            timeline = listOf(
+                RunTraceItem.Answer(id = "answer", status = AnswerTraceStatus.STREAMING, timestamp = 1_000L),
+                resultBlockItem(blockV2, "result:1", 1_100L),
+            ),
+        )
+
+        var cache = skeletonFromCache(message, traceV1, null)
+        val before = attachStreamingTimelineItems(cache.second, message, traceV1, visibleParts)
+        assertEquals(listOf(blockV1), before.filterIsInstance<RunTraceItem.ResultBlock>().map { it.block })
+
+        cache = skeletonFromCache(message, traceV2, cache)
+        val after = attachStreamingTimelineItems(cache.second, message, traceV2, visibleParts)
+        val blocks = after.filterIsInstance<RunTraceItem.ResultBlock>()
+
+        assertEquals(listOf(blockV2), blocks.map { it.block })
+        // 结构键必须随 trace 结果块内容变化，否则骨架不会重建。
+        assertNotEquals(traceStructureKeyOf(message, traceV1), traceStructureKeyOf(message, traceV2))
+    }
+
+    @Test
+    fun visiblePartsAndTraceShareSameBlock_attachesItOnlyOnce() {
+        val block = ResultBlockDto(blockType = "table", title = "销售明细")
+        val message = baseMessage(isStreaming = true)
+        val visibleParts = listOf(ChatMessagePart.ResultBlock(block))
+        val trace = RunTrace(
+            runId = "r1",
+            timeline = listOf(resultBlockItem(block, "result:1", 1_100L)),
+        )
+
+        val skeleton = buildTraceSkeleton(message, trace)
+        val timeline = attachStreamingTimelineItems(skeleton, message, trace, visibleParts)
+        val blocks = timeline.filterIsInstance<RunTraceItem.ResultBlock>()
+
+        assertEquals(1, blocks.size)
+        assertEquals(block, blocks.single().block)
     }
 }

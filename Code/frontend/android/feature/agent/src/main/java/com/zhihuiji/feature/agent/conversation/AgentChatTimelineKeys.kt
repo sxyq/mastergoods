@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.feature.agent
 
 import com.zhihuiji.core.model.v2.agent.AnswerTraceStatus
@@ -19,7 +20,8 @@ import com.zhihuiji.core.model.v2.agent.ToolCallRecord
  *
  * 直接持有不可变模型引用（含 DraftTrace.title、ToolCallRecord.queryWindow/totalCount/limit/
  * isTruncated/evidence 等全部字段），用 data equals 比较，避免每次流式重组拼接大量字符串。
- * 不绑定完整 RunTrace 对象本身，也不把 Answer/ResultBlock 当作结构变化。
+ * 不绑定完整 RunTrace 对象本身，也不把 Answer 当作结构变化；trace.timeline 的 ResultBlock
+ * 是骨架输入，必须参与本键，否则 trace 结果块变化时会复用旧骨架并显示旧块。
  */
 internal class TraceStructureKey(
     internal val messageId: String,
@@ -112,17 +114,22 @@ internal class AnswerDisplayKey(
     }
 }
 
+/**
+ * 骨架输入中可被结构键忽略的只有 Answer：流式文本增量由显示键驱动，不重建 plan/tool。
+ * ResultBlock 不能一并排除——buildTraceSkeleton 直接读取 trace.timeline 的结果块，
+ * 排除会让 trace 结果块变化而 message visibleParts 未变时继续复用旧骨架。
+ */
 private fun structuralTimelineOf(timeline: List<RunTraceItem>): List<RunTraceItem> {
     if (timeline.isEmpty()) return timeline
-    var hasStreamingOnly = false
+    var hasAnswer = false
     for (item in timeline) {
-        if (item is RunTraceItem.Answer || item is RunTraceItem.ResultBlock) {
-            hasStreamingOnly = true
+        if (item is RunTraceItem.Answer) {
+            hasAnswer = true
             break
         }
     }
-    if (!hasStreamingOnly) return timeline
-    return timeline.filterNot { it is RunTraceItem.Answer || it is RunTraceItem.ResultBlock }
+    if (!hasAnswer) return timeline
+    return timeline.filterNot { it is RunTraceItem.Answer }
 }
 
 internal fun traceStructureKeyOf(message: ChatMessage, trace: RunTrace?): TraceStructureKey {
