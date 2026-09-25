@@ -617,20 +617,35 @@ private fun AssistantResponseSurface(
 ) {
     val trace = message.runTrace
     val visibleParts = remember(message.id, parts) { parts.visibleAssistantParts() }
-    val timeline = assistantVisibleTimeline(message, trace, visibleParts)
+    val structureKey = traceStructureKeyOf(message, trace)
+    val answerKey = answerDisplayKeyOf(message, trace, visibleParts)
+    // 骨架跟结构键走；Answer/ResultBlock 走显示键，文本增量不重做 plan/tool。
+    val traceSkeleton = remember(structureKey) {
+        buildTraceSkeleton(message = message, trace = trace)
+    }
+    val timeline = remember(traceSkeleton, answerKey) {
+        attachStreamingTimelineItems(
+            skeleton = traceSkeleton,
+            message = message,
+            trace = trace,
+            visibleParts = visibleParts,
+        )
+    }
     if (!message.isStreaming && visibleParts.isEmpty() && timeline.isEmpty()) return
 
-    val thinkingItems = timeline.filterIsInstance<RunTraceItem.PlanSummary>()
-    val executionItems = timeline.filter {
-        it is RunTraceItem.Safety || it is RunTraceItem.Tool
+    val thinkingItems = remember(timeline) { timeline.filterIsInstance<RunTraceItem.PlanSummary>() }
+    val executionItems = remember(timeline) {
+        timeline.filter { it is RunTraceItem.Safety || it is RunTraceItem.Tool }
     }
-    val resultItems = timeline.filterIsInstance<RunTraceItem.ResultBlock>()
-    val renderParts = orderedAssistantParts(
-        visibleParts = visibleParts,
-        traceBlocks = resultItems.map { it.block },
-    )
-    val draftItems = timeline.filterIsInstance<RunTraceItem.Draft>()
-    val auditItems = timeline.filterIsInstance<RunTraceItem.AuditLossy>()
+    val resultItems = remember(timeline) { timeline.filterIsInstance<RunTraceItem.ResultBlock>() }
+    val renderParts = remember(visibleParts, resultItems) {
+        orderedAssistantParts(
+            visibleParts = visibleParts,
+            traceBlocks = resultItems.map { it.block },
+        )
+    }
+    val draftItems = remember(timeline) { timeline.filterIsInstance<RunTraceItem.Draft>() }
+    val auditItems = remember(timeline) { timeline.filterIsInstance<RunTraceItem.AuditLossy>() }
     val terminal = message.assistantTerminalStatus(trace)
     var thinkingExpanded by rememberSaveable(message.id) {
         mutableStateOf(message.isStreaming)
@@ -1219,7 +1234,7 @@ private fun AssistantAnswerBody(
     }
 }
 
-private fun List<RunTraceItem>.hasVisibleProcess(): Boolean =
+internal fun List<RunTraceItem>.hasVisibleProcess(): Boolean =
     any { item -> item !is RunTraceItem.Answer }
 
 @Composable
@@ -1335,34 +1350,13 @@ private fun AssistantAuditStatusCard(
     }
 }
 
-@Composable
-private fun AssistantCollapsedRunSummary(
+/**
+ * 仅由 RunTrace 派生的稳定骨架；answer_delta 只改文本时可复用，避免整表重建/排序。
+ */
+internal fun buildTraceSkeleton(
     message: ChatMessage,
     trace: RunTrace?,
-    timeline: List<RunTraceItem>,
-) {
-    val terminal = message.assistantTerminalStatus(trace)
-    val toolCount = timeline.count { it is RunTraceItem.Tool }
-    val auditWarning = timeline.filterIsInstance<RunTraceItem.AuditLossy>().firstOrNull()
-    val summary = buildList {
-        terminal?.let { add("运行${it.terminalStatusLabel()}") }
-        if (toolCount > 0) add("已记录 $toolCount 个查询步骤")
-        auditWarning?.let { add("审计记录不完整") }
-    }.ifEmpty { listOf("回答已生成") }
-    Text(
-        text = summary.joinToString(" · "),
-        style = MaterialTheme.typography.labelSmall,
-        color = if (auditWarning != null) WarningOrange else TextSecondary,
-    )
-}
-
-private fun assistantVisibleTimeline(
-    message: ChatMessage,
-    trace: RunTrace?,
-    visibleParts: List<ChatMessagePart>,
 ): List<RunTraceItem> {
-    if (trace == null && !message.isStreaming && visibleParts.isEmpty()) return emptyList()
-
     val items = trace?.timeline.orEmpty().toMutableList()
     trace?.planSteps.orEmpty().forEachIndexed { index, step ->
         if (items.none { item ->
@@ -1402,32 +1396,6 @@ private fun assistantVisibleTimeline(
             )
         }
     }
-
-    val shouldShowAnswer = message.isStreaming || visibleParts.isNotEmpty() ||
-        trace?.answerStatus?.let { it != AnswerTraceStatus.NOT_STARTED } == true ||
-        trace?.toolCalls?.isNotEmpty() == true
-    if (shouldShowAnswer) {
-        val existing = items.filterIsInstance<RunTraceItem.Answer>().firstOrNull()
-        items.removeAll { it is RunTraceItem.Answer }
-        items += RunTraceItem.Answer(
-            id = existing?.id ?: "answer",
-            status = message.effectiveAnswerTraceStatus(trace, visibleParts),
-            deltaSource = trace?.answerDeltaSource,
-            timestamp = existing?.timestamp ?: message.createdAt,
-        )
-    }
-
-    val existingBlocks = items.filterIsInstance<RunTraceItem.ResultBlock>().map { it.block }
-    visibleParts.filterIsInstance<ChatMessagePart.ResultBlock>()
-        .map { it.block }
-        .filterNot { block -> existingBlocks.any { it == block } }
-        .forEachIndexed { index, block ->
-            items += RunTraceItem.ResultBlock(
-                block = block,
-                id = "result:${message.id}:$index:${block.renderCacheIdentity()}",
-                timestamp = message.createdAt,
-            )
-        }
 
     trace?.draft?.let { draft ->
         items.removeAll { it is RunTraceItem.Draft }
@@ -1471,10 +1439,96 @@ private fun assistantVisibleTimeline(
 
     return items
         .filterNot { item -> item is RunTraceItem.Safety && item.result == null && item.status == SafetyTraceStatus.CHECKING }
-        .sortedWith(compareBy({ it.phaseRank() }, { it.seq ?: Int.MAX_VALUE }, { it.timestamp }, { it.id }))
+        .sortedWith(TraceItemOrder)
 }
 
-private fun RunTraceItem.phaseRank(): Int = when (this) {
+/**
+ * 把流式文本/结果块并入骨架。文本增量路径不重建 plan/tool，只更新 Answer 与缺失的 ResultBlock。
+ */
+internal fun attachStreamingTimelineItems(
+    skeleton: List<RunTraceItem>,
+    message: ChatMessage,
+    trace: RunTrace?,
+    visibleParts: List<ChatMessagePart>,
+): List<RunTraceItem> {
+    val shouldShowAnswer = message.isStreaming || visibleParts.isNotEmpty() ||
+        trace?.answerStatus?.let { it != AnswerTraceStatus.NOT_STARTED } == true ||
+        trace?.toolCalls?.isNotEmpty() == true
+    val answerStatus = message.effectiveAnswerTraceStatus(trace, visibleParts)
+    val answerDeltaSource = trace?.answerDeltaSource
+
+    var existingAnswerIndex = -1
+    var existingAnswer: RunTraceItem.Answer? = null
+    val existingBlockSet = HashSet<Any>()
+    var resultBlockCount = 0
+    for (index in skeleton.indices) {
+        when (val item = skeleton[index]) {
+            is RunTraceItem.Answer -> {
+                existingAnswerIndex = index
+                existingAnswer = item
+            }
+            is RunTraceItem.ResultBlock -> {
+                existingBlockSet.add(item.block)
+                resultBlockCount++
+            }
+            else -> Unit
+        }
+    }
+
+    val pendingBlocks = ArrayList<ResultBlockDto>()
+    for (part in visibleParts) {
+        if (part is ChatMessagePart.ResultBlock) {
+            val block = part.block
+            if (!existingBlockSet.contains(block)) {
+                existingBlockSet.add(block)
+                pendingBlocks.add(block)
+            }
+        }
+    }
+
+    val answerUpToDate = existingAnswer != null &&
+        existingAnswer.status == answerStatus &&
+        existingAnswer.deltaSource == answerDeltaSource
+    val dropAnswer = !shouldShowAnswer && existingAnswer != null
+    if (!dropAnswer && pendingBlocks.isEmpty() && (answerUpToDate || (!shouldShowAnswer && existingAnswer == null))) {
+        return skeleton
+    }
+
+    val items = ArrayList<RunTraceItem>(skeleton.size + pendingBlocks.size + 1)
+    for (item in skeleton) {
+        if (item is RunTraceItem.Answer) continue
+        items.add(item)
+    }
+    if (shouldShowAnswer) {
+        items.add(
+            RunTraceItem.Answer(
+                id = existingAnswer?.id ?: "answer",
+                status = answerStatus,
+                deltaSource = answerDeltaSource,
+                timestamp = existingAnswer?.timestamp ?: message.createdAt,
+            )
+        )
+    }
+    if (pendingBlocks.isNotEmpty()) {
+        val startIndex = resultBlockCount
+        for (index in pendingBlocks.indices) {
+            val block = pendingBlocks[index]
+            items.add(
+                RunTraceItem.ResultBlock(
+                    block = block,
+                    id = "result:${message.id}:${startIndex + index}:${block.renderCacheIdentity()}",
+                    timestamp = message.createdAt,
+                )
+            )
+        }
+    }
+
+    return items.sortedWith(TraceItemOrder)
+}
+
+private val TraceItemOrder = compareBy<RunTraceItem>({ it.phaseRank() }, { it.seq ?: Int.MAX_VALUE }, { it.timestamp }, { it.id })
+
+internal fun RunTraceItem.phaseRank(): Int = when (this) {
     is RunTraceItem.PlanSummary -> 0
     is RunTraceItem.Safety -> 1
     is RunTraceItem.Tool -> 2
@@ -1485,7 +1539,7 @@ private fun RunTraceItem.phaseRank(): Int = when (this) {
     is RunTraceItem.AuditLossy -> 7
 }
 
-private fun List<ToolCallRecord>.toolDisplayStableKey(
+internal fun List<ToolCallRecord>.toolDisplayStableKey(
     call: ToolCallRecord,
     index: Int,
 ): String {
@@ -1497,10 +1551,7 @@ private fun List<ToolCallRecord>.toolDisplayStableKey(
         ?: "name:${call.toolName}:$occurrence"
 }
 
-private fun ChatMessage.isAssistantRunTerminal(trace: RunTrace?): Boolean =
-    !isStreaming && (trace != null || isError)
-
-private fun ChatMessage.assistantTerminalStatus(trace: RunTrace?): RunTerminalStatus? {
+internal fun ChatMessage.assistantTerminalStatus(trace: RunTrace?): RunTerminalStatus? {
     trace?.terminal?.status?.let { return it }
     trace?.timeline?.filterIsInstance<RunTraceItem.Terminal>()?.lastOrNull()?.terminal?.status?.let { return it }
     trace?.answerStatus?.toTerminalStatusOrNull()?.let { return it }
@@ -1525,7 +1576,7 @@ private fun ChatMessage.assistantTerminalStatus(trace: RunTrace?): RunTerminalSt
     return null
 }
 
-private fun ChatMessage.effectiveAnswerTraceStatus(
+internal fun ChatMessage.effectiveAnswerTraceStatus(
     trace: RunTrace?,
     visibleParts: List<ChatMessagePart>,
 ): AnswerTraceStatus = when {
@@ -1538,7 +1589,7 @@ private fun ChatMessage.effectiveAnswerTraceStatus(
     else -> AnswerTraceStatus.NOT_STARTED
 }
 
-private fun AnswerTraceStatus.toTerminalStatusOrNull(): RunTerminalStatus? = when (this) {
+internal fun AnswerTraceStatus.toTerminalStatusOrNull(): RunTerminalStatus? = when (this) {
     AnswerTraceStatus.COMPLETED -> RunTerminalStatus.COMPLETED
     AnswerTraceStatus.BLOCKED -> RunTerminalStatus.BLOCKED
     AnswerTraceStatus.CANCELLED -> RunTerminalStatus.CANCELLED
@@ -1567,21 +1618,6 @@ private fun RunTerminalStatus.terminalStatusLabel(): String = when (this) {
     RunTerminalStatus.FAILED -> "失败"
     RunTerminalStatus.EXHAUSTED -> "耗尽"
     RunTerminalStatus.INTERRUPTED -> "中断"
-}
-
-private fun assistantSurfaceSummary(
-    message: ChatMessage,
-    trace: RunTrace?,
-    timeline: List<RunTraceItem>,
-): String = when {
-    message.isStreaming -> timeline.filterIsInstance<RunTraceItem.Tool>()
-        .firstOrNull { it.call.status == ToolCallStatus.RUNNING }
-        ?.call
-        ?.let { "正在${it.userFacingToolLabel()}" }
-        ?: "正在生成回答"
-    message.assistantTerminalStatus(trace) != null -> "运行${message.assistantTerminalStatus(trace)!!.terminalStatusLabel()}"
-    timeline.any { it is RunTraceItem.Tool } -> "已记录查询过程"
-    else -> "回答已生成"
 }
 
 private fun RunTrace.visibleDurationLabel(isStreaming: Boolean): String? {
