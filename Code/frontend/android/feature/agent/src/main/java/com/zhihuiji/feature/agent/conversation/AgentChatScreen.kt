@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.feature.agent
 
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -2553,16 +2554,21 @@ private fun ContextCompactedBanner(
 ) {
     Box(
         modifier = modifier
+            .fillMaxWidth()
             .padding(16.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(WarningOrange.copy(alpha = 0.12f))
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Icon(
                     imageVector = Icons.Default.Compress,
                     contentDescription = null,
@@ -2574,6 +2580,9 @@ private fun ContextCompactedBanner(
                     text = "上下文已压缩（${state.compactedCount} 条），${state.summary}",
                     style = MaterialTheme.typography.labelSmall,
                     color = WarningOrange,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
             }
             IconButton(onClick = onDismiss, modifier = Modifier.size(20.dp)) {
@@ -2742,10 +2751,4 @@ private val AgentDisabledSendBrush = Brush.linearGradient(
         TextTertiary.copy(alpha = 0.32f),
         TextTertiary.copy(alpha = 0.22f),
     )
-)
-
-private val AgentResultHeaderColors = listOf(
-    Color(0xFF0C4D96),
-    Color(0xFF0EA5A4),
-    Color(0xFF38BDF8),
 )

@@ -90,7 +90,8 @@ fun PurchaseOrderListScreen(
                 ) {
                     items(
                         items = uiState.orders,
-                        key = { it.id }
+                        key = { it.id },
+                        contentType = { "purchase-order" }
                     ) { order ->
                         PurchaseOrderListItem(
                             order = order,

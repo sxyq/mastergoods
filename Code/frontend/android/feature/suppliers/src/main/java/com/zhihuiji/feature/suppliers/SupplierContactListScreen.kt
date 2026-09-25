@@ -130,6 +130,7 @@ fun SupplierContactListScreen(
                         items(
                             items = uiState.contacts,
                             key = { it.id },
+                            contentType = { "supplier-contact" },
                         ) { contact ->
                             SupplierContactListItem(
                                 contact = contact,

@@ -1,70 +1,64 @@
 package com.zhihuiji.app
 
-import android.os.Build
 import android.os.Bundle
-import android.view.Display
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.lifecycleScope
 import com.zhihuiji.app.navigation.AppNavGraph
 import com.zhihuiji.app.navigation.AgentLaunchRequest
 import com.zhihuiji.app.security.RuntimeSecurityGuard
 import com.zhihuiji.app.security.SignatureIntegrityChecker
 import com.zhihuiji.core.designsystem.ZhihuijiTheme
 import dagger.hilt.android.AndroidEntryPoint
-import kotlin.comparisons.compareBy
-import kotlin.math.abs
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val startupAgentLaunch = parseStartupAgentLaunch(intent?.extras)
-        if (shouldEnforceProductionRuntimeGuards(BuildConfig.BUILD_TYPE)) {
+        val enforceGuards = shouldEnforceProductionRuntimeGuards(BuildConfig.BUILD_TYPE)
+        if (enforceGuards) {
             window.setFlags(
                 WindowManager.LayoutParams.FLAG_SECURE,
                 WindowManager.LayoutParams.FLAG_SECURE,
             )
-            if (!SignatureIntegrityChecker.isSignatureTrusted(this, BuildConfig.APP_SIGNING_SHA256)) {
-                finishAffinity()
-                return
-            }
-            if (RuntimeSecurityGuard.isHighRiskRuntime()) {
-                finishAffinity()
-                return
-            }
         }
-        preferStableRefreshRateDisplayMode()
+        // 刷新率交给系统与窗口策略；应用不再主动偏好 60Hz 或强制 120Hz。
         enableEdgeToEdge()
-        setContent {
-            ZhihuijiTheme {
-                AppNavGraph(startupAgentLaunch = startupAgentLaunch)
+        if (!enforceGuards) {
+            showAppContent(startupAgentLaunch)
+            return
+        }
+        // 安全校验逻辑与顺序保持：先签名，后运行时风险；失败则结束且不进入业务 UI。
+        lifecycleScope.launch {
+            val signatureTrusted = withContext(Dispatchers.IO) {
+                SignatureIntegrityChecker.isSignatureTrusted(this@MainActivity, BuildConfig.APP_SIGNING_SHA256)
             }
+            if (!signatureTrusted) {
+                finishAffinity()
+                return@launch
+            }
+            val highRiskRuntime = withContext(Dispatchers.IO) {
+                RuntimeSecurityGuard.isHighRiskRuntime()
+            }
+            if (highRiskRuntime) {
+                finishAffinity()
+                return@launch
+            }
+            if (isFinishing || isDestroyed) return@launch
+            showAppContent(startupAgentLaunch)
         }
     }
 
-    private fun preferStableRefreshRateDisplayMode() {
-        @Suppress("DEPRECATION")
-        val currentDisplay = windowManager.defaultDisplay
-        val currentMode = currentDisplay.mode
-        val sameResolutionModes = currentDisplay.supportedModes.filter { mode ->
-            mode.physicalWidth == currentMode.physicalWidth &&
-                mode.physicalHeight == currentMode.physicalHeight
-        }
-        val candidateModes = sameResolutionModes.ifEmpty { currentDisplay.supportedModes.toList() }
-        val resolvedPreferredMode = candidateModes
-            .minWithOrNull(compareBy({ abs(it.refreshRate - 60f) }, { it.refreshRate }))
-            ?: return
-
-        window.attributes = window.attributes.apply {
-            preferredDisplayModeId = resolvedPreferredMode.modeId
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                preferredRefreshRate = resolvedPreferredMode.refreshRate
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-                setFrameRateBoostOnTouchEnabled(true)
-                setFrameRatePowerSavingsBalanced(false)
+    private fun showAppContent(startupAgentLaunch: AgentLaunchRequest?) {
+        setContent {
+            ZhihuijiTheme {
+                AppNavGraph(startupAgentLaunch = startupAgentLaunch)
             }
         }
     }

@@ -149,7 +149,7 @@ fun StaffManagementScreen(
                     EmptyStaffCard()
                 }
             } else {
-                items(uiState.staffMembers, key = { it.id }) { member ->
+                items(uiState.staffMembers, key = { it.id }, contentType = { "staff" }) { member ->
                     StaffMemberCard(
                         member = member,
                         isSaving = uiState.isSaving,

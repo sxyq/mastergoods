@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.feature.agent
 
 import android.content.ContentResolver
@@ -54,6 +55,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -152,6 +154,13 @@ data class ContextCompactedState(
     val reason: String? = null,
     val reused: Boolean = false,
 )
+
+internal fun contextCompactionDisplaySummary(reason: String?, reused: Boolean): String = when {
+    reused -> "已复用已有摘要"
+    reason.equals("context_budget_threshold", ignoreCase = true) -> "已按上下文预算生成摘要"
+    reason.equals("provider_context_limit", ignoreCase = true) -> "已按服务端限制生成摘要"
+    else -> "已生成会话摘要"
+}
 
 @HiltViewModel
 class AgentChatViewModel @Inject constructor(
@@ -891,8 +900,9 @@ class AgentChatViewModel @Inject constructor(
                     it.copy(
                         contextCompacted = ContextCompactedState(
                             compactedCount = event.compactedCount,
-                            summary = event.summaryPreview ?: event.reason ?: "上下文已压缩",
-                            summaryPreview = event.summaryPreview,
+                            summary = contextCompactionDisplaySummary(event.reason, event.reused),
+                            // summary_preview may contain structured context; never render it directly.
+                            summaryPreview = null,
                             reason = event.reason,
                             reused = event.reused,
                         )
@@ -1041,6 +1051,8 @@ class AgentChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 auditRepository.insertRecord(record)
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 // 审计记录保存失败不应影响主流程
             }

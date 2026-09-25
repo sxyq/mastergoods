@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.feature.agent
 
 import androidx.compose.foundation.background
@@ -150,7 +151,8 @@ fun TaskNotificationScreen(
                             0 -> {
                                 items(
                                     items = uiState.tasks,
-                                    key = { "task_${it.id}" }
+                                    key = { "task_${it.id}" },
+                                    contentType = { "task" }
                                 ) { task ->
                                     TaskCard(task = task)
                                 }
@@ -159,7 +161,8 @@ fun TaskNotificationScreen(
                             1 -> {
                                 items(
                                     items = uiState.notifications,
-                                    key = { "notif_${it.id}" }
+                                    key = { "notif_${it.id}" },
+                                    contentType = { "notification" }
                                 ) { notification ->
                                     NotificationCard(
                                         notification = notification,

@@ -71,10 +71,44 @@ fun SegmentedTabs(
 
     val density = LocalDensity.current
     val isDarkTheme = isSystemInDarkTheme()
-    val contentBackdrop = rememberLayerBackdrop()
     val itemCount = tabs.size
     val safeSelectedIndex = selectedIndex.coerceIn(0, itemCount - 1)
 
+    if (backdrop != null) {
+        SegmentedTabsDynamic(
+            modifier = modifier,
+            tabs = tabs,
+            safeSelectedIndex = safeSelectedIndex,
+            selectedIndex = selectedIndex,
+            onTabSelected = onTabSelected,
+            externalBackdrop = backdrop,
+            density = density,
+            isDarkTheme = isDarkTheme,
+            itemCount = itemCount,
+        )
+    } else {
+        SegmentedTabsStatic(
+            modifier = modifier,
+            tabs = tabs,
+            safeSelectedIndex = safeSelectedIndex,
+            onTabSelected = onTabSelected,
+            density = density,
+            isDarkTheme = isDarkTheme,
+            itemCount = itemCount,
+        )
+    }
+}
+
+@Composable
+private fun SegmentedTabsStatic(
+    modifier: Modifier,
+    tabs: List<String>,
+    safeSelectedIndex: Int,
+    onTabSelected: (Int) -> Unit,
+    density: androidx.compose.ui.unit.Density,
+    isDarkTheme: Boolean,
+    itemCount: Int,
+) {
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
@@ -96,7 +130,74 @@ fun SegmentedTabs(
             modifier = Modifier
                 .matchParentSize()
                 .liquidSegmentedRailChrome(
-                    backdrop = backdrop,
+                    backdrop = null,
+                    shape = SegmentedContainerShape,
+                    isDarkTheme = isDarkTheme
+                )
+        )
+
+        Box(
+            modifier = Modifier
+                .width(slotWidth)
+                .height(SegmentedIndicatorHeight)
+                .align(Alignment.CenterStart)
+                .graphicsLayer {
+                    translationX = indicatorOffsetPx
+                }
+                .liquidSegmentedIndicatorChrome(
+                    backdrop = null,
+                    shape = SegmentedIndicatorShape,
+                    isDarkTheme = isDarkTheme
+                )
+        )
+
+        SegmentLabelsLayer(
+            modifier = Modifier
+                .matchParentSize()
+                .padding(SegmentedContentPadding),
+            tabs = tabs,
+            selectedIndex = safeSelectedIndex,
+            interactive = true,
+            onTabSelected = onTabSelected
+        )
+    }
+}
+
+@Composable
+private fun SegmentedTabsDynamic(
+    modifier: Modifier,
+    tabs: List<String>,
+    safeSelectedIndex: Int,
+    selectedIndex: Int,
+    onTabSelected: (Int) -> Unit,
+    externalBackdrop: Backdrop,
+    density: androidx.compose.ui.unit.Density,
+    isDarkTheme: Boolean,
+    itemCount: Int,
+) {
+    val contentBackdrop = rememberLayerBackdrop()
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(SegmentedContainerHeight)
+    ) {
+        val slotWidth = (maxWidth - SegmentedContentPadding * 2) / itemCount
+        val indicatorTargetOffset = SegmentedContentPadding + slotWidth * safeSelectedIndex
+        val indicatorOffsetPx by animateFloatAsState(
+            targetValue = with(density) { indicatorTargetOffset.toPx() },
+            animationSpec = spring(
+                dampingRatio = 0.88f,
+                stiffness = 320f,
+                visibilityThreshold = 0.5f
+            ),
+            label = "liquid_segment_indicator_offset"
+        )
+
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .liquidSegmentedRailChrome(
+                    backdrop = externalBackdrop,
                     shape = SegmentedContainerShape,
                     isDarkTheme = isDarkTheme
                 )
@@ -253,53 +354,71 @@ private fun Modifier.liquidSegmentedRailChrome(
 }
 
 private fun Modifier.liquidSegmentedIndicatorChrome(
-    backdrop: Backdrop,
+    backdrop: Backdrop?,
     shape: RoundedCornerShape,
     isDarkTheme: Boolean
-): Modifier =
-    this
+): Modifier {
+    val staticChrome = this
         .clip(shape)
-        .run {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                drawBackdrop(
-                    backdrop = backdrop,
-                    shape = { shape },
-                    effects = {
-                        vibrancy()
-                        blur(22.dp.toPx())
-                    },
-                    highlight = {
-                        Highlight.Default.copy(alpha = 0.98f)
-                    },
-                    shadow = {
-                        Shadow(
-                            color = GlassShadow.copy(alpha = if (isDarkTheme) 0.28f else 0.16f),
-                            alpha = 0.42f
-                        )
-                    },
-                    innerShadow = {
-                        InnerShadow(
-                            radius = 9.dp,
-                            alpha = 0.50f,
-                            color = Color.White.copy(alpha = if (isDarkTheme) 0.20f else 0.38f)
-                        )
-                    },
-                    onDrawSurface = {
-                        drawRect(brush = liquidSegmentedIndicatorBrush(isDarkTheme))
-                        drawRect(
-                            color = Color.White.copy(alpha = if (isDarkTheme) 0.06f else 0.18f)
-                        )
-                    }
-                )
-            } else {
-                background(liquidSegmentedIndicatorBrush(isDarkTheme), shape)
-            }
-        }
-        .border(
-            width = 0.5.dp,
-            color = Color.White.copy(alpha = if (isDarkTheme) 0.18f else 0.42f),
-            shape = shape
+        .background(liquidSegmentedIndicatorBrush(isDarkTheme), shape)
+        .drawIndicatorSheen(isDarkTheme)
+        .shadow(
+            elevation = 2.dp,
+            shape = shape,
+            clip = false,
+            ambientColor = GlassShadow.copy(alpha = if (isDarkTheme) 0.28f else 0.16f),
+            spotColor = GlassShadow.copy(alpha = if (isDarkTheme) 0.28f else 0.16f)
         )
+
+    val chrome = if (backdrop != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        this
+            .clip(shape)
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { shape },
+                effects = {
+                    vibrancy()
+                    blur(22.dp.toPx())
+                },
+                highlight = {
+                    Highlight.Default.copy(alpha = 0.98f)
+                },
+                shadow = {
+                    Shadow(
+                        color = GlassShadow.copy(alpha = if (isDarkTheme) 0.28f else 0.16f),
+                        alpha = 0.42f
+                    )
+                },
+                innerShadow = {
+                    InnerShadow(
+                        radius = 9.dp,
+                        alpha = 0.50f,
+                        color = Color.White.copy(alpha = if (isDarkTheme) 0.20f else 0.38f)
+                    )
+                },
+                onDrawSurface = {
+                    drawRect(brush = liquidSegmentedIndicatorBrush(isDarkTheme))
+                    drawRect(
+                        color = Color.White.copy(alpha = if (isDarkTheme) 0.06f else 0.18f)
+                    )
+                }
+            )
+    } else {
+        staticChrome
+    }
+    return chrome.border(
+        width = 0.5.dp,
+        color = Color.White.copy(alpha = if (isDarkTheme) 0.18f else 0.42f),
+        shape = shape
+    )
+}
+
+private fun Modifier.drawIndicatorSheen(isDarkTheme: Boolean): Modifier =
+    this.then(
+        Modifier.background(
+            color = Color.White.copy(alpha = if (isDarkTheme) 0.06f else 0.18f)
+        )
+    )
 
 private fun liquidSegmentedRailBrush(isDarkTheme: Boolean): Brush =
     if (isDarkTheme) {

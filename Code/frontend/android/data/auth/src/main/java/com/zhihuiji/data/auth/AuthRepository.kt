@@ -35,10 +35,16 @@ class AuthRepository @Inject constructor(
     suspend fun logout() {
         try {
             api.logout()
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            // 取消仍要清本地会话，但不得把取消吞成成功
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                localDataCleaner.clearAll()
+            }
+            throw e
         } catch (_: Exception) {
-        } finally {
-            localDataCleaner.clearAll()
+            // 退出接口失败仍继续本地清理
         }
+        localDataCleaner.clearAll()
     }
 
     suspend fun fetchCurrentUser(): Result<UserProfile> {
@@ -149,6 +155,8 @@ class AuthRepository @Inject constructor(
         return try {
             sessionStore.requireAccessToken()
             true
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
         } catch (_: Exception) {
             false
         }

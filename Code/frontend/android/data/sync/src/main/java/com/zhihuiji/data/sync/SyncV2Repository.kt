@@ -34,6 +34,7 @@ import com.zhihuiji.core.model.v2.sync.SyncUploadV2Request
 import com.zhihuiji.core.model.v2.sync.SyncUploadV2Response
 import com.zhihuiji.core.model.v2.sync.SyncOperationFailureV2Dto
 import com.zhihuiji.core.model.v2.sync.SyncOperationResultV2Dto
+import com.zhihuiji.core.common.runCatchingCancellable
 import com.zhihuiji.core.network.ZhihuijiV2Api
 import com.zhihuiji.core.network.safeApiCall
 import javax.inject.Inject
@@ -97,7 +98,7 @@ class SyncV2Repository @Inject constructor(
         operation: String,
         payload: String?,
         baseVersion: Long?,
-    ): Result<String> = runCatching {
+    ): Result<String> = runCatchingCancellable {
         val operationId = enqueueInCurrentTransaction(
             entityType = entityType,
             entityId = entityId,
@@ -120,7 +121,7 @@ class SyncV2Repository @Inject constructor(
         payload: String?,
         baseVersion: Long?,
         mutation: suspend () -> T,
-    ): Result<T> = runCatching {
+    ): Result<T> = runCatchingCancellable {
         val result = transactionRunner.run {
             val mutationResult = mutation()
             enqueueInCurrentTransaction(entityType, entityId, operation, payload, baseVersion)
@@ -150,7 +151,7 @@ class SyncV2Repository @Inject constructor(
         entityType: String,
         entityId: String,
         keepLocal: Boolean,
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         transactionRunner.run {
             val conflict = syncConflictDao.findOpen(entityType, entityId)
                 ?: return@run
@@ -203,7 +204,7 @@ class SyncV2Repository @Inject constructor(
         productDao.deleteById(temporary.id)
     }
 
-    suspend fun syncPendingAndPull(clientId: String, limit: Int = 50): Result<String> = runCatching {
+    suspend fun syncPendingAndPull(clientId: String, limit: Int = 50): Result<String> = runCatchingCancellable {
         val pending = syncOutboxDao.pending(limit)
         if (pending.isNotEmpty()) {
             val result = upload(
@@ -262,7 +263,7 @@ class SyncV2Repository @Inject constructor(
         )
     }
 
-    suspend fun pullApplyAndAck(clientId: String, limit: Int? = null): Result<String> = runCatching {
+    suspend fun pullApplyAndAck(clientId: String, limit: Int? = null): Result<String> = runCatchingCancellable {
         var sinceCursor = cursor(clientId).getOrThrow().lastCursor.takeIf { it.isNotBlank() }
         var latestCursor = sinceCursor.orEmpty()
         var hasMore: Boolean
@@ -301,7 +302,7 @@ class SyncV2Repository @Inject constructor(
         latestCursor
     }
 
-    suspend fun applyPulledChanges(result: SyncPullV2Response): Result<Unit> = runCatching {
+    suspend fun applyPulledChanges(result: SyncPullV2Response): Result<Unit> = runCatchingCancellable {
         transactionRunner.run {
             result.changes.forEach { change ->
                 syncRemoteRecordDao.upsert(change.toRemoteRecord())

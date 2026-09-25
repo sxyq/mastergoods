@@ -171,6 +171,7 @@ private fun InventoryLedgerContent(
         itemsIndexed(
             items = uiState.entries,
             key = { _, item -> item.id },
+            contentType = { _, _ -> "inventory-ledger" },
         ) { index, item ->
             InventoryTimelineItemCard(
                 item = item,

@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.core.model.v2.agent
 
 import org.junit.Assert.assertEquals
@@ -305,6 +306,27 @@ class AgentRunTraceModelsTest {
 
         assertEquals(RunTerminalStatus.CANCELLED, trace.terminal?.status)
         assertEquals("用户取消", trace.terminal?.message)
+    }
+
+    @Test
+    fun reduceAcceptsAndDeduplicatesContextCompactionEvent() {
+        val initial = AgentRunTraceReducer.initial("run-compaction")
+        val event = AgentStreamEvent.ContextCompacted(
+            runId = "run-compaction",
+            checkpointId = 123L,
+            sourceBoundaryMessageId = 456L,
+            compactedCount = 4,
+            summaryPreview = "保留已完成历史的安全摘要",
+            reason = "context_budget_threshold",
+            timestamp = 100L,
+        )
+
+        val first = AgentRunTraceReducer.reduce(initial, event)
+        val duplicate = AgentRunTraceReducer.reduce(first, event)
+
+        assertTrue(first !== initial)
+        assertTrue(first.seenEventKeys.any { it == "context_compacted:123" })
+        assertTrue(duplicate === first)
     }
 
     @Test

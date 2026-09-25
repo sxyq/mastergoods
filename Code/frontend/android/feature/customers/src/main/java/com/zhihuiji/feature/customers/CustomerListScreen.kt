@@ -126,7 +126,11 @@ private fun CustomerListScreenContent(
                     item(key = "receivable-summary") {
                         CustomerReceivableSummary(customers = uiState.customers)
                     }
-                    items(uiState.customers, key = { it.id }) { customer ->
+                    items(
+                        uiState.customers,
+                        key = { it.id },
+                        contentType = { "customer" },
+                    ) { customer ->
                         CustomerArchiveCard(
                             customer = customer,
                             onClick = { onNavigateToDetail(customer.id) }
@@ -144,8 +148,8 @@ private fun CustomerReceivableSummary(
     customers: List<CustomerItem>,
     modifier: Modifier = Modifier
 ) {
-    val receivableTotal = remember(customers) {
-        customers.sumOf { it.receivableAmount.coerceAtLeast(0.0) }
+    val receivableText = remember(customers) {
+        MoneyFormatter.format(customers.sumOf { it.receivableAmount.coerceAtLeast(0.0) })
     }
     LiquidGlassCard(
         modifier = modifier
@@ -170,7 +174,7 @@ private fun CustomerReceivableSummary(
                     color = TextSecondary
                 )
                 Text(
-                    text = MoneyFormatter.format(receivableTotal),
+                    text = receivableText,
                     fontSize = 22.sp,
                     lineHeight = 28.sp,
                     fontWeight = FontWeight.Bold,

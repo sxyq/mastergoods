@@ -3,7 +3,9 @@ package com.zhihuiji.core.network
 import com.zhihuiji.core.model.ApiResponse
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.HttpException
@@ -87,6 +89,29 @@ class SafeApiCallBehaviorTest {
         assertEquals(HttpErrorKind.VALIDATION, NetworkException(422, "校验失败").kind)
         assertEquals("请求与当前数据冲突，请刷新后重试", httpErrorMessage(409, ""))
         assertEquals("请求参数未通过校验，请检查输入内容", httpErrorMessage(422, ""))
+    }
+
+    @Test
+    fun safeApiCall_rethrowsCancellationException() = runBlocking {
+        val cancellation = kotlinx.coroutines.CancellationException("cancelled")
+        try {
+            safeApiCall<String> { throw cancellation }
+            fail("safeApiCall should rethrow CancellationException")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            assertSame(cancellation, e)
+        }
+    }
+
+    @Test
+    fun safeApiCall_mapsMediaSourceReadExceptionToReadFailureMessage() = runBlocking {
+        val result = safeApiCall<String> {
+            throw MediaSourceReadException()
+        }
+
+        assertTrue(result.isFailure)
+        val error = result.exceptionOrNull() as NetworkException
+        assertEquals(-1, error.code)
+        assertEquals(MediaSourceReadException.READ_FAILURE, error.message)
     }
 
     @Test

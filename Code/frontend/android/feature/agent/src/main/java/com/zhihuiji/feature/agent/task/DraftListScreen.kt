@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -96,11 +97,13 @@ fun DraftListScreen(
                 }
 
                 else -> {
-                    val filteredDrafts = when (uiState.selectedTab) {
-                        1 -> uiState.drafts.filter { it.typeLabel == "销售" }
-                        2 -> uiState.drafts.filter { it.typeLabel == "采购" }
-                        3 -> uiState.drafts.filter { it.typeLabel !in listOf("销售", "采购") }
-                        else -> uiState.drafts
+                    val filteredDrafts = remember(uiState.drafts, uiState.selectedTab) {
+                        when (uiState.selectedTab) {
+                            1 -> uiState.drafts.filter { it.typeLabel == "销售" }
+                            2 -> uiState.drafts.filter { it.typeLabel == "采购" }
+                            3 -> uiState.drafts.filter { it.typeLabel !in listOf("销售", "采购") }
+                            else -> uiState.drafts
+                        }
                     }
 
                     LazyColumn(
@@ -110,7 +113,8 @@ fun DraftListScreen(
                     ) {
                         items(
                             items = filteredDrafts,
-                            key = { it.id }
+                            key = { it.id },
+                            contentType = { "draft" }
                         ) { draft ->
                             DraftCard(
                                 draft = draft,

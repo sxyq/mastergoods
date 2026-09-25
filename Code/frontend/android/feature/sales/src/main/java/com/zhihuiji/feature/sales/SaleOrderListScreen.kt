@@ -107,7 +107,8 @@ fun SaleOrderListScreen(
                 ) {
                     items(
                         items = uiState.orders,
-                        key = { it.id }
+                        key = { it.id },
+                        contentType = { "sale-order" }
                     ) { order ->
                         SaleOrderListItem(
                             order = order,

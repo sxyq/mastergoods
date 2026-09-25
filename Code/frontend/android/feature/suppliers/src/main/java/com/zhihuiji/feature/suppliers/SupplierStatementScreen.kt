@@ -286,7 +286,8 @@ private fun SupplierStatementContent(
         } else {
             items(
                 items = uiState.transactions,
-                key = { transaction -> "${transaction.kind}-${transaction.id}" }
+                key = { transaction -> "${transaction.kind}-${transaction.id}" },
+                contentType = { "statement-line" }
             ) { transaction ->
                 SupplierStatementTransactionRow(transaction = transaction)
             }

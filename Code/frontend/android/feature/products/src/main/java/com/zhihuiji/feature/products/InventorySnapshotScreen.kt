@@ -219,6 +219,7 @@ private fun InventorySnapshotContent(
         items(
             items = uiState.items,
             key = { it.productId },
+            contentType = { "inventory-snapshot" },
         ) { item ->
             InventoryCountItemCard(item = item)
         }

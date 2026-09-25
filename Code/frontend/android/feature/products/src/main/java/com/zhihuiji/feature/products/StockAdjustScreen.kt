@@ -46,7 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
@@ -554,18 +554,22 @@ private fun AddProductPlaceholder(modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .height(48.dp)
             .clip(RoundedCornerShape(10.dp))
-            .drawBehind {
-                drawRoundRect(
-                    color = DividerLight,
-                    cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx()),
-                    style = Stroke(
-                        width = 1.dp.toPx(),
-                        pathEffect = PathEffect.dashPathEffect(
-                            intervals = floatArrayOf(10.dp.toPx(), 7.dp.toPx()),
-                            phase = 0f
-                        )
+            .drawWithCache {
+                val dashStroke = Stroke(
+                    width = 1.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(
+                        intervals = floatArrayOf(10.dp.toPx(), 7.dp.toPx()),
+                        phase = 0f
                     )
                 )
+                val cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
+                onDrawBehind {
+                    drawRoundRect(
+                        color = DividerLight,
+                        cornerRadius = cornerRadius,
+                        style = dashStroke
+                    )
+                }
             },
         contentAlignment = Alignment.Center
     ) {

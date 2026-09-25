@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 import type { AgentChatPayload, AgentObservability, AgentResultBlock } from '@/shared/api/client'
 import { ApiError, emitApiAuthEvent, preserveUnsafeIntegers } from '@/shared/api/client'
 import { camelize } from '@/shared/utils/camelize'

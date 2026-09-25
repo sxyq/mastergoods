@@ -3,6 +3,7 @@ package com.zhihuiji.feature.dashboard
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.runCatchingCancellable
 import com.zhihuiji.core.model.ReconciliationSummaryReportDto
 import com.zhihuiji.core.model.SalesTrendPointReportDto
 import com.zhihuiji.data.customer.CustomerV2Repository
@@ -261,7 +262,7 @@ class DashboardViewModel @Inject constructor(
                 )
             }
             nextState.snapshot?.let { snapshot ->
-                runCatching {
+                runCatchingCancellable {
                     dashboardSnapshotRepository.save(selectedScope.toSnapshotScope(), snapshot)
                 }
             }
@@ -270,7 +271,7 @@ class DashboardViewModel @Inject constructor(
 
     private suspend fun loadCachedDashboard() {
         val selectedScope = _uiState.value.selectedSalesScope
-        val snapshot = runCatching {
+        val snapshot = runCatchingCancellable {
             dashboardSnapshotRepository.load(selectedScope.toSnapshotScope())
         }.getOrNull() ?: return
         _uiState.update { current ->

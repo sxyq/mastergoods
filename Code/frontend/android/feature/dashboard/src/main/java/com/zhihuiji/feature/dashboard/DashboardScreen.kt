@@ -53,7 +53,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -414,8 +413,7 @@ private fun DashboardKpiCard(
                     .align(Alignment.TopEnd)
                     .offset(x = 24.dp, y = (-24).dp)
                     .size(96.dp)
-                    .blur(24.dp)
-                    .background(glow, CircleShape)
+                    .background(glow.copy(alpha = glow.alpha * 0.55f), CircleShape)
             )
             Column(
                 modifier = Modifier

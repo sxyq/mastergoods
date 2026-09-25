@@ -130,6 +130,7 @@ fun CustomerContactListScreen(
                         items(
                             items = uiState.contacts,
                             key = { it.id },
+                            contentType = { "customer-contact" },
                         ) { contact ->
                             ContactListItem(
                                 contact = contact,

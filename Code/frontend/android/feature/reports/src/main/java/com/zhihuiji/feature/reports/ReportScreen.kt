@@ -540,6 +540,7 @@ private fun SummaryLineChart(
             val lineStroke = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
             val outerRadius = 5.dp.toPx()
             val innerRadius = 3.dp.toPx()
+            val lineBrush = Brush.linearGradient(listOf(ZhihuijiPrimary, StatusBlueLight))
 
             onDrawBehind {
                 drawLine(
@@ -550,7 +551,7 @@ private fun SummaryLineChart(
                 )
                 drawPath(
                     path = curvePath,
-                    brush = Brush.linearGradient(listOf(ZhihuijiPrimary, StatusBlueLight)),
+                    brush = lineBrush,
                     style = lineStroke
                 )
                 listOf(start, mid, end).forEach { point ->

@@ -710,7 +710,16 @@ private fun LineChartCanvas(
                     } else {
                         null
                     }
-                    Triple(item, linePath, areaPath) to points
+                    val areaBrush = if (areaPath != null) {
+                        Brush.verticalGradient(
+                            colors = listOf(item.color.copy(alpha = 0.22f), Color.Transparent),
+                            startY = top,
+                            endY = bottom,
+                        )
+                    } else {
+                        null
+                    }
+                    Triple(item, linePath, areaPath) to (points to areaBrush)
                 }
 
                 onDrawBehind {
@@ -731,16 +740,13 @@ private fun LineChartCanvas(
                         strokeWidth = 1.2.dp.toPx(),
                     )
 
-                    paths.forEach { (seriesPath, points) ->
+                    paths.forEach { (seriesPath, pointsWithBrush) ->
                         val (item, linePath, areaPath) = seriesPath
-                        if (areaPath != null) {
+                        val (points, areaBrush) = pointsWithBrush
+                        if (areaPath != null && areaBrush != null) {
                             drawPath(
                                 path = areaPath,
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(item.color.copy(alpha = 0.22f), Color.Transparent),
-                                    startY = top,
-                                    endY = bottom,
-                                )
+                                brush = areaBrush
                             )
                         }
                         if (linePath != null) {
@@ -801,6 +807,38 @@ private fun BarChartCanvas(
                 val barWidth = candidateBarWidth.coerceAtLeast(4.dp.toPx()).coerceAtMost(maxBarWidth)
                 val groupBarsWidth = barWidth * series.size + barGap * (series.size - 1).coerceAtLeast(0)
                 val zeroY = top + ((chartScale.maxValue - 0.0) / chartScale.range).toFloat().coerceIn(0f, 1f) * graphHeight
+                data class BarDrawSpec(
+                    val brush: Brush,
+                    val topLeft: Offset,
+                    val size: Size,
+                )
+                val barDrawSpecs = ArrayList<BarDrawSpec>(groupCount * series.size)
+                for (labelIndex in 0 until groupCount) {
+                    val groupStart = left + groupWidth * labelIndex + (groupWidth - groupBarsWidth) / 2f
+                    series.forEachIndexed { seriesIndex, item ->
+                        val value = item.values[labelIndex]
+                        val valueY = top + ((chartScale.maxValue - value) / chartScale.range).toFloat().coerceIn(0f, 1f) * graphHeight
+                        val rawBarHeight = kotlin.math.abs(valueY - zeroY)
+                        val barHeight = rawBarHeight.coerceAtLeast(if (value != 0.0) 3.dp.toPx() else 0f)
+                        val x = groupStart + seriesIndex * (barWidth + barGap)
+                        val y = if (value >= 0.0) {
+                            zeroY - barHeight
+                        } else {
+                            zeroY
+                        }
+                        barDrawSpecs.add(
+                            BarDrawSpec(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(item.color.copy(alpha = 0.88f), item.color.copy(alpha = 0.48f)),
+                                    startY = y,
+                                    endY = y + barHeight,
+                                ),
+                                topLeft = Offset(x, y),
+                                size = Size(barWidth, barHeight),
+                            )
+                        )
+                    }
+                }
 
                 onDrawBehind {
                     repeat(4) { index ->
@@ -820,30 +858,13 @@ private fun BarChartCanvas(
                         strokeWidth = 1.2.dp.toPx(),
                     )
 
-                    repeat(groupCount) { labelIndex ->
-                        val groupStart = left + groupWidth * labelIndex + (groupWidth - groupBarsWidth) / 2f
-                        series.forEachIndexed { seriesIndex, item ->
-                            val value = item.values[labelIndex]
-                            val valueY = top + ((chartScale.maxValue - value) / chartScale.range).toFloat().coerceIn(0f, 1f) * graphHeight
-                            val rawBarHeight = kotlin.math.abs(valueY - zeroY)
-                            val barHeight = rawBarHeight.coerceAtLeast(if (value != 0.0) 3.dp.toPx() else 0f)
-                            val x = groupStart + seriesIndex * (barWidth + barGap)
-                            val y = if (value >= 0.0) {
-                                zeroY - barHeight
-                            } else {
-                                zeroY
-                            }
-                            drawRoundRect(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(item.color.copy(alpha = 0.88f), item.color.copy(alpha = 0.48f)),
-                                    startY = y,
-                                    endY = y + barHeight,
-                                ),
-                                topLeft = Offset(x, y),
-                                size = Size(barWidth, barHeight),
-                                cornerRadius = CornerRadius(5.dp.toPx(), 5.dp.toPx()),
-                            )
-                        }
+                    barDrawSpecs.forEach { spec ->
+                        drawRoundRect(
+                            brush = spec.brush,
+                            topLeft = spec.topLeft,
+                            size = spec.size,
+                            cornerRadius = CornerRadius(5.dp.toPx(), 5.dp.toPx()),
+                        )
                     }
                 }
             }

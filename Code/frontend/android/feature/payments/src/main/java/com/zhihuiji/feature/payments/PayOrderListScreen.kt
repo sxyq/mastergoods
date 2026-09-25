@@ -76,7 +76,8 @@ fun PayOrderListScreen(
                 ) {
                     items(
                         items = uiState.orders,
-                        key = { it.id }
+                        key = { it.id },
+                        contentType = { "pay-order" }
                     ) { order ->
                         PayOrderListItem(
                             order = order,

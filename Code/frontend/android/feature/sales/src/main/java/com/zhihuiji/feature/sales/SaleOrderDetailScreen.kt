@@ -198,7 +198,8 @@ private fun SaleOrderDetailContent(
             key = { item ->
                 item.id.takeIf { it != 0L }
                     ?: "${item.productId}:${item.productName}:${item.quantity}:${item.unitPrice}:${item.amount}:${item.createdAt}"
-            }
+            },
+            contentType = { "sale-order-item" }
         ) { item ->
             OrderItemCard(item = item)
         }
@@ -220,7 +221,8 @@ private fun SaleOrderDetailContent(
             }
             items(
                 items = payments,
-                key = { it.id }
+                key = { it.id },
+                contentType = { "order-payment" }
             ) { payment ->
                 PaymentRecordCard(payment = payment)
             }

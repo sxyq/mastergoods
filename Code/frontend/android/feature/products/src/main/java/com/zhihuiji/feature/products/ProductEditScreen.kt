@@ -460,7 +460,7 @@ private fun ProductImageUploadCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    items(images, key = { image -> image.assetId }) { image ->
+                    items(images, key = { image -> image.assetId }, contentType = { "product-image" }) { image ->
                         ProductImageThumbnail(
                             url = image.url,
                             authToken = authToken,

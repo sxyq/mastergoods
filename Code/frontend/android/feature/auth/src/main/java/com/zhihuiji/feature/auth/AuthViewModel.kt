@@ -2,6 +2,7 @@ package com.zhihuiji.feature.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zhihuiji.core.common.runCatchingCancellable
 import com.zhihuiji.core.datastore.SettingsStore
 import com.zhihuiji.data.auth.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -57,10 +58,13 @@ class AuthViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 authRepository.logout()
-            } finally {
-                _uiState.update {
-                    it.copy(isLoggedIn = false, isSessionReady = false, isLoading = false)
-                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // 网络失败仍继续本地退出；取消不得吞掉
+            }
+            _uiState.update {
+                it.copy(isLoggedIn = false, isSessionReady = false, isLoading = false)
             }
         }
     }
@@ -68,7 +72,7 @@ class AuthViewModel @Inject constructor(
     fun saveBaseUrl(url: String) {
         viewModelScope.launch {
             val previousBaseUrl = settingsStore.peekBaseUrl()
-            runCatching {
+            runCatchingCancellable {
                 settingsStore.saveBaseUrl(url)
                 val updatedBaseUrl = settingsStore.peekBaseUrl()
                 if (updatedBaseUrl != previousBaseUrl) {

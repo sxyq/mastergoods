@@ -152,7 +152,8 @@ private fun PurchaseOrderDetailContent(
             key = { item ->
                 item.id.takeIf { it != 0L }
                     ?: "${item.productId}:${item.productName}:${item.quantity}:${item.unitCost}:${item.amount}:${item.createdAt}"
-            }
+            },
+            contentType = { "purchase-order-item" }
         ) { item ->
             OrderItemCard(item = item)
         }

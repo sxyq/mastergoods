@@ -92,7 +92,8 @@ fun FinanceRecordListScreen(
                 ) {
                     items(
                         items = visibleRecords,
-                        key = { it.id }
+                        key = { it.id },
+                        contentType = { "finance-record" }
                     ) { record ->
                         FinanceRecordListItem(
                             record = record,

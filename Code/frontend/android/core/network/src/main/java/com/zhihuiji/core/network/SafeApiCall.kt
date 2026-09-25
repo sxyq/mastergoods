@@ -3,6 +3,7 @@ package com.zhihuiji.core.network
 import com.zhihuiji.core.model.ApiResponse
 import retrofit2.HttpException
 import java.io.IOException
+import kotlin.coroutines.cancellation.CancellationException
 
 class NetworkException(val code: Int, message: String) : Exception(message)
 
@@ -53,8 +54,12 @@ private suspend fun <T> runSafeApi(
     } else {
         Result.failure(NetworkException(response.code, response.message))
     }
+} catch (e: CancellationException) {
+    throw e
 } catch (e: HttpException) {
     Result.failure(NetworkException(e.code(), httpErrorMessage(e.code(), e.message())))
+} catch (e: MediaSourceReadException) {
+    Result.failure(NetworkException(-1, e.message ?: MediaSourceReadException.READ_FAILURE))
 } catch (e: IOException) {
     Result.failure(NetworkException(-1, "网络连接失败，请检查网络设置"))
 } catch (e: Exception) {

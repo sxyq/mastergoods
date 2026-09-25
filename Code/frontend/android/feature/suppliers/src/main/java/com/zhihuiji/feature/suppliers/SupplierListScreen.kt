@@ -121,7 +121,11 @@ private fun SupplierListScreenContent(
                     ),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(uiState.suppliers, key = { it.id }) { supplier ->
+                    items(
+                        uiState.suppliers,
+                        key = { it.id },
+                        contentType = { "supplier" },
+                    ) { supplier ->
                         SupplierArchiveCard(
                             supplier = supplier,
                             onClick = { onNavigateToDetail(supplier.id) }

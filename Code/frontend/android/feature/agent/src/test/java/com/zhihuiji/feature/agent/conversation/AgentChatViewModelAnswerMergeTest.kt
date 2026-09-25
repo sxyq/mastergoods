@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.feature.agent
 
 import com.zhihuiji.core.model.v2.agent.ChatMessage
@@ -21,6 +22,25 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 class AgentChatViewModelAnswerMergeTest {
+
+    @Test
+    fun contextCompactionBannerUsesSafeReasonInsteadOfRawSummary() {
+        assertEquals(
+            "已按上下文预算生成摘要",
+            contextCompactionDisplaySummary(
+                reason = "context_budget_threshold",
+                reused = false,
+            ),
+        )
+        assertEquals(
+            "已复用已有摘要",
+            contextCompactionDisplaySummary(reason = "context_budget_threshold", reused = true),
+        )
+        assertEquals(
+            "已生成会话摘要",
+            contextCompactionDisplaySummary(reason = "unexpected_internal_reason", reused = false),
+        )
+    }
 
     @Test
     fun answerDeltaFlushDelayStaysWithinHighRefreshBudget() {

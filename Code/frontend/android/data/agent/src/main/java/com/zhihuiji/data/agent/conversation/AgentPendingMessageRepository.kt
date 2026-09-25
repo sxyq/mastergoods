@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.data.agent
 
 import android.content.Context
@@ -26,6 +27,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -186,8 +188,13 @@ class AgentPendingMessageWorker(
             applicationContext,
             AgentPendingMessageWorkerEntryPoint::class.java,
         )
-        runCatching { entryPoint.sessionStore().requireAccessToken() }
-            .getOrElse { return Result.success() }
+        try {
+            entryPoint.sessionStore().requireAccessToken()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            return Result.success()
+        }
         return when (entryPoint.pendingMessageRepository().processPending()) {
             AgentPendingMessageRepository.FlushResult.Completed -> Result.success()
             AgentPendingMessageRepository.FlushResult.Retry -> Result.retry()

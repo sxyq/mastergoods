@@ -317,6 +317,7 @@ private fun SalesReturnContent(
             items(
                 items = salesReturn.lines,
                 key = { it.id },
+                contentType = { "sales-return" },
             ) { item ->
                 SalesReturnLineCard(item = item)
             }
@@ -333,6 +334,7 @@ private fun SalesReturnContent(
             items(
                 items = otherReturns,
                 key = { it.id },
+                contentType = { "sales-return" },
             ) { item ->
                 SalesReturnCompactCard(
                     salesReturn = item,

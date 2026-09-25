@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.core.model.v2.agent
 
 import kotlinx.serialization.SerialName
@@ -785,6 +786,8 @@ object AgentRunTraceReducer {
         is AgentStreamEvent.ToolCompleted -> eventId ?: seq?.let { "tool_completed:$it" }
         is AgentStreamEvent.ToolFailed -> eventId ?: seq?.let { "tool_failed:$it" }
         is AgentStreamEvent.AnswerDelta -> eventId ?: seq?.let { "answer_delta:$it" }
+        is AgentStreamEvent.ContextCompacted ->
+            "context_compacted:${checkpointId ?: sourceBoundaryMessageId ?: timestamp}"
         // 终态事件去重：每个 run 只接受一次终态，后续重复/乱序终态事件直接忽略
         is AgentStreamEvent.RunCompleted,
         is AgentStreamEvent.RunFailed,

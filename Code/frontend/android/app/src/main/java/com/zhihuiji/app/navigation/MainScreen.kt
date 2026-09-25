@@ -1,6 +1,5 @@
 package com.zhihuiji.app.navigation
 
-import android.os.Build
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -68,15 +67,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.vibrancy
-import com.kyant.backdrop.highlight.Highlight
-import com.kyant.backdrop.shadow.InnerShadow
-import com.kyant.backdrop.shadow.Shadow
+
 import com.zhihuiji.core.designsystem.GlassShadow
 import com.zhihuiji.core.designsystem.GlassScaffold
 import com.zhihuiji.core.designsystem.LiquidGlassSurface
@@ -107,7 +98,7 @@ private val BottomBarFloatingBottomGap = 10.dp
 private val BottomBarContainerShape = RoundedCornerShape(32.dp)
 private val BottomBarIndicatorShape = RoundedCornerShape(27.dp)
 private val BottomBarBlurRadius = 52.dp
-private val BottomBarIndicatorBlurRadius = 42.dp
+
 private val BottomBarContentHorizontalPadding = 3.dp
 private val BottomBarContentVerticalPadding = 3.dp
 private val BottomBarIndicatorBrush = Brush.verticalGradient(
@@ -139,7 +130,7 @@ fun MainScreen(
     val accessState by accessViewModel.uiState.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val bottomBarBackdrop = rememberLayerBackdrop()
+
     val density = LocalDensity.current
 
     if (!accessState.isResolved && accessState.isLoading) {
@@ -208,7 +199,6 @@ fun MainScreen(
                 currentRoute = currentRoute,
                 selectedIndex = selectedIndex,
                 density = density,
-                backdrop = bottomBarBackdrop,
                 bottomBarScrollEvents = bottomBarScrollEvents,
                 onNavigate = { index, route ->
                     navController.navigate(route) {
@@ -230,7 +220,6 @@ fun MainScreen(
             accessState = accessState,
             modifier = Modifier
                 .padding(paddingValues)
-                .layerBackdrop(bottomBarBackdrop)
         )
     }
 }
@@ -241,7 +230,6 @@ private fun MainBottomBar(
     currentRoute: String?,
     selectedIndex: Int,
     density: androidx.compose.ui.unit.Density,
-    backdrop: Backdrop,
     bottomBarScrollEvents: MutableSharedFlow<Float>,
     onNavigate: (Int, String) -> Unit,
 ) {
@@ -308,7 +296,7 @@ private fun MainBottomBar(
                 blurRadius = BottomBarBlurRadius,
                 shape = BottomBarContainerShape,
                 surfaceColor = BottomBarGlassSurface,
-                backdrop = backdrop
+                backdrop = null
             ) {
                 BoxWithConstraints(
                     modifier = Modifier
@@ -386,7 +374,6 @@ private fun MainBottomBar(
                                 scaleY = 1f - indicatorVelocityScale * 0.16f + tapPulse * 0.02f
                             }
                             .bottomNavGlassIndicator(
-                                backdrop = backdrop,
                                 shape = BottomBarIndicatorShape
                             )
                     )
@@ -527,59 +514,25 @@ private fun BottomNavTab(
 }
 
 private fun Modifier.bottomNavGlassIndicator(
-    backdrop: Backdrop,
     shape: RoundedCornerShape
 ): Modifier {
-    val chrome = this
+    return this
         .shadow(
-            elevation = 10.dp,
+            elevation = 3.dp,
             shape = shape,
             clip = false,
             ambientColor = GlassShadow.copy(alpha = 0.18f),
             spotColor = GlassShadow.copy(alpha = 0.22f)
         )
-
-    val core = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        chrome
-            .drawBackdrop(
-                backdrop = backdrop,
-                shape = { shape },
-                effects = {
-                    vibrancy()
-                    blur(BottomBarIndicatorBlurRadius.toPx())
-                },
-                highlight = {
-                    Highlight.Default.copy(alpha = 1f)
-                },
-                shadow = {
-                    Shadow(
-                        color = GlassShadow.copy(alpha = 0.18f),
-                        alpha = 0.42f
-                    )
-                },
-                innerShadow = {
-                    InnerShadow(
-                        radius = 8.dp,
-                        alpha = 0.48f,
-                        color = Color.White.copy(alpha = 0.36f)
-                    )
-                },
-                onDrawSurface = {
-                    drawRect(brush = BottomBarIndicatorBrush)
-                }
-            )
-    } else {
-        chrome
-            .background(
-                brush = BottomBarIndicatorBrush,
-                shape = shape
-            )
-    }
-    return core.border(
-        width = 0.5.dp,
-        color = Color.White.copy(alpha = 0.56f),
-        shape = shape
-    )
+        .background(
+            brush = BottomBarIndicatorBrush,
+            shape = shape
+        )
+        .border(
+            width = 0.5.dp,
+            color = Color.White.copy(alpha = 0.56f),
+            shape = shape
+        )
 }
 
 @Composable

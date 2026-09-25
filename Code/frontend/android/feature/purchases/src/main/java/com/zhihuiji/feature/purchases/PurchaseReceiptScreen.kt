@@ -211,6 +211,7 @@ private fun PurchaseReceiptContent(
         items(
             items = receipt.items,
             key = { it.id },
+            contentType = { "purchase-receipt" },
         ) { item ->
             PurchaseReceiptLineCard(item = item)
         }
@@ -231,6 +232,7 @@ private fun PurchaseReceiptContent(
             items(
                 items = otherReceipts,
                 key = { it.id },
+                contentType = { "purchase-receipt" },
             ) { item ->
                 PurchaseReceiptCompactCard(
                     receipt = item,
@@ -665,18 +667,19 @@ private fun PurchaseReceiptBottomBar(
     onPrimaryClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val bottomScrimBrush = remember {
+        Brush.verticalGradient(
+            colors = listOf(
+                BackgroundGradientEnd.copy(alpha = 0.02f),
+                BackgroundGradientEnd.copy(alpha = 0.92f),
+                BackgroundGradientEnd,
+            ),
+        )
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        BackgroundGradientEnd.copy(alpha = 0.02f),
-                        BackgroundGradientEnd.copy(alpha = 0.92f),
-                        BackgroundGradientEnd,
-                    ),
-                ),
-            )
+            .background(brush = bottomScrimBrush)
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Row(
@@ -737,16 +740,17 @@ private fun FilledActionButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    val actionBrush = remember {
+        Brush.horizontalGradient(
+            colors = listOf(ZhihuijiPrimary, Color(0xFF005BC0)),
+        )
+    }
     Box(
         modifier = modifier
             .height(48.dp)
             .scale(if (isPressed && enabled) 0.97f else 1f)
             .clip(RoundedCornerShape(12.dp))
-            .background(
-                brush = Brush.horizontalGradient(
-                    colors = listOf(ZhihuijiPrimary, Color(0xFF005BC0)),
-                ),
-            )
+            .background(brush = actionBrush)
             .alpha(if (enabled) 1f else 0.55f)
             .clickable(
                 interactionSource = interactionSource,

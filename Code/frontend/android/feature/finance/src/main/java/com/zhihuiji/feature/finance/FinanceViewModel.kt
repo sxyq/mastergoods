@@ -84,6 +84,8 @@ class FinanceViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 repository.refreshFinanceRecords(filter)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (error: Exception) {
                 _uiState.update {
                     it.copy(

@@ -3,6 +3,7 @@ package com.zhihuiji.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhihuiji.core.common.TimeFormatter
+import com.zhihuiji.core.common.runCatchingCancellable
 import com.zhihuiji.core.datastore.SettingsStore
 import com.zhihuiji.data.auth.AuthRepository
 import com.zhihuiji.data.sync.SyncV2Repository
@@ -108,7 +109,7 @@ class SettingsViewModel @Inject constructor(
     fun saveBaseUrl(url: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            runCatching { settingsStore.saveBaseUrl(url) }
+            runCatchingCancellable { settingsStore.saveBaseUrl(url) }
                 .onSuccess {
                     _uiState.update {
                         it.copy(
@@ -132,7 +133,7 @@ class SettingsViewModel @Inject constructor(
     fun refreshSyncStatus() {
         viewModelScope.launch {
             _uiState.update { it.copy(isSyncing = true, error = null) }
-            val clientId = runCatching { settingsStore.ensureClientId() }
+            val clientId = runCatchingCancellable { settingsStore.ensureClientId() }
                 .getOrElse { throwable ->
                     _uiState.update {
                         it.copy(
@@ -187,7 +188,7 @@ class SettingsViewModel @Inject constructor(
     fun runSync() {
         viewModelScope.launch {
             _uiState.update { it.copy(isSyncing = true, error = null, syncStatus = "正在执行真实同步") }
-            val clientId = runCatching { settingsStore.ensureClientId() }.getOrElse { throwable ->
+            val clientId = runCatchingCancellable { settingsStore.ensureClientId() }.getOrElse { throwable ->
                 _uiState.update {
                     it.copy(
                         isSyncing = false,
@@ -226,7 +227,7 @@ class SettingsViewModel @Inject constructor(
     fun logout() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            runCatching { authRepository.logout() }
+            runCatchingCancellable { authRepository.logout() }
                 .onSuccess {
                     _uiState.update {
                         it.copy(

@@ -104,6 +104,7 @@ fun AccountListScreen(
                     items(
                         items = uiState.accounts,
                         key = { it.id },
+                        contentType = { "account" }
                     ) { account ->
                         AccountListItem(
                             account = account,

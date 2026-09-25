@@ -98,6 +98,7 @@ fun AccountTransferListScreen(
                     items(
                         items = uiState.transfers,
                         key = { it.id },
+                        contentType = { "account-transfer" }
                     ) { transfer ->
                         AccountTransferListItem(transfer = transfer)
                     }

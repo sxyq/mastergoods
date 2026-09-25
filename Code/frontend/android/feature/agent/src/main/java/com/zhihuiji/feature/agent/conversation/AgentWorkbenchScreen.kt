@@ -188,7 +188,11 @@ fun AgentWorkbenchScreen(
                 item {
                     WorkbenchSectionTitle(text = "待确认草稿")
                 }
-                items(uiState.pendingDrafts) { draft ->
+                items(
+                    uiState.pendingDrafts,
+                    key = { it.id },
+                    contentType = { "pending-draft" }
+                ) { draft ->
                     PendingDraftRow(draft = draft)
                 }
             }
@@ -198,7 +202,11 @@ fun AgentWorkbenchScreen(
                 item {
                     WorkbenchSectionTitle(text = "风险提醒")
                 }
-                items(uiState.riskAlerts) { alert ->
+                items(
+                    uiState.riskAlerts,
+                    key = { "${it.level}-${it.title}-${it.description}" },
+                    contentType = { "risk-alert" }
+                ) { alert ->
                     RiskAlertRow(alert = alert)
                 }
             }

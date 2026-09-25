@@ -12,6 +12,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.zhihuiji.core.common.runCatchingCancellable
 import com.zhihuiji.core.datastore.LocalAccessRevocationHandler
 import com.zhihuiji.core.network.NetworkException
 import dagger.Binds
@@ -43,9 +44,9 @@ class SyncWorker(
             applicationContext,
             SyncWorkerEntryPoint::class.java,
         )
-        val clientId = runCatching { entryPoint.syncPreferenceStore().requireClientId() }
+        val clientId = runCatchingCancellable { entryPoint.syncPreferenceStore().requireClientId() }
             .getOrElse { return Result.success() }
-        runCatching { entryPoint.sessionStore().requireAccessToken() }
+        runCatchingCancellable { entryPoint.sessionStore().requireAccessToken() }
             .getOrElse { return Result.success() }
 
         return entryPoint.syncRepository()
@@ -77,7 +78,7 @@ internal suspend fun syncFailureWorkResult(
     throwable: Throwable,
     accessRevocationHandler: LocalAccessRevocationHandler,
 ): ListenableWorker.Result = when (syncFailureAction(throwable)) {
-    SyncFailureAction.CLEAR_LOCAL_ACCESS -> runCatching {
+    SyncFailureAction.CLEAR_LOCAL_ACCESS -> runCatchingCancellable {
         accessRevocationHandler.clearForAccessRevocation()
     }.fold(
         onSuccess = { ListenableWorker.Result.success() },
