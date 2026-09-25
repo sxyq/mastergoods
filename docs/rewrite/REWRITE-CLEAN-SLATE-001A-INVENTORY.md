@@ -301,3 +301,106 @@ data/database/                    # 本地 legacy 样本，永不进 Git
 4. **三处「旧请求按失败处理」**：`AgentDraftConfirmService` 非 image_generate/media_upload 草稿抛"不支持的草稿类型"；ImportJob worker 对任何 sourceType 标记失败；`V2SyncService` 上传对任何实体类型返回 `unsupported_entity_type`。均为清场后的预期行为，已加占位注释。
 5. **Web `style.css`（3468 行）与 `public/stitch_exports/`** 仍含旧页面样式/静态导出，不影响构建，留待新 IA 时清理。
 
+---
+
+## 11. iOS 清场（001C 执行记录）
+
+001B 的残留扫描只覆盖 `.java/.kt/.ts/.vue`，漏了 `.swift`；001C 单独补齐 iOS，**未重新处理已完成的 Backend / Android / Web**。
+
+### 11.1 IOS DELETED（92 个 .swift）
+
+| 类别 | 删除 |
+|---|---|
+| **Features 整目录 8 个** | `Archives/`(6) `Dashboard/`(3) `Finance/`(8) `Inventory/`(5) `Products/`(6) `Purchases/`(10) `Reports/`(1) `Sales/`(10) = 49 |
+| **Features 根 5 个** | `ArchiveTab`、`ArchivesHomeAccessPolicy`、`ArchivesHomeView`、`DocumentsHomeAccessPolicy`、`DocumentsHomeView` |
+| **Core/Models 7 个** | `FinanceModels`、`InventoryModels`、`PartnerModels`、`ProductModels`、`PurchaseModels`、`ReportModels`、`SalesModels` |
+| **Tests 31 个** | Sales/Purchase/Finance/PayOrder/Inventory/Product/Customer/Dashboard/Archives/Reports 的 ActionPolicyTests 与 ViewModelTests |
+
+**导航收敛**：`App/AppRouter.swift` 的 `TopLevelTabKey` 由 `dashboard/documents/archives/reports/agent` 收敛为 **`agent`（助手）+ `settings`（设置）** 两 Tab；`tabRootView` 只剩 `AgentChatView` / `SettingsView`；`StoreHydrationErrorView`、`NoAvailableModuleView`、`AccessIssueView` 保留。**未设计卖货/进货/记账新 IA。**
+
+**API 剥离**：`APIClient.swift` 1294 → 688 行（删 sale/purchase/product/customer/supplier/finance/cash-change/pay-order/13 个 reports/inventory/accounts/account-transfers/partner-contacts 端点与 `performBinaryRequest`）；`APIEndpoint` case 23 → 11。保留 auth、store profile/members、media、sync、import jobs、agent 全套（含 SSE）。
+
+**Agent 剥离**：`AgentChatView.swift` 删 `rankTitle` 的 `customer_name`/`supplier_name` 特判与 `low_stock_limit` 展示（针对旧报表 schema 的 key fallback）；其余 5 个 Agent 文件零旧域引用，未改动。
+
+**Tests 内收敛**：`APIClientSessionTests` 2066→1333 行、`ModelDecodingTests` 944→583 行、`APIClientTests` 旧端点测试合并、`RolePermissionMatrixTests` 改断言新两 Tab IA。
+
+**Project refs**：`project.pbxproj`（objectVersion 46，非 filesystem-synchronized）删除 92 PBXFileReference + 92 PBXBuildFile + 184 列表条目，移除 7 个清空的业务 group；FileReference 154→62、BuildFile 153→61。
+
+### 11.2 IOS KEPT（59 个 .swift）
+
+| 区域 | 数 | 内容 |
+|---|---:|---|
+| App + 根 | 4 | `ZhihuijiIOSApp`、`AppEnvironment`、`AppRouter`（改写）、`AppSession` |
+| Core/API | 3 | `APIClient`、`APIEndpoint`（均瘦身）、`APIError` |
+| Core/Auth | 4 | `AuthModels`、`AuthTokenStore`、`Permission`、`PermissionPolicy`（原样） |
+| Core/Design | 7 | `ZhihuijiTheme` + `EmptyStateView` / `LoadingStateView` / `MetricCard` / `PrimaryGlassButton` / `StatusChip` / `ViewStyles`（**全部原样**） |
+| Core/Models | 6 | `AgentModels`、`DisplayNames`、`EntityID`、`MediaModels`、`StoreModels`、`SyncModels` |
+| Features/Agent | 6 | `AgentAccessPolicy`、`AgentChatView`、`AgentDraftsView`、`AgentTasksView`、`AgentViewModel`、`AgentWorkbenchView` |
+| Features/Auth | 3 | `LoginView`、`LoginViewModel`、`RegisterView` |
+| Features/Settings | 9 | `SettingsView`、`SettingsSecurityPolicy`、`SettingsVisibilityPolicy`、`StaffManagementActionPolicy`、`StaffManagementView`、`RoleAccessView`、`MediaAssetsView`、`PlanningOverviewView`、`SyncImportView` |
+| Assets.xcassets | — | 原样 |
+| ZhihuijiIOSTests | 17 | Auth 5、Agent 2、API 3、`ModelDecodingTests`(已收敛)、Settings/Media 6 |
+
+各区计数：swift **151 → 59**（删 92）；App 3+根1=4、Core 27→20、Features 72→18、Tests 48→17。
+
+### 11.3 IOS TESTS
+
+删除 31 个绑定旧业务的 ActionPolicy/ViewModel 测试；保留 Auth、Agent infrastructure、API、Settings/Media 与收敛后的 `ModelDecodingTests`。**未为保住旧业务测试恢复任何旧实现。**
+
+### 11.4 IOS BUILD（本机无 Xcode，如实记录）
+
+| 命令 | 结果 |
+|---|---|
+| `xcodebuild -list -project ZhihuijiIOS.xcodeproj` | **失败**：`xcode-select: error: tool 'xcodebuild' requires Xcode, but active developer directory '/Library/Developer/CommandLineTools' is a command line tools instance`（`xcrun --sdk iphoneos --show-sdk-path` → `SDK "iphoneos" cannot be located`）——**不声称任何 BUILD SUCCESSFUL** |
+| `plutil -lint ZhihuijiIOS.xcodeproj/project.pbxproj` | `OK` |
+| `xcrun swiftc -parse`（全部 59 个保留 .swift） | **exit 0，0 error**（纯语法解析，不需要 iOS SDK；已做坏文件负向对照确认 `-parse` 生效） |
+| `swiftc -typecheck` | 2 个 error 全在 `AgentModels.swift` `AgentStreamEvent does not conform to Decodable/Encodable`——用 `git archive HEAD` 导出的删除前基线跑同样命令得到**完全相同**的 2 个 error，属基线预存问题，**本轮未引入新类型错误** |
+| 被删类型引用扫描 | 61 个被删文件的 **267 个顶层类型名** + 39 个 View 名，对 59 个保留 .swift 扫描 → **0 命中** |
+| pbxproj 引用完整性 | 完整对象表复核：已定义对象 153、出现 ID 153、**未定义 ID 0**、children 悬空 **0**、files 列表悬空 **0**、FileReference path 磁盘缺失 **0**、已删文件名残留 **0** |
+
+> 真正的 `xcodebuild build` + 17 个测试执行需在装有 Xcode 的环境补跑。
+
+---
+
+## 12. GLOBAL LEGACY SCAN（001C 后全仓）
+
+扫描范围：`Code/**`，扩展名 `.java` `.kt` `.kts` `.ts` `.tsx` `.vue` `.swift`（649 → 634 个文件，排除 `db/migration`、`core/database/migration`、`.gradle`、`bin`、`node_modules`、`build`、`dist`）。
+
+### 12.1 camelCase 类名 —— **全部 0 命中**
+
+`SaleOrder` `SalesReturn` `PurchaseOrder` `PurchaseReceipt` `PurchaseReturn` `PayOrder` `FinanceRecord` `AccountTransfer` `InventoryLedger` `InventorySnapshot` → 各 **0**
+
+### 12.2 snake_case 标识符 —— 17 个文件命中，逐项分类
+
+| 分类 | 数 | 文件 |
+|---|---:|---|
+| **LEGACY_CLEANER** | 1 | `android/core/database/.../LegacyBusinessTableCleaner.kt`（19 张遗留表名，注销清数据的既有安全能力） |
+| **MIGRATION_HISTORY** | 1 | `android/core/database/.../DatabaseModule.kt`（内联 Room 迁移 DDL，`CREATE TABLE sale_orders` 等）；另 Backend `.sql` V1–V44 不在本次扩展名集合 |
+| **INFRA_SAMPLE**（测试夹具） | 13 | Backend 7：`AdminAgentRuntimeConfigServiceTest`、`AnswerSynthesizerTest`、`SafetyGuardTest`、`ContextBuilderTest`、`ToolExecutorAdminConfigContractTest`、`ToolRegistryTest`、`LongCatAnthropicClientTest`；Android 3：`AgentRunTraceModelsTest`、`AgentStreamEventSerializationTest`、`DraftConfirmStateMachineTest`；iOS 3：`APIClientSessionTests`、`AuthPermissionTests`、`ModelDecodingTests`。测试主体是 admin 配置、LLM client 协议、registry schema、context、safety、序列化与权限矩阵，工具名/实体串仅为随行样本 |
+| **KEEP 基础设施内的实体类型字符串**（非业务实现） | 2 | 见下 |
+| **REAL_BUSINESS_SOURCE** | **0** | — |
+
+**2 个 KEEP 文件说明（为何不算业务实现）**：
+
+1. `ios/Core/Auth/PermissionPolicy.swift` — `canWriteMedia` 内 `case "product"/"sale_order"/"purchase_order"` 三个**实体类型字符串 → 权限位**分支。属 **Core/Auth 授权基础设施**（第 2 节明确 KEEP），不含领域模型/View/Service/规则引擎；其被测断言在保留的 `AuthPermissionTests.testMediaWritePolicyMatchesBusinessPermissions`。改动它等于改授权语义并需重写保留测试，超出「iOS 清场」范围，归类为 **INFRA_SAMPLE（KEEP 模块内的样本级字符串分支）**。若主控判定应算业务残留，下一轮需连带修改 `MediaAssetsView` 权限语义与该测试。
+2. `ios/Core/Models/DisplayNames.swift` — `syncEntityType` / `mediaTargetType` 的 `case "sale_order": return "销售单"` 等**中文标签 lookup**，`default: return raw`，无规则无状态，被保留的 `SyncImportView` / `MediaAssetsView` 用于展示。属展示标签而非业务实现，归类 **INFRA_SAMPLE**。
+
+> 判据：**REAL_BUSINESS_SOURCE = 实现旧业务领域的源码（领域实体、模型、View、Service、Repository、业务规则）**。migration / legacy cleaner / 文档注释 / 测试样本 / KEEP 模块内的实体类型字符串与标签 lookup 均不计入。按第 10 节提示，**不因这些字符串存在而做无意义清理**。
+
+---
+
+## 13. READY_FOR_PRODUCT_REQUIREMENT_RETHINK
+
+**YES**
+
+| 条件 | 状态 |
+|---|---|
+| iOS 旧业务清理完成 | ✅ 92 个 .swift 删除，Features/Models/Tests 均清场 |
+| iOS 骨架可构建 | ⚠️ **本机无 Xcode，`xcodebuild` 不可用**；替代验证全绿：`plutil -lint` OK、`swiftc -parse` 59 文件 0 error、pbxproj 引用完整性 0 悬空、被删类型引用 0 命中、`-typecheck` 错误与 HEAD 基线完全一致（未引入新错误）。真实 `xcodebuild build/test` 需在有 Xcode 的环境补跑 |
+| 全仓 REAL_BUSINESS_SOURCE = 0 | ✅ camelCase 10 项全 0；snake_case 17 文件已分类，业务实现 0 |
+| Legacy DB 完好 | ✅ 5 个 `.db` 均存在、均未被 Git 跟踪 |
+| archive 未动 | ✅ `archive/pre-domain-rewrite` = `19283a4d`，tag `pre-domain-rewrite-2026-09-25` 未改 |
+
+**遗留（不阻塞，交下一阶段）**：Xcode 环境补跑 iOS build/test；`AgentStreamEvent` 的 Codable 符合性为 HEAD 基线预存问题；`AgentTerminalStatusTests.swift` 从未入 pbxproj；`Permission` 枚举仍含 `dashboardView/salesView/...` 等旧权限 case 与 `DisplayNames` 旧标签（属新 IA / 认证重设计范围）；Web `style.css` 与 `public/stitch_exports/` 旧样式；`PAGE_MAP.md` / `README.md` 仍描述旧页面地图。
+
+
