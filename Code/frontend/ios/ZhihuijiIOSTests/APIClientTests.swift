@@ -54,15 +54,10 @@ final class APIClientTests: XCTestCase {
         XCTAssertEqual(stablePrefix?.apiBaseURL.absoluteString, "https://example.com/api")
     }
 
-    func testArchiveRelatedEndpointsAreStable() {
-        XCTAssertEqual(APIEndpoint.products.path, "/v2/products")
+    func testInfrastructureEndpointsAreStable() {
         XCTAssertEqual(APIEndpoint.currentStore.path, "/v2/stores/current")
-    }
-
-    func testInventoryRelatedEndpointsAreStable() {
-        XCTAssertEqual(APIEndpoint.inventorySnapshots.path, "/v2/inventory/snapshots")
-        XCTAssertEqual(APIEndpoint.inventoryMonthlyStats.path, "/v2/inventory/monthly-stats")
-        XCTAssertEqual(APIEndpoint.inventoryLedger.path, "/v2/inventory/ledger")
+        XCTAssertEqual(APIEndpoint.agentWorkbench.path, "/v2/agent/workbench")
+        XCTAssertEqual(APIEndpoint.importJobs.path, "/v2/import-jobs")
     }
 
     func testMediaAndSyncEndpointsAreStable() {

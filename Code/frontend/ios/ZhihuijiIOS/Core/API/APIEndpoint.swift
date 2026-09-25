@@ -7,21 +7,9 @@ enum APIEndpoint {
     case currentUser
     case currentStore
     case storeMembers
-    case dashboardSummary
-    case saleOrders
-    case purchaseOrders
-    case products
-    case inventorySnapshots
-    case inventoryMonthlyStats
-    case inventoryLedger
-    case reports
     case agentWorkbench
     case mediaAssets
     case mediaBindings
-    case accounts
-    case accountTransfers
-    case customerContacts
-    case supplierContacts
     case syncHealth
     case importJobs
 
@@ -39,36 +27,12 @@ enum APIEndpoint {
             return "/v2/stores/current"
         case .storeMembers:
             return "/v2/stores/current/members"
-        case .dashboardSummary:
-            return "/v2/reports/sales-summary"
-        case .saleOrders:
-            return "/v2/sale-orders"
-        case .purchaseOrders:
-            return "/v2/purchase-orders"
-        case .products:
-            return "/v2/products"
-        case .inventorySnapshots:
-            return "/v2/inventory/snapshots"
-        case .inventoryMonthlyStats:
-            return "/v2/inventory/monthly-stats"
-        case .inventoryLedger:
-            return "/v2/inventory/ledger"
-        case .reports:
-            return "/v2/reports/sales-trend"
         case .agentWorkbench:
             return "/v2/agent/workbench"
         case .mediaAssets:
             return "/v2/media/assets"
         case .mediaBindings:
             return "/v2/media/bindings"
-        case .accounts:
-            return "/v2/accounts"
-        case .accountTransfers:
-            return "/v2/account-transfers"
-        case .customerContacts:
-            return "/v2/customer-contacts"
-        case .supplierContacts:
-            return "/v2/supplier-contacts"
         case .syncHealth:
             return "/v2/sync/health"
         case .importJobs:

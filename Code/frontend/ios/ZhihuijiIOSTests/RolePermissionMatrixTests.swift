@@ -53,22 +53,17 @@ final class RolePermissionMatrixTests: XCTestCase {
     }
 
     func testTopLevelTabsFollowMobileInformationArchitecture() {
-        XCTAssertEqual(TopLevelTabKey.visibleTabs(for: [.dashboardView]), [.dashboard])
+        XCTAssertEqual(TopLevelTabKey.visibleTabs(for: [.agentView]), [.agent, .settings])
         XCTAssertEqual(
-            TopLevelTabKey.visibleTabs(for: [.dashboardView, .salesView]),
-            [.dashboard, .documents]
+            TopLevelTabKey.visibleTabs(for: [.dashboardView]),
+            [.settings]
         )
         XCTAssertEqual(
-            TopLevelTabKey.visibleTabs(for: [.dashboardView, .salesView, .archivesView, .reportsView, .agentView]),
-            [.dashboard, .documents, .archives, .reports, .agent]
+            TopLevelTabKey.visibleTabs(for: []),
+            [.settings]
         )
-        XCTAssertEqual(
-            TopLevelTabKey.visibleTabs(for: [.inventoryView]),
-            [.documents]
-        )
-        XCTAssertTrue(TopLevelTabKey.documents.isVisible(for: [.purchaseView]))
-        XCTAssertFalse(TopLevelTabKey.reports.isVisible(for: [.financeView]))
-        XCTAssertEqual(TopLevelTabKey.dashboard.title, "首页")
+        XCTAssertEqual(TopLevelTabKey.agent.title, "助手")
         XCTAssertEqual(TopLevelTabKey.agent.systemImage, "sparkles")
+        XCTAssertEqual(TopLevelTabKey.settings.title, "设置")
     }
 }

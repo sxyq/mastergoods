@@ -2088,8 +2088,6 @@ extension JSONValue {
         objectValue?["label"]?.stringValue
             ?? objectValue?["title"]?.stringValue
             ?? objectValue?["name"]?.stringValue
-            ?? objectValue?["customer_name"]?.stringValue
-            ?? objectValue?["supplier_name"]?.stringValue
             ?? displayText
     }
 
@@ -2140,9 +2138,6 @@ private extension JSONValue {
         }
         if let rankLimit = objectValue["rank_limit"]?.numberValue {
             parts.append("排行 \(Int(rankLimit))")
-        }
-        if let lowStockLimit = objectValue["low_stock_limit"]?.numberValue {
-            parts.append("低库存 \(Int(lowStockLimit))")
         }
         if objectValue["is_truncated"]?.boolValue == true {
             parts.append("已截断")

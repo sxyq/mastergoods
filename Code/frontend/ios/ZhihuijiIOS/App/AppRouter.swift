@@ -108,73 +108,44 @@ private struct RootTabView: View {
     @ViewBuilder
     private func tabRootView(for tab: TopLevelTabKey) -> some View {
         switch tab {
-        case .dashboard:
-            TopLevelNavigationShell {
-                DashboardView()
-            }
-        case .documents:
-            TopLevelNavigationShell {
-                DocumentsHomeView()
-            }
-        case .archives:
-            TopLevelNavigationShell {
-                ArchivesHomeView()
-            }
-        case .reports:
-            TopLevelNavigationShell {
-                ReportsView()
-            }
         case .agent:
             TopLevelNavigationShell {
                 AgentChatView()
+            }
+        case .settings:
+            TopLevelNavigationShell {
+                SettingsView()
             }
         }
     }
 }
 
 enum TopLevelTabKey: String, CaseIterable, Identifiable {
-    case dashboard
-    case documents
-    case archives
-    case reports
     case agent
+    case settings
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .dashboard: return "首页"
-        case .documents: return "单据"
-        case .archives: return "档案"
-        case .reports: return "报表"
         case .agent: return "助手"
+        case .settings: return "设置"
         }
     }
 
     var systemImage: String {
         switch self {
-        case .dashboard: return "house.fill"
-        case .documents: return "doc.text.fill"
-        case .archives: return "shippingbox.fill"
-        case .reports: return "chart.xyaxis.line"
         case .agent: return "sparkles"
+        case .settings: return "gearshape"
         }
     }
 
     func isVisible(for permissions: Set<Permission>) -> Bool {
         switch self {
-        case .dashboard:
-            return permissions.contains(.dashboardView)
-        case .documents:
-            return permissions.contains(where: {
-                [.salesView, .purchaseView, .financeView, .inventoryView].contains($0)
-            })
-        case .archives:
-            return permissions.contains(.archivesView)
-        case .reports:
-            return permissions.contains(.reportsView)
         case .agent:
             return permissions.contains(.agentView)
+        case .settings:
+            return true
         }
     }
 
@@ -192,28 +163,7 @@ private struct TopLevelNavigationShell<Content: View>: View {
 
     var body: some View {
         NavigationStack {
-                content
-                .toolbar {
-#if os(iOS)
-                    ToolbarItem(placement: .topBarTrailing) {
-                        NavigationLink {
-                            SettingsView()
-                        } label: {
-                            Image(systemName: "gearshape.fill")
-                                .font(ZhihuijiTheme.Typography.bodyMedium)
-                        }
-                    }
-#else
-                    ToolbarItem {
-                        NavigationLink {
-                            SettingsView()
-                        } label: {
-                            Image(systemName: "gearshape.fill")
-                                .font(ZhihuijiTheme.Typography.bodyMedium)
-                        }
-                    }
-#endif
-                }
+            content
         }
     }
 }
