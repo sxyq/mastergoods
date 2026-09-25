@@ -1,0 +1,19 @@
+﻿编号,被调用方,调用方,调用方式,证据（文件:行）,触发条件,备注
+C-001,TokenAuthenticationFilter.doFilterInternal,SessionAccessService.findActiveSessionByToken,直接调用,security/TokenAuthenticationFilter.java L41-48,每次带 Bearer 请求,DB 查询+30s 缓存
+C-002,SessionAccessService.findActiveSessionByToken,SessionRepository.findByTokenAndIsActiveTrue,直接调用（JPQL）,SessionAccessService L31,缓存未命中时,过滤 expiresAt
+C-003,AuthService.login,createSession→TokenService.issueToken+SessionAccessService.cacheSession,直接调用,AuthService L69-92,登录成功,签发 access+refresh
+C-004,AuthService.refresh,SessionAccessService.invalidateSession + createSession,直接调用,AuthService L107-124,refresh 换发,旧会话停用+黑名单
+C-005,CurrentOwnerService.requireCurrentOwnerUserId,SecurityContext principal → StoreMembershipRepository.findByUserId,直接调用,"CurrentOwnerService L43-45, L86-105",所有业务请求,无 membership 时默认 OWNER
+C-006,SaleOrderService.createForOwner,ProductRepository.findByIdForUpdate（悲观锁）,直接调用,SaleOrderService L71,下单,锁+扣库存+余额加总
+C-007,SaleOrderService.addPaymentForOwner,SaleOrderRepository.findByIdAndOwnerUserId（无锁）→订单/客户更新,直接调用,SaleOrderService L249-292,收款,P-004 并发风险
+C-008,SaleOrderService.cancelForOwner,findByIdForUpdate 回补库存 + PaymentEntity(AUTO-REFUND),直接调用,SaleOrderService L343-392,取消订单,P-005 订单行无锁
+C-009,GlobalExceptionHandler.handleAccessDenied,AdminAuditService.recordSecurityDenial（仅 admin 路径）,直接调用,GlobalExceptionHandler recordAdminDenial,admin 403/401,审计写库失败仅告警
+C-010,SecurityConfig.securityFilterChain,TokenAuthenticationFilter + StorePermissionInterceptor(WebMvcConfig 注册),过滤器链,SecurityConfig L60-86,每请求,P-002 local 放行 admin
+C-011,AgentDraftConfirmService.confirmDraft,agentDraftRepository.updateStatusIfCurrent（CAS）→dispatchCreate→各业务 Service.create,直接调用,AgentDraftConfirmService L203-248,草稿确认,幂等+防并发重复确认
+C-012,ReportService（各报表方法）,SaleOrderItemRepository/SaleOrderRepository 统计查询,直接调用,ReportService L85-488,报表请求,统一排除 CANCELLED、处理 REFUND
+C-013,DemoDataService.seed,createUsers/createSuppliers/…/clearAll + 各 Repository,直接调用,DemoDataService L117-137,local profile 播种,P-019 reset 全清
+C-014,Android AuthInterceptor/TokenAuthenticator,ZhihuijiApi/ZhihuijiV2Api（Retrofit）,拦截器链,core/network/NetworkModule.kt 组装,App 全部请求,401 时经 TokenAuthenticator 刷新
+C-015,Web session store,shared/api/client.ts → /v1/auth/*,Store action 调用,app/stores/session.ts,登录/登出/刷新档案,token 持久化 localStorage
+C-016,Web 各页面,shared/utils/id.ts readQueryId / business.ts 状态标签,直接导入,pages/**（10+ 文件引用）,路由解析/渲染,BigInt 安全 ID 解析
+C-017,iOS AuthTokenStore,Keychain SecItem API,直接调用,Core/Auth/AuthTokenStore.swift,令牌读写,安全存储
+C-018,backend tools/migrate_kingdee_zhihuiji.py,SQLite 源库→PostgreSQL 目标库,脚本直连 DB,Code/backend/tools/,数据迁移,独立于应用事务

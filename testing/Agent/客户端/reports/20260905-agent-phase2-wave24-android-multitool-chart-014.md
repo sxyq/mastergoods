@@ -58,3 +58,9 @@
 11:08 和 11:18 的 ADB 复核均未发现设备，`adb get-state` 均为 `no devices/emulators found`，11:08 的 USB 枚举和两次 mDNS 检查也没有 Android 设备。11:12 重新执行 Android Debug APK 构建，结果为 `BUILD SUCCESSFUL`，SHA-256 仍为 `fbbfae46dc978a75d8b357cda9aff244455cd7e9f6f9a68244adf25f338b0639`。证据见 `客户端/artifacts/20260905-agent-phase2-wave24-physical-device-blocked-015/05-adb-recheck-110849.txt`、`06-build-and-adb-recheck-111253.txt` 和 `07-adb-recheck-111821.txt`。
 
 本轮没有安装 APK、启动 App、执行 UI 点击或产生新的服务端 run。003、004、006、007、008、010 继续保持 `Blocked`；设备上线后仍从 003 开始，先安装并核对当前 APK，再执行真实 UI 流程。
+
+## 2026-09-05 11:54–11:58 设备与代码级前置复核
+
+11:54 重新启动 ADB 后，`adb devices -l` 为空，`adb get-state` 为 `no devices/emulators found`，USB 枚举和 mDNS 均未发现设备。随后执行完整 Android JVM 测试，`1283` 个任务完成并返回 `BUILD SUCCESSFUL`；公网健康入口 `https://zhj-api.sxyq27.online/healthz` 返回 HTTP `200`、响应体 `ok`。证据见 `客户端/artifacts/20260905-agent-phase2-wave24-physical-device-blocked-015/08-full-android-test-and-precheck-115848.txt`。
+
+代码级测试和服务端健康检查通过，不能替代物理设备 UI 测试；本轮没有安装 APK、启动 App、执行 UI 点击或产生新的服务端 run。003、004、006、007、008、010 继续保持 `Blocked`。

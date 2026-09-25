@@ -1,6 +1,8 @@
 # Agent 功能测试规划（功能）
 
-更新日期：2026-08-28。代码基线见 [../代码事实基线.md](../代码事实基线.md)，编号与映射见 [../映射台账.md](../映射台账.md)。本文件所有父卡初始状态为 `Deferred`；真实执行后仅能更新为 `Passed/Failed/Blocked/Deferred`。父卡只组织场景，不能替代派生执行记录。
+账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
+
+更新日期：2026-09-07。代码基线见 [../代码事实基线.md](../代码事实基线.md)，编号与映射见 [../映射台账.md](../映射台账.md)。本文件所有父卡初始状态为 `Deferred`；真实执行后仅能更新为 `Passed/Failed/Blocked/Deferred`。父卡只组织场景，不能替代派生执行记录。671 条功能分支必须通过 8220 云端 Agent API、云端模型、云端工具执行器和云端 PostgreSQL 完成；并行分组、环境前置和证据要求见 [Agent 开发与真实测试执行步骤](../执行步骤临时文档.md#71-后端-agent-直调与-android-真机双轨方案)。
 
 ## 一、范围与统一判定
 
@@ -44,9 +46,25 @@
 
 每条派生记录都必须填写 README 的最小字段，并在 `result` 中给出唯一状态。理论分支总量为 `61 × 11 = 671`；该数字是应规划量，不代表已经执行。
 
+### 2.2 云端后端 Agent 直调执行方式
+
+671 条分支通过 8220 云端 Agent API、云端模型服务和云端 PostgreSQL 执行，流式入口为 `https://zhj-api.sxyq27.online/v2/agent/chat/stream`。模型必须真实返回工具调用，由云端 `ToolPlanner` 和 `ToolExecutor` 访问云端数据库；创建类工具在 Agent 生成草稿后，再按分支调用云端草稿拒绝、确认或并发确认接口。
+
+云端模型 Provider 为 `https://oneapi.sxyq27.online/v1`。模型名和 Wire API 必须在每个 Wave 从服务器运行时配置和脱敏 Provider 观测中记录；服务器运行时 Key 使用环境变量 `AGENT_LLM_API_KEY`，只记录注入状态，实际值不写入文件、日志或证据。测试脚本不直接请求 Provider，也不启动本地替代模型。
+
+每条请求必须使用云端认证上下文、云端模型、云端工具执行器和云端数据库，并保存 SSE、模型工具轨迹、run-audit、数据库 before/after 和清理证据。执行器不得直接调用某个工具 Service 或 Repository 来替代 Agent 请求；如果模型没有选择目标工具，按实际结果记 `Failed` 或 `Blocked`，不能手工补一条工具调用后写成成功。
+
+云端主链路为：测试账号认证 → 云端 Agent HTTP/SSE → 云端模型 `tool_call` → 云端 `ToolPlanner/ToolExecutor` → 云端 PostgreSQL → 云端 SSE/run/audit → 数据库前后状态与清理。认证拒绝、权限拒绝和非法参数等前置分支可以在模型调用前结束，但仍需保留云端接口和数据库证据。
+
+本地 H2/SQLite、固定 JSON、关键词降级、模拟 Provider 和静态代码只能作为独立自动化或隔离证据，不能计入云端 671 条。若 `plan_source` 为 `keyword_fallback`、`llm_unavailable`、`llm_planning_failed`，或回答来自规则降级而非云端模型，必须按实际结果记 `Failed` 或 `Blocked`。
+
+后端分支分为 506 条只读分支和 165 条创建分支。两组可以使用独立账号、owner/store、conversation 和测试数据并行运行；同一草稿的重复确认、并发确认仍在一个场景中发起。Android UI 测试单独执行 `客户端/TEST_PLAN.md` 中的 10 个主流程，后端直调结果不能替代图表、草稿弹窗、错误展示、后台切换和断线恢复等客户端结论。
+
+后端直调的 `08-app-observation.md` 写明 `not_applicable`；Android 真实 UI 记录必须提供 UI tree、截图或设备观察。两条线共用同一结果状态定义，但使用不同 `test_id`、证据目录和统计口径。
+
 ## 三、46 个 READ_ONLY 工具执行卡（AG-F-TOOL-RO-*）
 
-统一前提：真实登录账号 + 有/无数据两套夹具；`result_visualization` 只在已有真实查询结果后使用。以下“预期工具链与顺序”为理想基线，实际以 Provider 自主选择 + 服务端范围门为准（无依赖工具单独调用；有依赖工具先依赖后目标）。
+统一前提：云端有效登录账号 + 云端当前 owner/store 的有/无数据范围 + 云端模型服务；`result_visualization` 只在已有云端真实查询结果后使用。以下“预期工具链与顺序”为理想基线，实际以云端模型自主选择 + 云端服务范围门为准（无依赖工具单独调用；有依赖工具先依赖后目标）。
 
 | 编号 | 工具 | 输入提示词 | 预期工具链与顺序 | Loop/压缩 | SSE/响应 | DB/草稿/审计 | 边界重点 | 单项验收 |
 |---|---|---|---|---|---|---|---|---|
@@ -220,7 +238,7 @@ API 契约细节见 [../契约/TEST_PLAN.md](../契约/TEST_PLAN.md)，本节只
 |---|---|
 | test_id / category_id | AG-F-TOOL-RO-024 / F |
 | test_objective | 验证商品目录查询在流式路径返回真实事实并被结果块引用 |
-| preconditions | 登录测试账号；当前 owner 存在 ≥2 个商品；Provider 已配置；服务与 APP 版本已记录 |
+| preconditions | 登录云端测试账号；当前 owner 存在 ≥2 个商品；云端模型运行时、Agent API、数据库和 APP 版本已记录 |
 | input | “现在有哪些商品，各自库存和价格是多少？” |
 | expected_tools | `product_catalog_lookup`（无允许的依赖工具） |
 | expected_order | run_started → plan_delta(可选) → tool_started → tool_completed → answer_delta → answer_completed → result_block(可选) → run_completed |
@@ -239,7 +257,7 @@ API 契约细节见 [../契约/TEST_PLAN.md](../契约/TEST_PLAN.md)，本节只
 |---|---|
 | test_id / category_id | AG-F-DRAFT-CO-006 / F |
 | test_objective | 验证付款草稿生成与二次授权闭环，及幂等键冲突语义 |
-| preconditions | 登录账号含 ≥1 供应商与 ≥1 资金账户；Provider 已配置；服务端幂等键可用 |
+| preconditions | 登录云端账号，当前作用域含 ≥1 供应商与 ≥1 资金账户；云端模型运行时、Agent API、数据库和幂等键条件已记录 |
 | input | “给供应商 A 付款 1.23 元，备注全量工具测试，先别直接付，做成草稿。” |
 | expected_tools | `supplier_directory_lookup`（依赖）→ `create_pay_order` |
 | expected_order | tool_started(supplier_directory_lookup) → tool_completed → 续轮 plan → tool_started(create_pay_order) → tool_completed → draft_created → run_completed(CONFIRMATION_PENDING) |

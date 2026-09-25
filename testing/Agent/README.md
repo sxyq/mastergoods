@@ -1,5 +1,7 @@
 # Agent 端测试资料总览
 
+账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
+
 更新时间：2026-09-04
 
 本目录是 Agent（后端 `/v2/agent`、Android/iOS APP、Web 协议对照）的**唯一**测试资料组织点。以测试类别为单位拆分规划文档、执行台账、脚本、日志、报告和原始证据，取代旧的单份《Agent 综合功能与性能测试方案》（已删除）与历史分类占位目录（observability 等已并入对应类别，本目录不再出现）。
@@ -344,3 +346,134 @@ Wave 23 完成了 Android 取消分支的真实发送和停止点击。App 在 `
 003 已在旧 APK 上完成一次真实 UI 输入和发送点击，但 App 实际请求旧的 `https://sxyq27.online/zhj-api/` 路径并收到 HTTP `410`，因此没有形成多工具或图表证据，完整用例记为 `Blocked`。当前源码 Debug APK 构建成功，但物理设备在安装前断开，004 商品确认、006 取消/断线/重连、007 上下文压缩、008 错误/重试和 010 生图均未执行，按设备缺失记为 `Blocked`。
 
 详细报告为 `testing/Agent/客户端/reports/20260905-agent-phase2-wave24-android-multitool-chart-014.md`，证据目录为 `testing/Agent/客户端/artifacts/20260905-agent-phase2-wave24-AG-CLI-AND-P2-MULTITOOL-CHART-014/`；物理设备阻塞证据为 `testing/Agent/客户端/artifacts/20260905-agent-phase2-wave24-physical-device-blocked-015/`。本轮没有修改产品源码、API Key、账号密码、线上服务或数据库。
+
+## 二十五、2026-09-06 阶段二 Wave 43 Android 真机登录前置复测
+
+物理设备 `d715a3a4` 重新出现后，依据实时 UI tree 输入两个已有测试账号并真实点击登录。两个 `/v1/auth/login` 请求均返回 HTTP `422`，App 保持在登录页，未进入 Agent 页面。`https://zhj-api.sxyq27.online/healthz` 返回 HTTP `200` / `ok`；目标 8220 服务器直连在 SSH banner 阶段被关闭，未取得数据库或 run audit 计数。两次操作没有 App crash，crash buffer 为空；随后设备从 ADB 消失。
+
+| 项目 | 结果 |
+|---|---|
+| 登录前置 | `Blocked` |
+| `AG-CLI-AND-003/004/006/007/008/010` 本轮执行 | `Blocked`，未进入 Agent UI |
+| App 稳定性 | `Passed` |
+| 服务端健康接口 | HTTP `200`，仅证明健康端点可访问 |
+
+报告为 `testing/Agent/客户端/reports/20260906-agent-phase2-wave43-physical-login-blocked-031.md`，证据目录为 `testing/Agent/客户端/artifacts/20260906-agent-phase2-wave43-physical-login-blocked-031/`。解除条件是物理设备重新以 ADB serial 出现，并取得有效的现有测试账号登录条件；不启动模拟器、不重置账号密码、不以接口替代 UI。
+
+## 二十六、2026-09-06 阶段二 Wave 44 Android 真机登录前置复测
+
+物理设备 `d715a3a4` 恢复后，App 返回登录页。依据实时 UI tree 的登录按钮 bounds `[116,1429][964,1555]` 真实点击中心 `(540,1492)`；第二个已有测试账号的 `/v1/auth/login` 返回 HTTP `422`，App 保持在登录页，未进入 Agent UI。crash buffer 为空，未启动模拟器。
+
+| 项目 | 结果 |
+|---|---|
+| 登录前置 | `Blocked` |
+| `AG-CLI-AND-003/004/006/007/008/010` 本轮执行 | `Blocked`，未进入 Agent UI |
+| App 稳定性 | `Passed` |
+
+报告为 `testing/Agent/客户端/reports/20260906-agent-phase2-wave44-physical-login-422-032.md`，证据目录为 `testing/Agent/客户端/artifacts/20260906-agent-phase2-wave44-physical-login-422-032/`。健康接口 HTTP `200` / `ok` 只表示端点可访问；8220 SSH 在 banner 阶段关闭，数据库和审计未取得。本轮未修改产品源码、API Key、账号密码或线上配置。
+
+## 二十七、2026-09-06 阶段二 Wave 45 Android 真机登录前置重试
+
+本轮在物理设备 `d715a3a4` 上重新安装并启动当前 `com.zhihuiji.app` 1.0.0，依据实时 UI tree 完成登录字段输入和登录按钮真实点击。`POST /v1/auth/login` 返回 HTTP `422`，App 仍停留登录页，未进入 Agent UI；未启动模拟器、未重置账号密码、未修改 API Key。
+
+| 项目 | 结果 |
+|---|---|
+| 登录前置 | `Blocked`；真实点击中心 `(540,1492)`，HTTP `422`，仍为登录页 |
+| `AG-CLI-AND-003/004/006/007/008/010` | `Blocked`；登录未成功，本轮未开始这些 UI 用例 |
+| App 稳定性 | `Passed`；crash buffer 为空 |
+| 数据与审计 | `Blocked`；本轮没有会话、run、消息、草稿或业务写入证据；8220 数据库与审计读取条件未恢复 |
+
+报告为 `testing/Agent/客户端/reports/20260906-agent-phase2-wave45-physical-login-retry-033.md`，证据目录为 `testing/Agent/客户端/artifacts/20260906-agent-phase2-wave45-physical-login-retry-033/`。目录包含四份脱敏 UI tree、三张截图、脱敏 logcat 和空 crash buffer。解除条件是取得可用的现有测试账号登录条件，并保持物理设备以 ADB serial 在线；随后继续按测试计划逐项执行。
+
+## 二十八、2026-09-06 阶段二 Wave 46 Android 真机登录与 AG-CLI-AND-003
+
+线上账号恢复后，物理设备 `d715a3a4` 通过 UI 登录成功，真实进入 AI 对话并发送非零年度销售与付款分析请求。App 收到 Agent SSE HTTP `200` / `text/event-stream`，但最终显示“暂时无法完成这次请求，请稍后重试”，没有图表，故 `AG-CLI-AND-003` 非零图表分支为 `Failed`。
+
+| 项目 | 结果 |
+|---|---|
+| 登录与首页恢复 | `Passed`；登录及首页接口均 HTTP `200` |
+| Agent UI 输入与发送 | `Passed`；依据 UI tree 真实点击发送中心 `(966,1425)` |
+| 非零图表 | `Failed`；未出现 `result_visualization`，最终为可重试错误 |
+| 清理 | `Passed`；App 清空、会话删除、`pm clear` 成功，最终登录页可见，crash buffer 0 行 |
+| `AG-CLI-AND-004/006/007/008/010` | 本轮未执行，保持既有状态 |
+
+服务端计数发送前为 `agent_conversations=17`、`agent_messages=47`、`agent_drafts=0`、`agent_run_audits=92`、`agent_run_audit_events=1467`、`agent_context_checkpoints=0`；清理后会话/消息回到 `17/47`，草稿为 `0`，正式业务表 `products=693`、`customers=84`、`finance_records=2661` 未变化。报告为 `testing/Agent/客户端/reports/20260906-agent-phase2-wave46-physical-login-and-003-034-035-036-037-038-039.md`，证据目录为对应 Wave 46 artifacts 目录。
+
+## 二十九、2026-09-06 阶段二 Wave 47 Android 真机取消分支
+
+物理设备 `d715a3a4` 按实时 UI tree 真实点击发送 `(966,1425)`；约 0.4 秒后出现 `停止接收`，依据 bounds `[903,2175][1029,2301]` 真实点击 `(966,2238)`。停止后 1 秒和 5 秒 UI 均显示 `已完成`，没有 `已取消` 或服务端取消确认。服务端最新 run `5bac9c30-0918-4a3b-b7c7-496a2da63013` 为 `completed`，13 个事件以 `run_completed` 结束，没有 `run_cancelled`，所以 `AG-CLI-AND-006` 完整取消分支为 `Failed`；客户端停止控件点击子项为 `Passed`。
+
+发送前计数为 `17/47/0/93/1477/0`，发送后为 `18/49/0/94/1490/0`，清理后为 `17/47/0/94/1490/0`；正式业务表始终为 `products=693`、`customers=84`、`finance_records=2661`。通过 App 会话列表真实删除本轮会话，`pm clear` 返回 `Success`，重启后登录页可见，crash buffer 为 0 行。
+
+报告：`testing/Agent/客户端/reports/20260906-agent-phase2-wave47-physical-cancel-040.md`；证据目录：`testing/Agent/客户端/artifacts/20260906-agent-phase2-wave47-physical-cancel-040/`。本轮没有取得 `run_cancelled`、停止后无增量或断线恢复证据，相关项目继续保持原状态。
+
+## 三十、2026-09-06 阶段二 Wave 48 Android 真机设备前置
+
+继续执行 `AG-CLI-AND-004` 时，物理设备 `d715a3a4` 在登录页前置操作期间从 ADB 消失；随后连续约 9 秒复核仍未出现。本轮未进入 Agent UI，商品确认记为 `Blocked`，未产生新的会话、消息、草稿、run 或业务写入。未启动模拟器、未重置账号密码、未修改 API Key。
+
+报告：`testing/Agent/客户端/reports/20260906-agent-phase2-wave48-physical-device-disconnect-041.md`；证据目录：`testing/Agent/客户端/artifacts/20260906-agent-phase2-wave48-physical-device-disconnect-041/`。设备恢复后从登录页重新开始商品草稿确认分支。
+
+## 三十一、2026-09-06 阶段二 Wave 49 Android 真机商品草稿确认
+
+物理设备 `d715a3a4` 恢复后通过 UI 登录，真实进入助手、新建对话并发送两次商品草稿请求。两次请求均被模型路由为查询工具，未生成 `create_product` 草稿或确认弹窗；中间一次重试准备阶段设备短暂掉线，恢复后第二次请求完成。因此商品草稿创建为 `Failed`，重复确认和并发确认继续为 `Blocked`。
+
+报告：`testing/Agent/客户端/reports/20260906-agent-phase2-wave49-physical-product-confirm-042.md`；证据目录：`testing/Agent/客户端/artifacts/20260906-agent-phase2-wave49-physical-product-confirm-042/`。两次发送后计数为 `18/49/0/96/1523/0`，清理后为 `17/47/0/96/1523/0`，业务表 `693/84/2661` 未变化；本轮没有确认请求或业务写入。未启动模拟器、未重置账号密码、未修改 API Key。
+## 2026-09-06 阶段二 Wave 50 Android 真机断线重连
+
+物理设备 `d715a3a4` 真实发送长查询并关闭 Wi-Fi，App 显示 `重连中... (2/3)`，日志记录 3 次 `UnknownHostException`；恢复 Wi-Fi 后重新建立 SSE，最终显示 10 条销售数据和回答，第二条用户消息没有重复展示。重连 UI 子项为 `Passed`。服务端形成两个独立 `completed` run（9 个事件和 20 个事件），完整 `AG-CLI-AND-006` 记为 `Failed`，原因是需要确认重连是否允许重新执行。
+
+发送后计数为 `18/51/0/98/1552/0`，清理后为 `17/47/0/98/1552/0`；`products=693`、`customers=84`、`finance_records=2661` 未变化。App 会话通过真实 UI 删除，`pm clear` 成功，登录页可见，crash buffer 为 0 行。报告：`testing/Agent/客户端/reports/20260906-agent-phase2-wave50-physical-reconnect-043.md`；证据目录：`testing/Agent/客户端/artifacts/20260906-agent-phase2-wave50-physical-reconnect-043/`。
+## 2026-09-06 阶段二 Wave 51 Android 真机商品草稿确认
+
+线上账号哈希更新 2 行后，物理设备 `d715a3a4` 通过 UI 登录成功。三次商品创建意图进入 Agent SSE；第三次 UI 明确包含 `create_product`，服务端仍只执行 `product_catalog_lookup`，回答说明当前无创建工具，没有草稿、确认或正式业务写入。`AG-CLI-AND-004` 商品草稿创建为 `Failed`；确认成功、重复确认和并发确认未到达，记为 `Blocked`。
+
+发送后计数为 `18/53/0/101/1587/0`，业务表 `products=693`、`customers=84`、`finance_records=2661` 未变化。新会话未在当次可见会话列表出现，未使用接口删除；`pm clear` 成功，最终登录页可见，crash buffer 为 0 行。报告：`testing/Agent/客户端/reports/20260906-agent-phase2-wave51-physical-product-confirm-044.md`；证据目录：`testing/Agent/客户端/artifacts/20260906-agent-phase2-wave51-physical-product-confirm-044/`。
+## 2026-09-06 阶段二 Wave 52 Android 真机生图草稿确认
+
+物理设备通过 UI 登录后进入生图面板并真实点击生成；App 请求 `/v2/agent/images/generate` 返回 HTTP `422`，没有图片、草稿卡片、确认/拒绝按钮或业务写入。`AG-CLI-AND-010` 记为 `Failed`。最终业务、会话、草稿和审计计数与请求前一致；`pm clear` 成功，最终登录页可见，crash buffer 0 行。
+
+报告：`testing/Agent/客户端/reports/20260906-agent-phase2-wave52-physical-image-draft-045.md`；证据目录：`testing/Agent/客户端/artifacts/20260906-agent-phase2-wave52-physical-image-draft-045/`。
+
+## 五十四、2026-09-06 阶段二 Wave 54 Android 真机上下文压缩复测
+
+物理设备 `d715a3a4` 上 Round 1–4 已通过真实 UI 输入、发送和完成态核对。Round 5 长文本输入完成复核前后设备从 ADB 消失，未执行发送，Round 6 也未开始；因此 `AG-CLI-AND-007` 的完整压缩闭环继续为 `Blocked`。本轮不把服务端 Wave 53 已有的 `context_compacted` 事件单独当作本轮 UI 通过。
+
+| 项目 | 结果 |
+|---|---|
+| Round 1–4 | `Passed`（子步骤）；UI tree 和截图保留在 Wave 54 artifacts |
+| Round 5/6 | `Blocked`；未发送，未取得新压缩提示或后续回答 |
+| ADB 状态 | `d715a3a4` 掉线；后续 `adb devices -l`、mDNS 和 USB 枚举为空 |
+| 服务端数据 | 本轮没有新增发送，因此没有本轮 after 计数；已有 before 计数保留在报告中 |
+| 清理 | 未执行 `pm clear` 或会话删除，避免在设备不可见时误删会话 |
+
+报告：`testing/Agent/客户端/reports/20260906-agent-phase2-wave54-physical-context-compaction-fix-047.md`；掉线证据：`testing/Agent/客户端/artifacts/20260906-agent-phase2-wave54-physical-context-compaction-fix-047/50-adb-device-drop-current.txt`；追加复核：`testing/Agent/客户端/artifacts/20260906-agent-phase2-wave54-physical-context-compaction-fix-047/51-adb-recheck-after-resume.txt`。设备恢复并保持在线后，从当前 UI tree 继续 Round 5，再执行 Round 6 和同一轮服务端证据核对。
+
+## 五十五、2026-09-07 阶段二 Wave 55 Android 真机上下文压缩闭环
+
+物理设备 `d715a3a4` 恢复在线后，依据实时 UI tree 在当前 APK 中真实输入并点击发送 `(966,1425)`。本轮运行 `deepseek-v4-flash-0731/chat_completions`，未启动模拟器，也没有用接口替代 UI。
+
+| 项目 | 结果 |
+|---|---|
+| 客户端压缩提示 | `Passed`；发送后 2 秒、10 秒和 25 秒均显示 `上下文已压缩（2 条），已按上下文预算生成摘要`；完成态显示后续回答，未展开完整摘要 JSON |
+| 服务端运行 | `Passed`；run `6a903ac0-4a6c-4cf2-b333-5bc10a0de02f` 完成，事件含 `context_compacted`，`audit_lossy=false`，检查点从 3 条增至 4 条 |
+| 数据计数 | 发送前 `20/77/0/113/1679/3`，发送后 `20/79/0/114/1686/4`；业务表 `693/84/2661` 未变化 |
+| 清理 | `Passed`；App 内真实删除测试会话 218，服务端对应会话、消息、审计和事件为 0；`pm clear` 成功；登录页可见，crash buffer 0 行 |
+| `AG-CLI-AND-007` | `Passed` |
+
+正式报告为 `testing/Agent/客户端/reports/20260907-agent-phase2-wave55-physical-context-compaction-048.md`，证据目录为 `testing/Agent/客户端/artifacts/20260907-agent-phase2-wave55-physical-context-compaction-048/`。API Key、密码、Token、Cookie、Authorization 和完整认证载荷未写入报告、日志或证据；旧的 `gpt-5.6-luna` 历史记录未改写。
+
+Wave 55 后仍未收敛：`AG-CLI-AND-003` 有数据图表为 `Failed`；`AG-CLI-AND-004` 商品草稿创建为 `Failed`、确认成功/重复确认/并发确认均为 `Blocked`；`AG-CLI-AND-006` 完整取消和重连为 `Failed`；`AG-CLI-AND-008` 完整错误矩阵为 `Blocked`；`AG-CLI-AND-010` 生图草稿为 `Failed`。这些状态没有因本轮上下文压缩通过而改变。
+
+## 五十六、2026-09-07 阶段二 Wave 56 Android 真机多工具与有数据图表复测
+
+物理设备 `d715a3a4` 在线后，通过 Android UI 登录、进入助手、新建对话并真实发送两次有数据图表请求。运行模型为 `deepseek-v4-flash-0731/chat_completions`，未启动模拟器，也没有用接口替代 UI。
+
+| 项目 | 结果 |
+|---|---|
+| 第一次请求 | `Failed`；run `89820ce9-9ac0-42cc-a60e-b8ddb1042f0b` 返回 13 个销售数据点后，以 `LLM_ANSWER_UNAVAILABLE / model_empty_or_ungrounded` 结束 |
+| 第二次请求 | `Failed`；run `c20b518c-94c1-41d6-9dc6-01afcd6a2c7c` 真实执行 `sales_trend_lookup → payment_lookup`，得到销售额 `¥929414.93`、3307 单和收款 `¥5992.78`，随后仍为空回答错误 |
+| 图表分支 | `Failed`；没有 `result_visualization` 事件、图表 UI 或正式回答 |
+| 清理与稳定性 | `Passed`；通过 App 会话列表真实删除 conversation `219`、`220`，服务端对应对象均为 0；`pm clear` 成功，登录页可见，crash buffer 0 行 |
+| 计数 | 已知清理前 `19/65/0/114/1686/1`；第一次后 `20/67/0/115/1692/1`；第二次后 `21/69/0/116/1700/1`；清理后 `19/65/0/116/1700/1`；`products/customers/finance_records=693/84/2661` |
+
+正式报告为 `testing/Agent/客户端/reports/20260907-agent-phase2-wave56-physical-multitool-chart-049.md`，证据目录为 `testing/Agent/客户端/artifacts/20260907-agent-phase2-wave56-physical-multitool-chart-049/`。API Key、密码、Token、Cookie、Authorization 和完整认证载荷未写入报告、脱敏日志或证据；旧的 `gpt-5.6-luna` 历史记录未改写。003 有数据图表继续为 `Failed`，其余阶段二状态不因本轮改变。

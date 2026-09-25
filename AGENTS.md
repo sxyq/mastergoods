@@ -1,5 +1,7 @@
 # Repository Guidelines
 
+账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
+
 ## Project Structure & Module Organization
 
 This is a mixed 智慧记 / Master-Goods repository. All application code lives under `Code/`: backend Spring Boot code is in `Code/backend/src/main/java/com/zhihuiji/backend`, tests in `Code/backend/src/test/java`, and Flyway migrations in `Code/backend/src/main/resources/db/migration`. The Android app is under `Code/frontend/android/`, split into `app`, `core`, `data`, `feature`, `benchmark`, and `backdrop` modules. The PC admin is a Vue/Vite app in `Code/frontend/web/` with source in `Code/frontend/web/src`. Native iOS work is in `Code/frontend/ios/ZhihuijiIOS` with tests in `Code/frontend/ios/ZhihuijiIOSTests`. Operational files live in `deploy/`, docs in `docs/`, testing plans and ledgers in `testing/`, and utility scripts in `Code/backend/tools/`.
@@ -29,6 +31,17 @@ Recent history uses short imperative messages such as `Improve AI stream flush c
 ## Security & Configuration Tips
 
 Do not commit secrets, generated evidence, `web/dist`, `node_modules`, Gradle caches, APK/JAR artifacts, or server keys. Treat backend controllers, DTOs, migrations, and live config as the source of truth over stale docs.
+
+## Cloud Test Account Authorization
+
+This repository is being tested against the user's own 8220 server environment; it is not a formal production release. For the first-layer Agent test and later approved test waves:
+
+- Every existing account on the user's test server may be used for authentication tests.
+- The agent may reset the password of any existing server account when needed for testing. Do not create accounts.
+- Do not ask the user again whether resetting an existing test account is allowed. If a reset is needed, use the test password from the local secure credential store or ask only when the password value itself is unavailable.
+- Never write the password, access token, cookie, authorization header, or other secret into this file, source code, reports, CSV files, screenshots, shell history, or test evidence.
+- Record only the redacted account label, reset action, authentication result, permission summary, and cleanup result.
+- Keep the password in local-only protected storage outside Git, and read it into process memory only for the login or reset operation.
 
 ## Reusable Assets Inventory (Global Reuse First)
 
