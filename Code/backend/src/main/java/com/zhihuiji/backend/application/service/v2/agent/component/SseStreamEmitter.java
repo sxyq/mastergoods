@@ -525,18 +525,8 @@ public class SseStreamEmitter {
     }
 
     public static String toolInputSummary(String toolName, Map<String, Object> toolInput) {
-        String label = switch (toolName) {
-            case "inventory_low_stock_lookup" -> "查询当前账号低库存商品";
-            case "product_catalog_lookup" -> "查询当前账号商品目录";
-            case "customer_receivable_lookup" -> "查询当前账号客户应收余额";
-            case "supplier_payable_lookup" -> "查询当前账号供应商应付余额";
-            case "sales_overview_lookup" -> "汇总当前账号近 7 天经营信号";
-            case "sale_order_lookup" -> "查询当前账号最近销售单";
-            case "purchase_order_lookup" -> "查询当前账号最近采购单";
-            case "pay_order_lookup" -> "查询当前账号最近付款单";
-            case "finance_record_lookup" -> "查询当前账号最近资金流水";
-            default -> "执行当前账号只读查询";
-        };
+        // 旧业务工具的输入摘要文案已删除；新领域工具摘要在此接入。
+        String label = "执行当前账号只读查询";
         Map<String, Object> safeInput = toolInput == null ? Map.of() : toolInput;
         if (safeInput.isEmpty()) {
             return label;

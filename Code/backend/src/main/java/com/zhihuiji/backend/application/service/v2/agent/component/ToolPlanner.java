@@ -52,61 +52,16 @@ public class ToolPlanner {
     public static final int MAX_AGENT_ITERATIONS = 3;
     private static final int MAX_TOOLS_PER_PLAN = 6;
     private static final String RESULT_VISUALIZATION_TOOL = "result_visualization";
-    private static final Pattern EXPLICIT_CUSTOMER_NAME = Pattern.compile(
-        "(?:名字|名称|客户名)\\s*(?:叫|是|为)?\\s*[\\\"“「]?([^，,。；;\\n]+?)[\\\"”」]?\\s*(?=电话|手机号|手机|，|,|。|；|;|$)"
-    );
-    private static final Pattern EXPLICIT_PHONE = Pattern.compile(
-        "(?:电话|手机号|手机)\\s*[:：]?\\s*(1\\d{10})(?!\\d)"
-    );
 
     /**
      * A candidate scope narrows the tools advertised for a turn; it never
      * executes a tool or replaces the model's native tool choice.
      */
     private static final List<CandidateRule> READ_CANDIDATE_RULES = List.of(
-        rule(List.of("资金账户"), List.of("还剩", "余额", "几个"), "account_balance_lookup"),
-        rule(List.of("资金账户"), List.of("状态", "异常"), "account_health_lookup"),
-        rule(List.of("账户"), List.of("健康", "收支比"), "account_health_lookup"),
-        rule(List.of("账户"), List.of("转过", "转账", "转入", "转出"), "account_transfer_lookup"),
-        rule(List.of(), List.of("异常", "下滑", "缺货", "客户欠款"), "anomaly_alert_lookup"),
-        rule(List.of(), List.of("怎么进出", "进出的", "资金变动"), "cash_change_lookup"),
-        rule(List.of(), List.of("现金流", "净现金流"), "cashflow_summary_lookup"),
-        rule(List.of("销售", "采购", "库存"), List.of(), "cross_analysis_lookup"),
-        rule(List.of("客户"), List.of("整体", "下单", "收款", "退货"), "customer_profile_lookup"),
-        rule(List.of("客户"), List.of("欠我钱", "欠款", "优先收款", "还欠"), "customer_receivable_lookup"),
+        // 旧领域工具的候选规则已删除；新领域工具接入后在此补充。
         rule(List.of(), List.of("导出", "字段"), "data_export_tool"),
-        rule(List.of(), List.of("收入支出流水", "按类别", "收入支出"), "finance_record_lookup"),
-        rule(List.of(), List.of("海报提示词", "海报文案", "海报"), "product_catalog_lookup", "generate_poster_prompt"),
         rule(List.of(), List.of("数据导入", "导入", "失败重试"), "import_job_lookup"),
-        rule(List.of("库存"), List.of("调整", "盘盈盘亏"), "inventory_adjustment_lookup"),
-        rule(List.of("库存"), List.of("出入库", "流水", "来源"), "inventory_ledger_lookup"),
-        rule(List.of(), List.of("没货", "低库存", "补多少", "快没货"), "inventory_low_stock_lookup"),
-        rule(List.of("库存"), List.of("全貌", "安全库存", "周转", "库存和补货"), "inventory_panorama_lookup"),
-        rule(List.of("库存"), List.of("盘点", "快照"), "inventory_snapshot_lookup"),
-        rule(List.of(), List.of("联系人"), "partner_contact_lookup"),
-        rule(List.of(), List.of("分组"), "partner_group_lookup"),
-        rule(List.of("供应商"), List.of("付了", "付款", "支付"), "pay_order_lookup"),
-        rule(List.of("收款", "付款"), List.of("记录", "理一下", "最近"), "payment_lookup"),
-        rule(List.of("回款"), List.of(), "payment_lookup"),
-        rule(List.of("商品"), List.of("库存", "价格", "分类", "现在有哪些"), "product_catalog_lookup"),
-        rule(List.of(), List.of("商品分类", "分类"), "product_category_lookup"),
-        rule(List.of(), List.of("价格等级"), "product_price_level_lookup"),
-        rule(List.of("商品"), List.of("采购价", "哪家供应商", "从哪家"), "product_supplier_relation_lookup"),
-        rule(List.of("采购"), List.of("采购单", "到货", "最近的采购"), "purchase_order_lookup"),
-        rule(List.of(), List.of("入库", "入了哪些采购货"), "purchase_receipt_lookup"),
-        rule(List.of("退"), List.of("供应商", "采购货"), "purchase_return_lookup"),
-        rule(List.of("采购", "入库", "退货"), List.of(), "purchase_tracking_lookup"),
-        rule(List.of(), List.of("应收", "应付", "供应商应付款", "客户欠我的"), "receivable_payable_lookup"),
-        rule(List.of(), List.of("经营汇总", "经营情况", "这个月销售怎么样", "经营报表"), "report_query"),
-        rule(List.of("销售单"), List.of("关联", "收款", "退货"), "sales_full_chain_lookup"),
-        rule(List.of(), List.of("卖出去", "销售单和收款", "客户和收款"), "sale_order_lookup"),
-        rule(List.of("销售"), List.of("最近一周", "整体情况", "销售和回款"), "sales_overview_lookup"),
-        rule(List.of(), List.of("销售退货", "退货明细"), "sales_return_lookup"),
-        rule(List.of(), List.of("趋势", "按天", "每天卖"), "sales_trend_lookup"),
-        rule(List.of(), List.of("补货", "补多少", "紧急程度", "建议数量"), "smart_restock_lookup"),
-        rule(List.of(), List.of("门店", "成员数量"), "store_info_lookup"),
-        rule(List.of("供应商"), List.of("欠", "应付", "采购情况"), "supplier_payable_lookup"),
-        rule(List.of("供应商"), List.of("对账", "核对", "算进去"), "supplier_statement_lookup"),
+        rule(List.of("门店"), List.of("成员数量"), "store_info_lookup"),
         rule(List.of(), List.of("同步"), "sync_status_lookup")
     );
 
@@ -161,8 +116,8 @@ public class ToolPlanner {
         }
 
         // 仅当首轮使用了语义候选集，且候选集确实不同于初始范围时，才回退到
-        // 初始范围重试。对于 create_sale_order、create_customer 等写请求，首轮
-        // 已经是同一组候选工具，禁止再次发送完全相同的模型请求。
+        // 初始范围重试。对于写请求，首轮已经是同一组候选工具，
+        // 禁止再次发送完全相同的模型请求。
         if (hasFocusedCandidates
             && !new LinkedHashSet<>(focusedCandidates).equals(new LinkedHashSet<>(initialCandidates))) {
             Optional<AgentToolPlan> broadNativePlan = planToolsWithNativeFunctionCalling(
@@ -192,7 +147,7 @@ public class ToolPlanner {
         String userPrompt = historyContext
             + summaryContext
             + "用户问题：" + message + "\n"
-            + "请输出形如 {\"tools\":[{\"name\":\"sale_order_lookup\",\"params\":{\"keyword\":\"张三\"}}],\"rationale\":\"...\"} 的 JSON。"
+            + "请输出形如 {\"tools\":[{\"name\":\"import_job_lookup\"}],\"rationale\":\"...\"} 的 JSON。"
             + "tools 最多 6 个，必须来自可选工具。params 为该工具的查询参数，根据用户问题提取，无参数时省略 params 字段。"
             + "初始阶段不要调用 result_visualization；查询结果返回后，下一轮模型会根据真实事实决定是否调用它。";
         return longCatAnthropicClient.createJsonMessage(systemPrompt, userPrompt)
@@ -240,10 +195,6 @@ public class ToolPlanner {
             message
         )
             + "最多选择 6 个工具。"
-            + (isExplicitInventoryRestockMultiSourceRequest(message)
-                && AgentPromptCatalog.requestsVisualization(message)
-                ? "用户明确要求展示；首轮先查询真实库存和补货数据，真实结果返回后再由你自主决定是否调用 result_visualization。"
-                : "")
             + summaryContext;
         String planningMessage = formatHistoryContext(history) + "用户问题：" + message;
         Optional<LongCatAnthropicClient.ToolUseResponse> response =
@@ -347,7 +298,6 @@ public class ToolPlanner {
         List<String> tools = new ArrayList<>();
         Map<String, JsonNode> toolParams = new LinkedHashMap<>();
         List<NativeToolCallBlock> nativeBlocks = new ArrayList<>();
-        boolean recoveredExplicitCustomerParameters = false;
         for (LongCatAnthropicClient.ToolUseBlock toolUse : response.get().toolUses()) {
             if (nativeBlocks.size() >= MAX_TOOLS_PER_PLAN) {
                 break;
@@ -365,17 +315,15 @@ public class ToolPlanner {
                 tools.add(toolName);
             }
             JsonNode input = toolUse.input();
-            JsonNode effectiveInput = recoverExplicitCustomerParameters(message, toolName, input);
-            recoveredExplicitCustomerParameters |= effectiveInput != input;
-            if (effectiveInput != null && effectiveInput.isObject() && !effectiveInput.isEmpty()
+            if (input != null && input.isObject() && !input.isEmpty()
                 && !toolParams.containsKey(toolName)) {
-                toolParams.put(toolName, effectiveInput);
+                toolParams.put(toolName, input);
             }
             if (StringUtils.hasText(toolUse.id())) {
                 String argumentsJson;
                 try {
-                    argumentsJson = effectiveInput != null
-                        ? objectMapper.writeValueAsString(effectiveInput)
+                    argumentsJson = input != null
+                        ? objectMapper.writeValueAsString(input)
                         : "{}";
                 } catch (Exception ignored) {
                     argumentsJson = "{}";
@@ -389,9 +337,6 @@ public class ToolPlanner {
         String rationale = response.get().text() != null && !response.get().text().isBlank()
             ? response.get().text()
             : "模型通过原生 Function Calling 选择工具";
-        if (recoveredExplicitCustomerParameters) {
-            rationale += "；参数审计：仅从用户原话明确恢复 create_customer 的 name/phone";
-        }
         AgentToolPlan originalPlan = new AgentToolPlan(tools, rationale, planSource, toolParams,
             response.get().responseId(), nativeBlocks);
         if (!allowClarification || !requiresSingleToolClarification(message, tools)) {
@@ -405,36 +350,6 @@ public class ToolPlanner {
             candidateToolNames,
             allowVisualization
         );
-    }
-
-    /**
-     * Recovers only values explicitly labelled in the user's request after
-     * the model has selected create_customer. Existing valid model values are
-     * retained; this is not a general natural-language router.
-     */
-    private JsonNode recoverExplicitCustomerParameters(String message, String toolName, JsonNode input) {
-        if (!"create_customer".equals(toolName) || !StringUtils.hasText(message)) {
-            return input;
-        }
-        Matcher nameMatcher = EXPLICIT_CUSTOMER_NAME.matcher(message);
-        Matcher phoneMatcher = EXPLICIT_PHONE.matcher(message);
-        boolean hasName = nameMatcher.find();
-        boolean hasPhone = phoneMatcher.find();
-        if (!hasName && !hasPhone) {
-            return input;
-        }
-        ObjectNode recovered = input != null && input.isObject()
-            ? ((ObjectNode) input).deepCopy()
-            : objectMapper.createObjectNode();
-        if ((!recovered.has("name") || !StringUtils.hasText(recovered.path("name").asText()))
-            && hasName && nameMatcher.groupCount() >= 1 && StringUtils.hasText(nameMatcher.group(1))) {
-            recovered.put("name", nameMatcher.group(1).trim());
-        }
-        if ((!recovered.has("phone") || !StringUtils.hasText(recovered.path("phone").asText()))
-            && hasPhone && phoneMatcher.groupCount() >= 1 && StringUtils.hasText(phoneMatcher.group(1))) {
-            recovered.put("phone", phoneMatcher.group(1).trim());
-        }
-        return recovered.equals(input) ? input : recovered;
     }
 
     /**
@@ -470,9 +385,8 @@ public class ToolPlanner {
     }
 
     private boolean isWriteDependencyFlow(String message) {
-        String writeTarget = AgentPromptCatalog.targetWriteTool(message);
-        return "create_purchase_order".equals(writeTarget)
-            || "create_sale_order".equals(writeTarget);
+        // 旧领域（采购单/销售单）写入依赖流已删除。
+        return false;
     }
 
     private boolean isReadOnlyTool(String toolName) {
@@ -747,7 +661,6 @@ public class ToolPlanner {
             JsonNode root = objectMapper.readTree(extractJsonObject(rawText));
             Set<String> tools = new LinkedHashSet<>();
             Map<String, JsonNode> toolParams = new LinkedHashMap<>();
-            boolean recoveredExplicitCustomerParameters = false;
             JsonNode toolsNode = root.get("tools");
             if (toolsNode != null && toolsNode.isArray()) {
                 for (JsonNode item : toolsNode) {
@@ -762,12 +675,8 @@ public class ToolPlanner {
                     if (allowVisualization || !RESULT_VISUALIZATION_TOOL.equals(tool)) {
                         if (isAllowedTool(tool)) {
                             tools.add(tool);
-                            JsonNode effectiveParams = recoverExplicitCustomerParameters(
-                                userMessage, tool, params
-                            );
-                            recoveredExplicitCustomerParameters |= effectiveParams != params;
-                            if (effectiveParams != null && effectiveParams.isObject()) {
-                                toolParams.put(tool, effectiveParams);
+                            if (params != null && params.isObject()) {
+                                toolParams.put(tool, params);
                             }
                         }
                     }
@@ -780,9 +689,6 @@ public class ToolPlanner {
                 return Optional.empty();
             }
             String rationale = root.path("rationale").asText("模型选择了当前问题所需的只读查询工具");
-            if (recoveredExplicitCustomerParameters) {
-                rationale += "；参数审计：仅从用户原话明确恢复 create_customer 的 name/phone";
-            }
             return Optional.of(new AgentToolPlan(new ArrayList<>(tools), rationale, source, toolParams));
         } catch (Exception ignored) {
             return Optional.empty();
@@ -856,11 +762,7 @@ public class ToolPlanner {
         boolean sourcesReadyForVisualization = visualizationSourcesReady(
             message, toolResults, explicitMultiSource, attemptedToolNames
         );
-        List<String> remainingRequiredToolNames = remainingRequiredToolNames(message, attemptedToolNames);
-        boolean hasRemainingRequiredTool = !remainingRequiredToolNames.isEmpty();
-        List<String> preferredToolNames = hasRemainingRequiredTool
-            ? remainingRequiredToolNames
-            : hasRealDataQuery
+        List<String> preferredToolNames = hasRealDataQuery
             && !writeIntent
             && !hasPosterFollowup
             && explicitVisualization
@@ -879,7 +781,6 @@ public class ToolPlanner {
             .filter(toolName -> !RESULT_VISUALIZATION_TOOL.equals(toolName)
                 || (hasRealDataQuery && explicitVisualization && sourcesReadyForVisualization))
             .toList();
-        candidateToolNames = restrictAggregateContinuationCandidates(message, candidateToolNames);
         if (hasRealDataQuery && !attemptedToolNames.contains(RESULT_VISUALIZATION_TOOL)
             && explicitVisualization && !writeIntent && !hasPosterFollowup && sourcesReadyForVisualization) {
             LinkedHashSet<String> visualizationCandidates = new LinkedHashSet<>(candidateToolNames);
@@ -892,11 +793,6 @@ public class ToolPlanner {
             // can spend the remaining iteration budget re-querying dependencies.
             candidateToolNames = List.of(pendingRequiredWriteTarget.get());
         }
-        candidateToolNames = narrowResolvedPayOrderCandidates(
-            message,
-            toolResults,
-            candidateToolNames
-        );
         if (candidateToolNames.isEmpty()) {
             return Optional.empty();
         }
@@ -1013,28 +909,6 @@ public class ToolPlanner {
         if (writeTarget != null && !hasCompletedTool(toolResults, writeTarget)) {
             return true;
         }
-        if (message != null
-            && message.contains("海报")
-            && !hasCompletedTool(toolResults, "generate_poster_prompt")) {
-            return true;
-        }
-        // The combined receivable/payable query already covers both sides of
-        // this question. Do not reopen the two narrower tools after it has
-        // completed; only an explicit visualization may be considered when
-        // the combined query returned real rows.
-        if (isExplicitReceivablePayableMultiSourceRequest(message)
-            && observed.contains("receivable_payable_lookup")) {
-            return hasNonEmptyRealDataQuery(toolResults)
-                && AgentPromptCatalog.requestsVisualization(message)
-                && !observed.contains(RESULT_VISUALIZATION_TOOL);
-        }
-        if (isExplicitInventoryRestockMultiSourceRequest(message)
-            && observed.contains("inventory_panorama_lookup")
-            && observed.contains("smart_restock_lookup")) {
-            return hasNonEmptyRealDataQuery(toolResults)
-                && AgentPromptCatalog.requestsVisualization(message)
-                && !observed.contains(RESULT_VISUALIZATION_TOOL);
-        }
         if (AgentPromptCatalog.requestsVisualization(message)
             && !observed.contains(RESULT_VISUALIZATION_TOOL)) {
             return true;
@@ -1099,45 +973,11 @@ public class ToolPlanner {
             return true;
         }
         Set<String> observed = observedToolNames == null ? Set.of() : observedToolNames;
-        if (isExplicitInventoryRestockMultiSourceRequest(message)) {
-            return observed.contains("inventory_panorama_lookup")
-                && observed.contains("smart_restock_lookup");
-        }
-        if (isExplicitReceivablePayableMultiSourceRequest(message)) {
-            // One combined read already covers both requested sources. It is
-            // sufficient for a visualization decision when it returned rows.
-            return observed.contains("receivable_payable_lookup")
-                && hasNonEmptyRealDataQuery(toolResults);
-        }
         return distinctReadToolCount(observed) >= 2;
-    }
-
-    private List<String> restrictAggregateContinuationCandidates(
-        String message,
-        List<String> candidateToolNames
-    ) {
-        if (candidateToolNames == null || candidateToolNames.isEmpty()) {
-            return List.of();
-        }
-        Set<String> allowed = null;
-        if (isExplicitInventoryRestockMultiSourceRequest(message)) {
-            allowed = Set.of(
-                "inventory_panorama_lookup",
-                "smart_restock_lookup",
-                RESULT_VISUALIZATION_TOOL
-            );
-        } else if (isExplicitReceivablePayableMultiSourceRequest(message)) {
-            allowed = Set.of("receivable_payable_lookup", RESULT_VISUALIZATION_TOOL);
-        }
-        if (allowed == null) {
-            return candidateToolNames;
-        }
-        return candidateToolNames.stream().filter(allowed::contains).toList();
     }
 
     private boolean isExplicitMultiSourceRequest(String message) {
         return AgentPromptCatalog.requestsMultipleSources(message)
-            || (message != null && message.contains("趋势") && message.contains("回款"))
             // Device/contract tests and English-speaking users may express
             // the same explicit multi-source intent in English.
             || (message != null && (message.contains(" and ")
@@ -1214,8 +1054,7 @@ public class ToolPlanner {
             AgentPromptCatalog.hasWriteIntent(message),
             iteration,
             message
-        ) + "上一轮工具已经通过标准 tool result 返回真实事实。请只根据这些事实自主决定是否继续调用当前需要的工具；如果已经足够回答，不要调用工具。"
-            + resolvedPayOrderParameterContext(message, toolResults);
+        ) + "上一轮工具已经通过标准 tool result 返回真实事实。请只根据这些事实自主决定是否继续调用当前需要的工具；如果已经足够回答，不要调用工具。";
         // The candidate list is a permission and context boundary, not a
         // hidden router. The model must still decide whether to call the
         // remaining tool, including result_visualization.
@@ -1320,8 +1159,7 @@ public class ToolPlanner {
             + "不要返回‘没有这个工具’或只写说明。若真实数据仍不足，返回空工具调用。";
         String userPrompt = "用户问题：" + message + "\n"
             + "已执行工具及真实结果：\n" + facts
-            + "当前唯一候选工具：" + target + "。请自主判断是否调用。"
-            + resolvedPayOrderParameterContext(message, toolResults);
+            + "当前唯一候选工具：" + target + "。请自主判断是否调用。";
         Optional<LongCatAnthropicClient.ToolUseResponse> response =
             longCatAnthropicClient.createMessageWithTools(systemPrompt, userPrompt, targetTools, "auto");
         // Some compatible providers return a terminal sentence even when the
@@ -1480,18 +1318,6 @@ public class ToolPlanner {
      */
     private List<String> boundedCandidateToolNamesForMessage(String message) {
         boolean writeIntent = AgentPromptCatalog.hasWriteIntent(message);
-        if (isSalesTrendAndReceivableRequest(message)) {
-            LinkedHashSet<String> candidates = new LinkedHashSet<>(List.of(
-                "sales_trend_lookup",
-                "payment_lookup"
-            ));
-            if (AgentPromptCatalog.requestsVisualization(message)) {
-                candidates.add(RESULT_VISUALIZATION_TOOL);
-            }
-            return candidates.stream()
-                .filter(this::isAllowedTool)
-                .toList();
-        }
         List<String> focused = focusedCandidateToolNamesForMessage(message);
         if (!focused.isEmpty() && !isAmbiguousWriteRequest(message)) {
             return focused;
@@ -1520,15 +1346,6 @@ public class ToolPlanner {
                 .filter(rule -> rule.specificity() == maxSpecificity)
                 .forEach(rule -> semanticCandidates.addAll(rule.toolNames()));
         }
-        // A trend request needs day buckets and collection facts. The overview
-        // tool already summarizes both domains, but it cannot add a trend
-        // series; keeping it in the same continuation scope causes redundant
-        // sales queries after the model has already selected sales_trend.
-        if (message != null && message.contains("趋势") && message.contains("回款")) {
-            semanticCandidates.remove("sales_overview_lookup");
-            semanticCandidates.add("sales_trend_lookup");
-            semanticCandidates.add("payment_lookup");
-        }
         if (AgentPromptCatalog.requestsVisualization(message) && !semanticCandidates.isEmpty()) {
             semanticCandidates.add(RESULT_VISUALIZATION_TOOL);
         }
@@ -1541,109 +1358,13 @@ public class ToolPlanner {
      * prevents a broad generic tool from shadowing a more complete one.
      */
     private List<String> highConfidenceReadCandidates(String message) {
-        if (!StringUtils.hasText(message)) {
-            return List.of();
-        }
-        List<String> candidates;
-        if (isExplicitInventoryRestockMultiSourceRequest(message)) {
-            candidates = new ArrayList<>(List.of("inventory_panorama_lookup", "smart_restock_lookup"));
-            if (AgentPromptCatalog.requestsVisualization(message)) {
-                candidates.add(RESULT_VISUALIZATION_TOOL);
-            }
-        } else if (isInventoryPanoramaRequest(message)) {
-            candidates = List.of("inventory_panorama_lookup");
-        } else if (containsAll(message, "销售下滑", "缺货", "客户欠款")) {
-            candidates = List.of("anomaly_alert_lookup");
-        } else if (containsAll(message, "客户", "整体")
-            && containsAny(message, "余额", "下单", "收款", "退货")) {
-            candidates = List.of("customer_profile_lookup");
-        } else if (containsAll(message, "商品", "分类") && !message.contains("价格等级")) {
-            // A plain category question should stay on the category tool. When
-            // the user also asks for product-level inventory or prices, keep
-            // both relevant tools available so the model can choose one or
-            // call both without the server executing either one implicitly.
-            candidates = containsAny(message, "库存", "价格", "售价", "商品信息")
-                ? List.of("product_catalog_lookup", "product_category_lookup")
-                : List.of("product_category_lookup");
-        } else if (message.contains("价格等级")) {
-            candidates = List.of("product_price_level_lookup");
-        } else if (containsAny(message, "采购价", "哪家供应商", "从哪家")) {
-            candidates = List.of("product_supplier_relation_lookup");
-        } else if (containsAll(message, "卖出去", "客户", "收款")) {
-            candidates = List.of("sale_order_lookup");
-        } else if (containsAll(message, "销售单", "收款", "退货")) {
-            candidates = List.of("sales_full_chain_lookup");
-        } else if (isExplicitReceivablePayableMultiSourceRequest(message)) {
-            // Keep the combined lookup as the single source for both sides;
-            // the narrower tools must not be reopened by a continuation.
-            candidates = List.of("receivable_payable_lookup");
-        } else if (containsAll(message, "客户欠款", "供应商应付款")) {
-            candidates = List.of("customer_receivable_lookup", "supplier_payable_lookup");
-        } else {
-            return List.of();
-        }
-        return candidates.stream().filter(this::isAllowedTool).toList();
+        // 旧领域复合问题的高置信候选集已删除；新领域接入后在此补充。
+        return List.of();
     }
 
-    /**
-     * Recognizes only explicit two-source wording. Merely mentioning both
-     * inventory and replenishment can still describe the single panorama
-     * report, which must remain on inventory_panorama_lookup.
-     */
-    private boolean isExplicitInventoryRestockMultiSourceRequest(String message) {
-        if (!StringUtils.hasText(message)) {
-            return false;
-        }
-        return message.contains("库存和补货")
-            || message.contains("库存与补货")
-            || message.contains("库存、补货")
-            || (message.contains("库存现状")
-                && containsAny(message, "哪些要补", "补货建议"))
-            || (message.contains("库存情况")
-                && containsAny(message, "哪些要补", "补货建议"));
-    }
-
-    private boolean isExplicitReceivablePayableMultiSourceRequest(String message) {
-        if (!StringUtils.hasText(message)) {
-            return false;
-        }
-        return (message.contains("客户欠款") && message.contains("供应商应付款"))
-            || (message.contains("客户欠我的") && message.contains("我欠供应商"))
-            || (message.contains("应收") && message.contains("应付"));
-    }
-
-    private boolean isInventoryPanoramaRequest(String message) {
-        return StringUtils.hasText(message)
-            && !isExplicitInventoryRestockMultiSourceRequest(message)
-            && containsAny(message, "库存全貌", "库存全景", "库存现状", "安全库存");
-    }
-
-    private boolean containsAll(String message, String... fragments) {
-        for (String fragment : fragments) {
-            if (!message.contains(fragment)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean containsAny(String message, String... fragments) {
-        for (String fragment : fragments) {
-            if (message.contains(fragment)) {
-                return true;
-            }
-        }
-        return false;
-    }
 
     private boolean isAmbiguousWriteRequest(String message) {
         if (!AgentPromptCatalog.hasWriteIntent(message)) {
-            return false;
-        }
-        String target = AgentPromptCatalog.targetWriteTool(message);
-        if ("create_purchase_order".equals(target) || "create_sale_order".equals(target)) {
-            // A purchase/sale request naturally names both a partner and a
-            // product. That is a dependency flow, not an ambiguous request.
             return false;
         }
         boolean mentionsProduct = message != null && message.contains("商品");
@@ -1679,33 +1400,7 @@ public class ToolPlanner {
         LinkedHashSet<String> candidates = new LinkedHashSet<>();
         String writeTarget = AgentPromptCatalog.targetWriteTool(message);
         if (writeTarget != null) {
-            switch (writeTarget) {
-                case "create_account_transfer" -> candidates.add("account_balance_lookup");
-                case "create_inventory_adjustment", "create_inventory_count_draft" -> {
-                    candidates.add("product_catalog_lookup");
-                    candidates.add("inventory_snapshot_lookup");
-                }
-                case "create_pay_order" -> {
-                    candidates.add("supplier_directory_lookup");
-                    candidates.add("purchase_order_lookup");
-                }
-                case "create_purchase_order" -> {
-                    candidates.add("supplier_directory_lookup");
-                    candidates.add("product_catalog_lookup");
-                }
-                case "create_purchase_receipt", "create_purchase_return" -> candidates.add("purchase_order_lookup");
-                case "create_sale_order" -> {
-                    candidates.add("customer_directory_lookup");
-                    candidates.add("product_catalog_lookup");
-                }
-                case "create_sales_return" -> candidates.add("sale_order_lookup");
-                default -> {
-                    // The target create tool itself remains the model's choice.
-                }
-            }
-            if ("create_customer".equals(writeTarget) && message != null && message.contains("分组")) {
-                candidates.add("partner_group_lookup");
-            }
+            // 旧领域写入目标的依赖工具候选已删除；新领域接入后在此补充。
             candidates.add(writeTarget);
         } else {
             String readTarget = AgentPromptCatalog.targetReadTool(message);
@@ -1799,8 +1494,7 @@ public class ToolPlanner {
         ) + "如果现有事实足够回答且不需要展示，返回空工具调用。";
         String userPrompt = "用户问题：" + message + "\n"
             + (contextBuilder.isEmpty() ? "上一轮没有有效结果。\n" : "已执行工具及真实结果：\n" + contextBuilder)
-            + "真实查询结果可用：" + hasRealDataQuery + "。请自主决定是否继续调用工具；如果需要，直接返回一个或多个最相关的原生工具调用。"
-            + resolvedPayOrderParameterContext(message, toolResults);
+            + "真实查询结果可用：" + hasRealDataQuery + "。请自主决定是否继续调用工具；如果需要，直接返回一个或多个最相关的原生工具调用。";
         // Keep native auto selection for every production planner path. The
         // server may constrain the visible candidates, but must not choose the
         // next business tool on the model's behalf.
@@ -1848,27 +1542,6 @@ public class ToolPlanner {
      * the first request to a server-selected business tool.
      */
     private List<String> initialToolNamesForMessage(String message) {
-        if (isSalesTrendAndReceivableRequest(message)) {
-            return List.of("sales_trend_lookup", "payment_lookup").stream()
-                .filter(this::isAllowedTool)
-                .toList();
-        }
-        if (isExplicitReceivablePayableMultiSourceRequest(message)) {
-            return List.of("receivable_payable_lookup").stream()
-                .filter(this::isAllowedTool)
-                .toList();
-        }
-        if (isExplicitInventoryRestockMultiSourceRequest(message)) {
-            return List.of(
-                "inventory_panorama_lookup",
-                "smart_restock_lookup"
-            ).stream().filter(this::isAllowedTool).toList();
-        }
-        if (isInventoryPanoramaRequest(message)) {
-            return List.of("inventory_panorama_lookup").stream()
-                .filter(this::isAllowedTool)
-                .toList();
-        }
         boolean writeIntent = AgentPromptCatalog.hasWriteIntent(message);
         if (writeIntent) {
             List<String> focused = focusedCandidateToolNamesForMessage(message);
@@ -1885,97 +1558,6 @@ public class ToolPlanner {
             .map(AgentTool::name)
             .filter(toolName -> !RESULT_VISUALIZATION_TOOL.equals(toolName))
             .toList();
-    }
-
-    private boolean isSalesTrendAndReceivableRequest(String message) {
-        return StringUtils.hasText(message)
-            && message.contains("趋势")
-            && message.contains("回款");
-    }
-
-    private List<String> remainingRequiredToolNames(String message, Set<String> attemptedToolNames) {
-        if (!isExplicitInventoryRestockMultiSourceRequest(message)) {
-            return List.of();
-        }
-        Set<String> attempted = attemptedToolNames == null ? Set.of() : attemptedToolNames;
-        return List.of("inventory_panorama_lookup", "smart_restock_lookup").stream()
-            .filter(this::isAllowedTool)
-            .filter(toolName -> !attempted.contains(toolName))
-            .toList();
-    }
-
-    /**
-     * A payment draft has no product or purchase-order dependency. Once the
-     * supplier directory has returned a real row, keeping purchase-order
-     * lookup in the next model context makes the provider treat the request as
-     * an unfinished procurement flow. Narrow only this resolved dependency
-     * case; the model still decides whether to call the remaining tool.
-     */
-    private List<String> narrowResolvedPayOrderCandidates(
-        String message,
-        List<ToolExecutionResult> toolResults,
-        List<String> candidateToolNames
-    ) {
-        String target = AgentPromptCatalog.targetWriteTool(message);
-        if (!"create_pay_order".equals(target)
-            || candidateToolNames == null
-            || !candidateToolNames.contains(target)
-            || !hasNonEmptyRealDataQuery(toolResults, "supplier_directory_lookup")) {
-            return candidateToolNames;
-        }
-        return List.of(target);
-    }
-
-    /**
-     * Makes the dependency-to-parameter mapping explicit without inventing
-     * values. The supplier name/id comes only from the real directory result;
-     * amount and remark remain sourced from the user's original request.
-     */
-    private String resolvedPayOrderParameterContext(
-        String message,
-        List<ToolExecutionResult> toolResults
-    ) {
-        if (!"create_pay_order".equals(AgentPromptCatalog.targetWriteTool(message))
-            || !hasNonEmptyRealDataQuery(toolResults, "supplier_directory_lookup")) {
-            return "";
-        }
-        String supplierContext = toolResults.stream()
-            .filter(result -> result != null && "supplier_directory_lookup".equals(result.toolName()))
-            .map(ToolExecutionResult::facts)
-            .filter(facts -> facts != null && facts.isObject())
-            .map(facts -> compactSupplierCandidates(facts.path("suppliers")))
-            .filter(StringUtils::hasText)
-            .findFirst()
-            .orElse("供应商目录已返回真实记录，请从真实结果中选择供应商");
-        return "\n付款草稿参数上下文：supplier_directory_lookup 已返回真实供应商。"
-            + "create_pay_order 的必填参数是 supplier_id、supplier_name 和 amount；account_id 是可选参数。"
-            + "supplier_name 必须使用下列真实目录记录中的 name，supplier_id 只能使用对应真实 ID；"
-            + "amount 和 remark 只能从用户原话读取，不要猜测或使用供应商余额代替付款金额。"
-            + "真实供应商候选：" + supplierContext + "。"
-            + "请继续由模型以 auto Function Calling 自主判断是否调用 create_pay_order。\n";
-    }
-
-    private String compactSupplierCandidates(JsonNode suppliers) {
-        if (suppliers == null || !suppliers.isArray() || suppliers.isEmpty()) {
-            return "[]";
-        }
-        ArrayNode candidates = objectMapper.createArrayNode();
-        for (JsonNode supplier : suppliers) {
-            if (supplier == null || !supplier.isObject()) {
-                continue;
-            }
-            ObjectNode candidate = objectMapper.createObjectNode();
-            if (supplier.has("supplier_id")) {
-                candidate.set("supplier_id", supplier.get("supplier_id"));
-            }
-            if (supplier.has("name")) {
-                candidate.set("name", supplier.get("name"));
-            }
-            if (!candidate.isEmpty()) {
-                candidates.add(candidate);
-            }
-        }
-        return candidates.toString();
     }
 
     private boolean hasNonEmptyRealDataQuery(List<ToolExecutionResult> toolResults) {

@@ -77,8 +77,6 @@ class AgentReadOnlyToolTransactionIntegrationTest {
 
     private static Stream<Arguments> readOnlyTools() {
         return Stream.of(
-            Arguments.of("product_catalog_lookup", "{}"),
-            Arguments.of("cashflow_summary_lookup", "{}"),
             Arguments.of("store_info_lookup", "{}")
         );
     }

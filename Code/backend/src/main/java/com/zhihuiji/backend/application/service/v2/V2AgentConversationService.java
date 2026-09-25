@@ -466,18 +466,8 @@ public class V2AgentConversationService {
         if (toolName == null) {
             return null;
         }
-        return switch (toolName) {
-            case "customer_receivable_lookup" -> "客户应收";
-            case "supplier_payable_lookup" -> "供应商应付";
-            case "sales_overview_lookup" -> "销售概览";
-            case "sale_order_lookup" -> "销售订单";
-            case "purchase_order_lookup" -> "采购订单";
-            case "pay_order_lookup" -> "付款记录";
-            case "finance_record_lookup" -> "资金流水";
-            case "product_catalog_lookup" -> "商品目录";
-            case "inventory_low_stock_lookup" -> "低库存商品";
-            default -> toolName.replace('_', ' ');
-        };
+        // 旧业务工具的展示名已删除；新领域工具标签在此接入。
+        return toolName.replace('_', ' ');
     }
 
     private Integer integerValue(JsonNode payload, String field) {

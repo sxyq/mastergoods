@@ -45,10 +45,4 @@ public final class V2ImportJobDtos {
     public record ImportJobRetryRequest(
         String replayCursor
     ) {}
-
-    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    public record LegacySQLiteImportRequest(
-        @NotBlank String legacyDbPath,
-        Boolean resetOwnedData
-    ) {}
 }

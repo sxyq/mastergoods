@@ -61,14 +61,14 @@ class ToolRegistryTest {
         schema.set("properties", properties);
         schema.putArray("required").add("items");
         ToolRegistry registry = new ToolRegistry(List.of(new TestTool(
-            "create_sale_order", "创建销售单", "生成销售草稿", AgentTool.ToolType.CREATE_ONLY, schema
+            "create_sample_draft", "创建样例草稿", "生成样例草稿", AgentTool.ToolType.CREATE_ONLY, schema
         )));
 
         assertFalse(registry.hasAllRequiredParameters(
-            "create_sale_order", objectMapper.readTree("{\"items\":[{\"product_name\":\"商品\"}]}")
+            "create_sample_draft", objectMapper.readTree("{\"items\":[{\"product_name\":\"商品\"}]}")
         ));
         assertTrue(registry.hasAllRequiredParameters(
-            "create_sale_order", objectMapper.readTree("{\"items\":[{\"product_id\":7}]}")
+            "create_sample_draft", objectMapper.readTree("{\"items\":[{\"product_id\":7}]}")
         ));
     }
 
@@ -92,23 +92,23 @@ class ToolRegistryTest {
         schema.putArray("required").add("customer_id").add("items");
 
         ToolRegistry registry = new ToolRegistry(List.of(new TestTool(
-            "create_sale_order", "创建销售单", "生成销售草稿", AgentTool.ToolType.CREATE_ONLY, schema
+            "create_sample_draft", "创建样例草稿", "生成样例草稿", AgentTool.ToolType.CREATE_ONLY, schema
         )));
 
         assertFalse(registry.hasAllRequiredParameters(
-            "create_sale_order", objectMapper.readTree("{\"customer_id\":null,\"items\":[]}")));
+            "create_sample_draft", objectMapper.readTree("{\"customer_id\":null,\"items\":[]}")));
         assertFalse(registry.hasAllRequiredParameters(
-            "create_sale_order", objectMapper.readTree("{\"customer_id\":0,\"items\":[{\"product_id\":1,\"quantity\":1,\"price\":1}]}")));
+            "create_sample_draft", objectMapper.readTree("{\"customer_id\":0,\"items\":[{\"product_id\":1,\"quantity\":1,\"price\":1}]}")));
         assertFalse(registry.hasAllRequiredParameters(
-            "create_sale_order", objectMapper.readTree("{\"customer_id\":1,\"items\":[]}")));
+            "create_sample_draft", objectMapper.readTree("{\"customer_id\":1,\"items\":[]}")));
         assertFalse(registry.hasAllRequiredParameters(
-            "create_sale_order", objectMapper.readTree("{\"customer_id\":1,\"items\":[{\"product_id\":0,\"quantity\":1,\"price\":1}]}")));
+            "create_sample_draft", objectMapper.readTree("{\"customer_id\":1,\"items\":[{\"product_id\":0,\"quantity\":1,\"price\":1}]}")));
         assertFalse(registry.hasAllRequiredParameters(
-            "create_sale_order", objectMapper.readTree("{\"customer_id\":1,\"items\":[{\"product_id\":1,\"quantity\":0,\"price\":1}]}")));
+            "create_sample_draft", objectMapper.readTree("{\"customer_id\":1,\"items\":[{\"product_id\":1,\"quantity\":0,\"price\":1}]}")));
         assertFalse(registry.hasAllRequiredParameters(
-            "create_sale_order", objectMapper.readTree("{\"customer_id\":1,\"items\":[{\"product_id\":1,\"quantity\":1,\"price\":0}]}")));
+            "create_sample_draft", objectMapper.readTree("{\"customer_id\":1,\"items\":[{\"product_id\":1,\"quantity\":1,\"price\":0}]}")));
         assertTrue(registry.hasAllRequiredParameters(
-            "create_sale_order", objectMapper.readTree("{\"customer_id\":1,\"items\":[{\"product_id\":1,\"quantity\":1,\"price\":1.23}]}")));
+            "create_sample_draft", objectMapper.readTree("{\"customer_id\":1,\"items\":[{\"product_id\":1,\"quantity\":1,\"price\":1.23}]}")));
     }
 
     @Test
@@ -130,15 +130,15 @@ class ToolRegistryTest {
         schema.putArray("required").add("supplier_id").add("items");
 
         ToolRegistry registry = new ToolRegistry(List.of(new TestTool(
-            "create_purchase_order", "创建采购单", "生成采购草稿", AgentTool.ToolType.CREATE_ONLY, schema
+            "create_sample_record", "创建样例记录", "生成样例记录", AgentTool.ToolType.CREATE_ONLY, schema
         )));
 
         assertFalse(registry.hasAllRequiredParameters(
-            "create_purchase_order",
+            "create_sample_record",
             objectMapper.readTree("{\"supplier_id\":0,\"items\":[{\"product_id\":0}]}")
         ));
         assertTrue(registry.hasAllRequiredParameters(
-            "create_purchase_order",
+            "create_sample_record",
             objectMapper.readTree("{\"supplier_id\":1,\"items\":[{\"product_id\":2}]}")
         ));
     }

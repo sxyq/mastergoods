@@ -5,29 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.zhihuiji.backend.api.common.BusinessException;
 import com.zhihuiji.backend.api.dto.v2.agent.V2AgentDtos;
-import com.zhihuiji.backend.api.dto.v2.finance.V2FinanceDtos;
-import com.zhihuiji.backend.api.dto.v2.inventory.V2InventoryDtos;
-import com.zhihuiji.backend.api.dto.v2.partner.V2PartnerDtos;
-import com.zhihuiji.backend.api.dto.v2.pay.V2PayOrderDtos;
-import com.zhihuiji.backend.api.dto.v2.product.V2ProductDtos;
-import com.zhihuiji.backend.api.dto.v2.purchase.V2PurchaseOrderDtos;
-import com.zhihuiji.backend.api.dto.v2.purchase.V2PurchaseReceiptDtos;
-import com.zhihuiji.backend.api.dto.v2.purchase.V2PurchaseReturnDtos;
-import com.zhihuiji.backend.api.dto.v2.sales.V2SaleOrderDtos;
-import com.zhihuiji.backend.api.dto.v2.sales.V2SalesReturnDtos;
 import com.zhihuiji.backend.application.service.CurrentOwnerService;
-import com.zhihuiji.backend.application.service.FinanceRecordService;
-import com.zhihuiji.backend.application.service.v2.V2AccountTransferService;
-import com.zhihuiji.backend.application.service.v2.V2CustomerService;
-import com.zhihuiji.backend.application.service.v2.V2InventoryService;
-import com.zhihuiji.backend.application.service.v2.V2PayOrderService;
-import com.zhihuiji.backend.application.service.v2.product.V2ProductService;
-import com.zhihuiji.backend.application.service.v2.V2PurchaseOrderService;
-import com.zhihuiji.backend.application.service.v2.V2PurchaseReceiptService;
-import com.zhihuiji.backend.application.service.v2.V2PurchaseReturnService;
-import com.zhihuiji.backend.application.service.v2.V2SaleOrderService;
-import com.zhihuiji.backend.application.service.v2.V2SalesReturnService;
-import com.zhihuiji.backend.application.service.v2.V2SupplierService;
 import com.zhihuiji.backend.application.service.v2.AgentImageService;
 import com.zhihuiji.backend.application.service.v2.agent.component.RunAuditService;
 import com.zhihuiji.backend.domain.entity.AgentDraftEntity;
@@ -40,14 +18,14 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Agent 草稿确认服务。
  *
- * <p>负责读取 agent_drafts 表中的 active 草稿，根据 draftType 路由到对应业务 Service.create
- * 执行真正写入，确认成功后更新草稿 status=confirmed；取消则置为 cancelled。
+ * <p>负责读取 agent_drafts 表中的 active 草稿，按 draftType 路由到对应执行器，
+ * 确认成功后更新草稿 status=confirmed；取消则置为 cancelled。
  *
- * <p>路由逻辑通过 switch(draftType) 分发，每个分支将 contentJson（JSON 字符串）反序列化为
- * 对应 CreateRequest DTO 后调用业务 Service。写入工具生成草稿时已将 contentJson 字段与目标
- * CreateRequest（snake_case，FinanceRecordService.CreateCommand 为 camelCase）对齐，可直接反序列化。
+ * <p>旧业务领域（销售/采购/收付款/商品/客户等）的草稿写入路由已随业务域删除，
+ * 当前仅保留 image_generate / media_upload 两类基础设施草稿；新的领域草稿
+ * 类型等待新领域实现后在此接入。
  *
- * <p>错误处理：草稿不存在、状态非 active 抛 BusinessException；反序列化或业务创建失败时
+ * <p>错误处理：草稿不存在、状态非 active 抛 BusinessException；执行或反序列化失败时
  * 通过 try/catch 捕获并抛 BusinessException 携带错误信息，草稿保持 active 供用户重试或取消。
  */
 @Service
@@ -63,39 +41,14 @@ public class AgentDraftConfirmService {
     private final CurrentOwnerService currentOwnerService;
     private final ObjectMapper objectMapper;
 
-    private final V2SaleOrderService v2SaleOrderService;
-    private final V2PurchaseOrderService v2PurchaseOrderService;
-    private final V2PurchaseReceiptService v2PurchaseReceiptService;
-    private final V2SalesReturnService v2SalesReturnService;
-    private final V2PurchaseReturnService v2PurchaseReturnService;
-    private final V2PayOrderService v2PayOrderService;
-    private final V2CustomerService v2CustomerService;
-    private final V2SupplierService v2SupplierService;
-    private final V2ProductService v2ProductService;
-    private final FinanceRecordService financeRecordService;
-    private final V2InventoryService v2InventoryService;
-    private final V2AccountTransferService v2AccountTransferService;
     private final AgentImageService agentImageService;
     private final AgentDraftConfirmationStateService confirmationStateService;
     private final RunAuditService runAuditService;
 
-    @org.springframework.beans.factory.annotation.Autowired
     public AgentDraftConfirmService(
         AgentDraftRepository agentDraftRepository,
         CurrentOwnerService currentOwnerService,
         ObjectMapper objectMapper,
-        V2SaleOrderService v2SaleOrderService,
-        V2PurchaseOrderService v2PurchaseOrderService,
-        V2PurchaseReceiptService v2PurchaseReceiptService,
-        V2SalesReturnService v2SalesReturnService,
-        V2PurchaseReturnService v2PurchaseReturnService,
-        V2PayOrderService v2PayOrderService,
-        V2CustomerService v2CustomerService,
-        V2SupplierService v2SupplierService,
-        V2ProductService v2ProductService,
-        FinanceRecordService financeRecordService,
-        V2InventoryService v2InventoryService,
-        V2AccountTransferService v2AccountTransferService,
         AgentImageService agentImageService,
         AgentDraftConfirmationStateService confirmationStateService,
         RunAuditService runAuditService
@@ -103,72 +56,9 @@ public class AgentDraftConfirmService {
         this.agentDraftRepository = agentDraftRepository;
         this.currentOwnerService = currentOwnerService;
         this.objectMapper = objectMapper;
-        this.v2SaleOrderService = v2SaleOrderService;
-        this.v2PurchaseOrderService = v2PurchaseOrderService;
-        this.v2PurchaseReceiptService = v2PurchaseReceiptService;
-        this.v2SalesReturnService = v2SalesReturnService;
-        this.v2PurchaseReturnService = v2PurchaseReturnService;
-        this.v2PayOrderService = v2PayOrderService;
-        this.v2CustomerService = v2CustomerService;
-        this.v2SupplierService = v2SupplierService;
-        this.v2ProductService = v2ProductService;
-        this.financeRecordService = financeRecordService;
-        this.v2InventoryService = v2InventoryService;
-        this.v2AccountTransferService = v2AccountTransferService;
         this.agentImageService = agentImageService;
         this.confirmationStateService = confirmationStateService;
         this.runAuditService = runAuditService;
-    }
-
-    /** Compatibility constructor for isolated tests and legacy callers. */
-    public AgentDraftConfirmService(
-        AgentDraftRepository agentDraftRepository,
-        CurrentOwnerService currentOwnerService,
-        ObjectMapper objectMapper,
-        V2SaleOrderService v2SaleOrderService,
-        V2PurchaseOrderService v2PurchaseOrderService,
-        V2PurchaseReceiptService v2PurchaseReceiptService,
-        V2SalesReturnService v2SalesReturnService,
-        V2PurchaseReturnService v2PurchaseReturnService,
-        V2PayOrderService v2PayOrderService,
-        V2CustomerService v2CustomerService,
-        V2SupplierService v2SupplierService,
-        V2ProductService v2ProductService,
-        FinanceRecordService financeRecordService,
-        V2InventoryService v2InventoryService,
-        V2AccountTransferService v2AccountTransferService,
-        AgentImageService agentImageService,
-        AgentDraftConfirmationStateService confirmationStateService
-    ) {
-        this(agentDraftRepository, currentOwnerService, objectMapper, v2SaleOrderService, v2PurchaseOrderService,
-            v2PurchaseReceiptService, v2SalesReturnService, v2PurchaseReturnService, v2PayOrderService,
-            v2CustomerService, v2SupplierService, v2ProductService, financeRecordService, v2InventoryService,
-            v2AccountTransferService, agentImageService, confirmationStateService, null);
-    }
-
-    /** Compatibility constructor for isolated tests and legacy callers. */
-    public AgentDraftConfirmService(
-        AgentDraftRepository agentDraftRepository,
-        CurrentOwnerService currentOwnerService,
-        ObjectMapper objectMapper,
-        V2SaleOrderService v2SaleOrderService,
-        V2PurchaseOrderService v2PurchaseOrderService,
-        V2PurchaseReceiptService v2PurchaseReceiptService,
-        V2SalesReturnService v2SalesReturnService,
-        V2PurchaseReturnService v2PurchaseReturnService,
-        V2PayOrderService v2PayOrderService,
-        V2CustomerService v2CustomerService,
-        V2SupplierService v2SupplierService,
-        V2ProductService v2ProductService,
-        FinanceRecordService financeRecordService,
-        V2InventoryService v2InventoryService,
-        V2AccountTransferService v2AccountTransferService,
-        AgentImageService agentImageService
-    ) {
-        this(agentDraftRepository, currentOwnerService, objectMapper, v2SaleOrderService, v2PurchaseOrderService,
-            v2PurchaseReceiptService, v2SalesReturnService, v2PurchaseReturnService, v2PayOrderService,
-            v2CustomerService, v2SupplierService, v2ProductService, financeRecordService, v2InventoryService,
-            v2AccountTransferService, agentImageService, null, null);
     }
 
     /**
@@ -188,9 +78,9 @@ public class AgentDraftConfirmService {
     }
 
     /**
-     * 确认草稿：读取草稿 → 按 draftType 路由到对应业务 Service.create → 更新 status=confirmed。
+     * 确认草稿：读取草稿 → 按 draftType 路由执行 → 更新 status=confirmed。
      *
-     * <p>反序列化或业务创建失败时抛 BusinessException，草稿保持 active 状态供重试。
+     * <p>执行失败时抛 BusinessException，草稿保持 active 状态供重试。
      *
      * @param draftId 草稿 ID
      * @return 确认后的草稿响应
@@ -279,30 +169,15 @@ public class AgentDraftConfirmService {
     }
 
     /**
-     * 按 draftType 路由到对应业务 Service.create，contentJson 反序列化为对应 CreateRequest。
+     * 按 draftType 路由执行草稿确认动作。
      *
      * @param entity 草稿实体
-     * @throws Exception 反序列化或业务创建异常
+     * @return 执行结果（媒体/图片草稿返回对应结果，其余为 null）
      */
     private Object dispatchCreate(AgentDraftEntity entity) throws Exception {
         String contentJson = entity.getContentJson();
         String draftType = entity.getDraftType();
         return switch (draftType) {
-            case "create_sale_order" -> v2SaleOrderService.create(objectMapper.readValue(contentJson, V2SaleOrderDtos.CreateRequest.class));
-            case "create_purchase_order" -> v2PurchaseOrderService.create(objectMapper.readValue(contentJson, V2PurchaseOrderDtos.CreateRequest.class));
-            case "create_purchase_receipt" -> v2PurchaseReceiptService.create(objectMapper.readValue(contentJson, V2PurchaseReceiptDtos.CreateRequest.class));
-            case "create_sales_return" -> v2SalesReturnService.create(objectMapper.readValue(contentJson, V2SalesReturnDtos.CreateRequest.class));
-            case "create_purchase_return" -> v2PurchaseReturnService.create(objectMapper.readValue(contentJson, V2PurchaseReturnDtos.CreateRequest.class));
-            case "create_pay_order" -> v2PayOrderService.createWithRequiredIdempotencyKey(
-                objectMapper.readValue(contentJson, V2PayOrderDtos.CreateRequest.class));
-            case "create_customer" -> v2CustomerService.create(objectMapper.readValue(contentJson, V2PartnerDtos.CustomerWriteRequest.class));
-            case "create_supplier" -> v2SupplierService.create(objectMapper.readValue(contentJson, V2PartnerDtos.SupplierWriteRequest.class));
-            case "create_product" -> v2ProductService.create(objectMapper.readValue(contentJson, V2ProductDtos.ProductWriteRequest.class));
-            case "create_finance_record" -> financeRecordService.create(objectMapper.readValue(contentJson, FinanceRecordService.CreateCommand.class));
-            case "create_inventory_adjustment", "inventory_adjustment" -> v2InventoryService.createLedgerEntry(
-                objectMapper.readValue(contentJson, V2InventoryDtos.LedgerEntryCreateRequest.class));
-            case "create_account_transfer" -> v2AccountTransferService.create(
-                objectMapper.readValue(contentJson, V2FinanceDtos.AccountTransferCreateRequest.class));
             case "media_upload" -> null;
             case "image_generate" -> agentImageService.generate(AgentDraftImageResultCodec.readRequest(objectMapper, contentJson));
             default -> throw new BusinessException("不支持的草稿类型：" + draftType);

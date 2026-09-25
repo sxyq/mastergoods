@@ -20,7 +20,7 @@ import java.util.List;
 public interface AgentTool {
 
     /**
-     * 工具唯一标识，如 {@code sale_order_lookup}。
+     * 工具唯一标识，如 {@code data_export_tool}。
      *
      * @return 工具名
      */

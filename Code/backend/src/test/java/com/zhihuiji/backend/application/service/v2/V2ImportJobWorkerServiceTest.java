@@ -8,8 +8,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zhihuiji.backend.application.service.LegacySQLiteImportService;
 import com.zhihuiji.backend.domain.entity.ImportJobEntity;
 import com.zhihuiji.backend.infrastructure.repository.ImportJobRepository;
 import java.util.List;
@@ -22,15 +20,13 @@ import org.mockito.MockitoAnnotations;
 class V2ImportJobWorkerServiceTest {
     @Mock
     private ImportJobRepository importJobRepository;
-    @Mock
-    private LegacySQLiteImportService legacySQLiteImportService;
 
     private V2ImportJobWorkerService service;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        service = new V2ImportJobWorkerService(importJobRepository, legacySQLiteImportService, new ObjectMapper());
+        service = new V2ImportJobWorkerService(importJobRepository);
     }
 
     @Test
@@ -53,30 +49,22 @@ class V2ImportJobWorkerServiceTest {
     }
 
     @Test
-    void executeClaimedJobImportsLegacySqliteAndStoresSummary() throws Exception {
+    void executeClaimedJobMarksLegacySourceAsFailedUntilImporterReimplemented() {
         ImportJobEntity entity = new ImportJobEntity();
         entity.setId(9L);
         entity.setOwnerUserId(1L);
         entity.setStatus(V2ImportJobService.STATUS_RUNNING);
         entity.setSourceType("legacy_sqlite");
         entity.setSourceUri("/tmp/legacy.db");
-        entity.setOptionsJson("{\"resetOwnedData\":true}");
         when(importJobRepository.findById(9L)).thenReturn(Optional.of(entity));
-        when(legacySQLiteImportService.importIntoExistingOwner(any(), any())).thenReturn(
-            new LegacySQLiteImportService.ImportResult(1L, "13800000000", "店主", "/tmp/legacy.db", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
-        );
 
         service.executeClaimedJob(9L);
 
-        assertEquals(V2ImportJobService.STATUS_SUCCEEDED, entity.getStatus());
-        assertEquals("completed", entity.getStage());
-        assertNull(entity.getFailureCode());
-        assertNull(entity.getFailureMessage());
-        verify(importJobRepository).save(entity);
-        verify(legacySQLiteImportService).importIntoExistingOwner(
-            1L,
-            new LegacySQLiteImportService.ExistingOwnerImportRequest("/tmp/legacy.db", true)
-        );
+        assertEquals(V2ImportJobService.STATUS_FAILED, entity.getStatus());
+        assertEquals("failed", entity.getStage());
+        assertEquals("invalid_request", entity.getFailureCode());
+        assertEquals(true, entity.getFailureMessage() != null
+            && entity.getFailureMessage().contains("暂不支持的导入来源"));
     }
 
     @Test

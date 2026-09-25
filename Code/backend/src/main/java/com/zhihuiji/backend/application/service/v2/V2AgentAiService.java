@@ -14,7 +14,6 @@ import com.zhihuiji.backend.domain.entity.AgentRunAuditEventEntity;
 import com.zhihuiji.backend.domain.entity.AgentRunAuditEntity;
 import com.zhihuiji.backend.domain.entity.AgentTaskEntity;
 import com.zhihuiji.backend.domain.entity.MediaAssetEntity;
-import com.zhihuiji.backend.domain.entity.product.ProductEntity;
 import com.zhihuiji.backend.infrastructure.ai.LongCatAnthropicClient;
 import com.zhihuiji.backend.infrastructure.repository.AgentConversationRepository;
 import com.zhihuiji.backend.infrastructure.repository.AgentDraftRepository;
@@ -88,7 +87,6 @@ public class V2AgentAiService {
     // One initial model decision plus at most two bounded continuations.
     // A malformed provider response must not turn into an unbounded database scan.
     private static final int MAX_TOOL_CALLS_PER_RUN = 12;
-    private static final int SUPPLIER_SCAN_LIMIT = 50;
     private static final int OVERVIEW_SIGNAL_LIMIT = 5;
     private static final String RESULT_VISUALIZATION_TOOL = "result_visualization";
     private static final Set<String> ALWAYS_VISIBLE_BLOCK_TYPES = Set.of("draft", "draft_card");
@@ -1112,14 +1110,11 @@ public class V2AgentAiService {
         return message.toString();
     }
 
-    /** 登记完成任务所需的目标工具（写目标 + 本轮计划中的 CREATE_ONLY 工具 + 海报目标）。 */
+    /** 登记完成任务所需的目标工具（写目标 + 本轮计划中的 CREATE_ONLY 工具）。 */
     private void registerRequiredTargetTools(AgentRunState runState, String message, AgentToolPlan plan) {
         String writeTarget = AgentPromptCatalog.targetWriteTool(message);
         if (StringUtils.hasText(writeTarget)) {
             runState.requireTargetTools(Set.of(writeTarget));
-        }
-        if (message != null && message.contains("海报")) {
-            runState.requireTargetTools(Set.of("generate_poster_prompt"));
         }
         if (plan != null && plan.tools() != null) {
             for (String toolName : plan.tools()) {
@@ -2244,117 +2239,10 @@ public class V2AgentAiService {
             return List.of();
         }
         List<Map<String, String>> items = new ArrayList<>(4);
-        switch (result.toolName()) {
-            case "inventory_low_stock_lookup" -> addEvidenceItem(items, result, "低库存商品数", "low_stock_count", "个");
-            case "product_catalog_lookup" -> {
-                addEvidenceItem(items, result, "商品数", "product_count", "个");
-                addEvidenceItem(items, result, "库存总计", "stock_total", null);
-                addEvidenceItem(items, result, "低库存商品数", "low_stock_count", "个");
-            }
-            case "inventory_panorama_lookup" -> {
-                addEvidenceItem(items, result, "商品名称", "product_name", null);
-                addEvidenceItem(items, result, "当前库存", "current_stock", null);
-                addEvidenceItem(items, result, "安全库存", "safe_stock", null);
-                addEvidenceItem(items, result, "近30天销量", "recent_sales_quantity", null);
-                addEvidenceItem(items, result, "周转天数", "turnover_days", null);
-                addEvidenceItem(items, result, "建议补货量", "suggested_restock", null);
-            }
-            case "purchase_tracking_lookup" -> {
-                addEvidenceItem(items, result, "采购单号", "order_no", null);
-                addEvidenceItem(items, result, "供应商", "supplier_name", null);
-                addEvidenceItem(items, result, "采购总额", "total_amount", null);
-                addEvidenceItem(items, result, "已到货", "received_amount", null);
-                addEvidenceItem(items, result, "待付款", "outstanding_amount", null);
-                addEvidenceItem(items, result, "入库单数", "receipt_count", "条");
-                addEvidenceItem(items, result, "退货单数", "return_count", "条");
-            }
-            case "account_health_lookup" -> {
-                addEvidenceItem(items, result, "账户总数", "account_count", "个");
-                addEvidenceItem(items, result, "账户总余额", "total_balance", null);
-                addEvidenceItem(items, result, "收支比", "income_expense_ratio", null);
-                addEvidenceItem(items, result, "低余额账户", "low_balance_count", "个");
-                addEvidenceItem(items, result, "近期转账", "transfer_count", "条");
-                addEvidenceItem(items, result, "默认账户", "default_account_name", null);
-            }
-            case "customer_receivable_lookup" -> {
-                addEvidenceItem(items, result, "欠款客户数", "customer_count", "个");
-                addEvidenceItem(items, result, "应收总额", "total_receivable", null);
-                addEvidenceItem(items, result, "Top10 应收合计", "top10_receivable_total", null);
-            }
-            case "customer_profile_lookup" -> {
-                addEvidenceItem(items, result, "客户名称", "customer_name", null);
-                addEvidenceItem(items, result, "订单数", "order_count", "笔");
-                addEvidenceItem(items, result, "累计销售额", "total_sales_amount", null);
-                addEvidenceItem(items, result, "当前欠款", "balance", null);
-                addEvidenceItem(items, result, "付款习惯", "payment_habit", null);
-            }
-            case "supplier_payable_lookup" -> {
-                addEvidenceItem(items, result, "应付供应商数", "supplier_count", "个");
-                addEvidenceItem(items, result, "应付总额", "total_payable", null);
-                addEvidenceItem(items, result, "Top10 应付合计", "top10_payable_total", null);
-            }
-            case "receivable_payable_lookup" -> {
-                addEvidenceItem(items, result, "应收客户数", "receivable_customer_count", "个");
-                addEvidenceItem(items, result, "应付供应商数", "payable_supplier_count", "个");
-                addEvidenceItem(items, result, "应收总额", "total_receivable", null);
-                addEvidenceItem(items, result, "应付总额", "total_payable", null);
-                addEvidenceItem(items, result, "净敞口", "net_exposure", null);
-            }
-            case "sales_overview_lookup" -> {
-                addEvidenceItem(items, result, "近7天销售额", "sales_amount", null);
-                addEvidenceItem(items, result, "近7天回款", "paid_amount", null);
-                addEvidenceItem(items, result, "销售单数", "sales_count", "笔");
-                addEvidenceItem(items, result, "当前应收", "current_receivable", null);
-            }
-            case "sale_order_lookup" -> {
-                addEvidenceItem(items, result, "销售单数", "order_count", "条");
-                addEvidenceItem(items, result, "查询销售额", "recent_total_amount", null);
-                addEvidenceItem(items, result, "未收清单数", "unpaid_count", "条");
-            }
-            case "purchase_order_lookup" -> {
-                addEvidenceItem(items, result, "采购单数", "order_count", "条");
-                addEvidenceItem(items, result, "查询采购额", "recent_total_amount", null);
-                addEvidenceItem(items, result, "查询已到货金额", "recent_received_amount", null);
-            }
-            case "pay_order_lookup" -> {
-                addEvidenceItem(items, result, "付款单数", "pay_order_count", "条");
-                addEvidenceItem(items, result, "查询付款额", "recent_total_amount", null);
-                addEvidenceItem(items, result, "待付款单数", "pending_count", "条");
-            }
-            case "finance_record_lookup" -> {
-                addEvidenceItem(items, result, "资金流水条数", "record_count", "条");
-                addEvidenceItem(items, result, "查询收入", "recent_income", null);
-                addEvidenceItem(items, result, "查询支出", "recent_expense", null);
-            }
-            default -> {
-                // Unknown tools fall back to the coarse summary evidence above.
-            }
-        }
+        // 旧业务工具的 evidence 抽取已删除；新领域工具在此接入。
         return items;
     }
 
-    private void addEvidenceItem(
-        List<Map<String, String>> items,
-        ToolExecutionResult result,
-        String label,
-        String fieldName,
-        String suffix
-    ) {
-        JsonNode value = result.facts().path(fieldName);
-        if (value.isMissingNode() || value.isNull()) {
-            return;
-        }
-        String text = value.isTextual() || value.isNumber() || value.isBoolean()
-            ? value.asText()
-            : compactJson(value);
-        if (!StringUtils.hasText(text)) {
-            return;
-        }
-        items.add(Map.of(
-            "label", label + " (" + fieldName + ")",
-            "value", suffix == null ? text : text + suffix
-        ));
-    }
 
     private String compactJson(Object value) {
         if (value == null) {

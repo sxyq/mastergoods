@@ -253,11 +253,11 @@ class ContextBuilderTest {
             "当前问题",
             "工具目录",
             "owner=9\nstore=18\npermission=sales.read\npassword=should-redact",
-            List.of(new ContextBuilder.PendingToolCall("call-7", "create_sale_order", "awaiting_confirmation"))
+            List.of(new ContextBuilder.PendingToolCall("call-7", "create_sample_draft", "awaiting_confirmation"))
         );
 
         assertEquals(1, context.pendingToolCalls().size());
-        assertEquals("create_sale_order", context.pendingToolCalls().get(0).toolName());
+        assertEquals("create_sample_draft", context.pendingToolCalls().get(0).toolName());
         assertEquals(1, context.pendingDrafts().size());
         assertEquals(77L, context.pendingDrafts().get(0).draftId());
         assertEquals("active", context.pendingDrafts().get(0).status());
