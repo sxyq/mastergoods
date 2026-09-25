@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.backend.application.service.v2.agent.component;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -204,6 +205,24 @@ public class SseStreamEmitter {
         int sequence,
         String modelToolCallId
     ) {
+        emitToolFailed(
+            emitter, runId, toolName, safeMessage, durationMs, startedAt, toolInput,
+            sequence, modelToolCallId, "TOOL_QUERY_FAILED"
+        );
+    }
+
+    public void emitToolFailed(
+        SseEmitter emitter,
+        String runId,
+        String toolName,
+        String safeMessage,
+        long durationMs,
+        long startedAt,
+        Map<String, Object> toolInput,
+        int sequence,
+        String modelToolCallId,
+        String errorCode
+    ) {
         if (runId == null) {
             return;
         }
@@ -219,7 +238,7 @@ public class SseStreamEmitter {
                 "selection_origin", StringUtils.hasText(modelToolCallId) ? "model_tool_call" : "unknown",
                 "input_summary", toolInputSummary(toolName, toolInput),
                 "query_window", queryWindowFor(toolInput),
-                "error_code", "TOOL_QUERY_FAILED",
+                "error_code", StringUtils.hasText(errorCode) ? errorCode : "TOOL_QUERY_FAILED",
                 "safe_message", safeMessage,
                 "error_summary", safeMessage,
                 "duration_ms", Math.max(0L, durationMs),
@@ -484,7 +503,14 @@ public class SseStreamEmitter {
             return;
         }
         if (emitter != null) {
-            emitter.send(SseEmitter.event().data(payloadJson));
+            try {
+                emitter.send(SseEmitter.event().data(payloadJson));
+            } catch (IOException ex) {
+                if (runId instanceof String runIdText) {
+                    runAuditService.rollbackPreparedEvent(runIdText, payload);
+                }
+                throw ex;
+            }
         }
         if (runId instanceof String runIdText) {
             runAuditService.queueRunAuditEvent(runIdText, payload, payloadJson);

@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.backend.application.service.v2.agent.tool;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -61,6 +62,52 @@ class ToolExecutorTest {
 
         assertDenied(outcome, ToolExecutor.TOOL_ARGUMENTS_INVALID);
         assertFalse(outcome.decision().violations().isEmpty());
+        assertEquals(0, tool.executionCount);
+    }
+
+    @Test
+    void rejectsBooleanStatusBeforeBusinessToolExecution() {
+        ObjectNode invalidParams = objectMapper.createObjectNode()
+            .put("amount", 1)
+            .put("status", true);
+
+        ToolExecutor.ExecutionOutcome outcome = execute(tool.name(), invalidParams, null);
+
+        assertDenied(outcome, ToolExecutor.TOOL_ARGUMENTS_INVALID);
+        assertEquals(0, tool.executionCount);
+    }
+
+    @Test
+    void acceptsNullSentinelForOptionalSchemaField() {
+        ObjectNode params = validParams().put("status", "null");
+
+        ToolExecutor.GateDecision decision = executor.checkArguments(tool.name(), params);
+
+        assertTrue(decision.allowed());
+    }
+
+    @Test
+    void normalizesIntegralTextBeforeBusinessToolExecution() {
+        when(currentOwnerService.requireCurrentOwnerUserId()).thenReturn(42L);
+        when(currentOwnerService.requireCurrentUserId()).thenReturn(100L);
+        when(currentOwnerService.findCurrentStoreId()).thenReturn(Optional.of(7L));
+
+        ObjectNode params = validParams().put("status", "1");
+        ToolExecutor.ExecutionOutcome outcome = execute(
+            tool.name(), params, null, new AgentRunState("run-1", 10L, 42L, 7L, 1));
+
+        assertTrue(outcome.executed());
+        assertEquals(1, tool.lastParams.path("status").intValue());
+        assertTrue(tool.lastParams.path("status").isIntegralNumber());
+    }
+
+    @Test
+    void rejectsNonIntegralTextForIntegerSchema() {
+        ObjectNode params = validParams().put("status", "1.0");
+
+        ToolExecutor.ExecutionOutcome outcome = execute(tool.name(), params, null);
+
+        assertDenied(outcome, ToolExecutor.TOOL_ARGUMENTS_INVALID);
         assertEquals(0, tool.executionCount);
     }
 
@@ -135,6 +182,7 @@ class ToolExecutorTest {
         ObjectNode schema = objectMapper.createObjectNode();
         schema.put("type", "object");
         schema.putObject("properties").putObject("amount").put("type", "integer").put("minimum", 1);
+        schema.with("properties").putObject("status").put("type", "integer").putArray("enum").add(0).add(1);
         schema.putArray("required").add("amount");
         schema.put("additionalProperties", false);
         return schema;
@@ -150,6 +198,7 @@ class ToolExecutorTest {
         private final JsonNode schema;
         private int executionCount;
         private ToolContext context;
+        private JsonNode lastParams;
         private ToolResult result = ToolResult.empty("default");
 
         private CountingTool(JsonNode schema) {
@@ -185,6 +234,7 @@ class ToolExecutorTest {
         public ToolResult execute(ToolContext context, JsonNode params) {
             executionCount++;
             this.context = context;
+            this.lastParams = params;
             return result;
         }
     }

@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.backend.application.service.v2.agent.component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -128,6 +129,21 @@ public class RunAuditService {
             payload.putIfAbsent("conversation_id", activeRun.conversationId());
             payload.putIfAbsent("seq", activeRun.nextSeq());
             payload.putIfAbsent("event_id", runId + ":" + payload.get("seq"));
+        }
+    }
+
+    /**
+     * Releases a sequence reserved for an event that never reached the SSE client.
+     * Audit-write drops keep their existing lossy accounting; this only covers a
+     * transport failure before the event was emitted.
+     */
+    public void rollbackPreparedEvent(String runId, Map<String, Object> payload) {
+        if (runId == null || payload == null || !(payload.get("seq") instanceof Number seq)) {
+            return;
+        }
+        ActiveAgentRun activeRun = activeRuns.get(runId);
+        if (activeRun != null) {
+            activeRun.rollbackReservedSequence(seq.intValue());
         }
     }
 
@@ -485,6 +501,12 @@ public class RunAuditService {
 
         private int emittedEventCount() {
             return Math.max(0, eventSequence.get() - 1);
+        }
+
+        private void rollbackReservedSequence(int sequence) {
+            if (sequence > 0) {
+                eventSequence.compareAndSet(sequence + 1, sequence);
+            }
         }
 
         private void enqueueAuditWrite(Runnable writeTask, ExecutorService executor) {

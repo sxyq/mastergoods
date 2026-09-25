@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.backend.application.service.v2.agent.component;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -134,6 +135,28 @@ class AnswerSynthesizerTest {
         assertEquals("llm_answer_unavailable", answer.mode());
         assertEquals("model_empty_or_ungrounded", answer.llmStatus());
         verify(longCatAnthropicClient, times(2)).createJsonMessage(anyString(), anyString());
+    }
+
+    @Test
+    void doesNotRetryFinalAnswerAfterPlanningFailure() {
+        AgentToolPlan plan = new AgentToolPlan(
+            List.of(),
+            "",
+            "llm_planning_failed",
+            Map.of()
+        );
+
+        AgentTypes.FinalAnswer answer = answerSynthesizer.buildFinalAnswer(
+            "查询一个商品的基本信息",
+            new ResponsePayload(List.of(), List.of(), List.of(), plan),
+            List.of(),
+            null
+        );
+
+        assertEquals("", answer.answer());
+        assertEquals("llm_answer_unavailable", answer.mode());
+        assertEquals("llm_planning_failed", answer.llmStatus());
+        verify(longCatAnthropicClient, never()).createJsonMessage(anyString(), anyString());
     }
 
     @Test
@@ -396,6 +419,36 @@ class AnswerSynthesizerTest {
             anyString(),
             eq("model_stream")
         );
+    }
+
+    @Test
+    void streamSkipsProviderFallbackAfterPlanningFailure() {
+        when(longCatAnthropicClient.supportsStreaming()).thenReturn(true);
+        AgentToolPlan plan = new AgentToolPlan(
+            List.of(),
+            "",
+            "llm_planning_failed",
+            Map.of()
+        );
+        SseEmitter emitter = mock(SseEmitter.class);
+
+        AgentTypes.FinalAnswer answer = answerSynthesizer.buildFinalAnswerForStream(
+            "查询一个商品的基本信息",
+            new ResponsePayload(List.of(), List.of(), List.of(), plan),
+            emitter,
+            "run-planning-failed",
+            () -> {},
+            List.of(),
+            null
+        );
+
+        assertEquals("", answer.answer());
+        assertEquals("llm_answer_unavailable", answer.mode());
+        assertEquals("llm_planning_failed", answer.llmStatus());
+        verify(longCatAnthropicClient, never()).streamTextMessage(
+            anyString(), anyString(), anyString(), any()
+        );
+        verify(longCatAnthropicClient, never()).createJsonMessage(anyString(), anyString());
     }
 
     @Test

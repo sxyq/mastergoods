@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.backend.application.service.v2.agent.component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -91,6 +92,9 @@ public class AnswerSynthesizer {
                                          List<AgentMessageEntity> history, String conversationSummary) {
         if (!longCatAnthropicClient.isConfigured()) {
             return new FinalAnswer("", "llm_required", longCatAnthropicClient.configurationStatus(), false);
+        }
+        if (isPlanningFailure(payload)) {
+            return new FinalAnswer("", "llm_answer_unavailable", "llm_planning_failed", true);
         }
         if (payload != null && payload.plan() != null
             && "model_tool_selection_failed".equals(payload.plan().source())) {
@@ -371,6 +375,9 @@ public class AnswerSynthesizer {
                 false
             );
         }
+        if (isPlanningFailure(payload)) {
+            return new FinalAnswer("", "llm_answer_unavailable", "llm_planning_failed", true);
+        }
         if (payload != null && payload.plan() != null
             && "model_tool_selection_failed".equals(payload.plan().source())) {
             return new FinalAnswer("", "llm_answer_unavailable", "model_tool_selection_failed", true);
@@ -439,6 +446,12 @@ public class AnswerSynthesizer {
         }
 
         return new FinalAnswer("", "llm_answer_unavailable", "model_empty_or_ungrounded", true);
+    }
+
+    private boolean isPlanningFailure(ResponsePayload payload) {
+        return payload != null
+            && payload.plan() != null
+            && "llm_planning_failed".equals(payload.plan().source());
     }
 
     public String finalAnswerSystemPrompt() {

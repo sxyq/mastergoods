@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.backend.application.service.v2.agent.tool;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -178,7 +179,8 @@ public class ToolExecutor {
         if (schema == null || !schema.isObject()) {
             return GateDecision.allow();
         }
-        List<ToolArgumentsValidator.Violation> violations = ToolArgumentsValidator.validate(schema, params);
+        JsonNode normalizedParams = ToolArgumentsValidator.normalize(schema, params);
+        List<ToolArgumentsValidator.Violation> violations = ToolArgumentsValidator.validate(schema, normalizedParams);
         if (!violations.isEmpty()) {
             return GateDecision.denyArguments(
                 "工具参数不符合声明的参数约束（" + violations.size() + " 处）",
@@ -311,7 +313,8 @@ public class ToolExecutor {
         if (tool == null) {
             return new ExecutionOutcome(GateDecision.deny(TOOL_NOT_REGISTERED, "工具未注册：" + toolName), null);
         }
-        GateDecision arguments = checkArguments(toolName, params);
+        JsonNode normalizedParams = ToolArgumentsValidator.normalize(tool.parameterSchema(), params);
+        GateDecision arguments = checkArguments(toolName, normalizedParams);
         if (!arguments.allowed()) {
             return new ExecutionOutcome(arguments, null);
         }
@@ -320,9 +323,9 @@ public class ToolExecutor {
         if (!either.allowed()) {
             return new ExecutionOutcome(either.denial(), null);
         }
-        JsonNode safeParams = params == null || params.isNull()
+        JsonNode safeParams = normalizedParams == null || normalizedParams.isNull()
             ? objectMapper.createObjectNode()
-            : params;
+            : normalizedParams;
         try {
             return new ExecutionOutcome(GateDecision.allow(), tool.execute(either.context(), safeParams));
         } catch (org.springframework.security.access.AccessDeniedException ex) {

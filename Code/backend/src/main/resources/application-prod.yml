@@ -56,4 +56,5 @@ agent:
     temperature: ${AGENT_LLM_TEMPERATURE:0.2}
     enable-thinking: ${AGENT_LLM_ENABLE_THINKING:true}
     thinking-budget: ${AGENT_LLM_THINKING_BUDGET:2048}
+    max-concurrent-requests: ${AGENT_LLM_MAX_CONCURRENT_REQUESTS:1}
     allowed-models: ${AGENT_LLM_ALLOWED_MODELS:}

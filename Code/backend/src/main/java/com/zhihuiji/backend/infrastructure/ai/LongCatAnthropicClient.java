@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.backend.infrastructure.ai;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -18,7 +19,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,11 +31,14 @@ import org.springframework.util.StringUtils;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import org.slf4j.MDC;
 
 @Component
 public class LongCatAnthropicClient {
     private static final Logger log = LoggerFactory.getLogger(LongCatAnthropicClient.class);
     private static final String PROVIDER_USER_AGENT = "Java/21";
+    private static final String AGENT_RUN_ID_HEADER = "X-Agent-Run-Id";
+    private static final String CLIENT_REQUEST_ID_HEADER = "X-Agent-Client-Request-Id";
 
     private final AgentLlmProperties properties;
     private final RestClient restClient;
@@ -45,6 +51,7 @@ public class LongCatAnthropicClient {
         .connectTimeout(Duration.ofSeconds(10))
         .build();
     private final Map<String, HttpResponse<InputStream>> activeStreams = new ConcurrentHashMap<>();
+    private final Semaphore providerRequestPermits;
 
     public LongCatAnthropicClient(AgentLlmProperties properties, RestClient.Builder restClientBuilder) {
         this.properties = properties;
@@ -52,6 +59,7 @@ public class LongCatAnthropicClient {
         this.wireApi = properties.getWireApi() == null ? "" : properties.getWireApi();
         this.hasApiKey = StringUtils.hasText(properties.getApiKey());
         this.openAiAuth = hasApiKey && usesOpenAiAuth(wireApi);
+        this.providerRequestPermits = new Semaphore(Math.max(1, properties.getMaxConcurrentRequests()));
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(10000);
         requestFactory.setReadTimeout(120000);
@@ -128,6 +136,8 @@ public class LongCatAnthropicClient {
 
     private static final int MAX_RETRIES = 3;
     private static final long INITIAL_BACKOFF_MS = 1000L;
+    private static final int CONTINUATION_MAX_ATTEMPTS = 2;
+    private static final long CONTINUATION_RETRY_BACKOFF_MS = 1000L;
 
     public Optional<String> createJsonMessage(String systemPrompt, String userPrompt) {
         return createJsonMessage(systemPrompt, userPrompt, List.of());
@@ -146,10 +156,9 @@ public class LongCatAnthropicClient {
             } catch (Exception ex) {
                 lastException = ex;
                 log.warn("LongCat agent request attempt {}/{} failed: {}", attempt, MAX_RETRIES, ex.getMessage());
-                if (isProviderRateLimited(ex)) {
-                    // A provider concurrency quota will not recover within this
-                    // request. Retrying here only prolongs the Agent run and can
-                    // leave its audit in running state after the client times out.
+                if (isProviderRetryStop(ex)) {
+                    // Provider quota or payment rejection will not recover within
+                    // this request; retrying only prolongs the Agent run.
                     break;
                 }
                 if (attempt < MAX_RETRIES) {
@@ -360,7 +369,8 @@ public class LongCatAnthropicClient {
                         .toList(),
                     providerToolChoice(toolChoice)
                 ),
-                ChatCompletionsResponse.class
+                ChatCompletionsResponse.class,
+                "tool_planning"
             );
             if (response == null || response.choices() == null) {
                 return Optional.empty();
@@ -470,7 +480,8 @@ public class LongCatAnthropicClient {
                     // before the requested facts are collected.
                     providerToolChoice(toolChoice)
                 ),
-                ResponsesResponse.class
+                ResponsesResponse.class,
+                "tool_planning"
             );
             if (response == null) {
                 return Optional.empty();
@@ -653,7 +664,9 @@ public class LongCatAnthropicClient {
                     .toList(),
                 providerToolChoice(toolChoice)
             );
-            ResponsesResponse response = postJsonForValue("responses", request, ResponsesResponse.class);
+            ResponsesResponse response = postJsonForValue(
+                "responses", request, ResponsesResponse.class, "tool_continuation"
+            );
             if (response == null) {
                 return Optional.empty();
             }
@@ -711,10 +724,9 @@ public class LongCatAnthropicClient {
         List<ToolDefinition> tools,
         String toolChoice
     ) {
-        try {
-            List<ChatCompletionRequestMessage> messages = new ArrayList<>();
-            messages.add(new ChatCompletionRequestMessage("system", systemPrompt, null, null));
-            messages.add(new ChatCompletionRequestMessage("user", userPrompt, null, null));
+        List<ChatCompletionRequestMessage> messages = new ArrayList<>();
+        messages.add(new ChatCompletionRequestMessage("system", systemPrompt, null, null));
+        messages.add(new ChatCompletionRequestMessage("user", userPrompt, null, null));
 
             List<ChatCompletionToolCall> assistantToolCalls = functionCalls.stream()
                 .filter(call -> call != null && StringUtils.hasText(call.id()) && StringUtils.hasText(call.name()))
@@ -740,34 +752,74 @@ public class LongCatAnthropicClient {
                 ));
             }
 
-            ChatCompletionsResponse response = postJsonForValue(
-                "chat/completions",
-                new ChatCompletionsContinuationRequest(
-                    properties.getModel(),
-                    messages,
-                    properties.getTemperature(),
-                    properties.getMaxTokens(),
-                    tools.stream()
-                        .map(tool -> new ChatCompletionsTool(
-                            "function",
-                            new ChatCompletionsFunctionDefinition(
-                                tool.name(), tool.description(), tool.input_schema()
-                            )
-                        ))
-                        .toList(),
-                    // The planner normally passes auto. It can use required
-                    // only after an explicit multi-source request has one
-                    // remaining data source, so the provider cannot terminate
-                    // before the requested facts are collected.
-                    providerToolChoice(toolChoice)
-                ),
-                ChatCompletionsResponse.class
+            ChatCompletionsContinuationRequest request = new ChatCompletionsContinuationRequest(
+                properties.getModel(),
+                messages,
+                properties.getTemperature(),
+                properties.getMaxTokens(),
+                tools.stream()
+                    .map(tool -> new ChatCompletionsTool(
+                        "function",
+                        new ChatCompletionsFunctionDefinition(
+                            tool.name(), tool.description(), tool.input_schema()
+                        )
+                    ))
+                    .toList(),
+                // The planner normally passes auto. It can use required
+                // only after an explicit multi-source request has one
+                // remaining data source, so the provider cannot terminate
+                // before the requested facts are collected.
+                providerToolChoice(toolChoice)
             );
-            return parseChatCompletionsToolResponse(response);
-        } catch (Exception ex) {
-            log.warn("LongCat agent chat_completions tool continuation failed: {}", ex.getMessage());
-            return Optional.empty();
+            for (int attempt = 1; attempt <= CONTINUATION_MAX_ATTEMPTS; attempt++) {
+                try {
+                    ChatCompletionsResponse response = postJsonForValue(
+                        "chat/completions", request, ChatCompletionsResponse.class, "tool_continuation"
+                    );
+                    Optional<ToolUseResponse> parsed = parseChatCompletionsToolResponse(response);
+                    if (parsed.isPresent() || attempt == CONTINUATION_MAX_ATTEMPTS) {
+                        return parsed;
+                    }
+                    log.warn(
+                        "LongCat agent chat_completions tool continuation returned an empty response; retrying attempt {}/{}",
+                        attempt + 1,
+                        CONTINUATION_MAX_ATTEMPTS
+                    );
+                } catch (Exception ex) {
+                    if (!isRetryableContinuationFailure(ex) || attempt == CONTINUATION_MAX_ATTEMPTS) {
+                        log.warn("LongCat agent chat_completions tool continuation failed: {}", ex.getMessage());
+                        return Optional.empty();
+                    }
+                    log.warn(
+                        "LongCat agent chat_completions tool continuation transient failure; retrying attempt {}/{}: {}",
+                        attempt + 1,
+                        CONTINUATION_MAX_ATTEMPTS,
+                        ex.getMessage()
+                    );
+                }
+                try {
+                    Thread.sleep(CONTINUATION_RETRY_BACKOFF_MS * attempt);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    return Optional.empty();
+                }
+            }
+        return Optional.empty();
+    }
+
+    private boolean isRetryableContinuationFailure(Throwable throwable) {
+        if (isProviderRateLimited(throwable)) {
+            return true;
         }
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof RestClientResponseException responseException
+                && responseException.getStatusCode().value() == 503) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private Optional<ToolUseResponse> parseChatCompletionsToolResponse(ChatCompletionsResponse response) {
@@ -876,7 +928,8 @@ public class LongCatAnthropicClient {
                 properties.getTemperature(),
                 properties.getMaxTokens()
             ),
-            ResponsesResponse.class
+            ResponsesResponse.class,
+            "final_answer_json"
         );
         if (response == null) {
             return Optional.empty();
@@ -917,7 +970,8 @@ public class LongCatAnthropicClient {
                 properties.getTemperature(),
                 properties.getMaxTokens()
             ),
-            ChatCompletionsResponse.class
+            ChatCompletionsResponse.class,
+            "final_answer_json"
         );
         if (response == null || response.choices() == null) {
             return Optional.empty();
@@ -940,24 +994,45 @@ public class LongCatAnthropicClient {
         return text;
     }
 
-    private <T> T postJsonForValue(String uri, Object requestBody, Class<T> responseType) {
+    private <T> T postJsonForValue(
+        String uri,
+        Object requestBody,
+        Class<T> responseType,
+        String operation
+    ) {
+        boolean acquired = false;
+        String runId = currentAgentRunId();
+        String clientRequestId = UUID.randomUUID().toString();
+        long requestStartedAt = System.nanoTime();
+        long permitAcquiredAt = requestStartedAt;
         try {
-            return restClient.post()
+            providerRequestPermits.acquire();
+            acquired = true;
+            permitAcquiredAt = System.nanoTime();
+            var request = restClient.post()
                 .uri(endpointUri(uri))
                 .contentType(MediaType.APPLICATION_JSON)
+                .header(CLIENT_REQUEST_ID_HEADER, clientRequestId);
+            if (StringUtils.hasText(runId)) {
+                request.header(AGENT_RUN_ID_HEADER, runId);
+            }
+            log.info(
+                "LongCat provider request start: run_id={}, client_request_id={}, operation={}, uri={}, "
+                    + "queue_wait_ms={}",
+                runIdOrUnavailable(runId),
+                clientRequestId,
+                operation,
+                uri,
+                elapsedMillis(requestStartedAt, permitAcquiredAt)
+            );
+            T result = request
                 .body(requestBody)
                 // Read the raw response stream. Some compatible providers label
                 // JSON as application/octet-stream, which can fail before a
                 // normal RestClient message converter gets a chance to parse it.
-                .exchange((request, response) -> {
+                .exchange((httpRequest, response) -> {
                     byte[] responseBytes = response.getBody().readAllBytes();
                     if (response.getStatusCode().isError()) {
-                        log.warn(
-                            "LongCat provider request failed: uri={}, status={}, body={}",
-                            uri,
-                            response.getStatusCode().value(),
-                            truncateProviderError(new String(responseBytes, StandardCharsets.UTF_8))
-                        );
                         throw new RestClientResponseException(
                             "Provider returned HTTP " + response.getStatusCode().value(),
                             response.getStatusCode().value(),
@@ -980,14 +1055,49 @@ public class LongCatAnthropicClient {
                         );
                     }
                 });
+            log.info(
+                "LongCat provider request complete: run_id={}, client_request_id={}, operation={}, uri={}, "
+                    + "status=2xx, duration_ms={}, response_present={}",
+                runIdOrUnavailable(runId),
+                clientRequestId,
+                operation,
+                uri,
+                elapsedMillis(requestStartedAt, System.nanoTime()),
+                result != null
+            );
+            return result;
         } catch (RestClientResponseException ex) {
             log.warn(
-                "LongCat provider request failed: uri={}, status={}, body={}",
+                "LongCat provider request failed: run_id={}, client_request_id={}, operation={}, uri={}, "
+                    + "status={}, duration_ms={}, response_bytes={}",
+                runIdOrUnavailable(runId),
+                clientRequestId,
+                operation,
                 uri,
                 ex.getStatusCode().value(),
-                truncateProviderError(ex.getResponseBodyAsString())
+                elapsedMillis(requestStartedAt, System.nanoTime()),
+                ex.getResponseBodyAsByteArray().length
             );
             throw ex;
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting for provider request capacity", ex);
+        } catch (RuntimeException ex) {
+            log.warn(
+                "LongCat provider request failed: run_id={}, client_request_id={}, operation={}, uri={}, "
+                    + "failure={}, duration_ms={}",
+                runIdOrUnavailable(runId),
+                clientRequestId,
+                operation,
+                uri,
+                ex.getClass().getSimpleName(),
+                elapsedMillis(requestStartedAt, System.nanoTime())
+            );
+            throw ex;
+        } finally {
+            if (acquired) {
+                providerRequestPermits.release();
+            }
         }
     }
 
@@ -1011,11 +1121,36 @@ public class LongCatAnthropicClient {
         return false;
     }
 
-    private String truncateProviderError(String body) {
-        if (!StringUtils.hasText(body)) {
-            return "<empty>";
+    private boolean isProviderRetryStop(Throwable throwable) {
+        if (isProviderRateLimited(throwable)) {
+            return true;
         }
-        return body.length() <= 500 ? body : body.substring(0, 500) + "...";
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof RestClientResponseException responseException
+                && responseException.getStatusCode().value() == 402) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null && message.contains("402")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private String currentAgentRunId() {
+        String runId = MDC.get("agent_run_id");
+        return StringUtils.hasText(runId) ? runId : null;
+    }
+
+    private String runIdOrUnavailable(String runId) {
+        return StringUtils.hasText(runId) ? runId : "unavailable";
+    }
+
+    private long elapsedMillis(long startedAt, long endedAt) {
+        return Math.max(0L, (endedAt - startedAt) / 1_000_000L);
     }
 
     private String endpointUri(String uri) {
@@ -1048,7 +1183,10 @@ public class LongCatAnthropicClient {
         if (!supportsStreaming()) {
             return Optional.empty();
         }
+        boolean acquired = false;
         try {
+            providerRequestPermits.acquire();
+            acquired = true;
             if ("responses".equalsIgnoreCase(wireApi)) {
                 return doStreamResponsesMessage(systemPrompt, userPrompt, imageInputs, runId, onDelta);
             }
@@ -1059,6 +1197,10 @@ public class LongCatAnthropicClient {
                 return doStreamAnthropicMessage(systemPrompt, userPrompt, imageInputs, runId, onDelta);
             }
             return Optional.empty();
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            log.warn("LongCat agent streaming request interrupted while waiting for provider capacity");
+            return Optional.empty();
         } catch (Exception ex) {
             if (Thread.currentThread().isInterrupted()) {
                 Thread.currentThread().interrupt();
@@ -1066,6 +1208,9 @@ public class LongCatAnthropicClient {
             log.warn("LongCat agent streaming request failed: {}", ex.getMessage());
             return Optional.empty();
         } finally {
+            if (acquired) {
+                providerRequestPermits.release();
+            }
             if (runId != null) {
                 activeStreams.remove(runId);
             }
@@ -1114,7 +1259,12 @@ public class LongCatAnthropicClient {
             .header("Content-Type", "application/json")
             .header("Accept", "text/event-stream")
             .header("User-Agent", PROVIDER_USER_AGENT)
+            .header(CLIENT_REQUEST_ID_HEADER, UUID.randomUUID().toString())
             .POST(HttpRequest.BodyPublishers.ofString(requestJson));
+        String correlationRunId = runId;
+        if (StringUtils.hasText(correlationRunId)) {
+            requestBuilder.header(AGENT_RUN_ID_HEADER, correlationRunId);
+        }
         if (StringUtils.hasText(properties.getApiKey())) {
             if (openAiAuth) {
                 requestBuilder.header("Authorization", "Bearer " + properties.getApiKey());
@@ -1123,13 +1273,30 @@ public class LongCatAnthropicClient {
             }
         }
 
+        String clientRequestId = requestBuilder.build().headers().firstValue(CLIENT_REQUEST_ID_HEADER).orElse("unavailable");
+        long requestStartedAt = System.nanoTime();
+        log.info(
+            "LongCat provider stream start: run_id={}, client_request_id={}, operation=final_answer_stream, uri={}, "
+                + "queue_wait_ms=unavailable",
+            runIdOrUnavailable(correlationRunId),
+            clientRequestId,
+            "chat/completions"
+        );
         HttpResponse<InputStream> response = streamingHttpClient.send(
             requestBuilder.build(),
             HttpResponse.BodyHandlers.ofInputStream()
         );
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             try (InputStream ignored = response.body()) {
-                log.warn("LongCat streaming response failed: status={}", response.statusCode());
+                log.warn(
+                    "LongCat provider stream failed: run_id={}, client_request_id={}, operation=final_answer_stream, "
+                        + "uri={}, status={}, duration_ms={}",
+                    runIdOrUnavailable(correlationRunId),
+                    clientRequestId,
+                    "chat/completions",
+                    response.statusCode(),
+                    elapsedMillis(requestStartedAt, System.nanoTime())
+                );
             }
             return Optional.empty();
         }
@@ -1156,7 +1323,16 @@ public class LongCatAnthropicClient {
                 }
             }
         }
-        return answer.length() > 0 ? Optional.of(answer.toString()) : Optional.empty();
+        Optional<String> result = answer.length() > 0 ? Optional.of(answer.toString()) : Optional.empty();
+        log.info(
+            "LongCat provider stream complete: run_id={}, client_request_id={}, operation=final_answer_stream, "
+                + "uri=chat/completions, status=2xx, duration_ms={}, response_present={}",
+            runIdOrUnavailable(correlationRunId),
+            clientRequestId,
+            elapsedMillis(requestStartedAt, System.nanoTime()),
+            result.isPresent()
+        );
+        return result;
     }
 
     private Optional<String> doStreamResponsesMessage(
@@ -1225,7 +1401,12 @@ public class LongCatAnthropicClient {
             .header("Content-Type", "application/json")
             .header("Accept", "text/event-stream")
             .header("User-Agent", PROVIDER_USER_AGENT)
+            .header(CLIENT_REQUEST_ID_HEADER, UUID.randomUUID().toString())
             .POST(HttpRequest.BodyPublishers.ofString(requestJson));
+        String correlationRunId = runId != null ? runId : currentAgentRunId();
+        if (StringUtils.hasText(correlationRunId)) {
+            requestBuilder.header(AGENT_RUN_ID_HEADER, correlationRunId);
+        }
         if (StringUtils.hasText(properties.getApiKey())) {
             if (openAiAuth) {
                 requestBuilder.header("Authorization", "Bearer " + properties.getApiKey());
@@ -1237,13 +1418,30 @@ public class LongCatAnthropicClient {
             requestBuilder.header("anthropic-version", properties.getAnthropicVersion());
         }
 
+        String clientRequestId = requestBuilder.build().headers().firstValue(CLIENT_REQUEST_ID_HEADER).orElse("unavailable");
+        long requestStartedAt = System.nanoTime();
+        log.info(
+            "LongCat provider stream start: run_id={}, client_request_id={}, operation=final_answer_stream, uri={}, "
+                + "queue_wait_ms=unavailable",
+            runIdOrUnavailable(correlationRunId),
+            clientRequestId,
+            url
+        );
         HttpResponse<InputStream> response = streamingHttpClient.send(
             requestBuilder.build(),
             HttpResponse.BodyHandlers.ofInputStream()
         );
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             try (InputStream ignored = response.body()) {
-                log.warn("LongCat streaming response failed: status={}", response.statusCode());
+                log.warn(
+                    "LongCat provider stream failed: run_id={}, client_request_id={}, operation=final_answer_stream, "
+                        + "uri={}, status={}, duration_ms={}",
+                    runIdOrUnavailable(correlationRunId),
+                    clientRequestId,
+                    url,
+                    response.statusCode(),
+                    elapsedMillis(requestStartedAt, System.nanoTime())
+                );
             }
             return Optional.empty();
         }
@@ -1270,7 +1468,17 @@ public class LongCatAnthropicClient {
                 }
             }
         }
-        return answer.length() > 0 ? Optional.of(answer.toString()) : Optional.empty();
+        Optional<String> result = answer.length() > 0 ? Optional.of(answer.toString()) : Optional.empty();
+        log.info(
+            "LongCat provider stream complete: run_id={}, client_request_id={}, operation=final_answer_stream, "
+                + "uri={}, status=2xx, duration_ms={}, response_present={}",
+            runIdOrUnavailable(correlationRunId),
+            clientRequestId,
+            url,
+            elapsedMillis(requestStartedAt, System.nanoTime()),
+            result.isPresent()
+        );
+        return result;
     }
 
     private String normalizeBaseUrl(String value) {

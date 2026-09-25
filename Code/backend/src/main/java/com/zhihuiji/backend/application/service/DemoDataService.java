@@ -147,9 +147,10 @@ public class DemoDataService {
             purchaseOrderRepository.count(),
             payOrderRepository.count(),
             List.of(
-                new DemoAccount("13800138111", "123456", "系统管理员"),
-                new DemoAccount("13800138112", "123456", "仓库经理"),
-                new DemoAccount("13800138113", "123456", "门店店员")
+                new DemoAccount("13800138111", "12345678", "系统管理员"),
+                new DemoAccount("13800138112", "12345678", "仓库经理"),
+                new DemoAccount("13800138113", "12345678", "门店店员"),
+                new DemoAccount("13800138114", "12345678", "停用账号")
             )
         );
     }
@@ -187,10 +188,10 @@ public class DemoDataService {
     }
 
     private void createUsers(long now) {
-        createUser("13800138111", "123456", "系统管理员", 1, now);
-        createUser("13800138112", "123456", "仓库经理", 1, now);
-        createUser("13800138113", "123456", "门店店员", 1, now);
-        createUser("13800138114", "123456", "停用账号", 0, now);
+        createUser("13800138111", "12345678", "系统管理员", 1, now);
+        createUser("13800138112", "12345678", "仓库经理", 1, now);
+        createUser("13800138113", "12345678", "门店店员", 1, now);
+        createUser("13800138114", "12345678", "停用账号", 0, now);
     }
 
     private void createUser(String phone, String password, String nickname, int status, long now) {

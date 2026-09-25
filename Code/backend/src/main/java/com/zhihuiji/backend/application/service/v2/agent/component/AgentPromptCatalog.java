@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.backend.application.service.v2.agent.component;
 
 import com.zhihuiji.backend.application.service.v2.agent.tool.AgentTool;
@@ -8,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -32,6 +34,14 @@ public final class AgentPromptCatalog {
     private static final Set<String> WRITE_WORDS = Set.of(
         "新增", "添加", "创建", "新建", "加一个", "建个", "记一笔", "录入", "登记", "开一单", "开一张", "开张",
         "保存"
+    );
+    private static final Pattern NEGATED_WRITE_INTENT = Pattern.compile(
+        "(?:不要|不需要|无需|禁止|不执行|不进行|不做|仅查询|只读)[^。；;，,]{0,12}"
+            + "(?:新增|添加|创建|新建|加一个|加个|建一个|建个|开一张|开张|生成草稿|生成|记一笔|保存|上传|下单|付款|转账|入库|退)"
+    );
+    private static final Pattern POSITIVE_WRITE_INTENT = Pattern.compile(
+        "(?:请|帮我|我要|需要|给我|把)[^。；;，,]{0,20}"
+            + "(?:新增|添加|创建|新建|加一个|加个|建一个|建个|开一张|开张|生成草稿|生成|记一笔|保存|上传|下单|付款|转账|入库|退)"
     );
 
     private static final Map<String, String> USER_LANGUAGE_HINTS = Map.ofEntries(
@@ -229,6 +239,9 @@ public final class AgentPromptCatalog {
         if (message == null || message.isBlank()) {
             return false;
         }
+        if (hasNegatedWriteIntent(message)) {
+            return false;
+        }
         return WRITE_WORDS.stream().anyMatch(message::contains)
             || hasOrderWriteIntent(message)
             || hasExplicitWriteRequest(message)
@@ -397,6 +410,9 @@ public final class AgentPromptCatalog {
         if (message == null || message.isBlank()) {
             return false;
         }
+        if (hasNegatedWriteIntent(message)) {
+            return false;
+        }
         if (containsCreateVerb(message) || message.contains("草稿") || message.contains("保存")) {
             return true;
         }
@@ -413,6 +429,11 @@ public final class AgentPromptCatalog {
             return true;
         }
         return containsExplicitReturnOperation(message) || hasImageGenerateIntent(message);
+    }
+
+    private static boolean hasNegatedWriteIntent(String message) {
+        return NEGATED_WRITE_INTENT.matcher(message).find()
+            && !POSITIVE_WRITE_INTENT.matcher(message).find();
     }
 
     private static boolean hasImageGenerateIntent(String message) {

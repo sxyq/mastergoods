@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.backend.application.service.v2.agent.tool.readonly;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -79,5 +80,14 @@ class ProductCatalogLookupToolTest {
 
         assertEquals(1, result.toolFacts().path("returned_product_count").asInt());
         assertEquals(8L, result.toolFacts().path("top_products").get(0).path("product_id").asLong());
+    }
+
+    @Test
+    void declaresIntegerStatusAndExplicitlyRejectsBooleanSentinel() {
+        var status = tool.parameterSchema().path("properties").path("status");
+
+        assertEquals("integer", status.path("type").asText());
+        assertEquals(List.of(0, 1), objectMapper.convertValue(status.path("enum"), List.class));
+        org.junit.jupiter.api.Assertions.assertTrue(status.path("description").asText().contains("禁止传 true/false"));
     }
 }

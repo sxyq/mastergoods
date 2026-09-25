@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.backend.application.service.v2;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -76,13 +77,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.MDC;
 
 @Service
 public class V2AgentAiService {
     private static final long SEVEN_DAYS_MS = 7L * 24 * 60 * 60 * 1000;
-    // Keep the SSE lifetime longer than the provider read timeout so a slow
-    // model response can finish or be cancelled without a false transport error.
-    private static final long STREAM_TIMEOUT_MS = 180_000L;
+    // Match the cloud collector's 300-second read window so slow model turns
+    // can finish or be cancelled without a false transport error.
+    private static final long STREAM_TIMEOUT_MS = 300_000L;
     // One initial model decision plus at most two bounded continuations.
     // A malformed provider response must not turn into an unbounded database scan.
     private static final int MAX_TOOL_CALLS_PER_RUN = 12;
@@ -273,6 +275,8 @@ public class V2AgentAiService {
             ownerUserId, runId, conversation.getId(), null, actorUserId, actorStoreId
         );
         runAuditService.registerRun(auditRun);
+        String previousAgentRunId = MDC.get("agent_run_id");
+        MDC.put("agent_run_id", runId);
         ResponsePayload payload = new ResponsePayload(
             List.of(),
             List.of(),
@@ -464,6 +468,7 @@ public class V2AgentAiService {
             finalizeFailedNonStreamingRun(ownerUserId, conversation, runId, payload, ex);
             throw ex;
         } finally {
+            restoreAgentRunId(previousAgentRunId);
             runAuditService.removeRun(runId);
         }
     }
@@ -480,7 +485,11 @@ public class V2AgentAiService {
             case CONFIRMATION_PENDING ->
                 "\n\n[状态] 草稿已生成，等待你确认后才会写入正式业务数据；当前未创建任何正式单据。";
             case EXHAUSTED -> {
-                StringBuilder text = new StringBuilder("\n\n[状态] 本次运行已达轮次预算上限");
+                boolean toolExecutionFailed = outcome != null
+                    && "AGENT_TOOL_EXECUTION_FAILED".equals(outcome.errorCode());
+                StringBuilder text = new StringBuilder(toolExecutionFailed
+                    ? "\n\n[状态] 工具查询未成功"
+                    : "\n\n[状态] 本次运行已达轮次预算上限");
                 if (outcome != null && !outcome.completedTools().isEmpty()) {
                     text.append("；已完成：").append(String.join("、", outcome.completedTools()));
                 }
@@ -531,8 +540,10 @@ public class V2AgentAiService {
         capturedSecurityContext.setAuthentication(SecurityContextHolder.getContext().getAuthentication());
         CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
             SecurityContext previousSecurityContext = SecurityContextHolder.getContext();
+            String previousAgentRunId = MDC.get("agent_run_id");
             try {
                 SecurityContextHolder.setContext(capturedSecurityContext);
+                MDC.put("agent_run_id", runId);
                 runChatStream(ownerUserId, conversation, message, imageInputs, runId, emitter);
             } catch (RunAuditService.AgentRunCancelledException ignored) {
                 // cancelRun 已向客户端发送 run_cancelled；worker 负责收尾关闭 emitter。
@@ -577,6 +588,7 @@ public class V2AgentAiService {
                 }
                 emitter.completeWithError(ex);
             } finally {
+                restoreAgentRunId(previousAgentRunId);
                 SecurityContextHolder.clearContext();
                 if (previousSecurityContext != null) {
                     SecurityContextHolder.setContext(previousSecurityContext);
@@ -832,18 +844,6 @@ public class V2AgentAiService {
                     failureMessage,
                     System.currentTimeMillis()
                 );
-                runAuditService.finishRunAudit(
-                    ownerUserId,
-                    runId,
-                    AgentTerminalStatus.FAILED.auditStatus(),
-                    finalAnswer.mode(),
-                    finalAnswer.llmStatus(),
-                    payloadRef[0].planSource(),
-                    toolCount(payloadRef[0]),
-                    failureCode,
-                    failureMessage,
-                    System.currentTimeMillis()
-                );
                 sseStreamEmitter.sendEvent(emitter, SseStreamEmitter.eventMap("error", mapOf(
                     "run_id", runId,
                     "code", failureCode,
@@ -856,6 +856,18 @@ public class V2AgentAiService {
                     null, finalAnswer.mode(), finalAnswer.llmStatus(), payloadRef[0].planSource(),
                     failureCode, failureMessage,
                     List.of(), List.of()
+                );
+                runAuditService.finishRunAudit(
+                    ownerUserId,
+                    runId,
+                    AgentTerminalStatus.FAILED.auditStatus(),
+                    finalAnswer.mode(),
+                    finalAnswer.llmStatus(),
+                    payloadRef[0].planSource(),
+                    toolCount(payloadRef[0]),
+                    failureCode,
+                    failureMessage,
+                    System.currentTimeMillis()
                 );
                 emitter.complete();
                 return;
@@ -1050,6 +1062,16 @@ public class V2AgentAiService {
     ) {
         boolean hasCompletedCreateTool = hasCompletedCreateTool(toolResults);
         boolean writeTargetPending = !runState.missingTargetTools().isEmpty();
+        if (toolResults.isEmpty() && payload.toolFailures() != null && !payload.toolFailures().isEmpty()) {
+            return new AgentRunOutcome(
+                payload,
+                AgentTerminalStatus.EXHAUSTED,
+                "AGENT_TOOL_EXECUTION_FAILED",
+                "本次运行未完成任何工具查询，未返回可用业务结果。",
+                List.copyOf(runState.completedToolNames()),
+                runState.missingTargetTools()
+            );
+        }
         if (createIntentPlan || writeTargetPending) {
             if (hasCompletedCreateTool || runState.anyTargetToolCompleted()) {
                 return new AgentRunOutcome(
@@ -1644,7 +1666,7 @@ public class V2AgentAiService {
                 sseStreamEmitter.emitToolFailed(
                     emitter, runId, tool, invalidMessage,
                     0L, System.currentTimeMillis(), defaultToolInput(null),
-                    sequence, modelToolCallId
+                    sequence, modelToolCallId, ToolExecutor.TOOL_ARGUMENTS_INVALID
                 );
                 continue;
             }
@@ -1707,7 +1729,8 @@ public class V2AgentAiService {
                             startedAt,
                             toolInput,
                             sequence,
-                            invocation.modelToolCallId()
+                            invocation.modelToolCallId(),
+                            toolFailureErrorCode(failure.safeMessage())
                         );
                         continue;
                     }
@@ -2148,13 +2171,20 @@ public class V2AgentAiService {
                     null,
                     null,
                     null,
-                    "TOOL_QUERY_FAILED",
+                    toolFailureErrorCode(failure.safeMessage()),
                     failure.safeMessage()
                 ));
                 fallbackSequence = Math.max(fallbackSequence, sequence + 1);
             }
         }
         return calls;
+    }
+
+    private String toolFailureErrorCode(String safeMessage) {
+        if (safeMessage != null && safeMessage.contains(ToolExecutor.TOOL_ARGUMENTS_INVALID)) {
+            return ToolExecutor.TOOL_ARGUMENTS_INVALID;
+        }
+        return "TOOL_QUERY_FAILED";
     }
 
     private List<V2AgentDtos.AgentEvidenceRefDto> toEvidenceRefs(String runId, ResponsePayload payload) {
@@ -2733,6 +2763,14 @@ public class V2AgentAiService {
             case "cancelled", "canceled" -> "已取消";
             default -> safeText(status, "未知");
         };
+    }
+
+    private void restoreAgentRunId(String previousAgentRunId) {
+        if (previousAgentRunId == null) {
+            MDC.remove("agent_run_id");
+        } else {
+            MDC.put("agent_run_id", previousAgentRunId);
+        }
     }
 
     private record ToolInvocation(String modelToolCallId, String toolName, JsonNode params,

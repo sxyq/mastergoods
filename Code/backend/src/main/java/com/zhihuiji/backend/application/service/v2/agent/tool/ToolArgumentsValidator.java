@@ -1,6 +1,10 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.backend.application.service.v2.agent.tool;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -66,6 +70,89 @@ public final class ToolArgumentsValidator {
         }
         validateNode(schema, params, "$", violations);
         return violations;
+    }
+
+    /**
+     * 将模型常见的严格整数字符串表示规范化为 JSON 整数。
+     *
+     * <p>部分兼容 OpenAI 工具适配层会把整数参数返回为字符串。只接受 JSON
+     * 整数的十进制表示，布尔值、小数和其他字符串保持原样并继续由校验器拒绝。
+     */
+    public static JsonNode normalize(JsonNode schema, JsonNode params) {
+        if (schema == null || !schema.isObject() || params == null || params.isNull()) {
+            return params;
+        }
+        return normalizeNode(schema, params);
+    }
+
+    private static JsonNode normalizeNode(JsonNode schema, JsonNode value) {
+        if (schema == null || !schema.isObject() || value == null || value.isNull()) {
+            return value;
+        }
+        JsonNode type = schema.get("type");
+        if (isType(type, "object") && value.isObject()) {
+            ObjectNode normalized = value.deepCopy();
+            JsonNode properties = schema.get("properties");
+            if (properties != null && properties.isObject()) {
+                var fields = properties.fields();
+                while (fields.hasNext()) {
+                    var entry = fields.next();
+                    JsonNode fieldValue = value.get(entry.getKey());
+                    if (fieldValue != null) {
+                        normalized.set(entry.getKey(), normalizeNode(entry.getValue(), fieldValue));
+                    }
+                }
+            }
+            return normalized;
+        }
+        if (isType(type, "array") && value.isArray()) {
+            ArrayNode normalized = JsonNodeFactory.instance.arrayNode();
+            JsonNode itemSchema = schema.get("items");
+            for (JsonNode item : value) {
+                normalized.add(itemSchema == null ? item : normalizeNode(itemSchema, item));
+            }
+            return normalized;
+        }
+        if (isType(type, "integer") && value.isTextual()) {
+            return parseIntegerText(value.asText());
+        }
+        return value;
+    }
+
+    private static boolean isType(JsonNode type, String expected) {
+        if (type == null || type.isNull()) {
+            return false;
+        }
+        if (type.isTextual()) {
+            return expected.equals(type.asText());
+        }
+        if (type.isArray()) {
+            for (JsonNode item : type) {
+                if (item.isTextual() && expected.equals(item.asText())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static JsonNode parseIntegerText(String raw) {
+        if (raw == null) {
+            return JsonNodeFactory.instance.nullNode();
+        }
+        String text = raw.trim();
+        if (!text.matches("-?(0|[1-9][0-9]*)")) {
+            return JsonNodeFactory.instance.textNode(raw);
+        }
+        try {
+            long value = Long.parseLong(text);
+            if (value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) {
+                return JsonNodeFactory.instance.numberNode((int) value);
+            }
+            return JsonNodeFactory.instance.numberNode(value);
+        } catch (NumberFormatException ignored) {
+            return JsonNodeFactory.instance.textNode(raw);
+        }
     }
 
     private static void validateNode(JsonNode schema, JsonNode value, String path, List<Violation> violations) {
@@ -237,7 +324,11 @@ public final class ToolArgumentsValidator {
             return true;
         }
         if (value.isTextual()) {
-            return value.asText().isBlank();
+            String text = value.asText().trim();
+            return text.isBlank()
+                || "null".equalsIgnoreCase(text)
+                || "undefined".equalsIgnoreCase(text)
+                || "none".equalsIgnoreCase(text);
         }
         if (value.isArray() || value.isObject()) {
             return value.isEmpty();

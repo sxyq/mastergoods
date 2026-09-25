@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.backend.infrastructure.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -20,6 +21,7 @@ public class AgentLlmProperties {
     private double temperature = 0.2;
     private boolean enableThinking = true;
     private int thinkingBudget = 2048;
+    private int maxConcurrentRequests = 2;
     private List<String> allowedModels = new ArrayList<>();
 
     public boolean isEnabled() {
@@ -116,6 +118,14 @@ public class AgentLlmProperties {
 
     public void setThinkingBudget(int thinkingBudget) {
         this.thinkingBudget = thinkingBudget;
+    }
+
+    public int getMaxConcurrentRequests() {
+        return maxConcurrentRequests;
+    }
+
+    public void setMaxConcurrentRequests(int maxConcurrentRequests) {
+        this.maxConcurrentRequests = maxConcurrentRequests;
     }
 
     public List<String> getAllowedModels() {

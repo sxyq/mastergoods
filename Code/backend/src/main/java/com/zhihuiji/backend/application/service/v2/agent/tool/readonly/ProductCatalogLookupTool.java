@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.backend.application.service.v2.agent.tool.readonly;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -50,7 +51,8 @@ public class ProductCatalogLookupTool extends ToolSupport {
     public JsonNode parameterSchema() {
         var schema = objectSchema();
         addStringProperty(schema, "keyword", "商品名称或编码关键词，可选");
-        addIntegerProperty(schema, "status", "商品状态，可选；传 null 表示不限，0 表示停用，1 表示启用");
+        addIntegerProperty(schema, "status", "商品状态，可选；只能传整数 0 或 1，禁止传 true/false；省略或传 null 表示不限");
+        schema.with("properties").with("status").putArray("enum").add(0).add(1);
         addIntegerProperty(schema, "category_id", "商品分类 ID，可选；没有明确分类时传 null，不要传 0");
         addIntegerProperty(schema, "unit_id", "商品单位 ID，可选；没有明确单位时传 null，不要传 0");
         return schema;

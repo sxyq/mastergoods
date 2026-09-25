@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.backend.application.service.v2.agent.component;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -143,6 +144,14 @@ class AgentPromptCatalogTest {
         assertTrue(AgentPromptCatalog.hasWriteIntent("帮我生成一张商品图片，先给我确认"));
         assertEquals("image_generate", AgentPromptCatalog.targetWriteTool("做一张蓝白色商品海报"));
         assertNull(AgentPromptCatalog.targetWriteTool("帮我写商品海报提示词"));
+    }
+
+    @Test
+    void readOnlyRequestWithNegatedWriteWordsDoesNotRequireCreateTarget() {
+        String request = "请先查询商品目录，再查询客户目录，整个过程只读，不执行任何创建、修改或确认操作。";
+
+        assertFalse(AgentPromptCatalog.hasWriteIntent(request));
+        assertNull(AgentPromptCatalog.targetWriteTool(request));
     }
 
     @Test

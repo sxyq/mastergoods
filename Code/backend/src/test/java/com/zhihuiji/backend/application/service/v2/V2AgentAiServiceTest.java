@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.backend.application.service.v2;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -49,6 +50,7 @@ import com.zhihuiji.backend.domain.entity.SupplierEntity;
 import com.zhihuiji.backend.application.service.v2.agent.component.AnswerSynthesizer;
 import com.zhihuiji.backend.application.service.v2.agent.component.AgentTerminalStatus;
 import com.zhihuiji.backend.application.service.v2.agent.component.AgentTypes;
+import com.zhihuiji.backend.application.service.v2.agent.component.AgentRunState;
 import com.zhihuiji.backend.application.service.v2.agent.component.RunAuditService;
 import com.zhihuiji.backend.application.service.v2.agent.component.SafetyDecision;
 import com.zhihuiji.backend.application.service.v2.agent.component.SafetyGuard;
@@ -1300,6 +1302,12 @@ class V2AgentAiServiceTest {
         assertEquals("llm_answer_unavailable", audit.getMode());
         assertEquals("model_empty_or_ungrounded", audit.getLlmStatus());
         assertEquals("native_tool_use", audit.getPlanSource());
+        List<AgentRunAuditEventEntity> auditEvents = runAuditEvents.stream()
+            .filter(event -> "run-test".equals(event.getRunId()))
+            .toList();
+        assertEquals(auditEvents.size(), audit.getEventCount());
+        assertEquals(auditEvents.size(), audit.getEmittedEventCount());
+        assertTrue(auditEvents.stream().anyMatch(event -> "run_failed".equals(event.getEventType())));
         assertEquals("暂时无法完成这次请求，请稍后重试。", conversation.getLatestSummary());
         assertEquals(conversation.getLastMessageAt(), conversation.getUpdatedAt());
         assertTrue(emitter.completed);
@@ -1719,6 +1727,51 @@ class V2AgentAiServiceTest {
         assertEquals(-1, payloadIndexContaining(emitter, "\"title\":\"库存风险\""));
         assertEquals(-1, payloadIndexContaining(emitter, "\"title\":\"本次回答依据\""));
         assertEquals(-1, payloadIndexContaining(emitter, "\"title\":\"应收概览\""));
+    }
+
+    @Test
+    void toolFailureWithoutSuccessfulResultIsNotReportedAsCompleted() throws Exception {
+        Method resolveRunOutcome = V2AgentAiService.class.getDeclaredMethod(
+            "resolveRunOutcome",
+            AgentRunState.class,
+            String.class,
+            boolean.class,
+            List.class,
+            AgentTypes.ResponsePayload.class
+        );
+        resolveRunOutcome.setAccessible(true);
+
+        AgentRunState runState = new AgentRunState("run-tool-failure", 111L, 1L, null, 1);
+        AgentTypes.ToolFailureResult failure = new AgentTypes.ToolFailureResult(
+            "product_catalog_lookup",
+            "[TOOL_ARGUMENTS_INVALID] status 应为整数",
+            "call-invalid",
+            1
+        );
+        AgentTypes.ResponsePayload payload = new AgentTypes.ResponsePayload(
+            List.of(),
+            List.of(),
+            List.of(failure),
+            new AgentTypes.AgentToolPlan(
+                List.of("product_catalog_lookup"),
+                "参数无效",
+                "native_tool_use",
+                Map.of()
+            )
+        );
+
+        AgentTypes.AgentRunOutcome outcome = (AgentTypes.AgentRunOutcome) resolveRunOutcome.invoke(
+            service,
+            runState,
+            "查看商品",
+            false,
+            List.of(),
+            payload
+        );
+
+        assertEquals(AgentTerminalStatus.EXHAUSTED, outcome.terminalStatus());
+        assertEquals("AGENT_TOOL_EXECUTION_FAILED", outcome.errorCode());
+        assertTrue(outcome.safeMessage().contains("未完成任何工具查询"));
     }
 
     @Test

@@ -1,3 +1,4 @@
+// 测试账号范围：8220 测试服务器上的所有账号都是测试账号，均可用于本项目测试。
 package com.zhihuiji.backend.infrastructure.ai;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -16,10 +17,101 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.springframework.web.client.RestClient;
 
 class LongCatAnthropicClientTest {
+    @Test
+    void providerRequestCarriesSafeRunCorrelationHeaders() throws Exception {
+        AtomicReference<String> runId = new AtomicReference<>();
+        AtomicReference<String> clientRequestId = new AtomicReference<>();
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/chat/completions", exchange -> {
+            runId.set(exchange.getRequestHeaders().getFirst("X-Agent-Run-Id"));
+            clientRequestId.set(exchange.getRequestHeaders().getFirst("X-Agent-Client-Request-Id"));
+            byte[] body = "{\"choices\":[{\"message\":{\"content\":\"ok\"}}]}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream outputStream = exchange.getResponseBody()) {
+                outputStream.write(body);
+            }
+        });
+        server.start();
+        try {
+            AgentLlmProperties properties = properties(
+                true,
+                "sk-test",
+                "deepseek-v4-flash",
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "chat_completions"
+            );
+            LongCatAnthropicClient client = client(properties);
+            MDC.put("agent_run_id", "run-correlation-test");
+            try {
+                assertEquals("ok", client.createJsonMessage("system", "user").orElseThrow());
+            } finally {
+                MDC.remove("agent_run_id");
+            }
+            assertEquals("run-correlation-test", runId.get());
+            assertNotNull(clientRequestId.get());
+            java.util.UUID.fromString(clientRequestId.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void limitsConcurrentProviderRequestsToConfiguredCapacity() throws Exception {
+        AtomicInteger active = new AtomicInteger();
+        AtomicInteger maximumActive = new AtomicInteger();
+        CountDownLatch firstTwoEntered = new CountDownLatch(2);
+        CountDownLatch release = new CountDownLatch(1);
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/chat/completions", exchange -> {
+            int now = active.incrementAndGet();
+            maximumActive.accumulateAndGet(now, Math::max);
+            firstTwoEntered.countDown();
+            try {
+                release.await(5, TimeUnit.SECONDS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            byte[] body = "{\"choices\":[{\"message\":{\"content\":\"ok\"}}]}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream output = exchange.getResponseBody()) {
+                output.write(body);
+            } finally {
+                active.decrementAndGet();
+            }
+        });
+        server.setExecutor(Executors.newCachedThreadPool());
+        server.start();
+        ExecutorService executor = Executors.newFixedThreadPool(3);
+        try {
+            AgentLlmProperties properties = properties(true, "sk-test", "deepseek-v4-flash", "http://localhost:" + server.getAddress().getPort(), "chat_completions");
+            properties.setMaxConcurrentRequests(2);
+            LongCatAnthropicClient client = client(properties);
+            var futures = java.util.stream.IntStream.range(0, 3)
+                .mapToObj(index -> executor.submit(() -> client.createJsonMessage("system", "user").orElseThrow()))
+                .toList();
+            assertTrue(firstTwoEntered.await(2, TimeUnit.SECONDS));
+            Thread.sleep(100);
+            assertEquals(2, maximumActive.get());
+            release.countDown();
+            for (var future : futures) {
+                assertEquals("ok", future.get(5, TimeUnit.SECONDS));
+            }
+        } finally {
+            release.countDown();
+            executor.shutdownNow();
+            server.stop(0);
+        }
+    }
+
     @Test
     void configurationStatusDistinguishesDisabledMissingAndConfiguredStates() {
         AgentLlmProperties disabled = properties(false, "", "deepseek-v4-flash", "https://token.sensenova.cn/v1/", "chat_completions");
@@ -147,6 +239,38 @@ class LongCatAnthropicClientTest {
 
             assertFalse(client.createJsonMessage("你是助手", "查询商品").isPresent());
             assertEquals(1, calls.get(), "429 限流不应在同一个请求内继续重试");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void createJsonMessageStopsRetryingWhenProviderRejectsPaymentOrQuota() throws Exception {
+        AtomicInteger calls = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/chat/completions", exchange -> {
+            calls.incrementAndGet();
+            byte[] body = "{\"message\":\"provider quota unavailable\"}"
+                .getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/octet-stream");
+            exchange.sendResponseHeaders(402, body.length);
+            try (OutputStream outputStream = exchange.getResponseBody()) {
+                outputStream.write(body);
+            }
+        });
+        server.start();
+        try {
+            AgentLlmProperties chatCompletions = properties(
+                true,
+                "sk-test",
+                "deepseek-v4-flash",
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "chat_completions"
+            );
+            LongCatAnthropicClient client = client(chatCompletions);
+
+            assertFalse(client.createJsonMessage("你是助手", "查询商品").isPresent());
+            assertEquals(1, calls.get(), "402 Provider 拒绝不应在同一个请求内继续重试");
         } finally {
             server.stop(0);
         }
@@ -433,6 +557,68 @@ class LongCatAnthropicClientTest {
             // 验证请求确实发出了 function_call_output 格式
             assertTrue(capturedBody.get().contains("\"previous_response_id\""), capturedBody.get());
             assertTrue(capturedBody.get().contains("\"type\":\"function_call_output\""), capturedBody.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void continueWithToolOutputsRetriesOneTransientProviderFailure() throws Exception {
+        AtomicInteger calls = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/chat/completions", exchange -> {
+            int attempt = calls.incrementAndGet();
+            byte[] body = attempt == 1
+                ? "{\"error\":{\"message\":\"temporary upstream rate limit\"}}".getBytes(StandardCharsets.UTF_8)
+                : """
+                    {
+                      "choices": [
+                        {
+                          "message": {
+                            "role": "assistant",
+                            "content": "当前账号共有 3 个商品。"
+                          }
+                        }
+                      ]
+                    }
+                    """.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(attempt == 1 ? 429 : 200, body.length);
+            try (OutputStream outputStream = exchange.getResponseBody()) {
+                outputStream.write(body);
+            }
+        });
+        server.start();
+        try {
+            AgentLlmProperties chatCompletions = properties(
+                true,
+                "sk-test",
+                "deepseek-v4-flash",
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "chat_completions"
+            );
+            LongCatAnthropicClient client = client(chatCompletions);
+
+            Optional<LongCatAnthropicClient.ToolUseResponse> response = client.continueWithToolOutputs(
+                null,
+                "你是智慧记助手。",
+                "当前账号有多少商品？",
+                List.of(new LongCatAnthropicClient.FunctionCallItem(
+                    "call_1", "product_catalog_lookup", "{}"
+                )),
+                List.of(new LongCatAnthropicClient.FunctionCallOutputItem(
+                    "call_1", "{\"product_count\":3}"
+                )),
+                List.of(new LongCatAnthropicClient.ToolDefinition(
+                    "product_catalog_lookup",
+                    "查询商品目录",
+                    java.util.Map.of("type", "object", "properties", java.util.Map.of())
+                ))
+            );
+
+            assertTrue(response.isPresent());
+            assertEquals("当前账号共有 3 个商品。", response.get().text());
+            assertEquals(2, calls.get());
         } finally {
             server.stop(0);
         }
