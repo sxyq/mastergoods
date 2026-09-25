@@ -13,13 +13,13 @@ const form = reactive({
 async function submit() {
   const ok = await session.login(form.phone, form.password)
   if (ok) {
-    await router.push('/dashboard')
+    await router.push('/')
   }
 }
 
 async function enterDemo() {
   session.enterDemo()
-  await router.push('/dashboard')
+  await router.push('/')
 }
 </script>
 

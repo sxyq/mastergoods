@@ -16,7 +16,7 @@ router.beforeEach((to) => {
     if (router.currentRoute.value.path === '/403' && session.source.value === 'api') {
       return true
     }
-    return session.isAuthenticated.value ? '/dashboard' : true
+    return session.isAuthenticated.value ? '/' : true
   }
   if (!session.hasAppSession.value) return '/login'
   const permissions = to.meta.permissions as Parameters<typeof session.hasPermission>[0]
@@ -29,7 +29,7 @@ router.beforeEach((to) => {
 })
 
 router.afterEach((to) => {
-  document.title = `${String(to.meta.title ?? '经营首页')} - 智慧记 Web 管理端`
+  document.title = `${String(to.meta.title ?? '业务系统重构中')} - 智慧记 Web 管理端`
 })
 
 if (typeof window !== 'undefined') {
