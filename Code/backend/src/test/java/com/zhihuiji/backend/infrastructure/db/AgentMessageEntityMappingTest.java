@@ -12,6 +12,18 @@ import org.junit.jupiter.api.Test;
 
 class AgentMessageEntityMappingTest {
     @Test
+    void contentUsesTextBindingInsteadOfPostgresVarcharLimit() throws Exception {
+        Field field = AgentMessageEntity.class.getDeclaredField("content");
+
+        assertFalse(field.isAnnotationPresent(Lob.class));
+        assertEquals(
+            SqlTypes.LONGVARCHAR,
+            field.getAnnotation(JdbcTypeCode.class).value()
+        );
+        assertEquals("TEXT", field.getAnnotation(Column.class).columnDefinition());
+    }
+
+    @Test
     void structuredDataUsesTextBindingInsteadOfPostgresLobLocator() throws Exception {
         Field field = AgentMessageEntity.class.getDeclaredField("structuredDataJson");
 

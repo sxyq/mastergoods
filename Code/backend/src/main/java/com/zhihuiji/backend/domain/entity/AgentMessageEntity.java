@@ -31,7 +31,9 @@ public class AgentMessageEntity {
     @Column(name = "message_type", nullable = false, length = 32)
     private String messageType;
 
-    @Column(nullable = false, length = 4000)
+    // Agent prompts and model transcripts can exceed the original 4000-character limit.
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
+    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
     // PostgreSQL TEXT must be bound as a long VARCHAR, not as a locator-backed CLOB.
