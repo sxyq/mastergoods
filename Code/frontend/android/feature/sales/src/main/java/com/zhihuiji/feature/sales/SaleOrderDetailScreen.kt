@@ -94,10 +94,13 @@ fun SaleOrderDetailScreen(
                                         coroutineScope.launch {
                                             viewModel.downloadReceiptPdf()
                                                 .onSuccess { pdf ->
-                                                    runCatching { SaleReceiptExporter.printPdf(context, order, pdf) }
-                                                        .onFailure {
-                                                            Toast.makeText(context, "打开打印服务失败", Toast.LENGTH_SHORT).show()
-                                                        }
+                                                    try {
+                                                        SaleReceiptExporter.printPdf(context, order, pdf)
+                                                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                                                        throw e
+                                                    } catch (_: Exception) {
+                                                        Toast.makeText(context, "打开打印服务失败", Toast.LENGTH_SHORT).show()
+                                                    }
                                                 }
                                                 .onFailure {
                                                     Toast.makeText(context, it.message ?: "小票 PDF 下载失败", Toast.LENGTH_SHORT).show()

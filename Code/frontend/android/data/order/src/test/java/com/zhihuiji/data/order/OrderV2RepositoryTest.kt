@@ -9,10 +9,14 @@ import com.zhihuiji.core.model.v2.order.SaleOrderV2Dto
 import com.zhihuiji.core.model.v2.order.SaleOrderV2Filter
 import com.zhihuiji.core.network.CacheScopeProvider
 import com.zhihuiji.core.network.ZhihuijiV2Api
+import java.io.IOException
 import java.lang.reflect.Proxy
 import kotlinx.coroutines.runBlocking
+import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
+import okio.BufferedSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -122,6 +126,56 @@ class OrderV2RepositoryTest {
         assertTrue(result.isSuccess)
         assertEquals("%PDF-1.7", result.getOrThrow().decodeToString())
         assertEquals(8L, invokedId)
+    }
+
+    @Test
+    fun downloadReceiptPdfFailsForUnsuccessfulResponse() = runBlocking {
+        val api = fakeApi { _, _ ->
+            Response.error<ResponseBody>(500, "boom".toResponseBody("text/plain".toMediaType()))
+        }
+
+        val result = SaleOrderV2Repository(api, fixedCacheScopeProvider(), fakeSaleOrderDao()).downloadReceiptPdf(1L)
+
+        assertTrue(result.isFailure)
+        assertEquals("小票 PDF 下载失败", result.exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun downloadReceiptPdfFailsForEmptyBody() = runBlocking {
+        val api = fakeApi { _, _ ->
+            Response.success("".toResponseBody("application/pdf".toMediaType()))
+        }
+
+        val result = SaleOrderV2Repository(api, fixedCacheScopeProvider(), fakeSaleOrderDao()).downloadReceiptPdf(1L)
+
+        assertTrue(result.isFailure)
+        assertEquals("小票 PDF 内容为空", result.exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun downloadReceiptPdfFailsForNullBody() = runBlocking {
+        val api = fakeApi { _, _ -> Response.success<ResponseBody>(null) }
+
+        val result = SaleOrderV2Repository(api, fixedCacheScopeProvider(), fakeSaleOrderDao()).downloadReceiptPdf(1L)
+
+        assertTrue(result.isFailure)
+        assertEquals("小票 PDF 内容为空", result.exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun downloadReceiptPdfFailsForIoException() = runBlocking {
+        val api = fakeApi { _, _ ->
+            Response.success(object : ResponseBody() {
+                override fun contentType(): MediaType? = "application/pdf".toMediaType()
+                override fun contentLength(): Long = -1L
+                override fun source(): BufferedSource = throw IOException("boom")
+            })
+        }
+
+        val result = SaleOrderV2Repository(api, fixedCacheScopeProvider(), fakeSaleOrderDao()).downloadReceiptPdf(1L)
+
+        assertTrue(result.isFailure)
+        assertEquals("网络连接失败，请检查网络设置", result.exceptionOrNull()?.message)
     }
 
     @Test

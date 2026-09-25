@@ -10,24 +10,45 @@ import android.print.PrintDocumentAdapter
 import android.print.PrintDocumentInfo
 import android.print.PrintManager
 import com.zhihuiji.core.model.v2.order.SaleOrderV2Dto
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
 /** Sends the server-generated sales receipt PDF to Android's system print service. */
 internal object SaleReceiptExporter {
-    fun printPdf(context: Context, order: SaleOrderV2Dto, pdf: ByteArray) {
+
+    private const val STALE_RECEIPT_MAX_AGE_MS = 60L * 60L * 1000L
+
+    /**
+     * 写小票 PDF 到缓存（IO），再交给系统打印。文件写不得留在主线程。
+     */
+    suspend fun printPdf(context: Context, order: SaleOrderV2Dto, pdf: ByteArray) {
         check(pdf.isNotEmpty()) { "小票 PDF 内容为空" }
-        val receiptDirectory = File(context.cacheDir, "sale-receipts").apply { mkdirs() }
         val fileName = "sale-receipt-${order.id}-${safeFileName(order.orderNo)}.pdf"
-        val pdfFile = File(receiptDirectory, fileName)
-        FileOutputStream(pdfFile).use { output -> output.write(pdf) }
-        val printManager = context.getSystemService(PrintManager::class.java)
-            ?: error("系统打印服务不可用")
-        printManager.print(
-            "销售单-${safeFileName(order.orderNo)}",
-            SaleReceiptPdfPrintAdapter(pdfFile, fileName),
-            null,
-        )
+        val pdfFile = withContext(Dispatchers.IO) {
+            val receiptDirectory = File(context.cacheDir, "sale-receipts").apply { mkdirs() }
+            receiptDirectory.listFiles()?.forEach { stale ->
+                if (System.currentTimeMillis() - stale.lastModified() > STALE_RECEIPT_MAX_AGE_MS) {
+                    stale.delete()
+                }
+            }
+            val file = File(receiptDirectory, fileName)
+            FileOutputStream(file).use { output -> output.write(pdf) }
+            file
+        }
+        try {
+            val printManager = context.getSystemService(PrintManager::class.java)
+                ?: error("系统打印服务不可用")
+            printManager.print(
+                "销售单-${safeFileName(order.orderNo)}",
+                SaleReceiptPdfPrintAdapter(pdfFile, fileName),
+                null,
+            )
+        } catch (error: Exception) {
+            pdfFile.delete()
+            throw error
+        }
     }
 
     private fun safeFileName(value: String): String =
@@ -63,24 +84,51 @@ internal object SaleReceiptExporter {
             cancellationSignal: CancellationSignal,
             callback: WriteResultCallback,
         ) {
-            if (cancellationSignal.isCanceled) {
-                callback.onWriteCancelled()
-                return
-            }
-            try {
-                pdfFile.inputStream().use { input ->
+            // onWrite 在主线程回调，文件复制放到后台线程，避免阻塞 UI。
+            // 不在此处删除 pdfFile：系统打印服务可能再次调用 onWrite。
+            Thread({
+                var cancelled = false
+                var failure: String? = null
+                try {
                     ParcelFileDescriptor.AutoCloseOutputStream(destination).use { output ->
-                        input.copyTo(output)
+                        if (cancellationSignal.isCanceled) {
+                            cancelled = true
+                        } else {
+                            pdfFile.inputStream().use { input ->
+                                val buffer = ByteArray(COPY_BUFFER_SIZE)
+                                while (true) {
+                                    if (cancellationSignal.isCanceled) {
+                                        cancelled = true
+                                        break
+                                    }
+                                    val read = input.read(buffer)
+                                    if (read < 0) break
+                                    output.write(buffer, 0, read)
+                                }
+                            }
+                        }
                     }
+                } catch (error: Exception) {
+                    failure = error.message ?: "小票 PDF 写入失败"
                 }
-                if (cancellationSignal.isCanceled) {
-                    callback.onWriteCancelled()
-                } else {
-                    callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
+                when {
+                    cancelled || cancellationSignal.isCanceled ->
+                        callback.onWriteCancelled()
+                    failure != null ->
+                        callback.onWriteFailed(failure)
+                    else ->
+                        callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
                 }
-            } catch (error: Exception) {
-                callback.onWriteFailed(error.message ?: "小票 PDF 写入失败")
-            }
+            }, "sale-receipt-print").start()
+        }
+
+        override fun onFinish() {
+            // 打印作业结束（成功/取消/失败）后清理缓存文件。
+            pdfFile.delete()
+        }
+
+        private companion object {
+            const val COPY_BUFFER_SIZE = 8 * 1024
         }
     }
 }

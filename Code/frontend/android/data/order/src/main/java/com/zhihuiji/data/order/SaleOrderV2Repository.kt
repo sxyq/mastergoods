@@ -17,8 +17,10 @@ import com.zhihuiji.core.network.ZhihuijiV2Api
 import com.zhihuiji.core.network.safeApiCall
 import com.zhihuiji.core.network.safeApiUnitCall
 import java.io.IOException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -98,22 +100,32 @@ class SaleOrderV2Repository @Inject constructor(
     suspend fun listPayments(id: Long): Result<List<SalePaymentV2Dto>> =
         safeApiCall { api.saleOrderPaymentsV2(id) }
 
-    suspend fun downloadReceiptPdf(id: Long): Result<ByteArray> = try {
-        val response = api.saleOrderReceiptPdfV2(id)
-        if (!response.isSuccessful) {
-            Result.failure(NetworkException(response.code(), "小票 PDF 下载失败"))
-        } else {
-            val body = response.body()
-            if (body == null) {
-                Result.failure(NetworkException(-1, "小票 PDF 内容为空"))
+    suspend fun downloadReceiptPdf(id: Long): Result<ByteArray> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.saleOrderReceiptPdfV2(id)
+            if (!response.isSuccessful) {
+                response.errorBody()?.close()
+                Result.failure(NetworkException(response.code(), "小票 PDF 下载失败"))
             } else {
-                Result.success(body.bytes())
+                val body = response.body()
+                if (body == null) {
+                    Result.failure(NetworkException(-1, "小票 PDF 内容为空"))
+                } else {
+                    val bytes = body.bytes()
+                    if (bytes.isEmpty()) {
+                        Result.failure(NetworkException(-1, "小票 PDF 内容为空"))
+                    } else {
+                        Result.success(bytes)
+                    }
+                }
             }
+        } catch (error: kotlin.coroutines.cancellation.CancellationException) {
+            throw error
+        } catch (error: IOException) {
+            Result.failure(NetworkException(-1, "网络连接失败，请检查网络设置"))
+        } catch (error: Exception) {
+            Result.failure(NetworkException(-1, error.message ?: "小票 PDF 下载失败"))
         }
-    } catch (error: IOException) {
-        Result.failure(NetworkException(-1, "网络连接失败，请检查网络设置"))
-    } catch (error: Exception) {
-        Result.failure(NetworkException(-1, error.message ?: "小票 PDF 下载失败"))
     }
 
     suspend fun updateStatus(id: Long, status: Int): Result<Unit> =
