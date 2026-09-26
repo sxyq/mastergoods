@@ -393,8 +393,8 @@ docs/system-design/
 # 11. 待确认项
 
 ```text
-STAFF 单次 / 每日 Agent 使用上限的具体数值
-积分规则的完整配置项（SYSTEM_ADMIN 侧）
-USD → Points 换算比例的具体值
-积分流水的对账与报表形态
+建议：OWNER 可启停 STAFF 的 Agent 使用权限，并支持每日 / 周期额度；具体数值进入可配置策略。
+建议：第一版不设置严格的单 Task 最大积分；Task 一旦准入必须完成，最终按实际用量结算。
+建议：USD → Points 由 SYSTEM_ADMIN 配置并版本化，历史结算绑定当时的价格版本。
+建议：报表提供余额、Grant / Consume / Adjust / Refund 流水、日 / 月汇总，以及 Task → Model Call → Token → USD → Points 下钻；OWNER 仅查看本 Merchant，SYSTEM_ADMIN 可跨 Merchant。
 ```

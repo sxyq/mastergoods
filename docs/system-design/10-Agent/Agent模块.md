@@ -3,7 +3,7 @@
 > 顶层模块文档  
 > Agent 是独立专题。  
 > 本模块负责模型、Provider、运行时、Tool、上下文和模型使用量。  
-> Merchant Agent 积分账户已经移至 `01-账户与身份/04-Agent积分账户.md`。
+> Merchant Agent 积分账户已经移至 `01-账户与身份/07-Agent积分账户.md`。
 
 # 1. 当前模块职责
 
@@ -48,3 +48,7 @@ sequenceDiagram
 - 后续：Agent Task / Context / Tool / Confirmation
 
 当前先保留 Agent 专题边界，不与账户、销售、进货主流程混写。
+
+# 4. Runtime 基线（P-20）
+
+首期建议把 **Task** 作为一次完整执行单位；一个 Task 可以包含多次 Model Call 和 Tool 调用。Tool 不直接写数据库，必须经 Application Service，并继承当前 User、Merchant 和权限上下文。Task 通过积分准入后应完成最终结算；涉及经营数据的高风险写入先生成 Draft，再由用户 Confirm 后正式提交。失败、取消、Context 压缩、重试和补偿策略在 Agent Runtime 专题中继续细化。
