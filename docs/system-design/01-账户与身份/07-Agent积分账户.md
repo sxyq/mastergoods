@@ -178,37 +178,30 @@ SYSTEM_ADMIN 操作审计
 ```mermaid
 sequenceDiagram
     actor U as OWNER / STAFF
-    participant C as Client
-    participant A as Agent Service
-    participant P as Permission Service
-    participant POINT as Agent Point Service
+    participant TASK as Agent Task
+    participant POINT as Point Account
     participant LLM as LLM Provider
-    participant DB as PostgreSQL
 
-    U->>C: 发起 Agent 请求
-    C->>A: Create Agent Run
+    U->>TASK: Start Task
+    TASK->>POINT: Admission Check
+    POINT-->>TASK: Balance > 0 / Balance <= 0
 
-    A->>P: 校验 Identity / Merchant / Permission
-    P-->>A: Allowed
-
-    A->>POINT: 检查 Agent 积分
-    POINT->>DB: 查询积分账户
-    DB-->>POINT: 可用积分
-    POINT-->>A: Sufficient / Insufficient
-
-    alt 积分不足
-        A-->>C: 拒绝运行 / 提示积分不足
-    else 积分充足
-        A->>POINT: 预留本次积分
-        A->>LLM: 调用模型
-        LLM-->>A: Usage + Result
-        A->>POINT: 按最终 Usage 结算
-        POINT->>DB: 写积分消耗流水
-        A-->>C: 返回 Agent 结果
+    alt Balance <= 0
+        TASK-->>U: Reject（积分不足）
+    else Balance > 0
+        TASK->>TASK: Admit Task
+        loop Task 内多次 Model Call
+            TASK->>LLM: Model Call
+            LLM-->>TASK: Usage + Result
+            TASK->>TASK: 累计实际 Usage / USD Cost
+        end
+        TASK->>POINT: Final Settlement（按实际 Usage）
+        POINT-->>TASK: 更新余额，可变为负数
+        TASK-->>U: 返回完整 Task Result
     end
 ```
 
-**图示说明（5. OWNER / STAFF 使用 Agent）：** 这是服务调用时序图，参与者包括 OWNER / STAFF、Client、Agent Service、Permission Service。箭头表示一次调用或返回，alt/else 分支表示 Decision 的不同结果；事务提交前只做校验和状态准备，短信、邮件等外部副作用应在提交后通过 Outbox 执行。
+**图示说明（5. OWNER / STAFF 使用 Agent）：** 这是服务调用时序图，参与者包括 OWNER / STAFF、Agent Task、Point Account、LLM Provider。先由 Point Account 做开始准入检查；准入后 Task 内可以多次调用模型，即使最终结算后余额变负也完成当前 Task，不存在预留积分或中途因余额变化终止任务。
 
 因此 Agent 真正有**四层 Gate**：
 
