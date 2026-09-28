@@ -398,3 +398,55 @@ docs/system-design/
 建议：USD → Points 由 SYSTEM_ADMIN 配置并版本化，历史结算绑定当时的价格版本。
 建议：报表提供余额、Grant / Consume / Adjust / Refund 流水、日 / 月汇总，以及 Task → Model Call → Token → USD → Points 下钻；OWNER 仅查看本 Merchant，SYSTEM_ADMIN 可跨 Merchant。
 ```
+
+
+# 12. 第 42 轮：并发 Task 准入与可靠结算
+
+## 12.1 低余额并发保护
+
+```text
+active_task_count = 0 AND balance > 0
+→ 可以启动第一个 Task
+
+active_task_count > 0 AND balance < concurrent_task_min_balance
+→ DENY_CONCURRENT_LOW_BALANCE
+
+active_task_count > 0 AND balance >= concurrent_task_min_balance
+→ 继续其他准入 Policy
+```
+
+`concurrent_task_min_balance` 为版本化可配置阈值。不做固定预扣；已准入 Task 不会因余额下降被中断。
+
+并发准入必须使用原子 Admission Ticket / expected_version，避免两个请求同时穿透 Gate。
+
+## 12.2 Model Call Log 是结算事实来源
+
+最终费用从 Task 下实际 Model Call Usage Log 聚合：
+
+```text
+input_tokens / output_tokens / cached_tokens
++ model / provider
++ pricing_version
+→ Model Call USD
+→ Task Total USD
+→ USD -> Points
+```
+
+Task 已完成但积分结算写入失败：
+
+```text
+Task Result 保留
+Billing = SETTLEMENT_PENDING
+Retry Worker 按 Model Call Log 重算
+幂等 Final Settlement
+```
+
+存在未完成 Settlement 时，新 Task Admission 应拒绝或受控等待，避免余额尚未反映真实消费时继续放大负数。
+
+## 12.3 Settlement 幂等与账本
+
+同一 `task_id` 最多一笔 FINAL `CONSUME`。Point Ledger append-only；纠错使用 ADJUST / REFUND 新流水，禁止 UPDATE 历史流水。
+
+## 12.4 数值算法
+
+USD / Points 使用 Decimal / fixed-point，禁止 float。内部精度与最终 rounding mode 绑定 `usd_to_points_version`。
