@@ -1,54 +1,221 @@
-# 10 — Agent 模块
+# 07 — Agent 模块总览与详细设计路线
 
-> 顶层模块文档  
-> Agent 是独立专题。  
-> 本模块负责模型、Provider、运行时、Tool、上下文和模型使用量。  
-> Merchant Agent 积分账户已经移至 `01-账户与身份/07-Agent积分账户.md`。
+> 状态：**总览及子模块目录已建立；各子模块尚未完成详细设计，除 01 已存在的模型配置文档外，其余子模块正文均为空。**
+>
+> 产品定位：**ChatGPT 式自然语言对话入口 + 可操作真实进销存业务数据的完整 Agent 执行能力**。不将桌面式多面板工作台作为产品前提。
+>
+> 目标客户端：微信小程序、Android App、iOS App、Web；共用同一后端 Agent 任务事实，客户端呈现适配其平台。
+>
+> 边界：本专题只设计 Agent 的理解、执行、工具、上下文、交互、恢复、扩展和模型用量事实，不重写商品、库存、销售、采购、往来或 Merchant 积分的领域规则。
 
-# 1. 当前模块职责
+---
 
-```mermaid
+## 1. 产品需求与非目标
+
+### 1.1 用户看到的产品
+
+- 用户打开类似 ChatGPT 的消息列表、历史会话和输入框，即可提出复杂经营任务。
+- 在聊天消息中展示文字、工具执行进度、库存/销售/采购表格、图表、操作草稿与结果。
+- 工具过程可展开查看，但不强迫普通商户理解工具实现或进入开发者工作台。
+- 可以追问“刚才那件商品”、修改任务目标、补充信息、查看已经执行过的动作、恢复先前任务。
+- 业务数据来自有权限的真实业务服务，不能把模型文本生成当成数据库查询事实。
+- 用户切换手机/小程序/Web 后可以继续查看会话、任务状态和可恢复的待处理操作。
+- 采用现有跨端组件体系进行 UI 呈现，Agent 组合受控结果组件，不让模型自行生成不可控页面代码。
+
+### 1.2 不做什么
+
+- 不复制 Codex / Claude Code 的 IDE、文件树、Terminal 和桌面三栏工作区作为默认产品。
+- 不开放任意 SQL、Shell 或不受约束的数据库写入给经营用户。
+- 不接入外部支付网关或把收款回调作为销售出库前提。
+- 不在首期引入多仓/电商/POS 专用业务语义。
+- 不首期搭建多个常驻专职子 Agent；只规划未来可扩展的专项 Agent 调用方式。
+- 不用新的 Agent 技术讨论擅自批准销售模块 S/W 待确认事项。
+
+## 2. 已有正式设计的职责沿用
+
+| 已有规则或文档 | 沿用方式 |
+|---|---|
+| 01-账户与身份/07-Agent积分账户.md | Merchant 积分余额、Ledger、准入、Task Final Settlement 均由账户模块管理；本模块不重复设计余额账户 |
+| 07-Agent/01-模型提供商与模型配置.md | Provider / Model / Variant，Chat Completions / Responses、运行版本、每次 Model Call Usage 与 USD 价格沿用 |
+| 02-出库与销售/01-创建出库与商品明细.md | Agent 创建销售草稿复用 Application Service、Merchant / 角色权限、revision/CAS、幂等；Draft 不直接影响正式库存及资金事实 |
+| 02-出库与销售/出库与销售模块.md | 进销存单仓优先、不接外部支付；W-01～W-07 不由 Agent 专题自行决定 |
+| docs/system-design/待确认事项.md | S / W / P 原有待确认项保持原状态，Agent 新问题另行记录，不视为冻结 |
+
+历史 Agent 文档已提出 P-20：一个 Task 可以包含多次 Model Call 与 Tool Call；Tool 通过 Application Service 写入，风险业务按现有草稿与确认原则执行。继续沿用，不重造并行领域写入通道。
+
+## 3. 核心概念的候选语义（尚未冻结）
+
+| 概念 | 推荐含义 | 主要区别 |
+|---|---|---|
+| Conversation / Session | 一组连续对话与消息历史 | 不等于一次执行任务 |
+| Message | 用户/Agent 的消息及关联结果 | 不等于已执行业务动作 |
+| Task / Run | 一次经准入的完整 Agent 执行单位 | 可包含多次 Model Call 与 Tool Call；积分规则与模块 01 一致 |
+| Step / Tool Call | Task 内某个模型/工具执行动作 | 可追踪结果，超时不能直接当成失败并重复写入 |
+| Tool | 可被 Agent 选择和调用的受控能力 | 需要明确业务语义，不能向模型开放任意数据库写入 |
+| Business Draft | 商品/销售/采购等业务模块自身的草稿 | 不等于 Agent 的待执行计划 |
+| Context | 发送给某次模型调用的必要信息 | 不等于数据库中的完整对话历史 |
+| Checkpoint / Task State | 用于恢复未完成 Task 的状态事实 | 不能只依靠语言摘要重建已提交动作 |
+| Memory / Knowledge | 跨轮可检索的资料和偏好 | 不等于实时库存/欠款 |
+| UI Result / Artifact | 对话中的表格/图表/文件/表单结果 | 可区分生成时快照和重新查询的数据 |
+
+以上概念只为避免后续混用名词，不代表字段或状态名最终定稿。
+
+## 4. Agent 全链路功能主路径
+
+~~~mermaid
 flowchart TD
-    A[Agent 模块]
+    A[用户输入自然语言需求] --> B[读取会话与当前任务上下文]
+    B --> C[理解意图与识别业务实体]
+    C --> D{需要查询或操作真实数据吗}
+    D -->|不需要| E[生成直接回答]
+    D -->|需要| F[选择相关工具]
+    F --> G[通过业务服务读取或操作]
+    G --> H{对象唯一且参数充足吗}
+    H -->|否| I[在对话中补充信息或澄清]
+    I --> B
+    H -->|是| J{任务是否完成}
+    J -->|未完成| F
+    J -->|完成| K[输出结构化结果和后续操作入口]
+    E --> L[保存消息及结果]
+    K --> L
+~~~
 
-    A --> P[Provider]
-    A --> M[Model]
-    A --> V[Variant / Reasoning]
-    A --> F[Chat Completions / Responses]
-    A --> TASK[Task]
-    A --> CALL[Model Call]
-    A --> USAGE[Token Usage]
-    A --> USD[Model USD Pricing]
-    A --> TOOL[Tool Runtime]
-```
+**解释：** 意图识别、业务对象解析和工具执行可以在一个动态循环内进行；简单问答不必强制独立分类模型；涉及正式写入必须调用既有业务服务，执行结果只能依据工具返回的正式事实宣称完成。工具、会话与任务的细节分别进入 04～12 专题讨论。
 
-**图示说明（1. 当前模块职责）：** 这是责任或数据流图，核心节点包括 Agent 模块。箭头表示调用、归属或数据流向；权限、Merchant 范围和状态判断必须在服务端完成，不能由客户端或单一 UI 分支替代。
+### 4.1 贯穿讨论的真实场景
 
-# 2. 与积分账户边界
+> “看最近 30 天饮料销量，结合库存建议补货，给我准备采购草稿；先把第二个商品的建议量改成 20 箱。”
 
-```mermaid
-sequenceDiagram
-    participant AGENT as Agent Module
-    participant ACCOUNT as Account Module
+候选能力链：理解经营意图 → 查找商品分类 → 查询销售汇总 → 获取实时库存 → 形成可调整补货表格 → 用户修改候选数量 → 创建采购草稿 → 返回真实草稿标识。**补货建议不等于采购已完成，采购草稿也不等于实际入库。**
 
-    AGENT->>AGENT: Token Usage → USD Cost
-    AGENT->>ACCOUNT: Task Total USD
-    ACCOUNT->>ACCOUNT: USD → Points
-    ACCOUNT->>ACCOUNT: Balance / Ledger Settlement
-    ACCOUNT-->>AGENT: Settlement Result
-```
+贯穿异常：商品多匹配、单位换算不确定、查询期间库存更新、用户中途修改目标、模型上下文超长、应用断网、工具调用结果未知、任务等待用户、异设备继续。
 
-**图示说明（2. 与积分账户边界）：** 这是服务调用时序图，参与者包括 Agent Module、Account Module。箭头表示一次调用或返回，alt/else 分支表示 Decision 的不同结果；事务提交前只做校验和状态准备，短信、邮件等外部副作用应在提交后通过 Outbox 执行。
+## 5. 子模块清单与正式文件路径
 
-积分余额和 Ledger 不属于 Agent 模块。
+以下是**产品/系统设计专题拆分，不代表微服务拆分**。01 已有设计内容；02～17 新增空设计文件，等待逐项讨论后再填写：
 
-# 3. 当前子模块
+| 序号 | 专题 | 正式路径（均相对于 07-Agent） | 当前状态 |
+|---|---|---|---|
+| 01 | 模型提供商与模型配置 | 01-模型提供商与模型配置.md | 已有设计；沿用 |
+| 02 | 聊天式交互与实时数据展示 | 02-智能交互与实时数据展示/智能交互与实时数据展示.md | 空文件 |
+| 03 | 会话、消息、历史与跨端继续 | 03-会话消息与多端历史.md | 空文件 |
+| 04 | 意图理解、实体定位和澄清 | 04-意图理解与业务对象解析.md | 空文件 |
+| 05 | 工具目录、发现与调用契约 | 05-工具目录发现与调用契约.md | 空文件 |
+| 06 | Agent Loop、计划与执行 | 06-Agent循环与任务执行.md | 空文件 |
+| 07 | Task 状态、中断与恢复 | 07-任务状态中断与恢复.md | 空文件 |
+| 08 | Context 构建、裁剪与压缩 | 08-上下文构建与自动压缩.md | 空文件 |
+| 09 | 会话记忆、知识与资料检索 | 09-记忆知识与资料检索.md | 空文件 |
+| 10 | 经营领域 Tool 与跨模块业务任务 | 10-经营业务工具与跨模块任务.md | 空文件 |
+| 11 | 写入草稿、用户确认与结果更正 | 11-业务草稿确认与结果更正.md | 空文件 |
+| 12 | 流式事件、重连与四端状态同步 | 12-流式事件与跨端同步.md | 空文件 |
+| 13 | Skills、插件、MCP 扩展 | 13-Skills插件与MCP.md | 空文件 |
+| 14 | 文件、多模态、业务资料导入导出 | 14-文件多模态与数据导入导出.md | 空文件 |
+| 15 | 定时任务、主动经营提醒 | 15-主动任务提醒与计划.md | 空文件 |
+| 16 | 子 Agent 能力预留与协作 | 16-子Agent与协作扩展.md | 空文件 |
+| 17 | 执行记录、模型费用与模块 01 结算对接 | 17-运行记录用量与账户结算对接.md | 空文件 |
 
-- `01-模型提供商与模型配置.md`
-- 后续：Agent Task / Context / Tool / Confirmation
+### 5.1 讨论依赖顺序（不必按文件编号机械顺序）
 
-当前先保留 Agent 专题边界，不与账户、销售、进货主流程混写。
+**第一组：业务能力与核心 Agent**：03 会话 → 04 意图 → 05 通用 Tool → 10 经营 Tool → 06 Agent Loop → 11 草稿确认。讨论案例必须贯穿实际业务读写。
 
-# 4. Runtime 基线（P-20）
+**第二组：连续性与可靠交互**：07 中断恢复 → 08 Context 压缩 → 09 记忆检索 → 12 流式事件 → 02 智能交互。要一起考虑异设备重连与任务状态，不为了移动端建立桌面式工作台。
 
-首期建议把 **Task** 作为一次完整执行单位；一个 Task 可以包含多次 Model Call 和 Tool 调用。Tool 不直接写数据库，必须经 Application Service，并继承当前 User、Merchant 和权限上下文。Task 通过积分准入后应完成最终结算；涉及经营数据的高风险写入先生成 Draft，再由用户 Confirm 后正式提交。失败、取消、Context 压缩、重试和补偿策略在 Agent Runtime 专题中继续细化。
+**第三组：高级能力**：14 文件与多模态 → 13 Skills/MCP → 15 定时任务 → 16 子 Agent 扩展。先确定接口语义，首期保持单主 Agent；何时启用再单独决定。
+
+**贯穿项**：已有 01 Provider/Model 与 17 使用量/结算事实边界只按必要内容衔接，不重做积分账户。
+
+### 5.2 每个子模块的讨论方法
+
+1. 先给出真实用户场景、用户目标、候选业务能力清单。
+2. 在对话中详细说明主流程、分支、异常、跨模块依赖、已确定与待决定的产品行为。
+3. 结合具有 Agent 功能的官方竞品文档和相关开源代码路径，说明借鉴点和不借鉴点。
+4. 使用中文 Mermaid / UML 解释交互、任务状态和业务影响，图下必须给出易懂说明。
+5. 达成相关产品决策后，再将正式文档深化至数据职责、接口语义、执行状态、一致性、幂等和错误处理；只做与本专题必要的最少实现检查。
+6. 同步相关依赖、模块总览、待确认事项及根交接；不擅自冻结其他业务模块规则。
+
+## 6. 需要在对应模块落实的关键问题
+
+### 6.1 意图与工具
+
+- 复合意图、上下文指代、同名商品/客户、单位和时间解析；无法唯一识别时如何澄清。
+- Tool Registry 与业务 Tool Catalog 分离：前者负责发现/调用描述，后者定义商品、库存、销售、采购等真实操作。
+- Tool 细化 Search / Read / List / Query / Create / Update / Draft / Confirm / Correct / Import / Export，不能把通用 Update 当作绕过领域动作的入口。
+- 工具执行结果需可供后续模型调用使用，错误区分参数错误、权限不足、冲突、暂不可用、结果未知。
+- 大量工具按需发现而不是每次向模型注入所有描述。
+- 模型可参与任务规划，但工具权限与实际业务规则不由自然语言自行发明。
+
+### 6.2 会话、任务恢复与压缩
+
+- Conversation、Message、Task、Step、Tool Call 的归属及生命周期。
+- 保留完整原始消息/工具执行事实；Context 只按需装配。
+- 优先裁剪大型旧工具输出，保留可检索引用；摘要包含用户目标、已经完成动作、待处理问题、相关业务对象与明确决定。
+- 历史摘要中的库存/欠款数值不得冒充当前经营事实，必要时重新查询。
+- App 退出、SSE 断连与 Task 中断是不同事件：不能因为 UI 退出就当然取消已准入任务。
+- 网络超时后不能盲目重新执行可能已经提交的写工具，需根据原请求/业务事实恢复。
+- Task 计费归属与现有模块 01 的已准入完成权、Model Call Usage Log 和结算语义保持一致。
+
+### 6.3 UI、流式与实时数据
+
+- ChatGPT 式对话入口：普通气泡、工具执行状态、结果卡片、展开的表格、可选操作表单、历史会话。
+- 共享 Agent 事件语义，但 Web/Android/iOS/微信小程序根据原生体验选择不同的结果组件呈现。
+- 流式涵盖消息文字、工具开始/结果、Task 状态、需要用户操作、结果更新、任务完成/异常；不仅是文字分段。
+- 区分生成时静态快照与可重新查询/刷新数据，不把大表格全部塞给模型。
+- UI 表格筛选排序及结果明细优先调用业务数据服务，模型负责决定呈现什么和接下来做什么。
+- 技术候选：Go 后端 + SSE + 任务状态查询/事件续传；WebSocket/AG-UI/A2UI 是否采用之后评估，不提前强制依赖。
+
+### 6.4 子 Agent
+
+- 第一阶段：单主 Agent + 受控 Tool/Skill 体系。
+- 未来允许专项 Agent 作为 Tool 被调用，但不首期引入多 Agent 协商、并行协调系统。
+- 后续必须讨论上下文隔离、Merchant/权限继承、Task 与子运行归属、费用汇总、错误传播和用户取消语义。
+
+## 7. Agent 竞品与开源实现参考
+
+**以下均为真实具备 Agent 功能的参考，而非普通 ERP 源码替代 Agent 设计。**“参考”不等于当前已选型或拥有复制其代码的授权。
+
+| 来源 | 官方资料 / 源码 | 应学习的设计点 | 注意事项 |
+|---|---|---|---|
+| Odoo AI Agents | https://www.odoo.com/documentation/19.0/applications/productivity/ai/agents.html | Topic、Tools、Sources 与业务记录动作的组合 | Odoo 企业 AI 模块并非默认随 Community 全部开源 |
+| Odoo AI server actions | https://www.odoo.com/documentation/19.0/applications/productivity/ai/server-actions.html | Agent 工具由后端真实业务逻辑执行 | 工具本身必须落实业务判断 |
+| Zoho Inventory Zia/MCP | https://www.zoho.com/inventory/features/ai-in-inventory/ | 对话式库存、订单、采购业务体验 | 商业闭源，公开文档不等于全部源码可读 |
+| OpenCode Tool Registry | https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/tool/registry.ts | 工具注册、Skill、内置工具及扩展结构 | 编程工具不能原样暴露给进销存用户 |
+| OpenCode Session Tools | https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/session/tools.ts | 工具装配、调用上下文和结果处理 | 按自身业务授权体系适配 |
+| OpenCode Compaction | https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/session/compaction.ts | 旧消息压缩、近期内容、工具结果裁剪 | 分支实现变化快，后续依具体版本校准 |
+| LangChain Agents | https://docs.langchain.com/oss/python/langchain/agents | Model + Harness、工具循环、状态和中间件 | 借鉴运行思想，当前 Go 系统不因此转 Python |
+| LangGraph Interrupts | https://docs.langchain.com/oss/python/langgraph/interrupts | 暂停、人工输入和恢复 | 恢复不能重复不可逆业务写入 |
+| LangGraph Persistence | https://docs.langchain.com/oss/python/langgraph/persistence | Checkpoint 与线程状态 | 不必机械照搬整套 Graph 技术 |
+| Google ADK Go | https://github.com/google/adk-go | Go Runner、Session、Tool、Memory、子 Agent 可扩展性 | 与现有 Go 架构一起比较，不预设必须引入 |
+| Google ADK Context | https://adk.dev/context/compaction/ | 压缩策略与上下文管理 | 避免将压缩摘要当作业务事实 |
+| Dify Agent | https://github.com/langgenius/dify | Function Calling、ReAct、Plugin、聊天式 Agent | Dify Open Source License 有附加条件，需核实多商户许可适配 |
+| AG-UI Events | https://docs.ag-ui.com/concepts/events | 文本、Tool、任务状态和前端流式事件 | 可参考事件语义，不必首期引入完整协议 |
+
+开源与许可须区分：OpenCode/Codex/Google ADK Go 可研究源码；Dify 采用带附加条件的许可；Odoo AI 和 Zoho 商业能力不能因为产品有 Agent 就声称源码已公开。
+
+## 8. Agent 设计阶段当前待确认（尚未冻结）
+
+- A-01 用户的一轮自然语言输入、一个 Task 和一个 Conversation 的关系；同一会话能否有多个未完成任务。
+- A-02 复杂任务是否需要可见计划；用户修改任务目标时如何处理已完成步骤。
+- A-03 什么时候澄清用户意图；模糊实体识别的默认处理方式。
+- A-04 通用工具和业务工具目录的最小能力集合及首版覆盖的业务模块。
+- A-05 执行中的“取消”“暂停”“等待用户”的真实业务语义，如何与账户模块 Task 完成权并存。
+- A-06 历史摘要、自动压缩与长期记忆的保留/检索/删除边界。
+- A-07 实时表格历史快照与刷新视图的产品表现。
+- A-08 首期文件/语音/图片、外部插件、定时任务的实际范围。
+- A-09 子 Agent 扩展保留接口，首版是否仅使用主 Agent（推荐：是）。
+- A-10 Go 自有轻量 Runtime、Google ADK Go、Eino 等实现方向最终对比；仅在产品能力确定后讨论。
+
+A-01～A-10 是待讨论主题编号，不是已批准的业务策略或实现方案；正式待确认决策会随每个子模块讨论更新。
+
+## 9. 当前进度及下一设计项
+
+~~~text
+当前：07 Agent，总览已调整为 ChatGPT 对话式经营 Agent
+既有：01 模型配置详细设计，模块 01 Agent 积分账户设计
+已创建：02～17 空设计文件；不代表已经完成需求或系统详细设计
+下一讨论：03 会话消息与多端历史 + 04 意图理解与业务对象解析
+随后连贯讨论：05 工具调用 → 10 经营 Tool → 06 Agent Loop → 11 草稿确认
+后续：07 恢复、08 压缩、09 记忆、12 流式、02 UI、多模态和高级扩展
+仍并行保持：模块 02 W-01～W-07、S-01～S-13 以及其他原模块状态不变
+~~~
+
+**本总览是规划基线，不是已经完成的 Agent 详细设计或技术实现。**
