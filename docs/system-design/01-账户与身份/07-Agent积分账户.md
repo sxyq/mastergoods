@@ -1,3 +1,41 @@
+# 2026-10-31 最新产品决定：Agent 积分按人民币 1:1
+
+> **此节优先于下方历史章节的 USD→Points 可配置换算比例。** 用户本轮明确：1 积分 = 1 元人民币，按每次实际使用的主/备模型对应官方计价和真实 Usage 扣分。保留已有 Merchant 积分账户、准入/负余额、流水、版本化与幂等结算全部规则。
+
+## 1. 换算和职责
+
+~~~mermaid
+sequenceDiagram
+    participant Agent as Agent模型调用费用
+    participant Account as 模块01积分账户
+    participant DB as 积分账本
+    Agent->>Agent: 按真实 Provider Model 官方计价与Usage计算原币种费用
+    Agent->>Account: 提供原币种费用及模型调用事实
+    Account->>Account: 必要时按版本化汇率换算成人民币
+    Account->>Account: 固定1人民币元等值1积分
+    Account->>DB: Task 最终Consume 幂等写入
+    DB-->>Agent: 结算结果
+~~~
+
+**说明：** Agent 07 负责真实模型、Usage、官方价目版本和原始费用；账户模块 01 负责币种换算政策、人民币金额到积分固定 1:1、Merchant 余额及流水。不修改真实商户经营内账，更不接真实支付接口。
+
+- 人民币价：直接按人民币费用折算积分；美元等外币价：依版本化的外汇换算规则取得人民币费用，再以 1:1 形成积分扣减。**外汇汇率并非 1:1**，汇率来源、锁定时点与精度尚待用户确认。
+- 原来的 usd_to_points_version 可配置兑分比例属于**历史设计**；现行方案改为 currency_conversion_version / exchange_rate_version（仅对外币价格需要）、固定 points_per_cny = 1，以及版本化 Decimal/rounding。
+- 同一个 Task 的 Primary 与 Backup 可能为不同 Provider/Model，分别保留 Model Call Usage 和官方价目，汇总到**同一个 Task 的唯一 FINAL CONSUME**；不得因为用户只看三个档位就使用固定档位费率。
+- 正式 Token 价格不由积分系统重新维护，模型真实单价与官方价目来源由 Agent 模块管理；账户只承担人民币换算及积分扣减。
+- 已冻结的准入条件（包括已有并发低余额判断）、Task 准入完成权、可扣负余额、结算失败保留 SETTLEMENT_PENDING、可幂等重试、Ledger append-only 和价格版本化历史不可改写全部保持。
+- 使用真实 Usage。Provider 费用不可确定时明确标记等待核算，不能擅自假设免费、编造 Token 或先写一笔错误最终 Consume。
+
+## 2. 待确认的实际参数
+
+- 汇率采用什么来源和版本发布方式、在哪个时点锁定到 Task（建议 Task 开始时固定）；
+- 积分可精确到多少位小数、何时 Decimal 舍入（建议 Task 聚合后舍入）；
+- 官方特殊计费类别（缓存写入、长上下文、模式溢价等）由 Agent 价格快照记录并转入最终人民币费用；对于 Provider 不给真实 Usage/费用的异常调用，结算待处理的具体完成条件后续对接 17 模块。
+  
+---
+
+# 历史积分账户设计（下列 USD→Points 可配置比例示例被本轮固定人民币1:1方案取代）
+
 # 01.7 — Agent 积分账户
 
 > 来源：ChatGPT 分享对话（第 30 ~ 36 轮）完整提取与整理
