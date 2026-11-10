@@ -7,7 +7,7 @@
 - **1 积分 = 1 元人民币**，这里的人民币指系统内部用户计分金额，不是外币实时换汇结算。
 - 对 OpenAI、Anthropic 等国外模型，**从 OpenRouter 对应模型价目取得以美元列示的价格数字，按同样数字记作人民币计分价**：例如 USD 2 / 百万输入 Token → 人民币 2 元 / 百万输入 Token → 对应实际用量扣积分。**不使用 USD/CNY 外汇汇率，不需要汇率来源、汇率版本或汇率锁定时间。**
 - 对国产以人民币计价的模型（例如 DeepSeek、通义千问），直接使用官方人民币价格数字。
-- **按成功的 Model Call 计费，不按 Tool Call 的次数计费。** 一次 Model Call 可以提出零个/一个/多个 Tool Call；一次 Task 可以多次调用模型或Tool，**仅成功 Model Call 的实际模型、输入/输出/缓存 Usage 按价目计分**，工具调用本身不另收费。哪怕 Task 最后因另一次模型调用失败，先前已经成功的 Model Call 仍保留计分事实，失败的那个 Model Call 用户计分为零。不能把“快速/标准/深入”档位当成固定单价。价格单位换算后再累计，本次积分计算尽可能保留六位小数，内部不要提前按每个 Token 舍入。
+- **按成功的 Model Call 计费，不按 Tool Call 的次数计费。** 一次 Model Call 可以提出零个/一个/多个 Tool Call；一次 Task 可以多次调用模型或Tool，**仅成功 Model Call 的实际模型、输入/输出/缓存 Usage 按价目计分**，工具调用本身不另收费。成功的 Model Call 保留真实 Usage 记录，失败的那个 Model Call 用户计分为零；Task 最终结算遵循原有账户规则，不由 Tool 次数决定。不能把“快速/标准/深入”档位当成固定单价。价格单位换算后再累计，本次积分计算尽可能保留六位小数，内部不要提前按每个 Token 舍入。
 - **模型上游错误导致本次请求中断：不扣用户积分。** 即使 Provider 有实际费用，仍将其作为平台内部上游成本记录，不作为该次用户成功扣分。用户点击重试后，若成功，再按本次成功请求和实际模型计算用户积分。
 - 模型价格数据和上游成本明细由 Agent 模块维护；Merchant 积分账户负责成功消费扣减、余额与流水；普通聊天对话不展示每次扣多少积分和真实模型身份。
 - 旧的 USD→Points 可配置汇率比例和外币兑换策略属于历史废弃方案。只有价目来源、计价类别、实际 Usage 与价格数字需要管理，不再建立 FX 模块。
@@ -16,7 +16,7 @@
 
 - 积分主体仍为 Merchant，只有 SYSTEM_ADMIN 能下发/调整积分；OWNER/STAFF 的 Agent 使用权限沿用既有设计。
 - Task 开始时的余额准入、已准入不因余额下降被强行中止、可产生负余额、负余额限制后续 Task、并发低余额准入规则继续保留。
-- Task 的最终积分消费按**本 Task 内成功 Model Call 的实际 Usage 与当次价格**汇总，**不要求整个 Task 最终成功才承认先前成功的模型调用**；FINAL CONSUME 幂等、账本追加记录，结算未完成记 SETTLEMENT_PENDING，不按Tool执行成功或失败来收费。
+- Task 的最终积分消费按**本 Task 内成功 Model Call 的实际 Usage 与当次价格**汇总，最终扣减遵循既有 Task 结算状态与成功调用日志，不额外引入“最终失败一律计费”的新规则；FINAL CONSUME 幂等、账本追加记录，结算未完成记 SETTLEMENT_PENDING，不按Tool执行成功或失败来收费。
 - **本轮新增的上游失败不扣用户积分规则**是普通成功 Task 计费的例外；工具部分成功/失败、Task 是否完成的最终定义由 Agent 06/07/17 结合业务规则承接，本文件不扩张工具执行体系。
 
 ~~~mermaid
@@ -458,7 +458,7 @@ active_task_count > 0 AND balance >= concurrent_task_min_balance
 
 ## 12.2 Model Call Log 是结算事实来源
 
-最终费用从 Task 下**成功的 Model Call** 的实际 Usage Log 聚合；失败调用记录平台上游成本但用户该次计分为零。一个 Task 最后失败不抹去其之前已成功的模型调用；Tool Call 不另收费，也不决定模型是否成功：
+最终费用从 Task 下**成功的 Model Call** 的实际 Usage Log 聚合；失败调用记录平台上游成本但用户该次计分为零。成功的模型调用记录不因后续失败丢失；整轮结算遵循既有规则。Tool Call 不另收费，也不决定模型是否成功：
 
 ```text
 input_tokens / output_tokens / cached_tokens
